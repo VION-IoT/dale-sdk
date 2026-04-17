@@ -26,13 +26,80 @@
         <PackageReference Include="Spectre.Console" Version="0.54.0"/>
     </ItemGroup>
 
-    <!-- Bundle the project template so dale new works without a separate template install -->
+    <!--
+        Bundle the project template so `dale new` works without a separate template install.
+
+        The template's csproj files reference Vion.Dale.* packages at a fixed version (whatever
+        `scripts/set-version.ps1 -Scope references` last set, which must be a published version so
+        the main sln restores). That version inherently lags by one release.
+
+        To avoid shipping that lag, we stage the template into `$(IntermediateOutputPath)BundledTemplate/`
+        via StageBundledTemplate below, optionally rewriting the Vion.Dale.* PackageReference versions
+        to match the CLI's own $(Version). Both the build-time copy (for `dale new` during dev) and
+        the pack output are sourced from the staging dir, so they're always in sync.
+
+        The source tree under `templates/vion-iot-library/` is never touched — git stays clean.
+    -->
+    <PropertyGroup>
+        <_BundledTemplateSourceDir>$(MSBuildThisFileDirectory)..\templates\vion-iot-library\</_BundledTemplateSourceDir>
+        <_BundledTemplateStagingDir>$(BaseIntermediateOutputPath)BundledTemplate\</_BundledTemplateStagingDir>
+    </PropertyGroup>
+
     <ItemGroup>
-        <Content Include="../templates/vion-iot-library/**"
-                 Exclude="../templates/vion-iot-library/**/bin/**;../templates/vion-iot-library/**/obj/**;../templates/vion-iot-library/**/publish/**;../templates/vion-iot-library/**/_ReSharper*/**;../templates/vion-iot-library/**/.vs/**;../templates/vion-iot-library/Vion.Library.Template.csproj"
+        <Content Include="$(_BundledTemplateStagingDir)**\*"
                  Link="Templates/vion-iot-library/%(RecursiveDir)%(Filename)%(Extension)"
                  CopyToOutputDirectory="PreserveNewest"
                  PackageCopyToOutput="true"/>
     </ItemGroup>
+
+    <UsingTask TaskName="RewriteVionDalePackageVersions"
+               TaskFactory="RoslynCodeTaskFactory"
+               AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+        <ParameterGroup>
+            <Files ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true"/>
+            <NewVersion ParameterType="System.String" Required="true"/>
+        </ParameterGroup>
+        <Task>
+            <Using Namespace="System"/>
+            <Using Namespace="System.IO"/>
+            <Using Namespace="System.Text.RegularExpressions"/>
+            <Code Type="Fragment" Language="cs">
+                <![CDATA[
+                var pattern = new Regex("(<PackageReference\\s+Include=\"Vion\\.Dale\\.[^\"]+\"\\s+Version=\")[^\"]+(\")");
+                foreach (var item in Files)
+                {
+                    var path = item.ItemSpec;
+                    if (!File.Exists(path)) continue;
+                    var text = File.ReadAllText(path);
+                    var newText = pattern.Replace(text, "${1}" + NewVersion + "${2}");
+                    if (newText != text)
+                    {
+                        File.WriteAllText(path, newText);
+                        Log.LogMessage(MessageImportance.High, "Rewrote Vion.Dale.* PackageReferences in " + Path.GetFileName(path) + " -> " + NewVersion);
+                    }
+                }
+                ]]>
+            </Code>
+        </Task>
+    </UsingTask>
+
+    <ItemGroup>
+        <_BundledTemplateSourceFiles Include="$(_BundledTemplateSourceDir)**\*"
+                                     Exclude="$(_BundledTemplateSourceDir)**\bin\**;$(_BundledTemplateSourceDir)**\obj\**;$(_BundledTemplateSourceDir)**\publish\**;$(_BundledTemplateSourceDir)**\_ReSharper*\**;$(_BundledTemplateSourceDir)**\.vs\**"/>
+    </ItemGroup>
+
+    <!-- Stage the template into obj/BundledTemplate/ before Content is collected. -->
+    <Target Name="StageBundledTemplate" BeforeTargets="AssignTargetPaths;CollectPackageReferences">
+        <MakeDir Directories="$(_BundledTemplateStagingDir)"/>
+        <Copy SourceFiles="@(_BundledTemplateSourceFiles)"
+              DestinationFiles="@(_BundledTemplateSourceFiles->'$(_BundledTemplateStagingDir)%(RecursiveDir)%(Filename)%(Extension)')"
+              SkipUnchangedFiles="true"/>
+        <ItemGroup>
+            <_BundledTemplateStagedCsprojs Include="$(_BundledTemplateStagingDir)**\*.csproj"/>
+        </ItemGroup>
+        <RewriteVionDalePackageVersions Files="@(_BundledTemplateStagedCsprojs)"
+                                        NewVersion="$(Version)"
+                                        Condition="!$(Version.StartsWith('0.0.0'))"/>
+    </Target>
 
 </Project>

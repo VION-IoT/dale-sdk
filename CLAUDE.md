@@ -22,7 +22,7 @@ Vion.Dale.DevHost/          Local development host
 Vion.Dale.DevHost.Web/      Web UI for DevHost (static SPA assets)
 Vion.Dale.Cli/              CLI tool (dotnet global tool `dale`) — see Vion.Dale.Cli/CLAUDE.md
 Vion.Dale.Cli.Test/         CLI unit tests
-templates/                  Project template bundled in the CLI (shipped as Vion.Dale.Template)
+templates/                  Project template bundled as content inside Vion.Dale.Cli (source used by `dale new`)
 examples/                   Example LogicBlock libraries (not in the main sln; see Phase 3b in the migration plan)
 scripts/                    Build / versioning / docs generation scripts
 ```
@@ -42,7 +42,7 @@ dotnet build Vion.Dale.Sdk.sln
 dotnet test Vion.Dale.Sdk.sln
 ```
 
-Examples (`examples/*`) are **not** in `Vion.Dale.Sdk.sln` — they reference the SDK via `PackageReference`, so they only build after the SDK is published to the feed. Their standalone builds are exercised by the `examples` workflow once the SDK is on the feed. Templates (`templates/vion-iot-library`) are similar — only the outer `Vion.Library.Template.csproj` (content-only package) is in the sln; its inner `VionIotLibraryTemplate/*.csproj` are content files bundled into the Vion.Dale.Template nupkg.
+Examples (`examples/*`) and the inner template projects (`templates/vion-iot-library/VionIotLibraryTemplate*`) are in `Vion.Dale.Sdk.sln` and reference the SDK via `PackageReference`. Their checked-in versions must match a published `Vion.Dale.*` package (any preview or stable release). `scripts/set-version.ps1 -Scope references` bumps them after each release. The template content is bundled into `Vion.Dale.Cli` and a pack-time MSBuild target rewrites the template's `Vion.Dale.*` `PackageReference` versions to match the CLI's own `$(Version)`, so `dale new` always produces projects that reference the same version as the CLI installed.
 
 ## Dale CLI
 

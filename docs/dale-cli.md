@@ -99,7 +99,7 @@ JSON output includes `packageId`, `version`, `sdkVersion`, and full logic block 
 
 #### `dale new`
 
-Create a new LogicBlock library project from the `Vion.Library.Template` template.
+Create a new LogicBlock library project from the template bundled in the CLI.
 
 ```bash
 dale new <name>

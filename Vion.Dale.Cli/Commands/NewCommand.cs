@@ -84,20 +84,17 @@ namespace Vion.Dale.Cli.Commands
                                   // --- Install bundled template ---
 
                                   var bundledTemplatePath = FindBundledTemplate();
-                                  if (bundledTemplatePath != null)
+                                  if (bundledTemplatePath == null)
                                   {
-                                      await DaleConsole.WithSpinner("Installing template",
-                                                                    async () =>
-                                                                    {
-                                                                        await DotnetRunner.RunCaptureAsync("new", new[] { "install", bundledTemplatePath, "--force" });
-                                                                    });
+                                      DaleConsole.Error("Bundled template not found — the CLI installation appears to be broken. Reinstall with `dotnet tool update -g Vion.Dale.Cli`.");
+                                      return 1;
                                   }
-                                  else
-                                  {
-                                      // Fallback: install from NuGet feed (for standalone template usage)
-                                      await DaleConsole.WithSpinner("Checking template",
-                                                                    async () => { await DotnetRunner.RunCaptureAsync("new", new[] { "install", "Vion.Library.Template" }); });
-                                  }
+
+                                  await DaleConsole.WithSpinner("Installing template",
+                                                                async () =>
+                                                                {
+                                                                    await DotnetRunner.RunCaptureAsync("new", new[] { "install", bundledTemplatePath, "--force" });
+                                                                });
 
                                   // --- Scaffold ---
 

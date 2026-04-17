@@ -30,7 +30,6 @@
       "modifiers": [
         {
           "exclude": [
-            "Vion.Library.Template.csproj",
             "**/bin/**",
             "**/obj/**",
             "**/.vs/**",

@@ -15,6 +15,6 @@ We will acknowledge receipt within 5 business days and keep you informed of prog
 
 ## Scope
 
-This policy covers the packages published from this repository (`Vion.Dale.Sdk`, `Vion.Dale.Cli`, `Vion.Dale.Plugin`, `Vion.Dale.ProtoActor`, `Vion.Dale.DevHost`, `Vion.Dale.DevHost.Web`, `Vion.Dale.Sdk.*`, `Vion.Dale.Template`).
+This policy covers the packages published from this repository (`Vion.Dale.Sdk`, `Vion.Dale.Cli`, `Vion.Dale.Plugin`, `Vion.Dale.ProtoActor`, `Vion.Dale.DevHost`, `Vion.Dale.DevHost.Web`, `Vion.Dale.Sdk.*`).
 
 For vulnerabilities in `Vion.Contracts`, see the [vion-contracts](https://github.com/vion-iot/vion-contracts) repository's security policy.

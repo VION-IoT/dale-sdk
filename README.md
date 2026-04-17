@@ -26,8 +26,7 @@ dale --help
 ## Use the SDK
 
 ```bash
-dotnet new install Vion.Dale.Template
-dotnet new vion-iot-library -n MyLibrary
+dale new MyLibrary
 cd MyLibrary
 dale build
 dale test

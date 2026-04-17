@@ -1,0 +1,61 @@
+# Upload example LogicBlock libraries to the Vion Cloud test environment.
+#
+# Runs whenever an example changes. Builds each example against the latest
+# `Vion.Dale.Cli` from the private Azure DevOps feed and runs `dale upload`
+# with a service-account client-credentials flow. Uses `--skip-duplicate`
+# so re-pushing the same content is a no-op.
+name: Upload Examples
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'examples/**'
+  workflow_dispatch:
+
+env:
+  PRIVATE_FEED_URL: 'https://pkgs.dev.azure.com/ecocoachsmarthome/Ecocoach/_packaging/ecocoach.csharplogicsystem/nuget/v3/index.json'
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        example:
+          - Vion.Examples.PingPong
+          - Vion.Examples.ToggleLight
+          - Vion.Examples.Energy
+          - Vion.Examples.ModbusRtu
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Configure private feed
+        run: |
+          dotnet nuget add source "$PRIVATE_FEED_URL" \
+            --name PrivateFeed \
+            --username AzureDevOps \
+            --password "${{ secrets.AZURE_DEVOPS_PAT }}" \
+            --store-password-in-clear-text
+
+      - name: Install Vion.Dale.Cli
+        run: |
+          dotnet tool update -g Vion.Dale.Cli \
+            --add-source PrivateFeed \
+            --ignore-failed-sources
+
+      - name: Upload example
+        working-directory: examples/${{ matrix.example }}/${{ matrix.example }}
+        run: |
+          dale upload \
+            --client-id "$DALE_CI_CLIENT_ID" \
+            --client-secret "$DALE_CI_CLIENT_SECRET" \
+            --environment test \
+            --skip-duplicate
+        env:
+          DALE_CI_CLIENT_ID: ${{ secrets.DALE_CI_CLIENT_ID }}
+          DALE_CI_CLIENT_SECRET: ${{ secrets.DALE_CI_CLIENT_SECRET }}

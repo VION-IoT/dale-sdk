@@ -14,11 +14,11 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# Template package project — its own <Version> is the template's package version
-# (shipped as Vion.Dale.Template). Kept in sync with the SDK version.
-$templatePackageProject = "templates\vion-iot-library\Vion.Library.Template.csproj"
-
 # Template projects that reference Vion.Dale.* packages.
+# Note: the template is distributed ONLY as content bundled inside Vion.Dale.Cli.
+# The CLI rewrites these PackageReferences to its own version at pack time (see
+# Vion.Dale.Cli.csproj), so the values here only matter for the main sln build
+# and for local `dale new` invocations against a dev CLI.
 $templateProjects = @(
     @{
         Path              = "templates\vion-iot-library\VionIotLibraryTemplate\VionIotLibraryTemplate.csproj"
@@ -178,16 +178,6 @@ if ($Version -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$')
 Write-Host "Setting PackageReference versions to $Version" -ForegroundColor Cyan
 
 Clear-NuGetPackageCache -version $Version
-
-Write-Host "`nUpdating template package version..." -ForegroundColor Yellow
-if (Test-Path $templatePackageProject)
-{
-    Set-ProjectVersion -projectPath $templatePackageProject -version $Version
-}
-else
-{
-    Write-Warning "Template package project not found: $templatePackageProject"
-}
 
 Write-Host "`nUpdating template project package references..." -ForegroundColor Yellow
 foreach ($template in $templateProjects)
