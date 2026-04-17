@@ -57,6 +57,9 @@ namespace Vion.Dale.Cli.Commands
                                       return 1;
                                   }
 
+                                  // Package ID always equals the project name (and therefore the assembly name).
+                                  // The Dale runtime identifies plugins by PackageId and loads them from files named
+                                  // `{AssemblyName}.dll`, so the two must match — there's no useful divergence to prompt for.
                                   var packageId = name;
                                   var author = "MyCompany";
                                   var firstLogicBlock = "HelloWorld";
@@ -64,7 +67,6 @@ namespace Vion.Dale.Cli.Commands
 
                                   if (interactive)
                                   {
-                                      packageId = AnsiConsole.Prompt(new TextPrompt<string>($"  Package ID [[[grey]{Markup.Escape(name)}[/]]]:").AllowEmpty()).DefaultIfEmpty(name);
                                       author = AnsiConsole.Prompt(new TextPrompt<string>("  Author [[[grey]MyCompany[/]]]:").AllowEmpty()).DefaultIfEmpty("MyCompany");
                                       firstLogicBlock = AnsiConsole.Prompt(new TextPrompt<string>("  First LogicBlock name [[[grey]HelloWorld[/]]]:").AllowEmpty())
                                                                    .DefaultIfEmpty("HelloWorld");

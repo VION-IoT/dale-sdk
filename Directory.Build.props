@@ -28,6 +28,10 @@
         <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All"/>
     </ItemGroup>
 
+    <!-- Shared README handling for packable projects lives in Directory.Build.targets so it
+         runs after each project has had a chance to set IsPackable / PackageReadmeFile. -->
+
+
     <!--
         MSTEST0001 asks every test project to declare its parallelization policy explicitly.
         Many tests here share static state (DaleConsole.JsonMode etc.), so [DoNotParallelize] is
