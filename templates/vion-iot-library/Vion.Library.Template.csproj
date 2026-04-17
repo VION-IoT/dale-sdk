@@ -14,13 +14,16 @@
         <NoWarn>$(NoWarn);NU5128</NoWarn>
         <NoDefaultExcludes>true</NoDefaultExcludes>
         <IsPackable>true</IsPackable>
+        <!-- Template packages have no DLL/PDB — skip the snupkg attempt that Directory.Build.props otherwise enables. -->
+        <IncludeSymbols>false</IncludeSymbols>
+        <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
     </PropertyGroup>
 
     <ItemGroup>
         <!-- same filters as in template.json source.modifiers.exclude -->
-        <Content Include="**\*"
-                 Exclude="**\bin\**;**\obj\**;**\.vs\**;**\_ReSharper.Caches\**;**/TestResults/**;**\*.user;Vion.Library.Template.csproj"/>
-        <Compile Remove="**\*"/>
+        <Content Include="**/*"
+                 Exclude="**/bin/**;**/obj/**;**/.vs/**;**/_ReSharper.Caches/**;**/TestResults/**;**/*.user;Vion.Library.Template.csproj"/>
+        <Compile Remove="**/*"/>
     </ItemGroup>
 
 </Project>
