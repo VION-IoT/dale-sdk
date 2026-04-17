@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <TargetFramework>netstandard2.1</TargetFramework>
         <LangVersion>latest</LangVersion>
@@ -54,7 +54,7 @@
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
         <!-- INotifyPropertyChanged/Observability aspect support (transitive) -->
-        <PackageReference Include="Metalama.Patterns.Observability" Version="2026.0.17"/>
+        <PackageReference Include="Metalama.Patterns.Observability" Version="2026.0.21"/>
         <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0"/>
         <PackageReference Include="Vion.Contracts" Version="0.3.0"/>
         <PackageReference Include="System.Text.Json" Version="10.0.0"/>
