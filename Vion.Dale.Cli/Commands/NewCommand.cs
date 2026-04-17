@@ -11,7 +11,7 @@ namespace Vion.Dale.Cli.Commands
 {
     public static class NewCommand
     {
-        private const string TemplateName = "vion-iot-library";
+        private const string TemplateName = "vion-dale-library";
 
         public static Command Create()
         {

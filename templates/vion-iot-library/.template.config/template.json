@@ -9,7 +9,7 @@
   ],
   "identity": "Vion.Dale.Template",
   "name": "Vion Dale Library",
-  "shortName": "vion-iot-library",
+  "shortName": "vion-dale-library",
   "tags": {
     "language": "C#",
     "type": "project"
