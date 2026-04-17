@@ -28,4 +28,15 @@
         <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All"/>
     </ItemGroup>
 
+    <!--
+        MSTEST0001 asks every test project to declare its parallelization policy explicitly.
+        Many tests here share static state (DaleConsole.JsonMode etc.), so [DoNotParallelize] is
+        the safe default. Apply via AssemblyAttribute so individual projects don't each carry
+        a boilerplate AssemblyInfo.cs.
+    -->
+    <ItemGroup Condition="'$(IsTestProject)' == 'true'">
+        <AssemblyAttribute Include="Microsoft.VisualStudio.TestTools.UnitTesting.DoNotParallelize"/>
+    </ItemGroup>
+
 </Project>
+

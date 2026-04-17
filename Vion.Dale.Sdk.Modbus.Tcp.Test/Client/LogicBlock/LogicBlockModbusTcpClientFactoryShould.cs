@@ -9,7 +9,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
     {
         private readonly Mock<IServiceProvider> _serviceProviderMock = new();
 
-        private LogicBlockModbusTcpClientFactory _sut;
+        private LogicBlockModbusTcpClientFactory _sut = null!;
 
         [TestInitialize]
         public void Initialize()

@@ -11,8 +11,6 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
     /// <summary>
     ///     Provides non-blocking Modbus TCP client functionality for logic blocks.
     /// </summary>
-    [PublicApi]
-
     /// <remarks>
     ///     <para>
     ///         The TCP connection is established lazily when the first read or write operation is executed and is maintained for subsequent operations.
@@ -52,6 +50,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
     ///         For common exceptions that may be passed to error callbacks, see the documentation for <see cref="IModbusTcpClientWrapper" />.
     ///     </para>
     /// </remarks>
+    [PublicApi]
     public interface ILogicBlockModbusTcpClient : IDisposable
     {
         #region Client

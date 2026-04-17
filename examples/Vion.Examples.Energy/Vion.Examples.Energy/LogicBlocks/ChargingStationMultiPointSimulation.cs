@@ -153,7 +153,11 @@ namespace Vion.Examples.Energy.LogicBlocks
             [Display(group: "Status")]
             public double AllocatedActivePower { get; private set; }
 
+            // CS8618: Metalama's [Observable] aspect injects a non-nullable PropertyChanged event that
+            // the weaver wires up post-compilation; the compiler doesn't see that and complains. Safe to suppress.
+#pragma warning disable CS8618
             public ChargingPoint(IDateTimeProvider dateTimeProvider, ILogger logger)
+#pragma warning restore CS8618
             {
                 _dateTimeProvider = dateTimeProvider;
                 _logger = logger;
