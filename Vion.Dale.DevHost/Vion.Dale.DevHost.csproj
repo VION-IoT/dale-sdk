@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>false</ImplicitUsings>
+        <Nullable>enable</Nullable>
+
+        <!-- NuGet package metadata -->
+        <PackageId>Vion.Dale.DevHost</PackageId>
+        <Description>Dale DevHost for local development and testing</Description>
+        <IsPackable>true</IsPackable>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0"/>
+        <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.0"/>
+        <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0"/>
+        <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.0"/>
+    </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\Vion.Dale.Sdk\Vion.Dale.Sdk.csproj"/>
+        <ProjectReference Include="..\Vion.Dale.Sdk.DigitalIo\Vion.Dale.Sdk.DigitalIo.csproj"/>
+        <ProjectReference Include="..\Vion.Dale.Sdk.AnalogIo\Vion.Dale.Sdk.AnalogIo.csproj"/>
+        <ProjectReference Include="..\Vion.Dale.ProtoActor\Vion.Dale.ProtoActor.csproj"/>
+    </ItemGroup>
+</Project>

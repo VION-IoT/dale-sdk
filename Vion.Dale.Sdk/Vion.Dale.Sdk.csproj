@@ -1,0 +1,78 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>netstandard2.1</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <ImplicitUsings>false</ImplicitUsings>
+        <Nullable>enable</Nullable>
+
+        <!-- NuGet package metadata -->
+        <PackageId>Vion.Dale.Sdk</PackageId>
+        <Description>Dale SDK for developing logic blocks</Description>
+        <IsPackable>true</IsPackable>
+
+        <!--documentation related-->
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <NoWarn>$(NoWarn);1591</NoWarn>
+
+        <!--generator related (for debugging generator output)-->
+        <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+        <CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)Generated</CompilerGeneratedFilesOutputPath>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vion.Dale.Sdk.TestKit"/>
+    </ItemGroup>
+
+    <!--code generator project reference (compile time only reference). could be also a package reference, but it would be harder to debug the gho code generation	-->
+    <ItemGroup>
+        <ProjectReference Include="..\Vion.Dale.Sdk.Generators\Vion.Dale.Sdk.Generators.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- IMPORTANT: Assembly Loading Context
+             
+             Vion.Dale.Sdk and ALL its referenced assemblies are automatically shared across plugins via PluginLoadContext.GetSharedAssemblyNames().
+             This means they are loaded once from the host's default AssemblyLoadContext.
+             
+             WHY THIS MATTERS:
+             Each AssemblyLoadContext maintains its own type identity. If Vion.Dale.Sdk is loaded from the host but a dependency (e.g., Vion.Contracts) 
+             is loaded separately in a plugin's context, types like MqttUserProperty become incompatible even with matching versions - 
+             the runtime treats them as different types, causing MissingMethodException at runtime.
+             
+             CURRENT BEHAVIOR:
+             All assemblies in Vion.Dale.Sdk's compiled reference list are automatically shared.
+             This includes both direct dependencies AND transitive dependencies that are part of the compiled assembly metadata.
+        -->
+        <!--shim to be able to use readonly record structs in netstandard2.1-->
+        <PackageReference Include="IsExternalInit" Version="1.0.3">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <!--shim to be able to use required members in netstandard2.1-->
+        <PackageReference Include="RequiredMemberAttribute" Version="1.0.0">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <!-- INotifyPropertyChanged/Observability aspect support (transitive) -->
+        <PackageReference Include="Metalama.Patterns.Observability" Version="2026.0.17"/>
+        <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0"/>
+        <PackageReference Include="Vion.Contracts" Version="0.2.0"/>
+        <PackageReference Include="System.Text.Json" Version="10.0.0"/>
+    </ItemGroup>
+
+    <!-- Include the LogicBlockParser executable in the tools folder -->
+    <ItemGroup>
+        <None Include="..\Vion.Dale.LogicBlockParser\bin\$(Configuration)\net10.0\**" Pack="true" PackagePath="tools\net10.0\" Condition="Exists('..\Vion.Dale.LogicBlockParser\bin\$(Configuration)\net10.0\')" Visible="false"/>
+    </ItemGroup>
+
+    <!-- Include the source generator in the analyzers folder -->
+    <ItemGroup>
+        <None Include="..\Vion.Dale.Sdk.Generators\bin\$(Configuration)\netstandard2.0\Vion.Dale.Sdk.Generators.dll" Pack="true" PackagePath="analyzers\dotnet\cs\" Condition="Exists('..\Vion.Dale.Sdk.Generators\bin\$(Configuration)\netstandard2.0\Vion.Dale.Sdk.Generators.dll')" Visible="false"/>
+    </ItemGroup>
+
+    <!-- Include build targets file (so that project using this package run the parser) -->
+    <ItemGroup>
+        <None Include="build\Vion.Dale.Sdk.targets" Pack="true" PackagePath="build\"/>
+    </ItemGroup>
+
+</Project>

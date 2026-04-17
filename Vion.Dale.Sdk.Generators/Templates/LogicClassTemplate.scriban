@@ -1,0 +1,98 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using Vion.Dale.Sdk.Abstractions;
+using Vion.Dale.Sdk.CodeGeneration;
+using Vion.Dale.Sdk.Configuration.Interfaces;
+using Vion.Dale.Sdk.Messages;
+using Vion.Dale.Sdk.Utils;
+using Microsoft.Extensions.Logging;
+
+namespace {{ namespace_name }}
+{
+    /// <summary>
+    /// Generated interface for {{ handler_interface.name }}
+    /// </summary>
+    [LogicInterface(MatchingInterface = typeof({{ handler_interface.matching_interface_name }}), SenderInterface = typeof({{ sender_interface.name }}), ContractType = typeof({{ handler_interface.contract_type_name }}))]
+    public interface {{ handler_interface.name }}{{ if handler_interface.base_interfaces.size > 0 }} : {{ handler_interface.base_interfaces | array.join ", " }}{{ end }}
+    {
+    }
+
+    /// <summary>
+    /// Generated sender interface for {{ handler_interface.name }}
+    /// </summary>
+    public interface {{ sender_interface.name }} : {{ sender_interface.base_interfaces | array.join ", " }}
+    {
+    }
+
+    /// <summary>
+    /// Generated implementation of {{ sender_interface.name }}
+    /// </summary>
+    public class {{ sender_interface.class_name }} : LogicSenderInterfaceBase, {{ sender_interface.name }}
+    {
+        private readonly {{ handler_interface.name }} _implementation;
+
+        public {{ sender_interface.class_name }}(string identifier, {{ handler_interface.name }} implementation, Func<LogicBlockId> logicBlockId, IActorContext actorContext, ILogger logger)
+            : base(identifier, typeof({{ handler_interface.name }}), typeof({{ handler_interface.matching_interface_name }}), logicBlockId, actorContext, logger)
+        {
+            _implementation = implementation;
+        }
+
+{{ for method in sender_interface.methods }}
+        /// <inheritdoc />
+        public void {{ method.name }}({{ method.parameters }})
+        {
+            {{ method.body }}
+        }
+{{ end }}
+
+        public override void HandleMessage(IFunctionInterfaceMessage functionInterfaceMessage)
+        {
+{{ if sender_interface.message_cases.size > 0 }}
+            switch (functionInterfaceMessage)
+            {
+{{ for msg_case in sender_interface.message_cases }}
+                {{ "case FunctionInterfaceMessage<" | string.append msg_case.message_type | string.append "> m:" }}
+                    {{ msg_case.body }}
+                    break;
+{{ end }}
+            }
+{{ end }}
+        }
+    }
+
+{{ if extension_methods.size > 0 }}
+    /// <summary>
+    /// Generated extension methods for {{ extension_methods[0].implementation_type }}
+    /// </summary>
+    public static class {{ extension_methods[0].implementation_type }}Extensions
+    {
+        private static readonly ConditionalWeakTable<{{ extension_methods[0].implementation_type }}, {{ extension_methods[0].logic_type }}> _instances = new();
+
+        internal static void RegisterInstance(this {{ extension_methods[0].implementation_type }} implementation, {{ extension_methods[0].logic_type }} instance)
+        {
+            _instances.AddOrUpdate(implementation, instance);
+        }
+
+        /// <summary>
+        /// Get linked interfaces
+        /// </summary>
+        public static IReadOnlyCollection<InterfaceId> GetLinked{{ extension_methods[0].linked_class_name }}s(this {{ extension_methods[0].implementation_type }} implementation)
+        {
+            return _instances.TryGetValue(implementation, out var instance) 
+                ? instance.LinkedInterfaceIds 
+                : Array.Empty<InterfaceId>();
+        }
+
+{{ for ext_method in extension_methods }}
+        public static void {{ ext_method.name }}(this {{ ext_method.implementation_type }} implementation, {{ ext_method.parameters }})
+        {
+            if (_instances.TryGetValue(implementation, out var instance))
+            {
+                instance.{{ ext_method.name }}({{ ext_method.parameter_names }});
+            }
+        }
+{{ end }}
+    }
+{{ end }}
+}

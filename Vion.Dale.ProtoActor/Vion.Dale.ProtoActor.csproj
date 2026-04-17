@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>false</ImplicitUsings>
+        <Nullable>enable</Nullable>
+
+        <!-- NuGet package metadata -->
+        <PackageId>Vion.Dale.ProtoActor</PackageId>
+        <Description>Dale Actor implementation based on Proto.Actor</Description>
+        <IsPackable>true</IsPackable>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="Proto.Actor" Version="1.8.0"/>
+    </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\Vion.Dale.Sdk\Vion.Dale.Sdk.csproj"/>
+    </ItemGroup>
+</Project>

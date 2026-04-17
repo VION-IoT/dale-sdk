@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netstandard2.1</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <ImplicitUsings>false</ImplicitUsings>
+        <Nullable>enable</Nullable>
+
+        <!-- NuGet package metadata -->
+        <PackageId>Vion.Examples.Energy</PackageId>
+        <Version>0.1.77</Version>
+        <Authors>Vion-IoT</Authors>
+        <Company>Vion-IoT</Company>
+        <Description>Vion IoT logic blocks</Description>
+        <IsPackable>false</IsPackable>
+
+        <!--debug information from the source generator-->
+        <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+        <CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)Generated</CompilerGeneratedFilesOutputPath>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Vion.Dale.Sdk" Version="0.2.0-preview.1"/>
+        <PackageReference Include="Vion.Dale.Sdk.AnalogIo" Version="0.2.0-preview.1"/>
+        <PackageReference Include="Vion.Dale.Sdk.DigitalIo" Version="0.2.0-preview.1"/>
+        <PackageReference Include="Vion.Dale.Sdk.Http" Version="0.2.0-preview.1"/>
+        <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.0"/>
+        <PackageReference Include="System.Text.Json" Version="10.0.0"/>
+        <!--shim to be able to use readonly record structs in netstandard2.1-->
+        <PackageReference Include="IsExternalInit" Version="1.0.3">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <!--shim to be able to use required members in netstandard2.1-->
+        <PackageReference Include="RequiredMemberAttribute" Version="1.0.0">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+    </ItemGroup>
+
+</Project>

@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>DALE DevHost Web UI</title>
+    <script src="https://cdn.jsdelivr.net/npm/@microsoft/signalr@8.0.0/dist/browser/signalr.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f0f1e 0%, #1a1a2e 100%);
+            color: #e0e0e0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: #ffffff;
+            margin-bottom: 8px;
+            font-size: 32px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 24px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 24px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+            .status.connected {
+                background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.2) 100%);
+                color: #10b981;
+                border-color: rgba(16, 185, 129, 0.3);
+            }
+
+            .status.disconnected {
+                background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(220, 38, 38, 0.2) 100%);
+                color: #ef4444;
+                border-color: rgba(239, 68, 68, 0.3);
+            }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(550px, 1fr));
+            gap: 24px;
+            margin-bottom: 20px;
+        }
+
+        .section {
+            background: rgba(30, 30, 46, 0.6);
+            backdrop-filter: blur(20px);
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            padding: 24px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+            .section:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 12px 48px rgba(0, 0, 0, 0.4);
+            }
+
+            .section h2 {
+                color: #ffffff;
+                margin-bottom: 20px;
+                padding-bottom: 12px;
+                border-bottom: 2px solid;
+                border-image: linear-gradient(90deg, #667eea 0%, #764ba2 100%) 1;
+                font-size: 20px;
+                font-weight: 600;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+
+            .section h3 {
+                color: #a0a0b0;
+                margin: 20px 0 12px 0;
+                font-size: 13px;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                font-weight: 600;
+            }
+
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-top: 12px;
+        }
+
+            table input[type="number"],
+            table input[type="text"],
+            table input[type="checkbox"],
+            table select {
+                background: rgba(255, 255, 255, 0.08);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                border-radius: 6px;
+                color: #e0e0e0;
+                padding: 6px 10px;
+                font-size: 13px;
+                transition: all 0.2s;
+            }
+
+            table input[type="number"]:focus,
+            table input[type="text"]:focus,
+            table select:focus {
+                outline: none;
+                border-color: #667eea;
+                background: rgba(102, 126, 234, 0.15);
+                box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+            }
+
+            table input[type="checkbox"] {
+                width: 40px;
+                height: 22px;
+                cursor: pointer;
+                appearance: none;
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 11px;
+                position: relative;
+                transition: all 0.3s;
+                border: 2px solid rgba(255, 255, 255, 0.2);
+                padding: 0;
+            }
+
+                table input[type="checkbox"]:checked {
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    border-color: #667eea;
+                }
+
+                table input[type="checkbox"]::before {
+                    content: '';
+                    position: absolute;
+                    width: 14px;
+                    height: 14px;
+                    border-radius: 50%;
+                    background: white;
+                    top: 2px;
+                    left: 2px;
+                    transition: all 0.3s;
+                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+                }
+
+                table input[type="checkbox"]:checked::before {
+                    left: 20px;
+                }
+
+            table select {
+                cursor: pointer;
+                min-width: 120px;
+            }
+
+            table select option {
+                background: #1a1a2e;
+                color: #e0e0e0;
+            }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        th {
+            background: rgba(102, 126, 234, 0.1);
+            font-weight: 600;
+            color: #b4b4c8;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            font-size: 14px;
+            color: #e0e0e0;
+        }
+
+        tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .io-control {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 10px 0;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.2s;
+        }
+
+            .io-control:hover {
+                background: rgba(255, 255, 255, 0.04);
+                border-color: rgba(102, 126, 234, 0.3);
+            }
+
+            .io-control label {
+                flex: 1;
+                font-weight: 500;
+                color: #e0e0e0;
+                font-size: 14px;
+            }
+
+            .io-control input[type="checkbox"] {
+                width: 44px;
+                height: 24px;
+                cursor: pointer;
+                appearance: none;
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 12px;
+                position: relative;
+                transition: all 0.3s;
+                border: 2px solid rgba(255, 255, 255, 0.2);
+            }
+
+                .io-control input[type="checkbox"]:checked {
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    border-color: #667eea;
+                }
+
+                .io-control input[type="checkbox"]::before {
+                    content: '';
+                    position: absolute;
+                    width: 16px;
+                    height: 16px;
+                    border-radius: 50%;
+                    background: white;
+                    top: 2px;
+                    left: 2px;
+                    transition: all 0.3s;
+                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+                }
+
+                .io-control input[type="checkbox"]:checked::before {
+                    left: 22px;
+                }
+
+            .io-control input[type="number"],
+            .io-control input[type="text"],
+            .io-control select {
+                padding: 8px 12px;
+                background: rgba(255, 255, 255, 0.08);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                border-radius: 8px;
+                font-size: 14px;
+                width: 150px;
+                color: #e0e0e0;
+                transition: all 0.2s;
+            }
+
+            .io-control input[type="number"]:focus,
+            .io-control input[type="text"]:focus {
+                outline: none;
+                border-color: #667eea;
+                background: rgba(102, 126, 234, 0.15);
+                box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+            }
+
+            .io-control select {
+                cursor: pointer;
+            }
+
+                .io-control select:focus {
+                    outline: none;
+                    border-color: #667eea;
+                    background: rgba(102, 126, 234, 0.15);
+                    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+                }
+
+            .io-control button {
+                padding: 8px 16px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 14px;
+                font-weight: 600;
+                transition: all 0.2s;
+                box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            }
+
+                .io-control button:hover {
+                    transform: translateY(-1px);
+                    box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+                }
+
+                .io-control button:active {
+                    transform: translateY(0);
+                }
+
+        .value-display {
+            display: inline-block;
+            padding: 6px 12px;
+            background: rgba(102, 126, 234, 0.15);
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            border-radius: 8px;
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-size: 13px;
+            color: #b4b4ff;
+            min-width: 70px;
+            text-align: center;
+            font-weight: 600;
+        }
+
+            .value-display.updated {
+                background: rgba(16, 185, 129, 0.2);
+                border-color: rgba(16, 185, 129, 0.5);
+                color: #10b981;
+                animation: flash 0.5s;
+            }
+
+        @keyframes flash {
+            0%, 100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.7;
+                transform: scale(1.05);
+            }
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+            .badge.writable {
+                background: rgba(16, 185, 129, 0.2);
+                color: #10b981;
+                border: 1px solid rgba(16, 185, 129, 0.3);
+            }
+
+            .badge.readonly {
+                background: rgba(156, 163, 175, 0.2);
+                color: #9ca3af;
+                border: 1px solid rgba(156, 163, 175, 0.3);
+            }
+
+            .badge.enum {
+                background: rgba(251, 191, 36, 0.2);
+                color: #fbbf24;
+                border: 1px solid rgba(251, 191, 36, 0.3);
+                margin-left: 6px;
+            }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6b7280;
+            font-style: italic;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px 20px;
+            color: #667eea;
+            font-size: 16px;
+        }
+
+        .error {
+            background: rgba(239, 68, 68, 0.15);
+            color: #fca5a5;
+            padding: 14px 18px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border-left: 4px solid #ef4444;
+            backdrop-filter: blur(10px);
+        }
+
+        code {
+            background: rgba(255, 255, 255, 0.08);
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-size: 13px;
+            color: #c4b5fd;
+        }
+
+        .service-section {
+            margin-bottom: 28px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+            .service-section:last-child {
+                border-bottom: none;
+            }
+
+        h4 {
+            color: #9ca3af;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-top: 16px;
+            margin-bottom: 10px;
+        }
+
+        /* Connection badges */
+        .connection-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .connection-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            background: rgba(102, 126, 234, 0.1);
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            color: #b4b4ff;
+        }
+
+        .connection-badge .arrow {
+            font-weight: 700;
+        }
+
+        .connection-badge .target-name {
+            font-weight: 600;
+            color: #d4d4ff;
+        }
+
+        .connection-badge .iface-names {
+            color: #9999cc;
+            font-size: 11px;
+        }
+
+        /* Contract type badges */
+        .contract-type-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            min-width: 28px;
+            text-align: center;
+        }
+
+        .contract-type-badge.di {
+            background: rgba(56, 189, 248, 0.2);
+            color: #38bdf8;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+        }
+
+        .contract-type-badge.do {
+            background: rgba(251, 146, 60, 0.2);
+            color: #fb923c;
+            border: 1px solid rgba(251, 146, 60, 0.3);
+        }
+
+        .contract-type-badge.ai {
+            background: rgba(52, 211, 153, 0.2);
+            color: #34d399;
+            border: 1px solid rgba(52, 211, 153, 0.3);
+        }
+
+        .contract-type-badge.ao {
+            background: rgba(251, 191, 36, 0.2);
+            color: #fbbf24;
+            border: 1px solid rgba(251, 191, 36, 0.3);
+        }
+
+        .shared-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+            background: rgba(251, 191, 36, 0.15);
+            color: #fbbf24;
+            border: 1px solid rgba(251, 191, 36, 0.25);
+            margin-left: 8px;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(102, 126, 234, 0.5);
+            border-radius: 5px;
+        }
+
+            ::-webkit-scrollbar-thumb:hover {
+                background: rgba(102, 126, 234, 0.7);
+            }
+
+        /* Animation for page load */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .section {
+            animation: fadeIn 0.5s ease-out;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>DALE DevHost Web UI</h1>
+    <div class="status disconnected" id="connection-status">Connecting to SignalR...</div>
+
+    <div id="error-container"></div>
+    <div class="loading" id="loading">Loading configuration...</div>
+    <div id="content" style="display: none;"></div>
+</div>
+
+<script>
+    let connection = null;
+    let config = null;
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', async () => {
+        await loadConfiguration();
+        await connectToHub();
+    });
+
+    // Connect to SignalR Hub
+    async function connectToHub() {
+        connection = new signalR.HubConnectionBuilder()
+            .withUrl('/hub')
+            .withAutomaticReconnect()
+            .build();
+
+        // Handle reconnection
+        connection.onreconnecting(() => {
+            updateConnectionStatus(false);
+        });
+
+        connection.onreconnected(() => {
+            updateConnectionStatus(true);
+        });
+
+        connection.onclose(() => {
+            updateConnectionStatus(false);
+        });
+
+        // Subscribe to real-time updates
+        connection.on('PropertyValueChanged', (data) => {
+            console.log('Property changed:', data);
+            updatePropertyValue(data.serviceIdentifier, data.propertyIdentifier, data.value);
+        });
+
+        connection.on('MeasuringPointValueChanged', (data) => {
+            console.log('Measuring point changed:', data);
+            updateMeasuringPointValue(data.serviceIdentifier, data.measuringPointIdentifier, data.value);
+        });
+
+        connection.on('DigitalInputChanged', (data) => {
+            console.log('Digital input changed:', data);
+            updateDigitalInput(data.serviceProviderIdentifier, data.serviceIdentifier, data.contractIdentifier, data.value);
+        });
+
+        connection.on('DigitalOutputChanged', (data) => {
+            console.log('Digital output changed:', data);
+            updateDigitalOutput(data.serviceProviderIdentifier, data.serviceIdentifier, data.contractIdentifier, data.value);
+        });
+
+        connection.on('AnalogInputChanged', (data) => {
+            console.log('Analog input changed:', data);
+            updateAnalogInput(data.serviceProviderIdentifier, data.serviceIdentifier, data.contractIdentifier, data.value);
+        });
+
+        connection.on('AnalogOutputChanged', (data) => {
+            console.log('Analog output changed:', data);
+            updateAnalogOutput(data.serviceProviderIdentifier, data.serviceIdentifier, data.contractIdentifier, data.value);
+        });
+
+        try {
+            await connection.start();
+            updateConnectionStatus(true);
+            console.log('SignalR connected');
+        } catch (err) {
+            console.error('SignalR connection error:', err);
+            showError('Failed to connect to SignalR hub: ' + err);
+            updateConnectionStatus(false);
+        }
+    }
+
+    // Load configuration from API
+    async function loadConfiguration() {
+        try {
+            const response = await fetch('/api/configuration');
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            config = await response.json();
+            console.log('Configuration loaded:', config);
+
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('content').style.display = 'block';
+
+            renderConfiguration();
+        } catch (err) {
+            console.error('Failed to load configuration:', err);
+            showError('Failed to load configuration: ' + err);
+            document.getElementById('loading').innerHTML = 'Failed to load configuration';
+        }
+    }
+
+    // Build shared-contract lookup: SP endpoint key -> list of LB IDs that map to it
+    function buildSharedContractLookup() {
+        const lookup = {}; // key: "spId/svcId/contractId" -> [{ lbId, lbName }]
+        if (!config.logicBlocks) return lookup;
+
+        config.logicBlocks.forEach(lb => {
+            if (!lb.contractMappings) return;
+            lb.contractMappings.forEach(cm => {
+                const key = `${cm.mappedServiceProviderIdentifier}/${cm.mappedServiceIdentifier}/${cm.mappedContractIdentifier}`;
+                if (!lookup[key]) lookup[key] = [];
+                lookup[key].push({ lbId: lb.id, lbName: lb.name });
+            });
+        });
+
+        return lookup;
+    }
+
+    // Render the entire configuration
+    function renderConfiguration() {
+        const content = document.getElementById('content');
+        content.innerHTML = '';
+
+        const grid = document.createElement('div');
+        grid.className = 'grid';
+
+        // Render Logic Blocks (no separate SP cards)
+        if (config.logicBlocks && config.logicBlocks.length > 0) {
+            const sharedLookup = buildSharedContractLookup();
+            config.logicBlocks.forEach(lb => {
+                grid.appendChild(renderLogicBlock(lb, sharedLookup));
+            });
+        }
+
+        content.appendChild(grid);
+    }
+
+    // Render Logic Block with inline connections, contracts, and properties
+    function renderLogicBlock(lb, sharedLookup) {
+        const section = document.createElement('div');
+        section.className = 'section';
+        section.innerHTML = `<h2>Logic Block: ${lb.name}</h2>`;
+
+        // 1. Connection badges
+        const connections = getConnectionsForLb(lb.id);
+        if (connections.length > 0) {
+            const connHeader = document.createElement('h3');
+            connHeader.textContent = 'Connections';
+            section.appendChild(connHeader);
+
+            const badgeContainer = document.createElement('div');
+            badgeContainer.className = 'connection-badges';
+            connections.forEach(conn => {
+                const badge = document.createElement('span');
+                badge.className = 'connection-badge';
+                badge.innerHTML = `<span class="arrow">${conn.arrow}</span> <span class="target-name">${conn.otherName}</span> <span class="iface-names">via ${conn.sourceIface} &#x2194; ${conn.targetIface}</span>`;
+                badgeContainer.appendChild(badge);
+            });
+            section.appendChild(badgeContainer);
+        }
+
+        // 2. Contract I/O controls (inline)
+        const contractControls = buildContractControls(lb, sharedLookup);
+        if (contractControls.length > 0) {
+            const contractHeader = document.createElement('h3');
+            contractHeader.textContent = 'Contracts';
+            section.appendChild(contractHeader);
+
+            contractControls.forEach(ctrl => section.appendChild(ctrl));
+        }
+
+        // 3. Services (properties + measuring points)
+        if (lb.services && lb.services.length > 0) {
+            lb.services.forEach(service => {
+                const serviceSection = document.createElement('div');
+                serviceSection.className = 'service-section';
+
+                const hasProps = service.serviceProperties && service.serviceProperties.length > 0;
+                const hasMps = service.serviceMeasuringPoints && service.serviceMeasuringPoints.length > 0;
+                if (!hasProps && !hasMps) return;
+
+                // Service Properties
+                if (hasProps) {
+                    const propertiesTitle = document.createElement('h3');
+                    propertiesTitle.textContent = `Properties (${service.identifier})`;
+                    serviceSection.appendChild(propertiesTitle);
+
+                    const table = document.createElement('table');
+                    table.innerHTML = `
+                            <thead>
+                                <tr>
+                                    <th>Property</th>
+                                    <th>Type</th>
+                                    <th>Value</th>
+                                    <th>Control</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${service.serviceProperties.map(prop => {
+                        const isEnum = prop.annotations && prop.annotations.enumValues;
+                        const typeDisplay = isEnum
+                            ? `${prop.serviceElementType}<span class="badge enum">enum</span>`
+                            : prop.serviceElementType;
+
+                        const displayName = prop.annotations?.defaultName || prop.identifier;
+                        const unit = prop.annotations?.unit;
+                        const label = unit ? `${displayName} [${unit}]` : displayName;
+
+                        return `
+                                        <tr>
+                                            <td>${label}</td>
+                                            <td>
+                                                ${typeDisplay}
+                                                ${prop.writable ? '<span class="badge writable">writable</span>' : '<span class="badge readonly">readonly</span>'}
+                                            </td>
+                                            <td><span class="value-display" id="prop-value-${service.id}-${prop.identifier}">-</span></td>
+                                            <td>
+                                                ${prop.writable ? renderPropertyControl(service.id, prop) : '-'}
+                                            </td>
+                                        </tr>
+                                    `;
+                    }).join('')}
+                            </tbody>
+                        `;
+                    serviceSection.appendChild(table);
+                }
+
+                // Service Measuring Points
+                if (hasMps) {
+                    const mpTitle = document.createElement('h3');
+                    mpTitle.textContent = `Measuring Points (${service.identifier})`;
+                    serviceSection.appendChild(mpTitle);
+
+                    const mpTable = document.createElement('table');
+                    mpTable.innerHTML = `
+                            <thead>
+                                <tr>
+                                    <th>Measuring Point</th>
+                                    <th>Type</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${service.serviceMeasuringPoints.map(mp => {
+                        const displayName = mp.annotations?.defaultName || mp.identifier;
+                        const unit = mp.annotations?.unit;
+                        const label = unit ? `${displayName} [${unit}]` : displayName;
+
+                        return `
+                                    <tr>
+                                        <td>${label}</td>
+                                        <td>
+                                            ${mp.serviceElementType}
+                                            <span class="badge readonly">readonly</span>
+                                        </td>
+                                        <td><span class="value-display" id="mp-value-${service.id}-${mp.identifier}">-</span></td>
+                                    </tr>
+                                `;
+                    }).join('')}
+                            </tbody>
+                        `;
+                    serviceSection.appendChild(mpTable);
+                }
+
+                section.appendChild(serviceSection);
+            });
+        }
+
+        return section;
+    }
+
+    // Get connections for a logic block (both outgoing and incoming)
+    function getConnectionsForLb(lbId) {
+        const connections = [];
+        if (!config.interfaceMappings) return connections;
+
+        config.interfaceMappings.forEach(m => {
+            if (m.sourceLogicBlockId === lbId) {
+                connections.push({
+                    arrow: '\u2192',
+                    otherName: m.targetLogicBlockName,
+                    sourceIface: m.sourceInterfaceIdentifier,
+                    targetIface: m.targetInterfaceIdentifier,
+                });
+            } else if (m.targetLogicBlockId === lbId) {
+                connections.push({
+                    arrow: '\u2190',
+                    otherName: m.sourceLogicBlockName,
+                    sourceIface: m.sourceInterfaceIdentifier,
+                    targetIface: m.targetInterfaceIdentifier,
+                });
+            }
+        });
+
+        return connections;
+    }
+
+    // Build contract I/O control elements for a logic block
+    function buildContractControls(lb, sharedLookup) {
+        const controls = [];
+        if (!lb.contractMappings || !lb.contracts) return controls;
+
+        // Map contract identifier -> introspection info
+        const contractInfoMap = {};
+        lb.contracts.forEach(c => { contractInfoMap[c.identifier] = c; });
+
+        lb.contractMappings.forEach(cm => {
+            const info = contractInfoMap[cm.contractIdentifier];
+            if (!info) return;
+
+            const contractType = info.matchingContractType; // DigitalInput, DigitalOutput, AnalogInput, AnalogOutput
+            const spId = cm.mappedServiceProviderIdentifier;
+            const svcId = cm.mappedServiceIdentifier;
+            const cId = cm.mappedContractIdentifier;
+            const uid = `${spId}-${svcId}-${cId}`;
+
+            // Shared detection
+            const endpointKey = `${spId}/${svcId}/${cId}`;
+            const sharedWith = (sharedLookup[endpointKey] || []).filter(x => x.lbId !== lb.id);
+            const sharedHtml = sharedWith.length > 0
+                ? `<span class="shared-badge">shared with ${sharedWith.map(x => x.lbName).join(', ')}</span>`
+                : '';
+
+            const typeBadgeClass = contractType === 'DigitalInput' ? 'di'
+                : contractType === 'DigitalOutput' ? 'do'
+                : contractType === 'AnalogInput' ? 'ai'
+                : 'ao';
+            const typeBadgeLabel = contractType === 'DigitalInput' ? 'DI'
+                : contractType === 'DigitalOutput' ? 'DO'
+                : contractType === 'AnalogInput' ? 'AI'
+                : 'AO';
+
+            const control = document.createElement('div');
+            control.className = 'io-control';
+
+            if (contractType === 'DigitalInput') {
+                control.innerHTML = `
+                    <span class="contract-type-badge ${typeBadgeClass}">${typeBadgeLabel}</span>
+                    <label>${cm.contractIdentifier}${sharedHtml}</label>
+                    <input type="checkbox" id="di-${uid}" onchange="setDigitalInput('${spId}', '${svcId}', '${cId}', this.checked)">
+                    <span class="value-display" id="di-value-${uid}">false</span>
+                `;
+            } else if (contractType === 'DigitalOutput') {
+                control.innerHTML = `
+                    <span class="contract-type-badge ${typeBadgeClass}">${typeBadgeLabel}</span>
+                    <label>${cm.contractIdentifier}${sharedHtml}</label>
+                    <span class="value-display" id="do-value-${uid}">false</span>
+                `;
+            } else if (contractType === 'AnalogInput') {
+                control.innerHTML = `
+                    <span class="contract-type-badge ${typeBadgeClass}">${typeBadgeLabel}</span>
+                    <label>${cm.contractIdentifier}${sharedHtml}</label>
+                    <input type="number" id="ai-${uid}" value="0" step="0.1"
+                           onblur="setAnalogInput('${spId}', '${svcId}', '${cId}', this.value)"
+                           onkeypress="if(event.key==='Enter') setAnalogInput('${spId}', '${svcId}', '${cId}', this.value)">
+                    <span class="value-display" id="ai-value-${uid}">0.0</span>
+                `;
+            } else if (contractType === 'AnalogOutput') {
+                control.innerHTML = `
+                    <span class="contract-type-badge ${typeBadgeClass}">${typeBadgeLabel}</span>
+                    <label>${cm.contractIdentifier}${sharedHtml}</label>
+                    <span class="value-display" id="ao-value-${uid}">0.0</span>
+                `;
+            }
+
+            controls.push(control);
+        });
+
+        return controls;
+    }
+
+    // Render property control based on type
+    function renderPropertyControl(serviceIdentifier, prop) {
+        const inputId = `prop-input-${serviceIdentifier}-${prop.identifier}`;
+
+        if (prop.annotations && prop.annotations.enumValues) {
+            const enumValues = prop.annotations.enumValues;
+            const options = enumValues.map(ev =>
+                `<option value="${ev.value}">${ev.name} (${ev.value})</option>`
+            ).join('');
+
+            return `
+                    <select id="${inputId}" onchange="setServiceProperty('${serviceIdentifier}', '${prop.identifier}', parseInt(this.value))">
+                        ${options}
+                    </select>
+                `;
+        }
+
+        switch (prop.serviceElementType.toLowerCase()) {
+            case 'bool':
+            case 'boolean':
+                return `<input type="checkbox" id="${inputId}" onchange="setServiceProperty('${serviceIdentifier}', '${prop.identifier}', this.checked)">`;
+            case 'string':
+                return `
+                        <input type="text" id="${inputId}" placeholder="Enter value"
+                               onblur="setServiceProperty('${serviceIdentifier}', '${prop.identifier}', this.value)"
+                               onkeypress="if(event.key==='Enter') { setServiceProperty('${serviceIdentifier}', '${prop.identifier}', this.value); this.blur(); }">
+                    `;
+            case 'integer':
+                return `
+                        <input type="number" id="${inputId}" step="1" value="0"
+                               onblur="setServiceProperty('${serviceIdentifier}', '${prop.identifier}', parseInt(this.value))"
+                               onkeypress="if(event.key==='Enter') { setServiceProperty('${serviceIdentifier}', '${prop.identifier}', parseInt(this.value)); this.blur(); }">
+                    `;
+            case 'number':
+                return `
+                        <input type="number" id="${inputId}" step="0.1" value="0"
+                               onblur="setServiceProperty('${serviceIdentifier}', '${prop.identifier}', parseFloat(this.value))"
+                               onkeypress="if(event.key==='Enter') { setServiceProperty('${serviceIdentifier}', '${prop.identifier}', parseFloat(this.value)); this.blur(); }">
+                    `;
+            default:
+                return `
+                        <input type="text" id="${inputId}" placeholder="Enter value"
+                               onblur="setServiceProperty('${serviceIdentifier}', '${prop.identifier}', this.value)"
+                               onkeypress="if(event.key==='Enter') { setServiceProperty('${serviceIdentifier}', '${prop.identifier}', this.value); this.blur(); }">
+                    `;
+        }
+    }
+
+    // API calls
+    async function setDigitalInput(spId, svcId, contractId, value) {
+        try {
+            const response = await fetch(`/api/hal/di/${spId}/${svcId}/${contractId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ value })
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            console.log(`Set DI ${spId}/${svcId}/${contractId} = ${value}`);
+        } catch (err) {
+            console.error('Failed to set digital input:', err);
+            showError('Failed to set digital input: ' + err);
+        }
+    }
+
+    async function setAnalogInput(spId, svcId, contractId, value) {
+        try {
+            const numValue = parseFloat(value);
+            const response = await fetch(`/api/hal/ai/${spId}/${svcId}/${contractId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ value: numValue })
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            console.log(`Set AI ${spId}/${svcId}/${contractId} = ${numValue}`);
+        } catch (err) {
+            console.error('Failed to set analog input:', err);
+            showError('Failed to set analog input: ' + err);
+        }
+    }
+
+    async function setServiceProperty(serviceIdentifier, propertyId, value) {
+        try {
+            const response = await fetch(`/api/dale/property/${serviceIdentifier}/${propertyId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ value })
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            console.log(`Set property ${serviceIdentifier}/${propertyId} = ${value}`);
+        } catch (err) {
+            console.error('Failed to set property:', err);
+            showError('Failed to set property: ' + err);
+        }
+    }
+
+    // Update UI from SignalR events
+    function updatePropertyValue(serviceIdentifier, propertyId, value) {
+        const elem = document.getElementById(`prop-value-${serviceIdentifier}-${propertyId}`);
+        if (elem) {
+            elem.textContent = formatValue(value);
+            elem.classList.add('updated');
+            setTimeout(() => elem.classList.remove('updated'), 500);
+        }
+
+        const input = document.getElementById(`prop-input-${serviceIdentifier}-${propertyId}`);
+        if (input && input.type !== 'checkbox') {
+            input.value = value;
+        } else if (input && input.type === 'checkbox') {
+            input.checked = value;
+        }
+    }
+
+    function updateMeasuringPointValue(serviceIdentifier, mpId, value) {
+        const elem = document.getElementById(`mp-value-${serviceIdentifier}-${mpId}`);
+        if (elem) {
+            elem.textContent = formatValue(value);
+            elem.classList.add('updated');
+            setTimeout(() => elem.classList.remove('updated'), 500);
+        }
+    }
+
+    function contractUid(spId, svcId, contractId) {
+        return `${spId}-${svcId}-${contractId}`;
+    }
+
+    function updateDigitalInput(spId, svcId, contractId, value) {
+        const uid = contractUid(spId, svcId, contractId);
+        const checkbox = document.getElementById(`di-${uid}`);
+        const display = document.getElementById(`di-value-${uid}`);
+        if (checkbox) checkbox.checked = value;
+        if (display) {
+            display.textContent = value;
+            display.classList.add('updated');
+            setTimeout(() => display.classList.remove('updated'), 500);
+        }
+    }
+
+    function updateDigitalOutput(spId, svcId, contractId, value) {
+        const uid = contractUid(spId, svcId, contractId);
+        const display = document.getElementById(`do-value-${uid}`);
+        if (display) {
+            display.textContent = value;
+            display.classList.add('updated');
+            setTimeout(() => display.classList.remove('updated'), 500);
+        }
+    }
+
+    function updateAnalogInput(spId, svcId, contractId, value) {
+        const uid = contractUid(spId, svcId, contractId);
+        const input = document.getElementById(`ai-${uid}`);
+        const display = document.getElementById(`ai-value-${uid}`);
+        if (input) input.value = value;
+        if (display) {
+            display.textContent = formatValue(value);
+            display.classList.add('updated');
+            setTimeout(() => display.classList.remove('updated'), 500);
+        }
+    }
+
+    function updateAnalogOutput(spId, svcId, contractId, value) {
+        const uid = contractUid(spId, svcId, contractId);
+        const display = document.getElementById(`ao-value-${uid}`);
+        if (display) {
+            display.textContent = formatValue(value);
+            display.classList.add('updated');
+            setTimeout(() => display.classList.remove('updated'), 500);
+        }
+    }
+
+    // Format value to max 3 decimal places for numbers
+    function formatValue(value) {
+        if (typeof value === 'number') {
+            if (Number.isInteger(value)) {
+                return value.toString();
+            }
+            return value.toFixed(3);
+        }
+        return value;
+    }
+
+    // UI helpers
+    function updateConnectionStatus(connected) {
+        const status = document.getElementById('connection-status');
+        if (connected) {
+            status.className = 'status connected';
+            status.textContent = 'Connected';
+        } else {
+            status.className = 'status disconnected';
+            status.textContent = 'Disconnected';
+        }
+    }
+
+    function showError(message) {
+        const container = document.getElementById('error-container');
+        const error = document.createElement('div');
+        error.className = 'error';
+        error.textContent = message;
+        container.appendChild(error);
+        setTimeout(() => error.remove(), 5000);
+    }
+</script>
+</body>
+</html>

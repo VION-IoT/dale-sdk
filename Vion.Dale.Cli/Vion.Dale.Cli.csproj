@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <NoDefaultExcludes>true</NoDefaultExcludes>
+        <ImplicitUsings>false</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <PackAsTool>true</PackAsTool>
+        <ToolCommandName>dale</ToolCommandName>
+        <PackageId>Vion.Dale.Cli</PackageId>
+        <Description>CLI for developing and publishing Dale LogicBlock libraries</Description>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vion.Dale.Cli.Test"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="System.CommandLine" Version="2.0.5"/>
+        <PackageReference Include="Spectre.Console" Version="0.54.0"/>
+    </ItemGroup>
+
+    <!-- Bundle the project template so dale new works without a separate template install -->
+    <ItemGroup>
+        <Content Include="../templates/vion-iot-library/**"
+                 Exclude="../templates/vion-iot-library/**/bin/**;../templates/vion-iot-library/**/obj/**;../templates/vion-iot-library/**/publish/**;../templates/vion-iot-library/**/_ReSharper*/**;../templates/vion-iot-library/**/.vs/**;../templates/vion-iot-library/Vion.Library.Template.csproj"
+                 Link="Templates/vion-iot-library/%(RecursiveDir)%(Filename)%(Extension)"
+                 CopyToOutputDirectory="PreserveNewest"
+                 PackageCopyToOutput="true"/>
+    </ItemGroup>
+
+</Project>

@@ -1,0 +1,217 @@
+Description:
+  dale — develop and publish Dale LogicBlock libraries
+
+Usage:
+  Vion.Dale.Cli [command] [options]
+
+Options:
+  -o, --output <json|table>  Output format [default: table]
+  --project <project>        Path to .csproj file
+  --verbose                  Show detailed output
+  -?, -h, --help             Show help and usage information
+  --version                  Show version information
+
+Commands:
+  new <name>  Create a new LogicBlock library project
+  build       Build the project
+  test        Run tests
+  dev         Start the DevHost with web UI
+  list        Show project info (logic blocks, contracts, properties, etc.)
+  add         Add elements to a LogicBlock project
+  pack        Pack project into a NuGet package
+  upload      Pack and upload library to Vion Cloud
+  login       Authenticate with Vion Cloud
+  logout      Clear stored credentials
+  whoami      Show current authenticated identity
+  config      Manage CLI configuration
+
+---
+## dale new
+Description:
+  Create a new LogicBlock library project
+
+Usage:
+  Vion.Dale.Cli new [<name>] [options]
+
+Arguments:
+  <name>  Name of the new project
+
+Options:
+  --no-interactive           Skip interactive prompts (use defaults)
+  -?, -h, --help             Show help and usage information
+  -o, --output <json|table>  Output format [default: table]
+  --project <project>        Path to .csproj file
+  --verbose                  Show detailed output
+
+---
+## dale build
+Description:
+  Build the project
+
+Usage:
+  Vion.Dale.Cli build [options]
+
+Options:
+  -?, -h, --help             Show help and usage information
+  -o, --output <json|table>  Output format [default: table]
+  --project <project>        Path to .csproj file
+  --verbose                  Show detailed output
+
+---
+## dale test
+Description:
+  Run tests
+
+Usage:
+  Vion.Dale.Cli test [options]
+
+Options:
+  -?, -h, --help             Show help and usage information
+  -o, --output <json|table>  Output format [default: table]
+  --project <project>        Path to .csproj file
+  --verbose                  Show detailed output
+
+---
+## dale dev
+Description:
+  Start the DevHost with web UI
+
+Usage:
+  Vion.Dale.Cli dev [options]
+
+Options:
+  -?, -h, --help             Show help and usage information
+  -o, --output <json|table>  Output format [default: table]
+  --project <project>        Path to .csproj file
+  --verbose                  Show detailed output
+
+---
+## dale list
+Description:
+  Show project info (logic blocks, contracts, properties, etc.)
+
+Usage:
+  Vion.Dale.Cli list [options]
+
+Options:
+  -?, -h, --help             Show help and usage information
+  -o, --output <json|table>  Output format [default: table]
+  --project <project>        Path to .csproj file
+  --verbose                  Show detailed output
+
+---
+## dale add
+Description:
+  Add elements to a LogicBlock project
+
+Usage:
+  Vion.Dale.Cli add [command] [options]
+
+Options:
+  -?, -h, --help             Show help and usage information
+  -o, --output <json|table>  Output format [default: table]
+  --project <project>        Path to .csproj file
+  --verbose                  Show detailed output
+
+Commands:
+  logicblock <name>       Add a new LogicBlock class to the project
+  serviceproperty <name>  Add a [ServiceProperty] to a LogicBlock
+  measuringpoint <name>   Add a [ServiceMeasuringPoint] to a LogicBlock
+  timer <name>            Add a [Timer] method to a LogicBlock
+
+---
+## dale pack
+Description:
+  Pack project into a NuGet package
+
+Usage:
+  Vion.Dale.Cli pack [options]
+
+Options:
+  -?, -h, --help             Show help and usage information
+  -o, --output <json|table>  Output format [default: table]
+  --project <project>        Path to .csproj file
+  --verbose                  Show detailed output
+
+---
+## dale upload
+Description:
+  Pack and upload library to Vion Cloud
+
+Usage:
+  Vion.Dale.Cli upload [options]
+
+Options:
+  --client-id <client-id>          Keycloak client ID (for CI/non-interactive auth)
+  --client-secret <client-secret>  Keycloak client secret (for CI/non-interactive auth)
+  --release-notes <release-notes>  Release notes for this version
+  -e, --environment <environment>  Target environment (overrides stored config)
+  --integrator-id <integrator-id>  Integrator ID (overrides stored config)
+  --skip-duplicate                 Treat 409 Conflict (version already exists) as success
+  -?, -h, --help                   Show help and usage information
+  -o, --output <json|table>        Output format [default: table]
+  --project <project>              Path to .csproj file
+  --verbose                        Show detailed output
+
+---
+## dale login
+Description:
+  Authenticate with Vion Cloud
+
+Usage:
+  Vion.Dale.Cli login [options]
+
+Options:
+  -e, --environment <environment>  Target environment (test, staging, production) [default: production]
+  -?, -h, --help                   Show help and usage information
+  -o, --output <json|table>        Output format [default: table]
+  --project <project>              Path to .csproj file
+  --verbose                        Show detailed output
+
+---
+## dale logout
+Description:
+  Clear stored credentials
+
+Usage:
+  Vion.Dale.Cli logout [options]
+
+Options:
+  -?, -h, --help             Show help and usage information
+  -o, --output <json|table>  Output format [default: table]
+  --project <project>        Path to .csproj file
+  --verbose                  Show detailed output
+
+---
+## dale whoami
+Description:
+  Show current authenticated identity
+
+Usage:
+  Vion.Dale.Cli whoami [options]
+
+Options:
+  -?, -h, --help             Show help and usage information
+  -o, --output <json|table>  Output format [default: table]
+  --project <project>        Path to .csproj file
+  --verbose                  Show detailed output
+
+---
+## dale config
+Description:
+  Manage CLI configuration
+
+Usage:
+  Vion.Dale.Cli config [command] [options]
+
+Options:
+  -?, -h, --help             Show help and usage information
+  -o, --output <json|table>  Output format [default: table]
+  --project <project>        Path to .csproj file
+  --verbose                  Show detailed output
+
+Commands:
+  show                    Show current configuration
+  set-integrator          Select active integrator
+  set-environment <name>  Configure target environment
+

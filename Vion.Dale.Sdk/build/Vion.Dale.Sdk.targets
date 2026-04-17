@@ -1,0 +1,77 @@
+<Project>
+
+    <PropertyGroup>
+        <VionDaleLogicBlockParserPath Condition="'$(VionDaleLogicBlockParserPath)' == ''">dotnet "$(MSBuildThisFileDirectory)..\tools\net10.0\Vion.Dale.LogicBlockParser.dll"</VionDaleLogicBlockParserPath>
+        <VionDalePublishDir>$(MSBuildProjectDirectory)\publish\</VionDalePublishDir>
+        <VionDalePluginInfoOutputPath>$(VionDalePublishDir)$(MSBuildProjectName).json</VionDalePluginInfoOutputPath>
+    </PropertyGroup>
+
+    <!-- Automatically include Vion.Dale.Sdk.Generators as analyzer -->
+    <ItemGroup>
+        <Analyzer Include="$(MSBuildThisFileDirectory)..\analyzers\dotnet\cs\Vion.Dale.Sdk.Generators.dll"/>
+    </ItemGroup>
+
+    <!-- Target to publish the project before running the parser -->
+    <Target Name="PublishBeforeParseLogicBlocks" BeforeTargets="RunVionDaleLogicBlockParser">
+        <Message Text="Publishing project to get all dependencies..." Importance="high"/>
+        <Message Text="Publishing to: $(VionDalePublishDir)" Importance="high"/>
+
+        <MSBuild Projects="$(MSBuildProjectFile)"
+                 Properties="Configuration=$(Configuration);PublishDir=$(VionDalePublishDir)"
+                 Targets="Publish"/>
+    </Target>
+
+    <!-- Target to run LogicBlockParser before pack -->
+    <Target Name="RunVionDaleLogicBlockParser" BeforeTargets="IncludePublishedFilesInPack" Condition="'$(TargetFramework)' != '' AND '$(SkipVionDaleLogicBlockParser)' != 'true'">
+
+        <PropertyGroup>
+            <!-- Use the published DLL from the publish directory -->
+            <PluginDllPath>$(VionDalePublishDir)$(TargetFileName)</PluginDllPath>
+        </PropertyGroup>
+
+        <Message Text="=== Vion Dale Logic Block Parser Debug Info ===" Importance="high"/>
+        <Message Text="Parser Path: $(VionDaleLogicBlockParserPath)" Importance="high"/>
+        <Message Text="Plugin DLL Path: $(PluginDllPath)" Importance="high"/>
+        <Message Text="Expected JSON Output: $(VionDalePluginInfoOutputPath)" Importance="high"/>
+        <Message Text="Publish Directory: $(VionDalePublishDir)" Importance="high"/>
+
+        <!-- Check if published DLL exists -->
+        <Message Text="Published DLL exists: True" Importance="high" Condition="Exists('$(PluginDllPath)')"/>
+        <Message Text="Published DLL exists: False" Importance="high" Condition="!Exists('$(PluginDllPath)')"/>
+
+        <!-- Execute using dotnet with the output directory specified -->
+        <Exec Command="$(VionDaleLogicBlockParserPath) &quot;$(PluginDllPath)&quot; &quot;$(VionDalePluginInfoOutputPath)&quot;"
+              WorkingDirectory="$(VionDalePublishDir)"
+              ContinueOnError="false"
+              ConsoleToMSBuild="true"
+              StandardOutputImportance="high"
+              StandardErrorImportance="high"/>
+
+        <Message Text="Vion Dale Logic Block Parser completed. Output: $(VionDalePluginInfoOutputPath)" Importance="normal"/>
+
+        <!-- Verify JSON file was created -->
+        <Message Text="Generated JSON file exists: True" Importance="high" Condition="Exists('$(VionDalePluginInfoOutputPath)')"/>
+        <Message Text="Generated JSON file exists: False" Importance="high" Condition="!Exists('$(VionDalePluginInfoOutputPath)')"/>
+
+    </Target>
+
+    <!-- Target to include published files and JSON in pack - this runs in the plugin project context -->
+    <Target Name="IncludePublishedFilesInPack" BeforeTargets="_GetPackageFiles" DependsOnTargets="RunVionDaleLogicBlockParser">
+        <Message Text="Including published files in package..." Importance="high"/>
+
+        <ItemGroup>
+            <!-- Include all published files -->
+            <None Include="$(VionDalePublishDir)**\*.*" Pack="true" PackagePath="tools\publish\"/>
+        </ItemGroup>
+
+        <Message Text="Published files included in package from: $(VionDalePublishDir)" Importance="high"/>
+
+        <!-- Debug: List some files being included -->
+        <ItemGroup>
+            <_PublishFiles Include="$(VionDalePublishDir)**\*.*"/>
+        </ItemGroup>
+        <Message Text="Found @(_PublishFiles->Count()) files to include in package" Importance="high"/>
+        <Message Text="First few files: @(_PublishFiles, ', ')" Importance="high"/>
+    </Target>
+
+</Project>

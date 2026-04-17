@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>false</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <OutputType>Library</OutputType>
+
+        <!-- NuGet package metadata -->
+        <PackageId>Vion.Dale.DevHost.Web</PackageId>
+        <Description>Dale DevHost Web UI for local development and testing</Description>
+        <IsPackable>true</IsPackable>
+    </PropertyGroup>
+    <ItemGroup>
+        <!-- Embed the SPA build output -->
+        <EmbeddedResource Include="wwwroot\**\*"/>
+    </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\Vion.Dale.DevHost\Vion.Dale.DevHost.csproj"/>
+    </ItemGroup>
+    <ItemGroup>
+        <Folder Include="wwwroot\"/>
+    </ItemGroup>
+</Project>

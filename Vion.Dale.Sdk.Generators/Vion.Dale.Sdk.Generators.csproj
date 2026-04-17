@@ -1,0 +1,50 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <IsRoslynAnalyzer>true</IsRoslynAnalyzer>
+        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+        <PackageScribanIncludeSource>true</PackageScribanIncludeSource>
+        <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+        <ImplicitUsings>false</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+        <!--RS2008: release tracking not needed — analyzer is internal (not shipped as a NuGet package)-->
+        <!--CS8669: nullable annotations in Scriban's source-embedded files that lack #nullable directives-->
+        <NoWarn>$(NoWarn);RS2008;CS8669</NoWarn>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vion.Dale.Sdk.Generators.Test"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--IsExternalInit shim no longer needed — Scriban 7.0.0 source embedding provides it-->
+        <!--shim to be able to use required members in netstandard2.1-->
+        <PackageReference Include="RequiredMemberAttribute" Version="1.0.0">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <!--be careful with the versions of these packages, they must match the versions used by the Scriban package: see https://github.com/scriban/scriban/blob/master/src/Scriban/Scriban.props-->
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" Version="5.0.0"/>
+        <PackageReference Include="Microsoft.CSharp" Version="4.7.0"/>
+        <!--source embedding as described here:https://github.com/scriban/scriban?tab=readme-ov-file#source-embedding-->
+        <!--7.0.0+ defines SCRIBAN_NO_SYSTEM_TEXT_JSON for source-embedded builds, resolving the STJ analyzer conflict-->
+        <PackageReference Include="Scriban" IncludeAssets="Build" Version="7.0.3"/>
+    </ItemGroup>
+    <ItemGroup>
+        <EmbeddedResource Include="Templates\LogicClassTemplate.scriban"/>
+    </ItemGroup>
+    <ItemGroup>
+        <Compile Include="..\Vion.Dale.Sdk\Core\PublicApiAttribute.cs" LinkBase="Shared"/>
+        <Compile Include="..\Vion.Dale.Sdk\Core\InternalApiAttribute.cs" LinkBase="Shared"/>
+        <Compile Include="..\Vion.Dale.Sdk\Core\ContractAttribute.cs" LinkBase="Shared"/>
+        <Compile Include="..\Vion.Dale.Sdk\Core\ContractDirection.cs" LinkBase="Shared"/>
+        <Compile Include="..\Vion.Dale.Sdk\Core\CommandAttribute.cs" LinkBase="Shared"/>
+        <Compile Include="..\Vion.Dale.Sdk\Core\RequestResponseAttribute.cs" LinkBase="Shared"/>
+        <Compile Include="..\Vion.Dale.Sdk\Core\StateUpdateAttribute.cs" LinkBase="Shared"/>
+        <Compile Include="..\Vion.Dale.Sdk\CodeGeneration\**\*.cs" LinkBase="Shared"/>
+    </ItemGroup>
+
+</Project>

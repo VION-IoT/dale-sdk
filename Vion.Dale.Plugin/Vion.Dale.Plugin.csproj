@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <ImplicitUsings>false</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>true</IsPackable>
+        <PackageId>Vion.Dale.Plugin</PackageId>
+        <Description>Plugin AssemblyLoadContext for the Vion Dale runtime. Extracted from the runtime so that Vion.Dale.LogicBlockParser (and anything else that needs to load Dale plugin assemblies) can depend on it without pulling in the runtime.</Description>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vion.Dale.Sdk\Vion.Dale.Sdk.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
+    </ItemGroup>
+
+</Project>

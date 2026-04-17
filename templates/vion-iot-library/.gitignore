@@ -1,0 +1,10 @@
+bin/
+obj/
+.vs/
+_ReSharper*/
+TestResults/
+*.user
+*.suo
+.DS_Store
+publish/
+packages/

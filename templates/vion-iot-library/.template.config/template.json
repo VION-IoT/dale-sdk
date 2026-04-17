@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Vion IoT",
+  "classifications": [
+    "Vion",
+    "IoT",
+    "Dale",
+    "LogicBlock"
+  ],
+  "identity": "Vion.Dale.Template",
+  "name": "Vion Dale Library",
+  "shortName": "vion-iot-library",
+  "tags": {
+    "language": "C#",
+    "type": "project"
+  },
+  "sourceName": "VionIotLibraryTemplate",
+  "preferNameDirectory": true,
+  "symbols": {
+    "MakePackable": {
+      "type": "parameter",
+      "datatype": "text",
+      "replaces": "<IsPackable Condition=\"true\">false</IsPackable>",
+      "defaultValue": "<IsPackable>true</IsPackable>",
+      "description": "Make this project packable in the instantiated project"
+    }
+  },
+  "sources": [
+    {
+      "modifiers": [
+        {
+          "exclude": [
+            "Vion.Library.Template.csproj",
+            "**/bin/**",
+            "**/obj/**",
+            "**/.vs/**",
+            "**/_ReSharper.Caches/**",
+            "**/TestResults/**",
+            "**/*.user"
+          ]
+        }
+      ]
+    }
+  ]
+}
