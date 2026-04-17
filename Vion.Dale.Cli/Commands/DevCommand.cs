@@ -39,10 +39,16 @@ namespace Vion.Dale.Cli.Commands
         }
 
         /// <summary>
-        ///     Find a *.DevHost.csproj in the solution. Searches:
-        ///     1. Current directory (if it IS the DevHost project)
-        ///     2. Sibling directories (from library project or solution level)
-        ///     3. Via RequireProject to find the library, then look for its DevHost sibling
+        ///     Find a runnable *.DevHost.csproj near the current location. Search order:
+        ///     1. Current directory — user is inside the DevHost project itself.
+        ///     2. Subdirectories — user is at the solution root, DevHost is nested below.
+        ///     3. Sibling directories — user is in the library project, DevHost is next to it.
+        ///
+        ///     Subdirectories precede siblings so that a freshly-created project sitting under
+        ///     a parent that contains unrelated *.DevHost projects (e.g. the SDK repo's own
+        ///     Vion.Dale.DevHost library) doesn't get matched to the wrong one. Matches are
+        ///     further filtered to runnable projects (OutputType Exe or Program.cs present),
+        ///     so DevHost *libraries* are skipped.
         /// </summary>
         private static string? FindDevHostProject(string? projectPath)
         {
@@ -52,35 +58,68 @@ namespace Vion.Dale.Cli.Commands
                 return null;
             }
 
-            // Check if current directory IS a DevHost project
-            var currentDirCsprojs = Directory.GetFiles(startDir, "*.DevHost.csproj");
-            if (currentDirCsprojs.Length > 0)
+            // 1. CWD itself
+            var match = FindRunnableDevHost(startDir);
+            if (match != null)
             {
-                return currentDirCsprojs[0];
+                return match;
             }
 
-            // Check sibling directories (works from solution level)
-            var parentDir = Directory.GetParent(startDir)?.FullName ?? startDir;
-            foreach (var dir in Directory.GetDirectories(parentDir))
+            // 2. Subdirectories of CWD
+            foreach (var dir in Directory.GetDirectories(startDir))
             {
-                var devHostFiles = Directory.GetFiles(dir, "*.DevHost.csproj");
-                if (devHostFiles.Length > 0)
+                match = FindRunnableDevHost(dir);
+                if (match != null)
                 {
-                    return devHostFiles[0];
+                    return match;
                 }
             }
 
-            // Check subdirectories (works from solution level when DevHost is nested)
-            foreach (var dir in Directory.GetDirectories(startDir))
+            // 3. Siblings (parent's children, which includes startDir but re-check is harmless)
+            var parentDir = Directory.GetParent(startDir)?.FullName ?? startDir;
+            foreach (var dir in Directory.GetDirectories(parentDir))
             {
-                var devHostFiles = Directory.GetFiles(dir, "*.DevHost.csproj");
-                if (devHostFiles.Length > 0)
+                match = FindRunnableDevHost(dir);
+                if (match != null)
                 {
-                    return devHostFiles[0];
+                    return match;
                 }
             }
 
             return null;
+        }
+
+        private static string? FindRunnableDevHost(string dir)
+        {
+            foreach (var csproj in Directory.GetFiles(dir, "*.DevHost.csproj"))
+            {
+                if (IsRunnableProject(csproj))
+                {
+                    return csproj;
+                }
+            }
+
+            return null;
+        }
+
+        private static bool IsRunnableProject(string csprojPath)
+        {
+            try
+            {
+                var content = File.ReadAllText(csprojPath);
+                if (content.Contains("<OutputType>Exe</OutputType>"))
+                {
+                    return true;
+                }
+
+                // A DevHost library has no Program.cs; a runnable DevHost app does.
+                var projectDir = Path.GetDirectoryName(csprojPath);
+                return projectDir != null && File.Exists(Path.Combine(projectDir, "Program.cs"));
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 }
