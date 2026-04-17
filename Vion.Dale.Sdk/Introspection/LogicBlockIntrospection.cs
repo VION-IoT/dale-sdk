@@ -159,25 +159,29 @@ namespace Vion.Dale.Sdk.Introspection
         private static List<LogicBlockIntrospectionResult.ContractInfo> GetContracts(Dictionary<string, LogicBlockContractBase> contracts)
         {
             return contracts.Select(i =>
-                              {
-                                  var interfaceWithAttr = i.Value.GetType().GetInterfaces().FirstOrDefault(t => t.GetCustomAttribute<ServiceProviderContractTypeAttribute>() != null);
+                                    {
+                                        var interfaceWithAttr = i.Value
+                                                                 .GetType()
+                                                                 .GetInterfaces()
+                                                                 .FirstOrDefault(t => t.GetCustomAttribute<ServiceProviderContractTypeAttribute>() != null);
 
-                                  if (interfaceWithAttr == null)
-                                  {
-                                      throw new InvalidOperationException($"No interface with {nameof(ServiceProviderContractTypeAttribute)} found for type: {i.Value.GetType().FullName}");
-                                  }
+                                        if (interfaceWithAttr == null)
+                                        {
+                                            throw new
+                                                InvalidOperationException($"No interface with {nameof(ServiceProviderContractTypeAttribute)} found for type: {i.Value.GetType().FullName}");
+                                        }
 
-                                  var attribute = interfaceWithAttr.GetCustomAttribute<ServiceProviderContractTypeAttribute>();
+                                        var attribute = interfaceWithAttr.GetCustomAttribute<ServiceProviderContractTypeAttribute>();
 
-                                  return new LogicBlockIntrospectionResult.ContractInfo
-                                         {
-                                             Identifier = i.Key,
-                                             ContractTypeFullName = ReflectionHelper.GetDisplayFullName(interfaceWithAttr),
-                                             MatchingContractType = attribute!.ServiceProviderContractType,
-                                             Annotations = i.Value.MetaData.Annotations,
-                                         };
-                              })
-                      .ToList();
+                                        return new LogicBlockIntrospectionResult.ContractInfo
+                                               {
+                                                   Identifier = i.Key,
+                                                   ContractTypeFullName = ReflectionHelper.GetDisplayFullName(interfaceWithAttr),
+                                                   MatchingContractType = attribute!.ServiceProviderContractType,
+                                                   Annotations = i.Value.MetaData.Annotations,
+                                               };
+                                    })
+                            .ToList();
         }
 
         private static List<LogicBlockIntrospectionResult.ServiceInfo> GetServices(ServiceBinder serviceBinder)

@@ -126,9 +126,8 @@ namespace Vion.Dale.Cli.Infrastructure
                 return me.IntegratorMemberships[0].IntegratorId;
             }
 
-            throw new DaleAuthException(
-                "Multiple integrators found. Use --integrator-id or run `dale login` to select one:\n" +
-                string.Join("\n", me.IntegratorMemberships.ConvertAll(m => $"  {m.IntegratorName} ({m.IntegratorSlug}): {m.IntegratorId}")));
+            throw new DaleAuthException("Multiple integrators found. Use --integrator-id or run `dale login` to select one:\n" +
+                                        string.Join("\n", me.IntegratorMemberships.ConvertAll(m => $"  {m.IntegratorName} ({m.IntegratorSlug}): {m.IntegratorId}")));
         }
 
         private static Guid? ParseGuidEnvVar(string name)

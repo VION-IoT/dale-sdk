@@ -161,9 +161,7 @@ namespace Vion.Dale.Cli.Helpers
                     var trimmed = line.TrimStart();
 
                     // Skip structural lines — these are not members
-                    if (trimmed == "{" || trimmed == "}" ||
-                        trimmed.Contains(" class ") || trimmed.StartsWith("class ") ||
-                        trimmed.StartsWith("namespace "))
+                    if (trimmed == "{" || trimmed == "}" || trimmed.Contains(" class ") || trimmed.StartsWith("class ") || trimmed.StartsWith("namespace "))
                     {
                         continue;
                     }

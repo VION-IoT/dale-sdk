@@ -24,14 +24,20 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
         }
 
         [HttpPost("hal/di/{serviceProviderIdentifier}/{serviceIdentifier}/{contractIdentifier}")]
-        public async Task<ActionResult> SetDigitalInputValue(string serviceProviderIdentifier, string serviceIdentifier, string contractIdentifier, [FromBody] SetValueInput<bool> input)
+        public async Task<ActionResult> SetDigitalInputValue(string serviceProviderIdentifier,
+                                                             string serviceIdentifier,
+                                                             string contractIdentifier,
+                                                             [FromBody] SetValueInput<bool> input)
         {
             await _stateProvider.SetDigitalInputValueAsync(serviceProviderIdentifier, serviceIdentifier, contractIdentifier, input.Value);
             return Ok();
         }
 
         [HttpPost("hal/ai/{serviceProviderIdentifier}/{serviceIdentifier}/{contractIdentifier}")]
-        public async Task<ActionResult> SetAnalogInputValue(string serviceProviderIdentifier, string serviceIdentifier, string contractIdentifier, [FromBody] SetValueInput<double> input)
+        public async Task<ActionResult> SetAnalogInputValue(string serviceProviderIdentifier,
+                                                            string serviceIdentifier,
+                                                            string contractIdentifier,
+                                                            [FromBody] SetValueInput<double> input)
         {
             await _stateProvider.SetAnalogInputValueAsync(serviceProviderIdentifier, serviceIdentifier, contractIdentifier, input.Value);
             return Ok();

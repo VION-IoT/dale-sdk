@@ -12,13 +12,10 @@ namespace Vion.Dale.Cli.Auth
         ///     3. Stored token from dale login
         ///     4. Error
         /// </summary>
-        public static async Task<string> GetAccessTokenAsync(
-            string? flagClientId = null, string? flagClientSecret = null, string? environment = null)
+        public static async Task<string> GetAccessTokenAsync(string? flagClientId = null, string? flagClientSecret = null, string? environment = null)
         {
             // Resolve auth base URL: explicit environment > stored config > default production
-            var effectiveEnvironment = environment
-                                       ?? TokenStore.LoadConfig().Environment
-                                       ?? "production";
+            var effectiveEnvironment = environment ?? TokenStore.LoadConfig().Environment ?? "production";
             var authBaseUrl = TokenStore.ResolveAuthBaseUrl(effectiveEnvironment);
 
             // 1. Explicit flags

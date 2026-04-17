@@ -67,11 +67,10 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
         /// <inheritdoc />
         protected override (string RoutingKey, string[] ActionPaths) GetMqttRegistration()
         {
-            return (Topics.Modbus,
-                    [
-                        $"{Topics.ModbusGet}/{ServiceProviderConstants.DaleIdentifier}/response",
-                        $"{Topics.ModbusSet}/{ServiceProviderConstants.DaleIdentifier}/response",
-                    ]);
+            return (Topics.Modbus, [
+                           $"{Topics.ModbusGet}/{ServiceProviderConstants.DaleIdentifier}/response",
+                           $"{Topics.ModbusSet}/{ServiceProviderConstants.DaleIdentifier}/response",
+                       ]);
         }
 
         /// <inheritdoc />
@@ -169,29 +168,17 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
                 var payload = GetModbusResponsePayload.GetRootAsGetModbusResponsePayload(message.GetFlatBufferPayload());
                 if (payload.ResponseCode == ModbusResponseCode.Ok)
                 {
-                    PublishResponse(pendingRequest.LogicBlockContractId,
-                                    payload.GetDataArray(),
-                                    null,
-                                    pendingRequest.Callback,
-                                    correlationId);
+                    PublishResponse(pendingRequest.LogicBlockContractId, payload.GetDataArray(), null, pendingRequest.Callback, correlationId);
                 }
                 else
                 {
                     var modbusException = new ModbusException((ModbusExceptionCode)payload.ResponseCode, payload.ErrorMessage ?? string.Empty);
-                    PublishResponse(pendingRequest.LogicBlockContractId,
-                                    null,
-                                    modbusException,
-                                    pendingRequest.Callback,
-                                    correlationId);
+                    PublishResponse(pendingRequest.LogicBlockContractId, null, modbusException, pendingRequest.Callback, correlationId);
                 }
             }
             catch (Exception exception)
             {
-                PublishResponse(pendingRequest.LogicBlockContractId,
-                                null,
-                                exception,
-                                pendingRequest.Callback,
-                                correlationId);
+                PublishResponse(pendingRequest.LogicBlockContractId, null, exception, pendingRequest.Callback, correlationId);
             }
         }
 
@@ -204,52 +191,32 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
             var limitReached = CheckPendingRequestLimit();
             if (limitReached)
             {
-                PublishResponse(logicBlockContractId,
-                                null,
-                                _requestLimitException,
-                                request.Callback,
-                                request.CorrelationId);
+                PublishResponse(logicBlockContractId, null, _requestLimitException, request.Callback, request.CorrelationId);
                 return;
             }
 
             if (!_serviceProviderContractIds.TryGetValue(logicBlockContractId, out var serviceProviderContractId))
             {
-                PublishResponse(logicBlockContractId,
-                                null,
-                                new ServiceProviderContractMappingNotFoundException(logicBlockContractId),
-                                request.Callback,
-                                request.CorrelationId);
+                PublishResponse(logicBlockContractId, null, new ServiceProviderContractMappingNotFoundException(logicBlockContractId), request.Callback, request.CorrelationId);
                 return;
             }
 
             if (_dateTimeProvider.UtcNow >= request.ExpiresAt)
             {
-                PublishResponse(logicBlockContractId,
-                                null,
-                                _timeoutException,
-                                request.Callback,
-                                request.CorrelationId);
+                PublishResponse(logicBlockContractId, null, _timeoutException, request.Callback, request.CorrelationId);
                 return;
             }
 
             var requestTopic = GetOrAddGetTopic(serviceProviderContractId);
             var responseTopic = GetOrAddGetResponseTopic(serviceProviderContractId);
             var payload = CreateGetModbusPayload(request.FunctionCode, request.UnitId, request.StartingAddress, request.Quantity);
-            PublishRequest(requestTopic,
-                           responseTopic,
-                           request.CorrelationId,
-                           nameof(GetModbusPayload),
-                           payload);
+            PublishRequest(requestTopic, responseTopic, request.CorrelationId, nameof(GetModbusPayload), payload);
 
             _pendingReadRequests[request.CorrelationId] = new PendingReadRequest(logicBlockContractId, request.Callback, request.CreatedAt, request.ExpiresAt);
             LogAddedPendingReadRequest(logicBlockContractId, request.ExpiresAt, _pendingReadRequests.Count, request.CorrelationId);
         }
 
-        private void PublishResponse(LogicBlockContractId logicBlockContractId,
-                                     byte[]? data,
-                                     Exception? exception,
-                                     Action<byte[]?, Exception?> callback,
-                                     Guid correlationId)
+        private void PublishResponse(LogicBlockContractId logicBlockContractId, byte[]? data, Exception? exception, Action<byte[]?, Exception?> callback, Guid correlationId)
         {
             if (!_actorReferences.TryGetValue(logicBlockContractId, out var actorReference))
             {
@@ -380,10 +347,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
 
             if (!_serviceProviderContractIds.TryGetValue(logicBlockContractId, out var serviceProviderContractId))
             {
-                PublishResponse(logicBlockContractId,
-                                new ServiceProviderContractMappingNotFoundException(logicBlockContractId),
-                                request.Callback,
-                                request.CorrelationId);
+                PublishResponse(logicBlockContractId, new ServiceProviderContractMappingNotFoundException(logicBlockContractId), request.Callback, request.CorrelationId);
                 return;
             }
 
@@ -396,11 +360,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
             var requestTopic = GetOrAddSetTopic(serviceProviderContractId);
             var responseTopic = GetOrAddSetResponseTopic(serviceProviderContractId);
             var payload = CreateSetModbusPayload(request.FunctionCode, request.UnitId, request.Address, request.Data);
-            PublishRequest(requestTopic,
-                           responseTopic,
-                           request.CorrelationId,
-                           nameof(SetModbusPayload),
-                           payload);
+            PublishRequest(requestTopic, responseTopic, request.CorrelationId, nameof(SetModbusPayload), payload);
 
             _pendingWriteRequests[request.CorrelationId] = new PendingWriteRequest(logicBlockContractId, request.Callback, request.CreatedAt, request.ExpiresAt);
             LogAddedPendingWriteRequest(logicBlockContractId, request.ExpiresAt, _pendingWriteRequests.Count, request.CorrelationId);
@@ -487,11 +447,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
 
         #endregion
 
-        private void PublishRequest(string requestTopic,
-                                    string responseTopic,
-                                    Guid correlationId,
-                                    string schemaName,
-                                    byte[] payload)
+        private void PublishRequest(string requestTopic, string responseTopic, Guid correlationId, string schemaName, byte[] payload)
         {
             LogPublishingRequest(correlationId, requestTopic, responseTopic);
             Publish(requestTopic, payload, schemaName, correlationId: correlationId, responseTopic: responseTopic);
@@ -614,11 +570,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
 
                 LogCompletingExpiredReadRequest(pendingRequest.CreatedAt, pendingRequest.ExpiresAt, correlationId, pendingRequest.LogicBlockContractId);
                 _pendingReadRequests.Remove(correlationId);
-                PublishResponse(pendingRequest.LogicBlockContractId,
-                                null,
-                                _timeoutException,
-                                pendingRequest.Callback,
-                                correlationId);
+                PublishResponse(pendingRequest.LogicBlockContractId, null, _timeoutException, pendingRequest.Callback, correlationId);
             }
 
             foreach (var (correlationId, pendingRequest) in _pendingWriteRequests)

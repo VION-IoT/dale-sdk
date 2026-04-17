@@ -41,7 +41,8 @@ namespace Vion.Dale.Cli.Commands
                                   {
                                       if (interactive)
                                       {
-                                          name = AnsiConsole.Prompt(new TextPrompt<string>("  Project name:").Validate(n => IsValidProjectName(n), "Invalid name. Use letters, digits, dots, hyphens, or underscores (no spaces)."));
+                                          name = AnsiConsole.Prompt(new TextPrompt<string>("  Project name:").Validate(n => IsValidProjectName(n),
+                                                                                                                       "Invalid name. Use letters, digits, dots, hyphens, or underscores (no spaces)."));
                                       }
                                       else
                                       {

@@ -19,8 +19,7 @@ namespace Vion.Dale.Cli.Commands.Config
 
                                   if (DaleConsole.JsonMode)
                                   {
-                                      DaleConsole.WriteJson(System.Text.Json.JsonSerializer.Serialize(
-                                                                                                      new
+                                      DaleConsole.WriteJson(System.Text.Json.JsonSerializer.Serialize(new
                                                                                                       {
                                                                                                           environment = config.Environment,
                                                                                                           authBaseUrl = config.AuthBaseUrl,

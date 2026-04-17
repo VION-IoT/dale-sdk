@@ -12,11 +12,11 @@ namespace Vion.Dale.Cli.Test.Models
         public void Serialization_UsesCamelCase()
         {
             var output = new CliListOutput
-            {
-                PackageId = "Test.Package",
-                Version = "1.0.0",
-                SdkVersion = "0.1.60",
-            };
+                         {
+                             PackageId = "Test.Package",
+                             Version = "1.0.0",
+                             SdkVersion = "0.1.60",
+                         };
 
             var json = JsonSerializer.Serialize(output, JsonDefaults.Options);
 
@@ -28,21 +28,21 @@ namespace Vion.Dale.Cli.Test.Models
         public void RoundTrip_PreservesData()
         {
             var output = new CliListOutput
-            {
-                PackageId = "Test.Package",
-                Version = "1.0.0",
-                SdkVersion = "0.1.60",
-                LogicBlocks = new()
-                {
-                    new CliLogicBlockOutput
-                    {
-                        Name = "MyBlock",
-                        FullName = "Test.MyBlock",
-                        Interfaces = new() { "ITemperature" },
-                        Contracts = new() { "AO1" },
-                    }
-                }
-            };
+                         {
+                             PackageId = "Test.Package",
+                             Version = "1.0.0",
+                             SdkVersion = "0.1.60",
+                             LogicBlocks = new()
+                                           {
+                                               new CliLogicBlockOutput
+                                               {
+                                                   Name = "MyBlock",
+                                                   FullName = "Test.MyBlock",
+                                                   Interfaces = new() { "ITemperature" },
+                                                   Contracts = new() { "AO1" },
+                                               }
+                                           }
+                         };
 
             var json = JsonSerializer.Serialize(output, JsonDefaults.Options);
             var deserialized = JsonSerializer.Deserialize<CliListOutput>(json, JsonDefaults.Options);

@@ -52,9 +52,7 @@ namespace Vion.Dale.Cli.Commands.Auth
                                   }
 
                                   var remaining = credentials.ExpiresAt - DateTime.UtcNow;
-                                  var tokenStatus = remaining.TotalMinutes > 0
-                                                        ? $"valid (expires in {(int)remaining.TotalHours}h {remaining.Minutes}m)"
-                                                        : "expired";
+                                  var tokenStatus = remaining.TotalMinutes > 0 ? $"valid (expires in {(int)remaining.TotalHours}h {remaining.Minutes}m)" : "expired";
                                   DaleConsole.KeyValue("Token:", tokenStatus);
 
                                   return 0;

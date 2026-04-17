@@ -61,7 +61,10 @@ namespace Vion.Dale.DevHost.Mocking
                     _state[serviceProviderContractId] = value;
 
                     // Raise event for Web UI
-                    _devHostEvents.RaiseAnalogOutputChanged(serviceProviderContractId.ServiceProviderIdentifier, serviceProviderContractId.ServiceIdentifier, serviceProviderContractId.ContractIdentifier, value);
+                    _devHostEvents.RaiseAnalogOutputChanged(serviceProviderContractId.ServiceProviderIdentifier,
+                                                            serviceProviderContractId.ServiceIdentifier,
+                                                            serviceProviderContractId.ContractIdentifier,
+                                                            value);
 
                     // Send state change back to LogicBlock
                     foreach (var (mappedContractId, logicBlockActorRef) in contractMappings)
@@ -78,7 +81,10 @@ namespace Vion.Dale.DevHost.Mocking
         {
             foreach (var (serviceProviderContractId, value) in _state)
             {
-                _devHostEvents.RaiseAnalogOutputChanged(serviceProviderContractId.ServiceProviderIdentifier, serviceProviderContractId.ServiceIdentifier, serviceProviderContractId.ContractIdentifier, value);
+                _devHostEvents.RaiseAnalogOutputChanged(serviceProviderContractId.ServiceProviderIdentifier,
+                                                        serviceProviderContractId.ServiceIdentifier,
+                                                        serviceProviderContractId.ContractIdentifier,
+                                                        value);
             }
         }
     }

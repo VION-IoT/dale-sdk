@@ -13,8 +13,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class MeasuringPointAnalyzer : DiagnosticAnalyzer
     {
-        public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-            ImmutableArray.Create(DaleDiagnostics.DALE004_MeasuringPointPublicSetter);
+        public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(DaleDiagnostics.DALE004_MeasuringPointPublicSetter);
 
         public override void Initialize(AnalysisContext context)
         {
@@ -41,10 +40,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             // Check for PUBLIC setter specifically (private setter is fine for Metalama INPC)
             if (property.SetMethod != null && property.SetMethod.DeclaredAccessibility == Accessibility.Public)
             {
-                context.ReportDiagnostic(Diagnostic.Create(
-                    DaleDiagnostics.DALE004_MeasuringPointPublicSetter,
-                    property.Locations.FirstOrDefault(),
-                    property.Name));
+                context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE004_MeasuringPointPublicSetter, property.Locations.FirstOrDefault(), property.Name));
             }
         }
     }

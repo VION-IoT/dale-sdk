@@ -57,9 +57,7 @@ public class MyBlock
 {
     [ServiceProperty] public Guid {|#0:Id|} { get; set; }
 }";
-            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE003_UnsupportedServicePropertyType)
-                .WithLocation(0)
-                .WithArguments("Id", "ServiceProperty", "Guid");
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE003_UnsupportedServicePropertyType).WithLocation(0).WithArguments("Id", "ServiceProperty", "Guid");
             await AnalyzerTestBase.VerifyAnalyzerAsync<ServiceElementTypeAnalyzer>(source, expected);
         }
 
@@ -74,9 +72,7 @@ public class MyBlock
 {
     [ServiceMeasuringPoint] public Guid {|#0:Id|} { get; }
 }";
-            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE003_UnsupportedServicePropertyType)
-                .WithLocation(0)
-                .WithArguments("Id", "ServiceMeasuringPoint", "Guid");
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE003_UnsupportedServicePropertyType).WithLocation(0).WithArguments("Id", "ServiceMeasuringPoint", "Guid");
             await AnalyzerTestBase.VerifyAnalyzerAsync<ServiceElementTypeAnalyzer>(source, expected);
         }
 
@@ -92,9 +88,7 @@ public class MyBlock
 {
     [ServiceProperty] public Payload {|#0:Data|} { get; set; }
 }";
-            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE003_UnsupportedServicePropertyType)
-                .WithLocation(0)
-                .WithArguments("Data", "ServiceProperty", "Payload");
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE003_UnsupportedServicePropertyType).WithLocation(0).WithArguments("Data", "ServiceProperty", "Payload");
             await AnalyzerTestBase.VerifyAnalyzerAsync<ServiceElementTypeAnalyzer>(source, expected);
         }
 

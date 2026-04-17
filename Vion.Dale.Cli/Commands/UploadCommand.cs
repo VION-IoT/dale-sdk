@@ -67,7 +67,9 @@ namespace Vion.Dale.Cli.Commands
                                   if (DaleConsole.JsonMode)
                                   {
                                       // JSON mode: no progress bar, just run
-                                      var packResult = await DotnetRunner.RunCaptureAsync("pack", new[] { project.CsprojPath, "-c", "Release", "-p:IsPackable=true" }, project.ProjectDirectory);
+                                      var packResult = await DotnetRunner.RunCaptureAsync("pack",
+                                                                                          new[] { project.CsprojPath, "-c", "Release", "-p:IsPackable=true" },
+                                                                                          project.ProjectDirectory);
                                       if (packResult.ExitCode != 0)
                                       {
                                           DaleConsole.Error("Pack failed.");
@@ -83,10 +85,19 @@ namespace Vion.Dale.Cli.Commands
 
                                       try
                                       {
-                                          var response = await UploadNupkg(ctx.AccessToken, ctx.ApiBaseUrl, ctx.IntegratorId, nupkgPath, parseResult.GetValue(releaseNotesOption), skipDuplicate);
+                                          var response = await UploadNupkg(ctx.AccessToken,
+                                                                           ctx.ApiBaseUrl,
+                                                                           ctx.IntegratorId,
+                                                                           nupkgPath,
+                                                                           parseResult.GetValue(releaseNotesOption),
+                                                                           skipDuplicate);
                                           if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
                                           {
-                                              DaleConsole.WriteJsonResult(new { status = "skipped", reason = "version_exists", packageId = project.PackageId, version = project.Version });
+                                              DaleConsole.WriteJsonResult(new
+                                                                          {
+                                                                              status = "skipped", reason = "version_exists", packageId = project.PackageId,
+                                                                              version = project.Version
+                                                                          });
                                               return 0;
                                           }
 
@@ -114,7 +125,10 @@ namespace Vion.Dale.Cli.Commands
                                                                    // Stage 1: Pack
                                                                    var packTask = progressCtx.AddTask($"Packing {project.ProjectName} v{project.Version ?? "??"}", maxValue: 1);
                                                                    var packResult = await DotnetRunner.RunCaptureAsync("pack",
-                                                                                                                       new[] { project.CsprojPath, "-c", "Release", "-p:IsPackable=true" },
+                                                                                                                       new[]
+ {
+                                                                                                                           project.CsprojPath, "-c", "Release", "-p:IsPackable=true"
+                                                                                                                       },
                                                                                                                        project.ProjectDirectory);
                                                                    if (packResult.ExitCode != 0)
                                                                    {
@@ -216,7 +230,12 @@ namespace Vion.Dale.Cli.Commands
         /// <summary>
         /// Uploads the .nupkg to the cloud API. When skipDuplicate is true, 409 Conflict is returned as a response instead of throwing.
         /// </summary>
-        private static async Task<HttpResponseMessage> UploadNupkg(string accessToken, string apiBaseUrl, Guid integratorId, string nupkgPath, string? releaseNotes, bool skipDuplicate)
+        private static async Task<HttpResponseMessage> UploadNupkg(string accessToken,
+                                                                   string apiBaseUrl,
+                                                                   Guid integratorId,
+                                                                   string nupkgPath,
+                                                                   string? releaseNotes,
+                                                                   bool skipDuplicate)
         {
             var uploadUrl = $"{apiBaseUrl}/Integrator/{integratorId}/LogicBlockLibraryVersions";
 

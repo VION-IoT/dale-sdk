@@ -100,6 +100,7 @@ namespace Vion.Dale.Cli.Test.Helpers
             SourceInserter.InsertIntoClass(filePath, "MyBlock", "[Timer(5)]\nprivate void Tick()\n{\n}");
 
             var content = File.ReadAllText(filePath);
+
             // Should be at member-level indentation (8 spaces), not class-level (4 spaces)
             Assert.IsTrue(content.Contains("        [Timer(5)]"), "Timer attribute should have 8-space indent");
             Assert.IsTrue(content.Contains("        private void Tick()"), "Method should have 8-space indent");
@@ -235,6 +236,7 @@ namespace MyLib
             Assert.IsTrue(result);
             var content = File.ReadAllText(filePath);
             Assert.IsTrue(content.Contains("[Timer(5)]"));
+
             // Verify the insertion is inside MyBlock, not after namespace
             var timerIndex = content.IndexOf("[Timer(5)]");
             var classCloseIndex = content.LastIndexOf('}', content.LastIndexOf('}') - 1);

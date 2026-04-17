@@ -22,7 +22,10 @@ namespace Vion.Dale.Cli.Infrastructure
             Http.DefaultRequestHeaders.UserAgent.ParseAdd($"Vion.Dale.Cli/{version}");
         }
 
-        public static async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, string accessToken, CancellationToken cancellationToken = default, params HttpStatusCode[] allowedStatuses)
+        public static async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
+                                                                string accessToken,
+                                                                CancellationToken cancellationToken = default,
+                                                                params HttpStatusCode[] allowedStatuses)
         {
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
             DaleConsole.Verbose($"HTTP {request.Method} {request.RequestUri}");
@@ -66,7 +69,11 @@ namespace Vion.Dale.Cli.Infrastructure
             return await SendAsync(request, accessToken, cancellationToken);
         }
 
-        public static async Task<HttpResponseMessage> PostAsync(string url, HttpContent content, string accessToken, CancellationToken cancellationToken = default, params HttpStatusCode[] allowedStatuses)
+        public static async Task<HttpResponseMessage> PostAsync(string url,
+                                                                HttpContent content,
+                                                                string accessToken,
+                                                                CancellationToken cancellationToken = default,
+                                                                params HttpStatusCode[] allowedStatuses)
         {
             using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
             return await SendAsync(request, accessToken, cancellationToken, allowedStatuses);

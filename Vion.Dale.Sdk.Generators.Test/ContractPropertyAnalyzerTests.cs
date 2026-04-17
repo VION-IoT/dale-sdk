@@ -46,9 +46,7 @@ public class MyBlock
 {
     public ITestContractType {|#0:Input|} { get; }
 }";
-            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE001_ContractPropertyMustHaveSetter)
-                .WithLocation(0)
-                .WithArguments("Input");
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE001_ContractPropertyMustHaveSetter).WithLocation(0).WithArguments("Input");
             await AnalyzerTestBase.VerifyAnalyzerAsync<ContractPropertyAnalyzer>(source, expected);
         }
 
@@ -60,9 +58,7 @@ public class MyBlock
 {
     public ConcreteContract {|#0:Input|} { get; }
 }";
-            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE001_ContractPropertyMustHaveSetter)
-                .WithLocation(0)
-                .WithArguments("Input");
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE001_ContractPropertyMustHaveSetter).WithLocation(0).WithArguments("Input");
             await AnalyzerTestBase.VerifyAnalyzerAsync<ContractPropertyAnalyzer>(source, expected);
         }
 

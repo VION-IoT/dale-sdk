@@ -175,7 +175,8 @@ namespace Vion.Dale.Sdk.Messages
     ///     Key: ServiceProviderContractId (identifies the service provider contract)
     ///     Value: Dictionary of LogicBlockContractId -> IActorReference to the LogicBlock actor that contains the contract
     /// </summary>
-    public readonly record struct LinkLogicBlockContractActors(Dictionary<ServiceProviderContractId, Dictionary<LogicBlockContractId, IActorReference>> ContractLogicBlockActorReferences);
+    public readonly record struct LinkLogicBlockContractActors(
+        Dictionary<ServiceProviderContractId, Dictionary<LogicBlockContractId, IActorReference>> ContractLogicBlockActorReferences);
 
     /// <summary>
     ///     Message between contract handlers and LogicBlocks for contract state changes.

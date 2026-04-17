@@ -47,6 +47,7 @@ namespace Vion.Dale.Cli.Test.Helpers
                 Assert.IsTrue(parserDll.Contains("vion.dale.sdk"));
                 Assert.IsTrue(File.Exists(parserDll));
             }
+
             // If not cached (CI environment), the test just passes — no assertion failure
         }
 

@@ -12,6 +12,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
     ///     Provides non-blocking Modbus TCP client functionality for logic blocks.
     /// </summary>
     [PublicApi]
+
     /// <remarks>
     ///     <para>
     ///         The TCP connection is established lazily when the first read or write operation is executed and is maintained for subsequent operations.

@@ -15,10 +15,9 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
     public sealed class ContractMessageAnalyzer : DiagnosticAnalyzer
     {
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-            ImmutableArray.Create(
-                DaleDiagnostics.DALE009_ContractInterfaceNamePrefix,
-                DaleDiagnostics.DALE010_MessageFromToMismatch,
-                DaleDiagnostics.DALE011_ResponseTypeMustBeNestedStruct);
+            ImmutableArray.Create(DaleDiagnostics.DALE009_ContractInterfaceNamePrefix,
+                                  DaleDiagnostics.DALE010_MessageFromToMismatch,
+                                  DaleDiagnostics.DALE011_ResponseTypeMustBeNestedStruct);
 
         public override void Initialize(AnalysisContext context)
         {
@@ -44,22 +43,20 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             // DALE009: interface names must start with 'I'
             if (betweenInterface != null && !betweenInterface.StartsWith("I"))
             {
-                context.ReportDiagnostic(Diagnostic.Create(
-                    DaleDiagnostics.DALE009_ContractInterfaceNamePrefix,
-                    type.Locations.FirstOrDefault(),
-                    type.Name,
-                    "BetweenInterface",
-                    betweenInterface));
+                context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE009_ContractInterfaceNamePrefix,
+                                                           type.Locations.FirstOrDefault(),
+                                                           type.Name,
+                                                           "BetweenInterface",
+                                                           betweenInterface));
             }
 
             if (andInterface != null && !andInterface.StartsWith("I"))
             {
-                context.ReportDiagnostic(Diagnostic.Create(
-                    DaleDiagnostics.DALE009_ContractInterfaceNamePrefix,
-                    type.Locations.FirstOrDefault(),
-                    type.Name,
-                    "AndInterface",
-                    andInterface));
+                context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE009_ContractInterfaceNamePrefix,
+                                                           type.Locations.FirstOrDefault(),
+                                                           type.Name,
+                                                           "AndInterface",
+                                                           andInterface));
             }
 
             // Analyze nested message types
@@ -69,12 +66,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             }
         }
 
-        private static void AnalyzeMessageType(
-            SymbolAnalysisContext context,
-            INamedTypeSymbol nestedType,
-            string contractName,
-            string? betweenInterface,
-            string? andInterface)
+        private static void AnalyzeMessageType(SymbolAnalysisContext context, INamedTypeSymbol nestedType, string contractName, string? betweenInterface, string? andInterface)
         {
             // Check [Command] and [StateUpdate] — From/To must match interface names
             var commandAttr = AnalyzerHelper.GetAttribute(nestedType, AnalyzerHelper.CommandAttribute);
@@ -95,14 +87,13 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             {
                 if (from != betweenInterface && from != andInterface)
                 {
-                    context.ReportDiagnostic(Diagnostic.Create(
-                        DaleDiagnostics.DALE010_MessageFromToMismatch,
-                        nestedType.Locations.FirstOrDefault(),
-                        nestedType.Name,
-                        "From",
-                        from,
-                        betweenInterface,
-                        andInterface));
+                    context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE010_MessageFromToMismatch,
+                                                               nestedType.Locations.FirstOrDefault(),
+                                                               nestedType.Name,
+                                                               "From",
+                                                               from,
+                                                               betweenInterface,
+                                                               andInterface));
                 }
             }
 
@@ -110,14 +101,13 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             {
                 if (to != betweenInterface && to != andInterface)
                 {
-                    context.ReportDiagnostic(Diagnostic.Create(
-                        DaleDiagnostics.DALE010_MessageFromToMismatch,
-                        nestedType.Locations.FirstOrDefault(),
-                        nestedType.Name,
-                        "To",
-                        to,
-                        betweenInterface,
-                        andInterface));
+                    context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE010_MessageFromToMismatch,
+                                                               nestedType.Locations.FirstOrDefault(),
+                                                               nestedType.Name,
+                                                               "To",
+                                                               to,
+                                                               betweenInterface,
+                                                               andInterface));
                 }
             }
 
@@ -151,12 +141,11 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
 
                     if (!isStruct || !isNestedInSameContract)
                     {
-                        context.ReportDiagnostic(Diagnostic.Create(
-                            DaleDiagnostics.DALE011_ResponseTypeMustBeNestedStruct,
-                            nestedType.Locations.FirstOrDefault(),
-                            nestedType.Name,
-                            responseType.Name,
-                            contractName));
+                        context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE011_ResponseTypeMustBeNestedStruct,
+                                                                   nestedType.Locations.FirstOrDefault(),
+                                                                   nestedType.Name,
+                                                                   responseType.Name,
+                                                                   contractName));
                     }
                 }
             }

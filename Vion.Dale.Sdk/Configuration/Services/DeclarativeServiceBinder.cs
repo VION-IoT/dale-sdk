@@ -101,16 +101,15 @@ namespace Vion.Dale.Sdk.Configuration.Services
         private static bool HasServicePropertiesOrMeasuringPoints(Type type)
         {
             var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
-            
+
             foreach (var prop in properties)
             {
-                if (prop.GetCustomAttribute<ServicePropertyAttribute>() != null ||
-                    prop.GetCustomAttribute<ServiceMeasuringPointAttribute>() != null)
+                if (prop.GetCustomAttribute<ServicePropertyAttribute>() != null || prop.GetCustomAttribute<ServiceMeasuringPointAttribute>() != null)
                 {
                     return true;
                 }
             }
-            
+
             return false;
         }
 

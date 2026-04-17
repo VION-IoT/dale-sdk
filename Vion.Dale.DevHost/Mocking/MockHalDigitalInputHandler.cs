@@ -74,7 +74,10 @@ namespace Vion.Dale.DevHost.Mocking
         {
             foreach (var (serviceProviderContractId, value) in _state)
             {
-                _devHostEvents.RaiseDigitalInputChanged(serviceProviderContractId.ServiceProviderIdentifier, serviceProviderContractId.ServiceIdentifier, serviceProviderContractId.ContractIdentifier, value);
+                _devHostEvents.RaiseDigitalInputChanged(serviceProviderContractId.ServiceProviderIdentifier,
+                                                        serviceProviderContractId.ServiceIdentifier,
+                                                        serviceProviderContractId.ContractIdentifier,
+                                                        value);
             }
         }
     }

@@ -123,22 +123,21 @@ namespace Vion.Dale.Cli.Commands
                                 Services = lb.Services
                                              ?.Select(s => new CliServiceOutput
                                                            {
-                                                               Properties =
-                                                                   s.Properties
-                                                                    ?.Select(p => new CliPropertyOutput
-                                                                                  {
-                                                                                      Name = p.Identifier ?? string.Empty,
-                                                                                      Type = p.TypeFullName ?? string.Empty,
-                                                                                  })
-                                                                    .ToList() ?? new List<CliPropertyOutput>(),
-                                                               MeasuringPoints =
-                                                                   s.MeasuringPoints
-                                                                    ?.Select(m => new CliPropertyOutput
-                                                                                  {
-                                                                                      Name = m.Identifier ?? string.Empty,
-                                                                                      Type = m.TypeFullName ?? string.Empty,
-                                                                                  })
-                                                                    .ToList() ?? new List<CliPropertyOutput>(),
+                                                               Properties = s.Properties
+                                                                             ?.Select(p => new CliPropertyOutput
+                                                                                           {
+                                                                                               Name = p.Identifier ?? string.Empty,
+                                                                                               Type = p.TypeFullName ?? string
+                                                                                                          .Empty,
+                                                                                           })
+                                                                             .ToList() ?? new List<CliPropertyOutput>(),
+                                                               MeasuringPoints = s.MeasuringPoints
+                                                                                  ?.Select(m => new CliPropertyOutput
+                                                                                                {
+                                                                                                    Name = m.Identifier ?? string.Empty,
+                                                                                                    Type = m.TypeFullName ?? string.Empty,
+                                                                                                })
+                                                                                  .ToList() ?? new List<CliPropertyOutput>(),
                                                            })
                                              .ToList() ?? new List<CliServiceOutput>(),
                             };

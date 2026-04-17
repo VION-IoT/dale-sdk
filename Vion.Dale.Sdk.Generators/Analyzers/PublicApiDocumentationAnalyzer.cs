@@ -16,14 +16,13 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
     public sealed class PublicApiDocumentationAnalyzer : DiagnosticAnalyzer
     {
         private const string PublicApiAttributeName = "Vion.Dale.Sdk.Core.PublicApiAttribute";
+
         private const string InternalApiAttributeName = "Vion.Dale.Sdk.Core.InternalApiAttribute";
+
         private const string PublicApiNamespaceAttributeName = "Vion.Dale.Sdk.Core.PublicApiNamespaceAttribute";
 
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-            ImmutableArray.Create(
-                DaleDiagnostics.DALE013_PublicApiMissingDocs,
-                DaleDiagnostics.DALE014_UnmarkedPublicType,
-                DaleDiagnostics.DALE015_StalePublicApiNamespace);
+            ImmutableArray.Create(DaleDiagnostics.DALE013_PublicApiMissingDocs, DaleDiagnostics.DALE014_UnmarkedPublicType, DaleDiagnostics.DALE015_StalePublicApiNamespace);
 
         public override void Initialize(AnalysisContext context)
         {
@@ -37,12 +36,13 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             var compilation = context.Compilation;
 
             // Read [PublicApiNamespace] from assembly attributes
-            var publicApiNamespaces = compilation.Assembly.GetAttributes()
-                .Where(a => AnalyzerHelper.GetFullName(a.AttributeClass) == PublicApiNamespaceAttributeName)
-                .Select(a => a.ConstructorArguments.Length > 0 ? a.ConstructorArguments[0].Value as string : null)
-                .Where(ns => ns != null)
-                .Cast<string>()
-                .ToImmutableHashSet();
+            var publicApiNamespaces = compilation.Assembly
+                                                 .GetAttributes()
+                                                 .Where(a => AnalyzerHelper.GetFullName(a.AttributeClass) == PublicApiNamespaceAttributeName)
+                                                 .Select(a => a.ConstructorArguments.Length > 0 ? a.ConstructorArguments[0].Value as string : null)
+                                                 .Where(ns => ns != null)
+                                                 .Cast<string>()
+                                                 .ToImmutableHashSet();
 
             // Track which configured namespaces had any public types (for DALE015)
             var namespacesWithTypes = new HashSet<string>();
@@ -79,21 +79,14 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                     var xml = type.GetDocumentationCommentXml();
                     if (xml == null || !xml.Contains("<summary>"))
                     {
-                        context.ReportDiagnostic(Diagnostic.Create(
-                            DaleDiagnostics.DALE013_PublicApiMissingDocs,
-                            type.Locations.FirstOrDefault(),
-                            type.Name));
+                        context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE013_PublicApiMissingDocs, type.Locations.FirstOrDefault(), type.Name));
                     }
                 }
 
                 // DALE014: public type in API namespace without either attribute
                 if (inPublicApiNamespace && !hasPublicApi && !hasInternalApi)
                 {
-                    context.ReportDiagnostic(Diagnostic.Create(
-                        DaleDiagnostics.DALE014_UnmarkedPublicType,
-                        type.Locations.FirstOrDefault(),
-                        type.Name,
-                        ns));
+                    context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE014_UnmarkedPublicType, type.Locations.FirstOrDefault(), type.Name, ns));
                 }
             }
 
@@ -102,14 +95,11 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             {
                 if (!namespacesWithTypes.Contains(ns))
                 {
-                    var attr = compilation.Assembly.GetAttributes()
-                        .First(a => AnalyzerHelper.GetFullName(a.AttributeClass) == PublicApiNamespaceAttributeName
-                                 && a.ConstructorArguments.Length > 0
-                                 && (a.ConstructorArguments[0].Value as string) == ns);
-                    context.ReportDiagnostic(Diagnostic.Create(
-                        DaleDiagnostics.DALE015_StalePublicApiNamespace,
-                        attr.ApplicationSyntaxReference?.GetSyntax().GetLocation(),
-                        ns));
+                    var attr = compilation.Assembly
+                                          .GetAttributes()
+                                          .First(a => AnalyzerHelper.GetFullName(a.AttributeClass) == PublicApiNamespaceAttributeName && a.ConstructorArguments.Length > 0 &&
+                                                      (a.ConstructorArguments[0].Value as string) == ns);
+                    context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE015_StalePublicApiNamespace, attr.ApplicationSyntaxReference?.GetSyntax().GetLocation(), ns));
                 }
             }
         }

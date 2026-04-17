@@ -32,9 +32,7 @@ public class MyBlock
 {
     [StatusIndicator] public string {|#0:Status|} { get; set; }
 }";
-            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE006_StatusIndicatorRequiresEnum)
-                .WithLocation(0)
-                .WithArguments("Status", "string");
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE006_StatusIndicatorRequiresEnum).WithLocation(0).WithArguments("Status", "string");
             await AnalyzerTestBase.VerifyAnalyzerAsync<StatusIndicatorAnalyzer>(source, expected);
         }
 
@@ -48,9 +46,7 @@ public class MyBlock
 {
     [StatusIndicator] public int {|#0:Code|} { get; set; }
 }";
-            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE006_StatusIndicatorRequiresEnum)
-                .WithLocation(0)
-                .WithArguments("Code", "int");
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE006_StatusIndicatorRequiresEnum).WithLocation(0).WithArguments("Code", "int");
             await AnalyzerTestBase.VerifyAnalyzerAsync<StatusIndicatorAnalyzer>(source, expected);
         }
 

@@ -43,9 +43,7 @@ public class MyBlock
 {
     [Persistent] public int {|#0:Counter|} { get; }
 }";
-            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE007_PersistentRequiresSetter)
-                .WithLocation(0)
-                .WithArguments("Counter");
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE007_PersistentRequiresSetter).WithLocation(0).WithArguments("Counter");
             await AnalyzerTestBase.VerifyAnalyzerAsync<PersistentPropertyAnalyzer>(source, expected);
         }
 

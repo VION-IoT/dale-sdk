@@ -78,8 +78,7 @@ namespace Vion.Dale.Sdk.Abstractions
         public byte[] GetPayloadBytes()
         {
             var payload = _inner.Payload;
-            if (payload.IsSingleSegment && MemoryMarshal.TryGetArray(payload.First, out var segment)
-                                        && segment.Offset == 0 && segment.Count == segment.Array!.Length)
+            if (payload.IsSingleSegment && MemoryMarshal.TryGetArray(payload.First, out var segment) && segment.Offset == 0 && segment.Count == segment.Array!.Length)
             {
                 return segment.Array;
             }

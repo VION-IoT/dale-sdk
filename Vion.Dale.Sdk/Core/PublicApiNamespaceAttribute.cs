@@ -13,6 +13,7 @@ namespace Vion.Dale.Sdk.Core
     public class PublicApiNamespaceAttribute : Attribute
     {
         public string Namespace { get; }
+
         public PublicApiNamespaceAttribute(string ns) => Namespace = ns;
     }
 }

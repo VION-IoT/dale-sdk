@@ -19,9 +19,7 @@ namespace TestNs
     public class {|#0:MyBlock|} { }
 }
 ";
-            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE013_PublicApiMissingDocs)
-                .WithLocation(0)
-                .WithArguments("MyBlock");
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE013_PublicApiMissingDocs).WithLocation(0).WithArguments("MyBlock");
             await AnalyzerTestBase.VerifyAnalyzerAsync<PublicApiDocumentationAnalyzer>(source, expected);
         }
 
@@ -54,9 +52,7 @@ namespace TestNs
     public class {|#0:UnmarkedType|} { }
 }
 ";
-            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE014_UnmarkedPublicType)
-                .WithLocation(0)
-                .WithArguments("UnmarkedType", "TestNs");
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE014_UnmarkedPublicType).WithLocation(0).WithArguments("UnmarkedType", "TestNs");
             await AnalyzerTestBase.VerifyAnalyzerAsync<PublicApiDocumentationAnalyzer>(source, expected);
         }
 
@@ -126,9 +122,7 @@ using Vion.Dale.Sdk.Core;
 
 [assembly: {|#0:PublicApiNamespace(""Foo.Bar"")|}]
 ";
-            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE015_StalePublicApiNamespace)
-                .WithLocation(0)
-                .WithArguments("Foo.Bar");
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE015_StalePublicApiNamespace).WithLocation(0).WithArguments("Foo.Bar");
             await AnalyzerTestBase.VerifyAnalyzerAsync<PublicApiDocumentationAnalyzer>(source, expected);
         }
 

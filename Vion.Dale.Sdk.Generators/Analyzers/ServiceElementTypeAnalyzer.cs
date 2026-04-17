@@ -12,8 +12,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class ServiceElementTypeAnalyzer : DiagnosticAnalyzer
     {
-        public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-            ImmutableArray.Create(DaleDiagnostics.DALE003_UnsupportedServicePropertyType);
+        public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(DaleDiagnostics.DALE003_UnsupportedServicePropertyType);
 
         public override void Initialize(AnalysisContext context)
         {
@@ -40,12 +39,11 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             }
 
             var attributeName = hasServiceProperty ? "ServiceProperty" : "ServiceMeasuringPoint";
-            context.ReportDiagnostic(Diagnostic.Create(
-                DaleDiagnostics.DALE003_UnsupportedServicePropertyType,
-                property.Locations.FirstOrDefault(),
-                property.Name,
-                attributeName,
-                property.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)));
+            context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE003_UnsupportedServicePropertyType,
+                                                       property.Locations.FirstOrDefault(),
+                                                       property.Name,
+                                                       attributeName,
+                                                       property.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)));
         }
     }
 }

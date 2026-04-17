@@ -16,10 +16,9 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
     public sealed class TimerMethodAnalyzer : DiagnosticAnalyzer
     {
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-            ImmutableArray.Create(
-                DaleDiagnostics.DALE002_TimerMethodSignature,
-                DaleDiagnostics.DALE005_TimerIntervalMustBePositive,
-                DaleDiagnostics.DALE012_DuplicateTimerIdentifier);
+            ImmutableArray.Create(DaleDiagnostics.DALE002_TimerMethodSignature,
+                                  DaleDiagnostics.DALE005_TimerIntervalMustBePositive,
+                                  DaleDiagnostics.DALE012_DuplicateTimerIdentifier);
 
         public override void Initialize(AnalysisContext context)
         {
@@ -56,11 +55,10 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                     issues.Add("has " + method.Parameters.Length + " parameter(s)");
                 }
 
-                context.ReportDiagnostic(Diagnostic.Create(
-                    DaleDiagnostics.DALE002_TimerMethodSignature,
-                    method.Locations.FirstOrDefault(),
-                    method.Name,
-                    string.Join(" and ", issues)));
+                context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE002_TimerMethodSignature,
+                                                           method.Locations.FirstOrDefault(),
+                                                           method.Name,
+                                                           string.Join(" and ", issues)));
             }
 
             // DALE005: interval must be > 0
@@ -69,11 +67,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                 var intervalArg = timerAttr.ConstructorArguments[0];
                 if (intervalArg.Value is double intervalValue && intervalValue <= 0)
                 {
-                    context.ReportDiagnostic(Diagnostic.Create(
-                        DaleDiagnostics.DALE005_TimerIntervalMustBePositive,
-                        method.Locations.FirstOrDefault(),
-                        method.Name,
-                        intervalValue));
+                    context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE005_TimerIntervalMustBePositive, method.Locations.FirstOrDefault(), method.Name, intervalValue));
                 }
             }
         }
@@ -110,12 +104,11 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             {
                 if (seen.TryGetValue(identifier, out var existingMethod))
                 {
-                    context.ReportDiagnostic(Diagnostic.Create(
-                        DaleDiagnostics.DALE012_DuplicateTimerIdentifier,
-                        method.Locations.FirstOrDefault(),
-                        existingMethod.Name,
-                        method.Name,
-                        identifier));
+                    context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE012_DuplicateTimerIdentifier,
+                                                               method.Locations.FirstOrDefault(),
+                                                               existingMethod.Name,
+                                                               method.Name,
+                                                               identifier));
                 }
                 else
                 {

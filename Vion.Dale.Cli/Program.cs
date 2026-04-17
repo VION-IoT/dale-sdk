@@ -19,6 +19,7 @@ namespace Vion.Dale.Cli
             {
                 var version = typeof(Program).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ??
                               typeof(Program).Assembly.GetName().Version?.ToString() ?? "0.0.0";
+
                 // Strip SourceLink git hash suffix (e.g. "0.1.0+abc123" → "0.1.0")
                 var plusIndex = version.IndexOf('+');
                 if (plusIndex >= 0)
@@ -91,5 +92,4 @@ namespace Vion.Dale.Cli
             return await parseResult.InvokeAsync();
         }
     }
-
 }

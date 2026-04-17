@@ -43,9 +43,7 @@ public class MyBlock
 {
     [ServiceMeasuringPoint] public double {|#0:Value|} { get; set; }
 }";
-            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE004_MeasuringPointPublicSetter)
-                .WithLocation(0)
-                .WithArguments("Value");
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE004_MeasuringPointPublicSetter).WithLocation(0).WithArguments("Value");
             await AnalyzerTestBase.VerifyAnalyzerAsync<MeasuringPointAnalyzer>(source, expected);
         }
 

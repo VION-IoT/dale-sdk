@@ -8,7 +8,8 @@ namespace Vion.Dale.Sdk.Core
     /// reasons (e.g. Metalama fabrics, DI extensions) but are not part of the user-facing SDK.
     /// </summary>
     [InternalApi]
-    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface
-        | AttributeTargets.Enum | AttributeTargets.Struct)]
-    public class InternalApiAttribute : Attribute { }
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface | AttributeTargets.Enum | AttributeTargets.Struct)]
+    public class InternalApiAttribute : Attribute
+    {
+    }
 }

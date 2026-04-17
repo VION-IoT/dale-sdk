@@ -31,8 +31,8 @@ using Vion.Dale.Sdk.Core;
 public static class {|#0:EnergyContract|} { }
 ";
             var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE009_ContractInterfaceNamePrefix)
-                .WithLocation(0)
-                .WithArguments("EnergyContract", "BetweenInterface", "Producer");
+                                           .WithLocation(0)
+                                           .WithArguments("EnergyContract", "BetweenInterface", "Producer");
             await AnalyzerTestBase.VerifyAnalyzerAsync<ContractMessageAnalyzer>(source, expected);
         }
 
@@ -46,8 +46,8 @@ using Vion.Dale.Sdk.Core;
 public static class {|#0:EnergyContract|} { }
 ";
             var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE009_ContractInterfaceNamePrefix)
-                .WithLocation(0)
-                .WithArguments("EnergyContract", "AndInterface", "Consumer");
+                                           .WithLocation(0)
+                                           .WithArguments("EnergyContract", "AndInterface", "Consumer");
             await AnalyzerTestBase.VerifyAnalyzerAsync<ContractMessageAnalyzer>(source, expected);
         }
 
@@ -83,8 +83,8 @@ public static class EnergyContract
 }
 ";
             var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE010_MessageFromToMismatch)
-                .WithLocation(0)
-                .WithArguments("Allocate", "From", "IWrong", "IProducer", "IConsumer");
+                                           .WithLocation(0)
+                                           .WithArguments("Allocate", "From", "IWrong", "IProducer", "IConsumer");
             await AnalyzerTestBase.VerifyAnalyzerAsync<ContractMessageAnalyzer>(source, expected);
         }
 
@@ -102,8 +102,8 @@ public static class EnergyContract
 }
 ";
             var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE010_MessageFromToMismatch)
-                .WithLocation(0)
-                .WithArguments("Allocate", "To", "IWrong", "IProducer", "IConsumer");
+                                           .WithLocation(0)
+                                           .WithArguments("Allocate", "To", "IWrong", "IProducer", "IConsumer");
             await AnalyzerTestBase.VerifyAnalyzerAsync<ContractMessageAnalyzer>(source, expected);
         }
 
@@ -159,8 +159,8 @@ public static class EnergyContract
 }
 ";
             var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE011_ResponseTypeMustBeNestedStruct)
-                .WithLocation(0)
-                .WithArguments("AllocateRequest", "ExternalResponse", "EnergyContract");
+                                           .WithLocation(0)
+                                           .WithArguments("AllocateRequest", "ExternalResponse", "EnergyContract");
             await AnalyzerTestBase.VerifyAnalyzerAsync<ContractMessageAnalyzer>(source, expected);
         }
 

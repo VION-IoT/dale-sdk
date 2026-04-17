@@ -13,8 +13,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class ContractPropertyAnalyzer : DiagnosticAnalyzer
     {
-        public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-            ImmutableArray.Create(DaleDiagnostics.DALE001_ContractPropertyMustHaveSetter);
+        public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(DaleDiagnostics.DALE001_ContractPropertyMustHaveSetter);
 
         public override void Initialize(AnalysisContext context)
         {
@@ -39,10 +38,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                 return;
             }
 
-            context.ReportDiagnostic(Diagnostic.Create(
-                DaleDiagnostics.DALE001_ContractPropertyMustHaveSetter,
-                property.Locations.FirstOrDefault(),
-                property.Name));
+            context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE001_ContractPropertyMustHaveSetter, property.Locations.FirstOrDefault(), property.Name));
         }
     }
 }

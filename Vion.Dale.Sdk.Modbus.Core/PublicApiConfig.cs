@@ -7,7 +7,8 @@ using System;
 
 namespace Vion.Dale.Sdk.Core
 {
-    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface
-                     | AttributeTargets.Enum | AttributeTargets.Struct)]
-    internal class PublicApiAttribute : Attribute { }
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface | AttributeTargets.Enum | AttributeTargets.Struct)]
+    internal class PublicApiAttribute : Attribute
+    {
+    }
 }

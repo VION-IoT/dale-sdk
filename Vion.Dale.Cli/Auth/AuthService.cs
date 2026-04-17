@@ -15,6 +15,7 @@ namespace Vion.Dale.Cli.Auth
     public static class AuthService
     {
         private const string CliClientId = "dale-cli";
+
         private static readonly TimeSpan AuthTimeout = TimeSpan.FromMinutes(5);
 
         private static readonly HttpClient Http = new();
@@ -34,14 +35,8 @@ namespace Vion.Dale.Cli.Auth
             var redirectUri = $"http://localhost:{port}/callback";
 
             // Build authorization URL
-            var authUrl = $"{authBaseUrl}/protocol/openid-connect/auth" +
-                          $"?client_id={CliClientId}" +
-                          $"&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
-                          $"&response_type=code" +
-                          $"&scope=openid%20user_impersonation" +
-                          $"&code_challenge={codeChallenge}" +
-                          $"&code_challenge_method=S256" +
-                          $"&state={state}";
+            var authUrl = $"{authBaseUrl}/protocol/openid-connect/auth" + $"?client_id={CliClientId}" + $"&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
+                          $"&response_type=code" + $"&scope=openid%20user_impersonation" + $"&code_challenge={codeChallenge}" + $"&code_challenge_method=S256" + $"&state={state}";
 
             // Open browser
             try

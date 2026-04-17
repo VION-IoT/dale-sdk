@@ -8,7 +8,8 @@ namespace Vion.Dale.Sdk.Core
     /// and must have XML documentation comments.
     /// </summary>
     [InternalApi]
-    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface
-        | AttributeTargets.Enum | AttributeTargets.Struct)]
-    public class PublicApiAttribute : Attribute { }
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Interface | AttributeTargets.Enum | AttributeTargets.Struct)]
+    public class PublicApiAttribute : Attribute
+    {
+    }
 }
