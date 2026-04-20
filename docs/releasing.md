@@ -31,7 +31,7 @@ gh release create v0.2.0-preview.1 --target main --prerelease --generate-notes \
   --title "v0.2.0-preview.1" --notes "What this preview validates."
 ```
 
-Creating the release pushes the tag, which triggers [`publish.yml`](../.github/workflows/publish.yml):
+`gh release create` creates the git tag (at the `--target` commit) and the GitHub Release in one step. The new tag triggers [`publish.yml`](../.github/workflows/publish.yml):
 
 1. Builds and packs every packable project with `Version` taken from the tag (strips the `v` prefix).
 2. Pushes `.nupkg` + `.snupkg` to the private Azure DevOps feed.
