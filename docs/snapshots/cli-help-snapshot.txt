@@ -162,7 +162,7 @@ Usage:
   Vion.Dale.Cli login [options]
 
 Options:
-  -e, --environment <environment>  Target environment (test, staging, production) [default: production]
+  -e, --environment <environment>  Target environment (test, production) [default: production]
   -?, -h, --help                   Show help and usage information
   -o, --output <json|table>        Output format [default: table]
   --project <project>              Path to .csproj file

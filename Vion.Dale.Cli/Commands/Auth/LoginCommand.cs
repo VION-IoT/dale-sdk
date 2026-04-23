@@ -14,7 +14,7 @@ namespace Vion.Dale.Cli.Commands.Auth
             var command = new Command("login", "Authenticate with Vion Cloud");
             var environmentOption = new Option<string>("--environment", "-e")
                                     {
-                                        Description = "Target environment (test, staging, production)",
+                                        Description = "Target environment (test, production)",
                                         DefaultValueFactory = _ => TokenStore.LoadConfig().Environment ?? "production",
                                     };
             command.Options.Add(environmentOption);
@@ -39,7 +39,7 @@ namespace Vion.Dale.Cli.Commands.Auth
                                       else
                                       {
                                           DaleConsole
-                                              .Error($"Unknown environment: {environment}. Use test, staging, production, or configure a custom environment with `dale config set-environment`.");
+                                              .Error($"Unknown environment: {environment}. Use test, production, or configure a custom environment with `dale config set-environment`.");
                                           return 1;
                                       }
                                   }

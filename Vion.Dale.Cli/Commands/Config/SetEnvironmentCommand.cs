@@ -12,7 +12,7 @@ namespace Vion.Dale.Cli.Commands.Config
         {
             var command = new Command("set-environment", "Configure target environment");
 
-            var nameArgument = new Argument<string>("name") { Description = "Environment name (test, staging, production, or custom name)" };
+            var nameArgument = new Argument<string>("name") { Description = "Environment name (test, production, or custom name)" };
             var authUrlOption = new Option<string?>("--auth-url") { Description = "Custom auth base URL (required for custom environments)" };
             var apiUrlOption = new Option<string?>("--api-url") { Description = "Custom API base URL (required for custom environments)" };
             var forceOption = new Option<bool>("--force", "-f") { Description = "Skip confirmation prompt" };

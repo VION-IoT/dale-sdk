@@ -47,14 +47,14 @@ namespace Vion.Dale.Cli.Test.Auth
         public void ResolveAuthBaseUrl_Production()
         {
             var url = TokenStore.ResolveAuthBaseUrl("production");
-            Assert.AreEqual("https://auth.ecocoa.ch/realms/vion", url);
+            Assert.AreEqual("https://auth.vion.swiss/realms/vion", url);
         }
 
         [TestMethod]
         public void ResolveAuthBaseUrl_Test()
         {
             var url = TokenStore.ResolveAuthBaseUrl("test");
-            Assert.AreEqual("https://auth.test.ecocoa.ch/realms/vion", url);
+            Assert.AreEqual("https://auth.test.vion.swiss/realms/vion", url);
         }
 
         [TestMethod]
@@ -68,14 +68,14 @@ namespace Vion.Dale.Cli.Test.Auth
         public void ResolveApiBaseUrl_Test()
         {
             var url = TokenStore.ResolveApiBaseUrl("test");
-            Assert.AreEqual("https://cloudapi.test.ecocoa.ch", url);
+            Assert.AreEqual("https://api.test.vion.swiss", url);
         }
 
         [TestMethod]
         public void ResolveApiBaseUrl_Production()
         {
             var url = TokenStore.ResolveApiBaseUrl("production");
-            Assert.AreEqual("https://cloudapi.ecocoa.ch", url);
+            Assert.AreEqual("https://api.vion.swiss", url);
         }
 
         [TestMethod]
@@ -89,7 +89,6 @@ namespace Vion.Dale.Cli.Test.Auth
         public void IsKnownEnvironment_ReturnsTrue_ForKnown()
         {
             Assert.IsTrue(TokenStore.IsKnownEnvironment("test"));
-            Assert.IsTrue(TokenStore.IsKnownEnvironment("staging"));
             Assert.IsTrue(TokenStore.IsKnownEnvironment("production"));
         }
 

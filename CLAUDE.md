@@ -77,7 +77,7 @@ Single GitHub Actions workflow: [.github/workflows/publish.yml](.github/workflow
 
 - **Interactive (developers)**: `dale login` — PKCE browser flow against Keycloak (`dale-cli` public client — external identity, do not rename).
 - **CI/CD**: `--client-id <id> --client-secret <secret>` — client-credentials flow with service accounts.
-- **Environments**: `test` (cloudapi.test.ecocoa.ch) and `production` (cloudapi.ecocoa.ch), configurable via `dale config set-environment`.
+- **Environments**: `test` (api.test.vion.swiss) and `production` (api.vion.swiss), configurable via `dale config set-environment`.
 - **Integrator context**: auto-resolved from `/me` if the user belongs to one integrator, otherwise selected during `dale login` or via `--integrator-id`.
 
 Env vars: `DALE_CLIENT_ID`, `DALE_CLIENT_SECRET`, `DALE_INTEGRATOR_ID` (all user-facing, keep the `DALE_` prefix).

@@ -109,9 +109,8 @@ namespace Vion.Dale.Cli.Auth
         {
             return environment.ToLowerInvariant() switch
             {
-                "test" => "https://auth.test.ecocoa.ch/realms/vion",
-                "staging" => "https://auth.staging.ecocoa.ch/realms/vion",
-                "production" => "https://auth.ecocoa.ch/realms/vion",
+                "test" => "https://auth.test.vion.swiss/realms/vion",
+                "production" => "https://auth.vion.swiss/realms/vion",
                 _ => null!,
             };
         }
@@ -120,9 +119,8 @@ namespace Vion.Dale.Cli.Auth
         {
             return environment.ToLowerInvariant() switch
             {
-                "test" => "https://cloudapi.test.ecocoa.ch",
-                "staging" => "https://cloudapi.staging.ecocoa.ch",
-                "production" => "https://cloudapi.ecocoa.ch",
+                "test" => "https://api.test.vion.swiss",
+                "production" => "https://api.vion.swiss",
                 _ => null!,
             };
         }
@@ -132,7 +130,7 @@ namespace Vion.Dale.Cli.Auth
         /// </summary>
         public static bool IsKnownEnvironment(string environment)
         {
-            return environment.ToLowerInvariant() is "test" or "staging" or "production";
+            return environment.ToLowerInvariant() is "test" or "production";
         }
 
         public static void DeleteCredentials()
