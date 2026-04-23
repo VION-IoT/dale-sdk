@@ -20,10 +20,10 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Vion.Dale.Sdk" Version="0.2.0"/>
-        <PackageReference Include="Vion.Dale.Sdk.AnalogIo" Version="0.2.0"/>
-        <PackageReference Include="Vion.Dale.Sdk.DigitalIo" Version="0.2.0"/>
-        <PackageReference Include="Vion.Dale.Sdk.Http" Version="0.2.0"/>
+        <PackageReference Include="Vion.Dale.Sdk" Version="0.3.0"/>
+        <PackageReference Include="Vion.Dale.Sdk.AnalogIo" Version="0.3.0"/>
+        <PackageReference Include="Vion.Dale.Sdk.DigitalIo" Version="0.3.0"/>
+        <PackageReference Include="Vion.Dale.Sdk.Http" Version="0.3.0"/>
         <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.0"/>
         <PackageReference Include="System.Text.Json" Version="10.0.0"/>
         <!--shim to be able to use readonly record structs in netstandard2.1-->
