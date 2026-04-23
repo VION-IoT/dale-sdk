@@ -96,6 +96,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         [TestInitialize]
         public async Task InitializeAsync()
         {
+            MqttConfiguration.InstallationTopic = "installation";
             _dateTimeProviderMock.Setup(provider => provider.UtcNow).Returns(Now);
             _actorContextMock.Setup(actorContext => actorContext.LookupByName(MqttConstants.MqttClientName)).Returns(_mqttClientActorRefMock.Object);
             _actorContextMock.Setup(actorContext => actorContext.SendToSelfAfter(It.IsAny<object>(), It.IsAny<TimeSpan>()))
