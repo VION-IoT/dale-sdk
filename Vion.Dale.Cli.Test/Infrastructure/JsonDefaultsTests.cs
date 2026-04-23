@@ -23,11 +23,11 @@ namespace Vion.Dale.Cli.Test.Infrastructure
         [TestMethod]
         public void Options_IsCaseInsensitiveOnRead()
         {
-            var json = @"{ ""Environment"": ""staging"", ""AuthBaseUrl"": ""https://test.com"" }";
+            var json = @"{ ""Environment"": ""custom"", ""AuthBaseUrl"": ""https://test.com"" }";
             var config = JsonSerializer.Deserialize<DaleConfig>(json, JsonDefaults.Options);
 
             Assert.IsNotNull(config);
-            Assert.AreEqual("staging", config.Environment);
+            Assert.AreEqual("custom", config.Environment);
             Assert.AreEqual("https://test.com", config.AuthBaseUrl);
         }
 

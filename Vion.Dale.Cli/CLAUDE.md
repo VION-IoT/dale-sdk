@@ -96,7 +96,7 @@ var response = await DaleHttpClient.GetAsync(url, ctx.AccessToken);
 
 **Auth resolution chain:** `--client-id`/`--client-secret` flags (CI) → `DALE_CLIENT_ID`/`DALE_CLIENT_SECRET` env vars → stored credentials from `dale login`. Integrator: `--integrator-id` flag → `DALE_INTEGRATOR_ID` env var → stored config → auto-resolve via `/me` (auto-selects if one membership).
 
-**Environment configuration.** `dale config set-environment test|production|<custom>` sets the Cloud API and Keycloak URLs. Custom environments need `dale config set-api-url` and `dale config set-auth-url`. Keycloak client is `dale-cli` (public, PKCE).
+**Environment configuration.** `dale config set-environment production|test|<custom>` sets the Cloud API and Keycloak URLs. Custom environments need `dale config set-api-url` and `dale config set-auth-url`. Keycloak client is `dale-cli` (public, PKCE).
 
 ## Known Limitations
 
