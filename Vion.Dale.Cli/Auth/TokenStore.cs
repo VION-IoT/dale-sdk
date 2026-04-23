@@ -130,7 +130,7 @@ namespace Vion.Dale.Cli.Auth
         /// </summary>
         public static bool IsKnownEnvironment(string environment)
         {
-            return environment.ToLowerInvariant() is "test" or "production";
+            return environment.ToLowerInvariant() is "production" or "test";
         }
 
         public static void DeleteCredentials()
