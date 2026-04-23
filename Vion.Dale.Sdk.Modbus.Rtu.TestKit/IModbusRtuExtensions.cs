@@ -92,7 +92,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit
                 throw new InvalidOperationException($"No pending ReadModbusRtuRequest found{filter}. " + "Ensure the logic block has issued a read before simulating a response.");
             }
 
-            return candidates[candidates.Count - 1].Data;
+            return candidates[^1].Data;
         }
 
         private static WriteModbusRtuRequest FindLastWriteRequest<T>(LogicBlockTestContext<T> testContext, ModbusRtu modbusRtuImpl, ushort? address)
@@ -108,7 +108,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit
                                                     "Ensure the logic block has issued a write before simulating a response.");
             }
 
-            return candidates[candidates.Count - 1].Data;
+            return candidates[^1].Data;
         }
     }
 }

@@ -122,6 +122,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VionIotLibraryTemplate", "t
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VionIotLibraryTemplate.Test", "templates\vion-iot-library\VionIotLibraryTemplate.Test\VionIotLibraryTemplate.Test.csproj", "{7B08DC51-BE8E-42B9-90E3-AA22B8DF7BD9}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test", "Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test\Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test.csproj", "{21FA4441-C610-4BAE-AE82-B49F022DAE38}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -648,6 +650,18 @@ Global
 		{7B08DC51-BE8E-42B9-90E3-AA22B8DF7BD9}.Release|x64.Build.0 = Release|Any CPU
 		{7B08DC51-BE8E-42B9-90E3-AA22B8DF7BD9}.Release|x86.ActiveCfg = Release|Any CPU
 		{7B08DC51-BE8E-42B9-90E3-AA22B8DF7BD9}.Release|x86.Build.0 = Release|Any CPU
+		{21FA4441-C610-4BAE-AE82-B49F022DAE38}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{21FA4441-C610-4BAE-AE82-B49F022DAE38}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{21FA4441-C610-4BAE-AE82-B49F022DAE38}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{21FA4441-C610-4BAE-AE82-B49F022DAE38}.Debug|x64.Build.0 = Debug|Any CPU
+		{21FA4441-C610-4BAE-AE82-B49F022DAE38}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{21FA4441-C610-4BAE-AE82-B49F022DAE38}.Debug|x86.Build.0 = Debug|Any CPU
+		{21FA4441-C610-4BAE-AE82-B49F022DAE38}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{21FA4441-C610-4BAE-AE82-B49F022DAE38}.Release|Any CPU.Build.0 = Release|Any CPU
+		{21FA4441-C610-4BAE-AE82-B49F022DAE38}.Release|x64.ActiveCfg = Release|Any CPU
+		{21FA4441-C610-4BAE-AE82-B49F022DAE38}.Release|x64.Build.0 = Release|Any CPU
+		{21FA4441-C610-4BAE-AE82-B49F022DAE38}.Release|x86.ActiveCfg = Release|Any CPU
+		{21FA4441-C610-4BAE-AE82-B49F022DAE38}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
