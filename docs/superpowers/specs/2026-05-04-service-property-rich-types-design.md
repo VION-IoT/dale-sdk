@@ -52,13 +52,12 @@ The design uses a constrained profile of **JSON Schema 2020-12** (the draft Open
 | Schema source of truth | Library binary, parsed deterministically. Cloud parses on upload (today's path); Dale parses on load. No runtime publish | Single source; no Cloud-DB-vs-Mesh-cache drift; same parser everywhere |
 | Mesh schema model | Schema-free | Today's invariant; runtime schema declaration via retained MQTT was an unnecessary regression |
 | Set-path mechanism | `SetPropertyPayload` carries the schema alongside the value | Mesh stays stateless; same pattern as today's `Type` hint, expanded to a JSON Schema |
-| Enum on Mesh↔Cloud wire | Member integer (not name) | Mesh has no schema; can't translate. Cloud has the schema; translates int↔name for UI |
-| Enum on Cloud↔UI wire | Member name string | UI never has to join the int↔name table |
+| Enum wire form (everywhere) | Member name string, end-to-end | Idiomatic JSON Schema / OpenAPI; no translation hop; cross-language-natural (pydantic StrEnum, TS string-literal unions, C# `Enum.GetName` / `Enum.Parse`). Drops the `x-enum-values` extension and the int↔name translation logic in Cloud |
 | Nullable transport | 2-state on the wire (null \| value); "not yet received" = no retained MQTT message | Matches MQTT retention semantics; UI distinguishes via cache lookup |
 | Struct depth | Flat — struct fields are primitives (+ nullable, + enum) | Motivating use cases are flat; keeps wire & UI shallow |
 | Wire variant count | ~14 FB union variants, not 33; numeric precision narrowing happens at the C# binding boundary using schema | Cross-language-natural; Python/TS would emit one numeric variant anyway. Codec is half the size |
 | Wire philosophy | FB: explicit `union` with built-in tag; JSON: contextual, no `$type` tag | Idiomatic for each format |
-| Struct identity | Shape = `{(fieldName, fieldType)}` ordered; `Title` is annotation | Enables structurally-shared renderers; Python-friendly |
+| Struct identity | `(Title, ordered fields, ordered required)` — `Title` identity-bearing for nominal disambiguation, mirroring enum identity | Two semantically-different structs that happen to share the same field shape stay distinct; registry-hook matching (`title === "Coordinates"`) is unambiguous |
 | `decimal` | Dropped from whitelist | Simpler wire; no native support in FB/JSON/Python; zero existing usage |
 | Collection type | `ImmutableArray<T>` required (not `T[]`, not `List<T>`) | Prevents in-place mutation trap with `[Observable]` |
 | Measuring points | In scope — same type system, same wire | Code paths already unified; arrays more natural for metrics |
@@ -96,18 +95,18 @@ public abstract record TypeRef;
 public sealed record PrimitiveTypeRef(PrimitiveKind Kind) : TypeRef;
 
 public sealed record EnumTypeRef(
-    string Title,                              // identity-bearing for enums (nominal disambiguation)
-    ImmutableArray<EnumMember> Members) : TypeRef;
+    string Title,                              // identity-bearing — nominal disambiguation
+    ImmutableArray<string> Members) : TypeRef;  // ordered member names; integer underlying values are a C#-side concern, not on the wire
 
 public sealed record StructTypeRef(
-    ImmutableArray<StructField> Fields,        // ordered; identity by full list
+    string Title,                              // identity-bearing — nominal disambiguation, mirrors EnumTypeRef
+    ImmutableArray<StructField> Fields,        // ordered
     ImmutableArray<string> Required) : TypeRef;
 
 public sealed record ArrayTypeRef(TypeRef Items) : TypeRef;
 public sealed record NullableTypeRef(TypeRef Inner) : TypeRef;
 
 public sealed record StructField(string Name, TypeRef Type);
-public sealed record EnumMember(string Name, int Value);
 
 public enum PrimitiveKind { Bool, String, Short, Int, Long, Float, Double, DateTime, Duration }
 
@@ -198,7 +197,7 @@ public static class PropertyMetadataSerialization
 **Composite → JSON Schema mapping:**
 
 - **Nullable of T:** widen `T`'s `type` keyword from `X` to `[X, "null"]`. Recursive.
-- **Enum of int:** `{"type":"string","enum":["Ok","Warning","Critical"],"x-enum-values":{"Ok":0,"Warning":1,"Critical":2},"title":"AlarmState"}`. JSON value at the Cloud↔UI hop is the *name string* (Cloud handles int↔name translation).
+- **Enum:** `{"type":"string","enum":["Ok","Warning","Critical"],"title":"AlarmState"}`. JSON value is the member name string everywhere (Mesh↔Cloud, Cloud↔UI, FB wire). Idiomatic JSON Schema / OpenAPI; no extension required. The C# enum's underlying integer is a binding-boundary concern — the codec calls `Enum.GetName` / `Enum.Parse` to bridge — and never appears on the wire.
 - **Struct:** `{"type":"object","title":"Coordinates3D","properties":{…},"required":["lat","lon","altitude"],"additionalProperties":false}`.
 - **Array:** `{"type":"array","items":{…}}`.
 
@@ -227,10 +226,10 @@ public static class PropertyMetadataSerialization
 **Identity rules** — encoded by the C# records via default record equality:
 
 - **Primitives:** by `Kind` (1:1 with `(type, format)` in JSON Schema).
-- **Enums:** by `(Title, Members)` — `Title` is identity-bearing for enums.
-- **Structs:** by `(Fields, Required)` — ordered field list + ordered required-field names.
+- **Enums:** by `(Title, Members)` — `Title` is identity-bearing.
+- **Structs:** by `(Title, Fields, Required)` — `Title` is identity-bearing, mirroring enums. Two semantically-different structs that happen to share the same field shape (e.g. `Coordinates(Lat, Lon)` vs. `Pressure(Min, Max)`) stay distinct types.
 - **Arrays / Nullables:** by `Items` / `Inner`.
-- **Annotations** (`Title` on non-enum, `Description`, `Unit`, `Minimum`, `Maximum`, `ReadOnly`) live entirely in `TypeAnnotations` / `TypeSchema.StructFieldAnnotations`. They never affect `TypeRef` equality.
+- **Annotations** (`Description`, `Unit`, `Minimum`, `Maximum`, `ReadOnly` — note `Title` is *not* annotation; it's an identity-bearing field on `EnumTypeRef` / `StructTypeRef`. For primitives, arrays, and nullables, `Title` is annotation only) live in `TypeAnnotations` / `TypeSchema.StructFieldAnnotations` and never affect `TypeRef` equality.
 
 **Appendix A — Dale profile of JSON Schema 2020-12**
 
@@ -238,7 +237,7 @@ A schema is a valid Dale TypeRef iff it matches one of the productions in the ma
 
 - `type` as a single string from `{"boolean","string","integer","number","array","object"}` or a two-element array `[X, "null"]` for nullability.
 - `format` only as listed in the primitive mapping.
-- `enum` only with `type: "string"` (plus `x-enum-values` extension for the integer mapping).
+- `enum` only with `type: "string"` — array of member name strings.
 - `properties` + `required` + `additionalProperties: false` for structs.
 - `items` as a single subschema for arrays.
 - Optional display keywords: `title`, `description`.
@@ -415,8 +414,7 @@ Final IDs are confirmed during planning against any DALE numbers claimed between
   "schema": {
     "type": ["string","null"],
     "title": "AlarmState",
-    "enum": ["Ok","Warning","Critical",null],
-    "x-enum-values": {"Ok":0,"Warning":1,"Critical":2}
+    "enum": ["Ok","Warning","Critical",null]
   },
   "presentation": {
     "statusMappings": {"Ok":"ok","Warning":"warning","Critical":"critical"}
@@ -434,7 +432,7 @@ Final IDs are confirmed during planning against any DALE numbers claimed between
 - `Writable` (bool) — replaced by JSON Schema `readOnly` keyword on the schema itself.
 - `Annotations` dictionary — split across the three sibling documents.
 
-**Enum members:** inline in the `schema` via `enum` + `x-enum-values`. Per-member severity moves to `presentation.statusMappings` keyed by member name.
+**Enum members:** inline in the `schema` via `enum` (array of name strings). Per-member severity moves to `presentation.statusMappings` keyed by member name.
 
 **LogicBlockParser tool:** unchanged CLI surface; emits the new-shape JSON after SDK upgrade.
 
@@ -442,12 +440,12 @@ Final IDs are confirmed during planning against any DALE numbers claimed between
 
 #### 5.4.1 FlatBuffers schema (`vion-contracts/Vion.Contracts/FlatBuffers/Common/property_value.fbs`)
 
-`CommonValue` is replaced by `PropertyValue`. **14 union variants**, vs. the 33 of spec v1. Numeric precision narrowing happens at the C# binding boundary using the schema; the wire collapses `short`/`int`/`long`/`enum` into `LongVal` and `float`/`double` into `DoubleVal`. Mesh stays schema-blind because each variant maps unambiguously to a JSON shape (Bool→`true`/`false`, Long→number, Double→number, String→string, DateTime→ISO-8601 string, Duration→ISO-8601 duration string, structs→object, arrays→array).
+`CommonValue` is replaced by `PropertyValue`. **14 union variants**, vs. the 33 of spec v1. Numeric precision narrowing happens at the C# binding boundary using the schema; the wire collapses `short`/`int`/`long` into `LongVal` and `float`/`double` into `DoubleVal`. Enums travel as their member name string in `StringVal` (or `StringArray`), idiomatic for JSON Schema / OpenAPI. Mesh stays schema-blind because each variant maps unambiguously to a JSON shape (Bool→`true`/`false`, Long→number, Double→number, String→string, DateTime→ISO-8601 string, Duration→ISO-8601 duration string, structs→object, arrays→array).
 
 ```fbs
 namespace Vion.Contracts.FlatBuffers.Common;
 
-// Scalar variants (6) — Long covers short/int/long/enum; Double covers float/double
+// Scalar variants (6) — Long covers short/int/long; Double covers float/double; String covers string and enums
 table BoolVal     { value: bool;   }
 table LongVal     { value: long;   }
 table DoubleVal   { value: double; }
@@ -485,7 +483,8 @@ table PropertyValue { payload: ValuePayload; }
 - **"Not yet received"** = no retained MQTT message for the topic. Not a wire state.
 - **Null inside an array** = `present[i] == false`. `values[i]` is undefined.
 - **Numeric precision** = stored at full width (`long` / `double`); narrowed at the C# binding boundary using `schema.format`. Out-of-range values throw `PropertyValueDecodeException` at decode.
-- **Enums** = `LongVal` carrying the enum's int value. Schema's `x-enum-values` carries the int↔name mapping for Cloud-side translation.
+- **Enums** = `StringVal` carrying the member name. The codec uses `Enum.GetName` / `Enum.Parse<T>` (results cached per `Type`) to bridge name↔C#-value at the binding boundary. The C# integer underlying value is never on the wire.
+- **Flag enums** (`[Flags]`) are out of scope for v1 — none used in current LogicBlocks. Future support would either compose names (`"Read|Write"`) or introduce a separate wire form; deferred.
 
 #### 5.4.2 JSON on Cloud↔Mesh and Cloud↔UI
 
@@ -508,9 +507,7 @@ Contextual JSON, no `$type` tag. Natural shape per kind:
     {"at":"2026-05-04T00:00:00Z","powerSetpoint":5.0,"voltageSetpoint":230.0},
     {"at":"2026-05-04T00:15:00Z","powerSetpoint":5.2,"voltageSetpoint":230.0}
   ] }
-// enum on Mesh↔Cloud — integer (Mesh has no schema)
-{ "propertyIdentifier": "CurrentAlarm", "value": 1 }
-// enum on Cloud↔UI — name (Cloud translates using schema's x-enum-values)
+// enum — same name string everywhere (no Mesh/Cloud translation)
 { "propertyIdentifier": "CurrentAlarm", "value": "Warning" }
 ```
 
@@ -523,25 +520,27 @@ Struct field names are camelCase (`lat`, `lon`, `altitude`) — matching JSON Sc
 ```csharp
 public static class PropertyValueCodec
 {
-    // Dale-side: CLR-typed; requires the user's struct/enum CLR types
+    // ── Dale-side ── CLR-typed; requires the user's struct/enum CLR types
     public static object? FlatBufferToClr(ReadOnlySpan<byte> bytes, TypeRef type, Type targetClrType);
     public static byte[]  ClrToFlatBuffer(object? value, TypeRef type);
 
-    // Mesh-side ingress (Dale → Cloud direction): schema-free, FB tag tree → JSON
-    // Enums emit as int; Cloud translates int→name for UI
+    // ── Mesh-side ingress (Dale → Cloud) ── schema-free, FB tag tree → JSON
     public static JsonNode? FlatBufferToJson(ReadOnlySpan<byte> bytes);
 
-    // Mesh-side egress (Cloud → Dale direction): uses schema carried in the message envelope
+    // ── Mesh-side egress (Cloud → Dale) ── uses schema carried in the message envelope
     public static byte[]    JsonToFlatBuffer(JsonNode? json, TypeRef type);
 
-    // Schema-driven validation
+    // ── Optional defensive overload for callers that have a schema and want a tag-vs-schema check ──
+    public static JsonNode? FlatBufferToJson(ReadOnlySpan<byte> bytes, TypeRef expected);
+
+    // ── Schema-driven validation ──
     public static ValidationResult ValidateJson(JsonNode? json, TypeSchema schema);
 }
 ```
 
-**Encode/decode walks the `TypeRef` tree only.** `ValidateJson` walks both `TypeRef` (shape) and `TypeAnnotations` (ranges). Hand-rolled for the Dale profile, ~150 LOC, no off-the-shelf validator dependency. Stock JSON Schema validators (NJsonSchema, JsonSchema.Net) remain available for third parties consuming the OpenAPI spec.
+**Encode/decode walks the `TypeRef` tree only.** `ValidateJson` walks both `TypeRef` (shape) and `TypeAnnotations` (ranges). Hand-rolled for the Dale profile, no off-the-shelf validator dependency. Stock JSON Schema validators (NJsonSchema, JsonSchema.Net) remain available for third parties consuming the OpenAPI spec.
 
-**Notable: `FlatBufferToJson` takes no schema argument.** Mesh has no schema; the FB union tag tree is fully self-describing for the JSON shape. Numeric precision distinctions disappear at this hop (JSON has no int16-vs-int32 distinction anyway). Enums emit as integer; downstream Cloud knows the schema and translates to the member name when forwarding to the UI.
+**Notable: the schema-free `FlatBufferToJson` overload takes no schema.** Mesh uses this one. The FB union tag tree is fully self-describing for the JSON shape. Numeric precision distinctions disappear at this hop (JSON has no int16-vs-int32 distinction anyway). Enums emit as their name string (FB carries the name in `StringVal`).
 
 **Defensive validation:** the Dale-side `FlatBufferToClr` asserts payload tag matches the expected schema variant family; mismatch throws `PropertyValueDecodeException` logged at warn.
 
@@ -567,7 +566,7 @@ Data flow on property state from Dale:
 /sw/property/state (FB retained)  →  Mesh: FlatBufferToJson(bytes)         (no schema needed)
                                   →  JsonNode stored in state cache
                                   →  /cloud/sw/properties/state (JSON)
-                                  →  Cloud API: receives JsonNode, translates int→name for any enums using stored schema, forwards to UI
+                                  →  Cloud API: receives JsonNode, validates against stored schema, forwards to UI as-is (enum names already on the wire)
 ```
 
 **Dale runtime responsibilities** (private repo, out-of-tree change):
@@ -620,8 +619,8 @@ This is identical to today's behaviour for the property/measuring-point flow, ju
   ```
   `schema.readOnly === true` encodes "non-writable". `presentation` and `runtime` are advisory and may be absent.
 - **`SetPropertyPayload`:** `(object Value, string ServiceElementType)` → `(JsonNode Value, JsonNode Schema)`. Cloud retrieves the schema from its DB (single fetch) and includes it on the wire so Mesh can construct FB without state.
-- **`SetPropertyValueRequestHandler`:** validates the incoming value against the property's stored `TypeSchema` via `PropertyValueCodec.ValidateJson(value, typeSchema)` — covers shape, `required`, enum membership, `minimum`/`maximum` from both property-level and per-struct-field annotations, nullability, and `readOnly` rejection. Single dispatch path; no separate handler for primitives vs compounds.
-- **Enum translation:** Cloud-side outbound (state → UI), translate int → member name using stored `x-enum-values`. Inbound (UI → set), translate member name → int before constructing `SetPropertyPayload`. The translation is a small helper in the cloud-api layer; ~50 LOC.
+- **`SetPropertyValueRequestHandler`:** validates the incoming value against the property's stored `TypeSchema` via `PropertyValueCodec.ValidateJson(value, typeSchema)` — covers shape, `required`, enum membership (string ∈ `schema.enum`), `minimum`/`maximum` from both property-level and per-struct-field annotations, nullability, and `readOnly` rejection. Single dispatch path; no separate handler for primitives vs compounds.
+- **No enum translation.** Enum values are member name strings end-to-end. UI ↔ Cloud ↔ Mesh ↔ Dale all see the same `"Warning"`. The C# integer underlying value never leaves the Dale binding boundary.
 - **OpenAPI spec:** the auto-generated description embeds the property's schema directly. Third-party clients can discover types via `/services` and drive UI with any JSON Schema form generator.
 - Stops string-based type inference. All dispatch is schema-driven.
 
@@ -657,7 +656,7 @@ Merge in old `Annotations`:
 - `Unit` → `schema["x-unit"]`
 - `MinValue` → `schema.minimum` (when numeric)
 - `MaxValue` → `schema.maximum` (when numeric)
-- `EnumValues` → promoted into the schema as `enum` + `x-enum-values` per §5.1
+- `EnumValues` → promoted into the schema as `enum` (array of member name strings) per §5.1; the legacy integer mapping is dropped (no longer on the wire)
 - `DisplayName`, `Group`, `Order`, `Category`, `Importance`, `UIHint` → `presentation.{displayName, group, order, category, importance, uiHint}`
 - `StatusMappings` → `presentation.statusMappings`
 - `Persistent` → `runtime.persistent`
@@ -695,7 +694,6 @@ export interface PrimitiveSchema extends SchemaBase {
 export interface EnumSchema extends SchemaBase {
   type: "string" | ["string", "null"];
   enum: (string | null)[];
-  "x-enum-values": Record<string, number>;
 }
 
 export interface StructSchema extends SchemaBase {
@@ -760,7 +758,7 @@ A `baseType(schema)` helper returns the non-null kind; `isNullable(schema)` retu
 
 **Scope of v1 UI components:**
 - `<PrimitiveValue>`: existing formatting extended with `schema["x-unit"]` suffix and `presentation.decimals` precision. Uses `schema.format` to pick int/number/date-time/duration formatting path.
-- `<EnumValue>`: value is the member name string (Cloud already translated from int); component looks up `schema.enum` for display; styles via `presentation.statusMappings` if present. Falls back to raw value for forward-compat.
+- `<EnumValue>`: value is the member name string (same on every wire hop — no translation); component looks up `schema.enum` for display; styles via `presentation.statusMappings` if present. Falls back to raw value for forward-compat.
 - `<StructValue>`: `<dl>` with one row per entry of `schema.properties`, recursing into `<ValueBySchema>`, suffixing field-level `x-unit`.
 - `<ScalarArray>`: comma-separated chips for small arrays; collapsible list beyond threshold; numeric arrays get a simple inline `<svg>` sparkline. Unit from `schema["x-unit"]`.
 - `<StructArray>`: `<table>` with columns per `schema.items.properties`, one row per array element; collapsible past a row threshold.
@@ -811,9 +809,8 @@ On `PropertyState` MQTT update, write `value = msg.value` verbatim — no `?? nu
 
 **Cloud API:**
 - Validator tests: malformed JSON for each kind rejected; valid JSON accepted.
-- Migration test: old `varchar(50)` strings rewritten to JSON Schema; old `Writable` merged as `readOnly`; old `Annotations.EnumValues` promoted to inline `enum` + `x-enum-values`; old `Annotations.{DisplayName,Group,Order,...}` routed into `presentation`; old `Annotations.Persistent` routed into `runtime`.
-- Enum int↔name translation test: round-trip via `SetPropertyValueRequestHandler`.
-- OpenAPI-consumer contract test: generated OpenAPI doc validates against OpenAPI 3.1 meta-schema; a sample third-party client roundtrips values using a stock JSON Schema validator.
+- Migration test: old `varchar(50)` strings rewritten to JSON Schema; old `Writable` merged as `readOnly`; old `Annotations.EnumValues` promoted to inline `enum` (member-name array); old `Annotations.{DisplayName,Group,Order,...}` routed into `presentation`; old `Annotations.Persistent` routed into `runtime`.
+- OpenAPI-consumer contract test: generated OpenAPI doc validates against OpenAPI 3.1 meta-schema; a sample third-party client roundtrips values using a stock JSON Schema validator (including string-enum properties to confirm idiomatic OpenAPI consumption).
 
 **Dashboard:**
 - Snapshot tests per renderer component with representative values: primitive normal/extreme, enum known/unknown, struct happy-path, empty/non-empty arrays, array-of-struct, nullable 3-state.
@@ -823,21 +820,27 @@ On `PropertyState` MQTT update, write `value = msg.value` verbatim — no `?? nu
 
 **Single coordinated release** across all 5 repos in dependency order. With no public LogicBlocks, there is no compat reason to phase; phasing only adds half-states to maintain.
 
-Dependency order:
+Dependency order (7 PRs across 5 repos; cloud-api lands in two steps to enable a dual-read window):
 
-1. **vion-contracts** — `TypeRef` hierarchy + `PropertyMetadata` + `PropertyValueCodec` + new FB schema (~14 variants) + DTOs (`SetPropertyPayload`, `ServicePropertyOutput`, `PropertyState`).
+1. **vion-contracts** — `TypeRef` hierarchy + `PropertyMetadata` + `PropertyValueCodec` + new FB schema (~14 variants) + new DTOs (`SetPropertyPayload`, `ServicePropertyOutput`, `PropertyState`). Published to the private feed.
 2. **dale-sdk** — analyzer changes (DALE003 expanded, new diagnostics), `StructFieldAttribute`, attribute renames with `[Obsolete]` shims, introspection emits the three sibling documents, examples and templates updated.
-3. **cloud-api** — DB migration (3 columns → 1 `Metadata` jsonb), DTOs, `SetPropertyValueRequestHandler` validates against schema, enum int↔name translation.
-4. **mesh** — replace `CommonValueBuilder` / `CommonValueExtensions` with `PropertyValueCodec` calls, state store `JsonNode`, simplified STJ context.
-5. **dale (private)** — runtime adopts `PropertyMetadata` on `ServiceBinding`; codec calls on the FB edge.
-6. **dashboard** — `DaleSchema` types, 3-state nullable model, new renderers (`StructValue`, `ScalarArray`, `StructArray`, `NotReceived`, `NullValue`).
+3. **cloud-api (additive DB migration)** — add `Metadata` jsonb column, backfill from `ServiceElementType` / `Writable` / `Annotations`, dual-read enabled. Old DTOs still served on the wire.
+4. **dale (private)** — runtime adopts `PropertyMetadata` on `ServiceBinding`; codec calls on the FB edge. Encodes new FB format.
+5. **mesh** — replace `CommonValueBuilder` / `CommonValueExtensions` with `PropertyValueCodec` calls, state store `JsonNode`, simplified STJ context. Decodes new FB, expects schema-on-set.
+6. **cloud-api (DTO switch)** — switch outbound DTOs to `Schema`/`Presentation`/`Runtime`, send schema-with-payload on sets, drop old `ServiceElementType`/`Writable`/`Annotations` columns from the schema (after the dual-read window expires).
+7. **dashboard** — `DaleSchema` TS types, 3-state nullable model, new renderers (`StructValue`, `ScalarArray`, `StructArray`, `NotReceived`, `NullValue`).
 
-Each step is a mergeable PR. Steps 4 and 5 land together (they meet on the wire). Steps 6 lands after 3 and 4. Step 5 (private repo) is sequenced alongside step 4.
+Steps 4 and 5 must land together — they meet on the wire and either alone breaks the integrated path. Step 6 follows 5. Step 7 follows 6.
 
 **Pre-flight prerequisites** (run in parallel with spec review):
 - Audit any non-public LogicBlocks in vion-iot/* repos for `decimal` usage; convert to `double` if any found.
 - Audit `PropertyState.Value` cast sites across Cloud API and UI tooling.
 - Audit dashboard call sites that read `annotations.{decimals, group, order, ...}` so they migrate cleanly to `presentation.*`.
+
+**Coordination and rollback.**
+The 7 PRs above are not fully independently shippable — steps 4 and 5 meet on the wire and must land together. Verify the integrated path end-to-end on a staging environment before each production cutover. The dual-read window between steps 3 and 6 (additive DB migration → breaking DTO switch + column drop) is the rollback safety net.
+
+**Rollback path:** the only one-way step is the *drop* of the old `ServiceElementType` / `Writable` / `Annotations` columns at the tail of step 6. Snapshot the DB before that drop. If issues surface within the rollout window, revert PRs in reverse order; while the dual-read window is open, Cloud API continues to serve old DTOs from the still-populated old columns. Plan for a 24–48 h dual-read window in production before dropping the old columns.
 
 ## 8. Breaking changes
 
@@ -864,8 +867,8 @@ All breaking changes land across coordinated package versions documented in the 
 - **Cloud consumers casting `PropertyState.Value` to `object`.** Compile errors flag them; quick sweep at rollout time.
 - **Dale profile drift** — someone adds a JSON Schema keyword (e.g. `pattern`) expecting the UI or Mesh to honour it. The codec ignores it; constraint silently lost. Mitigation: `PropertyMetadataSerialization.FromJson` rejects every unexpected keyword strictly (allow-list, not deny-list) at the source boundary. A later decision to *add* `pattern` is an explicit profile bump, not silent drift.
 - **Numeric range overflow at Dale's binding boundary.** A wire `LongVal { value: 70000 }` for a property typed `short` overflows. Mitigation: codec range-checks against `schema.format` and throws `PropertyValueDecodeException` (logged at warn, value dropped). UI continues to display last-known.
-- **Enum int↔name translation in Cloud is the only place this happens.** If Cloud's translation is buggy, UI sees raw ints or wrong names. Mitigation: high-coverage unit tests, contract tests, and the `x-enum-values` mapping is sourced from the same place as the codec.
-- **Schema in every set payload adds bytes.** Worst-case ~800 bytes of schema for a complex array-of-struct write. Acceptable: writes are infrequent (human / scheduler triggered), the absolute size is small over MQTT.
+- **Enum name typos in cloud sets.** A client sends `"Warnig"` instead of `"Warning"`; without int translation we don't have a "wrong int" path that fails noisily — it's just a string not in `schema.enum`. Mitigation: `ValidateJson` rejects with a clear error (member must be one of `[…]`); same defense as today's `ServiceElementType`-string mismatch.
+- **Schema in every set payload adds bytes.** Worst-case ~800 bytes of schema for a complex array-of-struct write. Realistic load: human-triggered or scheduler-triggered sets, ≪100/sec across a deployment; ≪50 KB/sec aggregate. Acceptable. Burst case (fleet-wide schedule push to 10k gateways) ≈ 5 MB; absorbed by MQTT broker buffers. If profiling later shows this is hot, optimisation is straightforward (schema fingerprint + per-connection cache); deferred.
 - **DB migration downtime.** Mitigation: two-step migration — add new column, backfill, switch reads/writes, drop old columns.
 - **`ImmutableArray<T>` PropertyChanged semantics.** Wholesale assignment fires INPC; in-place mutation is impossible (`ImmutableArray<T>` exposes no mutators). Mitigation: existing Metalama fabric handles this; analyzer DALE018 prevents the common "forgot to initialise" footgun.
 
@@ -873,9 +876,13 @@ All breaking changes land across coordinated package versions documented in the 
 
 - Recursive structs (struct-of-struct, struct-with-array).
 - Nested arrays (`ImmutableArray<ImmutableArray<T>>`).
+- Nullable struct *fields* inside structs (relax the flat-only rule on field types) — currently nullable composes everywhere except inside structs.
+- **Map / dictionary types** (`Dictionary<string, double>`, e.g. channel-keyed readings, named flags). Workaround: array of `{key, value}` structs.
+- **Polymorphic / tagged-union property values** (an "Alert" property whose payload differs per alert kind). JSON Schema's `oneOf` with discriminator would be the natural extension. Workaround: separate properties per variant.
+- **Flag enums** (`[Flags]`). Need a separate wire form (`"Read|Write"` composition or a bit-mask variant). Not used in current LogicBlocks.
 - Writable compound-type UI editors.
 - Bespoke per-struct visualisations (map for `Coordinates`, chart for `double[]`) — only the registry hook ships.
-- Struct-level annotation (e.g. `[Struct(Title = "…")]`) — shape identity means this isn't needed; defer.
+- Struct-level title-override attribute (e.g. `[Struct(Title = "…")]`). Currently the struct's C# type name is its identity-bearing `Title`. An override would let a renamed type keep its old title (or vice versa); not needed today, defer.
 - `ImmutableList<T>` / `IReadOnlyList<T>` as supported collection surfaces — `ImmutableArray<T>` is the single blessed form.
 - **Expanded JSON Schema profile support:**
   - `pattern` / `minLength` / `maxLength` on strings.
