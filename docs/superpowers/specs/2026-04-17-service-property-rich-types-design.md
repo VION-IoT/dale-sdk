@@ -60,6 +60,8 @@ Each row is a closed decision; the full Q&A transcript is preserved in session h
 | Enum JSON form | Member name as string, not int | Readable; cheap to translate via TypeRef; UI never has to join |
 | UI ambition v1 | Generic per-kind renderers + empty registry hook | Bounded work; avoids "here's some JSON"; extensible |
 | SDK writability of compounds | Allowed — UI-only read-only | Writability is a UI concern, not an attribute concern |
+| Identity / annotation split | `TypeRef` carries identity-bearing fields only; `TypeAnnotations` carries display + validation; `TypeSchema` is the pair | Default record equality on `TypeRef` is type identity (codec, registry, cache get it free); annotations evolve independently |
+| Schema distribution to Mesh | Dale runtime publishes per-service introspection JSON to retained `/sw/introspection/{serviceId}/state`; Mesh subscribes wildcard, buffers up to 10 values × 30 s per key when schema not yet cached | Survives Mesh / broker / Dale restarts; bounded buffer prevents OOM; no request/response chatter on the value path |
 
 ## 5. Design
 
@@ -67,38 +69,29 @@ Each row is a closed decision; the full Q&A transcript is preserved in session h
 
 **Canonical external form:** each property's type is a JSON Schema document conforming to the *Dale profile* (Appendix A below). That is what introspection emits, what `Vion.Contracts` defines as the wire-at-rest representation, what the Cloud API stores in its DB, and what the dashboard consumes.
 
-**Internal C# form:** `Vion.Contracts` keeps a typed `TypeRef` record hierarchy as a convenience for pattern-matching in C# code. It is a thin, lossless wrapper over the JSON Schema profile — not a parallel universe.
+**Internal C# form:** `Vion.Contracts` exposes two cleanly-separated layers — a `TypeRef` hierarchy that carries *only identity-bearing* fields (so default record equality computes type identity), and a `TypeAnnotations` record that carries display/validation metadata (titles, units, ranges, read-only flag). A property's complete schema is the pair, wrapped in `TypeSchema`.
 
 ```csharp
+// ─────────────── Identity layer ───────────────
+// Default record equality on these IS type identity.
+// Codec dispatch, registry matching, and DB deduplication compare TypeRefs directly.
+
 public abstract record TypeRef;
 
-public sealed record PrimitiveTypeRef(
-    PrimitiveKind Kind,
-    string? Title,              // JSON Schema title
-    string? Description,
-    string? Unit,               // x-unit extension
-    double? Minimum,            // JSON Schema minimum
-    double? Maximum) : TypeRef;
+public sealed record PrimitiveTypeRef(PrimitiveKind Kind) : TypeRef;
 
 public sealed record EnumTypeRef(
-    string Title,
-    ImmutableArray<EnumMember> Members,
-    string? Description) : TypeRef;
+    string Title,                          // identity-bearing for enums (disambiguates nominal identity)
+    ImmutableArray<EnumMember> Members) : TypeRef;
 
 public sealed record StructTypeRef(
-    string? Title,
-    ImmutableArray<StructField> Fields,
-    string? Description) : TypeRef;
+    ImmutableArray<StructField> Fields,    // ordered; identity by full list
+    ImmutableArray<string> Required) : TypeRef;  // names of required fields, ordered
 
-public sealed record ArrayTypeRef(
-    TypeRef Items,
-    string? Title,
-    string? Description,
-    string? Unit) : TypeRef;     // unit applies to each element, consistent with §5.2 annotation rule
-
+public sealed record ArrayTypeRef(TypeRef Items) : TypeRef;
 public sealed record NullableTypeRef(TypeRef Inner) : TypeRef;
 
-public sealed record StructField(string Name, TypeRef Type, bool Required);
+public sealed record StructField(string Name, TypeRef Type);
 public sealed record EnumMember(string Name, int Value);
 
 public enum PrimitiveKind
@@ -106,12 +99,46 @@ public enum PrimitiveKind
     Bool, String, Short, Int, Long, Float, Double, DateTime, Duration
 }
 
-public static class TypeRefSerialization
+// ─────────────── Annotation layer ───────────────
+// Display + validation metadata. Never identity-bearing.
+// Two TypeSchemas with the same Type but different Annotations are the same type
+// for codec purposes, and may render or validate differently.
+
+public sealed record TypeAnnotations
 {
-    public static JsonNode  ToJsonSchema(this TypeRef type);
-    public static TypeRef   FromJsonSchema(JsonNode schema);  // rejects schemas outside the Dale profile
+    public string? Title       { get; init; }   // → JSON Schema "title"
+    public string? Description { get; init; }   // → "description"
+    public string? Unit        { get; init; }   // → "x-unit"
+    public double? Minimum     { get; init; }   // → "minimum"
+    public double? Maximum     { get; init; }   // → "maximum"
+    public bool    ReadOnly    { get; init; }   // → "readOnly" (property-level only)
+
+    public static readonly TypeAnnotations None = new();
+}
+
+// ─────────────── Combined layer (what introspection emits per property) ───────────────
+// A property carries a TypeRef plus the property-level annotations plus
+// a per-struct-field annotation map (keyed by camelCase field name).
+// For a flat-struct (Q4) the keys are top-level field names; if the profile
+// is later extended to nested structs, dotted paths ("outer.inner") become valid keys.
+
+public sealed record TypeSchema(
+    TypeRef Type,
+    TypeAnnotations Annotations,
+    ImmutableDictionary<string, TypeAnnotations> StructFieldAnnotations);
+
+// ─────────────── Serialization ───────────────
+public static class TypeSchemaSerialization
+{
+    public static JsonNode   ToJsonSchema(this TypeSchema schema);
+    public static TypeSchema FromJsonSchema(JsonNode jsonSchema);  // rejects non-profile schemas
 }
 ```
+
+**What lives where:**
+- `==` and `GetHashCode()` on `TypeRef` is *the* identity check. The codec, the registry hook, and the Mesh cache all use this for free.
+- `TypeAnnotations` overlays display/validation. Two `TypeSchema(P, A1, …) == TypeSchema(P, A2, …)` evaluates as "different objects" via record equality, but `s1.Type == s2.Type` is `true` — distinct concerns, distinct code paths.
+- `StructFieldAnnotations` is keyed by struct field name (camelCase wire form, e.g. `"lat"` / `"altitude"`). For a non-struct property it's empty.
 
 **Primitive → JSON Schema mapping:**
 
@@ -166,13 +193,13 @@ public static class TypeRefSerialization
 }
 ```
 
-**Identity rules** — unchanged in intent from the earlier spec draft, now expressed in JSON Schema terms:
+**Identity rules** — encoded directly by the C# records above (default record equality):
 
-- **Primitives:** by `(type, format)` pair.
-- **Enums:** by `(title, x-enum-values)`. `title` is identity-bearing for enums (not display-only), because enum name disambiguates C# nominal identity.
-- **Structs:** by **shape** — the ordered `(propertyName, propertySubschema)` list plus the `required` set. `title` is *display only*, not identity-bearing. Two structs with identical `properties` and `required` are wire-interchangeable regardless of `title`.
-- **Arrays / Nullables:** by `items` / the nullability-widened inner.
-- **Display metadata (`title` on non-enum, `description`, `x-unit`, `minimum`/`maximum`) is not part of identity.** Two `Coordinates` schemas differing only in `x-unit` are the same type on the wire.
+- **Primitives:** by `Kind` (which maps 1:1 to `(type, format)` in JSON Schema).
+- **Enums:** by `(Title, Members)` — `Title` is identity-bearing; renaming an enum is a different type.
+- **Structs:** by `(Fields, Required)` — ordered field list, plus the ordered required-field names. Identity is shape, not title (`Title` lives in `TypeSchema.Annotations`, separate from the `TypeRef`).
+- **Arrays / Nullables:** by `Items` / `Inner`.
+- **Annotations** (`Title` on non-enum, `Description`, `Unit`, `Minimum`, `Maximum`, `ReadOnly`) live entirely in `TypeAnnotations` / `TypeSchema.StructFieldAnnotations`. They never affect `TypeRef` equality. Two `Coordinates` schemas differing only in `x-unit` produce equal `TypeRef`s and unequal `TypeSchema`s.
 
 **Appendix A — Dale profile of JSON Schema 2020-12**
 
@@ -294,7 +321,7 @@ Final diagnostic ID assignments may shift if any DALE IDs have been claimed betw
 **`ServiceBinder` / `ServiceBuilder` changes:**
 
 - `BindProperty<T>` / `BindMeasuringPoint<T>` signatures unchanged. `T` expands to any legal TypeRef-expressible type; expression-tree lambdas compile for all.
-- `ServiceBinding` record gains a `TypeRef Type` field alongside getter/setter/metadata.
+- `ServiceBinding` record gains a `TypeSchema Schema` field alongside getter/setter/metadata. The codec uses `Schema.Type` for FB encode/decode; `Schema.Annotations` flows out into introspection JSON.
 - `SetPropertyValue` simplified: the ad-hoc `int → enum` conversion is removed. The codec (§5.4) produces the exact declared type.
 - `ServicePropertyValueChanged` / `ServiceMeasuringPointValueChanged` unchanged (already `object?`).
 
@@ -457,28 +484,29 @@ Struct field names on the wire and in the schema are camelCase (`lat`, `lon`, `a
 
 `Vion.Contracts` gains a new public `PropertyValueCodec` static class. The current `mesh/Mesh.Base/Infrastructure/Serialization/FlatBuffer/CommonValueBuilder.cs` and `CommonValueExtensions.cs` are deleted in favour of this shared implementation.
 
-The codec operates on `TypeRef` (the typed C# view of the JSON Schema). Callers that hold a raw `JsonNode` schema convert via `TypeRef.FromJsonSchema(schema)` once and cache. This keeps the hot path pattern-matching on typed records rather than walking untyped trees.
+Encode/decode operates on `TypeRef` only — annotations don't affect bytes. Validation operates on `TypeSchema` because constraints (`Minimum`, `Maximum`, `ReadOnly`) live in annotations. Callers that hold a raw `JsonNode` schema convert once via `TypeSchemaSerialization.FromJsonSchema` and cache the resulting `TypeSchema`.
 
 ```csharp
 public static class PropertyValueCodec
 {
-    // Dale-side: CLR-typed; requires the user's struct/enum CLR types
-    public static object? FlatBufferToClr(ReadOnlySpan<byte> bytes, TypeRef schema, Type targetClrType);
-    public static byte[]  ClrToFlatBuffer(object? value, TypeRef schema);
+    // Dale-side: CLR-typed; requires the user's struct/enum CLR types.
+    // Identity-only — no annotation walking on the hot path.
+    public static object? FlatBufferToClr(ReadOnlySpan<byte> bytes, TypeRef type, Type targetClrType);
+    public static byte[]  ClrToFlatBuffer(object? value, TypeRef type);
 
-    // Mesh-side: JSON pass-through; no CLR types needed
-    public static JsonNode? FlatBufferToJson(ReadOnlySpan<byte> bytes, TypeRef schema);
-    public static byte[]    JsonToFlatBuffer(JsonNode? json, TypeRef schema);
+    // Mesh-side: JSON pass-through; no CLR types needed.
+    public static JsonNode? FlatBufferToJson(ReadOnlySpan<byte> bytes, TypeRef type);
+    public static byte[]    JsonToFlatBuffer(JsonNode? json, TypeRef type);
 
-    // Schema-only validation — accepts a JSON value against a TypeRef,
-    // used by Cloud API to validate incoming writes before forwarding.
-    public static ValidationResult ValidateJson(JsonNode? json, TypeRef schema);
+    // Schema-driven validation — uses the full TypeSchema (type + annotations + per-field annotations)
+    // to enforce required, enum membership, minimum/maximum, range bounds for the primitive kind, etc.
+    public static ValidationResult ValidateJson(JsonNode? json, TypeSchema schema);
 }
 ```
 
-**Both halves walk the same `TypeRef` tree.** Dale-side decoder materialises user struct types by matching FB `NamedValue.name` to positional-record-struct constructor parameter names (case-insensitive). Missing FB field with default-valued constructor parameter → use default; missing required parameter → decode error; extra FB field with no matching parameter → ignored (forward-compat).
+**Encode/decode walks the `TypeRef` tree only.** Dale-side decoder materialises user struct types by matching FB `NamedValue.name` to positional-record-struct constructor parameter names (case-insensitive). Missing FB field with default-valued constructor parameter → use default; missing required parameter → decode error; extra FB field with no matching parameter → ignored (forward-compat).
 
-The `ValidateJson` method can either be hand-rolled (walks the TypeRef) or delegate to an off-the-shelf JSON Schema validator (NJsonSchema, JsonSchema.Net) applied against `schema.ToJsonSchema()`. Recommendation: **hand-rolled for the Dale profile only**, since the profile is narrow enough to validate in ~100 lines and doesn't pull in a ~200 KB dependency. Off-the-shelf validators are available in the larger ecosystem if third parties want to validate independently.
+`ValidateJson` walks both the `TypeRef` (for shape) and `TypeAnnotations` (for ranges). Recommendation: **hand-rolled for the Dale profile only**, ~100 LOC, no off-the-shelf validator dependency. Stock JSON Schema validators (NJsonSchema, JsonSchema.Net) are available for third parties consuming the OpenAPI spec.
 
 **Defensive validation:** `FlatBufferTo*` methods assert `payload_tag` matches `schema.kind` on ingress; mismatch throws `PropertyValueDecodeException` logged at warn.
 
@@ -509,8 +537,8 @@ Data flow on property state from Dale:
 
 **Dale runtime responsibilities** (private repo, out-of-tree change):
 
-- Populate `ServiceBinding.TypeRef` during `Configure()`.
-- Call `PropertyValueCodec` on the FB ingress/egress edge.
+- Populate `ServiceBinding.Schema` (`TypeSchema`) during `Configure()`.
+- Call `PropertyValueCodec` on the FB ingress/egress edge with `binding.Schema.Type` for encode/decode.
 - Maintain the `ServiceBinding` for each property keyed by `(serviceId, interfaceType, propertyName)`.
 
 **What does not change:**
@@ -523,12 +551,66 @@ Data flow on property state from Dale:
 ### 5.6 Mesh changes
 
 - Delete `CommonValueBuilder` and `CommonValueExtensions`; Mesh calls `PropertyValueCodec` instead.
-- `PropertyStateChangedHandler`: uses `FlatBufferToJson(bytes, schema)`; forwards `JsonNode` to cloud.
-- `SetPropertyHandler`: uses `JsonToFlatBuffer(json, schema)`; forwards FB bytes to Dale.
+- `PropertyStateChangedHandler`: uses `FlatBufferToJson(bytes, schema.Type)`; forwards `JsonNode` to cloud.
+- `SetPropertyHandler`: uses `JsonToFlatBuffer(json, schema.Type)`; forwards FB bytes to Dale.
 - State store value type changes from `object` to `JsonNode?`. Mesh never holds user CLR types.
-- Mesh keeps a `Dictionary<PropertyKey, TypeRef>` cache, populated from per-service introspection JSON already published to Mesh at service registration time.
+- Mesh keeps a `Dictionary<PropertyKey, TypeSchema>` cache, populated by the schema-distribution flow described in §5.6.1.
 - `PropertyJsonContext` STJ source-gen setup: simplified; STJ handles `JsonNode` natively. Drop per-primitive registrations.
 - Defensive assert (payload tag vs schema kind) lives inside `PropertyValueCodec`; Mesh handles `PropertyValueDecodeException` by log-and-drop.
+
+#### 5.6.1 Schema distribution and bootstrap
+
+The codec needs the schema to encode/decode any value. Until this spec, Mesh implicitly assumed the schema was always available — that's the gap M3 closed during review. Here is the concrete protocol.
+
+**Topic.** Dale runtime publishes per-service introspection JSON to a *retained* MQTT message at:
+```
+/sw/introspection/{serviceId}/state
+```
+Payload is the full per-service introspection JSON document — every property in the service, each with its `schema` (Dale-profile JSON Schema). Retention means any subscriber that connects later receives the most recent payload immediately.
+
+**Authorship.** The Dale runtime is the schema's source of truth. It publishes:
+- on runtime startup, once per service it hosts;
+- on LogicBlock redeployment that changes the schema for that service;
+- on Dale's own LogicBlock graph reload (rare).
+
+It republishes with the **same retained payload bytes** if nothing has changed (idempotent — broker may dedupe, that's fine).
+
+**Mesh subscription order on startup:**
+1. Connect to broker; subscribe to `/sw/introspection/+/state` (wildcard) **before** value topics.
+2. Wait for an initial drain window (configurable, default 2 s) during which retained schemas land. This is best-effort — MQTT does not guarantee retained-message delivery completion as a discrete event.
+3. Subscribe to value topics (`/sw/property/state`, `/cloud/sw/property/set`, etc.).
+4. Begin forwarding.
+
+The 2 s window is an optimisation; it is not a correctness gate. Late-arriving schemas (or schemas that arrive *after* a value) are handled by the buffer below.
+
+**Race handling — value before schema.**
+If a value arrives on `/sw/property/state` for a `(serviceId, propertyKey)` whose schema is not yet cached, Mesh enqueues it in a per-key buffer:
+- bounded at **N=10 messages per key**;
+- TTL **30 s per message**.
+
+When the schema arrives, the buffer is drained: each queued value is validated and forwarded. Buffer overflow (more than N) drops the *oldest* message and logs at warn. Per-message TTL expiry drops at warn.
+
+**Schema change handling.**
+A new retained `/sw/introspection/{serviceId}/state` payload that differs from the cached one:
+- replaces the cache entry;
+- triggers an internal `SchemaChanged(serviceId)` event;
+- in-flight queued values for any property whose schema actually changed are dropped (they may not validate against the new shape) and logged.
+
+Cloud-side schema persistence is updated by the Cloud API consuming the same introspection topic (or a downstream notification) — out of scope for this spec; flagged as a follow-up in §10.
+
+**Cross-restart recovery.**
+- Dale runtime restart → re-publish retained schemas → existing Mesh receives them with no change in cache (or updated cache if redeployed).
+- Mesh restart → re-subscribe → broker replays retained schemas → cache rebuilt within the drain window. Any value updates that arrive in the gap go through the buffer.
+- Broker restart with persistent storage → retained messages survive; same as Mesh restart.
+- Broker restart **without** persistent storage → retained messages lost; Dale must re-publish on next reconnect. Dale's MQTT client should publish the schema on every (re)connect for safety.
+
+**Value-only writes from cloud (`/cloud/sw/property/set`).**
+Cloud already has the schema in its DB before allowing the write (it validated the request against it). Mesh receives the value with no schema dependency on the request itself; it looks up its own cache by `(serviceId, propertyKey)`. If the cache is missing the schema, Mesh rejects the set with `SchemaUnknown` (4xx-like response over MQTT) — never silently forwards a malformed `JsonToFlatBuffer` call. Cloud retries or surfaces to user.
+
+**Why retained messages and not request/response?**
+- Request/response (Mesh asks Dale for the schema on demand) requires both ends online and adds round-trip latency to first-value delivery.
+- Retained messages are a one-shot publish + free replay for every subscriber, including Mesh restarts.
+- Trade-off: broker storage grows linearly with deployed services. Acceptable; introspection JSON is small.
 
 ### 5.7 Cloud API changes
 
@@ -543,7 +625,7 @@ Data flow on property state from Dale:
   ```
   `schema.readOnly === true` encodes "non-writable"; `x-unit`, `minimum`, `maximum`, `title`, `description` are all first-class fields on the schema, no separate annotations bag.
 - `SetPropertyPayload(object Value, string ServiceElementType)` → `SetPropertyPayload(JsonNode Value)`. The cloud already knows the property's schema via the DB lookup; no need to re-transmit.
-- `SetPropertyValueRequestHandler`: validates incoming value against property's schema via `PropertyValueCodec.ValidateJson(value, typeRef)` — covers type shape, `required`, enum membership, `minimum`/`maximum`, and nullability. No separate handler for primitives vs compounds.
+- `SetPropertyValueRequestHandler`: validates incoming value against property's stored `TypeSchema` via `PropertyValueCodec.ValidateJson(value, typeSchema)` — covers type shape, `required`, enum membership, `minimum`/`maximum` from both property-level and per-struct-field annotations, nullability, and `readOnly` rejection. No separate handler for primitives vs compounds.
 - **OpenAPI spec** of Cloud API: the auto-generated OpenAPI description now embeds the property's schema directly — third-party clients can discover types via `/services` and drive UI with any JSON Schema form generator.
 - Stops string-based type inference. All dispatch is schema-driven.
 
@@ -677,8 +759,9 @@ export const valueRendererRegistry: ValueRenderer[] = [];
 
 **Dale SDK:**
 - Unit tests over `LogicBlockIntrospection.BuildTypeRef` covering every TypeRef kind and composition (nullable-primitive, nullable-enum, struct, nullable-struct, array-of-each, array-of-nullable-each, array-of-struct, nullable-array-of-struct).
-- Unit tests over `TypeRef.ToJsonSchema` / `FromJsonSchema` round-tripping for every kind: C# → JSON Schema → C# structural equality.
-- **Profile-conformance tests:** `TypeRef.FromJsonSchema` rejects each excluded keyword (`$ref`, `oneOf`, `patternProperties`, `exclusiveMinimum`, nested arrays, etc.) with a clear error message.
+- Unit tests over `TypeSchemaSerialization.ToJsonSchema` / `FromJsonSchema` round-tripping for every kind: C# `TypeSchema` → JSON Schema → C# structural equality.
+- **Identity-vs-annotation tests:** `TypeSchema(t, a1) != TypeSchema(t, a2)` (record inequality) but `TypeSchema(t, a1).Type == TypeSchema(t, a2).Type` (identity equality). Hashes likewise.
+- **Profile-conformance tests:** `TypeSchemaSerialization.FromJsonSchema` rejects each excluded keyword (`$ref`, `oneOf`, `patternProperties`, `exclusiveMinimum`, nested arrays, etc.) with a clear error message.
 - **Compatibility test** against an off-the-shelf JSON Schema validator (NJsonSchema): any schema Dale emits must validate against JSON Schema 2020-12 meta-schema.
 - Unit tests over `PropertyValueCodec` round-tripping for every kind: FB → CLR → FB byte-equality; JSON → FB → JSON byte-equality.
 - Analyzer tests for each new / changed DALE diagnostic with both compliant and non-compliant code.
@@ -687,6 +770,13 @@ export const valueRendererRegistry: ValueRenderer[] = [];
 **Mesh:**
 - Codec integration tests: FB-from-Dale → JSON → FB-to-Dale round-trip for every kind.
 - Contract tests against Cloud DTO shape for every kind.
+- **Schema distribution tests:**
+  - Mesh restart with a connected Dale: cache is rebuilt from retained schemas within the drain window; in-flight values during the window are buffered and drained.
+  - Schema-arrives-after-value: a value is buffered; schema lands; value is validated and forwarded.
+  - Buffer overflow (>10 messages per key without schema): oldest dropped; warning logged.
+  - Buffer TTL (>30 s without schema): drop and warn.
+  - Schema change for an active property: cache replaced; in-flight values that don't validate are dropped.
+  - Cloud `set` against a property with no cached schema: rejected with `SchemaUnknown`.
 
 **Cloud API:**
 - Validator tests: malformed JSON for each kind rejected; valid JSON accepted.
@@ -747,7 +837,9 @@ All breaking changes land across coordinated package versions documented in the 
 - **DB migration downtime.** Mitigation: two-step migration — add new column, backfill, switch reads/writes, drop old column — avoids long table lock.
 - **Cloud consumers casting `PropertyState.Value` to `object`.** Compile errors flag them; mitigation is a quick sweep at rollout time.
 - **Python parity assumption** — this design assumes a future Python SDK is feasible on the JSON Schema type language and the FlatBuffers wire format. No Python code ships in this spec. Review the Dale profile against `jsonschema` / `pydantic` / `flatbuffers` Python libraries before locking in.
-- **Dale profile drift** — someone adds a JSON Schema keyword (say, `pattern` on a string) to a schema, expecting the UI or Mesh to honour it. The codec ignores it; the constraint is silently lost. Mitigation: `TypeRef.FromJsonSchema` rejects every unexpected keyword strictly (allow-list, not deny-list) at the source boundary. A later decision to *add* `pattern` support is an explicit profile bump, not a silent drift.
+- **Dale profile drift** — someone adds a JSON Schema keyword (say, `pattern` on a string) to a schema, expecting the UI or Mesh to honour it. The codec ignores it; the constraint is silently lost. Mitigation: `TypeSchemaSerialization.FromJsonSchema` rejects every unexpected keyword strictly (allow-list, not deny-list) at the source boundary. A later decision to *add* `pattern` support is an explicit profile bump, not a silent drift.
+- **Schema-distribution races and broker storage growth.** §5.6.1's protocol relies on retained MQTT messages and a bounded value buffer. Mitigations are in-spec: bounded buffer (10×30 s per key), Dale republishes schema on every (re)connect. Residual concern: a malicious or buggy LogicBlock that publishes thousands of distinct services would fill the broker's retained-message store. Mitigation: add a per-tenant schema-count limit at the cloud orchestration layer (out of scope here, flag for ops).
+- **Schema cache coherence between Cloud DB and Mesh.** Cloud DB and Mesh's in-memory cache are populated from the same introspection JSON but on different paths (Cloud API endpoint vs MQTT subscription). They can drift if one update lands and the other doesn't. Mitigation: both consume the same retained MQTT topic; Cloud API subscribes via Mesh's existing schema-forwarding plumbing rather than maintaining a parallel ingestion path.
 
 ## 10. Deferred / out of scope (not ruled out for future)
 
