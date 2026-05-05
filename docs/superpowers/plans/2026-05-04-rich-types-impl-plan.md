@@ -95,24 +95,68 @@ Each session evaluates every change before making it. Three classes:
 
 ### 0.7 Subagent dispatch conventions
 
-Read these before every implementer dispatch.
+Read these before every implementer dispatch. Updated 2026-05-05 with lessons from Task A.
 
-**Test framework:** All test projects use **MSTest 4.0.2**, not xunit, matching the SDK convention in `C:\_gh\dale-sdk\Vion.Dale.Sdk.Test\`.
-- `Microsoft.NET.Test.Sdk` 18.0.1, `MSTest` 4.0.2, `coverlet.collector` 6.0.4.
+#### 0.7.1 Code conventions (paste into every dispatch prompt)
+
+**Test framework:** MSTest 4.0.2, matching `C:\_gh\dale-sdk\Vion.Dale.Sdk.Test\`. Not xunit.
+- Packages: `Microsoft.NET.Test.Sdk` 18.0.1, `MSTest` 4.0.2, `coverlet.collector` 6.0.4.
 - Global `<Using Include="Microsoft.VisualStudio.TestTools.UnitTesting"/>`.
 - Built-in assertions only (`Assert.AreEqual`, `Assert.IsTrue`, `Assert.HasCount`). **No FluentAssertions.**
 - `Directory.Build.props` auto-applies `[assembly: DoNotParallelize]` to any `IsTestProject == true`.
 - Test file naming: `<Subject>Should.cs` (BDD-style).
-- Test class decorated with `[TestClass]`; test methods with `[TestMethod]`. Method names are descriptive (no underscores, no `_should` suffix): `RecognizeSamePrimitiveKindsAsEqual`, not `Primitive_same_kind_equal`.
-- **All C# code (production and test) uses block-scoped namespaces.** Enforced by `jb cleanupcode --profile="Built-in: Reformat Code"`. Plan code samples below sometimes show file-scoped namespaces for readability; treat them as illustrative — the implementer must use block-scoped to match the cleanup tool's output.
-- All usings explicit (`<ImplicitUsings>false</ImplicitUsings>` everywhere).
-- Allman braces throughout.
+- `[TestClass]` on class; `[TestMethod]` on each test. Method names: descriptive PascalCase, no underscores, no `_should` suffix.
+- For data-driven tests: `[TestMethod]` + `[DataRow(...)]` (MSTest 4 doesn't need `[DataTestMethod]`).
 
-**Subagent commit policy:** Implementer subagents **stage** their work but **do not commit**. The controller (the orchestrating session) shows the diff to the user, gets explicit approval, then commits. Implementer prompts must include this directive.
+**C# style:**
+- **Block-scoped namespaces** for all C# code (production AND test). Enforced by `jb cleanupcode --profile="Built-in: Reformat Code"`.
+- Allman braces. All usings explicit (`<ImplicitUsings>false</ImplicitUsings>`).
+- Records require custom `Equals`/`GetHashCode` whenever they contain `ImmutableArray<T>` (default record equality uses reference equality on the underlying array). Guard with `IsDefault` checks before `SequenceEqual`/`foreach` to avoid `NullReferenceException` on `default(ImmutableArray<T>)`.
 
-**Code formatting:** Implementer subagents must run `jb cleanupcode <solution-or-csproj-path> --profile="Built-in: Reformat Code"` on all changed files before reporting back. JetBrains CLI tool. If unavailable in the environment, the implementer reports `BLOCKED` and the controller installs / runs it. (For VS Code / Visual Studio users, `format-on-save` typically suffices for hand-edited files; agents must still run the tool to be safe.)
+**File hygiene** (known fragile area):
+- Trailing newline on every file (`tail -c 1` should be `0a`).
+- No UTF-8 BOM on `.csproj` files (`head -c 3` should be the actual content's first 3 bytes, not `ef bb bf`).
+- `dotnet add package` is known to introduce a BOM and strip the trailing newline. After running it, check both with `tail -c 1` and `head -c 3` and fix manually if needed.
+- `jb cleanupcode` does **not** reliably enforce trailing newlines or strip BOMs. Cannot rely on it.
 
-**Implementer reporting:** When done, the implementer reports `DONE` (or one of the other statuses), and explicitly states **"work is staged on `<branch>`; awaiting controller commit-approval"** so the controller doesn't accidentally re-stage or re-edit.
+**XMLdoc** on public types in `Vion.Contracts` (the shared library): brief `///` comments explaining the contract, especially for non-obvious patterns like identity-vs-annotations splits or custom equality.
+
+#### 0.7.2 Commit policy
+
+Implementer subagents **stage** their work but **do not commit**. The controller shows the diff, gets user approval, then commits. The implementer prompt must include: *"Do not run `git commit`. Stage with `git add` is fine if the task uses staging; otherwise leave files modified on disk."*
+
+#### 0.7.3 What the implementer must include in their final report
+
+1. Status (DONE / DONE_WITH_CONCERNS / BLOCKED / NEEDS_CONTEXT).
+2. Files modified (full paths).
+3. Test command output verbatim (last few lines including the pass/fail summary).
+4. `dotnet build` warning/error count (exact numbers).
+5. Confirmation: "files modified on disk, nothing committed beyond `<HEAD-sha>`".
+6. **Per-fix verification proof** — when applying review fixes, the implementer must verify each fix with a concrete check (e.g., for trailing newlines: `tail -c 1 <file>` shows `0a`; for BOM: `head -c 3 <file>` is content not `ef bb bf`). Don't accept "I added a newline" without proof.
+
+#### 0.7.4 Controller verification ladder (lessons from Task A)
+
+The implementer's report is **not authoritative** on these points. Verify independently before declaring a task done:
+
+| Implementer claim | Verify by |
+|---|---|
+| "Tests pass" | `dotnet test --filter <pattern>` from controller |
+| "Build clean" | `dotnet build` from controller; check warning + error counts |
+| "Trailing newline added to file X" | `tail -c 1 X | od -An -tx1` should be `0a` |
+| "BOM stripped from file X" | `head -c 3 X | od -An -tx1` shouldn't start `ef bb bf` |
+| "Specific code change applied" | `git diff` to inspect the actual change |
+| "`jb cleanupcode` ran clean" | Spot-check formatted files; the tool has known quirks (HtmlReformatCodeCleanupModule LoggerException is a known false positive on test files) |
+
+If a claim doesn't survive verification, treat it as the implementer being wrong, not the verification being wrong. Don't dispatch another implementer for trivial mechanical fixes the controller can do in seconds (trailing newlines, BOM strips) — fix directly.
+
+#### 0.7.5 Pre-flight before each dispatch
+
+Before writing the implementer prompt, the controller should:
+
+1. **Read at least one comparable file in the target repo** to ground convention claims in actual code (e.g., before writing tests, read the most recent `*Should.cs` in the target test project).
+2. **Read the target project's `.csproj`** to confirm package versions, target framework, language version. Don't paste outdated package versions into the prompt.
+3. **State conventions explicitly upfront** in the prompt — don't expect the implementer to infer them. The first Task A dispatch failed because xunit-vs-MSTest wasn't called out; the implementer used xunit by default.
+4. **Include the exact path to a reference implementation file** when one exists. "Mirror the style of `<exact path>`" is more reliable than "follow project conventions".
 
 ### 0.8 Smoke test (the wide-loop gate)
 
