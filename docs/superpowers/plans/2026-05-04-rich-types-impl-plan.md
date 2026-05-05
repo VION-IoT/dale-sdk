@@ -30,7 +30,7 @@ Update on every session boundary. Mark "in progress" with the date; mark "merged
 
 | PR | Repo | Branch | Status | Version published |
 |----|------|--------|--------|-------------------|
-| 1 | vion-contracts | `feat/rich-types` | not started | — |
+| 1 | vion-contracts | `feat/rich-types` | in review (PR [#3](https://github.com/VION-IoT/vion-contracts/pull/3), opened 2026-05-05; 233 tests, 0 warnings) | — |
 | 2 | dale-sdk | `feat/rich-types` | not started | — |
 | 3 | cloud-api | `feat/rich-types` | not started | — |
 | 4 | dale (private) | `feat/rich-types` | not started | — |
