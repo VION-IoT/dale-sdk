@@ -49,12 +49,13 @@ Every time a session changes the plan during implementation — different file s
 | 2026-05-05 | PR 1 | Test framework: xunit + FluentAssertions → MSTest 4.0.2 + built-in assertions | First implementer used xunit; SDK convention (matching `Vion.Dale.Sdk.Test`) is MSTest. Scaffold rewritten on a clean branch | User in this session |
 | 2026-05-05 | PR 1 | Added `Byte`, `UShort`, `UInt` to `PrimitiveKind` | Unsigned types overlooked in spec; needed for Modbus register values, large counters, byte-sized status bits. All fit in `LongVal` (no new wire variant). `ulong`/`sbyte` deferred to spec §10 (ulong > 2^63 doesn't round-trip; sbyte rarely used). Spec primitive mapping table updated; codec range-checks via `format` | User in this session |
 | 2026-05-05 | PR 1 (convention) | Block-scoped namespaces for all C# code, both production and test | `jb cleanupcode` enforces it; plan §0.7 updated. Earlier plan samples sometimes showed file-scoped — those are illustrative only | User in this session |
+| 2026-05-05 | PR 1 (deferred) | Encoding hygiene (UTF-8 BOM stripping, trailing-newline enforcement) deferred | Reviewer flagged BOM on csproj + missing trailing newlines on .cs files as Important. User opted to skip in this PR. Revisit via `.editorconfig` when convenient (`charset = utf-8`, `insert_final_newline = true`, `end_of_line = lf`). Logged to §0.3 Followups | User in this session |
 
 ### 0.3 Followups (out-of-scope discoveries)
 
 If a session notices something unrelated to the current PR but worth fixing later, log it here instead of fixing it inline. Don't lose the observation; don't bloat the PR.
 
-- _(none yet)_
+- **Add `.editorconfig` to vion-contracts (and possibly other repos)** to enforce `charset = utf-8`, `insert_final_newline = true`, `end_of_line = lf` for `*.{cs,csproj}`. Prevents the BOM/missing-newline drift seen during PR 1 implementation.
 
 ### 0.4 Pause rule
 
