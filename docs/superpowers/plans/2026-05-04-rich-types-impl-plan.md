@@ -44,7 +44,10 @@ Every time a session changes the plan during implementation — different file s
 
 | Date | PR | What changed | Why | Approved by |
 |------|----|--------------|-----|-------------|
-| _(none yet)_ | | | | |
+| 2026-05-05 | PR 1 (process) | Implementer subagents stage but do not commit; controller shows diff and waits for explicit user approval before commit | User wants visibility/approval gate on every commit | User in this session |
+| 2026-05-05 | PR 1 (process) | All implementer dispatches must run `jb cleanupcode` on changed files before reporting back | Project convention; ensures consistent C# formatting (Allman braces, etc.) per `CLAUDE.md` | User in this session |
+| 2026-05-05 | PR 1 | Test framework: xunit + FluentAssertions → MSTest 4.0.2 + built-in assertions | First implementer used xunit; SDK convention (matching `Vion.Dale.Sdk.Test`) is MSTest. Scaffold rewritten on a clean branch | User in this session |
+| 2026-05-05 | PR 1 | Added `Byte`, `UShort`, `UInt` to `PrimitiveKind` | Unsigned types overlooked in spec; needed for Modbus register values, large counters, byte-sized status bits. All fit in `LongVal` (no new wire variant). `ulong`/`sbyte` deferred to spec §10 (ulong > 2^63 doesn't round-trip; sbyte rarely used). Spec primitive mapping table updated; codec range-checks via `format` | User in this session |
 
 ### 0.3 Followups (out-of-scope discoveries)
 
@@ -88,7 +91,29 @@ Each session evaluates every change before making it. Three classes:
   ```
   After PR 1 merges, switch to the merge-to-main CI version `0.0.0-ci.<runNumber>`. After tag/release, switch to the stable `X.Y.Z`.
 
-### 0.7 Smoke test (the wide-loop gate)
+### 0.7 Subagent dispatch conventions
+
+Read these before every implementer dispatch.
+
+**Test framework:** All test projects use **MSTest 4.0.2**, not xunit, matching the SDK convention in `C:\_gh\dale-sdk\Vion.Dale.Sdk.Test\`.
+- `Microsoft.NET.Test.Sdk` 18.0.1, `MSTest` 4.0.2, `coverlet.collector` 6.0.4.
+- Global `<Using Include="Microsoft.VisualStudio.TestTools.UnitTesting"/>`.
+- Built-in assertions only (`Assert.AreEqual`, `Assert.IsTrue`, `Assert.HasCount`). **No FluentAssertions.**
+- `Directory.Build.props` auto-applies `[assembly: DoNotParallelize]` to any `IsTestProject == true`.
+- Test file naming: `<Subject>Should.cs` (BDD-style).
+- Test class decorated with `[TestClass]`; test methods with `[TestMethod]`. Method names are descriptive (no underscores, no `_should` suffix): `RecognizeSamePrimitiveKindsAsEqual`, not `Primitive_same_kind_equal`.
+- Test code uses **block-style namespace** (mirrors dale-sdk SDK tests).
+- Production code may use file-scoped namespace (modern style).
+- All usings explicit (`<ImplicitUsings>false</ImplicitUsings>` everywhere).
+- Allman braces throughout.
+
+**Subagent commit policy:** Implementer subagents **stage** their work but **do not commit**. The controller (the orchestrating session) shows the diff to the user, gets explicit approval, then commits. Implementer prompts must include this directive.
+
+**Code formatting:** Implementer subagents must run `jb cleanupcode <solution-or-csproj-path> --profile="Built-in: Reformat Code"` on all changed files before reporting back. JetBrains CLI tool. If unavailable in the environment, the implementer reports `BLOCKED` and the controller installs / runs it. (For VS Code / Visual Studio users, `format-on-save` typically suffices for hand-edited files; agents must still run the tool to be safe.)
+
+**Implementer reporting:** When done, the implementer reports `DONE` (or one of the other statuses), and explicitly states **"work is staged on `<branch>`; awaiting controller commit-approval"** so the controller doesn't accidentally re-stage or re-edit.
+
+### 0.8 Smoke test (the wide-loop gate)
 
 Located at `C:\_gh\dale-sdk\scripts\rich-types-smoke.ps1`. Created at the start of the PR 4+5 paired stretch (§5.3 below), since that's the first time the script has anything to run against. Run as the merge gate for the dale-private + mesh pair. Verifies a property write actually round-trips end-to-end through the full stack.
 
@@ -160,6 +185,24 @@ And a version-suffix step:
 **Branch:** `feat/rich-types`
 **Prereqs:** §1.1 done (CI publishes feature-branch prereleases).
 
+> **⚠️ Test-framework note for the rest of §2.** Code samples in §2.8 onwards were originally drafted in xunit + FluentAssertions syntax (`[Fact]`, `[Theory]`, `[InlineData]`, `.Should().Be(...)`). The actual conventions are **MSTest 4 + built-in assertions** per §0.7. The controller dispatching each task must convert snippets to MSTest equivalents before pasting into the implementer prompt:
+>
+> - `[Fact]` → `[TestMethod]`
+> - `[Theory]` → (remove; `[TestMethod]` alone supports `[DataRow]` in MSTest 4)
+> - `[InlineData(...)]` → `[DataRow(...)]`
+> - `actual.Should().Be(expected)` → `Assert.AreEqual(expected, actual)` (note: argument order flips)
+> - `actual.Should().NotBe(expected)` → `Assert.AreNotEqual(expected, actual)`
+> - `actual.Should().BeTrue()` / `BeFalse()` → `Assert.IsTrue(actual)` / `Assert.IsFalse(actual)`
+> - `act.Should().Throw<E>()` → `Assert.ThrowsException<E>(act)`
+> - `actual.Should().Contain(s)` → `StringAssert.Contains(actual, s)` (for strings) or `Assert.IsTrue(actual.Contains(s))` (collections)
+> - `actual.Should().NotBeNull()` → `Assert.IsNotNull(actual)`
+> - Test class names follow `<Subject>Should` (BDD-style); decorate with `[TestClass]`.
+> - Test method names are descriptive PascalCase, no underscores.
+> - File naming: `<Subject>Should.cs`.
+> - Block-style namespaces.
+>
+> When tasks call out specific test files (e.g. `TypeSchemaSerializationTests.cs`), rename to `<Subject>Should.cs` (e.g. `TypeSchemaSerializationShould.cs`).
+
 ### 2.1 File structure
 
 **Create:**
@@ -210,16 +253,7 @@ And a version-suffix step:
   git checkout -b feat/rich-types
   ```
 
-- [ ] **Step 2:** Verify test project exists; create if missing.
-  ```bash
-  ls Vion.Contracts.Test 2>/dev/null || dotnet new xunit -o Vion.Contracts.Test -n Vion.Contracts.Test
-  ```
-
-  If just created, add to solution:
-  ```bash
-  dotnet sln Vion.Contracts.sln add Vion.Contracts.Test/Vion.Contracts.Test.csproj
-  cd Vion.Contracts.Test && dotnet add reference ../Vion.Contracts/Vion.Contracts.csproj
-  ```
+- [ ] **Step 2:** Verify the `Vion.Contracts.Test` project exists. It was scaffolded as an MSTest project in commit `3027600` on this branch; the csproj references `MSTest 4.0.2`, `Microsoft.NET.Test.Sdk 18.0.1`, `coverlet.collector`, and includes a global `Microsoft.VisualStudio.TestTools.UnitTesting` using. `Directory.Build.props` adds `[assembly: DoNotParallelize]` to all test projects automatically. **Use MSTest, not xunit.** See §0.7 for the full test-framework convention.
 
 ### 2.3 Task: PrimitiveKind enum
 
@@ -232,8 +266,11 @@ public enum PrimitiveKind
 {
     Bool,
     String,
+    Byte,
     Short,
+    UShort,
     Int,
+    UInt,
     Long,
     Float,
     Double,
@@ -242,10 +279,9 @@ public enum PrimitiveKind
 }
 ```
 
-- [ ] **Step 2:** Commit.
+- [ ] **Step 2:** Stage and report (do not commit; controller commits after user approval).
   ```bash
   git add Vion.Contracts/TypeRef/PrimitiveKind.cs
-  git commit -m "feat(types): add PrimitiveKind enum"
   ```
 
 ### 2.4 Task: TypeRef hierarchy and StructField
@@ -629,15 +665,18 @@ public class TypeSchemaSerializationTests
     private static JsonNode Json(string s) => JsonNode.Parse(s)!;
 
     [Theory]
-    [InlineData(PrimitiveKind.Bool,     "{\"type\":\"boolean\"}")]
-    [InlineData(PrimitiveKind.String,   "{\"type\":\"string\"}")]
-    [InlineData(PrimitiveKind.Short,    "{\"type\":\"integer\",\"format\":\"int16\"}")]
-    [InlineData(PrimitiveKind.Int,      "{\"type\":\"integer\",\"format\":\"int32\"}")]
-    [InlineData(PrimitiveKind.Long,     "{\"type\":\"integer\",\"format\":\"int64\"}")]
-    [InlineData(PrimitiveKind.Float,    "{\"type\":\"number\",\"format\":\"float\"}")]
-    [InlineData(PrimitiveKind.Double,   "{\"type\":\"number\",\"format\":\"double\"}")]
-    [InlineData(PrimitiveKind.DateTime, "{\"type\":\"string\",\"format\":\"date-time\"}")]
-    [InlineData(PrimitiveKind.Duration, "{\"type\":\"string\",\"format\":\"duration\"}")]
+    [DataRow(PrimitiveKind.Bool,     "{\"type\":\"boolean\"}")]
+    [DataRow(PrimitiveKind.String,   "{\"type\":\"string\"}")]
+    [DataRow(PrimitiveKind.Byte,     "{\"type\":\"integer\",\"format\":\"uint8\"}")]
+    [DataRow(PrimitiveKind.Short,    "{\"type\":\"integer\",\"format\":\"int16\"}")]
+    [DataRow(PrimitiveKind.UShort,   "{\"type\":\"integer\",\"format\":\"uint16\"}")]
+    [DataRow(PrimitiveKind.Int,      "{\"type\":\"integer\",\"format\":\"int32\"}")]
+    [DataRow(PrimitiveKind.UInt,     "{\"type\":\"integer\",\"format\":\"uint32\"}")]
+    [DataRow(PrimitiveKind.Long,     "{\"type\":\"integer\",\"format\":\"int64\"}")]
+    [DataRow(PrimitiveKind.Float,    "{\"type\":\"number\",\"format\":\"float\"}")]
+    [DataRow(PrimitiveKind.Double,   "{\"type\":\"number\",\"format\":\"double\"}")]
+    [DataRow(PrimitiveKind.DateTime, "{\"type\":\"string\",\"format\":\"date-time\"}")]
+    [DataRow(PrimitiveKind.Duration, "{\"type\":\"string\",\"format\":\"duration\"}")]
     public void Primitive_to_json_schema(PrimitiveKind kind, string expected)
     {
         var schema = TypeSchema.Of(new PrimitiveTypeRef(kind));
@@ -2248,8 +2287,11 @@ public static bool IsSupportedServiceElementType(ITypeSymbol type)
 
         // Primitives
         _ when type.SpecialType is SpecialType.System_Boolean
+                                or SpecialType.System_Byte
                                 or SpecialType.System_Int16
+                                or SpecialType.System_UInt16
                                 or SpecialType.System_Int32
+                                or SpecialType.System_UInt32
                                 or SpecialType.System_Int64
                                 or SpecialType.System_Single
                                 or SpecialType.System_Double

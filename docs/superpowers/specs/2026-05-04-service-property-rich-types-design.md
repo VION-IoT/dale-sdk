@@ -108,7 +108,7 @@ public sealed record NullableTypeRef(TypeRef Inner) : TypeRef;
 
 public sealed record StructField(string Name, TypeRef Type);
 
-public enum PrimitiveKind { Bool, String, Short, Int, Long, Float, Double, DateTime, Duration }
+public enum PrimitiveKind { Bool, String, Byte, Short, UShort, Int, UInt, Long, Float, Double, DateTime, Duration }
 
 // Annotations layer — JSON Schema keywords that don't bear identity
 public sealed record TypeAnnotations
@@ -186,13 +186,18 @@ public static class PropertyMetadataSerialization
 |---|---|
 | `Bool`     | `{"type":"boolean"}` |
 | `String`   | `{"type":"string"}` |
+| `Byte`     | `{"type":"integer","format":"uint8"}` |
 | `Short`    | `{"type":"integer","format":"int16"}` |
+| `UShort`   | `{"type":"integer","format":"uint16"}` |
 | `Int`      | `{"type":"integer","format":"int32"}` |
+| `UInt`     | `{"type":"integer","format":"uint32"}` |
 | `Long`     | `{"type":"integer","format":"int64"}` |
 | `Float`    | `{"type":"number","format":"float"}` |
 | `Double`   | `{"type":"number","format":"double"}` |
 | `DateTime` | `{"type":"string","format":"date-time"}` — RFC 3339 string, ms precision |
 | `Duration` | `{"type":"string","format":"duration"}` — ISO 8601 duration string, ms precision |
+
+Unsigned formats (`uint8`/`uint16`/`uint32`) are an OpenAPI 3.x convention recognized by NSwag, openapi-generator, and pydantic. They are not in the JSON Schema 2020-12 standard core but are widely accepted as `format` extensions. The codec range-checks at the C# binding boundary using `format`. Wire-side, all unsigned variants encode as `LongVal` (the signed long fits any `uint8`/`uint16`/`uint32` value); no extra wire variant.
 
 **Composite → JSON Schema mapping:**
 
@@ -880,6 +885,8 @@ All breaking changes land across coordinated package versions documented in the 
 - **Map / dictionary types** (`Dictionary<string, double>`, e.g. channel-keyed readings, named flags). Workaround: array of `{key, value}` structs.
 - **Polymorphic / tagged-union property values** (an "Alert" property whose payload differs per alert kind). JSON Schema's `oneOf` with discriminator would be the natural extension. Workaround: separate properties per variant.
 - **Flag enums** (`[Flags]`). Need a separate wire form (`"Read|Write"` composition or a bit-mask variant). Not used in current LogicBlocks.
+- **`ulong` (uint64)** as a primitive kind. Doesn't fit in `LongVal` (signed 64-bit) for values > 2^63. Would need a 15th wire variant `ULongVal` or accepted truncation. Defer until a real use case appears; rare in IoT properties.
+- **`sbyte` (int8)** as a primitive kind. Almost never used in IoT property modelling. Defer.
 - Writable compound-type UI editors.
 - Bespoke per-struct visualisations (map for `Coordinates`, chart for `double[]`) — only the registry hook ships.
 - Struct-level title-override attribute (e.g. `[Struct(Title = "…")]`). Currently the struct's C# type name is its identity-bearing `Title`. An override would let a renamed type keep its old title (or vice versa); not needed today, defer.
