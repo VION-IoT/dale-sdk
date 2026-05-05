@@ -48,6 +48,7 @@ Every time a session changes the plan during implementation — different file s
 | 2026-05-05 | PR 1 (process) | All implementer dispatches must run `jb cleanupcode` on changed files before reporting back | Project convention; ensures consistent C# formatting (Allman braces, etc.) per `CLAUDE.md` | User in this session |
 | 2026-05-05 | PR 1 | Test framework: xunit + FluentAssertions → MSTest 4.0.2 + built-in assertions | First implementer used xunit; SDK convention (matching `Vion.Dale.Sdk.Test`) is MSTest. Scaffold rewritten on a clean branch | User in this session |
 | 2026-05-05 | PR 1 | Added `Byte`, `UShort`, `UInt` to `PrimitiveKind` | Unsigned types overlooked in spec; needed for Modbus register values, large counters, byte-sized status bits. All fit in `LongVal` (no new wire variant). `ulong`/`sbyte` deferred to spec §10 (ulong > 2^63 doesn't round-trip; sbyte rarely used). Spec primitive mapping table updated; codec range-checks via `format` | User in this session |
+| 2026-05-05 | PR 1 (convention) | Block-scoped namespaces for all C# code, both production and test | `jb cleanupcode` enforces it; plan §0.7 updated. Earlier plan samples sometimes showed file-scoped — those are illustrative only | User in this session |
 
 ### 0.3 Followups (out-of-scope discoveries)
 
@@ -102,8 +103,7 @@ Read these before every implementer dispatch.
 - `Directory.Build.props` auto-applies `[assembly: DoNotParallelize]` to any `IsTestProject == true`.
 - Test file naming: `<Subject>Should.cs` (BDD-style).
 - Test class decorated with `[TestClass]`; test methods with `[TestMethod]`. Method names are descriptive (no underscores, no `_should` suffix): `RecognizeSamePrimitiveKindsAsEqual`, not `Primitive_same_kind_equal`.
-- Test code uses **block-style namespace** (mirrors dale-sdk SDK tests).
-- Production code may use file-scoped namespace (modern style).
+- **All C# code (production and test) uses block-scoped namespaces.** Enforced by `jb cleanupcode --profile="Built-in: Reformat Code"`. Plan code samples below sometimes show file-scoped namespaces for readability; treat them as illustrative — the implementer must use block-scoped to match the cleanup tool's output.
 - All usings explicit (`<ImplicitUsings>false</ImplicitUsings>` everywhere).
 - Allman braces throughout.
 
