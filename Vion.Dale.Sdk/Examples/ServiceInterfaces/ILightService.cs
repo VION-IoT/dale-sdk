@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Examples.FunctionInterfaces;
 
@@ -36,7 +36,7 @@ namespace Vion.Dale.Sdk.Examples.ServiceInterfaces
         /// <summary>
         ///     Property with unit example
         /// </summary>
-        [ServiceProperty("Leistung", "W", 0)]
+        [ServiceProperty(Title = "Leistung", Unit = "W", Minimum = 0)]
         public double NominalPower { get; }
     }
 }

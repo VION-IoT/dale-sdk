@@ -1,60 +1,45 @@
-﻿using System;
-using System.Collections.Generic;
+using System;
 
 namespace Vion.Dale.Sdk.Core
 {
     /// <summary>
-    ///     Describe a service property on a service interface or logic block property
-    ///     The optional parameters are used as annotations in service description
+    ///     Describe a service property on a service interface or logic block property.
+    ///     The optional properties become annotations in the introspection schema document.
     /// </summary>
     [PublicApi]
     [AttributeUsage(AttributeTargets.Property)]
-    public class ServicePropertyAttribute : Attribute
+    public sealed class ServicePropertyAttribute : Attribute
     {
-        public string? DefaultName { get; }
+        public string? Title { get; init; }
 
-        public string? Unit { get; }
+        public string? Unit { get; init; }
 
-        public double? MinValue { get; }
+        public double Minimum { get; init; } = double.NegativeInfinity;
 
-        public double? MaxValue { get; }
+        public double Maximum { get; init; } = double.PositiveInfinity;
 
-        public Dictionary<string, object> Annotations
+        [Obsolete("Use Title instead. Will be removed in next major.")]
+        public string? DefaultName
         {
-            get
-            {
-                var annotations = new Dictionary<string, object>();
+            get => Title;
 
-                if (!string.IsNullOrEmpty(DefaultName))
-                {
-                    annotations[nameof(DefaultName)] = DefaultName;
-                }
-
-                if (!string.IsNullOrEmpty(Unit))
-                {
-                    annotations[nameof(Unit)] = Unit;
-                }
-
-                if (MinValue.HasValue)
-                {
-                    annotations[nameof(MinValue)] = MinValue.Value;
-                }
-
-                if (MaxValue.HasValue)
-                {
-                    annotations[nameof(MaxValue)] = MaxValue.Value;
-                }
-
-                return annotations;
-            }
+            init => Title = value;
         }
 
-        public ServicePropertyAttribute(string? defaultName = null, string? unit = null, double minValue = double.NaN, double maxValue = double.NaN)
+        [Obsolete("Use Minimum instead. Will be removed in next major.")]
+        public double MinValue
         {
-            DefaultName = defaultName;
-            Unit = unit;
-            MinValue = double.IsNaN(minValue) ? null : minValue;
-            MaxValue = double.IsNaN(maxValue) ? null : maxValue;
+            get => Minimum;
+
+            init => Minimum = value;
+        }
+
+        [Obsolete("Use Maximum instead. Will be removed in next major.")]
+        public double MaxValue
+        {
+            get => Maximum;
+
+            init => Maximum = value;
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿using Vion.Dale.Sdk.Core;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Examples.FunctionInterfaces;
 
 namespace Vion.Dale.Sdk.Examples.ServiceInterfaces
@@ -10,13 +10,13 @@ namespace Vion.Dale.Sdk.Examples.ServiceInterfaces
         /// <summary>
         ///     Property example
         /// </summary>
-        [ServiceProperty("Mindestkontaktdauer", "ms")]
+        [ServiceProperty(Title = "Mindestkontaktdauer", Unit = "ms")]
         public int SustainDelayInMs { get; set; }
 
         /// <summary>
         ///     Measuring point example
         /// </summary>
-        [ServiceMeasuringPoint("Anzahl Auslösungen", "count")]
+        [ServiceMeasuringPoint(Title = "Anzahl Auslösungen", Unit = "count")]
         public int TimesToggled { get; }
     }
 }

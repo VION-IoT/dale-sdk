@@ -1,5 +1,5 @@
-using Vion.Dale.Cli.Commands.Add;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Vion.Dale.Cli.Commands.Add;
 
 namespace Vion.Dale.Cli.Test.Commands
 {
@@ -11,7 +11,7 @@ namespace Vion.Dale.Cli.Test.Commands
         {
             var snippet = AddServicePropertyCommand.BuildPropertySnippet("Temperature", "double", "private", null, false);
 
-            Assert.IsTrue(snippet.Contains("[ServiceProperty(\"Temperature\")]"));
+            Assert.IsTrue(snippet.Contains("[ServiceProperty(Title = \"Temperature\")]"));
             Assert.IsTrue(snippet.Contains("public double Temperature { get; private set; }"));
         }
 
@@ -28,7 +28,7 @@ namespace Vion.Dale.Cli.Test.Commands
         {
             var snippet = AddServicePropertyCommand.BuildPropertySnippet("Temp", "double", "private", "Temperature", false);
 
-            Assert.IsTrue(snippet.Contains("[ServiceProperty(\"Temperature\")]"));
+            Assert.IsTrue(snippet.Contains("[ServiceProperty(Title = \"Temperature\")]"));
         }
 
         [TestMethod]
@@ -36,7 +36,7 @@ namespace Vion.Dale.Cli.Test.Commands
         {
             var snippet = AddServicePropertyCommand.BuildPropertySnippet("Mode", "string", "private", null, true);
 
-            Assert.IsTrue(snippet.Contains("[ServiceProperty(\"Mode\")]"));
+            Assert.IsTrue(snippet.Contains("[ServiceProperty(Title = \"Mode\")]"));
             Assert.IsTrue(snippet.Contains("[Persistent]"));
         }
 
@@ -62,7 +62,7 @@ namespace Vion.Dale.Cli.Test.Commands
         {
             var snippet = AddMeasuringPointCommand.BuildMeasuringPointSnippet("Temperature", "double", null, false);
 
-            Assert.IsTrue(snippet.Contains("[ServiceMeasuringPoint(\"Temperature\")]"));
+            Assert.IsTrue(snippet.Contains("[ServiceMeasuringPoint(Title = \"Temperature\")]"));
             Assert.IsTrue(snippet.Contains("public double Temperature { get; private set; }"));
             Assert.IsFalse(snippet.Contains("[Persistent]"));
         }
@@ -72,7 +72,7 @@ namespace Vion.Dale.Cli.Test.Commands
         {
             var snippet = AddMeasuringPointCommand.BuildMeasuringPointSnippet("Temp", "double", "Temperature Sensor", false);
 
-            Assert.IsTrue(snippet.Contains("[ServiceMeasuringPoint(\"Temperature Sensor\")]"));
+            Assert.IsTrue(snippet.Contains("[ServiceMeasuringPoint(Title = \"Temperature Sensor\")]"));
             Assert.IsTrue(snippet.Contains("public double Temp { get; private set; }"));
         }
 
@@ -81,7 +81,7 @@ namespace Vion.Dale.Cli.Test.Commands
         {
             var snippet = AddMeasuringPointCommand.BuildMeasuringPointSnippet("TotalCount", "int", null, true);
 
-            Assert.IsTrue(snippet.Contains("[ServiceMeasuringPoint(\"TotalCount\")]"));
+            Assert.IsTrue(snippet.Contains("[ServiceMeasuringPoint(Title = \"TotalCount\")]"));
             Assert.IsTrue(snippet.Contains("[Persistent]"));
             Assert.IsTrue(snippet.Contains("public int TotalCount { get; private set; }"));
         }

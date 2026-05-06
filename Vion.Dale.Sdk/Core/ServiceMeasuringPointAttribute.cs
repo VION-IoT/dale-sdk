@@ -1,44 +1,29 @@
-﻿using System;
-using System.Collections.Generic;
+using System;
 
 namespace Vion.Dale.Sdk.Core
 {
     /// <summary>
-    ///     Define a measuring point on a Service interface or logic block property.
-    ///     The optional parameters are used as annotations in service description
+    ///     Define a measuring point on a service interface or logic block property.
+    ///     The optional properties become annotations in the introspection schema document.
     /// </summary>
     [PublicApi]
     [AttributeUsage(AttributeTargets.Property)]
-    public class ServiceMeasuringPointAttribute : Attribute
+    public sealed class ServiceMeasuringPointAttribute : Attribute
     {
-        public string? DefaultName { get; }
+        public string? Title { get; init; }
 
-        public string? Unit { get; }
+        public string? Unit { get; init; }
 
-        public Dictionary<string, object> Annotations
+        public double Minimum { get; init; } = double.NegativeInfinity;
+
+        public double Maximum { get; init; } = double.PositiveInfinity;
+
+        [Obsolete("Use Title instead. Will be removed in next major.")]
+        public string? DefaultName
         {
-            get
-            {
-                var annotations = new Dictionary<string, object>();
+            get => Title;
 
-                if (!string.IsNullOrEmpty(DefaultName))
-                {
-                    annotations[nameof(DefaultName)] = DefaultName;
-                }
-
-                if (!string.IsNullOrEmpty(Unit))
-                {
-                    annotations[nameof(Unit)] = Unit;
-                }
-
-                return annotations;
-            }
-        }
-
-        public ServiceMeasuringPointAttribute(string? defaultName = null, string? unit = null)
-        {
-            DefaultName = defaultName;
-            Unit = unit;
+            init => Title = value;
         }
     }
 }

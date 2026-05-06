@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using System.CommandLine;
+using System.IO;
+using System.Text.RegularExpressions;
 using Vion.Dale.Cli.Helpers;
 using Vion.Dale.Cli.Output;
 
@@ -50,8 +52,8 @@ namespace Vion.Dale.Cli.Commands.Add
                                   }
 
                                   // Check for existing property with same name
-                                  var sourceContent = System.IO.File.ReadAllText(target.FilePath);
-                                  if (System.Text.RegularExpressions.Regex.IsMatch(sourceContent, $@"\b{System.Text.RegularExpressions.Regex.Escape(name!)}\s*{{"))
+                                  var sourceContent = File.ReadAllText(target.FilePath);
+                                  if (Regex.IsMatch(sourceContent, $@"\b{Regex.Escape(name!)}\s*{{"))
                                   {
                                       DaleConsole.Error($"Property '{name}' already exists in {target.ClassName}.");
                                       return 1;
@@ -90,9 +92,8 @@ namespace Vion.Dale.Cli.Commands.Add
         {
             var lines = new List<string>();
 
-            // [ServiceProperty] attribute — DefaultName is a constructor parameter, not a named argument
             var displayName = defaultName ?? name;
-            lines.Add($"[ServiceProperty(\"{displayName}\")]");
+            lines.Add($"[ServiceProperty(Title = \"{displayName}\")]");
 
             // [Persistent] attribute if requested
             if (persistent)

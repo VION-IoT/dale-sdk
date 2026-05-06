@@ -85,7 +85,7 @@ namespace Vion.Dale.Cli.Commands.Add
             var lines = new List<string>();
 
             var displayName = defaultName ?? name;
-            lines.Add($"[ServiceMeasuringPoint(\"{displayName}\")]");
+            lines.Add($"[ServiceMeasuringPoint(Title = \"{displayName}\")]");
 
             if (persistent)
             {
