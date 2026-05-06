@@ -20,12 +20,12 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <InternalsVisibleTo Include="Vion.Dale.Sdk.TestKit"/>
+        <InternalsVisibleTo Include="Vion.Dale.Sdk.TestKit" />
     </ItemGroup>
 
     <!--code generator project reference (compile time only reference). could be also a package reference, but it would be harder to debug the gho code generation	-->
     <ItemGroup>
-        <ProjectReference Include="..\Vion.Dale.Sdk.Generators\Vion.Dale.Sdk.Generators.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer"/>
+        <ProjectReference Include="..\Vion.Dale.Sdk.Generators\Vion.Dale.Sdk.Generators.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer" />
     </ItemGroup>
 
     <ItemGroup>
@@ -54,25 +54,25 @@
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
         <!-- INotifyPropertyChanged/Observability aspect support (transitive) -->
-        <PackageReference Include="Metalama.Patterns.Observability" Version="2026.0.21"/>
-        <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0"/>
-        <PackageReference Include="Vion.Contracts" Version="0.4.0"/>
-        <PackageReference Include="System.Text.Json" Version="10.0.0"/>
+        <PackageReference Include="Metalama.Patterns.Observability" Version="2026.0.21" />
+        <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0" />
+        <PackageReference Include="Vion.Contracts" Version="0.0.0-ci.24" />
+        <PackageReference Include="System.Text.Json" Version="10.0.7" />
     </ItemGroup>
 
     <!-- Include the LogicBlockParser executable in the tools folder -->
     <ItemGroup>
-        <None Include="..\Vion.Dale.LogicBlockParser\bin\$(Configuration)\net10.0\**" Pack="true" PackagePath="tools\net10.0\" Condition="Exists('..\Vion.Dale.LogicBlockParser\bin\$(Configuration)\net10.0\')" Visible="false"/>
+        <None Include="..\Vion.Dale.LogicBlockParser\bin\$(Configuration)\net10.0\**" Pack="true" PackagePath="tools\net10.0\" Condition="Exists('..\Vion.Dale.LogicBlockParser\bin\$(Configuration)\net10.0\')" Visible="false" />
     </ItemGroup>
 
     <!-- Include the source generator in the analyzers folder -->
     <ItemGroup>
-        <None Include="..\Vion.Dale.Sdk.Generators\bin\$(Configuration)\netstandard2.0\Vion.Dale.Sdk.Generators.dll" Pack="true" PackagePath="analyzers\dotnet\cs\" Condition="Exists('..\Vion.Dale.Sdk.Generators\bin\$(Configuration)\netstandard2.0\Vion.Dale.Sdk.Generators.dll')" Visible="false"/>
+        <None Include="..\Vion.Dale.Sdk.Generators\bin\$(Configuration)\netstandard2.0\Vion.Dale.Sdk.Generators.dll" Pack="true" PackagePath="analyzers\dotnet\cs\" Condition="Exists('..\Vion.Dale.Sdk.Generators\bin\$(Configuration)\netstandard2.0\Vion.Dale.Sdk.Generators.dll')" Visible="false" />
     </ItemGroup>
 
     <!-- Include build targets file (so that project using this package run the parser) -->
     <ItemGroup>
-        <None Include="build\Vion.Dale.Sdk.targets" Pack="true" PackagePath="build\"/>
+        <None Include="build\Vion.Dale.Sdk.targets" Pack="true" PackagePath="build\" />
     </ItemGroup>
 
 </Project>
