@@ -1,5 +1,6 @@
 using System;
 using System.Reflection;
+using Vion.Contracts.TypeRef;
 
 namespace Vion.Dale.Sdk.Configuration.Services
 {
@@ -44,5 +45,13 @@ namespace Vion.Dale.Sdk.Configuration.Services
         public Action<object, object?>? Setter { get; init; }
 
         public string ServicePropertyName { get; init; } = null!; // for the parser
+
+        /// <summary>
+        ///     Per-property metadata document — Schema (data shape), Presentation (UI hints), Runtime (dale flags).
+        ///     Populated at binding-registration time by ServiceBuilderBase / ServiceDeclarationBase via
+        ///     <see cref="Vion.Dale.Sdk.Introspection.PropertyMetadataBuilder" />. The codec uses
+        ///     <c>Metadata.Schema.Type</c> for FB encode/decode dispatch.
+        /// </summary>
+        public PropertyMetadata Metadata { get; init; } = null!;
     }
 }

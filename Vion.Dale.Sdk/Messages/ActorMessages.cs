@@ -1,8 +1,8 @@
 using System;
+using System.Collections.Generic;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Persistence;
 using Vion.Dale.Sdk.Utils;
-using System.Collections.Generic;
 
 namespace Vion.Dale.Sdk.Messages
 {
@@ -110,7 +110,7 @@ namespace Vion.Dale.Sdk.Messages
     /// <summary>
     ///     Message from ServicePropertyHandler to LogicBlock
     /// </summary>
-    public readonly record struct SetServicePropertyValueRequest(ServiceIdentifier ServiceIdentifier, string PropertyIdentifier, object Value);
+    public readonly record struct SetServicePropertyValueRequest(ServiceIdentifier ServiceIdentifier, string PropertyIdentifier, object? Value);
 
     /// <summary>
     ///     Message from LogicBlock to ServicePropertyHandler

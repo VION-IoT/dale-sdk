@@ -1,5 +1,6 @@
 using System;
 using System.Reflection;
+using Vion.Dale.Sdk.Introspection;
 
 namespace Vion.Dale.Sdk.Configuration.Services
 {
@@ -77,6 +78,10 @@ namespace Vion.Dale.Sdk.Configuration.Services
                                                Func<object, object?> getter,
                                                Action<object, object?>? setter)
         {
+            var typeRef = TypeRefBuilder.BuildForProperty(rootSourcePropertyInfo);
+            var structFieldAnnotations = TypeRefBuilder.BuildStructFieldAnnotations(rootSourcePropertyInfo.PropertyType);
+            var metadata = PropertyMetadataBuilder.Build(rootSourcePropertyInfo, typeRef, structFieldAnnotations);
+
             var binding = new ServiceBinding
                           {
                               Source = source,
@@ -87,6 +92,7 @@ namespace Vion.Dale.Sdk.Configuration.Services
                               Getter = getter,
                               Setter = setter,
                               ServicePropertyName = servicePropertyIdentifier,
+                              Metadata = metadata,
                           };
 
             Binder.RegisterServicePropertyBinding(ServiceIdentifier, null, servicePropertyIdentifier, binding);
@@ -103,6 +109,10 @@ namespace Vion.Dale.Sdk.Configuration.Services
                                                      Func<object, object?> getter,
                                                      Action<object, object?>? setter)
         {
+            var typeRef = TypeRefBuilder.BuildForProperty(rootSourcePropertyInfo);
+            var structFieldAnnotations = TypeRefBuilder.BuildStructFieldAnnotations(rootSourcePropertyInfo.PropertyType);
+            var metadata = PropertyMetadataBuilder.Build(rootSourcePropertyInfo, typeRef, structFieldAnnotations);
+
             var binding = new ServiceBinding
                           {
                               Source = source,
@@ -113,6 +123,7 @@ namespace Vion.Dale.Sdk.Configuration.Services
                               Getter = getter,
                               Setter = setter,
                               ServicePropertyName = serviceMeasuringPointIdentifier,
+                              Metadata = metadata,
                           };
 
             Binder.RegisterServiceMeasuringPointBinding(ServiceIdentifier, null, serviceMeasuringPointIdentifier, binding);
