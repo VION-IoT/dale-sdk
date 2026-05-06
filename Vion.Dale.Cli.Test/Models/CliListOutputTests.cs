@@ -1,7 +1,8 @@
+using System.Collections.Generic;
 using System.Text.Json;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Vion.Dale.Cli.Infrastructure;
 using Vion.Dale.Cli.Models;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Vion.Dale.Cli.Test.Models
 {
@@ -32,16 +33,16 @@ namespace Vion.Dale.Cli.Test.Models
                              PackageId = "Test.Package",
                              Version = "1.0.0",
                              SdkVersion = "0.1.60",
-                             LogicBlocks = new()
+                             LogicBlocks = new List<CliLogicBlockOutput>
                                            {
-                                               new CliLogicBlockOutput
+                                               new()
                                                {
                                                    Name = "MyBlock",
                                                    FullName = "Test.MyBlock",
-                                                   Interfaces = new() { "ITemperature" },
-                                                   Contracts = new() { "AO1" },
-                                               }
-                                           }
+                                                   Interfaces = new List<string> { "ITemperature" },
+                                                   Contracts = new List<string> { "AO1" },
+                                               },
+                                           },
                          };
 
             var json = JsonSerializer.Serialize(output, JsonDefaults.Options);

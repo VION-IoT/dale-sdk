@@ -1,7 +1,7 @@
 using System;
+using Microsoft.Extensions.DependencyInjection;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Reflection;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Vion.Dale.Sdk.Configuration.Contract
 {

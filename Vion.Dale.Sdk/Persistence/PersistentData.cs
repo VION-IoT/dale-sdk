@@ -1,10 +1,10 @@
-using Vion.Dale.Sdk.Configuration.Services;
-using Vion.Dale.Sdk.Core;
-using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Microsoft.Extensions.Logging;
+using Vion.Dale.Sdk.Configuration.Services;
+using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.Sdk.Persistence
 {

@@ -1,7 +1,7 @@
 using System;
-using Vion.Dale.Sdk.Core;
 using Microsoft.Extensions.Logging;
 using Moq;
+using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.Sdk.TestKit
 {

@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using Moq;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Messages;
 using Vion.Dale.Sdk.Utils;
-using Moq;
 using static Vion.Dale.Sdk.Core.LogicBlockBase;
 
 namespace Vion.Dale.Sdk.TestKit

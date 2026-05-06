@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Buffers;
 using System.Collections.Generic;
-using Vion.Dale.Sdk.Abstractions;
 using Vion.Contracts.Mqtt;
+using Vion.Dale.Sdk.Abstractions;
 
 namespace Vion.Dale.Sdk.Mqtt
 {
@@ -10,7 +10,8 @@ namespace Vion.Dale.Sdk.Mqtt
     ///     Message from runtime to handler requesting MQTT message handler registration.
     /// </summary>
     /// <remarks>
-    ///     All types implementing <see cref="IMqttHandlerActor" /> must process this message and respond with <see cref="RegisterMqttHandlerResponse" />.
+    ///     All types implementing <see cref="IMqttHandlerActor" /> must process this message and respond with
+    ///     <see cref="RegisterMqttHandlerResponse" />.
     ///     The runtime waits for responses from all <see cref="IMqttHandlerActor" /> instances before proceeding.
     /// </remarks>
     public readonly record struct RegisterMqttHandlerRequest;
@@ -19,7 +20,8 @@ namespace Vion.Dale.Sdk.Mqtt
     ///     Message from handler to runtime confirming MQTT message handler registration.
     /// </summary>
     /// <remarks>
-    ///     Must be sent by all <see cref="IMqttHandlerActor" /> implementations in response to <see cref="RegisterMqttHandlerResponse" />.
+    ///     Must be sent by all <see cref="IMqttHandlerActor" /> implementations in response to
+    ///     <see cref="RegisterMqttHandlerResponse" />.
     ///     The runtime waits for responses from all <see cref="IMqttHandlerActor" /> instances before proceeding.
     /// </remarks>
     public readonly record struct RegisterMqttHandlerResponse;
@@ -31,7 +33,8 @@ namespace Vion.Dale.Sdk.Mqtt
     /// <param name="TopicRoutingKey">
     ///     The routing key used to determine which messages this handler can process.
     ///     Any topic that contains this string will be routed to the handler.
-    ///     Example: "/sw/property" will match topics like "{installationTopic}/dale/{serviceIdentifier}/{propertyIdentifier}/sw/property/set"
+    ///     Example: "/sw/property" will match topics like
+    ///     "{installationTopic}/dale/{serviceIdentifier}/{propertyIdentifier}/sw/property/set"
     /// </param>
     /// <param name="TopicGroups">Groups of MQTT topics to subscribe to, organized by their prefix configuration</param>
     /// <remarks>
@@ -110,7 +113,9 @@ namespace Vion.Dale.Sdk.Mqtt
 
     /// <summary>
     ///     Request message for publishing with acknowledgement.
-    ///     Use with <see cref="IActorSystem.SendAndWaitForAcknowledgementAsync{TRequestMessage, TAcknowledgementMessage}(Dictionary{IActorReference, TRequestMessage}, TimeSpan)" />
+    ///     Use with
+    ///     <see
+    ///         cref="IActorSystem.SendAndWaitForAcknowledgementAsync{TRequestMessage, TAcknowledgementMessage}(Dictionary{IActorReference, TRequestMessage}, TimeSpan)" />
     ///     to ensure the message is published before continuing.
     /// </summary>
     public readonly record struct PublishMqttMessageRequest(

@@ -1,5 +1,5 @@
-using Vion.Dale.Cli.Infrastructure;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Vion.Dale.Cli.Infrastructure;
 
 namespace Vion.Dale.Cli.Test.Infrastructure
 {

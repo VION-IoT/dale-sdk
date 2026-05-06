@@ -1,8 +1,8 @@
-using Vion.Dale.Sdk.Core;
 using Metalama.Framework.Aspects;
 using Metalama.Framework.Code;
 using Metalama.Framework.Fabrics;
 using Metalama.Patterns.Observability;
+using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.Sdk
 {

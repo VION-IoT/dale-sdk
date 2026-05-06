@@ -16,7 +16,8 @@ namespace Vion.Dale.Sdk.Reflection
             /// <param name="derivedFrom">The interface or base type to find implementors/inheritors of.</param>
             /// <returns>A list of concrete types that implement or inherit from <paramref name="derivedFrom" />.</returns>
             /// <remarks>
-            ///     If the same type name exists in multiple assemblies, only the type from the assembly with the highest version is returned.
+            ///     If the same type name exists in multiple assemblies, only the type from the assembly with the highest version is
+            ///     returned.
             /// </remarks>
             /// <exception cref="AssemblyTypeLoadException">Thrown when an assembly references unresolvable dependencies.</exception>
             public List<Type> GetConcreteTypes(Type derivedFrom)
@@ -25,12 +26,14 @@ namespace Vion.Dale.Sdk.Reflection
             }
 
             /// <summary>
-            ///     Retrieves the first concrete (non-interface, non-abstract) type that implements or inherits from the specified type.
+            ///     Retrieves the first concrete (non-interface, non-abstract) type that implements or inherits from the specified
+            ///     type.
             /// </summary>
             /// <param name="derivedFrom">The interface or base type to find an implementor/inheritor of.</param>
             /// <returns>The first concrete type that implements or inherits from <paramref name="derivedFrom" />.</returns>
             /// <remarks>
-            ///     If the same type name exists in multiple assemblies, only the type from the assembly with the highest version is returned.
+            ///     If the same type name exists in multiple assemblies, only the type from the assembly with the highest version is
+            ///     returned.
             /// </remarks>
             /// <exception cref="AssemblyTypeLoadException">Thrown when an assembly references unresolvable dependencies.</exception>
             /// <exception cref="InvalidOperationException">Thrown when no matching type is found.</exception>
@@ -70,7 +73,8 @@ namespace Vion.Dale.Sdk.Reflection
             ///     </para>
             ///     <para>
             ///         <b>Why filtering is necessary:</b><br />
-            ///         Some assemblies (e.g., Metalama.Patterns.Observability) reference compile-time-only dependencies like Microsoft.CodeAnalysis.CSharp.
+            ///         Some assemblies (e.g., Metalama.Patterns.Observability) reference compile-time-only dependencies like
+            ///         Microsoft.CodeAnalysis.CSharp.
             ///         These dependencies are excluded from runtime output.
             ///         Calling <see cref="Assembly.GetTypes" /> on such assemblies throws a <see cref="ReflectionTypeLoadException" />
             ///         because it attempts to load the missing dependencies.
@@ -79,9 +83,11 @@ namespace Vion.Dale.Sdk.Reflection
             ///         <b>How filtering works:</b><br />
             ///         An assembly can only contain types derived from <paramref name="derivedFrom" /> if it references
             ///         the assembly where <paramref name="derivedFrom" /> is defined.
-            ///         For example, when searching for implementations of <see cref="IServiceProviderHandlerActor" /> (defined in Vion.Dale.Sdk),
+            ///         For example, when searching for implementations of <see cref="IServiceProviderHandlerActor" /> (defined in
+            ///         Vion.Dale.Sdk),
             ///         only assemblies that reference Vion.Dale.Sdk are scanned.
-            ///         This naturally excludes problematic assemblies like Metalama.Patterns.Observability which don't reference Vion.Dale.Sdk.
+            ///         This naturally excludes problematic assemblies like Metalama.Patterns.Observability which don't reference
+            ///         Vion.Dale.Sdk.
             ///     </para>
             ///     <para>
             ///         <b>Practical benefit:</b><br />

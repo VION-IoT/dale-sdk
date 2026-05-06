@@ -3,8 +3,8 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text.Json;
-using Vion.Dale.Sdk.Utils;
 using Google.FlatBuffers;
+using Vion.Dale.Sdk.Utils;
 
 namespace Vion.Dale.Sdk.Mqtt
 {
@@ -19,7 +19,10 @@ namespace Vion.Dale.Sdk.Mqtt
             ///     Deserializes the MQTT message payload as JSON.
             /// </summary>
             /// <typeparam name="T">The type to deserialize the JSON payload into.</typeparam>
-            /// <param name="serializerOptions">Optional JSON serializer options. If null, <see cref="JsonSerialization.DefaultOptions" /> are used.</param>
+            /// <param name="serializerOptions">
+            ///     Optional JSON serializer options. If null,
+            ///     <see cref="JsonSerialization.DefaultOptions" /> are used.
+            /// </param>
             /// <returns>The deserialized object of type T.</returns>
             /// <exception cref="InvalidOperationException">Thrown when deserialization returns null.</exception>
             public T GetJsonPayload<T>(JsonSerializerOptions? serializerOptions = null)
@@ -41,7 +44,8 @@ namespace Vion.Dale.Sdk.Mqtt
             /// </summary>
             /// <returns>A ByteBuffer wrapping the payload data.</returns>
             /// <remarks>
-            ///     If the payload is a single segment and can be accessed as an array, a ByteBuffer is created with a reference to the underlying array.
+            ///     If the payload is a single segment and can be accessed as an array, a ByteBuffer is created with a reference to the
+            ///     underlying array.
             ///     Otherwise, the payload is copied to a new array.
             /// </remarks>
             public ByteBuffer GetFlatBufferPayload()
@@ -59,7 +63,8 @@ namespace Vion.Dale.Sdk.Mqtt
             ///     Tries to retrieve the correlation ID from the correlation data.
             /// </summary>
             /// <returns>
-            ///     The extracted correlation ID as a <see cref="Guid" />, or <see cref="Guid.Empty" /> if the correlation data is null or in an unrecognized format.
+            ///     The extracted correlation ID as a <see cref="Guid" />, or <see cref="Guid.Empty" /> if the correlation data is null
+            ///     or in an unrecognized format.
             /// </returns>
             /// <remarks>
             ///     Supports 16-byte binary GUIDs and 36-character UTF-8 string GUIDs.
@@ -78,8 +83,14 @@ namespace Vion.Dale.Sdk.Mqtt
             ///     Retrieves the correlation ID from the correlation data />.
             /// </summary>
             /// <returns>The extracted correlation ID as a <see cref="Guid" />.</returns>
-            /// <exception cref="MissingCorrelationIdException">Thrown if <see cref="MqttMessageReceived.CorrelationData" /> is <c>null</c>.</exception>
-            /// <exception cref="InvalidCorrelationIdFormatException">Thrown if the correlation ID is not in a supported format (16-byte array or 36-character string).</exception>
+            /// <exception cref="MissingCorrelationIdException">
+            ///     Thrown if <see cref="MqttMessageReceived.CorrelationData" /> is
+            ///     <c>null</c>.
+            /// </exception>
+            /// <exception cref="InvalidCorrelationIdFormatException">
+            ///     Thrown if the correlation ID is not in a supported format
+            ///     (16-byte array or 36-character string).
+            /// </exception>
             public Guid GetCorrelationId()
             {
                 if (message.CorrelationData == null)
@@ -105,7 +116,8 @@ namespace Vion.Dale.Sdk.Mqtt
             /// </returns>
             /// <remarks>
             ///     This header can be passed to actor messages to enable request/response patterns.
-            ///     Use <see cref="ActorContextExtensions.GetResponseTopic" /> and <see cref="ActorContextExtensions.GetCorrelationData" />
+            ///     Use <see cref="ActorContextExtensions.GetResponseTopic" /> and
+            ///     <see cref="ActorContextExtensions.GetCorrelationData" />
             ///     to retrieve these values from the actor context.
             /// </remarks>
             public Dictionary<string, string>? GetMessageHeader()
@@ -151,18 +163,22 @@ namespace Vion.Dale.Sdk.Mqtt
             }
 
             /// <summary>
-            ///     Extracts a fixed number of slash-delimited segments from an MQTT topic that appear between two substrings of the topic.
+            ///     Extracts a fixed number of slash-delimited segments from an MQTT topic that appear between two substrings of the
+            ///     topic.
             /// </summary>
             /// <param name="after">
-            ///     The substring after which segment extraction begins. Pass <see cref="ReadOnlySpan{T}.Empty" /> to start extraction at the beginning of the topic.
+            ///     The substring after which segment extraction begins. Pass <see cref="ReadOnlySpan{T}.Empty" /> to start extraction
+            ///     at the beginning of the topic.
             /// </param>
             /// <param name="before">
-            ///     The substring before which segment extraction ends. Pass <see cref="ReadOnlySpan{T}.Empty" /> to extract until the end of the topic.
+            ///     The substring before which segment extraction ends. Pass <see cref="ReadOnlySpan{T}.Empty" /> to extract until the
+            ///     end of the topic.
             /// </param>
             /// <param name="segmentCount">The exact number of segments expected between the two substrings.</param>
             /// <returns>An array containing the extracted segments.</returns>
             /// <exception cref="TopicSubstringNotFoundException">
-            ///     Thrown when a non-empty <paramref name="after" /> or a non-empty <paramref name="before" /> cannot be located in the topic.
+            ///     Thrown when a non-empty <paramref name="after" /> or a non-empty <paramref name="before" /> cannot be located in
+            ///     the topic.
             /// </exception>
             /// <exception cref="UnexpectedSegmentCountException">
             ///     Thrown when the number of segments between the two substrings does not equal <paramref name="segmentCount" />.
@@ -198,10 +214,12 @@ namespace Vion.Dale.Sdk.Mqtt
             }
 
             /// <summary>
-            ///     Extracts a fixed number of slash-delimited segments from an MQTT topic that appear after a given substring and continue to the end of the topic.
+            ///     Extracts a fixed number of slash-delimited segments from an MQTT topic that appear after a given substring and
+            ///     continue to the end of the topic.
             /// </summary>
             /// <param name="after">
-            ///     The substring after which segment extraction begins. Pass <see cref="ReadOnlySpan{T}.Empty" /> to start extraction at the beginning of the topic.
+            ///     The substring after which segment extraction begins. Pass <see cref="ReadOnlySpan{T}.Empty" /> to start extraction
+            ///     at the beginning of the topic.
             /// </param>
             /// <param name="segmentCount">The exact number of segments expected after the substring.</param>
             /// <returns>An array containing the extracted segments.</returns>

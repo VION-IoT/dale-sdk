@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Configuration;
 using Vion.Dale.Sdk.Configuration.Contract;
@@ -11,7 +12,6 @@ using Vion.Dale.Sdk.Configuration.Timers;
 using Vion.Dale.Sdk.Messages;
 using Vion.Dale.Sdk.Persistence;
 using Vion.Dale.Sdk.Utils;
-using Microsoft.Extensions.Logging;
 
 namespace Vion.Dale.Sdk.Core
 {
@@ -41,10 +41,10 @@ namespace Vion.Dale.Sdk.Core
         private IActorReference _persistenceManagerActorRef = null!; // set during initialization
 
         // Key: ServiceIdentifier, Value: ServiceIdentifier
-        private Dictionary<string, ServiceIdentifier> _serviceIdLookup = [];
+        private Dictionary<ServiceIdentifier, string> _serviceIdentifierLookup = [];
 
         // Key: ServiceIdentifier, Value: ServiceIdentifier
-        private Dictionary<ServiceIdentifier, string> _serviceIdentifierLookup = [];
+        private Dictionary<string, ServiceIdentifier> _serviceIdLookup = [];
 
         private IActorReference _serviceMeasuringPointHandlerActorRef = null!; // set during initialization
 

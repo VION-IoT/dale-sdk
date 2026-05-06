@@ -1,6 +1,6 @@
 ﻿using System;
-using Vion.Dale.Sdk.Utils;
 using System.Collections.Generic;
+using Vion.Dale.Sdk.Utils;
 
 namespace Vion.Dale.Sdk.Configuration.Interfaces
 {

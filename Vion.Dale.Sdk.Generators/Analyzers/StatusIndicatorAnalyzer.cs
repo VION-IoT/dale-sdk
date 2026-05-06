@@ -12,7 +12,10 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class StatusIndicatorAnalyzer : DiagnosticAnalyzer
     {
-        public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(DaleDiagnostics.DALE006_StatusIndicatorRequiresEnum);
+        public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
+        {
+            get => ImmutableArray.Create(DaleDiagnostics.DALE006_StatusIndicatorRequiresEnum);
+        }
 
         public override void Initialize(AnalysisContext context)
         {

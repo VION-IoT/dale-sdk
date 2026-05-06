@@ -1,6 +1,6 @@
 using System;
-using Vion.Dale.Cli.Auth;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Vion.Dale.Cli.Auth;
 
 namespace Vion.Dale.Cli.Test.Auth
 {

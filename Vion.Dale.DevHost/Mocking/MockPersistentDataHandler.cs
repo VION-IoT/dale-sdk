@@ -1,7 +1,7 @@
 ﻿using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Messages;
-using Microsoft.Extensions.Logging;
 
 namespace Vion.Dale.DevHost.Mocking
 {

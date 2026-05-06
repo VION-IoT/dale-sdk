@@ -21,8 +21,10 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
 
         private const string PublicApiNamespaceAttributeName = "Vion.Dale.Sdk.Core.PublicApiNamespaceAttribute";
 
-        public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-            ImmutableArray.Create(DaleDiagnostics.DALE013_PublicApiMissingDocs, DaleDiagnostics.DALE014_UnmarkedPublicType, DaleDiagnostics.DALE015_StalePublicApiNamespace);
+        public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
+        {
+            get => ImmutableArray.Create(DaleDiagnostics.DALE013_PublicApiMissingDocs, DaleDiagnostics.DALE014_UnmarkedPublicType, DaleDiagnostics.DALE015_StalePublicApiNamespace);
+        }
 
         public override void Initialize(AnalysisContext context)
         {
@@ -98,7 +100,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                     var attr = compilation.Assembly
                                           .GetAttributes()
                                           .First(a => AnalyzerHelper.GetFullName(a.AttributeClass) == PublicApiNamespaceAttributeName && a.ConstructorArguments.Length > 0 &&
-                                                      (a.ConstructorArguments[0].Value as string) == ns);
+                                                      a.ConstructorArguments[0].Value as string == ns);
                     context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE015_StalePublicApiNamespace, attr.ApplicationSyntaxReference?.GetSyntax().GetLocation(), ns));
                 }
             }

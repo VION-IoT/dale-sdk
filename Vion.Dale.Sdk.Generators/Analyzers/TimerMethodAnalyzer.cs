@@ -15,10 +15,13 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class TimerMethodAnalyzer : DiagnosticAnalyzer
     {
-        public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-            ImmutableArray.Create(DaleDiagnostics.DALE002_TimerMethodSignature,
-                                  DaleDiagnostics.DALE005_TimerIntervalMustBePositive,
-                                  DaleDiagnostics.DALE012_DuplicateTimerIdentifier);
+        public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
+        {
+            get =>
+                ImmutableArray.Create(DaleDiagnostics.DALE002_TimerMethodSignature,
+                                      DaleDiagnostics.DALE005_TimerIntervalMustBePositive,
+                                      DaleDiagnostics.DALE012_DuplicateTimerIdentifier);
+        }
 
         public override void Initialize(AnalysisContext context)
         {

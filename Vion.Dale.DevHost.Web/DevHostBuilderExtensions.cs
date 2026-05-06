@@ -1,5 +1,5 @@
-﻿using Vion.Dale.DevHost.Web.Services;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Vion.Dale.DevHost.Web.Services;
 
 namespace Vion.Dale.DevHost.Web
 {

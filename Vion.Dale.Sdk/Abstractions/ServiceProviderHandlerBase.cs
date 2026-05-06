@@ -2,12 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Vion.Contracts.Mqtt;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Messages;
 using Vion.Dale.Sdk.Mqtt;
 using Vion.Dale.Sdk.Utils;
-using Microsoft.Extensions.Logging;
-using Vion.Contracts.Mqtt;
 
 namespace Vion.Dale.Sdk.Abstractions
 {

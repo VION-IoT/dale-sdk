@@ -2,14 +2,15 @@ using System;
 using System.CommandLine;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
+using Spectre.Console;
 using Vion.Dale.Cli.Auth;
 using Vion.Dale.Cli.Helpers;
 using Vion.Dale.Cli.Infrastructure;
 using Vion.Dale.Cli.Output;
-using Spectre.Console;
 
 namespace Vion.Dale.Cli.Commands
 {
@@ -91,12 +92,12 @@ namespace Vion.Dale.Cli.Commands
                                                                            nupkgPath,
                                                                            parseResult.GetValue(releaseNotesOption),
                                                                            skipDuplicate);
-                                          if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+                                          if (response.StatusCode == HttpStatusCode.Conflict)
                                           {
                                               DaleConsole.WriteJsonResult(new
                                                                           {
                                                                               status = "skipped", reason = "version_exists", packageId = project.PackageId,
-                                                                              version = project.Version
+                                                                              version = project.Version,
                                                                           });
                                               return 0;
                                           }
@@ -126,8 +127,9 @@ namespace Vion.Dale.Cli.Commands
                                                                    var packTask = progressCtx.AddTask($"Packing {project.ProjectName} v{project.Version ?? "??"}", maxValue: 1);
                                                                    var packResult = await DotnetRunner.RunCaptureAsync("pack",
                                                                                                                        new[]
- {
-                                                                                                                           project.CsprojPath, "-c", "Release", "-p:IsPackable=true"
+                                                                                                                       {
+                                                                                                                           project.CsprojPath, "-c", "Release",
+                                                                                                                           "-p:IsPackable=true",
                                                                                                                        },
                                                                                                                        project.ProjectDirectory);
                                                                    if (packResult.ExitCode != 0)
@@ -158,7 +160,7 @@ namespace Vion.Dale.Cli.Commands
                                                                                                         parseResult.GetValue(releaseNotesOption),
                                                                                                         skipDuplicate);
                                                                        responseBody = await response.Content.ReadAsStringAsync();
-                                                                       versionAlreadyExists = response.StatusCode == System.Net.HttpStatusCode.Conflict;
+                                                                       versionAlreadyExists = response.StatusCode == HttpStatusCode.Conflict;
                                                                    }
                                                                    catch (Exception ex)
                                                                    {
@@ -228,7 +230,8 @@ namespace Vion.Dale.Cli.Commands
         }
 
         /// <summary>
-        /// Uploads the .nupkg to the cloud API. When skipDuplicate is true, 409 Conflict is returned as a response instead of throwing.
+        ///     Uploads the .nupkg to the cloud API. When skipDuplicate is true, 409 Conflict is returned as a response instead of
+        ///     throwing.
         /// </summary>
         private static async Task<HttpResponseMessage> UploadNupkg(string accessToken,
                                                                    string apiBaseUrl,
@@ -249,7 +252,7 @@ namespace Vion.Dale.Cli.Commands
                 form.Add(new StringContent(releaseNotes), "releaseNotes");
             }
 
-            var allowed = skipDuplicate ? new[] { System.Net.HttpStatusCode.Conflict } : Array.Empty<System.Net.HttpStatusCode>();
+            var allowed = skipDuplicate ? new[] { HttpStatusCode.Conflict } : Array.Empty<HttpStatusCode>();
             return await DaleHttpClient.PostAsync(uploadUrl, form, accessToken, default, allowed);
         }
     }

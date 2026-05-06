@@ -1,7 +1,7 @@
-﻿using Vion.Dale.DevHost.Web.Api.Dtos;
-using Vion.Dale.DevHost.Web.Services;
+﻿using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
-using System.Threading.Tasks;
+using Vion.Dale.DevHost.Web.Api.Dtos;
+using Vion.Dale.DevHost.Web.Services;
 
 namespace Vion.Dale.DevHost.Web.Api.Controllers
 {

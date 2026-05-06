@@ -1,7 +1,7 @@
 using System.Text.Json;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Vion.Dale.Cli.Auth;
 using Vion.Dale.Cli.Infrastructure;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Vion.Dale.Cli.Test.Auth
 {

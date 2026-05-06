@@ -43,7 +43,6 @@ namespace Vion.Dale.Cli.Commands
         ///     1. Current directory — user is inside the DevHost project itself.
         ///     2. Subdirectories — user is at the solution root, DevHost is nested below.
         ///     3. Sibling directories — user is in the library project, DevHost is next to it.
-        ///
         ///     Subdirectories precede siblings so that a freshly-created project sitting under
         ///     a parent that contains unrelated *.DevHost projects (e.g. the SDK repo's own
         ///     Vion.Dale.DevHost library) doesn't get matched to the wrong one. Matches are

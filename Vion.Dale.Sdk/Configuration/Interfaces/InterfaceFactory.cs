@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Linq;
 using System.Reflection;
+using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Utils;
-using Microsoft.Extensions.Logging;
 
 namespace Vion.Dale.Sdk.Configuration.Interfaces
 {

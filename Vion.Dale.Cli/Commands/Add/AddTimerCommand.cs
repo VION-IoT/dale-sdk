@@ -1,5 +1,7 @@
 using System.CommandLine;
 using System.Globalization;
+using System.IO;
+using System.Text.RegularExpressions;
 using Vion.Dale.Cli.Helpers;
 using Vion.Dale.Cli.Output;
 
@@ -45,8 +47,8 @@ namespace Vion.Dale.Cli.Commands.Add
                                   }
 
                                   // Check for existing method with same name
-                                  var sourceContent = System.IO.File.ReadAllText(target.FilePath);
-                                  if (System.Text.RegularExpressions.Regex.IsMatch(sourceContent, $@"\bvoid\s+{System.Text.RegularExpressions.Regex.Escape(name!)}\s*\("))
+                                  var sourceContent = File.ReadAllText(target.FilePath);
+                                  if (Regex.IsMatch(sourceContent, $@"\bvoid\s+{Regex.Escape(name!)}\s*\("))
                                   {
                                       DaleConsole.Error($"Method '{name}' already exists in {target.ClassName}.");
                                       return 1;
