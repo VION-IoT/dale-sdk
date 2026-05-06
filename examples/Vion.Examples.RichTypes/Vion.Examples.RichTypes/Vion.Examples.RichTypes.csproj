@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netstandard2.1</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <ImplicitUsings>false</ImplicitUsings>
+        <Nullable>enable</Nullable>
+
+        <!-- NuGet package metadata (not published; this example exists only to validate
+             the rich-types refactor against the local in-development SDK during PR 2 review). -->
+        <PackageId>Vion.Examples.RichTypes</PackageId>
+        <Description>Rich-types validation example (PR 2 development only — uses ProjectReference, not PackageReference). Removed before merge or converted to a published-package example.</Description>
+        <IsPackable>false</IsPackable>
+
+        <!--debug information from the source generator-->
+        <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+        <CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)Generated</CompilerGeneratedFilesOutputPath>
+    </PropertyGroup>
+
+    <!-- IMPORTANT: this example uses ProjectReference (local SDK) instead of the usual PackageReference
+         (published 0.3.0 SDK) so it can exercise rich-types features that aren't shipped yet. Other examples
+         pin the published SDK; this one intentionally does not. -->
+    <ItemGroup>
+        <ProjectReference Include="..\..\..\Vion.Dale.Sdk\Vion.Dale.Sdk.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--shim to be able to use readonly record structs in netstandard2.1-->
+        <PackageReference Include="IsExternalInit" Version="1.0.3">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+    </ItemGroup>
+
+</Project>

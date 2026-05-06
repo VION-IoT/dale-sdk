@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
+using System.Text.Json.Nodes;
 
 namespace Vion.Dale.DevHost.Web.Api.Dtos
 {
@@ -38,20 +39,29 @@ namespace Vion.Dale.DevHost.Web.Api.Dtos
         {
             public required string Identifier { get; set; }
 
-            public required bool Writable { get; set; }
+            /// <summary>JSON Schema 2020-12 document (Dale profile) describing the property's data shape.</summary>
+            public required JsonNode Schema { get; set; }
 
-            public required string ServiceElementType { get; set; }
+            /// <summary>Optional UI presentation hints. Null when the property has no presentation metadata.</summary>
+            public JsonNode? Presentation { get; set; }
 
-            public required Dictionary<string, object> Annotations { get; set; }
+            /// <summary>Optional dale-runtime behavior hints. Null when the property has no runtime metadata.</summary>
+            public JsonNode? Runtime { get; set; }
+
+            // TODO(rich-types): wire schema/presentation/runtime into UI — DevHost is dev-time only.
         }
 
         public class ServiceMeasuringPoint
         {
             public required string Identifier { get; set; }
 
-            public required string ServiceElementType { get; set; }
+            /// <summary>JSON Schema 2020-12 document (Dale profile) describing the measuring point's data shape.</summary>
+            public required JsonNode Schema { get; set; }
 
-            public required Dictionary<string, object> Annotations { get; set; }
+            /// <summary>Optional UI presentation hints. Null when the measuring point has no presentation metadata.</summary>
+            public JsonNode? Presentation { get; set; }
+
+            // TODO(rich-types): wire schema/presentation into UI — DevHost is dev-time only.
         }
 
         public class LogicBlockContract

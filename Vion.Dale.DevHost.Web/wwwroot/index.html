@@ -748,25 +748,23 @@
                             </thead>
                             <tbody>
                                 ${service.serviceProperties.map(prop => {
-                        const isEnum = prop.annotations && prop.annotations.enumValues;
-                        const typeDisplay = isEnum
-                            ? `${prop.serviceElementType}<span class="badge enum">enum</span>`
-                            : prop.serviceElementType;
-
-                        const displayName = prop.annotations?.defaultName || prop.identifier;
-                        const unit = prop.annotations?.unit;
+                        const displayName = resolveDisplayName(prop);
+                        const unit = resolveUnit(prop.schema);
                         const label = unit ? `${displayName} [${unit}]` : displayName;
+                        const typeDisplay = describeType(prop.schema);
+                        const isEnum = enumMembers(prop.schema) !== null;
+                        const writable = isWritable(prop);
 
                         return `
                                         <tr>
                                             <td>${label}</td>
                                             <td>
-                                                ${typeDisplay}
-                                                ${prop.writable ? '<span class="badge writable">writable</span>' : '<span class="badge readonly">readonly</span>'}
+                                                ${typeDisplay}${isEnum ? '<span class="badge enum">enum</span>' : ''}
+                                                ${writable ? '<span class="badge writable">writable</span>' : '<span class="badge readonly">readonly</span>'}
                                             </td>
                                             <td><span class="value-display" id="prop-value-${service.id}-${prop.identifier}">-</span></td>
                                             <td>
-                                                ${prop.writable ? renderPropertyControl(service.id, prop) : '-'}
+                                                ${writable ? renderPropertyControl(service.id, prop) : '-'}
                                             </td>
                                         </tr>
                                     `;
@@ -793,15 +791,16 @@
                             </thead>
                             <tbody>
                                 ${service.serviceMeasuringPoints.map(mp => {
-                        const displayName = mp.annotations?.defaultName || mp.identifier;
-                        const unit = mp.annotations?.unit;
+                        const displayName = resolveDisplayName(mp);
+                        const unit = resolveUnit(mp.schema);
                         const label = unit ? `${displayName} [${unit}]` : displayName;
+                        const typeDisplay = describeType(mp.schema);
 
                         return `
                                     <tr>
                                         <td>${label}</td>
                                         <td>
-                                            ${mp.serviceElementType}
+                                            ${typeDisplay}
                                             <span class="badge readonly">readonly</span>
                                         </td>
                                         <td><span class="value-display" id="mp-value-${service.id}-${mp.identifier}">-</span></td>
@@ -920,52 +919,185 @@
         return controls;
     }
 
-    // Render property control based on type
+    // ── Schema introspection helpers (rich-types) ───────────────────────────────
+    // Returns the non-null variant of schema.type if it's an array; otherwise schema.type itself.
+    function effectiveType(schema) {
+        if (!schema || schema.type === undefined) return null;
+        if (Array.isArray(schema.type)) {
+            return schema.type.find(t => t !== 'null') || null;
+        }
+        return schema.type;
+    }
+
+    // True if the schema's type is array-form including 'null' (nullable wrapper).
+    function isNullable(schema) {
+        return schema && Array.isArray(schema.type) && schema.type.includes('null');
+    }
+
+    // Returns the enum member names from the schema, or null. For nullable enums, strips the trailing null entry.
+    function enumMembers(schema) {
+        if (!schema || !Array.isArray(schema.enum)) return null;
+        return schema.enum.filter(m => m !== null);
+    }
+
+    // Composite type-display string for the Type column.
+    function describeType(schema) {
+        if (!schema) return 'unknown';
+        const t = effectiveType(schema);
+        const fmt = schema.format;
+        const nullable = isNullable(schema);
+        let label;
+        if (enumMembers(schema)) {
+            label = schema.title ? `enum ${schema.title}` : 'enum';
+        } else if (t === 'array') {
+            const itemT = effectiveType(schema.items) || '?';
+            label = `array<${itemT}>`;
+        } else if (t === 'object') {
+            label = schema.title ? `struct ${schema.title}` : 'struct';
+        } else if (fmt) {
+            label = `${t} (${fmt})`;
+        } else {
+            label = t || 'unknown';
+        }
+        return nullable ? `${label}?` : label;
+    }
+
+    // Resolve the human-readable display name for a property/measuring-point row.
+    function resolveDisplayName(itemInfo) {
+        return (itemInfo.presentation && itemInfo.presentation.displayName)
+            || (itemInfo.schema && itemInfo.schema.title)
+            || itemInfo.identifier;
+    }
+
+    // Resolve the unit suffix for a property/measuring-point row.
+    function resolveUnit(schema) {
+        return (schema && schema['x-unit']) || null;
+    }
+
+    // True if a service property is writable. The schema's readOnly flag overrides; otherwise it's writable.
+    function isWritable(propInfo) {
+        return !(propInfo.schema && propInfo.schema.readOnly === true);
+    }
+
+    // Build a sample JSON value from a schema (best-effort, used as the textarea placeholder for struct / array edit).
+    // Picks the non-null variant for nullable types; emits 0 / false / empty string / first-enum-member for primitives;
+    // objects expand to {field: sample, ...}; arrays show one-element [sample]. Recursive.
+    function sampleJson(schema) {
+        if (!schema) return null;
+        const t = effectiveType(schema);
+        if (Array.isArray(schema.enum)) {
+            return schema.enum.find(m => m !== null) ?? null;
+        }
+        if (t === 'object' && schema.properties) {
+            const out = {};
+            for (const [k, fieldSchema] of Object.entries(schema.properties)) {
+                out[k] = sampleJson(fieldSchema);
+            }
+            return out;
+        }
+        if (t === 'array') {
+            return [sampleJson(schema.items)];
+        }
+        if (t === 'boolean') return false;
+        if (t === 'integer') return 0;
+        if (t === 'number') return 0;
+        if (t === 'string') {
+            if (schema.format === 'date-time') return new Date().toISOString();
+            if (schema.format === 'duration') return 'PT0S';
+            return '';
+        }
+        return null;
+    }
+
+    // Parse a JSON-textarea string and POST as the property value. Surfaces parse errors inline rather than silently sending garbage.
+    function setServicePropertyFromJsonText(serviceIdentifier, propertyIdentifier, text) {
+        let parsed;
+        try {
+            parsed = JSON.parse(text);
+        } catch (err) {
+            showError(`Invalid JSON for ${propertyIdentifier}: ${err.message}`);
+            return;
+        }
+        setServiceProperty(serviceIdentifier, propertyIdentifier, parsed);
+    }
+
+    // Used by the struct/array editor's "Use as template" button to seed the textarea with the example JSON.
+    function fillTextareaFromTemplate(inputId, template) {
+        const ta = document.getElementById(inputId);
+        if (ta) {
+            ta.value = template;
+            ta.focus();
+        }
+    }
+
+    // Minimal HTML-attribute / text escaping for safe interpolation of user-controlled or schema-derived JSON.
+    function escapeForHtml(s) {
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+    function escapeForHtmlAttr(s) {
+        return escapeForHtml(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    // Render property control based on type (rich-types schema shape)
     function renderPropertyControl(serviceIdentifier, prop) {
         const inputId = `prop-input-${serviceIdentifier}-${prop.identifier}`;
+        const schema = prop.schema || {};
+        const t = effectiveType(schema);
+        const nullable = isNullable(schema);
+        const members = enumMembers(schema);
+        const clearBtn = nullable
+            ? ` <button type="button" onclick="setServiceProperty('${serviceIdentifier}', '${prop.identifier}', null)">&#xd7; null</button>`
+            : '';
 
-        if (prop.annotations && prop.annotations.enumValues) {
-            const enumValues = prop.annotations.enumValues;
-            const options = enumValues.map(ev =>
-                `<option value="${ev.value}">${ev.name} (${ev.value})</option>`
-            ).join('');
-
-            return `
-                    <select id="${inputId}" onchange="setServiceProperty('${serviceIdentifier}', '${prop.identifier}', parseInt(this.value))">
-                        ${options}
-                    </select>
-                `;
+        if (members) {
+            // Enum (possibly nullable). Members are name strings on the wire.
+            const optionsHtml = (nullable ? '<option value="__NULL__">— null —</option>' : '')
+                + members.map(name => `<option value="${name}">${name}</option>`).join('');
+            return `<select id="${inputId}" onchange="setServiceProperty('${serviceIdentifier}', '${prop.identifier}', this.value === '__NULL__' ? null : this.value)">${optionsHtml}</select>`;
         }
 
-        switch (prop.serviceElementType.toLowerCase()) {
-            case 'bool':
-            case 'boolean':
-                return `<input type="checkbox" id="${inputId}" onchange="setServiceProperty('${serviceIdentifier}', '${prop.identifier}', this.checked)">`;
-            case 'string':
-                return `
-                        <input type="text" id="${inputId}" placeholder="Enter value"
-                               onblur="setServiceProperty('${serviceIdentifier}', '${prop.identifier}', this.value)"
-                               onkeypress="if(event.key==='Enter') { setServiceProperty('${serviceIdentifier}', '${prop.identifier}', this.value); this.blur(); }">
-                    `;
-            case 'integer':
-                return `
-                        <input type="number" id="${inputId}" step="1" value="0"
-                               onblur="setServiceProperty('${serviceIdentifier}', '${prop.identifier}', parseInt(this.value))"
-                               onkeypress="if(event.key==='Enter') { setServiceProperty('${serviceIdentifier}', '${prop.identifier}', parseInt(this.value)); this.blur(); }">
-                    `;
-            case 'number':
-                return `
-                        <input type="number" id="${inputId}" step="0.1" value="0"
-                               onblur="setServiceProperty('${serviceIdentifier}', '${prop.identifier}', parseFloat(this.value))"
-                               onkeypress="if(event.key==='Enter') { setServiceProperty('${serviceIdentifier}', '${prop.identifier}', parseFloat(this.value)); this.blur(); }">
-                    `;
-            default:
-                return `
-                        <input type="text" id="${inputId}" placeholder="Enter value"
-                               onblur="setServiceProperty('${serviceIdentifier}', '${prop.identifier}', this.value)"
-                               onkeypress="if(event.key==='Enter') { setServiceProperty('${serviceIdentifier}', '${prop.identifier}', this.value); this.blur(); }">
-                    `;
+        if (t === 'object' || t === 'array') {
+            // Generic JSON-textarea editor for structs and arrays. The user types raw JSON matching the schema;
+            // the backend recursively decodes via reflection on the property's CLR target type.
+            const sample = sampleJson(schema);
+            const sampleJsonStr = JSON.stringify(sample, null, 2);
+            const sampleEscaped = escapeForHtmlAttr(sampleJsonStr);
+            const schemaJsonStr = JSON.stringify(schema, null, 2);
+            const setExpr = `setServicePropertyFromJsonText('${serviceIdentifier}', '${prop.identifier}', document.getElementById('${inputId}').value)`;
+            const fillExpr = `fillTextareaFromTemplate('${inputId}', this.dataset.template)`;
+            return `<div style="display:flex;flex-direction:column;gap:4px;min-width:280px;max-width:460px">
+                <details style="font-size:11px;opacity:0.85"><summary style="cursor:pointer;user-select:none">example &amp; schema</summary>
+                    <div style="display:flex;align-items:flex-start;gap:6px;margin-top:4px">
+                        <pre style="margin:0;padding:6px;background:rgba(255,255,255,0.04);border-radius:4px;font-family:monospace;font-size:11px;flex:1;overflow:auto;max-height:160px">${escapeForHtml(sampleJsonStr)}</pre>
+                        <button type="button" data-template="${sampleEscaped}" onclick="${fillExpr}" title="Use as template">&#x1f4cb;</button>
+                    </div>
+                    <details style="margin-top:4px"><summary style="cursor:pointer;user-select:none;font-size:10px">full schema</summary>
+                        <pre style="margin:4px 0 0;padding:6px;background:rgba(255,255,255,0.03);border-radius:4px;font-family:monospace;font-size:10px;overflow:auto;max-height:200px">${escapeForHtml(schemaJsonStr)}</pre>
+                    </details>
+                </details>
+                <textarea id="${inputId}" rows="3" spellcheck="false" placeholder="(paste / type JSON)" style="font-family:monospace;font-size:12px"></textarea>
+                <div><button type="button" onclick="${setExpr}">Set JSON</button>${clearBtn}</div>
+            </div>`;
         }
+
+        if (t === 'boolean') {
+            return `<input type="checkbox" id="${inputId}" onchange="setServiceProperty('${serviceIdentifier}', '${prop.identifier}', this.checked)">`;
+        }
+
+        if (t === 'integer') {
+            const onCommit = `setServiceProperty('${serviceIdentifier}', '${prop.identifier}', this.value === '' ? null : parseInt(this.value))`;
+            return `<input type="number" step="1" id="${inputId}" placeholder="${nullable ? '(null)' : ''}" onblur="${onCommit}" onkeypress="if(event.key==='Enter') { ${onCommit}; this.blur(); }">${clearBtn}`;
+        }
+
+        if (t === 'number') {
+            const onCommit = `setServiceProperty('${serviceIdentifier}', '${prop.identifier}', this.value === '' ? null : parseFloat(this.value))`;
+            return `<input type="number" step="any" id="${inputId}" placeholder="${nullable ? '(null)' : ''}" onblur="${onCommit}" onkeypress="if(event.key==='Enter') { ${onCommit}; this.blur(); }">${clearBtn}`;
+        }
+
+        // string (or anything else): text input
+        const sendNull = nullable ? 'true' : 'false';
+        const onCommit = `setServiceProperty('${serviceIdentifier}', '${prop.identifier}', this.value === '' && ${sendNull} ? null : this.value)`;
+        return `<input type="text" id="${inputId}" placeholder="${nullable ? '(empty = null)' : 'Enter value'}" onblur="${onCommit}" onkeypress="if(event.key==='Enter') { ${onCommit}; this.blur(); }">${clearBtn}`;
     }
 
     // API calls
@@ -1025,10 +1157,18 @@
         }
 
         const input = document.getElementById(`prop-input-${serviceIdentifier}-${propertyId}`);
-        if (input && input.type !== 'checkbox') {
-            input.value = value;
-        } else if (input && input.type === 'checkbox') {
-            input.checked = value;
+        if (!input) {
+            return;
+        }
+        // Different input kinds need different value-assignment shapes. Textareas hold JSON for struct/array;
+        // checkboxes use .checked; selects expect the option value (enum name string); plain inputs accept primitives.
+        // Skip when value is null — keep whatever the user last typed.
+        if (input.type === 'checkbox') {
+            input.checked = !!value;
+        } else if (input.tagName === 'TEXTAREA') {
+            input.value = value === null || value === undefined ? '' : (typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value));
+        } else if (value !== null && value !== undefined) {
+            input.value = typeof value === 'object' ? JSON.stringify(value) : value;
         }
     }
 
@@ -1089,13 +1229,18 @@
         }
     }
 
-    // Format value to max 3 decimal places for numbers
+    // Format value for display in the Value column.
+    // Numbers: max 3 decimal places. Null/undefined: human placeholder. Objects/arrays: JSON-stringified
+    // (using a number-formatting replacer so nested floats also round to 3 decimals).
     function formatValue(value) {
+        if (value === null || value === undefined) {
+            return '∅';
+        }
         if (typeof value === 'number') {
-            if (Number.isInteger(value)) {
-                return value.toString();
-            }
-            return value.toFixed(3);
+            return Number.isInteger(value) ? value.toString() : value.toFixed(3);
+        }
+        if (typeof value === 'object') {
+            return JSON.stringify(value, (key, v) => typeof v === 'number' && !Number.isInteger(v) ? Number(v.toFixed(3)) : v);
         }
         return value;
     }
