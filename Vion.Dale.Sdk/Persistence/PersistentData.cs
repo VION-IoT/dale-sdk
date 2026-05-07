@@ -54,16 +54,7 @@ namespace Vion.Dale.Sdk.Persistence
                 try
                 {
                     var value = _serviceBinder.GetPropertyValue(meta.ServiceIdentifier, meta.PropertyIdentifier);
-                    var typeFullName = meta.PropertyType.FullName!;
-
-                    // Convert enum to int for consistent JSON storage (same as MQTT transmission)
-                    if (value != null && meta.PropertyType.IsEnum)
-                    {
-                        value = Convert.ToInt32(value);
-                        typeFullName = typeof(int).FullName!; // Store as System.Int32, not the enum type
-                    }
-
-                    _currentSnapshot.Add(new PersistentDataEntry(key, typeFullName, value!));
+                    _currentSnapshot.Add(new PersistentDataEntry(key, meta.PropertyType.FullName!, value!));
                 }
                 catch (Exception ex)
                 {
@@ -77,16 +68,7 @@ namespace Vion.Dale.Sdk.Persistence
                 try
                 {
                     var value = meta.Getter(_logicBlock);
-                    var typeFullName = meta.PropertyType.FullName!;
-
-                    // Convert enum to int for consistent JSON storage (same as MQTT transmission)
-                    if (value != null && meta.PropertyType.IsEnum)
-                    {
-                        value = Convert.ToInt32(value);
-                        typeFullName = typeof(int).FullName!; // Store as System.Int32, not the enum type
-                    }
-
-                    _currentSnapshot.Add(new PersistentDataEntry(key, typeFullName, value!));
+                    _currentSnapshot.Add(new PersistentDataEntry(key, meta.PropertyType.FullName!, value!));
                 }
                 catch (Exception ex)
                 {
