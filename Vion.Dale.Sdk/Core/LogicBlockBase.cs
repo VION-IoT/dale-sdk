@@ -134,6 +134,8 @@ namespace Vion.Dale.Sdk.Core
 
                     _persistentData.Initialize(this, _serviceBinder, _logger);
 
+                    SendBindLogicBlockServices();
+
                     Ready();
                     break;
 
@@ -339,6 +341,47 @@ namespace Vion.Dale.Sdk.Core
 
             // Send empty retained message to clear
             _actorContext.SendTo(_serviceMeasuringPointHandlerActorRef, new ServiceMeasuringPointValueCleared(serviceIdentifier, args.MeasuringPointIdentifier));
+        }
+
+        // Sent once per LogicBlock at the end of InitializeLogicBlock, after Configure() has populated
+        // the ServiceBinder. Per-sender ordering of Proto.Actor guarantees this arrives at the handlers
+        // before any *ValueChanged from the same LogicBlock, so the handlers can rely on the lookup
+        // being populated when the codec is invoked at the MQTT boundary.
+        private void SendBindLogicBlockServices()
+        {
+            var properties = BuildBindingMap(_serviceBinder.GetAllServicePropertyBindings());
+            var measuringPoints = BuildBindingMap(_serviceBinder.GetAllServiceMeasuringPointBindings());
+
+            var message = new BindLogicBlockServices(Id, properties, measuringPoints);
+            _actorContext.SendTo(_servicePropertyHandlerActorRef, message);
+            _actorContext.SendTo(_serviceMeasuringPointHandlerActorRef, message);
+        }
+
+        private Dictionary<ServiceIdentifier, Dictionary<string, ServiceBindingInfo>> BuildBindingMap(
+            IReadOnlyDictionary<string, IReadOnlyDictionary<Type, IReadOnlyDictionary<string, ServiceBinding>>> bindings)
+        {
+            var result = new Dictionary<ServiceIdentifier, Dictionary<string, ServiceBindingInfo>>();
+            foreach (var (serviceName, interfaceMap) in bindings)
+            {
+                if (!_serviceIdLookup.TryGetValue(serviceName, out var serviceId))
+                {
+                    _logger.LogWarning("No ServiceIdentifier mapping for service '{ServiceName}' in logic block '{Id}'; skipping its bindings.", serviceName, Id);
+                    continue;
+                }
+
+                var perIdentifier = new Dictionary<string, ServiceBindingInfo>();
+                foreach (var perInterface in interfaceMap.Values)
+                {
+                    foreach (var (identifier, binding) in perInterface)
+                    {
+                        perIdentifier[identifier] = new ServiceBindingInfo(binding.Metadata, binding.TargetPropertyType);
+                    }
+                }
+
+                result[serviceId] = perIdentifier;
+            }
+
+            return result;
         }
 
         private void HandleTimerTickMessage(IActorContext actorContext, TimerTickMessage message)

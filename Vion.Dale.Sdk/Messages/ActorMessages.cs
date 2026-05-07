@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Vion.Dale.Sdk.Abstractions;
+using Vion.Dale.Sdk.Configuration.Services;
 using Vion.Dale.Sdk.Persistence;
 using Vion.Dale.Sdk.Utils;
 
@@ -24,6 +25,24 @@ namespace Vion.Dale.Sdk.Messages
     ///     Value: IActorReference to the LogicBlock actor that contains the service
     /// </summary>
     public readonly record struct LinkLogicBlockServiceActors(Dictionary<ServiceIdentifier, IActorReference> ServiceLogicBlockActorReferences);
+
+    /// <summary>
+    ///     Message from LogicBlock to ServicePropertyHandler / ServiceMeasuringPointHandler announcing
+    ///     all binding metadata for the LogicBlock's services. Sent once per LogicBlock at the end of
+    ///     initialization, after Configure() has populated the ServiceBinder. Receiving handlers stash
+    ///     <see cref="ServiceBindingInfo" /> per (ServiceIdentifier, propertyIdentifier) so they can
+    ///     dispatch the FlatBuffer codec at the MQTT boundary using the per-binding TypeRef schema.
+    /// </summary>
+    /// <remarks>
+    ///     Both Properties and MeasuringPoints are included; each handler picks the field it needs.
+    ///     Mirrors the dual-recipient pattern of <see cref="LinkLogicBlockServiceActors" />.
+    ///     Per-sender ordering of Proto.Actor guarantees this arrives before any *ValueChanged from
+    ///     the same LogicBlock, so handlers can rely on the lookup being populated at codec time.
+    /// </remarks>
+    public readonly record struct BindLogicBlockServices(
+        LogicBlockId LogicBlockId,
+        Dictionary<ServiceIdentifier, Dictionary<string, ServiceBindingInfo>> Properties,
+        Dictionary<ServiceIdentifier, Dictionary<string, ServiceBindingInfo>> MeasuringPoints);
 
     /// <summary>
     ///     Sets some configuration data on the LogicBlock
