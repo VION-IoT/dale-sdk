@@ -120,6 +120,7 @@ namespace Vion.Dale.Sdk.TestKit
         public LogicBlockTestContext<TLogicBlock> Build()
         {
             InitializeLogicBlock();
+            LinkRuntimeActors();
             RestorePersistentState();
             SetLinkedInterfaces();
             StartLogicBlock();
@@ -138,6 +139,25 @@ namespace Vion.Dale.Sdk.TestKit
             var contractIdLookup = DiscoverContractIds();
             var initializeLogicBlock = new InitializeLogicBlock(Constants.LogicBlockId, Constants.LogicBlockName, serviceIdLookup, contractIdLookup, _serviceProvider);
             _logicBlock.HandleMessageAsync(initializeLogicBlock, _logicBlockTestContext).GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        ///     Sends LinkRuntimeActors so the logic block has its runtime actor refs populated.
+        ///     In production this is sent by dale's LogicSystemConfigurationInitializer.LinkRuntimeActors;
+        ///     in TestKit we use TestActorReference stand-ins (returned by the test context's
+        ///     <c>IActorContext.LookupByName</c>). Without this, LogicBlockBase's
+        ///     deferred-init path leaves Ready() and SendBindLogicBlockServices unfired.
+        /// </summary>
+        private void LinkRuntimeActors()
+        {
+            IActorContext ctx = _logicBlockTestContext;
+            var linkRuntimeActors = new LinkRuntimeActors
+                                    {
+                                        ServicePropertyHandlerActor = ctx.LookupByName("ServicePropertyHandler"),
+                                        ServiceMeasuringPointHandlerActor = ctx.LookupByName("ServiceMeasuringPointHandler"),
+                                        PersistenceManagerActor = ctx.LookupByName("PersistentDataHandler"),
+                                    };
+            _logicBlock.HandleMessageAsync(linkRuntimeActors, _logicBlockTestContext).GetAwaiter().GetResult();
         }
 
         private IServiceProvider BuildServiceProvider()
