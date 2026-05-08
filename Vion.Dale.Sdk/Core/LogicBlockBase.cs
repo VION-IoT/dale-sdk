@@ -34,6 +34,16 @@ namespace Vion.Dale.Sdk.Core
 
         private readonly ServiceBinder _serviceBinder = new();
 
+        // Tracks whether LinkRuntimeActors has been processed (i.e. _servicePropertyHandlerActorRef
+        // and friends are populated). Used to defer SendBindLogicBlockServices + Ready when
+        // InitializeLogicBlock is processed first — which it currently is in
+        // dale's LogicSystemConfigurationInitializer (Step 2 sends InitializeLogicBlock; Step 3
+        // sends LinkRuntimeActors). Without deferring, the bind-message goes to a still-null
+        // _servicePropertyHandlerActorRef and the ServicePropertyHandler never learns the
+        // bindings, causing every subsequent property/set to be silently dropped.
+        private bool _runtimeActorsLinked;
+        private bool _initializeDeferred;
+
         private readonly Dictionary<string, (TimeSpan interval, Action callback)> _timerCallbacks = [];
 
         private IActorContext _actorContext = null!;
@@ -93,6 +103,18 @@ namespace Vion.Dale.Sdk.Core
                         contract.SetLinkedContractHandler(actorContext.LookupByName(contract.ContractHandlerActorName));
                     }
 
+                    _runtimeActorsLinked = true;
+
+                    // If InitializeLogicBlock was processed before this message arrived,
+                    // SendBindLogicBlockServices + Ready were deferred — fire them now so the
+                    // ServicePropertyHandler learns the bindings before any property traffic.
+                    if (_initializeDeferred)
+                    {
+                        _initializeDeferred = false;
+                        SendBindLogicBlockServices();
+                        Ready();
+                    }
+
                     break;
 
                 case InitializeLogicBlock m: // initialization
@@ -134,9 +156,22 @@ namespace Vion.Dale.Sdk.Core
 
                     _persistentData.Initialize(this, _serviceBinder, _logger);
 
-                    SendBindLogicBlockServices();
+                    // Defer SendBindLogicBlockServices + Ready if LinkRuntimeActors hasn't been
+                    // processed yet. SendBindLogicBlockServices sends to _servicePropertyHandlerActorRef,
+                    // which is set by LinkRuntimeActors — sending to a null ref drops the bindings
+                    // and breaks all subsequent property traffic. Ready() may also fire events that
+                    // depend on the handler ref, so defer it together.
+                    if (_runtimeActorsLinked)
+                    {
+                        SendBindLogicBlockServices();
+                        Ready();
+                    }
+                    else
+                    {
+                        _initializeDeferred = true;
+                        _logger.LogDebug("InitializeLogicBlock processed before LinkRuntimeActors; deferring SendBindLogicBlockServices + Ready until handler refs are set.");
+                    }
 
-                    Ready();
                     break;
 
                 case SetLinkedInterfaces m: // initialization
