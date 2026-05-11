@@ -24,12 +24,12 @@ namespace Vion.Examples.ToggleLight.LogicBlocks
 
         public IDigitalOutput DigitalOutput { get; set; }
 
-        [ServiceProperty("Tastermodus")]
+        [ServiceProperty(Title = "Tastermodus")]
         [Category(PropertyCategory.Configuration)]
         public Mode ToggleMode { get; set; } = Mode.ToggleOnPressed;
 
-        [ServiceProperty("Ein")]
-        [ServiceMeasuringPoint("Ein")]
+        [ServiceProperty(Title = "Ein")]
+        [ServiceMeasuringPoint(Title = "Ein")]
         [Importance(Importance.Primary)]
         public bool On
         {
@@ -45,12 +45,12 @@ namespace Vion.Examples.ToggleLight.LogicBlocks
             }
         }
 
-        [ServiceProperty("Anzahl Einschaltungen")]
+        [ServiceProperty(Title = "Anzahl Einschaltungen")]
         [Category(PropertyCategory.Metric)]
         [Importance(Importance.Secondary)]
         public int TimesSwitchedOn { get; private set; }
 
-        [ServiceProperty("Nutzungsdauer Total")]
+        [ServiceProperty(Title = "Nutzungsdauer Total")]
         [Category(PropertyCategory.Metric)]
         public TimeSpan TotalTimeOn { get; private set; }
 

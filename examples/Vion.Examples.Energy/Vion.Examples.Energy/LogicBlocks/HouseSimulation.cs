@@ -16,40 +16,40 @@ namespace Vion.Examples.Energy.LogicBlocks
 
         private DateTime? _lastUpdateTime;
 
-        [ServiceProperty("Basisverbrauch", "kW")]
+        [ServiceProperty(Title = "Basisverbrauch", Unit = "kW")]
         [Category(PropertyCategory.Configuration)]
         [Display(group: "Konfiguration")]
         public double BaseConsumption { get; set; } = 0.45;
 
-        [ServiceProperty("Verbrauchsspitze Morgen", "kW")]
+        [ServiceProperty(Title = "Verbrauchsspitze Morgen", Unit = "kW")]
         [Category(PropertyCategory.Configuration)]
         [Display(group: "Konfiguration")]
         public double MorningPeakConsumption { get; set; } = 1.2;
 
-        [ServiceProperty("Verbrauchsspitze Kochen Abend", "kW")]
+        [ServiceProperty(Title = "Verbrauchsspitze Kochen Abend", Unit = "kW")]
         [Category(PropertyCategory.Configuration)]
         [Display(group: "Konfiguration")]
         public double EveningCookingPeakConsumption { get; set; } = 2;
 
-        [ServiceProperty("Verbrauchsspitze Heizen Abend", "kW")]
+        [ServiceProperty(Title = "Verbrauchsspitze Heizen Abend", Unit = "kW")]
         [Category(PropertyCategory.Configuration)]
         [Display(group: "Konfiguration")]
         public double EventingHeatingPeakConsumption { get; set; } = 0.8;
 
-        [ServiceProperty("Zeitzone")]
+        [ServiceProperty(Title = "Zeitzone")]
         [Category(PropertyCategory.Configuration)]
         [Display(group: "Konfiguration")]
         public string TimeZone { get; set; } = "Europe/Zurich";
 
-        [ServiceProperty("Wirkleistung", "kW")]
-        [ServiceMeasuringPoint("Wirkleistung", "kW")]
+        [ServiceProperty(Title = "Wirkleistung", Unit = "kW")]
+        [ServiceMeasuringPoint(Title = "Wirkleistung", Unit = "kW")]
         [Importance(Importance.Primary)]
         [Display(group: "Status")]
         public double ActivePowerConsuming { get; private set; }
 
         [Persistent]
-        [ServiceProperty("Zählerstand Gesamtverbrauch Total", "kWh")]
-        [ServiceMeasuringPoint("Zählerstand Gesamtverbrauch Total", "kWh")]
+        [ServiceProperty(Title = "Zählerstand Gesamtverbrauch Total", Unit = "kWh")]
+        [ServiceMeasuringPoint(Title = "Zählerstand Gesamtverbrauch Total", Unit = "kWh")]
         [Category(PropertyCategory.Metric)]
         [Importance(Importance.Secondary)]
         [Display(group: "Zähler")]

@@ -27,59 +27,59 @@ namespace Vion.Examples.Energy.LogicBlocks
         [ServiceProviderContract(defaultName: "Batterie entlädt")]
         public IDigitalOutput BatteryDischargingOutput { get; private set; }
 
-        [ServiceProperty("Ladezustand", "%")]
-        [ServiceMeasuringPoint("Ladezustand", "%")]
+        [ServiceProperty(Title = "Ladezustand", Unit = "%")]
+        [ServiceMeasuringPoint(Title = "Ladezustand", Unit = "%")]
         [Persistent]
         [Importance(Importance.Primary)]
         [Display(group: "Status")]
         public double StateOfCharge { get; private set; }
 
-        [ServiceProperty("Kapazität", "kWh")]
+        [ServiceProperty(Title = "Kapazität", Unit = "kWh")]
         [Category(PropertyCategory.Configuration)]
         [Display(group: "Konfiguration")]
         public double Capacity { get; set; } = 100;
 
-        [ServiceProperty("Maximale Wirkleistung Laden", "kW")]
+        [ServiceProperty(Title = "Maximale Wirkleistung Laden", Unit = "kW")]
         [Category(PropertyCategory.Configuration)]
         [Display(group: "Konfiguration")]
         public double MaximumActivePowerCharging { get; set; } = 10;
 
-        [ServiceProperty("Maximale Wirkleistung Entladen", "kW")]
+        [ServiceProperty(Title = "Maximale Wirkleistung Entladen", Unit = "kW")]
         [Category(PropertyCategory.Configuration)]
         [Display(group: "Konfiguration")]
         public double MaximumActivePowerDischarging { get; set; } = 10;
 
-        [ServiceProperty("Wirkleistung Laden", "kW")]
-        [ServiceMeasuringPoint("Wirkleistung Laden", "kW")]
+        [ServiceProperty(Title = "Wirkleistung Laden", Unit = "kW")]
+        [ServiceMeasuringPoint(Title = "Wirkleistung Laden", Unit = "kW")]
         [Importance(Importance.Secondary)]
         [Display(group: "Status")]
         public double ActivePowerCharging { get; private set; }
 
-        [ServiceProperty("Wirkleistung Entladen", "kW")]
-        [ServiceMeasuringPoint("Wirkleistung Entladen", "kW")]
+        [ServiceProperty(Title = "Wirkleistung Entladen", Unit = "kW")]
+        [ServiceMeasuringPoint(Title = "Wirkleistung Entladen", Unit = "kW")]
         [Importance(Importance.Secondary)]
         [Display(group: "Status")]
         public double ActivePowerDischarging { get; private set; }
 
         [Persistent]
-        [ServiceProperty("Zählerstand Laden Total", "kWh")]
-        [ServiceMeasuringPoint("Zählerstand Laden Total", "kWh")]
+        [ServiceProperty(Title = "Zählerstand Laden Total", Unit = "kWh")]
+        [ServiceMeasuringPoint(Title = "Zählerstand Laden Total", Unit = "kWh")]
         [Category(PropertyCategory.Metric)]
         [Display(group: "Zähler")]
         public double EnergyChargedTotal { get; private set; }
 
         [Persistent]
-        [ServiceProperty("Zählerstand Entladen Total", "kWh")]
-        [ServiceMeasuringPoint("Zählerstand Entladen Total", "kWh")]
+        [ServiceProperty(Title = "Zählerstand Entladen Total", Unit = "kWh")]
+        [ServiceMeasuringPoint(Title = "Zählerstand Entladen Total", Unit = "kWh")]
         [Category(PropertyCategory.Metric)]
         [Display(group: "Zähler")]
         public double EnergyDischargedTotal { get; private set; }
 
-        [ServiceProperty("Aktuelle maximale Wirkleistung Entladen", "kW")]
+        [ServiceProperty(Title = "Aktuelle maximale Wirkleistung Entladen", Unit = "kW")]
         [Display(group: "Status")]
         public double CurrentMaximumActivePowerDischarging { get; private set; }
 
-        [ServiceProperty("Aktuelle maximale Wirkleistung Laden", "kW")]
+        [ServiceProperty(Title = "Aktuelle maximale Wirkleistung Laden", Unit = "kW")]
         [Display(group: "Status")]
         public double CurrentMaximumActivePowerCharging { get; private set; }
 
