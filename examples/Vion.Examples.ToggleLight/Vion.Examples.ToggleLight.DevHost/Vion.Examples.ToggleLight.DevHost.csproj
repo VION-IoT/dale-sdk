@@ -9,7 +9,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Vion.Dale.DevHost.Web" Version="0.4.1"/>
+        <PackageReference Include="Vion.Dale.DevHost.Web" Version="0.4.2"/>
     </ItemGroup>
 
     <ItemGroup>
