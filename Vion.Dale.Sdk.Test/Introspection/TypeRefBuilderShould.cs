@@ -244,9 +244,19 @@ namespace Vion.Dale.Sdk.Test.Introspection
         [TestMethod]
         public void OmitsReadOnlyOnServicePropertySchema()
         {
-            // ServiceProperties are writable; readOnly must be absent.
+            // ServiceProperties with a public setter are writable; readOnly must be absent.
             var schema = GetSchema("VoltageSetpoint");
             Assert.IsNull(schema["readOnly"]);
+        }
+
+        [TestMethod]
+        public void EmitsReadOnlyOnServicePropertyWithPrivateSetter()
+        {
+            // [ServiceProperty] on `{ get; private set; }` is a published-only value:
+            // dale publishes state, but the cloud cannot SetPropertyValue it back.
+            // Schema must carry readOnly so the dashboard groups it with measuring points.
+            var schema = GetSchema("TimesSwitchedOn");
+            Assert.IsTrue(schema["readOnly"]?.GetValue<bool>() ?? false);
         }
 
         [TestMethod]

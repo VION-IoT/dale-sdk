@@ -27,7 +27,7 @@ namespace Vion.Dale.Sdk.Introspection
             var sp = property.GetCustomAttribute<ServicePropertyAttribute>();
             var mp = property.GetCustomAttribute<ServiceMeasuringPointAttribute>();
 
-            var annotations = ExtractTypeAnnotations(sp, mp);
+            var annotations = ExtractTypeAnnotations(sp, mp, HasPublicSetter(property));
             var schema = new TypeSchema(typeRef, annotations, structFieldAnnotations);
             var presentation = ExtractPresentation(property);
             var runtime = ExtractRuntime(property);
@@ -53,7 +53,9 @@ namespace Vion.Dale.Sdk.Introspection
             var sp = schemaSource.GetCustomAttribute<ServicePropertyAttribute>();
             var mp = schemaSource.GetCustomAttribute<ServiceMeasuringPointAttribute>();
 
-            var annotations = ExtractTypeAnnotations(sp, mp);
+            // Writability is governed by the implementing logic-block property — that's the actual
+            // binding target when cloud calls SetPropertyValue. The interface only declares intent.
+            var annotations = ExtractTypeAnnotations(sp, mp, HasPublicSetter(presentationSource));
             var schema = new TypeSchema(typeRef, annotations, structFieldAnnotations);
             var presentation = ExtractPresentation(presentationSource);
             var runtime = ExtractRuntime(presentationSource);
@@ -61,7 +63,10 @@ namespace Vion.Dale.Sdk.Introspection
             return new PropertyMetadata(schema, presentation, runtime);
         }
 
-        private static TypeAnnotations ExtractTypeAnnotations(ServicePropertyAttribute? sp, ServiceMeasuringPointAttribute? mp)
+        private static bool HasPublicSetter(PropertyInfo property) =>
+            property.SetMethod is not null && property.SetMethod.IsPublic;
+
+        private static TypeAnnotations ExtractTypeAnnotations(ServicePropertyAttribute? sp, ServiceMeasuringPointAttribute? mp, bool hasPublicSetter)
         {
             // Title / Unit: prefer ServiceProperty's value if both are present (which would be unusual).
             var title = sp?.Title ?? mp?.Title;
@@ -90,7 +95,10 @@ namespace Vion.Dale.Sdk.Introspection
             }
 
             // ReadOnly: a measuring point alone (without a service-property attribute) marks the property as read-only.
-            var readOnly = mp is not null && sp is null;
+            // Also: any property without a public setter is read-only on the wire — matches the legacy `Writable` rule
+            // (e.g. `[ServiceProperty] public int Foo { get; private set; }` exposes a metric the gateway publishes
+            // but the cloud cannot write back to).
+            var readOnly = (mp is not null && sp is null) || !hasPublicSetter;
 
             return new TypeAnnotations
                    {

@@ -41,6 +41,11 @@ namespace Vion.Dale.Sdk.Test.Introspection
         [ServiceProperty(Unit = "V", Minimum = 0, Maximum = 400)]
         public double VoltageSetpoint { get; set; }
 
+        // [ServiceProperty] with private setter — gateway publishes the value but cloud cannot write back.
+        // Used to assert that readOnly is emitted even on a service property when the setter isn't public.
+        [ServiceProperty(Title = "Anzahl Einschaltungen")]
+        public int TimesSwitchedOn { get; private set; }
+
         // Nullable primitives
         [ServiceProperty]
         public double? Target { get; set; }
