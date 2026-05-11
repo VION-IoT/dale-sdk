@@ -8,7 +8,7 @@
 
         <!-- NuGet package metadata -->
         <PackageId>Vion.Examples.RichTypes</PackageId>
-        <Version>0.4.0</Version>
+        <Version>0.4.1</Version>
         <Authors>Vion-IoT</Authors>
         <Company>Vion-IoT</Company>
         <Description>Vion IoT example LogicBlock exercising rich property types (nullable, struct, array, enum).</Description>
@@ -20,7 +20,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Vion.Dale.Sdk" Version="0.4.0"/>
+        <PackageReference Include="Vion.Dale.Sdk" Version="0.4.1"/>
         <!--shim to be able to use readonly record structs in netstandard2.1-->
         <PackageReference Include="IsExternalInit" Version="1.0.3">
             <PrivateAssets>all</PrivateAssets>

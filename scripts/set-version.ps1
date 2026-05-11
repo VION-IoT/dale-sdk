@@ -87,6 +87,15 @@ $exampleProjects = @(
     @{
         Path              = "examples\Vion.Examples.ModbusRtu\Vion.Examples.ModbusRtu.Test\Vion.Examples.ModbusRtu.Test.csproj"
         PackageReferences = @("Vion.Dale.Sdk.TestKit", "Vion.Dale.Sdk.Modbus.Rtu.TestKit")
+    },
+    # RichTypes example (no Test project — pack/upload only)
+    @{
+        Path              = "examples\Vion.Examples.RichTypes\Vion.Examples.RichTypes\Vion.Examples.RichTypes.csproj"
+        PackageReferences = @("Vion.Dale.Sdk")
+    },
+    @{
+        Path              = "examples\Vion.Examples.RichTypes\Vion.Examples.RichTypes.DevHost\Vion.Examples.RichTypes.DevHost.csproj"
+        PackageReferences = @("Vion.Dale.DevHost.Web")
     }
 )
 
