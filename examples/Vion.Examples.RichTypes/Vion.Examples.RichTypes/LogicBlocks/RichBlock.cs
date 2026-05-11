@@ -107,12 +107,15 @@ namespace Vion.Examples.RichTypes.LogicBlocks
     public enum AlarmState
     {
         [StatusSeverity(StatusSeverity.Success)]
+        [EnumValueInfo("Alles in Ordnung")]
         Ok,
 
         [StatusSeverity(StatusSeverity.Warning)]
+        [EnumValueInfo("Warnung")]
         Warning,
 
         [StatusSeverity(StatusSeverity.Error)]
+        [EnumValueInfo("Kritisch")]
         Critical,
     }
 }

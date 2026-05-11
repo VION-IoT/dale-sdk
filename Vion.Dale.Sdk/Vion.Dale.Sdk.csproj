@@ -56,7 +56,7 @@
         <!-- INotifyPropertyChanged/Observability aspect support (transitive) -->
         <PackageReference Include="Metalama.Patterns.Observability" Version="2026.0.21" />
         <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0" />
-        <PackageReference Include="Vion.Contracts" Version="0.5.0" />
+        <PackageReference Include="Vion.Contracts" Version="0.7.0" />
         <PackageReference Include="System.Text.Json" Version="10.0.7" />
     </ItemGroup>
 

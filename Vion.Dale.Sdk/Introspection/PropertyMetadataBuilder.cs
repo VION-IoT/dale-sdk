@@ -26,10 +26,11 @@ namespace Vion.Dale.Sdk.Introspection
         {
             var sp = property.GetCustomAttribute<ServicePropertyAttribute>();
             var mp = property.GetCustomAttribute<ServiceMeasuringPointAttribute>();
+            var hasIdentityTitle = HasIdentityBearingTitle(typeRef);
 
-            var annotations = ExtractTypeAnnotations(sp, mp, HasPublicSetter(property));
+            var annotations = ExtractTypeAnnotations(sp, mp, HasPublicSetter(property), hasIdentityTitle);
             var schema = new TypeSchema(typeRef, annotations, structFieldAnnotations);
-            var presentation = ExtractPresentation(property);
+            var presentation = ExtractPresentation(property, sp, mp, hasIdentityTitle);
             var runtime = ExtractRuntime(property);
 
             return new PropertyMetadata(schema, presentation, runtime);
@@ -52,12 +53,13 @@ namespace Vion.Dale.Sdk.Introspection
         {
             var sp = schemaSource.GetCustomAttribute<ServicePropertyAttribute>();
             var mp = schemaSource.GetCustomAttribute<ServiceMeasuringPointAttribute>();
+            var hasIdentityTitle = HasIdentityBearingTitle(typeRef);
 
             // Writability is governed by the implementing logic-block property — that's the actual
             // binding target when cloud calls SetPropertyValue. The interface only declares intent.
-            var annotations = ExtractTypeAnnotations(sp, mp, HasPublicSetter(presentationSource));
+            var annotations = ExtractTypeAnnotations(sp, mp, HasPublicSetter(presentationSource), hasIdentityTitle);
             var schema = new TypeSchema(typeRef, annotations, structFieldAnnotations);
-            var presentation = ExtractPresentation(presentationSource);
+            var presentation = ExtractPresentation(presentationSource, sp, mp, hasIdentityTitle);
             var runtime = ExtractRuntime(presentationSource);
 
             return new PropertyMetadata(schema, presentation, runtime);
@@ -66,10 +68,32 @@ namespace Vion.Dale.Sdk.Introspection
         private static bool HasPublicSetter(PropertyInfo property) =>
             property.SetMethod is not null && property.SetMethod.IsPublic;
 
-        private static TypeAnnotations ExtractTypeAnnotations(ServicePropertyAttribute? sp, ServiceMeasuringPointAttribute? mp, bool hasPublicSetter)
+        /// <summary>
+        ///     Returns true when the property's wire schema carries an identity-bearing
+        ///     <c>title</c> (enum or struct, possibly wrapped in Nullable or Array). For those
+        ///     types the property-level <c>Title</c> annotation must route to
+        ///     <c>Presentation.DisplayName</c>; routing it to <see cref="TypeAnnotations.Title" />
+        ///     would be silently dropped by the serializer because identity-set <c>schema.title</c>
+        ///     wins on the wire.
+        /// </summary>
+        private static bool HasIdentityBearingTitle(TypeRef typeRef) => typeRef switch
         {
-            // Title / Unit: prefer ServiceProperty's value if both are present (which would be unusual).
-            var title = sp?.Title ?? mp?.Title;
+            EnumTypeRef => true,
+            StructTypeRef => true,
+            NullableTypeRef n => HasIdentityBearingTitle(n.Inner),
+            ArrayTypeRef a => HasIdentityBearingTitle(a.Items),
+            _ => false,
+        };
+
+        private static TypeAnnotations ExtractTypeAnnotations(ServicePropertyAttribute? sp,
+                                                              ServiceMeasuringPointAttribute? mp,
+                                                              bool hasPublicSetter,
+                                                              bool hasIdentityTitle)
+        {
+            // Title: for enum/struct-typed properties (incl. nullable/array of), schema.title is
+            // identity-bearing (the CLR type name). The property-level Title goes to
+            // Presentation.DisplayName instead — see ExtractPresentation below.
+            var title = hasIdentityTitle ? null : (sp?.Title ?? mp?.Title);
             var unit = sp?.Unit ?? mp?.Unit;
 
             // Minimum / Maximum: NegativeInfinity / PositiveInfinity are the sentinel "absent" values.
@@ -110,13 +134,23 @@ namespace Vion.Dale.Sdk.Introspection
                    };
         }
 
-        private static Presentation ExtractPresentation(PropertyInfo property)
+        private static Presentation ExtractPresentation(PropertyInfo property,
+                                                       ServicePropertyAttribute? sp,
+                                                       ServiceMeasuringPointAttribute? mp,
+                                                       bool hasIdentityTitle)
         {
             var display = property.GetCustomAttribute<DisplayAttribute>();
             var category = property.GetCustomAttribute<CategoryAttribute>();
             var importance = property.GetCustomAttribute<ImportanceAttribute>();
             var uiHint = property.GetCustomAttribute<UIHintAttribute>();
             var statusIndicator = property.GetCustomAttribute<StatusIndicatorAttribute>();
+
+            // DisplayName: prefer explicit [Display(Name=...)] (the long-standing attribute).
+            // For enum/struct-typed properties, fall back to [ServiceProperty(Title=...)] /
+            // [ServiceMeasuringPoint(Title=...)] — schema.title for those types carries the
+            // CLR identity (e.g. "AlarmState"), not the property's display label, so without
+            // this fallback the property-level Title would be silently lost.
+            var displayName = display?.Name ?? (hasIdentityTitle ? (sp?.Title ?? mp?.Title) : null);
 
             // DisplayAttribute.Order uses -1 as the absent-sentinel. Map only non-negative values.
             int? order = null;
@@ -126,16 +160,25 @@ namespace Vion.Dale.Sdk.Introspection
             }
 
             var statusMappings = ExtractStatusMappings(property, statusIndicator);
+            var enumLabels = ExtractEnumLabels(property);
+
+            // UIHint: explicit [UIHint("widget")] wins. Otherwise, [StatusIndicator] sets
+            // uiHint="statusIndicator" so dashboards can detect status-indicator properties
+            // by an explicit hint rather than inferring from the presence of StatusMappings
+            // (which is fragile — an enum can be a status indicator without per-member
+            // severity tagging if the dashboard just renders the raw value as the status).
+            var uiHintValue = uiHint?.Widget ?? (statusIndicator is not null ? "statusIndicator" : null);
 
             var presentation = new Presentation
                                {
-                                   DisplayName = display?.Name,
+                                   DisplayName = displayName,
                                    Group = display?.Group,
                                    Order = order,
                                    Category = category?.Category.ToString(),
                                    Importance = importance?.Importance.ToString(),
-                                   UIHint = uiHint?.Widget,
+                                   UIHint = uiHintValue,
                                    StatusMappings = statusMappings,
+                                   EnumLabels = enumLabels,
                                };
 
             // If everything is null/empty, return the canonical None instance for cheap equality.
@@ -164,6 +207,46 @@ namespace Vion.Dale.Sdk.Introspection
                 if (severity is not null)
                 {
                     builder[name] = severity.Severity.ToString().ToLowerInvariant();
+                }
+            }
+
+            return builder.Count > 0 ? builder.ToImmutable() : null;
+        }
+
+        /// <summary>
+        ///     Reads <c>[EnumValueInfo("...")]</c> off each member of an enum-typed property and
+        ///     returns a map of member-name → display label. Members without a label are omitted.
+        ///     Returns null for non-enum properties or when no members carry a label (so
+        ///     <see cref="Presentation.IsEmpty" /> stays true in the absent case).
+        /// </summary>
+        private static ImmutableDictionary<string, string>? ExtractEnumLabels(PropertyInfo property)
+        {
+            var enumType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+
+            // For array-of-enum properties, peek into the element type.
+            if (!enumType.IsEnum && enumType.IsGenericType)
+            {
+                var def = enumType.GetGenericTypeDefinition();
+                if (def == typeof(ImmutableArray<>))
+                {
+                    var elementType = enumType.GetGenericArguments()[0];
+                    enumType = Nullable.GetUnderlyingType(elementType) ?? elementType;
+                }
+            }
+
+            if (!enumType.IsEnum)
+            {
+                return null;
+            }
+
+            var builder = ImmutableDictionary.CreateBuilder<string, string>();
+            foreach (var name in Enum.GetNames(enumType))
+            {
+                var memberInfo = enumType.GetField(name);
+                var info = memberInfo?.GetCustomAttribute<EnumValueInfoAttribute>();
+                if (info?.DefaultName is { } label)
+                {
+                    builder[name] = label;
                 }
             }
 
