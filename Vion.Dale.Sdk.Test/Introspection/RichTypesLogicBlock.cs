@@ -87,13 +87,23 @@ namespace Vion.Dale.Sdk.Test.Introspection
         [ServiceMeasuringPoint]
         public AlarmState? LastAlarm { get; private set; }
 
-        // Nullable enum — writable service property (needed for ServiceBinder round-trip tests)
-        [ServiceProperty]
+        // Nullable enum — writable service property (needed for ServiceBinder round-trip tests).
+        // The Title here is the property's display label. schema.title is identity-bearing (the
+        // enum CLR name), so the Title routes to presentation.displayName instead.
+        [ServiceProperty(Title = "Bevorzugter Modus")]
         public OperatingMode? PreferredMode { get; set; }
 
-        // Nullable struct — writable service property (needed for ServiceBinder round-trip tests)
-        [ServiceProperty]
+        // Nullable struct — writable service property (needed for ServiceBinder round-trip tests).
+        // Same identity-title routing as PreferredMode above.
+        [ServiceProperty(Title = "Bevorzugte Position")]
         public Coordinates? PreferredLocation { get; set; }
+
+        // [StatusIndicator] on a writable nullable enum — presentation.uiHint should be
+        // "statusIndicator", letting dashboards detect status-indicator properties by an
+        // explicit hint rather than inferring from StatusMappings presence.
+        [ServiceProperty(Title = "Aktueller Status")]
+        [StatusIndicator]
+        public AlarmState? CurrentStatus { get; set; }
 
         // ImmutableArray — writable service property (needed for ServiceBinder round-trip tests)
         [ServiceProperty]

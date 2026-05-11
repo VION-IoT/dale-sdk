@@ -266,6 +266,48 @@ namespace Vion.Dale.Sdk.Test.Introspection
             Assert.IsTrue(schema["readOnly"]?.GetValue<bool>() ?? false);
         }
 
+        [TestMethod]
+        public void RoutesEnumPropertyTitleToPresentationDisplayName()
+        {
+            // PreferredMode is `OperatingMode?` (nullable enum). schema.title carries the enum's
+            // identity ("OperatingMode"); the property-level Title must land in
+            // presentation.displayName instead, otherwise it would be silently dropped by the
+            // serializer (ApplyAnnotations skips Title when schema.title is already set).
+            var presentation = GetPresentation("PreferredMode");
+            Assert.AreEqual("Bevorzugter Modus", presentation?["displayName"]?.GetValue<string>());
+            // schema.title stays identity-bearing.
+            var schema = GetSchema("PreferredMode");
+            Assert.AreEqual("OperatingMode", schema["title"]?.GetValue<string>());
+        }
+
+        [TestMethod]
+        public void RoutesStructPropertyTitleToPresentationDisplayName()
+        {
+            // PreferredLocation is `Coordinates?`. Same routing rule as the enum case.
+            var presentation = GetPresentation("PreferredLocation");
+            Assert.AreEqual("Bevorzugte Position", presentation?["displayName"]?.GetValue<string>());
+            var schema = GetSchema("PreferredLocation");
+            Assert.AreEqual("Coordinates", schema["title"]?.GetValue<string>());
+        }
+
+        [TestMethod]
+        public void EmitsUIHintStatusIndicatorFromStatusIndicatorAttribute()
+        {
+            // CurrentStatus is `[StatusIndicator] AlarmState?`. The presence of [StatusIndicator]
+            // routes to presentation.uiHint = "statusIndicator" — explicit hint instead of inferring
+            // status-indicator from the presence of statusMappings.
+            var presentation = GetPresentation("CurrentStatus");
+            Assert.AreEqual("statusIndicator", presentation?["uiHint"]?.GetValue<string>());
+        }
+
+        [TestMethod]
+        public void OmitsUIHintWhenNoUIHintNorStatusIndicator()
+        {
+            // PreferredMode has no [UIHint] and no [StatusIndicator] — uiHint must be absent.
+            var presentation = GetPresentation("PreferredMode");
+            Assert.IsNull(presentation?["uiHint"]);
+        }
+
         // ── Helpers ──────────────────────────────────────────────────────────────
 
         private static JsonNode GetSchema(string identifier)
@@ -289,6 +331,34 @@ namespace Vion.Dale.Sdk.Test.Introspection
                     if (mp.Identifier == identifier)
                     {
                         return mp.Schema;
+                    }
+                }
+            }
+
+            throw new InvalidOperationException($"No property/measuring-point named '{identifier}' was found in introspection result");
+        }
+
+        private static JsonNode? GetPresentation(string identifier)
+        {
+            var lb = new RichTypesLogicBlock();
+            var sp = new ServiceCollection().BuildServiceProvider();
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(lb, sp);
+
+            foreach (var service in result.Services)
+            {
+                foreach (var prop in service.Properties)
+                {
+                    if (prop.Identifier == identifier)
+                    {
+                        return prop.Presentation;
+                    }
+                }
+
+                foreach (var mp in service.MeasuringPoints)
+                {
+                    if (mp.Identifier == identifier)
+                    {
+                        return mp.Presentation;
                     }
                 }
             }
