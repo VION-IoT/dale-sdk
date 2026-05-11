@@ -36,11 +36,11 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
 
         /// <summary>
         ///     Service property or measuring point type must be in the supported set.
-        ///     Runtime: MapToServiceElementType throws NotSupportedException.
+        ///     Unsupported types cannot be represented as a TypeRef by BuildTypeRef.
         /// </summary>
         public static readonly DiagnosticDescriptor DALE003_UnsupportedServicePropertyType = new("DALE003",
                                                                                                  "Unsupported service property type",
-                                                                                                 "Property '{0}' has [{1}] but type '{2}' is not supported. Supported types: bool, string, int, long, short, float, double, decimal, DateTime, TimeSpan, or any enum.",
+                                                                                                 "Property '{0}' has [{1}] but type '{2}' is not supported. Supported: bool, string, byte, short, ushort, int, uint, long, float, double, DateTime, TimeSpan, any enum, any flat readonly record struct, ImmutableArray<T> where T is one of the above, or T? for value types and string.",
                                                                                                  Category,
                                                                                                  DiagnosticSeverity.Error,
                                                                                                  true);
@@ -134,6 +134,52 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                                                                                            Category,
                                                                                            DiagnosticSeverity.Warning,
                                                                                            true);
+
+        // --- Rich-type guards ---
+
+        /// <summary>
+        ///     Service-element property typed as a non-ImmutableArray collection.
+        ///     Replace with ImmutableArray&lt;T&gt; — Dale's wire format and value semantics rely on it.
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE008_ArrayMustBeImmutableArray = new("DALE008",
+                                                                                            "Array-valued service element must be ImmutableArray<T>",
+                                                                                            "Property '{0}' has [{1}] but type '{2}' is not an ImmutableArray<T>. Use ImmutableArray<T> instead — Dale value semantics require immutability and the wire format relies on it.",
+                                                                                            Category,
+                                                                                            DiagnosticSeverity.Error,
+                                                                                            true);
+
+        /// <summary>
+        ///     User-defined struct used as a service-element value must be a readonly record struct
+        ///     with flat fields (primitive / enum / nullable-of-primitive-or-enum / string only).
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE016_StructMustBeFlatReadonlyRecord = new("DALE016",
+                                                                                                 "Struct used as service element must be readonly record struct with flat fields",
+                                                                                                 "Property '{0}' has [{1}] but its struct type '{2}' is not a readonly record struct with flat fields. Define it as 'public readonly record struct {2}(...)' with primitive, enum, string, or nullable-of-those parameters only.",
+                                                                                                 Category,
+                                                                                                 DiagnosticSeverity.Error,
+                                                                                                 true);
+
+        /// <summary>
+        ///     `string` on a service-element property in a nullable-disabled context is ambiguous.
+        ///     Enable nullable annotations or use `string?` explicitly when null is intended.
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE017_StringMustBeExplicitlyNullable = new("DALE017",
+                                                                                                 "string on a service element must be explicitly nullable",
+                                                                                                 "Property '{0}' has [{1}] and type 'string' but the file is in a nullable-disabled context. Enable #nullable or annotate the type as 'string?' if null is intended.",
+                                                                                                 Category,
+                                                                                                 DiagnosticSeverity.Error,
+                                                                                                 true);
+
+        /// <summary>
+        ///     ImmutableArray&lt;T&gt; service-element property without an initializer defaults to
+        ///     `IsDefault == true` and throws on access. Initialise to `ImmutableArray&lt;T&gt;.Empty` or similar.
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE018_ImmutableArrayMustBeInitialised = new("DALE018",
+                                                                                                  "ImmutableArray<T> service element should be initialised",
+                                                                                                  "Property '{0}' has [{1}] and type ImmutableArray<T> but no initializer. Default ImmutableArray<T> is uninitialised and throws at access. Initialise to 'ImmutableArray<T>.Empty' or similar.",
+                                                                                                  Category,
+                                                                                                  DiagnosticSeverity.Warning,
+                                                                                                  true);
 
         // --- Public API documentation ---
 

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Configuration;
 using Vion.Dale.Sdk.Configuration.Contract;
@@ -11,7 +12,6 @@ using Vion.Dale.Sdk.Configuration.Timers;
 using Vion.Dale.Sdk.Messages;
 using Vion.Dale.Sdk.Persistence;
 using Vion.Dale.Sdk.Utils;
-using Microsoft.Extensions.Logging;
 
 namespace Vion.Dale.Sdk.Core
 {
@@ -34,6 +34,16 @@ namespace Vion.Dale.Sdk.Core
 
         private readonly ServiceBinder _serviceBinder = new();
 
+        // Tracks whether LinkRuntimeActors has been processed (i.e. _servicePropertyHandlerActorRef
+        // and friends are populated). Used to defer SendBindLogicBlockServices + Ready when
+        // InitializeLogicBlock is processed first — which it currently is in
+        // dale's LogicSystemConfigurationInitializer (Step 2 sends InitializeLogicBlock; Step 3
+        // sends LinkRuntimeActors). Without deferring, the bind-message goes to a still-null
+        // _servicePropertyHandlerActorRef and the ServicePropertyHandler never learns the
+        // bindings, causing every subsequent property/set to be silently dropped.
+        private bool _runtimeActorsLinked;
+        private bool _initializeDeferred;
+
         private readonly Dictionary<string, (TimeSpan interval, Action callback)> _timerCallbacks = [];
 
         private IActorContext _actorContext = null!;
@@ -41,10 +51,10 @@ namespace Vion.Dale.Sdk.Core
         private IActorReference _persistenceManagerActorRef = null!; // set during initialization
 
         // Key: ServiceIdentifier, Value: ServiceIdentifier
-        private Dictionary<string, ServiceIdentifier> _serviceIdLookup = [];
+        private Dictionary<ServiceIdentifier, string> _serviceIdentifierLookup = [];
 
         // Key: ServiceIdentifier, Value: ServiceIdentifier
-        private Dictionary<ServiceIdentifier, string> _serviceIdentifierLookup = [];
+        private Dictionary<string, ServiceIdentifier> _serviceIdLookup = [];
 
         private IActorReference _serviceMeasuringPointHandlerActorRef = null!; // set during initialization
 
@@ -93,6 +103,18 @@ namespace Vion.Dale.Sdk.Core
                         contract.SetLinkedContractHandler(actorContext.LookupByName(contract.ContractHandlerActorName));
                     }
 
+                    _runtimeActorsLinked = true;
+
+                    // If InitializeLogicBlock was processed before this message arrived,
+                    // SendBindLogicBlockServices + Ready were deferred — fire them now so the
+                    // ServicePropertyHandler learns the bindings before any property traffic.
+                    if (_initializeDeferred)
+                    {
+                        _initializeDeferred = false;
+                        SendBindLogicBlockServices();
+                        Ready();
+                    }
+
                     break;
 
                 case InitializeLogicBlock m: // initialization
@@ -134,7 +156,22 @@ namespace Vion.Dale.Sdk.Core
 
                     _persistentData.Initialize(this, _serviceBinder, _logger);
 
-                    Ready();
+                    // Defer SendBindLogicBlockServices + Ready if LinkRuntimeActors hasn't been
+                    // processed yet. SendBindLogicBlockServices sends to _servicePropertyHandlerActorRef,
+                    // which is set by LinkRuntimeActors — sending to a null ref drops the bindings
+                    // and breaks all subsequent property traffic. Ready() may also fire events that
+                    // depend on the handler ref, so defer it together.
+                    if (_runtimeActorsLinked)
+                    {
+                        SendBindLogicBlockServices();
+                        Ready();
+                    }
+                    else
+                    {
+                        _initializeDeferred = true;
+                        _logger.LogDebug("InitializeLogicBlock processed before LinkRuntimeActors; deferring SendBindLogicBlockServices + Ready until handler refs are set.");
+                    }
+
                     break;
 
                 case SetLinkedInterfaces m: // initialization
@@ -339,6 +376,47 @@ namespace Vion.Dale.Sdk.Core
 
             // Send empty retained message to clear
             _actorContext.SendTo(_serviceMeasuringPointHandlerActorRef, new ServiceMeasuringPointValueCleared(serviceIdentifier, args.MeasuringPointIdentifier));
+        }
+
+        // Sent once per LogicBlock at the end of InitializeLogicBlock, after Configure() has populated
+        // the ServiceBinder. Per-sender ordering of Proto.Actor guarantees this arrives at the handlers
+        // before any *ValueChanged from the same LogicBlock, so the handlers can rely on the lookup
+        // being populated when the codec is invoked at the MQTT boundary.
+        private void SendBindLogicBlockServices()
+        {
+            var properties = BuildBindingMap(_serviceBinder.GetAllServicePropertyBindings());
+            var measuringPoints = BuildBindingMap(_serviceBinder.GetAllServiceMeasuringPointBindings());
+
+            var message = new BindLogicBlockServices(Id, properties, measuringPoints);
+            _actorContext.SendTo(_servicePropertyHandlerActorRef, message);
+            _actorContext.SendTo(_serviceMeasuringPointHandlerActorRef, message);
+        }
+
+        private Dictionary<ServiceIdentifier, Dictionary<string, ServiceBindingInfo>> BuildBindingMap(
+            IReadOnlyDictionary<string, IReadOnlyDictionary<Type, IReadOnlyDictionary<string, ServiceBinding>>> bindings)
+        {
+            var result = new Dictionary<ServiceIdentifier, Dictionary<string, ServiceBindingInfo>>();
+            foreach (var (serviceName, interfaceMap) in bindings)
+            {
+                if (!_serviceIdLookup.TryGetValue(serviceName, out var serviceId))
+                {
+                    _logger.LogWarning("No ServiceIdentifier mapping for service '{ServiceName}' in logic block '{Id}'; skipping its bindings.", serviceName, Id);
+                    continue;
+                }
+
+                var perIdentifier = new Dictionary<string, ServiceBindingInfo>();
+                foreach (var perInterface in interfaceMap.Values)
+                {
+                    foreach (var (identifier, binding) in perInterface)
+                    {
+                        perIdentifier[identifier] = new ServiceBindingInfo(binding.Metadata, binding.TargetPropertyType);
+                    }
+                }
+
+                result[serviceId] = perIdentifier;
+            }
+
+            return result;
         }
 
         private void HandleTimerTickMessage(IActorContext actorContext, TimerTickMessage message)

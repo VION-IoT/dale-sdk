@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>false</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <!-- ProjectReferences (NOT PackageReferences) so this DevHost validates the in-development SDK
+         from PR 2's branch. Other examples pin published 0.3.0 packages; this one is the exception. -->
+    <ItemGroup>
+        <ProjectReference Include="..\..\..\Vion.Dale.DevHost.Web\Vion.Dale.DevHost.Web.csproj"/>
+        <ProjectReference Include="..\Vion.Examples.RichTypes\Vion.Examples.RichTypes.csproj"/>
+    </ItemGroup>
+
+</Project>

@@ -2,10 +2,10 @@ using System;
 using System.Buffers;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using Google.FlatBuffers;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Mqtt;
 using Vion.Dale.Sdk.Utils;
-using Google.FlatBuffers;
 
 namespace Vion.Dale.Sdk.Abstractions
 {
@@ -39,17 +39,26 @@ namespace Vion.Dale.Sdk.Abstractions
         /// <summary>
         ///     The full MQTT topic of the received message.
         /// </summary>
-        public string Topic => _inner.Topic;
+        public string Topic
+        {
+            get => _inner.Topic;
+        }
 
         /// <summary>
         ///     The MQTT 5.0 response topic, if present. Used in request-response patterns.
         /// </summary>
-        public string? ResponseTopic => _inner.ResponseTopic;
+        public string? ResponseTopic
+        {
+            get => _inner.ResponseTopic;
+        }
 
         /// <summary>
         ///     The raw payload bytes for custom deserialization.
         /// </summary>
-        public ReadOnlySequence<byte> RawPayload => _inner.Payload;
+        public ReadOnlySequence<byte> RawPayload
+        {
+            get => _inner.Payload;
+        }
 
         /// <summary>
         ///     Deserializes the payload as JSON.

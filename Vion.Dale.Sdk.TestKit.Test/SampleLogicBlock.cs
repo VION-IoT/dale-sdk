@@ -7,13 +7,13 @@ namespace Vion.Dale.Sdk.TestKit.Test
     [Service("SampleService")]
     public class SampleLogicBlock : LogicBlockBase
     {
-        [ServiceProperty("Power", "kW")]
+        [ServiceProperty(Title = "Power", Unit = "kW")]
         public double Power { get; set; }
 
         [ServiceProperty]
         public int Counter { get; set; }
 
-        [ServiceMeasuringPoint("Temperature", "°C")]
+        [ServiceMeasuringPoint(Title = "Temperature", Unit = "°C")]
         public double Temperature { get; private set; }
 
         public SampleLogicBlock(ILogger logger) : base(logger)

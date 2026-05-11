@@ -1,10 +1,12 @@
-using Vion.Dale.Sdk.Configuration.Services;
-using Vion.Dale.Sdk.Core;
-using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using Microsoft.Extensions.Logging;
+using Vion.Dale.Sdk.Configuration.Services;
+using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.Sdk.Persistence
 {
@@ -54,16 +56,7 @@ namespace Vion.Dale.Sdk.Persistence
                 try
                 {
                     var value = _serviceBinder.GetPropertyValue(meta.ServiceIdentifier, meta.PropertyIdentifier);
-                    var typeFullName = meta.PropertyType.FullName!;
-
-                    // Convert enum to int for consistent JSON storage (same as MQTT transmission)
-                    if (value != null && meta.PropertyType.IsEnum)
-                    {
-                        value = Convert.ToInt32(value);
-                        typeFullName = typeof(int).FullName!; // Store as System.Int32, not the enum type
-                    }
-
-                    _currentSnapshot.Add(new PersistentDataEntry(key, typeFullName, value!));
+                    _currentSnapshot.Add(new PersistentDataEntry(key, meta.PropertyType.FullName!, value!));
                 }
                 catch (Exception ex)
                 {
@@ -77,16 +70,7 @@ namespace Vion.Dale.Sdk.Persistence
                 try
                 {
                     var value = meta.Getter(_logicBlock);
-                    var typeFullName = meta.PropertyType.FullName!;
-
-                    // Convert enum to int for consistent JSON storage (same as MQTT transmission)
-                    if (value != null && meta.PropertyType.IsEnum)
-                    {
-                        value = Convert.ToInt32(value);
-                        typeFullName = typeof(int).FullName!; // Store as System.Int32, not the enum type
-                    }
-
-                    _currentSnapshot.Add(new PersistentDataEntry(key, typeFullName, value!));
+                    _currentSnapshot.Add(new PersistentDataEntry(key, meta.PropertyType.FullName!, value!));
                 }
                 catch (Exception ex)
                 {
@@ -278,23 +262,70 @@ namespace Vion.Dale.Sdk.Persistence
             // Try service property first
             if (metadata.ServiceProperties.TryGetValue(propertyKey, out var servicePropertyMeta))
             {
-                serviceBinder.SetPropertyValue(servicePropertyMeta.ServiceIdentifier, servicePropertyMeta.PropertyIdentifier, value);
+                var typedValue = ConvertValue(value, servicePropertyMeta.PropertyType);
+                serviceBinder.SetPropertyValue(servicePropertyMeta.ServiceIdentifier, servicePropertyMeta.PropertyIdentifier, typedValue);
 
-                logger.LogDebug("Restored service property '{Key}' = {Value}", propertyKey, value);
+                logger.LogDebug("Restored service property '{Key}' = {Value}", propertyKey, typedValue);
                 return;
             }
 
             // Try other property
             if (metadata.OptInProperties.TryGetValue(propertyKey, out var otherMeta))
             {
-                otherMeta.Setter(logicBlock, value);
+                var typedValue = ConvertValue(value, otherMeta.PropertyType);
+                otherMeta.Setter(logicBlock, typedValue);
 
-                logger.LogDebug("Restored other property '{Key}' = {Value}", propertyKey, value);
+                logger.LogDebug("Restored other property '{Key}' = {Value}", propertyKey, typedValue);
                 return;
             }
 
             logger.LogWarning("Unknown property key '{PropertyKey}' in stored persistent data", propertyKey);
         }
+
+        // Storage layers (e.g. dale's JsonFilePersistentDataStore) deserialize the JSON
+        // persistence file as Dictionary<string, List<PersistentDataEntry>> with Value
+        // typed as object — so each value lands as JsonElement. The store then tries
+        // Type.GetType(entry.TypeFullName) to coerce it back to the original CLR type,
+        // but Type.GetType only finds types in the calling assembly + corelib — it
+        // returns null for ImmutableArray<int>, plugin-defined structs, and most other
+        // compound types stored with FullName. Result: those values stayed as
+        // JsonElement and the InvalidCastException fired inside ServiceBinder's compiled
+        // Setter on every dale boot, leaving array/struct properties unrestored.
+        //
+        // Since we hold the resolved CLR Type in metadata regardless of what the store
+        // managed to do, do the coercion here using the same JSON conventions
+        // (camelCase + string-named enums) that JsonFilePersistentDataStore writes with.
+        private static object? ConvertValue(object? value, Type targetType)
+        {
+            if (value is null)
+            {
+                return null;
+            }
+
+            // Already the right CLR type — storage layer did the coercion successfully
+            // (works for primitives, strings, dates, durations).
+            if (targetType.IsInstanceOfType(value))
+            {
+                return value;
+            }
+
+            if (value is JsonElement element)
+            {
+                return JsonSerializer.Deserialize(element.GetRawText(), targetType, PersistenceJsonOptions);
+            }
+
+            // Last-resort coercion for storage layers that left the value in some other
+            // intermediate form (e.g. a nested Dictionary<string, object>): serialize
+            // to JSON and deserialize against the target type with the same options.
+            var text = JsonSerializer.Serialize(value, PersistenceJsonOptions);
+            return JsonSerializer.Deserialize(text, targetType, PersistenceJsonOptions);
+        }
+
+        private static readonly JsonSerializerOptions PersistenceJsonOptions = new()
+                                                                               {
+                                                                                   PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                                                                                   Converters = { new JsonStringEnumConverter() },
+                                                                               };
 
         private void CheckInitialized()
         {

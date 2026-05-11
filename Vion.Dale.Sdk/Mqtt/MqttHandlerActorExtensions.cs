@@ -1,6 +1,6 @@
 ﻿using System.Linq;
-using Vion.Dale.Sdk.Abstractions;
 using Microsoft.Extensions.Logging;
+using Vion.Dale.Sdk.Abstractions;
 
 namespace Vion.Dale.Sdk.Mqtt
 {
@@ -17,11 +17,15 @@ namespace Vion.Dale.Sdk.Mqtt
             /// </summary>
             /// <param name="routingKey">The routing key used to identify and route messages to this handler.</param>
             /// <param name="topics">Array of MQTT topics to subscribe to.</param>
-            /// <param name="actorContext">The actor context used to send the registration message to the MQTT client and respond to the sender.</param>
+            /// <param name="actorContext">
+            ///     The actor context used to send the registration message to the MQTT client and respond to
+            ///     the sender.
+            /// </param>
             /// <param name="logger">Logger to log registration information.</param>
             /// <remarks>
             ///     This is a convenience method that automatically applies the installation topic prefix to all topics.
-            ///     For different prefix behavior (no prefix or custom prefix), the overload with <see cref="MqttTopicGroup" /> array parameter
+            ///     For different prefix behavior (no prefix or custom prefix), the overload with <see cref="MqttTopicGroup" /> array
+            ///     parameter
             ///     should be used instead.
             /// </remarks>
             public void RegisterWithMqttClient(string routingKey, string[] topics, IActorContext actorContext, ILogger logger)
@@ -36,8 +40,14 @@ namespace Vion.Dale.Sdk.Mqtt
             ///     The handler name is automatically derived from the actor's class name.
             /// </summary>
             /// <param name="routingKey">The routing key used to identify and route messages to this handler.</param>
-            /// <param name="topicGroups">Array of MQTT topic groups to subscribe to, where each group can have different topic prefix settings.</param>
-            /// <param name="actorContext">The actor context used to send the registration message to the MQTT client and respond to the sender.</param>
+            /// <param name="topicGroups">
+            ///     Array of MQTT topic groups to subscribe to, where each group can have different topic prefix
+            ///     settings.
+            /// </param>
+            /// <param name="actorContext">
+            ///     The actor context used to send the registration message to the MQTT client and respond to
+            ///     the sender.
+            /// </param>
             /// <param name="logger">Logger to log registration information.</param>
             public void RegisterWithMqttClient(string routingKey, MqttTopicGroup[] topicGroups, IActorContext actorContext, ILogger logger)
             {

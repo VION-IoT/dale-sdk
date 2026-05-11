@@ -1,6 +1,8 @@
 using System.CommandLine;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Vion.Dale.Cli.Auth;
+using Vion.Dale.Cli.Infrastructure;
 using Vion.Dale.Cli.Output;
 
 namespace Vion.Dale.Cli.Commands.Config
@@ -19,16 +21,16 @@ namespace Vion.Dale.Cli.Commands.Config
 
                                   if (DaleConsole.JsonMode)
                                   {
-                                      DaleConsole.WriteJson(System.Text.Json.JsonSerializer.Serialize(new
-                                                                                                      {
-                                                                                                          environment = config.Environment,
-                                                                                                          authBaseUrl = config.AuthBaseUrl,
-                                                                                                          apiBaseUrl = config.ApiBaseUrl,
-                                                                                                          integratorId = config.IntegratorId,
-                                                                                                          integratorName = config.IntegratorName,
-                                                                                                          loggedIn,
-                                                                                                      },
-                                                                                                      Infrastructure.JsonDefaults.Options));
+                                      DaleConsole.WriteJson(JsonSerializer.Serialize(new
+                                                                                     {
+                                                                                         environment = config.Environment,
+                                                                                         authBaseUrl = config.AuthBaseUrl,
+                                                                                         apiBaseUrl = config.ApiBaseUrl,
+                                                                                         integratorId = config.IntegratorId,
+                                                                                         integratorName = config.IntegratorName,
+                                                                                         loggedIn,
+                                                                                     },
+                                                                                     JsonDefaults.Options));
                                   }
                                   else
                                   {

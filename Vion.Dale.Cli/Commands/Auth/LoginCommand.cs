@@ -1,9 +1,9 @@
 using System;
 using System.CommandLine;
 using System.Linq;
+using Spectre.Console;
 using Vion.Dale.Cli.Auth;
 using Vion.Dale.Cli.Output;
-using Spectre.Console;
 
 namespace Vion.Dale.Cli.Commands.Auth
 {

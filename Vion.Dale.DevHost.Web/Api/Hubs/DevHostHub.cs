@@ -1,6 +1,6 @@
 ﻿using System.Threading.Tasks;
-using Vion.Dale.DevHost.Web.Services;
 using Microsoft.AspNetCore.SignalR;
+using Vion.Dale.DevHost.Web.Services;
 
 namespace Vion.Dale.DevHost.Web.Api.Hubs
 {

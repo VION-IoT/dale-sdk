@@ -2,10 +2,11 @@ using System;
 using System.CommandLine;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
+using Spectre.Console;
 using Vion.Dale.Cli.Helpers;
 using Vion.Dale.Cli.Output;
-using Spectre.Console;
 
 namespace Vion.Dale.Cli.Commands
 {
@@ -88,15 +89,13 @@ namespace Vion.Dale.Cli.Commands
                                   var bundledTemplatePath = FindBundledTemplate();
                                   if (bundledTemplatePath == null)
                                   {
-                                      DaleConsole.Error("Bundled template not found — the CLI installation appears to be broken. Reinstall with `dotnet tool update -g Vion.Dale.Cli`.");
+                                      DaleConsole
+                                          .Error("Bundled template not found — the CLI installation appears to be broken. Reinstall with `dotnet tool update -g Vion.Dale.Cli`.");
                                       return 1;
                                   }
 
                                   await DaleConsole.WithSpinner("Installing template",
-                                                                async () =>
-                                                                {
-                                                                    await DotnetRunner.RunCaptureAsync("new", new[] { "install", bundledTemplatePath, "--force" });
-                                                                });
+                                                                async () => { await DotnetRunner.RunCaptureAsync("new", new[] { "install", bundledTemplatePath, "--force" }); });
 
                                   // --- Scaffold ---
 
@@ -202,7 +201,7 @@ namespace Vion.Dale.Cli.Commands
             }
 
             // Allow: letters, digits, dots, hyphens, underscores. No spaces or special chars.
-            return System.Text.RegularExpressions.Regex.IsMatch(name, @"^[a-zA-Z][\w.\-]*$");
+            return Regex.IsMatch(name, @"^[a-zA-Z][\w.\-]*$");
         }
 
         private static string? FindBundledTemplate()

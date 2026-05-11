@@ -1,11 +1,11 @@
 using System;
+using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Configuration.Contract;
 using Vion.Dale.Sdk.Configuration.Interfaces;
 using Vion.Dale.Sdk.Configuration.Services;
 using Vion.Dale.Sdk.Configuration.Timers;
 using Vion.Dale.Sdk.Utils;
-using Microsoft.Extensions.Logging;
 
 namespace Vion.Dale.Sdk.Configuration
 {

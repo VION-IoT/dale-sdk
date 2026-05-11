@@ -1,8 +1,8 @@
 using System;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Vion.Dale.Cli.Infrastructure;
 using Spectre.Console;
+using Vion.Dale.Cli.Infrastructure;
 
 namespace Vion.Dale.Cli.Output
 {

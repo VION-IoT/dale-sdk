@@ -12,7 +12,10 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class ServiceElementTypeAnalyzer : DiagnosticAnalyzer
     {
-        public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(DaleDiagnostics.DALE003_UnsupportedServicePropertyType);
+        public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
+        {
+            get => ImmutableArray.Create(DaleDiagnostics.DALE003_UnsupportedServicePropertyType);
+        }
 
         public override void Initialize(AnalysisContext context)
         {

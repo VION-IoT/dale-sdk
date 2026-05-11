@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Threading.Tasks;
-using Vion.Dale.DevHost.Web.Api.Hubs;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
+using Vion.Dale.DevHost.Web.Api.Hubs;
 
 namespace Vion.Dale.DevHost.Web.Services
 {

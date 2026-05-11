@@ -1,7 +1,7 @@
-﻿using Vion.Dale.Sdk.Examples.LogicBlocks;
-using Vion.Dale.Sdk.Utils;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Vion.Dale.Sdk.Examples.LogicBlocks;
+using Vion.Dale.Sdk.Utils;
 
 namespace Vion.Dale.Sdk
 {

@@ -1,5 +1,5 @@
-﻿using Vion.Dale.Sdk.Core;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.Sdk.Configuration.Services
 {

@@ -43,6 +43,7 @@
     "Vion.Dale.Sdk.Core.StatusIndicatorAttribute",
     "Vion.Dale.Sdk.Core.StatusSeverity",
     "Vion.Dale.Sdk.Core.StatusSeverityAttribute",
+    "Vion.Dale.Sdk.Core.StructFieldAttribute",
     "Vion.Dale.Sdk.Core.TimerAttribute",
     "Vion.Dale.Sdk.DigitalIo.Input.IDigitalInput",
     "Vion.Dale.Sdk.DigitalIo.Output.IDigitalOutput",

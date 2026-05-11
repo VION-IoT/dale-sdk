@@ -1,6 +1,6 @@
 using System.IO;
-using Vion.Dale.Cli.Helpers;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Vion.Dale.Cli.Helpers;
 
 namespace Vion.Dale.Cli.Test.Helpers
 {

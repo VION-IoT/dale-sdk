@@ -1,10 +1,10 @@
 using System.Collections.Generic;
 using System.CommandLine;
 using System.Linq;
+using Spectre.Console;
 using Vion.Dale.Cli.Helpers;
 using Vion.Dale.Cli.Models;
 using Vion.Dale.Cli.Output;
-using Spectre.Console;
 
 namespace Vion.Dale.Cli.Commands
 {

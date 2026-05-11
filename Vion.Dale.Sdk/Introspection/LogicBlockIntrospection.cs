@@ -1,15 +1,16 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using Vion.Dale.Sdk.Configuration;
-using Vion.Dale.Sdk.Configuration.Interfaces;
-using Vion.Dale.Sdk.Configuration.Contract;
+using System.Text.Json.Nodes;
+using Vion.Contracts.Introspection;
+using Vion.Contracts.TypeRef;
 using Vion.Dale.Sdk.CodeGeneration;
+using Vion.Dale.Sdk.Configuration;
+using Vion.Dale.Sdk.Configuration.Contract;
+using Vion.Dale.Sdk.Configuration.Interfaces;
 using Vion.Dale.Sdk.Configuration.Services;
 using Vion.Dale.Sdk.Core;
-using Vion.Contracts.Constants;
-using Vion.Contracts.Introspection;
 
 namespace Vion.Dale.Sdk.Introspection
 {
@@ -301,239 +302,109 @@ namespace Vion.Dale.Sdk.Introspection
 
         private static LogicBlockIntrospectionResult.ServicePropertyInfo ProcessExtraPropertyBinding(ServiceBinding binding)
         {
-            var logicBlockPropertyInfo = binding.RootSourcePropertyInfo;
-            var servicePropertyAttribute = logicBlockPropertyInfo.GetCustomAttribute<ServicePropertyAttribute>();
-
-            var annotations = servicePropertyAttribute?.Annotations ?? new Dictionary<string, object>();
-
-            // Add enum values to annotations
-            if (logicBlockPropertyInfo.PropertyType.IsEnum)
-            {
-                annotations["EnumValues"] = BuildEnumValues(logicBlockPropertyInfo.PropertyType);
-            }
-
-            MergeUiAnnotations(logicBlockPropertyInfo, annotations);
+            var prop = binding.RootSourcePropertyInfo;
+            var typeRef = TypeRefBuilder.BuildForProperty(prop);
+            var structFieldAnnotations = TypeRefBuilder.BuildStructFieldAnnotations(prop.PropertyType);
+            var metadata = PropertyMetadataBuilder.Build(prop, typeRef, structFieldAnnotations);
+            var (schema, presentation, runtime) = ExtractSiblings(metadata);
 
             return new LogicBlockIntrospectionResult.ServicePropertyInfo
                    {
                        Identifier = binding.ServicePropertyName,
-                       TypeFullName = ReflectionHelper.GetDisplayFullName(logicBlockPropertyInfo.PropertyType),
-                       Writable = binding.Setter != null,
-                       ServiceElementType = MapToServiceElementType(logicBlockPropertyInfo.PropertyType),
-                       Annotations = annotations,
+                       Schema = schema,
+                       Presentation = presentation,
+                       Runtime = runtime,
                    };
         }
 
         private static LogicBlockIntrospectionResult.ServicePropertyInfo ProcessInterfacePropertyBinding(ServiceBinding binding, Type serviceInterfaceType)
         {
-            var serviceInterfacePropertyInfo = serviceInterfaceType.GetProperty(binding.ServicePropertyName)!;
-            var serviceInterfacePropertyAttribute = serviceInterfacePropertyInfo.GetCustomAttribute<ServicePropertyAttribute>();
-            var servicePropertyAttribute = binding.RootSourcePropertyInfo.GetCustomAttribute<ServicePropertyAttribute>();
+            // Schema source: the interface property (defines the data contract).
+            var ifaceProp = serviceInterfaceType.GetProperty(binding.ServicePropertyName)!;
 
-            var annotations = MergeAnnotations(serviceInterfacePropertyAttribute?.Annotations, servicePropertyAttribute?.Annotations);
+            // Presentation/Runtime source: the implementing logic-block property (carries UI hints and runtime flags).
+            var implProp = binding.RootSourcePropertyInfo;
 
-            // Add enum values to annotations
-            if (serviceInterfacePropertyInfo.PropertyType.IsEnum)
-            {
-                annotations["EnumValues"] = BuildEnumValues(serviceInterfacePropertyInfo.PropertyType);
-            }
-
-            // UI annotations from the implementation property take precedence
-            MergeUiAnnotations(binding.RootSourcePropertyInfo, annotations);
+            var typeRef = TypeRefBuilder.BuildForProperty(ifaceProp);
+            var structFieldAnnotations = TypeRefBuilder.BuildStructFieldAnnotations(ifaceProp.PropertyType);
+            var metadata = PropertyMetadataBuilder.BuildSplit(ifaceProp, implProp, typeRef, structFieldAnnotations);
+            var (schema, presentation, runtime) = ExtractSiblings(metadata);
 
             return new LogicBlockIntrospectionResult.ServicePropertyInfo
                    {
                        Identifier = binding.ServicePropertyName,
-                       TypeFullName = ReflectionHelper.GetDisplayFullName(serviceInterfacePropertyInfo.PropertyType),
-                       Writable = binding.Setter != null,
-                       ServiceElementType = MapToServiceElementType(serviceInterfacePropertyInfo.PropertyType),
-                       Annotations = annotations,
+                       Schema = schema,
+                       Presentation = presentation,
+                       Runtime = runtime,
                    };
         }
 
         private static LogicBlockIntrospectionResult.ServiceMeasuringPointInfo ProcessExtraMeasuringPointBinding(ServiceBinding binding)
         {
-            var logicBlockPropertyInfo = binding.RootSourcePropertyInfo;
-            var serviceMeasuringPointAttribute = logicBlockPropertyInfo.GetCustomAttribute<ServiceMeasuringPointAttribute>();
-
-            var annotations = serviceMeasuringPointAttribute?.Annotations ?? new Dictionary<string, object>();
-            MergeUiAnnotations(logicBlockPropertyInfo, annotations);
+            var prop = binding.RootSourcePropertyInfo;
+            var typeRef = TypeRefBuilder.BuildForProperty(prop);
+            var structFieldAnnotations = TypeRefBuilder.BuildStructFieldAnnotations(prop.PropertyType);
+            var metadata = PropertyMetadataBuilder.Build(prop, typeRef, structFieldAnnotations);
+            var (schema, presentation, runtime) = ExtractSiblings(metadata);
 
             return new LogicBlockIntrospectionResult.ServiceMeasuringPointInfo
                    {
                        Identifier = binding.ServicePropertyName,
-                       TypeFullName = ReflectionHelper.GetDisplayFullName(logicBlockPropertyInfo.PropertyType),
-                       ServiceElementType = MapToServiceElementType(logicBlockPropertyInfo.PropertyType),
-                       Annotations = annotations,
+                       Schema = schema,
+                       Presentation = presentation,
+                       Runtime = runtime,
                    };
         }
 
         private static LogicBlockIntrospectionResult.ServiceMeasuringPointInfo ProcessInterfaceMeasuringPointBinding(ServiceBinding binding, Type serviceInterfaceType)
         {
-            var serviceInterfacePropertyInfo = serviceInterfaceType.GetProperty(binding.ServicePropertyName)!;
-            var serviceInterfacePropertyAttribute = serviceInterfacePropertyInfo.GetCustomAttribute<ServiceMeasuringPointAttribute>();
-            var servicePropertyAttribute = binding.RootSourcePropertyInfo.GetCustomAttribute<ServiceMeasuringPointAttribute>();
+            // Schema source: the interface property.
+            var ifaceProp = serviceInterfaceType.GetProperty(binding.ServicePropertyName)!;
 
-            var annotations = MergeAnnotations(serviceInterfacePropertyAttribute?.Annotations, servicePropertyAttribute?.Annotations);
+            // Presentation/Runtime source: the implementing logic-block property.
+            var implProp = binding.RootSourcePropertyInfo;
 
-            // UI annotations from the implementation property take precedence
-            MergeUiAnnotations(binding.RootSourcePropertyInfo, annotations);
+            var typeRef = TypeRefBuilder.BuildForProperty(ifaceProp);
+            var structFieldAnnotations = TypeRefBuilder.BuildStructFieldAnnotations(ifaceProp.PropertyType);
+            var metadata = PropertyMetadataBuilder.BuildSplit(ifaceProp, implProp, typeRef, structFieldAnnotations);
+            var (schema, presentation, runtime) = ExtractSiblings(metadata);
 
             return new LogicBlockIntrospectionResult.ServiceMeasuringPointInfo
                    {
                        Identifier = binding.ServicePropertyName,
-                       TypeFullName = ReflectionHelper.GetDisplayFullName(serviceInterfacePropertyInfo.PropertyType),
-                       ServiceElementType = MapToServiceElementType(serviceInterfacePropertyInfo.PropertyType),
-                       Annotations = annotations,
+                       Schema = schema,
+                       Presentation = presentation,
+                       Runtime = runtime,
                    };
         }
 
-        private static string MapToServiceElementType(Type type)
+        /// <summary>
+        ///     Serializes a <see cref="PropertyMetadata" /> document and extracts the three sibling
+        ///     JSON nodes — <c>schema</c>, <c>presentation</c>, <c>runtime</c> — as independent
+        ///     <see cref="JsonNode" /> instances suitable for assignment to the introspection result DTO.
+        ///     Each node is deep-cloned so it has no parent and can be safely reparented.
+        /// </summary>
+        private static (JsonNode schema, JsonNode? presentation, JsonNode? runtime) ExtractSiblings(PropertyMetadata metadata)
         {
-            return type switch
-            {
-                not null when type == typeof(bool) => ServiceElementTypes.Bool,
-                not null when type == typeof(string) => ServiceElementTypes.String,
-                not null when type == typeof(int) || type == typeof(long) || type == typeof(short) => ServiceElementTypes.Integer,
-                not null when type == typeof(float) || type == typeof(double) || type == typeof(decimal) => ServiceElementTypes.Number,
-                not null when type == typeof(DateTime) => ServiceElementTypes.DateTime,
-                not null when type == typeof(TimeSpan) => ServiceElementTypes.Duration,
-                not null when type.IsEnum => ServiceElementTypes.Integer, // Treat enums as integers for now
-                _ => throw new NotSupportedException($"Unsupported type: {type}"),
-            };
-        }
+            var fullDoc = (JsonObject)metadata.ToJson();
 
-        private static List<Dictionary<string, object>> BuildEnumValues(Type enumType)
-        {
-            var result = new List<Dictionary<string, object>>();
-            foreach (var field in enumType.GetFields(BindingFlags.Public | BindingFlags.Static))
-            {
-                var enumValueInfoAttr = field.GetCustomAttribute<EnumValueInfoAttribute>();
-                var entry = new Dictionary<string, object>
-                            {
-                                ["Name"] = field.Name,
-                                ["Value"] = (int)Enum.Parse(enumType, field.Name),
-                            };
+            // schema is always present — introspection contract requires it.
+            var schema = fullDoc["schema"]!.DeepClone();
 
-                if (enumValueInfoAttr?.DefaultName != null)
-                {
-                    entry["DefaultName"] = enumValueInfoAttr.DefaultName;
-                }
+            // presentation / runtime: null when the sibling was serialized as JSON null.
+            var presentationNode = fullDoc["presentation"];
+            var presentation = presentationNode is null ? null : presentationNode.DeepClone();
 
-                result.Add(entry);
-            }
+            var runtimeNode = fullDoc["runtime"];
+            var runtime = runtimeNode is null ? null : runtimeNode.DeepClone();
 
-            return result;
+            return (schema, presentation, runtime);
         }
 
         private static Dictionary<string, object> GetLogicBlockAnnotations(Type logicBlockType)
         {
             var logicBlockInfoAttribute = logicBlockType.GetCustomAttribute<LogicBlockInfoAttribute>();
             return logicBlockInfoAttribute?.Annotations ?? new Dictionary<string, object>();
-        }
-
-        private static void MergeUiAnnotations(PropertyInfo propertyInfo, Dictionary<string, object> annotations)
-        {
-            var displayAttribute = propertyInfo.GetCustomAttribute<DisplayAttribute>();
-            if (displayAttribute != null)
-            {
-                foreach (var kvp in displayAttribute.Annotations)
-                {
-                    annotations[kvp.Key] = kvp.Value;
-                }
-
-                // DisplayName takes precedence over DefaultName
-                if (displayAttribute.Name != null)
-                {
-                    annotations["DefaultName"] = displayAttribute.Name;
-                }
-            }
-
-            var categoryAttribute = propertyInfo.GetCustomAttribute<CategoryAttribute>();
-            if (categoryAttribute != null)
-            {
-                foreach (var kvp in categoryAttribute.Annotations)
-                {
-                    annotations[kvp.Key] = kvp.Value;
-                }
-            }
-
-            var importanceAttribute = propertyInfo.GetCustomAttribute<ImportanceAttribute>();
-            if (importanceAttribute != null)
-            {
-                foreach (var kvp in importanceAttribute.Annotations)
-                {
-                    annotations[kvp.Key] = kvp.Value;
-                }
-            }
-
-            var uiHintAttribute = propertyInfo.GetCustomAttribute<UIHintAttribute>();
-            if (uiHintAttribute != null)
-            {
-                foreach (var kvp in uiHintAttribute.Annotations)
-                {
-                    annotations[kvp.Key] = kvp.Value;
-                }
-            }
-
-            var statusIndicatorAttribute = propertyInfo.GetCustomAttribute<StatusIndicatorAttribute>();
-            if (statusIndicatorAttribute != null)
-            {
-                foreach (var kvp in statusIndicatorAttribute.Annotations)
-                {
-                    annotations[kvp.Key] = kvp.Value;
-                }
-
-                // Read enum values and their severity mappings
-                var enumType = propertyInfo.PropertyType;
-                if (enumType.IsEnum)
-                {
-                    var statusMappings = new List<Dictionary<string, object>>();
-                    foreach (var field in enumType.GetFields(BindingFlags.Public | BindingFlags.Static))
-                    {
-                        var severityAttr = field.GetCustomAttribute<StatusSeverityAttribute>();
-                        var enumValueInfoAttr = field.GetCustomAttribute<EnumValueInfoAttribute>();
-                        var mapping = new Dictionary<string, object>
-                                      {
-                                          ["Name"] = field.Name,
-                                          ["Value"] = (int)Enum.Parse(enumType, field.Name),
-                                          ["Severity"] = severityAttr?.Severity.ToString() ?? StatusSeverity.Neutral.ToString(),
-                                      };
-
-                        if (enumValueInfoAttr?.DefaultName != null)
-                        {
-                            mapping["DefaultName"] = enumValueInfoAttr.DefaultName;
-                        }
-
-                        statusMappings.Add(mapping);
-                    }
-
-                    annotations["StatusMappings"] = statusMappings;
-                }
-            }
-        }
-
-        private static Dictionary<string, object> MergeAnnotations(Dictionary<string, object>? baseAnnotations, Dictionary<string, object>? overrideAnnotations)
-        {
-            var result = new Dictionary<string, object>();
-
-            if (baseAnnotations != null)
-            {
-                foreach (var kvp in baseAnnotations)
-                {
-                    result[kvp.Key] = kvp.Value;
-                }
-            }
-
-            if (overrideAnnotations != null)
-            {
-                foreach (var kvp in overrideAnnotations)
-                {
-                    result[kvp.Key] = kvp.Value;
-                }
-            }
-
-            return result;
         }
     }
 }

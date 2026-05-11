@@ -57,14 +57,7 @@ namespace Vion.Dale.Sdk.Configuration.Services
                 {
                     if (kv.TryGetValue(propertyIdentifier, out var binding) && binding.Setter != null)
                     {
-                        // Convert int to enum if the target property is an enum type
-                        var convertedValue = value;
-                        if (value is int intValue && binding.TargetPropertyType.IsEnum)
-                        {
-                            convertedValue = Enum.ToObject(binding.TargetPropertyType, intValue);
-                        }
-
-                        binding.Setter(binding.Source, convertedValue);
+                        binding.Setter(binding.Source, value);
                         return;
                     }
                 }

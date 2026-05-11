@@ -1,5 +1,5 @@
-using Vion.Dale.Sdk.Core;
 using Moq;
+using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.Sdk.TestKit
 {

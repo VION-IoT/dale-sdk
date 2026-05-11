@@ -13,7 +13,10 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class MeasuringPointAnalyzer : DiagnosticAnalyzer
     {
-        public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(DaleDiagnostics.DALE004_MeasuringPointPublicSetter);
+        public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
+        {
+            get => ImmutableArray.Create(DaleDiagnostics.DALE004_MeasuringPointPublicSetter);
+        }
 
         public override void Initialize(AnalysisContext context)
         {

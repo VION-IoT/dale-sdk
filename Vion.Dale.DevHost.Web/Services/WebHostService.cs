@@ -2,13 +2,13 @@
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-using Vion.Dale.DevHost.Web.Api.Hubs;
-using Vion.Dale.Sdk.Mqtt;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
+using Vion.Dale.DevHost.Web.Api.Hubs;
+using Vion.Dale.Sdk.Mqtt;
 
 namespace Vion.Dale.DevHost.Web.Services
 {
@@ -58,7 +58,18 @@ namespace Vion.Dale.DevHost.Web.Services
                                    });
             ;
 
-            builder.Services.AddSignalR();
+            // SignalR maintains its own JSON serializer; without explicit config it would emit enums as integers,
+            // breaking the rich-types contract that enums travel as member-name strings on the wire (spec §5.4.1).
+            builder.Services
+                   .AddSignalR()
+                   .AddJsonProtocol(opts =>
+                                    {
+                                        opts.PayloadSerializerOptions.PropertyNamingPolicy = JsonSerialization.DefaultOptions.PropertyNamingPolicy;
+                                        foreach (var converter in JsonSerialization.DefaultOptions.Converters)
+                                        {
+                                            opts.PayloadSerializerOptions.Converters.Add(converter);
+                                        }
+                                    });
             builder.Services.AddCors(options => { options.AddDefaultPolicy(policy => { policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader(); }); });
 
             // Register DevHost services as singletons in the WebApplication

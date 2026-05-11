@@ -1,9 +1,9 @@
-﻿using Vion.Dale.Sdk.Configuration.Interfaces;
-using Vion.Dale.Sdk.Core;
-using System;
+﻿using System;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using Vion.Dale.Sdk.Configuration.Interfaces;
+using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.Sdk.Configuration.Services
 {

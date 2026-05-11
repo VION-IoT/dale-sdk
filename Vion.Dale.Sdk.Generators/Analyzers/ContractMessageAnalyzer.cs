@@ -14,10 +14,13 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class ContractMessageAnalyzer : DiagnosticAnalyzer
     {
-        public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-            ImmutableArray.Create(DaleDiagnostics.DALE009_ContractInterfaceNamePrefix,
-                                  DaleDiagnostics.DALE010_MessageFromToMismatch,
-                                  DaleDiagnostics.DALE011_ResponseTypeMustBeNestedStruct);
+        public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
+        {
+            get =>
+                ImmutableArray.Create(DaleDiagnostics.DALE009_ContractInterfaceNamePrefix,
+                                      DaleDiagnostics.DALE010_MessageFromToMismatch,
+                                      DaleDiagnostics.DALE011_ResponseTypeMustBeNestedStruct);
+        }
 
         public override void Initialize(AnalysisContext context)
         {

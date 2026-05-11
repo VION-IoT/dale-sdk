@@ -1,8 +1,8 @@
-﻿using System;
+using System;
+using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Examples.FunctionInterfaces;
 using Vion.Dale.Sdk.Utils;
-using Microsoft.Extensions.Logging;
 
 namespace Vion.Dale.Sdk.Examples.LogicBlocks
 {
@@ -125,7 +125,7 @@ namespace Vion.Dale.Sdk.Examples.LogicBlocks
             [ServiceMeasuringPoint]
             public int Counter { get; set; }
 
-            [ServiceProperty(unit: "kW")]
+            [ServiceProperty(Unit = "kW")]
             [Category(PropertyCategory.Configuration)]
             [Display(group: "Energy")]
             public double MaximumActivePower
@@ -158,23 +158,23 @@ namespace Vion.Dale.Sdk.Examples.LogicBlocks
                 }
             }
 
-            [ServiceProperty(unit: "kW")]
-            [ServiceMeasuringPoint(unit: "kW")]
+            [ServiceProperty(Unit = "kW")]
+            [ServiceMeasuringPoint(Unit = "kW")]
             [Importance(Importance.Primary)]
             [Display(group: "Energy")]
             public double ActivePowerConsuming { get; private set; }
 
             [Persistent]
-            [ServiceProperty(unit: "kWh")]
-            [ServiceMeasuringPoint(unit: "kWh")]
+            [ServiceProperty(Unit = "kWh")]
+            [ServiceMeasuringPoint(Unit = "kWh")]
             [Importance(Importance.Secondary)]
             [Display(group: "Energy")]
             public double EnergyConsumedTotal { get; private set; }
 
-            [ServiceProperty(unit: "kW")]
+            [ServiceProperty(Unit = "kW")]
             public double RequestedActivePower { get; private set; }
 
-            [ServiceProperty(unit: "kW")]
+            [ServiceProperty(Unit = "kW")]
             public double AllocatedActivePower { get; private set; }
 
             [ServiceProperty]

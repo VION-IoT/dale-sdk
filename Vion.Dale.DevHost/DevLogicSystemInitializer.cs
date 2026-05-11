@@ -1,17 +1,17 @@
-﻿using Vion.Dale.DevHost.Mocking;
-using Vion.Dale.Sdk.Abstractions;
-using Vion.Dale.Sdk.Core;
-using Vion.Dale.Sdk.Messages;
-using Vion.Dale.Sdk.Utils;
-using Microsoft.Extensions.Logging;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Vion.Dale.DevHost.Mocking;
+using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.AnalogIo.Input;
 using Vion.Dale.Sdk.AnalogIo.Output;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.DigitalIo.Input;
 using Vion.Dale.Sdk.DigitalIo.Output;
+using Vion.Dale.Sdk.Messages;
+using Vion.Dale.Sdk.Utils;
 
 namespace Vion.Dale.DevHost
 {

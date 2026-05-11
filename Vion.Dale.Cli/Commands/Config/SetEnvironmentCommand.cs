@@ -1,8 +1,8 @@
 using System.CommandLine;
 using System.Threading.Tasks;
+using Spectre.Console;
 using Vion.Dale.Cli.Auth;
 using Vion.Dale.Cli.Output;
-using Spectre.Console;
 
 namespace Vion.Dale.Cli.Commands.Config
 {

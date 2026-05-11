@@ -1,3 +1,4 @@
+using System.IO;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Testing;
@@ -47,12 +48,12 @@ namespace Vion.Dale.Sdk.Generators.Test.Helpers
         private static string GetAttributeStubs()
         {
             var assembly = typeof(AnalyzerTestBase).Assembly;
-            return System.IO.File.ReadAllText(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(assembly.Location)!,
-                                                                     "..",
-                                                                     "..",
-                                                                     "..",
-                                                                     "Helpers",
-                                                                     "TestAttributeStubs.cs"));
+            return File.ReadAllText(Path.Combine(Path.GetDirectoryName(assembly.Location)!,
+                                                 "..",
+                                                 "..",
+                                                 "..",
+                                                 "Helpers",
+                                                 "TestAttributeStubs.cs"));
         }
     }
 }
