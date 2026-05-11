@@ -24,17 +24,17 @@ namespace Vion.Examples.ModbusRtu.LogicBlocks
 
         // ── Configuration (Service Properties) ──
 
-        [ServiceProperty("Modbus-Adresse")]
+        [ServiceProperty(Title = "Modbus-Adresse")]
         [Category(PropertyCategory.Configuration)]
         [Display(group: "Konfiguration")]
         public int UnitId { get; set; } = 1;
 
-        [ServiceProperty("Abfrage aktiv")]
+        [ServiceProperty(Title = "Abfrage aktiv")]
         [Category(PropertyCategory.Configuration)]
         [Display(group: "Konfiguration")]
         public bool PollingEnabled { get; set; } = true;
 
-        [ServiceProperty("Bedarfsperiode", "min")]
+        [ServiceProperty(Title = "Bedarfsperiode", Unit = "min")]
         [Category(PropertyCategory.Configuration)]
         [Display(group: "Konfiguration")]
         public float DemandPeriodMinutes
@@ -51,7 +51,7 @@ namespace Vion.Examples.ModbusRtu.LogicBlocks
             }
         }
 
-        [ServiceProperty("Energiezähler zurücksetzen")]
+        [ServiceProperty(Title = "Energiezähler zurücksetzen")]
         [Category(PropertyCategory.Action)]
         [Display(group: "Konfiguration")]
         public bool ResetEnergyCounters
@@ -69,116 +69,116 @@ namespace Vion.Examples.ModbusRtu.LogicBlocks
 
         // ── Voltage (batch read: addr 0, count 3) ──
 
-        [ServiceProperty("Spannung L1", "V")]
-        [ServiceMeasuringPoint("Spannung L1", "V")]
+        [ServiceProperty(Title = "Spannung L1", Unit = "V")]
+        [ServiceMeasuringPoint(Title = "Spannung L1", Unit = "V")]
         [Importance(Importance.Primary)]
         [Display(group: "Spannung")]
         public float VoltageL1 { get; private set; }
 
-        [ServiceProperty("Spannung L2", "V")]
-        [ServiceMeasuringPoint("Spannung L2", "V")]
+        [ServiceProperty(Title = "Spannung L2", Unit = "V")]
+        [ServiceMeasuringPoint(Title = "Spannung L2", Unit = "V")]
         [Display(group: "Spannung")]
         public float VoltageL2 { get; private set; }
 
-        [ServiceProperty("Spannung L3", "V")]
-        [ServiceMeasuringPoint("Spannung L3", "V")]
+        [ServiceProperty(Title = "Spannung L3", Unit = "V")]
+        [ServiceMeasuringPoint(Title = "Spannung L3", Unit = "V")]
         [Display(group: "Spannung")]
         public float VoltageL3 { get; private set; }
 
         // ── Current (batch read: addr 6, count 3) ──
 
-        [ServiceProperty("Strom L1", "A")]
-        [ServiceMeasuringPoint("Strom L1", "A")]
+        [ServiceProperty(Title = "Strom L1", Unit = "A")]
+        [ServiceMeasuringPoint(Title = "Strom L1", Unit = "A")]
         [Importance(Importance.Primary)]
         [Display(group: "Strom")]
         public float CurrentL1 { get; private set; }
 
-        [ServiceProperty("Strom L2", "A")]
-        [ServiceMeasuringPoint("Strom L2", "A")]
+        [ServiceProperty(Title = "Strom L2", Unit = "A")]
+        [ServiceMeasuringPoint(Title = "Strom L2", Unit = "A")]
         [Display(group: "Strom")]
         public float CurrentL2 { get; private set; }
 
-        [ServiceProperty("Strom L3", "A")]
-        [ServiceMeasuringPoint("Strom L3", "A")]
+        [ServiceProperty(Title = "Strom L3", Unit = "A")]
+        [ServiceMeasuringPoint(Title = "Strom L3", Unit = "A")]
         [Display(group: "Strom")]
         public float CurrentL3 { get; private set; }
 
         // ── Active Power (batch read: addr 12, count 3) ──
 
-        [ServiceProperty("Wirkleistung L1", "W")]
-        [ServiceMeasuringPoint("Wirkleistung L1", "W")]
+        [ServiceProperty(Title = "Wirkleistung L1", Unit = "W")]
+        [ServiceMeasuringPoint(Title = "Wirkleistung L1", Unit = "W")]
         [Display(group: "Leistung")]
         public float ActivePowerL1 { get; private set; }
 
-        [ServiceProperty("Wirkleistung L2", "W")]
-        [ServiceMeasuringPoint("Wirkleistung L2", "W")]
+        [ServiceProperty(Title = "Wirkleistung L2", Unit = "W")]
+        [ServiceMeasuringPoint(Title = "Wirkleistung L2", Unit = "W")]
         [Display(group: "Leistung")]
         public float ActivePowerL2 { get; private set; }
 
-        [ServiceProperty("Wirkleistung L3", "W")]
-        [ServiceMeasuringPoint("Wirkleistung L3", "W")]
+        [ServiceProperty(Title = "Wirkleistung L3", Unit = "W")]
+        [ServiceMeasuringPoint(Title = "Wirkleistung L3", Unit = "W")]
         [Display(group: "Leistung")]
         public float ActivePowerL3 { get; private set; }
 
         // ── System totals (individual reads) ──
 
-        [ServiceProperty("Wirkleistung Gesamt", "W")]
-        [ServiceMeasuringPoint("Wirkleistung Gesamt", "W")]
+        [ServiceProperty(Title = "Wirkleistung Gesamt", Unit = "W")]
+        [ServiceMeasuringPoint(Title = "Wirkleistung Gesamt", Unit = "W")]
         [Importance(Importance.Primary)]
         [Display(group: "Leistung")]
         public float TotalActivePower { get; private set; }
 
-        [ServiceProperty("Scheinleistung Gesamt", "VA")]
-        [ServiceMeasuringPoint("Scheinleistung Gesamt", "VA")]
+        [ServiceProperty(Title = "Scheinleistung Gesamt", Unit = "VA")]
+        [ServiceMeasuringPoint(Title = "Scheinleistung Gesamt", Unit = "VA")]
         [Display(group: "Leistung")]
         public float TotalApparentPower { get; private set; }
 
-        [ServiceProperty("Blindleistung Gesamt", "VAr")]
-        [ServiceMeasuringPoint("Blindleistung Gesamt", "VAr")]
+        [ServiceProperty(Title = "Blindleistung Gesamt", Unit = "VAr")]
+        [ServiceMeasuringPoint(Title = "Blindleistung Gesamt", Unit = "VAr")]
         [Display(group: "Leistung")]
         public float TotalReactivePower { get; private set; }
 
-        [ServiceProperty("Leistungsfaktor Gesamt")]
-        [ServiceMeasuringPoint("Leistungsfaktor Gesamt")]
+        [ServiceProperty(Title = "Leistungsfaktor Gesamt")]
+        [ServiceMeasuringPoint(Title = "Leistungsfaktor Gesamt")]
         [Display(group: "Netzqualität")]
         public float TotalPowerFactor { get; private set; }
 
-        [ServiceProperty("Frequenz", "Hz")]
-        [ServiceMeasuringPoint("Frequenz", "Hz")]
+        [ServiceProperty(Title = "Frequenz", Unit = "Hz")]
+        [ServiceMeasuringPoint(Title = "Frequenz", Unit = "Hz")]
         [Importance(Importance.Secondary)]
         [Display(group: "Netzqualität")]
         public float Frequency { get; private set; }
 
         // ── Energy (individual reads) ──
 
-        [ServiceProperty("Bezug Energie", "kWh")]
-        [ServiceMeasuringPoint("Bezug Energie", "kWh")]
+        [ServiceProperty(Title = "Bezug Energie", Unit = "kWh")]
+        [ServiceMeasuringPoint(Title = "Bezug Energie", Unit = "kWh")]
         [Importance(Importance.Primary)]
         [Display(group: "Energie")]
         public float ImportEnergy { get; private set; }
 
-        [ServiceProperty("Lieferung Energie", "kWh")]
-        [ServiceMeasuringPoint("Lieferung Energie", "kWh")]
+        [ServiceProperty(Title = "Lieferung Energie", Unit = "kWh")]
+        [ServiceMeasuringPoint(Title = "Lieferung Energie", Unit = "kWh")]
         [Display(group: "Energie")]
         public float ExportEnergy { get; private set; }
 
-        [ServiceProperty("Gesamtenergie", "kWh")]
-        [ServiceMeasuringPoint("Gesamtenergie", "kWh")]
+        [ServiceProperty(Title = "Gesamtenergie", Unit = "kWh")]
+        [ServiceMeasuringPoint(Title = "Gesamtenergie", Unit = "kWh")]
         [Importance(Importance.Secondary)]
         [Display(group: "Energie")]
         public float TotalEnergy { get; private set; }
 
         // ── Diagnostics ──
 
-        [ServiceProperty("Erfolgreiche Abfragen")]
+        [ServiceProperty(Title = "Erfolgreiche Abfragen")]
         [Display(group: "Diagnose")]
         public int ReadCount { get; private set; }
 
-        [ServiceProperty("Fehlgeschlagene Abfragen")]
+        [ServiceProperty(Title = "Fehlgeschlagene Abfragen")]
         [Display(group: "Diagnose")]
         public int ErrorCount { get; private set; }
 
-        [ServiceProperty("Letzter Fehler")]
+        [ServiceProperty(Title = "Letzter Fehler")]
         [Display(group: "Diagnose")]
         public string LastError { get; private set; } = "";
 

@@ -30,11 +30,11 @@ namespace Vion.Examples.Energy.LogicBlocks
         [ServiceProviderContract(defaultName: "Ladevorgang aktiv")]
         public IDigitalOutput ChargingOutput { get; private set; }
 
-        [ServiceProperty("Externe Sperre aktiv")]
+        [ServiceProperty(Title = "Externe Sperre aktiv")]
         [Display(group: "Status")]
         public bool IsExternallyLocked { get; private set; }
 
-        [ServiceProperty("Maximale Wirkleistung", "kW")]
+        [ServiceProperty(Title = "Maximale Wirkleistung", Unit = "kW")]
         [Category(PropertyCategory.Configuration)]
         [Display(group: "Konfiguration")]
         public double MaximumActivePower
@@ -51,7 +51,7 @@ namespace Vion.Examples.Energy.LogicBlocks
             }
         }
 
-        [ServiceProperty("Ladefreigabe")]
+        [ServiceProperty(Title = "Ladefreigabe")]
         [Category(PropertyCategory.Configuration)]
         [Importance(Importance.Secondary)]
         [Display(group: "Konfiguration")]
@@ -69,20 +69,20 @@ namespace Vion.Examples.Energy.LogicBlocks
             }
         }
 
-        [ServiceProperty("Wirkleistung", "kW")]
-        [ServiceMeasuringPoint("Wirkleistung", "kW")]
+        [ServiceProperty(Title = "Wirkleistung", Unit = "kW")]
+        [ServiceMeasuringPoint(Title = "Wirkleistung", Unit = "kW")]
         [Importance(Importance.Primary)]
         [Display(group: "Status")]
         public double ActivePowerConsuming { get; private set; }
 
         [Persistent]
-        [ServiceProperty("Zählerstand Gesamtverbrauch Total", "kWh")]
-        [ServiceMeasuringPoint("Zählerstand Gesamtverbrauch Total", "kWh")]
+        [ServiceProperty(Title = "Zählerstand Gesamtverbrauch Total", Unit = "kWh")]
+        [ServiceMeasuringPoint(Title = "Zählerstand Gesamtverbrauch Total", Unit = "kWh")]
         [Category(PropertyCategory.Metric)]
         [Display(group: "Zähler")]
         public double EnergyConsumedTotal { get; private set; }
 
-        [ServiceProperty("Angeforderte Wirkleistung", "kW")]
+        [ServiceProperty(Title = "Angeforderte Wirkleistung", Unit = "kW")]
         [Display(group: "Status")]
         public double RequestedActivePower
         {
@@ -98,7 +98,7 @@ namespace Vion.Examples.Energy.LogicBlocks
             }
         }
 
-        [ServiceProperty("Zugewiesene Wirkleistung", "kW")]
+        [ServiceProperty(Title = "Zugewiesene Wirkleistung", Unit = "kW")]
         [Display(group: "Status")]
         public double AllocatedActivePower { get; private set; }
 

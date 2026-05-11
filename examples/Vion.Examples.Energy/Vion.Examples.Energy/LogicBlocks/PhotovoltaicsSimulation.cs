@@ -29,33 +29,33 @@ namespace Vion.Examples.Energy.LogicBlocks
         [ServiceProviderContract(defaultName: "Auslastung")]
         public IAnalogOutput ActivePowerPercentageOutput { get; private set; }
 
-        [ServiceProperty("Fläche", "m²")]
+        [ServiceProperty(Title = "Fläche", Unit = "m²")]
         [Category(PropertyCategory.Configuration)]
         [Display(group: "Konfiguration")]
         public double PanelArea { get; set; } = 100;
 
-        [ServiceProperty("Wirkungsgrad", "Faktor")]
+        [ServiceProperty(Title = "Wirkungsgrad", Unit = "Faktor")]
         [Category(PropertyCategory.Configuration)]
         [Display(group: "Konfiguration")]
         public double PanelEfficiency { get; set; } = 0.2;
 
-        [ServiceProperty("Maximale Kurzwellenstrahlung", "W/m²")]
+        [ServiceProperty(Title = "Maximale Kurzwellenstrahlung", Unit = "W/m²")]
         [Category(PropertyCategory.Configuration)]
         [Display(group: "Konfiguration")]
         public double MaxShortwaveRadiation { get; set; } = 350;
 
-        [ServiceProperty("Maximale Wirkleistung", "kW")]
+        [ServiceProperty(Title = "Maximale Wirkleistung", Unit = "kW")]
         [Display(group: "Status")]
         public double PeakActivePower
         {
             get => PanelArea * PanelEfficiency * MaxShortwaveRadiation / 1000; // Convert W to kW
         }
 
-        [ServiceProperty("Kurzwellenstrahlung", "W/m²")]
+        [ServiceProperty(Title = "Kurzwellenstrahlung", Unit = "W/m²")]
         [Display(group: "Status")]
         public double ShortwaveRadiation { get; private set; }
 
-        [ServiceProperty("Ort")]
+        [ServiceProperty(Title = "Ort")]
         [Category(PropertyCategory.Configuration)]
         [Display(group: "Standort")]
         public string LocationName
@@ -74,27 +74,27 @@ namespace Vion.Examples.Energy.LogicBlocks
             }
         }
 
-        [ServiceProperty("Geografische Breite", "deg")]
+        [ServiceProperty(Title = "Geografische Breite", Unit = "deg")]
         [Persistent]
         [Category(PropertyCategory.Configuration)]
         [Display(group: "Standort")]
         public double Latitude { get; private set; } = 47.4991723; // Winterthur, Switzerland latitude
 
-        [ServiceProperty("Geografishe Länge", "deg")]
+        [ServiceProperty(Title = "Geografishe Länge", Unit = "deg")]
         [Persistent]
         [Category(PropertyCategory.Configuration)]
         [Display(group: "Standort")]
         public double Longitude { get; private set; } = 8.7291498; // Winterthur, Switzerland longitude
 
-        [ServiceProperty("Wirkleistung", "kW")]
-        [ServiceMeasuringPoint("Wirkleistung", "kW")]
+        [ServiceProperty(Title = "Wirkleistung", Unit = "kW")]
+        [ServiceMeasuringPoint(Title = "Wirkleistung", Unit = "kW")]
         [Importance(Importance.Primary)]
         [Display(group: "Status")]
         public double ActivePowerSupplying { get; private set; }
 
         [Persistent]
-        [ServiceProperty("Zählerstand Gesamterzeugung Total", "kWh")]
-        [ServiceMeasuringPoint("Zählerstand Gesamterzeugung Total", "kWh")]
+        [ServiceProperty(Title = "Zählerstand Gesamterzeugung Total", Unit = "kWh")]
+        [ServiceMeasuringPoint(Title = "Zählerstand Gesamterzeugung Total", Unit = "kWh")]
         [Category(PropertyCategory.Metric)]
         [Importance(Importance.Secondary)]
         [Display(group: "Zähler")]

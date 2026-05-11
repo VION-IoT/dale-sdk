@@ -8,10 +8,11 @@
         <IsPackable>false</IsPackable>
     </PropertyGroup>
 
-    <!-- ProjectReferences (NOT PackageReferences) so this DevHost validates the in-development SDK
-         from PR 2's branch. Other examples pin published 0.3.0 packages; this one is the exception. -->
     <ItemGroup>
-        <ProjectReference Include="..\..\..\Vion.Dale.DevHost.Web\Vion.Dale.DevHost.Web.csproj"/>
+        <PackageReference Include="Vion.Dale.DevHost.Web" Version="0.4.0"/>
+    </ItemGroup>
+
+    <ItemGroup>
         <ProjectReference Include="..\Vion.Examples.RichTypes\Vion.Examples.RichTypes.csproj"/>
     </ItemGroup>
 

@@ -6,10 +6,12 @@
         <ImplicitUsings>false</ImplicitUsings>
         <Nullable>enable</Nullable>
 
-        <!-- NuGet package metadata (not published; this example exists only to validate
-             the rich-types refactor against the local in-development SDK during PR 2 review). -->
+        <!-- NuGet package metadata -->
         <PackageId>Vion.Examples.RichTypes</PackageId>
-        <Description>Rich-types validation example (PR 2 development only — uses ProjectReference, not PackageReference). Removed before merge or converted to a published-package example.</Description>
+        <Version>0.4.0</Version>
+        <Authors>Vion-IoT</Authors>
+        <Company>Vion-IoT</Company>
+        <Description>Vion IoT example LogicBlock exercising rich property types (nullable, struct, array, enum).</Description>
         <IsPackable>false</IsPackable>
 
         <!--debug information from the source generator-->
@@ -17,14 +19,8 @@
         <CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)Generated</CompilerGeneratedFilesOutputPath>
     </PropertyGroup>
 
-    <!-- IMPORTANT: this example uses ProjectReference (local SDK) instead of the usual PackageReference
-         (published 0.3.0 SDK) so it can exercise rich-types features that aren't shipped yet. Other examples
-         pin the published SDK; this one intentionally does not. -->
     <ItemGroup>
-        <ProjectReference Include="..\..\..\Vion.Dale.Sdk\Vion.Dale.Sdk.csproj"/>
-    </ItemGroup>
-
-    <ItemGroup>
+        <PackageReference Include="Vion.Dale.Sdk" Version="0.4.0"/>
         <!--shim to be able to use readonly record structs in netstandard2.1-->
         <PackageReference Include="IsExternalInit" Version="1.0.3">
             <PrivateAssets>all</PrivateAssets>

@@ -12,7 +12,8 @@ $projects = @(
     "examples\Vion.Examples.PingPong\Vion.Examples.PingPong\Vion.Examples.PingPong.csproj",
     "examples\Vion.Examples.ToggleLight\Vion.Examples.ToggleLight\Vion.Examples.ToggleLight.csproj",
     "examples\Vion.Examples.Energy\Vion.Examples.Energy\Vion.Examples.Energy.csproj",
-    "examples\Vion.Examples.ModbusRtu\Vion.Examples.ModbusRtu\Vion.Examples.ModbusRtu.csproj"
+    "examples\Vion.Examples.ModbusRtu\Vion.Examples.ModbusRtu\Vion.Examples.ModbusRtu.csproj",
+    "examples\Vion.Examples.RichTypes\Vion.Examples.RichTypes\Vion.Examples.RichTypes.csproj"
 )
 
 # Resolve output directory to absolute path

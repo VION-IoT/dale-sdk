@@ -18,59 +18,59 @@ namespace Vion.Examples.Energy.LogicBlocks
 
         private IMeteoSubscription? _meteoSubscription;
 
-        [ServiceProperty("Temperatur", "°C")]
-        [ServiceMeasuringPoint("Temperatur", "°C")]
+        [ServiceProperty(Title = "Temperatur", Unit = "°C")]
+        [ServiceMeasuringPoint(Title = "Temperatur", Unit = "°C")]
         [Importance(Importance.Primary)]
         [Display(group: "Wetter")]
         public double Temperature { get; private set; }
 
-        [ServiceProperty("Luftfeuchtigkeit", "%")]
-        [ServiceMeasuringPoint("Luftfeuchtigkeit", "%")]
+        [ServiceProperty(Title = "Luftfeuchtigkeit", Unit = "%")]
+        [ServiceMeasuringPoint(Title = "Luftfeuchtigkeit", Unit = "%")]
         [Display(group: "Wetter")]
         public double RelativeHumidity { get; private set; }
 
-        [ServiceProperty("Taupunkt", "°C")]
-        [ServiceMeasuringPoint("Taupunkt", "°C")]
+        [ServiceProperty(Title = "Taupunkt", Unit = "°C")]
+        [ServiceMeasuringPoint(Title = "Taupunkt", Unit = "°C")]
         [Display(group: "Wetter")]
         public double DewPoint { get; private set; }
 
-        [ServiceProperty("Niederschlag", "mm")]
-        [ServiceMeasuringPoint("Niederschlag", "mm")]
+        [ServiceProperty(Title = "Niederschlag", Unit = "mm")]
+        [ServiceMeasuringPoint(Title = "Niederschlag", Unit = "mm")]
         [Display(group: "Wetter")]
         public double Precipitation { get; private set; }
 
-        [ServiceProperty("Regen", "mm")]
-        [ServiceMeasuringPoint("Regen", "mm")]
+        [ServiceProperty(Title = "Regen", Unit = "mm")]
+        [ServiceMeasuringPoint(Title = "Regen", Unit = "mm")]
         [Display(group: "Wetter")]
         public double Rain { get; private set; }
 
-        [ServiceProperty("Kurzwellenstrahlung", "W/m²")]
-        [ServiceMeasuringPoint("Kurzwellenstrahlung", "W/m²")]
+        [ServiceProperty(Title = "Kurzwellenstrahlung", Unit = "W/m²")]
+        [ServiceMeasuringPoint(Title = "Kurzwellenstrahlung", Unit = "W/m²")]
         [Importance(Importance.Secondary)]
         [Display(group: "Wetter")]
         public double ShortwaveRadiation { get; private set; }
 
-        [ServiceProperty("Windgeschwindigkeit", "km/h")]
-        [ServiceMeasuringPoint("Windgeschwindigkeit", "km/h")]
+        [ServiceProperty(Title = "Windgeschwindigkeit", Unit = "km/h")]
+        [ServiceMeasuringPoint(Title = "Windgeschwindigkeit", Unit = "km/h")]
         [Display(group: "Wetter")]
         public double WindSpeed { get; private set; }
 
-        [ServiceProperty("Windrichtung", "°")]
-        [ServiceMeasuringPoint("Windrichtung", "°")]
+        [ServiceProperty(Title = "Windrichtung", Unit = "°")]
+        [ServiceMeasuringPoint(Title = "Windrichtung", Unit = "°")]
         [Display(group: "Wetter")]
         public double WindDirection { get; private set; }
 
-        [ServiceProperty("Wolkenbedeckung", "%")]
-        [ServiceMeasuringPoint("Wolkenbedeckung", "%")]
+        [ServiceProperty(Title = "Wolkenbedeckung", Unit = "%")]
+        [ServiceMeasuringPoint(Title = "Wolkenbedeckung", Unit = "%")]
         [Display(group: "Wetter")]
         public double CloudCover { get; private set; }
 
-        [ServiceProperty("Luftdruck", "hPa")]
-        [ServiceMeasuringPoint("Luftdruck", "hPa")]
+        [ServiceProperty(Title = "Luftdruck", Unit = "hPa")]
+        [ServiceMeasuringPoint(Title = "Luftdruck", Unit = "hPa")]
         [Display(group: "Wetter")]
         public double Pressure { get; private set; }
 
-        [ServiceProperty("Ort")]
+        [ServiceProperty(Title = "Ort")]
         [Category(PropertyCategory.Configuration)]
         [Display(group: "Standort")]
         public string LocationName
@@ -89,13 +89,13 @@ namespace Vion.Examples.Energy.LogicBlocks
             }
         }
 
-        [ServiceProperty("Geografische Breite", "deg")]
+        [ServiceProperty(Title = "Geografische Breite", Unit = "deg")]
         [Persistent]
         [Category(PropertyCategory.Configuration)]
         [Display(group: "Standort")]
         public double Latitude { get; private set; } = 47.4991723; // Winterthur, Switzerland latitude
 
-        [ServiceProperty("Geografische Länge", "deg")]
+        [ServiceProperty(Title = "Geografische Länge", Unit = "deg")]
         [Persistent]
         [Category(PropertyCategory.Configuration)]
         [Display(group: "Standort")]

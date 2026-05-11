@@ -23,22 +23,22 @@ namespace Vion.Examples.ModbusRtu.LogicBlocks
 
         // ── Configuration ──
 
-        [ServiceProperty("Modbus-Adresse")]
+        [ServiceProperty(Title = "Modbus-Adresse")]
         [Category(PropertyCategory.Configuration)]
         [Display(group: "Konfiguration")]
         public int UnitId { get; set; } = 1;
 
-        [ServiceProperty("Anzahl Register pro Lesevorgang")]
+        [ServiceProperty(Title = "Anzahl Register pro Lesevorgang")]
         [Category(PropertyCategory.Configuration)]
         [Display(group: "Konfiguration")]
         public int RegisterCount { get; set; } = 1;
 
-        [ServiceProperty("Anzahl Anfragen pro Burst")]
+        [ServiceProperty(Title = "Anzahl Anfragen pro Burst")]
         [Category(PropertyCategory.Configuration)]
         [Display(group: "Konfiguration")]
         public int BurstSize { get; set; } = 100;
 
-        [ServiceProperty("Test starten")]
+        [ServiceProperty(Title = "Test starten")]
         [Category(PropertyCategory.Action)]
         [Display(group: "Konfiguration")]
         public bool StartTest
@@ -56,28 +56,28 @@ namespace Vion.Examples.ModbusRtu.LogicBlocks
 
         // ── Results ──
 
-        [ServiceProperty("Lesevorgänge pro Sekunde")]
+        [ServiceProperty(Title = "Lesevorgänge pro Sekunde")]
         [Importance(Importance.Primary)]
         [Display(group: "Ergebnis")]
         public double ReadsPerSecond { get; private set; }
 
-        [ServiceProperty("Durchschnittliche Latenz", "ms")]
+        [ServiceProperty(Title = "Durchschnittliche Latenz", Unit = "ms")]
         [Display(group: "Ergebnis")]
         public double AverageLatencyMs { get; private set; }
 
-        [ServiceProperty("Erfolgreiche Anfragen")]
+        [ServiceProperty(Title = "Erfolgreiche Anfragen")]
         [Display(group: "Ergebnis")]
         public int CompletedReads { get; private set; }
 
-        [ServiceProperty("Fehlgeschlagene Anfragen")]
+        [ServiceProperty(Title = "Fehlgeschlagene Anfragen")]
         [Display(group: "Ergebnis")]
         public int FailedReads { get; private set; }
 
-        [ServiceProperty("Test läuft")]
+        [ServiceProperty(Title = "Test läuft")]
         [Display(group: "Ergebnis")]
         public bool TestRunning { get; private set; }
 
-        [ServiceProperty("Letzte Testdauer", "ms")]
+        [ServiceProperty(Title = "Letzte Testdauer", Unit = "ms")]
         [Display(group: "Ergebnis")]
         public double LastTestDurationMs { get; private set; }
 

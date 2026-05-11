@@ -21,7 +21,7 @@ namespace Vion.Examples.ToggleLight.LogicBlocks
 
         private bool _lastValue;
 
-        [ServiceProperty("Signalmodus")]
+        [ServiceProperty(Title = "Signalmodus")]
         [Category(PropertyCategory.Configuration)]
         public SignalMode Mode { get; set; } = SignalMode.Normal;
 
