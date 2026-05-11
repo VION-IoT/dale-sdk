@@ -111,12 +111,14 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
-        public void EmitsUnitOnBothArrayAndItemsForAnnotatedImmutableArray()
+        public void EmitsUnitOnArrayRootOnlyForAnnotatedImmutableArray()
         {
-            // Per spec §5.1 array convention, x-unit lives on both the array node and items.
+            // Property-level x-unit lives on the array root only — items carries element-shape
+            // (type, format, enum, struct properties, etc.) but not property-level annotations.
+            // Vion.Contracts >= 0.7.0 dropped the previous double-apply.
             var schema = GetSchema("HistogramBuckets");
             Assert.AreEqual("A", schema["x-unit"]?.GetValue<string>());
-            Assert.AreEqual("A", schema["items"]?["x-unit"]?.GetValue<string>());
+            Assert.IsNull(schema["items"]?["x-unit"]);
         }
 
         [TestMethod]
@@ -306,6 +308,29 @@ namespace Vion.Dale.Sdk.Test.Introspection
             // PreferredMode has no [UIHint] and no [StatusIndicator] — uiHint must be absent.
             var presentation = GetPresentation("PreferredMode");
             Assert.IsNull(presentation?["uiHint"]);
+        }
+
+        [TestMethod]
+        public void EmitsEnumLabelsFromEnumValueInfoAttribute()
+        {
+            // AlarmState's members carry [EnumValueInfo("Alles in Ordnung")] etc.
+            // The labels route to presentation.enumLabels keyed by CLR member name.
+            // Exercised via CurrentStatus (writable nullable enum) and CurrentAlarm (read-only enum
+            // measuring point) — both should carry the same label map.
+            var presentation = GetPresentation("CurrentStatus");
+            var labels = presentation?["enumLabels"]?.AsObject();
+            Assert.IsNotNull(labels);
+            Assert.AreEqual("Alles in Ordnung", labels["Ok"]?.GetValue<string>());
+            Assert.AreEqual("Warnung", labels["Warning"]?.GetValue<string>());
+            Assert.AreEqual("Kritisch", labels["Critical"]?.GetValue<string>());
+        }
+
+        [TestMethod]
+        public void OmitsEnumLabelsOnNonEnumProperty()
+        {
+            // VoltageSetpoint is a double — no enum labels possible.
+            var presentation = GetPresentation("VoltageSetpoint");
+            Assert.IsNull(presentation?["enumLabels"]);
         }
 
         // ── Helpers ──────────────────────────────────────────────────────────────

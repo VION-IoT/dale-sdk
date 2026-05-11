@@ -12,10 +12,13 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
     public enum AlarmState
     {
+        [EnumValueInfo("Alles in Ordnung")]
         Ok,
 
+        [EnumValueInfo("Warnung")]
         Warning,
 
+        [EnumValueInfo("Kritisch")]
         Critical,
     }
 

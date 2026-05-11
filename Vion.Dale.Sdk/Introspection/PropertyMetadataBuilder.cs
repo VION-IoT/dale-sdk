@@ -160,6 +160,7 @@ namespace Vion.Dale.Sdk.Introspection
             }
 
             var statusMappings = ExtractStatusMappings(property, statusIndicator);
+            var enumLabels = ExtractEnumLabels(property);
 
             // UIHint: explicit [UIHint("widget")] wins. Otherwise, [StatusIndicator] sets
             // uiHint="statusIndicator" so dashboards can detect status-indicator properties
@@ -177,6 +178,7 @@ namespace Vion.Dale.Sdk.Introspection
                                    Importance = importance?.Importance.ToString(),
                                    UIHint = uiHintValue,
                                    StatusMappings = statusMappings,
+                                   EnumLabels = enumLabels,
                                };
 
             // If everything is null/empty, return the canonical None instance for cheap equality.
@@ -205,6 +207,46 @@ namespace Vion.Dale.Sdk.Introspection
                 if (severity is not null)
                 {
                     builder[name] = severity.Severity.ToString().ToLowerInvariant();
+                }
+            }
+
+            return builder.Count > 0 ? builder.ToImmutable() : null;
+        }
+
+        /// <summary>
+        ///     Reads <c>[EnumValueInfo("...")]</c> off each member of an enum-typed property and
+        ///     returns a map of member-name → display label. Members without a label are omitted.
+        ///     Returns null for non-enum properties or when no members carry a label (so
+        ///     <see cref="Presentation.IsEmpty" /> stays true in the absent case).
+        /// </summary>
+        private static ImmutableDictionary<string, string>? ExtractEnumLabels(PropertyInfo property)
+        {
+            var enumType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+
+            // For array-of-enum properties, peek into the element type.
+            if (!enumType.IsEnum && enumType.IsGenericType)
+            {
+                var def = enumType.GetGenericTypeDefinition();
+                if (def == typeof(ImmutableArray<>))
+                {
+                    var elementType = enumType.GetGenericArguments()[0];
+                    enumType = Nullable.GetUnderlyingType(elementType) ?? elementType;
+                }
+            }
+
+            if (!enumType.IsEnum)
+            {
+                return null;
+            }
+
+            var builder = ImmutableDictionary.CreateBuilder<string, string>();
+            foreach (var name in Enum.GetNames(enumType))
+            {
+                var memberInfo = enumType.GetField(name);
+                var info = memberInfo?.GetCustomAttribute<EnumValueInfoAttribute>();
+                if (info?.DefaultName is { } label)
+                {
+                    builder[name] = label;
                 }
             }
 
