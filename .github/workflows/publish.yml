@@ -212,7 +212,7 @@ jobs:
           - New assemblies → may need a new docs section"
 
               gh issue create \
-                --repo VION-IoT/documentation \
+                --repo VION-IoT/architecture \
                 --title "Vion Dale SDK public API surface changed" \
                 --body "$BODY"
             else
@@ -230,7 +230,7 @@ jobs:
               DIFF=$(diff -u /tmp/cli-help-prev.txt docs/snapshots/cli-help-snapshot.txt | head -200)
 
               gh issue create \
-                --repo VION-IoT/documentation \
+                --repo VION-IoT/architecture \
                 --title "Vion Dale CLI help changed — docs may need updating" \
                 --body "$(cat <<BODY
           The Vion Dale CLI help output has changed. Review and update documentation as needed.
