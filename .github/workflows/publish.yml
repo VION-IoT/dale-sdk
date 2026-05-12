@@ -1,4 +1,10 @@
 name: Pack & Publish
+# Two jobs:
+#   - publish: delegates pack/build/push to VION-IoT/shared-workflows
+#   - drift-and-docs: dale-sdk specific — snapshot regen, drift detection,
+#     auto-commit on PRs, push API reference to documentation on main
+#
+# Pipeline logic for the publish job lives in VION-IoT/shared-workflows.
 
 on:
   push:
@@ -14,20 +20,26 @@ on:
       - 'docs/**'
   workflow_dispatch:
 
-env:
-  PRIVATE_FEED_URL: 'https://pkgs.dev.azure.com/ecocoachsmarthome/Ecocoach/_packaging/ecocoach.csharplogicsystem/nuget/v3/index.json'
-
 jobs:
-  pack:
+  publish:
+    uses: VION-IoT/shared-workflows/.github/workflows/publish-nuget.yml@v1
+    with:
+      solution: Vion.Dale.Sdk.sln
+    permissions:
+      contents: read
+      id-token: write
+    secrets: inherit
+
+  drift-and-docs:
+    needs: publish
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # needed to auto-commit PublicApi manifest + CLI help snapshots back to PR branches
-      id-token: write   # needed for nuget.org Trusted Publishing (OIDC)
+      contents: write   # for the PR-time snapshot auto-commit
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2   # needed so docs drift detection on main can diff HEAD against HEAD~1
-          ref: ${{ github.event.pull_request.head.ref || '' }}   # check out the PR's branch (not the detached merge ref) so auto-commit can push
+          fetch-depth: 2   # main-only steps diff HEAD against HEAD~1
+          ref: ${{ github.event.pull_request.head.ref || '' }}   # check out PR head so auto-commit can push back
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -37,97 +49,13 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Determine version
-        id: version
-        run: |
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
-            echo "is_release=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "version=0.0.0-ci.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
-            echo "is_release=false" >> "$GITHUB_OUTPUT"
-          fi
+      - id: version
+        uses: VION-IoT/shared-workflows/actions/compute-version@v1
 
-      - name: Configure private feed
-        run: |
-          dotnet nuget add source "$PRIVATE_FEED_URL" \
-            --name PrivateFeed \
-            --username AzureDevOps \
-            --password "${{ secrets.AZURE_DEVOPS_PAT }}" \
-            --store-password-in-clear-text
-
-      - name: Build
-        run: dotnet build Vion.Dale.Sdk.sln -c Release -p:Version=${{ steps.version.outputs.version }}
-
-      - name: Test
-        run: >
-          dotnet test Vion.Dale.Sdk.sln -c Release --no-build
-          -p:Version=${{ steps.version.outputs.version }}
-          --logger trx --results-directory ./test-results
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results
-          path: ./test-results
-
-      - name: Pack
-        run: >
-          dotnet pack Vion.Dale.Sdk.sln -c Release --no-build
-          -p:Version=${{ steps.version.outputs.version }}
-          -o ./artifacts
-
-      - name: Push to private feed
-        if: github.event_name != 'pull_request'
-        run: >
-          dotnet nuget push ./artifacts/*.nupkg
-          --source PrivateFeed
-          --api-key ${{ secrets.AZURE_DEVOPS_PAT }}
-          --skip-duplicate
-
-      # Trusted Publishing: request a short-lived API key via OIDC.
-      # Temp key is valid for 1 hour, so do this immediately before push.
-      # NOTE: `user:` must be the INDIVIDUAL nuget.org username (a member of
-      # the org that owns the Trusted Publishing policy), not the org name
-      # itself. The NuGet docs' example `contoso-bot` hints at this.
-      - name: NuGet login (OIDC)
-        if: steps.version.outputs.is_release == 'true'
-        uses: NuGet/login@v1
-        id: nuget-login
-        with:
-          user: ${{ secrets.NUGET_USER }}
-
-      - name: Push to nuget.org
-        if: steps.version.outputs.is_release == 'true'
-        run: >
-          dotnet nuget push ./artifacts/*.nupkg
-          --source https://api.nuget.org/v3/index.json
-          --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
-          --skip-duplicate
-
-      - name: Upload package artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: nupkg
-          path: ./artifacts/*.*nupkg
-
-      # ------------------------------------------------------------------
-      # Documentation drift detection
-      #
-      # Two snapshot files live in docs/snapshots/ and are compared between
-      # commits on main. Changes trigger an issue in VION-IoT/documentation.
-      #
-      # - docs/snapshots/publicapi-manifest.json — set of types/assemblies
-      #   marked with [PublicApi]. Generated by scripts/generate-api-reference.cjs.
-      # - docs/snapshots/cli-help-snapshot.txt — `dale --help` + per-subcommand
-      #   `dale <cmd> --help`. Generated by installing the just-packed CLI.
-      #
-      # On PRs, snapshots are regenerated and auto-committed back to the PR
-      # branch so main is always up-to-date. On main, the diff is surfaced as
-      # an issue in the docs repo. On tags, neither runs — tag pushes are for
-      # publishing, not docs maintenance.
-      # ------------------------------------------------------------------
+          path: ./artifacts
 
       - name: Generate API reference and manifest
         if: steps.version.outputs.is_release == 'false'
@@ -170,8 +98,10 @@ jobs:
             echo "Snapshots are up to date"
           fi
 
-      - name: Notify docs of PublicApi surface changes (main only)
+      - name: Notify architecture of PublicApi surface changes (main only)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.DOCS_REPO_PAT }}
         run: |
           if git show HEAD~1:docs/snapshots/publicapi-manifest.json > /tmp/publicapi-prev.json 2>/dev/null; then
             ADDED=$(comm -13 \
@@ -219,11 +149,11 @@ jobs:
               echo "PublicApi surface unchanged"
             fi
           fi
+
+      - name: Notify architecture of CLI help changes (main only)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.DOCS_REPO_PAT }}
-
-      - name: Notify docs of CLI help changes (main only)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           if git show HEAD~1:docs/snapshots/cli-help-snapshot.txt > /tmp/cli-help-prev.txt 2>/dev/null; then
             if ! diff -q /tmp/cli-help-prev.txt docs/snapshots/cli-help-snapshot.txt > /dev/null 2>&1; then
@@ -249,8 +179,6 @@ jobs:
               echo "CLI help unchanged"
             fi
           fi
-        env:
-          GH_TOKEN: ${{ secrets.DOCS_REPO_PAT }}
 
       - name: Push API reference to docs repo (main only)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
