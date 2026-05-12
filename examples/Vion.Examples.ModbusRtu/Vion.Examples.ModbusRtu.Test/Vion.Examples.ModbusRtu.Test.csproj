@@ -6,8 +6,8 @@
         <IsPackable>false</IsPackable>
     </PropertyGroup>
     <ItemGroup>
-        <PackageReference Include="Vion.Dale.Sdk.TestKit" Version="0.4.2"/>
-        <PackageReference Include="Vion.Dale.Sdk.Modbus.Rtu.TestKit" Version="0.4.2"/>
+        <PackageReference Include="Vion.Dale.Sdk.TestKit" Version="0.4.3"/>
+        <PackageReference Include="Vion.Dale.Sdk.Modbus.Rtu.TestKit" Version="0.4.3"/>
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1"/>
         <PackageReference Include="xunit.v3" Version="3.2.0"/>
         <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
