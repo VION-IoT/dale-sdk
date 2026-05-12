@@ -8,7 +8,7 @@
 
         <!-- NuGet package metadata -->
         <PackageId>Vion.Examples.PingPong</PackageId>
-        <Version>0.4.2</Version>
+        <Version>0.4.3</Version>
         <Authors>Vion-IoT</Authors>
         <Company>Vion-IoT</Company>
         <Description>Vion IoT logic blocks</Description>
@@ -20,8 +20,8 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Vion.Dale.Sdk" Version="0.4.2"/>
-        <PackageReference Include="Vion.Dale.Sdk.DigitalIo" Version="0.4.2"/>
+        <PackageReference Include="Vion.Dale.Sdk" Version="0.4.3"/>
+        <PackageReference Include="Vion.Dale.Sdk.DigitalIo" Version="0.4.3"/>
         <!--shim to be able to use readonly record structs in netstandard2.1-->
         <PackageReference Include="IsExternalInit" Version="1.0.3">
             <PrivateAssets>all</PrivateAssets>
