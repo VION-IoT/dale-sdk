@@ -1,7 +1,4 @@
 name: Pack & Publish
-# Drift test in progress — synthetic snapshot edits to verify the
-# architecture-issue creation path. Will be reverted in the next commit.
-#
 # Two jobs:
 #   - publish: delegates pack/build/push to VION-IoT/shared-workflows
 #   - drift-and-docs: dale-sdk specific — snapshot regen, drift detection,
