@@ -57,6 +57,17 @@ jobs:
           name: nupkg
           path: ./artifacts
 
+      # The api-reference generator script reads bin/Release/**/*.xml that
+      # only exist after a build. The publish job above ran a build but in
+      # a different runner — those outputs aren't reachable here. Rebuild
+      # so the script has the XML doc files it needs.
+      - uses: VION-IoT/shared-workflows/actions/setup-nuget-private-feed@v1
+        with:
+          pat: ${{ secrets.AZURE_DEVOPS_PAT }}
+
+      - name: Build (for api-reference XML docs)
+        run: dotnet build Vion.Dale.Sdk.sln -c Release -p:Version=${{ steps.version.outputs.version }}
+
       - name: Generate API reference and manifest
         if: steps.version.outputs.is_release == 'false'
         run: |
