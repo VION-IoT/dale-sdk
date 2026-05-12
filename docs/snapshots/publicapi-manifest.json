@@ -20,6 +20,7 @@
     "Vion.Dale.Sdk.Core.ContractDirection",
     "Vion.Dale.Sdk.Core.DependencyCreationType",
     "Vion.Dale.Sdk.Core.DisplayAttribute",
+    "Vion.Dale.Sdk.Core.DriftCanaryMarker",
     "Vion.Dale.Sdk.Core.EnumValueInfoAttribute",
     "Vion.Dale.Sdk.Core.IConfigureServices",
     "Vion.Dale.Sdk.Core.Importance",
