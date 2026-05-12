@@ -164,34 +164,51 @@ namespace Vion.Dale.Sdk.Test.Configuration.Services
         }
 
         /// <summary>
-        ///     Documents the post-LT9 behaviour for the former legacy int→enum path.
-        ///     After LT9 removed the explicit <c>Enum.ToObject</c> branch from
-        ///     <c>ServiceBinder.SetPropertyValue</c>, the codec produces typed enums and
-        ///     no explicit conversion is needed.
-        ///     Notably, the CLR allows <c>unbox.any OperatingMode</c> on a boxed <c>int</c>
-        ///     when the enum's underlying type is <c>int</c> — so passing an <c>int</c> still
-        ///     reaches the backing field successfully.  The explicit <c>Enum.ToObject</c> was
-        ///     therefore dead code: the CLR was already performing the equivalent coercion.
-        ///     This test is now a regression guard confirming that the round-trip still works
-        ///     via the compiled-expression setter without any binder-level coercion.
-        ///     Uses <see cref="TestLogicBlock" /> (<c>TestDevice</c> / <c>Mode</c> property)
-        ///     because <see cref="RichTypesLogicBlock" /> only exposes <c>OperatingMode?</c>
-        ///     (nullable), which exercises a different code path.
+        ///     Pre-rich-types the binder accepted a boxed int for an enum-typed property because
+        ///     the CLR's compiled-expression setter does <c>unbox.any TEnum</c> on a boxed integer
+        ///     whose underlying type matches the enum. That silent coercion masked wire-format
+        ///     bugs (e.g. a payload carrying a raw integer for an enum-typed property would land
+        ///     as a "valid" enum value). Post-rich-types the codec produces typed enum values at
+        ///     the JSON/FB → CLR boundary, so a boxed int reaching the binder is now always a
+        ///     bug upstream. The binder rejects loudly.
         /// </summary>
         [TestMethod]
-        public void SettingIntOnEnumProperty_StillRoundTrips_AfterLegacyRemoval()
+        public void RejectsIntOnEnumPropertyWithDescriptiveException()
         {
-            // TestLogicBlock.Mode is OperatingMode (non-nullable enum, underlying type int).
+            var (binder, _) = ServiceBinderTestHarness.Bind<TestLogicBlock>();
+
+            var ex = Assert.ThrowsExactly<ArgumentException>(() => binder.SetPropertyValue("TestDevice", "Mode", 1));
+            StringAssert.Contains(ex.Message, "Mode");
+            StringAssert.Contains(ex.Message, "enum");
+        }
+
+        [TestMethod]
+        public void RejectsIntOnNullableEnumProperty()
+        {
+            var (binder, _) = ServiceBinderTestHarness.Bind<RichTypesLogicBlock>();
+
+            Assert.ThrowsExactly<ArgumentException>(() => binder.SetPropertyValue(ServiceId, "PreferredMode", 1));
+        }
+
+        [TestMethod]
+        public void RejectsNullOnNonNullableEnumProperty()
+        {
+            // TestDevice.Mode is non-nullable OperatingMode — null is not a valid value.
+            var (binder, _) = ServiceBinderTestHarness.Bind<TestLogicBlock>();
+
+            Assert.ThrowsExactly<ArgumentException>(() => binder.SetPropertyValue("TestDevice", "Mode", null));
+        }
+
+        [TestMethod]
+        public void AcceptsTypedEnumOnNonNullableEnumProperty()
+        {
+            // The canonical path: cloud sends "Manual" (enum member name) → codec produces
+            // OperatingMode.Manual → binder receives the typed value → setter assigns directly.
             var (binder, block) = ServiceBinderTestHarness.Bind<TestLogicBlock>();
 
-            // Post-LT9: no explicit Enum.ToObject branch in the binder. The CLR's compiled
-            // setter performs unbox.any OperatingMode on the boxed int, which succeeds when
-            // the underlying types match. The canonical path (passing a typed enum) is preferred
-            // by the codec, but int still round-trips correctly.
-            binder.SetPropertyValue("TestDevice", "Mode", 1);
+            binder.SetPropertyValue("TestDevice", "Mode", OperatingMode.Manual);
 
-            var roundTripped = binder.GetPropertyValue("TestDevice", "Mode");
-            Assert.AreEqual(OperatingMode.Manual, roundTripped);
+            Assert.AreEqual(OperatingMode.Manual, binder.GetPropertyValue("TestDevice", "Mode"));
             Assert.AreEqual(OperatingMode.Manual, block.Mode);
         }
 
