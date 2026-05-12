@@ -1,7 +1,4 @@
 name: Pack & Publish
-# Drift-test trigger nudge — paths-ignore: docs/** would otherwise skip
-# snapshot-only pushes. This line ensures the next commit triggers CI.
-#
 # Two jobs:
 #   - publish: delegates pack/build/push to VION-IoT/shared-workflows
 #   - drift-and-docs: dale-sdk specific — snapshot regen, drift detection,
@@ -103,8 +100,9 @@ jobs:
 
       - name: Notify architecture of PublicApi surface changes (main only)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        continue-on-error: true   # don't cascade-skip the docs-push step on a notify failure
         env:
-          GH_TOKEN: ${{ secrets.DOCS_REPO_PAT }}
+          GH_TOKEN: ${{ secrets.ARCHITECTURE_REPO_PAT }}
         run: |
           if git show HEAD~1:docs/snapshots/publicapi-manifest.json > /tmp/publicapi-prev.json 2>/dev/null; then
             ADDED=$(comm -13 \
@@ -155,8 +153,9 @@ jobs:
 
       - name: Notify architecture of CLI help changes (main only)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        continue-on-error: true   # don't cascade-skip the docs-push step on a notify failure
         env:
-          GH_TOKEN: ${{ secrets.DOCS_REPO_PAT }}
+          GH_TOKEN: ${{ secrets.ARCHITECTURE_REPO_PAT }}
         run: |
           if git show HEAD~1:docs/snapshots/cli-help-snapshot.txt > /tmp/cli-help-prev.txt 2>/dev/null; then
             if ! diff -q /tmp/cli-help-prev.txt docs/snapshots/cli-help-snapshot.txt > /dev/null 2>&1; then
