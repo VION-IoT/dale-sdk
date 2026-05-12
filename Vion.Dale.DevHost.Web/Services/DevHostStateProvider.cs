@@ -1,13 +1,12 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Linq;
-using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
+using Vion.Contracts.Codec;
 using Vion.Contracts.Introspection;
+using Vion.Contracts.TypeRef;
 using Vion.Dale.DevHost.Mocking;
 using Vion.Dale.DevHost.Web.Api.Dtos;
 using Vion.Dale.Sdk.Abstractions;
@@ -255,234 +254,43 @@ namespace Vion.Dale.DevHost.Web.Services
         }
 
         /// <summary>
-        ///     Best-effort JSON → CLR conversion for the DevHost set-property path.
-        ///     Decodes based on the property's JSON Schema <c>type</c> + <c>format</c> + <c>enum</c> keywords,
-        ///     using <paramref name="targetClrType" /> (when available) to widen/narrow correctly and to parse
-        ///     enum member names back to typed values.
-        ///     TODO(rich-types): Replace with <c>PropertyValueCodec</c> once that decode path is wired up here.
+        ///     JSON → typed CLR conversion for the DevHost set-property path.
+        ///     Re-parses the per-property JSON Schema into a <see cref="TypeRef" /> and delegates to
+        ///     <see cref="PropertyValueCodec.JsonToClr" /> — the same code path the runtime uses for
+        ///     decoded wire payloads. Replaces a previously hand-rolled converter that duplicated
+        ///     the codec's logic (numeric narrowing per format, enum-name parsing, struct
+        ///     decomposition, ImmutableArray construction).
         /// </summary>
         private static object? ConvertJsonValueToTypedValue(object? value, JsonNode schema, Type? targetClrType)
         {
-            // schema["type"] can be a JsonValue (single primitive type) or a JsonArray (e.g. ["integer", "null"] for nullable).
-            // Pull the non-null variant when it's an array.
-            var typeStr = ExtractEffectiveType(schema) ?? "string";
-            var formatStr = schema["format"]?.GetValue<string>();
-            var isNullable = IsNullableSchema(schema);
-            var hasEnum = schema["enum"] is JsonArray;
-
-            // Two distinct null shapes to handle:
-            //   1. value is C# null (the JSON body had a literal `null`; STJ binds it directly to null when the
-            //      controller's input type is `object`). The cast `(JsonElement)null` would throw NRE.
-            //   2. value is a JsonElement whose ValueKind is JsonValueKind.Null (the JSON body had a JsonElement
-            //      wrapping null). The cast succeeds; ValueKind check catches it.
-            // Both cases mean "set the property to null"; both require the schema to be nullable.
-            if (value is null || (value is JsonElement je && je.ValueKind == JsonValueKind.Null))
+            if (targetClrType is null)
             {
-                if (!isNullable)
-                {
-                    throw new InvalidOperationException($"Property schema is not nullable but JSON value is null. Schema: {schema.ToJsonString()}");
-                }
-
-                return null;
+                throw new InvalidOperationException(
+                    "DevHostStateProvider: targetClrType is required to decode a JSON value into a typed CLR value. " +
+                    "The LogicBlock property is missing or the reflection lookup failed upstream.");
             }
 
-            var jsonElement = (JsonElement)value;
+            // The codec wants a TypeRef (the typed shape), not the JSON Schema document. Re-parse on
+            // each call — DevHost is a dev tool with low-traffic SetPropertyValue calls; the parse
+            // overhead is negligible compared to the round-trip through the actor system.
+            var typeRef = TypeSchemaSerialization.FromJsonSchema(schema).Type;
 
-            // For nullable value-types, set targetClrType to the non-Nullable underlying so the conversion picks the right kind.
-            var underlyingTarget = targetClrType is null ? null : Nullable.GetUnderlyingType(targetClrType) ?? targetClrType;
-
-            // Enum: members are NAME STRINGS on the wire. Use the CLR target enum type to parse back to a typed enum value.
-            // This is required because LT9 dropped the binder-side ad-hoc int→enum conversion; the codec / decoder is responsible for producing the typed value now.
-            if (hasEnum && underlyingTarget is { IsEnum: true })
+            // Normalize the value into a JsonNode. STJ's `object` model binding produces a
+            // JsonElement for typed JSON values and a literal C# null when the body was `null`.
+            JsonNode? json = value switch
             {
-                var name = jsonElement.GetString() ?? throw new InvalidOperationException($"Enum value must be a JSON string member name; got {jsonElement.ValueKind}");
-                return Enum.Parse(underlyingTarget, name, false);
-            }
-
-            return typeStr switch
-            {
-                "string" when formatStr == "date-time" => jsonElement.GetDateTime(),
-                "string" when formatStr == "duration" => TimeSpan.Parse(jsonElement.GetString() ?? throw new InvalidOperationException($"Invalid duration format {jsonElement}")),
-                "string" => jsonElement.GetString() ?? string.Empty,
-                "boolean" => jsonElement.GetBoolean(),
-
-                // Integer narrowing: widen via GetInt64 then narrow to the target CLR type. The format keyword is
-                // a hint for range checking; the actual setter coercion is driven by underlyingTarget.
-                "integer" => NarrowInteger(jsonElement, underlyingTarget, formatStr),
-
-                // Number narrowing: same idea for float/double.
-                "number" => formatStr == "float" || underlyingTarget == typeof(float) ? jsonElement.GetSingle() : jsonElement.GetDouble(),
-
-                // Object → readonly record struct via reflection on the primary positional ctor.
-                "object" when underlyingTarget is not null => DecodeStruct(jsonElement, schema, underlyingTarget),
-
-                // Array → ImmutableArray<T> via reflection.
-                "array" when underlyingTarget is not null => DecodeArray(jsonElement, schema, underlyingTarget),
-
-                // Fallback: pass the JSON string through verbatim.
-                _ => jsonElement.GetString() ?? string.Empty,
+                null => null,
+                JsonElement je when je.ValueKind == JsonValueKind.Null => null,
+                JsonElement je => JsonNode.Parse(je.GetRawText()),
+                _ => JsonValue.Create(value),
             };
+
+            return PropertyValueCodec.JsonToClr(json, typeRef, targetClrType);
         }
 
-        /// <summary>
-        ///     Decodes a JSON object into a <c>readonly record struct</c> instance by walking the struct's primary
-        ///     positional constructor and binding each parameter to the matching JSON property (camelCase by name).
-        ///     Recursively converts nested values via <see cref="ConvertJsonValueToTypedValue" />.
-        /// </summary>
-        private static object DecodeStruct(JsonElement element, JsonNode schema, Type structType)
-        {
-            if (element.ValueKind != JsonValueKind.Object)
-            {
-                throw new InvalidOperationException($"Expected JSON object for struct '{structType.Name}', got {element.ValueKind}");
-            }
-
-            var ctor = structType.GetConstructors().OrderByDescending(c => c.GetParameters().Length).FirstOrDefault(c => c.GetParameters().Length > 0) ??
-                       throw new InvalidOperationException($"Struct '{structType.FullName}' has no positional constructor");
-
-            var parameters = ctor.GetParameters();
-            var args = new object?[parameters.Length];
-
-            for (var i = 0; i < parameters.Length; i++)
-            {
-                var param = parameters[i];
-                var fieldName = ToCamelCase(param.Name!);
-                var fieldSchema = schema["properties"]?[fieldName] ??
-                                  throw new InvalidOperationException($"Struct '{structType.Name}' field '{fieldName}' not present in schema.properties");
-
-                if (!element.TryGetProperty(fieldName, out var fieldElement))
-                {
-                    throw new InvalidOperationException($"JSON for struct '{structType.Name}' is missing required field '{fieldName}'");
-                }
-
-                args[i] = ConvertJsonValueToTypedValue(fieldElement, fieldSchema, param.ParameterType);
-            }
-
-            return ctor.Invoke(args)!;
-        }
-
-        /// <summary>
-        ///     Decodes a JSON array into an <see cref="System.Collections.Immutable.ImmutableArray{T}" />
-        ///     where T is the element type of <paramref name="arrayType" />. Recursively converts each element
-        ///     via <see cref="ConvertJsonValueToTypedValue" /> using the schema's <c>items</c> child schema.
-        /// </summary>
-        private static object DecodeArray(JsonElement element, JsonNode schema, Type arrayType)
-        {
-            if (element.ValueKind != JsonValueKind.Array)
-            {
-                throw new InvalidOperationException($"Expected JSON array, got {element.ValueKind}");
-            }
-
-            if (!arrayType.IsGenericType || arrayType.GetGenericTypeDefinition() != typeof(ImmutableArray<>))
-            {
-                throw new InvalidOperationException($"Array target CLR type must be ImmutableArray<T>, got '{arrayType.FullName}'");
-            }
-
-            var elementType = arrayType.GetGenericArguments()[0];
-            var itemsSchema = schema["items"] ?? throw new InvalidOperationException("Array schema missing 'items'");
-
-            var listType = typeof(List<>).MakeGenericType(elementType);
-            var list = (IList)Activator.CreateInstance(listType)!;
-
-            foreach (var item in element.EnumerateArray())
-            {
-                var itemValue = ConvertJsonValueToTypedValue(item, itemsSchema, elementType);
-                list.Add(itemValue);
-            }
-
-            // Convert List<T> → ImmutableArray<T> via a generic helper invoked by reflection.
-            // (Avoids the awkward CreateRange overload-resolution dance.)
-            var helper = typeof(DevHostStateProvider).GetMethod(nameof(ListToImmutableArray), BindingFlags.NonPublic | BindingFlags.Static)!.MakeGenericMethod(elementType);
-            return helper.Invoke(null, new object[] { list })!;
-        }
-
-        private static ImmutableArray<T> ListToImmutableArray<T>(IEnumerable<T> items)
-        {
-            return ImmutableArray.CreateRange(items);
-        }
-
-        private static string ToCamelCase(string s)
-        {
-            if (string.IsNullOrEmpty(s) || char.IsLower(s[0]))
-            {
-                return s;
-            }
-
-            return char.ToLowerInvariant(s[0]) + s.Substring(1);
-        }
-
-        private static string? ExtractEffectiveType(JsonNode schema)
-        {
-            var typeNode = schema["type"];
-            if (typeNode is JsonValue v)
-            {
-                return v.GetValue<string>();
-            }
-
-            if (typeNode is JsonArray arr)
-            {
-                foreach (var item in arr)
-                {
-                    var s = item?.GetValue<string>();
-                    if (s is not null && s != "null")
-                    {
-                        return s;
-                    }
-                }
-            }
-
-            return null;
-        }
-
-        private static bool IsNullableSchema(JsonNode schema)
-        {
-            if (schema["type"] is not JsonArray arr)
-            {
-                return false;
-            }
-
-            foreach (var item in arr)
-            {
-                if (item?.GetValue<string>() == "null")
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private static object NarrowInteger(JsonElement jsonElement, Type? underlyingTarget, string? formatStr)
-        {
-            // Read at full long width, then narrow to the precise CLR target. Range failures throw OverflowException at cast.
-            var asLong = jsonElement.GetInt64();
-
-            if (underlyingTarget is null)
-            {
-                // No target hint — best-effort: int32 unless format says otherwise.
-                return formatStr switch
-                {
-                    "uint8" => (byte)asLong,
-                    "int16" => (short)asLong,
-                    "uint16" => (ushort)asLong,
-                    "int32" => (int)asLong,
-                    "uint32" => (uint)asLong,
-                    "int64" => asLong,
-                    _ => (int)asLong,
-                };
-            }
-
-            return Type.GetTypeCode(underlyingTarget) switch
-            {
-                TypeCode.Byte => (byte)asLong,
-                TypeCode.SByte => (sbyte)asLong,
-                TypeCode.Int16 => (short)asLong,
-                TypeCode.UInt16 => (ushort)asLong,
-                TypeCode.Int32 => (int)asLong,
-                TypeCode.UInt32 => (uint)asLong,
-                TypeCode.Int64 => asLong,
-                TypeCode.UInt64 => (ulong)asLong,
-                _ => asLong,
-            };
-        }
+        // (The previous ~200 lines of hand-rolled converter helpers — DecodeStruct, DecodeArray,
+        // ListToImmutableArray, ToCamelCase, ExtractEffectiveType, IsNullableSchema, NarrowInteger —
+        // are gone. PropertyValueCodec.JsonToClr (public from Vion.Contracts 0.7.1) carries the
+        // equivalent logic.)
     }
 }
