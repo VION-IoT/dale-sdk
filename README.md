@@ -14,6 +14,14 @@ cd MyLibrary
 dale dev            # local DevHost with a web UI on http://localhost:5000
 ```
 
+## Building from source
+
+```bash
+dotnet build Vion.Dale.Sdk.sln -c Release
+```
+
+For guaranteed reproducibility, build from a release tag (`git checkout vX.Y.Z`). The `main` branch may briefly pin pre-release versions of internal dependencies that aren't yet on nuget.org — those windows close on the next release.
+
 ## Packages
 
 Shipped from this repository on every release:
