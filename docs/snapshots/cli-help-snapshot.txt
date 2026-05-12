@@ -12,7 +12,7 @@ Options:
   --version                  Show version information
 
 Commands:
-  new <name>  Create a new LogicBlock library project.
+  new <name>  Create a new LogicBlock library project
   build       Build the project
   test        Run tests
   dev         Start the DevHost with web UI
