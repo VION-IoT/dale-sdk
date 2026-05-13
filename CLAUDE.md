@@ -67,7 +67,7 @@ See [Vion.Dale.Cli/CLAUDE.md](Vion.Dale.Cli/CLAUDE.md) for architecture, pattern
 Versions are driven by git tags. No `<Version>` in any SDK `.csproj`. See [README.md#releases](README.md#releases) for the full flow.
 
 - Push to `main` → CI publishes `0.0.0-ci.{run_number}` to the private Azure DevOps feed.
-- Push tag `vX.Y.Z` → CI publishes `X.Y.Z` to the private feed **and** nuget.org (via Trusted Publishing).
+- Push tag `vX.Y.Z` → CI publishes `X.Y.Z` to the private feed **and** nuget.org.
 
 After a release, bump the template/example `PackageReference` versions so the next commit ships consistent refs:
 

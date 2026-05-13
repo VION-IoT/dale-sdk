@@ -143,5 +143,5 @@ CLI version is managed alongside SDK packages via `scripts/set-version.ps1`:
 
 ## CI/CD
 
-- **Publish pipeline** (`publish.yml`): builds solution, packs, pushes to Azure DevOps private feed on every push to `main`; on tags `v*` also publishes to nuget.org via Trusted Publishing.
+- **Publish pipeline** (`publish.yml`): builds solution, packs, pushes to Azure DevOps private feed on every push to `main`; on tags `v*` also publishes to nuget.org.
 - **Examples pipeline** (`examples.yml`): installs `Vion.Dale.Cli` from the private feed, runs `dale upload --skip-duplicate` for each example using service-account credentials. Triggered on `examples/**` changes or manually.

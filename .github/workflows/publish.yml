@@ -27,7 +27,6 @@ jobs:
       solution: Vion.Dale.Sdk.sln
     permissions:
       contents: read
-      id-token: write
     secrets: inherit
 
   drift-and-docs:
