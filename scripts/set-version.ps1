@@ -34,6 +34,20 @@ $templateProjects = @(
     }
 )
 
+# Example main projects whose own <Version> tracks the SDK release.
+# These are packed by `dale upload` (which reads <Version>) — bumping is
+# required for each new release, otherwise the upload step finds the same
+# version on Cloud test and silently skips (--skip-duplicate). Only the
+# main project per example carries a <Version> (DevHost / Test do not pack).
+$exampleMainProjectsWithVersion = @(
+    "examples\Vion.Examples.PingPong\Vion.Examples.PingPong\Vion.Examples.PingPong.csproj",
+    "examples\Vion.Examples.Energy\Vion.Examples.Energy\Vion.Examples.Energy.csproj",
+    "examples\Vion.Examples.ToggleLight\Vion.Examples.ToggleLight\Vion.Examples.ToggleLight.csproj",
+    "examples\Vion.Examples.ModbusRtu\Vion.Examples.ModbusRtu\Vion.Examples.ModbusRtu.csproj",
+    "examples\Vion.Examples.Presentation\Vion.Examples.Presentation\Vion.Examples.Presentation.csproj",
+    "examples\Vion.Examples.RichTypes\Vion.Examples.RichTypes\Vion.Examples.RichTypes.csproj"
+)
+
 # Example projects that reference Vion.Dale.* packages.
 $exampleProjects = @(
     # PingPong example
@@ -231,5 +245,18 @@ foreach ($example in $exampleProjects)
     }
 }
 
-Write-Host "`n[+] Package references updated to $Version" -ForegroundColor Green
+Write-Host "`nUpdating example main project versions..." -ForegroundColor Yellow
+foreach ($projectPath in $exampleMainProjectsWithVersion)
+{
+    if (Test-Path $projectPath)
+    {
+        Set-ProjectVersion -projectPath $projectPath -version $Version
+    }
+    else
+    {
+        Write-Warning "Example main project not found: $projectPath"
+    }
+}
+
+Write-Host "`n[+] Package references + example versions updated to $Version" -ForegroundColor Green
 Write-Host "Commit + push. Examples/templates are not part of the SDK .sln and build independently after restore." -ForegroundColor Gray
