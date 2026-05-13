@@ -21,7 +21,7 @@ namespace Vion.Dale.Sdk.Generators
 
         public void Initialize(IncrementalGeneratorInitializationContext context)
         {
-            // Create a pipeline that finds all classes with ContractAttribute
+            // Create a pipeline that finds all classes with LogicBlockContractAttribute
             var contractClasses = context.SyntaxProvider
                                          .CreateSyntaxProvider(static (s, _) => IsCandidateClass(s), static (ctx, _) => GetClassDeclaration(ctx))
                                          .Where(static m => m is not null);
@@ -43,16 +43,16 @@ namespace Vion.Dale.Sdk.Generators
         {
             var classDeclaration = (ClassDeclarationSyntax)context.Node;
 
-            // Verify the class actually has the ContractAttribute
+            // Verify the class actually has the LogicBlockContractAttribute
             var symbol = context.SemanticModel.GetDeclaredSymbol(classDeclaration);
             if (symbol is null)
             {
                 return null;
             }
 
-            var hasContractAttribute = symbol.GetAttributes().Any(a => a.AttributeClass?.Name == nameof(ContractAttribute));
+            var hasLogicBlockContractAttribute = symbol.GetAttributes().Any(a => a.AttributeClass?.Name == nameof(LogicBlockContractAttribute));
 
-            return hasContractAttribute ? classDeclaration : null;
+            return hasLogicBlockContractAttribute ? classDeclaration : null;
         }
 
         private void Execute(SourceProductionContext context, Compilation compilation, ImmutableArray<ClassDeclarationSyntax> contractClasses)
@@ -69,10 +69,10 @@ namespace Vion.Dale.Sdk.Generators
 
         private void ProcessContracts(SourceProductionContext context, Compilation compilation, List<ClassDeclarationSyntax> contractClasses)
         {
-            var contractAttributeType = GetAttributeType<ContractAttribute>(compilation);
+            var contractAttributeType = GetAttributeType<LogicBlockContractAttribute>(compilation);
             if (contractAttributeType == null)
             {
-                context.LogInfo("ContractAttribute not found, skipping message-centric contract processing");
+                context.LogInfo("LogicBlockContractAttribute not found, skipping message-centric contract processing");
                 return;
             }
 
@@ -90,14 +90,14 @@ namespace Vion.Dale.Sdk.Generators
                 var contractAttribute = GetAttribute(classSymbol, contractAttributeType);
                 if (contractAttribute == null)
                 {
-                    context.LogInfo($"ContractAttribute found for  {classSymbol.Name}, skipping");
+                    context.LogInfo($"LogicBlockContractAttribute found for  {classSymbol.Name}, skipping");
                     continue;
                 }
 
                 var contractInfo = ExtractContractInfo(context, contractAttribute, classSymbol.Name);
                 if (contractInfo == null)
                 {
-                    context.LogInfo($"ContractAttribute info could not be extracted for  {classSymbol.Name}, skipping");
+                    context.LogInfo($"LogicBlockContractAttribute info could not be extracted for  {classSymbol.Name}, skipping");
                     continue;
                 }
 
@@ -142,10 +142,10 @@ namespace Vion.Dale.Sdk.Generators
             {
                 switch (namedArg.Key)
                 {
-                    case nameof(ContractAttribute.BetweenInterface):
+                    case nameof(LogicBlockContractAttribute.BetweenInterface):
                         betweenInterface = namedArg.Value.Value as string;
                         break;
-                    case nameof(ContractAttribute.AndInterface):
+                    case nameof(LogicBlockContractAttribute.AndInterface):
                         andInterface = namedArg.Value.Value as string;
                         break;
                 }
@@ -153,13 +153,13 @@ namespace Vion.Dale.Sdk.Generators
 
             if (string.IsNullOrEmpty(betweenInterface) || string.IsNullOrEmpty(andInterface))
             {
-                context.LogInfo("ContractAttribute is missing required properties, skipping");
+                context.LogInfo("LogicBlockContractAttribute is missing required properties, skipping");
                 return null;
             }
 
             if (!betweenInterface!.StartsWith("I") || !andInterface!.StartsWith("I"))
             {
-                context.LogInfo("ContractAttribute interfaces must start with 'I', skipping");
+                context.LogInfo("LogicBlockContractAttribute interfaces must start with 'I', skipping");
                 return null;
             }
 

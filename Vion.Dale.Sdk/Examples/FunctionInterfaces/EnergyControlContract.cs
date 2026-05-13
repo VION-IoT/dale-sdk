@@ -5,7 +5,7 @@ namespace Vion.Dale.Sdk.Examples.FunctionInterfaces
     /// <summary>
     ///     Example contract
     /// </summary>
-    [Contract(BetweenInterface = EnergyController, AndInterface = EnergyConsumer)]
+    [LogicBlockContract(BetweenInterface = EnergyController, AndInterface = EnergyConsumer)]
     public static class EnergyControlContract
     {
         private const string EnergyController = "IEnergyController";

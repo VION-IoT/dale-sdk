@@ -344,7 +344,7 @@ namespace Vion.Dale.DevHost
                     continue;
                 }
 
-                var contractAttr = property.GetCustomAttribute<ServiceProviderContractAttribute>();
+                var contractAttr = property.GetCustomAttribute<ServiceProviderContractBindingAttribute>();
                 var identifier = contractAttr?.Identifier ?? property.Name;
 
                 result.Add((identifier, contractTypeAttr.ServiceProviderContractType));

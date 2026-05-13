@@ -4,7 +4,6 @@ using Microsoft.Extensions.Logging;
 
 namespace Vion.Dale.Sdk.TestKit.Test
 {
-    [Service("SampleService")]
     public class SampleLogicBlock : LogicBlockBase
     {
         [ServiceProperty(Title = "Power", Unit = "kW")]

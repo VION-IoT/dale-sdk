@@ -37,7 +37,7 @@ namespace Vion.Dale.Sdk.Test.Persistence
             var (block, persistentData) = SetUp();
 
             persistentData.Apply([
-                new PersistentDataEntry("RichDevice.VoltageSetpoint", typeof(double).FullName!, ToJsonElement(230.5)),
+                new PersistentDataEntry("RichTypesLogicBlock.VoltageSetpoint", typeof(double).FullName!, ToJsonElement(230.5)),
             ]);
 
             Assert.AreEqual(230.5, block.VoltageSetpoint);
@@ -49,7 +49,7 @@ namespace Vion.Dale.Sdk.Test.Persistence
             var (block, persistentData) = SetUp();
 
             persistentData.Apply([
-                new PersistentDataEntry("RichDevice.Target", typeof(double?).FullName!, ToJsonElement(7.0)),
+                new PersistentDataEntry("RichTypesLogicBlock.Target", typeof(double?).FullName!, ToJsonElement(7.0)),
             ]);
 
             Assert.AreEqual(7.0, block.Target);
@@ -64,7 +64,7 @@ namespace Vion.Dale.Sdk.Test.Persistence
             var (block, persistentData) = SetUp();
 
             persistentData.Apply([
-                new PersistentDataEntry("RichDevice.Setpoints",
+                new PersistentDataEntry("RichTypesLogicBlock.Setpoints",
                                         typeof(ImmutableArray<double>).FullName!,
                                         ToJsonElement(new[] { 1.1, 2.2, 3.3 })),
             ]);
@@ -78,7 +78,7 @@ namespace Vion.Dale.Sdk.Test.Persistence
             var (block, persistentData) = SetUp();
 
             persistentData.Apply([
-                new PersistentDataEntry("RichDevice.PreferredLocation",
+                new PersistentDataEntry("RichTypesLogicBlock.PreferredLocation",
                                         typeof(Coordinates?).FullName!,
                                         ToJsonElement(new Coordinates(47.3, 8.5))),
             ]);
@@ -94,7 +94,7 @@ namespace Vion.Dale.Sdk.Test.Persistence
             var (block, persistentData) = SetUp();
 
             persistentData.Apply([
-                new PersistentDataEntry("RichDevice.PreferredLocation",
+                new PersistentDataEntry("RichTypesLogicBlock.PreferredLocation",
                                         typeof(Coordinates?).FullName!,
                                         ToJsonElement<Coordinates?>(null)),
             ]);
@@ -113,7 +113,7 @@ namespace Vion.Dale.Sdk.Test.Persistence
                            };
 
             persistentData.Apply([
-                new PersistentDataEntry("RichDevice.Schedule",
+                new PersistentDataEntry("RichTypesLogicBlock.Schedule",
                                         typeof(ImmutableArray<ScheduledSetpoint>).FullName!,
                                         ToJsonElement(schedule)),
             ]);
@@ -131,7 +131,7 @@ namespace Vion.Dale.Sdk.Test.Persistence
             var (block, persistentData) = SetUp();
 
             persistentData.Apply([
-                new PersistentDataEntry("RichDevice.PreferredMode",
+                new PersistentDataEntry("RichTypesLogicBlock.PreferredMode",
                                         typeof(OperatingMode?).FullName!,
                                         ToJsonElement(OperatingMode.Manual)),
             ]);
@@ -147,7 +147,7 @@ namespace Vion.Dale.Sdk.Test.Persistence
             var (block, persistentData) = SetUp();
 
             persistentData.Apply([
-                new PersistentDataEntry("RichDevice.VoltageSetpoint", typeof(double).FullName!, 99.5),
+                new PersistentDataEntry("RichTypesLogicBlock.VoltageSetpoint", typeof(double).FullName!, 99.5),
             ]);
 
             Assert.AreEqual(99.5, block.VoltageSetpoint);
@@ -161,7 +161,7 @@ namespace Vion.Dale.Sdk.Test.Persistence
             block.Target = 5.0;
 
             persistentData.Apply([
-                new PersistentDataEntry("RichDevice.Target", typeof(double?).FullName!, Value: null!),
+                new PersistentDataEntry("RichTypesLogicBlock.Target", typeof(double?).FullName!, Value: null!),
             ]);
 
             Assert.IsNull(block.Target);
@@ -175,7 +175,7 @@ namespace Vion.Dale.Sdk.Test.Persistence
             // Should not throw — the implementation logs a warning and moves on so
             // a stale persistence file from an older logic-block schema doesn't fail boot.
             persistentData.Apply([
-                new PersistentDataEntry("RichDevice.PropertyThatNoLongerExists",
+                new PersistentDataEntry("RichTypesLogicBlock.PropertyThatNoLongerExists",
                                         typeof(int).FullName!,
                                         ToJsonElement(42)),
             ]);

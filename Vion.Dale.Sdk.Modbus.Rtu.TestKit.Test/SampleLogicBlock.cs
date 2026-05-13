@@ -14,7 +14,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
 
         private const int UnitId = 1;
 
-        [ServiceProviderContract("Modbus", "Sample Modbus RTU")]
+        [ServiceProviderContractBinding(Identifier = "Modbus", DefaultName = "Sample Modbus RTU")]
         public IModbusRtu Modbus { get; set; } = null!;
 
         public float[] LastVoltages { get; private set; } = Array.Empty<float>();

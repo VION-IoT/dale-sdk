@@ -10,7 +10,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
     internal static class AnalyzerHelper
     {
         // Attribute full names
-        internal const string ServiceProviderContractAttribute = "Vion.Dale.Sdk.Core.ServiceProviderContractAttribute";
+        internal const string ServiceProviderContractBindingAttribute = "Vion.Dale.Sdk.Core.ServiceProviderContractBindingAttribute";
 
         internal const string TimerAttribute = "Vion.Dale.Sdk.Core.TimerAttribute";
 
@@ -20,9 +20,9 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
 
         internal const string PersistentAttribute = "Vion.Dale.Sdk.Core.PersistentAttribute";
 
-        internal const string StatusIndicatorAttribute = "Vion.Dale.Sdk.Core.StatusIndicatorAttribute";
+        internal const string PresentationAttribute = "Vion.Dale.Sdk.Core.PresentationAttribute";
 
-        internal const string ContractAttribute = "Vion.Dale.Sdk.Core.ContractAttribute";
+        internal const string LogicBlockContractAttribute = "Vion.Dale.Sdk.Core.LogicBlockContractAttribute";
 
         internal const string CommandAttribute = "Vion.Dale.Sdk.Core.CommandAttribute";
 

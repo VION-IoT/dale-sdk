@@ -12,40 +12,28 @@ namespace Vion.Dale.Sdk.Configuration.Services
         public static void BindServicesFromAttributes(object logicBlock, ServiceBinder binder)
         {
             var type = logicBlock.GetType();
-            var serviceAttributes = type.GetCustomAttributes<ServiceAttribute>().ToList();
 
-            // If no ServiceAttribute present, assume one with defaults
-            if (serviceAttributes.Count == 0)
-            {
-                serviceAttributes.Add(new ServiceAttribute());
-            }
-
-            // Track properties bound to interfaces to avoid double binding in BindExtraProperties
+            // Class-level service: one per logic block, identified by the class name.
+            // The dropped [Service] attribute previously allowed overriding the identifier; without
+            // it, the class name is canonical.
+            var implementedServiceInterfaces = GetImplementedServiceInterfaces(type);
+            var service = binder.CreateService(type.Name);
             var boundInterfaceProperties = new HashSet<string>();
 
-            foreach (var serviceAttr in serviceAttributes)
+            foreach (var iface in implementedServiceInterfaces)
             {
-                var serviceIdentifier = string.IsNullOrEmpty(serviceAttr.Identifier) ? type.Name : serviceAttr.Identifier;
-                var implementedServiceInterfaces = GetImplementedServiceInterfaces(type);
-
-                var service = binder.CreateService(serviceIdentifier);
-
-                // Process all interface implementations using non-generic approach
-                foreach (var iface in implementedServiceInterfaces)
-                {
-                    service.Implements(iface,
-                                       decl =>
-                                       {
-                                           BindInterfaceProperties(logicBlock, iface, decl, boundInterfaceProperties);
-                                           AutoDetectServiceRelationsForInterface(logicBlock, iface, decl);
-                                       });
-                }
-
-                // Then bind extra properties (not mapped to an interface)
-                BindExtraProperties(logicBlock, service, boundInterfaceProperties);
+                service.Implements(iface,
+                                   decl =>
+                                   {
+                                       BindInterfaceProperties(logicBlock, iface, decl, boundInterfaceProperties);
+                                       AutoDetectServiceRelationsForInterface(logicBlock, iface, decl);
+                                   });
             }
 
-            // Scan for properties decorated with ServiceAttribute or implementing service interfaces
+            BindExtraProperties(logicBlock, service, boundInterfaceProperties);
+
+            // Scan for properties whose values are themselves services (implement a service interface
+            // or carry service-property attributes).
             BindPropertyBasedServices(logicBlock, binder);
         }
 
@@ -56,45 +44,25 @@ namespace Vion.Dale.Sdk.Configuration.Services
 
             foreach (var property in properties)
             {
-                var serviceAttributes = property.GetCustomAttributes<ServiceAttribute>().ToList();
                 var propertyType = property.PropertyType;
 
-                // Check if property type implements any service interfaces
                 var implementedServiceInterfaces = GetImplementedServiceInterfaces(propertyType);
-
-                // Check if property type has any properties with ServiceProperty or ServiceMeasuringPoint attributes
                 var hasServiceProperties = HasServicePropertiesOrMeasuringPoints(propertyType);
 
-                // Skip if:
-                // - No explicit ServiceAttribute AND
-                // - No service interfaces implemented AND
-                // - No properties with ServiceProperty/ServiceMeasuringPoint attributes
-                if (serviceAttributes.Count == 0 && implementedServiceInterfaces.Length == 0 && !hasServiceProperties)
+                // Skip if neither service interfaces nor service-property attributes present.
+                if (implementedServiceInterfaces.Length == 0 && !hasServiceProperties)
                 {
                     continue;
                 }
 
-                // Get the value of the property
                 var propertyValue = property.GetValue(logicBlock);
                 if (propertyValue == null)
                 {
                     continue;
                 }
 
-                // If property has explicit ServiceAttribute(s), use them
-                if (serviceAttributes.Count > 0)
-                {
-                    foreach (var serviceAttr in serviceAttributes)
-                    {
-                        BindPropertyAsService(property, propertyValue, serviceAttr, binder);
-                    }
-                }
-                else
-                {
-                    // Otherwise, create a default ServiceAttribute with property name as identifier
-                    var defaultServiceAttr = new ServiceAttribute(property.Name);
-                    BindPropertyAsService(property, propertyValue, defaultServiceAttr, binder);
-                }
+                // Use the property name as the service identifier.
+                BindServiceWithInterfaces(propertyValue, property.Name, implementedServiceInterfaces, binder);
             }
         }
 
@@ -111,14 +79,6 @@ namespace Vion.Dale.Sdk.Configuration.Services
             }
 
             return false;
-        }
-
-        private static void BindPropertyAsService(PropertyInfo property, object propertyValue, ServiceAttribute serviceAttr, ServiceBinder binder)
-        {
-            var serviceIdentifier = string.IsNullOrEmpty(serviceAttr.Identifier) ? property.Name : serviceAttr.Identifier;
-            var implementedServiceInterfaces = GetImplementedServiceInterfaces(property.PropertyType);
-
-            BindServiceWithInterfaces(propertyValue, serviceIdentifier, implementedServiceInterfaces, binder);
         }
 
         private static void BindServiceWithInterfaces(object serviceObject, string serviceIdentifier, Type[] implementedServiceInterfaces, ServiceBinder binder)
@@ -210,7 +170,7 @@ namespace Vion.Dale.Sdk.Configuration.Services
 
             // Get all implemented logic interfaces on the logic block
             var implementedLogicInterfaces = logicBlockType.GetInterfaces().Where(i => i.GetCustomAttribute<LogicInterfaceAttribute>() != null).ToList();
-            var interfaceAttributes = logicBlockType.GetCustomAttributes<InterfaceAttribute>().ToList();
+            var interfaceAttributes = logicBlockType.GetCustomAttributes<LogicBlockInterfaceBindingAttribute>().ToList();
 
             foreach (var serviceRelationAttribute in serviceRelationAttributes)
             {

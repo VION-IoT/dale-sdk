@@ -5,7 +5,6 @@ using Microsoft.Extensions.Logging;
 
 namespace Vion.Dale.Sdk.AnalogIo.TestKit.Test
 {
-    [Service("SampleService")]
     public class SampleLogicBlock : LogicBlockBase
     {
         private double _lastAnalogValue;

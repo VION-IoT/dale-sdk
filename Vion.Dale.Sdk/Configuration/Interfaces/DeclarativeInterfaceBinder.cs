@@ -27,8 +27,8 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
             var implementedLogicInterfaces = GetImplementedLogicInterfaces(type);
 
             // Get explicitly defined interface attributes
-            var interfaceAttributes = type.GetCustomAttributes<InterfaceAttribute>().ToList();
-            var dependencyAttributes = type.GetCustomAttributes<InterfaceDependencyAttribute>().ToList();
+            var interfaceAttributes = type.GetCustomAttributes<LogicBlockInterfaceBindingAttribute>().ToList();
+            var dependencyAttributes = type.GetCustomAttributes<RequiresLogicBlockInterfaceAttribute>().ToList();
 
             // Process each implemented interface
             foreach (var implementedLogicInterface in implementedLogicInterfaces)
@@ -67,8 +67,8 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
                 }
 
                 // Get explicitly defined interface attributes for the property
-                var interfaceAttributes = property.GetCustomAttributes<InterfaceAttribute>().ToList();
-                var dependencyAttributes = property.GetCustomAttributes<InterfaceDependencyAttribute>().ToList();
+                var interfaceAttributes = property.GetCustomAttributes<LogicBlockInterfaceBindingAttribute>().ToList();
+                var dependencyAttributes = property.GetCustomAttributes<RequiresLogicBlockInterfaceAttribute>().ToList();
 
                 // Process each implemented interface
                 foreach (var implementedLogicInterface in implementedLogicInterfaces)
@@ -89,14 +89,14 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
 
         private static void BindLogicInterface(object implementation,
                                                Type implementedLogicInterface,
-                                               List<InterfaceAttribute> interfaceAttributes,
-                                               List<InterfaceDependencyAttribute> dependencyAttributes,
+                                               List<LogicBlockInterfaceBindingAttribute> interfaceAttributes,
+                                               List<RequiresLogicBlockInterfaceAttribute> dependencyAttributes,
                                                IInterfaceFactory interfaceFactory,
                                                string? defaultIdentifier)
         {
             // Look for explicit attribute for this interface, use explicit attribute or create default
             var interfaceAttribute = interfaceAttributes.FirstOrDefault(attr => attr.ForInterface == implementedLogicInterface) ??
-                                     new InterfaceAttribute(implementedLogicInterface);
+                                     new LogicBlockInterfaceBindingAttribute(implementedLogicInterface);
 
             var logicSendInterfaceType = FindLogicSendInterface(implementedLogicInterface);
             var identifier = interfaceAttribute.Identifier ?? defaultIdentifier ?? implementedLogicInterface.Name;
@@ -125,8 +125,8 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
 
         private static void ApplyMetadata(object logicSendInterfaceInstance,
                                           Type logicInterfaceType,
-                                          InterfaceAttribute? interfaceAttr,
-                                          InterfaceDependencyAttribute? dependencyAttr)
+                                          LogicBlockInterfaceBindingAttribute? interfaceAttr,
+                                          RequiresLogicBlockInterfaceAttribute? dependencyAttr)
         {
             if (logicSendInterfaceInstance is not ILogicSenderInterface logicSendInterface)
             {
@@ -151,7 +151,7 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
             }
         }
 
-        private static void ConfigureDependencyDynamic(object logicSendInterfaceInstance, Type logicInterfaceType, InterfaceDependencyAttribute dependencyAttr)
+        private static void ConfigureDependencyDynamic(object logicSendInterfaceInstance, Type logicInterfaceType, RequiresLogicBlockInterfaceAttribute dependencyAttr)
         {
             // Find the ConfigureDependency extension method
             var configureDependencyMethod = typeof(LogicInterfaceExtensions).GetMethods(BindingFlags.Public | BindingFlags.Static)
@@ -184,7 +184,7 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
         private static List<PropertyInfo> GetInterfaceProperties(Type type)
         {
             return ReflectionHelper.GetProperties(type, true)
-                                   .Where(p => (p.GetCustomAttribute<InterfaceAttribute>() != null || IsLogicSendInterfaceType(p.PropertyType)) && p.CanWrite)
+                                   .Where(p => (p.GetCustomAttribute<LogicBlockInterfaceBindingAttribute>() != null || IsLogicSendInterfaceType(p.PropertyType)) && p.CanWrite)
                                    .ToList();
         }
 
@@ -194,7 +194,7 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
         private static List<PropertyInfo> GetInvalidInterfaceProperties(Type type)
         {
             return ReflectionHelper.GetProperties(type, true)
-                                   .Where(p => (p.GetCustomAttribute<InterfaceAttribute>() != null || IsLogicSendInterfaceType(p.PropertyType)) && !p.CanWrite)
+                                   .Where(p => (p.GetCustomAttribute<LogicBlockInterfaceBindingAttribute>() != null || IsLogicSendInterfaceType(p.PropertyType)) && !p.CanWrite)
                                    .ToList();
         }
 
@@ -242,7 +242,7 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
                 }
 
                 throw new InvalidOperationException($"Logic block {logicBlock.GetType().Name} does not implement {implementationType.Name}. " +
-                                                    $"Either implement the interface or specify an ImplementationProperty in the [Interface] attribute.");
+                                                    $"Either implement the interface directly or apply [LogicBlockInterfaceBinding] to a property whose value implements it.");
             }
 
             // Get implementation from specified property

@@ -2,7 +2,7 @@
 
 namespace Vion.Dale.Sdk.Examples.FunctionInterfaces
 {
-    [Contract(BetweenInterface = EnergyBufferController, AndInterface = EnergyBuffer)]
+    [LogicBlockContract(BetweenInterface = EnergyBufferController, AndInterface = EnergyBuffer)]
     public static class EnergyBufferContract
     {
         private const string EnergyBufferController = "IEnergyBufferController";

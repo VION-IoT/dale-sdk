@@ -15,24 +15,23 @@ using Vion.Dale.Sdk.Introspection;
 
 namespace Vion.Dale.Sdk.Test.Introspection
 {
-    [Contract(BetweenInterface = "ITestProvider",
-              AndInterface = "ITestConsumer",
-              BetweenDefaultName = "Provider",
-              AndDefaultName = "Consumer",
-              Direction = ContractDirection.BetweenToAnd)]
+    [LogicBlockContract(BetweenInterface = "ITestProvider",
+                        AndInterface = "ITestConsumer",
+                        BetweenDefaultName = "Provider",
+                        AndDefaultName = "Consumer",
+                        Direction = ContractDirection.BetweenToAnd)]
     public static class TestDirectionalContract
     {
         [Command(From = "ITestProvider", To = "ITestConsumer")]
         public readonly record struct TestCommand(string Data);
     }
 
-    [Service("BetweenDevice")]
-    [InterfaceDependency(typeof(ITestProvider),
-                         "Quelle",
-                         CardinalityType.Optional,
-                         SharingType.Exclusive,
-                         DependencyCreationType.AllowCreateNew,
-                         "provider-tag")]
+    [RequiresLogicBlockInterface(typeof(ITestProvider),
+                                  DefaultName = "Quelle",
+                                  Cardinality = CardinalityType.Optional,
+                                  Sharing = SharingType.Exclusive,
+                                  CreationType = DependencyCreationType.AllowCreateNew,
+                                  Tags = new[] { "provider-tag" })]
     public class BetweenSideTestBlock : LogicBlockBase, ITestProvider
     {
         public BetweenSideTestBlock() : base(new Mock<ILogger>().Object)
@@ -48,7 +47,6 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
     }
 
-    [Service("AndDevice")]
     public class AndSideTestBlock : LogicBlockBase, ITestConsumer
     {
         public AndSideTestBlock() : base(new Mock<ILogger>().Object)
@@ -70,57 +68,53 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
     public enum DeviceConnectionState
     {
-        [EnumValueInfo("Unbekannt")]
-        [StatusSeverity(StatusSeverity.Neutral)]
+        [EnumLabel("Unbekannt")]
+        [Severity(StatusSeverity.Neutral)]
         Unknown,
 
-        [EnumValueInfo("Verbunden")]
-        [StatusSeverity(StatusSeverity.Success)]
+        [EnumLabel("Verbunden")]
+        [Severity(StatusSeverity.Success)]
         Connected,
 
-        [EnumValueInfo("Getrennt")]
-        [StatusSeverity(StatusSeverity.Error)]
+        [EnumLabel("Getrennt")]
+        [Severity(StatusSeverity.Error)]
         Disconnected,
     }
 
     public enum OperatingMode
     {
-        [EnumValueInfo("Automatik")]
+        [EnumLabel("Automatik")]
         Auto,
 
-        [EnumValueInfo("Manuell")]
+        [EnumLabel("Manuell")]
         Manual,
     }
 
-    [Service("TestDevice")]
-    [LogicBlockInfo("Testgerät", "device-line")]
+    [LogicBlock(Name = "Testgerät", Icon = "device-line")]
     public class TestLogicBlock : LogicBlockBase
     {
         [ServiceProperty(Title = "Leistung", Unit = "kW")]
-        [Importance(Importance.Primary)]
-        [Display(group: "Energy")]
+        [Presentation(Importance = Importance.Primary, Group = "Energy")]
         public double ActivePower { get; set; }
 
         [ServiceProperty(Unit = "kWh")]
         [ServiceMeasuringPoint(Unit = "kWh")]
-        [Importance(Importance.Secondary)]
-        [Display(group: "Energy")]
+        [Presentation(Importance = Importance.Secondary, Group = "Energy")]
         public double EnergyTotal { get; private set; }
 
         [ServiceProperty]
-        [Category(PropertyCategory.Configuration)]
+        [Presentation(Group = PropertyGroup.Configuration)]
         public double MaxPower { get; set; } = 10;
 
         [ServiceProperty]
-        [StatusIndicator]
+        [Presentation(StatusIndicator = true)]
         public DeviceConnectionState ConnectionState { get; private set; }
 
         [ServiceProperty]
         public OperatingMode Mode { get; set; }
 
         [ServiceProperty]
-        [UIHint("slider")]
-        [Display("Helligkeit", "Visuals", 5)]
+        [Presentation(DisplayName = "Helligkeit", Group = "Visuals", Order = 5, UiHint = "slider")]
         public int Brightness { get; set; }
 
         [ServiceMeasuringPoint(Title = "Temperatur", Unit = "°C")]
@@ -139,21 +133,19 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
     }
 
-    [Service("ContractDevice")]
     public class ContractTestLogicBlock : LogicBlockBase
     {
-        [ServiceProviderContract("Button",
-                                 "Taster",
-                                 CardinalityType.Optional,
-                                 SharingType.Exclusive,
-                                 "input",
-                                 "sensor")]
+        [ServiceProviderContractBinding(Identifier = "Button",
+                                        DefaultName = "Taster",
+                                        Cardinality = CardinalityType.Optional,
+                                        Sharing = SharingType.Exclusive,
+                                        Tags = new[] { "input", "sensor" })]
         public IDigitalInput Button { get; set; } = null!;
 
-        [ServiceProviderContract("LED")]
+        [ServiceProviderContractBinding(Identifier = "LED")]
         public IDigitalOutput Led { get; set; } = null!;
 
-        [ServiceProviderContract]
+        [ServiceProviderContractBinding]
         public IAnalogInput Temperature { get; set; } = null!;
 
         public ContractTestLogicBlock() : base(new Mock<ILogger>().Object)
@@ -169,7 +161,6 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
     }
 
-    [Service("PlainDevice")]
     public class PlainLogicBlock : LogicBlockBase
     {
         public PlainLogicBlock() : base(new Mock<ILogger>().Object)
@@ -208,7 +199,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
-        public void ReturnEmptyAnnotationsWhenNoLogicBlockInfoAttribute()
+        public void ReturnEmptyAnnotationsWhenNoLogicBlockAttribute()
         {
             var block = new PlainLogicBlock();
             var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
@@ -226,12 +217,13 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
-        public void ReadCategoryAnnotation()
+        public void ReadGroupAnnotation()
         {
             var maxPower = GetProperty("MaxPower");
 
-            // Category maps to presentation.category
-            Assert.AreEqual("Configuration", maxPower.Presentation?["category"]?.GetValue<string>());
+            // Configuration is set via [Presentation(Group = PropertyGroup.Configuration)]
+            // and maps to presentation.group.
+            Assert.AreEqual("configuration", maxPower.Presentation?["group"]?.GetValue<string>());
         }
 
         [TestMethod]
@@ -343,15 +335,14 @@ namespace Vion.Dale.Sdk.Test.Introspection
         [TestMethod]
         public void NotIncludeAbsentPresentationKeys()
         {
-            // MaxPower has [Category] but no [Importance], [Display], [UIHint].
+            // MaxPower has only [Presentation(Group = ...)] — no Importance / Order / UiHint.
             var maxPower = GetProperty("MaxPower");
 
             Assert.IsNull(maxPower.Presentation?["importance"]);
-            Assert.IsNull(maxPower.Presentation?["group"]);
             Assert.IsNull(maxPower.Presentation?["uiHint"]);
             Assert.IsNull(maxPower.Presentation?["order"]);
 
-            // statusMappings should be absent (no [StatusIndicator]).
+            // statusMappings should be absent (no StatusIndicator = true).
             Assert.IsNull(maxPower.Presentation?["statusMappings"]);
         }
 

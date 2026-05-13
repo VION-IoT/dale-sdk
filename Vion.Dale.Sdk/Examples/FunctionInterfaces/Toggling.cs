@@ -2,7 +2,7 @@
 
 namespace Vion.Dale.Sdk.Examples.FunctionInterfaces
 {
-    [Contract(BetweenInterface = "IToggler", AndInterface = "IToggleable")]
+    [LogicBlockContract(BetweenInterface = "IToggler", AndInterface = "IToggleable")]
     public static class Toggling
     {
         [StateUpdate(From = "IToggler", To = "IToggleable")]

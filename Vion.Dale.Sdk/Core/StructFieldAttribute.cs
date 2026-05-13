@@ -8,7 +8,7 @@ namespace Vion.Dale.Sdk.Core
     /// </summary>
     [PublicApi]
     [AttributeUsage(AttributeTargets.Parameter | AttributeTargets.Property)]
-    public sealed class StructFieldAttribute : Attribute
+    public class StructFieldAttribute : Attribute
     {
         public string? Title { get; init; }
 

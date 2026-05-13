@@ -17,6 +17,14 @@ namespace Vion.Dale.DevHost.Web.Api.Dtos
 
             public required string Name { get; set; }
 
+            /// <summary>
+            ///     Block-level annotations from the introspection result — carries the
+            ///     <c>[LogicBlock]</c> attribute payload (DefaultName, Icon, Groups[]) and any
+            ///     integrator-defined extras. The DevHost UI reads <c>Groups[]</c> to order the
+            ///     dashboard sections for this block.
+            /// </summary>
+            public required Dictionary<string, object> Annotations { get; set; }
+
             public required List<Service> Services { get; set; }
 
             public required List<LogicBlockContract> Contracts { get; set; }

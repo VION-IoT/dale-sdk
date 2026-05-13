@@ -5,6 +5,13 @@
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <title>DALE DevHost Web UI</title>
     <script src="https://cdn.jsdelivr.net/npm/@microsoft/signalr@8.0.0/dist/browser/signalr.min.js"></script>
+    <!-- day.js for Presentation.Format token interpretation. Moment-compatible token vocabulary;
+         small (~2 KB gzipped). Plugins below enable the sentinels: relativeTime for "relative",
+         duration for "humanize" + clock-style durations, localizedFormat for L/LL/LLL/LLLL/LT/LTS. -->
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.13/dayjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.13/plugin/relativeTime.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.13/plugin/duration.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.13/plugin/localizedFormat.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -376,6 +383,284 @@
                 margin-left: 6px;
             }
 
+            /* ── Presentation badges (importance / kind / writeOnly / uiHint) ── */
+            .badge.primary {
+                background: linear-gradient(135deg, rgba(168, 85, 247, 0.25) 0%, rgba(217, 70, 239, 0.25) 100%);
+                color: #e9d5ff;
+                border: 1px solid rgba(168, 85, 247, 0.45);
+            }
+
+            .badge.secondary {
+                background: rgba(96, 165, 250, 0.2);
+                color: #93c5fd;
+                border: 1px solid rgba(96, 165, 250, 0.35);
+            }
+
+            .badge.hidden {
+                background: rgba(75, 85, 99, 0.25);
+                color: #9ca3af;
+                border: 1px solid rgba(75, 85, 99, 0.4);
+                text-decoration: line-through;
+            }
+
+            .badge.measurement {
+                background: rgba(34, 211, 238, 0.18);
+                color: #67e8f9;
+                border: 1px solid rgba(34, 211, 238, 0.35);
+            }
+
+            .badge.total {
+                background: rgba(168, 85, 247, 0.18);
+                color: #d8b4fe;
+                border: 1px solid rgba(168, 85, 247, 0.35);
+            }
+
+            .badge.totalincreasing {
+                background: rgba(251, 191, 36, 0.18);
+                color: #fcd34d;
+                border: 1px solid rgba(251, 191, 36, 0.35);
+            }
+
+            .badge.writeonly {
+                background: rgba(244, 63, 94, 0.18);
+                color: #fda4af;
+                border: 1px solid rgba(244, 63, 94, 0.4);
+            }
+
+            .badge.statusindicator {
+                background: rgba(245, 158, 11, 0.18);
+                color: #fcd34d;
+                border: 1px solid rgba(245, 158, 11, 0.4);
+            }
+
+            .badge.trigger,
+            .badge.sparkline,
+            .badge.slider,
+            .badge.multiline,
+            .badge.json,
+            .badge.uihint {
+                background: rgba(20, 184, 166, 0.18);
+                color: #5eead4;
+                border: 1px solid rgba(20, 184, 166, 0.35);
+            }
+
+            .badge.decimals,
+            .badge.order {
+                background: rgba(102, 126, 234, 0.18);
+                color: #c7d2fe;
+                border: 1px solid rgba(102, 126, 234, 0.35);
+            }
+
+            .badge.kindref {
+                /* MeasuringPoint kind container baseline — covered by the three .measurement/.total/.totalincreasing modifiers above. */
+                background: rgba(255, 255, 255, 0.08);
+                color: #e0e0e0;
+                border: 1px solid rgba(255, 255, 255, 0.18);
+            }
+
+            .badge-row {
+                display: inline-flex;
+                flex-wrap: wrap;
+                gap: 4px;
+                margin-top: 4px;
+            }
+
+            .severity-pill {
+                display: inline-block;
+                padding: 4px 12px;
+                border-radius: 12px;
+                font-weight: 600;
+                font-size: 12px;
+                text-align: center;
+            }
+
+            .severity-pill.success {
+                background: rgba(16, 185, 129, 0.2);
+                color: #10b981;
+                border: 1px solid rgba(16, 185, 129, 0.4);
+            }
+
+            .severity-pill.warning {
+                background: rgba(245, 158, 11, 0.2);
+                color: #fbbf24;
+                border: 1px solid rgba(245, 158, 11, 0.4);
+            }
+
+            .severity-pill.error {
+                background: rgba(239, 68, 68, 0.2);
+                color: #fca5a5;
+                border: 1px solid rgba(239, 68, 68, 0.4);
+            }
+
+            .severity-pill.neutral,
+            .severity-pill.unknown {
+                background: rgba(156, 163, 175, 0.2);
+                color: #d1d5db;
+                border: 1px solid rgba(156, 163, 175, 0.4);
+            }
+
+            /* ── Group section ── */
+            .group-section {
+                margin: 20px 0;
+                padding: 16px;
+                background: rgba(255, 255, 255, 0.02);
+                border-radius: 12px;
+                border-left: 3px solid rgba(102, 126, 234, 0.5);
+                /* Box stays full-width within the parent service-section; tables inside
+                   shouldn't push the box wider when a row's badge content is dense. */
+                width: 100%;
+                box-sizing: border-box;
+                /* Establish a fresh block formatting context so an oversized child table
+                   doesn't bleed into the sibling group-header position. */
+                display: flow-root;
+                /* Last-resort guard: any overflow becomes a horizontal scrollbar inside the
+                   group (header stays in place above). */
+                overflow-x: auto;
+            }
+
+            .group-section.alarm { border-left-color: #ef4444; }
+            .group-section.status { border-left-color: #10b981; }
+            .group-section.metric { border-left-color: #a855f7; }
+            .group-section.configuration { border-left-color: #38bdf8; }
+            .group-section.diagnostics { border-left-color: #9ca3af; }
+            .group-section.identity { border-left-color: #fbbf24; }
+
+            /* Force the table to honour its <th> percentage widths. Without this the browser
+               uses auto-layout and widens columns when a single cell (e.g. a row with extra
+               badges like "1 DP" + "ORDER=-5") needs more space, which then push the entire
+               table — and in some browsers, the group's flex layout — into a column shape. */
+            .group-section > table {
+                table-layout: fixed;
+                width: 100%;
+            }
+
+            .group-section td,
+            .group-section th {
+                overflow-wrap: anywhere;
+                word-break: break-word;
+            }
+
+            .group-header {
+                display: flex;
+                flex-direction: row;
+                flex-wrap: nowrap;
+                align-items: baseline;
+                gap: 8px;
+                margin-bottom: 10px;
+                width: 100%;
+            }
+
+            .group-header h4 {
+                margin: 0;
+                font-size: 13px;
+                color: #cbd5e1;
+                flex-shrink: 0;
+                white-space: nowrap;
+            }
+
+            .group-header .group-count {
+                font-size: 11px;
+                color: #6b7280;
+                font-weight: 500;
+                flex-shrink: 0;
+                white-space: nowrap;
+            }
+
+            .item-meta {
+                font-size: 11px;
+                color: #94a3b8;
+                margin-top: 2px;
+            }
+
+            .item-meta .description {
+                color: #cbd5e1;
+                font-style: italic;
+                margin-right: 8px;
+            }
+
+            .raw-doc-row td {
+                background: rgba(0, 0, 0, 0.15);
+                border-top: none !important;
+                padding-top: 2px;
+            }
+
+            .raw-doc {
+                margin-top: 4px;
+                font-size: 11px;
+            }
+
+            .raw-doc summary {
+                cursor: pointer;
+                color: #8b8ba0;
+                user-select: none;
+            }
+
+            .raw-doc-panels {
+                display: grid;
+                grid-template-columns: 1fr 1fr 1fr;
+                gap: 8px;
+                margin-top: 8px;
+            }
+
+            .raw-doc-panel {
+                background: rgba(0, 0, 0, 0.25);
+                border-radius: 6px;
+                padding: 8px;
+            }
+
+            .raw-doc-panel h5 {
+                margin: 0 0 6px;
+                font-size: 10px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                color: #8b8ba0;
+            }
+
+            .raw-doc-panel pre {
+                margin: 0;
+                font-family: 'JetBrains Mono', 'Courier New', monospace;
+                font-size: 11px;
+                color: #c4b5fd;
+                white-space: pre-wrap;
+                word-break: break-word;
+            }
+
+            .item-row.hidden-importance {
+                opacity: 0.45;
+            }
+
+            .trigger-button {
+                padding: 6px 14px;
+                background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                color: white;
+                border: none;
+                border-radius: 6px;
+                cursor: pointer;
+                font-weight: 600;
+                font-size: 13px;
+                box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+            }
+
+            .trigger-button:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+            }
+
+            .secret-display {
+                font-family: 'JetBrains Mono', 'Courier New', monospace;
+                color: #fda4af;
+            }
+
+            .sparkline-cell {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+            }
+
+            .sparkline-cell svg {
+                display: block;
+            }
+
         .empty-state {
             text-align: center;
             padding: 40px 20px;
@@ -562,6 +847,16 @@
     let connection = null;
     let config = null;
 
+    // day.js plugin registration — runs once at script-load.
+    // relativeTime: enables .fromNow() for the "relative" Format sentinel.
+    // duration: enables dayjs.duration() for TimeSpan formatting + "humanize" sentinel.
+    // localizedFormat: enables L/LL/LLL/LLLL/lll/llll/LT/LTS tokens.
+    if (window.dayjs) {
+        if (window.dayjs_plugin_relativeTime) dayjs.extend(window.dayjs_plugin_relativeTime);
+        if (window.dayjs_plugin_duration) dayjs.extend(window.dayjs_plugin_duration);
+        if (window.dayjs_plugin_localizedFormat) dayjs.extend(window.dayjs_plugin_localizedFormat);
+    }
+
     // Initialize
     document.addEventListener('DOMContentLoaded', async () => {
         await loadConfiguration();
@@ -686,11 +981,22 @@
         content.appendChild(grid);
     }
 
-    // Render Logic Block with inline connections, contracts, and properties
+    // Render Logic Block with inline connections, contracts, and properties.
+    // Property/measuring-point rendering now groups by [Presentation(Group = ...)] and
+    // honours the block-level [LogicBlock(Groups = ...)] order — see renderServiceSection.
     function renderLogicBlock(lb, sharedLookup) {
         const section = document.createElement('div');
         section.className = 'section';
-        section.innerHTML = `<h2>Logic Block: ${lb.name}</h2>`;
+        const h2 = document.createElement('h2');
+        h2.textContent = `Logic Block: ${lb.name}`;
+        if (lb.annotations && lb.annotations.Icon) {
+            const iconCode = document.createElement('code');
+            iconCode.title = "Remixicon name (without 'ri-' prefix)";
+            iconCode.textContent = lb.annotations.Icon;
+            h2.appendChild(document.createTextNode(' '));
+            h2.appendChild(iconCode);
+        }
+        section.appendChild(h2);
 
         // 1. Connection badges
         const connections = getConnectionsForLb(lb.id);
@@ -720,103 +1026,382 @@
             contractControls.forEach(ctrl => section.appendChild(ctrl));
         }
 
-        // 3. Services (properties + measuring points)
+        // 3. Services — properties + measuring points rendered grouped & ordered, as the dashboard would.
         if (lb.services && lb.services.length > 0) {
             lb.services.forEach(service => {
-                const serviceSection = document.createElement('div');
-                serviceSection.className = 'service-section';
-
-                const hasProps = service.serviceProperties && service.serviceProperties.length > 0;
-                const hasMps = service.serviceMeasuringPoints && service.serviceMeasuringPoints.length > 0;
-                if (!hasProps && !hasMps) return;
-
-                // Service Properties
-                if (hasProps) {
-                    const propertiesTitle = document.createElement('h3');
-                    propertiesTitle.textContent = `Properties (${service.identifier})`;
-                    serviceSection.appendChild(propertiesTitle);
-
-                    const table = document.createElement('table');
-                    table.innerHTML = `
-                            <thead>
-                                <tr>
-                                    <th>Property</th>
-                                    <th>Type</th>
-                                    <th>Value</th>
-                                    <th>Control</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${service.serviceProperties.map(prop => {
-                        const displayName = resolveDisplayName(prop);
-                        const unit = resolveUnit(prop.schema);
-                        const label = unit ? `${displayName} [${unit}]` : displayName;
-                        const typeDisplay = describeType(prop.schema);
-                        const isEnum = enumMembers(prop.schema) !== null;
-                        const writable = isWritable(prop);
-
-                        return `
-                                        <tr>
-                                            <td>${label}</td>
-                                            <td>
-                                                ${typeDisplay}${isEnum ? '<span class="badge enum">enum</span>' : ''}
-                                                ${writable ? '<span class="badge writable">writable</span>' : '<span class="badge readonly">readonly</span>'}
-                                            </td>
-                                            <td><span class="value-display" id="prop-value-${service.id}-${prop.identifier}">-</span></td>
-                                            <td>
-                                                ${writable ? renderPropertyControl(service.id, prop) : '-'}
-                                            </td>
-                                        </tr>
-                                    `;
-                    }).join('')}
-                            </tbody>
-                        `;
-                    serviceSection.appendChild(table);
-                }
-
-                // Service Measuring Points
-                if (hasMps) {
-                    const mpTitle = document.createElement('h3');
-                    mpTitle.textContent = `Measuring Points (${service.identifier})`;
-                    serviceSection.appendChild(mpTitle);
-
-                    const mpTable = document.createElement('table');
-                    mpTable.innerHTML = `
-                            <thead>
-                                <tr>
-                                    <th>Measuring Point</th>
-                                    <th>Type</th>
-                                    <th>Value</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${service.serviceMeasuringPoints.map(mp => {
-                        const displayName = resolveDisplayName(mp);
-                        const unit = resolveUnit(mp.schema);
-                        const label = unit ? `${displayName} [${unit}]` : displayName;
-                        const typeDisplay = describeType(mp.schema);
-
-                        return `
-                                    <tr>
-                                        <td>${label}</td>
-                                        <td>
-                                            ${typeDisplay}
-                                            <span class="badge readonly">readonly</span>
-                                        </td>
-                                        <td><span class="value-display" id="mp-value-${service.id}-${mp.identifier}">-</span></td>
-                                    </tr>
-                                `;
-                    }).join('')}
-                            </tbody>
-                        `;
-                    serviceSection.appendChild(mpTable);
-                }
-
-                section.appendChild(serviceSection);
+                const serviceSection = renderServiceSection(lb, service);
+                if (serviceSection) section.appendChild(serviceSection);
             });
         }
 
         return section;
+    }
+
+    // ── Group-aware service rendering ──────────────────────────────────────────
+    // Platform default group order — matches the spec's "Default group order".
+    const PLATFORM_DEFAULT_GROUP_ORDER = ['alarm', 'status', 'metric', 'configuration', 'diagnostics', 'identity', ''];
+
+    // Friendly labels for the well-known group keys. Unknown integrator keys render verbatim.
+    const GROUP_LABELS = {
+        '': 'Ungrouped',
+        'alarm': 'Alarm',
+        'status': 'Status',
+        'metric': 'Metric',
+        'configuration': 'Configuration',
+        'diagnostics': 'Diagnostics',
+        'identity': 'Identity',
+    };
+
+    function renderServiceSection(lb, service) {
+        const hasProps = service.serviceProperties && service.serviceProperties.length > 0;
+        const hasMps = service.serviceMeasuringPoints && service.serviceMeasuringPoints.length > 0;
+        if (!hasProps && !hasMps) return null;
+
+        const serviceSection = document.createElement('div');
+        serviceSection.className = 'service-section';
+
+        const serviceTitle = document.createElement('h3');
+        serviceTitle.textContent = `Service: ${service.identifier}`;
+        serviceSection.appendChild(serviceTitle);
+
+        // Merge properties + measuring points into one stream, tagged by kind. The dashboard
+        // renders them mixed in the same group sections; the developer can still tell them
+        // apart from the per-row badges.
+        const items = [];
+        (service.serviceProperties || []).forEach(p => items.push({ ...p, _kind: 'property' }));
+        (service.serviceMeasuringPoints || []).forEach(p => items.push({ ...p, _kind: 'measuringPoint' }));
+
+        // Group items by presentation.group (empty string = ungrouped). Natural order is
+        // preserved from the introspection JSON (base-to-derived from Task 2.14).
+        const itemsByGroup = {};
+        items.forEach((it, naturalIdx) => {
+            const groupKey = (it.presentation && it.presentation.group) || '';
+            if (!itemsByGroup[groupKey]) itemsByGroup[groupKey] = [];
+            itemsByGroup[groupKey].push({ item: it, natural: naturalIdx });
+        });
+
+        // Sort within each group by explicit Order then natural position.
+        Object.keys(itemsByGroup).forEach(key => {
+            itemsByGroup[key].sort((a, b) => {
+                const ao = a.item.presentation && a.item.presentation.order;
+                const bo = b.item.presentation && b.item.presentation.order;
+                const aHas = ao !== undefined && ao !== null;
+                const bHas = bo !== undefined && bo !== null;
+                // Both explicit: numeric. One explicit: compare against the other's natural index.
+                if (aHas && bHas) return ao - bo;
+                if (aHas) return ao - b.natural;
+                if (bHas) return a.natural - bo;
+                return a.natural - b.natural;
+            });
+        });
+
+        // Group render order: block-level [LogicBlock(Groups = ...)] wins; remaining groups
+        // fall through to platform default; truly-unknown integrator keys sort alphabetically last.
+        const blockGroups = lb.annotations && Array.isArray(lb.annotations.Groups) ? lb.annotations.Groups : [];
+        const seen = new Set();
+        const orderedGroups = [];
+        blockGroups.forEach(g => { if (itemsByGroup[g] && !seen.has(g)) { orderedGroups.push(g); seen.add(g); } });
+        PLATFORM_DEFAULT_GROUP_ORDER.forEach(g => { if (itemsByGroup[g] && !seen.has(g)) { orderedGroups.push(g); seen.add(g); } });
+        Object.keys(itemsByGroup).sort().forEach(g => { if (!seen.has(g)) { orderedGroups.push(g); seen.add(g); } });
+
+        orderedGroups.forEach(groupKey => {
+            serviceSection.appendChild(renderGroupSection(groupKey, itemsByGroup[groupKey], service));
+        });
+
+        return serviceSection;
+    }
+
+    function renderGroupSection(groupKey, groupEntries, service) {
+        const groupSection = document.createElement('div');
+        groupSection.className = `group-section ${cssGroupKey(groupKey)}`;
+
+        const header = document.createElement('div');
+        header.className = 'group-header';
+        const label = GROUP_LABELS[groupKey] !== undefined ? GROUP_LABELS[groupKey] : groupKey;
+        const h4 = document.createElement('h4');
+        h4.textContent = label;
+        header.appendChild(h4);
+        const count = document.createElement('span');
+        count.className = 'group-count';
+        count.textContent = `${groupEntries.length} item${groupEntries.length === 1 ? '' : 's'}`;
+        header.appendChild(count);
+        const keyCode = document.createElement('code');
+        keyCode.style.fontSize = '10px';
+        keyCode.style.color = '#6b7280';
+        keyCode.textContent = `group="${groupKey}"`;
+        header.appendChild(keyCode);
+        groupSection.appendChild(header);
+
+        const table = document.createElement('table');
+        table.appendChild(buildItemTableHead());
+        const tbody = document.createElement('tbody');
+        groupEntries.forEach(({ item }) => appendItemRow(tbody, service, item));
+        table.appendChild(tbody);
+        groupSection.appendChild(table);
+        return groupSection;
+    }
+
+    function buildItemTableHead() {
+        const thead = document.createElement('thead');
+        const tr = document.createElement('tr');
+        ['Name', 'Type & annotations', 'Value', 'Control'].forEach((text, i) => {
+            const th = document.createElement('th');
+            th.textContent = text;
+            th.style.width = ['30%', '30%', '18%', '22%'][i];
+            tr.appendChild(th);
+        });
+        thead.appendChild(tr);
+        return thead;
+    }
+
+    function cssGroupKey(g) {
+        if (!g) return 'ungrouped';
+        return g.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    }
+
+    function kindGlyph(kind) {
+        switch (kind) {
+            case 'measurement': return 'µ';      // µ
+            case 'total': return 'Σ';            // Σ
+            case 'totalIncreasing': return '↗';  // ↗
+            default: return '';
+        }
+    }
+
+    // ── Per-item row renderer ──────────────────────────────────────────────────
+    // Builds the visible table row (Name / Type & annotations / Value / Control) and a
+    // collapsible raw-doc row showing the JSON schema/presentation/runtime triplet beneath.
+    function appendItemRow(tbody, service, item) {
+        const isProperty = item._kind === 'property';
+        const displayName = resolveDisplayName(item);
+        const unit = resolveUnit(item.schema);
+        const description = item.schema && item.schema.description;
+
+        const writable = isProperty && isWritable(item);
+        const writeOnly = !!(item.schema && item.schema.writeOnly === true);
+        const kind = item.schema && item.schema['x-kind'];
+        const presentation = item.presentation || {};
+        const importance = presentation.importance;
+        const isHidden = importance === 'Hidden';
+        const uiHint = presentation.uiHint;
+        const isStatusIndicator = uiHint === 'statusIndicator' || !!presentation.statusMappings;
+        const isTrigger = uiHint === 'trigger';
+        const isSparkline = uiHint === 'sparkline';
+
+        const typeDisplay = describeType(item.schema);
+        const isEnum = enumMembers(item.schema) !== null;
+
+        const row = document.createElement('tr');
+        row.className = `item-row ${isHidden ? 'hidden-importance' : ''}`;
+
+        // ── Name cell ─────────────────────────────────────────────────────────
+        const nameTd = document.createElement('td');
+        const strong = document.createElement('strong');
+        strong.textContent = displayName;
+        nameTd.appendChild(strong);
+        if (unit) {
+            nameTd.appendChild(document.createTextNode(' '));
+            const unitCode = document.createElement('code');
+            unitCode.textContent = unit;
+            nameTd.appendChild(unitCode);
+        }
+        const idDiv = document.createElement('div');
+        idDiv.style.fontSize = '11px';
+        idDiv.style.color = '#6b7280';
+        idDiv.textContent = item.identifier;
+        nameTd.appendChild(idDiv);
+        if (description) {
+            const descDiv = document.createElement('div');
+            descDiv.className = 'item-meta';
+            const descSpan = document.createElement('span');
+            descSpan.className = 'description';
+            descSpan.textContent = description;
+            descDiv.appendChild(descSpan);
+            nameTd.appendChild(descDiv);
+        }
+        row.appendChild(nameTd);
+
+        // ── Type & annotations cell ────────────────────────────────────────────
+        const typeTd = document.createElement('td');
+        const typeDiv = document.createElement('div');
+        typeDiv.style.marginBottom = '4px';
+        typeDiv.textContent = typeDisplay;
+        typeTd.appendChild(typeDiv);
+        const badgeRow = document.createElement('div');
+        badgeRow.className = 'badge-row';
+
+        function pushBadge(cssClass, text, tooltip) {
+            const b = document.createElement('span');
+            b.className = `badge ${cssClass}`;
+            b.textContent = text;
+            if (tooltip) b.title = tooltip;
+            badgeRow.appendChild(b);
+        }
+
+        pushBadge(isProperty ? 'writable' : 'readonly', isProperty ? 'property' : 'measuring point');
+        if (isEnum) pushBadge('enum', 'enum');
+        if (isProperty && writable) pushBadge('writable', 'writable');
+        if (isProperty && !writable) pushBadge('readonly', 'readonly');
+        if (writeOnly) pushBadge('writeonly', 'writeOnly',
+            'schema.writeOnly = true — runtime publishes "***" sentinel on /sw/property/state; UI renders a redacted placeholder');
+        if (importance === 'Primary') pushBadge('primary', 'primary');
+        if (importance === 'Secondary') pushBadge('secondary', 'secondary');
+        if (importance === 'Hidden') pushBadge('hidden', 'hidden');
+        if (kind) pushBadge(kind.toLowerCase(), `${kindGlyph(kind)} ${kind}`, `MeasuringPointKind = ${kind}`);
+        if (isStatusIndicator) pushBadge('statusindicator', 'status indicator');
+        if (isTrigger) pushBadge('trigger', 'trigger');
+        else if (isSparkline) pushBadge('sparkline', 'sparkline');
+        else if (uiHint === 'slider') pushBadge('slider', 'slider');
+        else if (uiHint === 'multiline') pushBadge('multiline', 'multiline');
+        else if (uiHint === 'json') pushBadge('json', 'json');
+        else if (uiHint && uiHint !== 'statusIndicator') pushBadge('uihint', `uiHint="${uiHint}"`);
+        if (presentation.decimals !== undefined && presentation.decimals !== null) {
+            pushBadge('decimals', `${presentation.decimals} dp`);
+        }
+        if (presentation.order !== undefined && presentation.order !== null) {
+            pushBadge('order', `order=${presentation.order}`);
+        }
+        if (presentation.format) {
+            // Distinct styling for the reserved sentinels vs. raw token strings to make the
+            // semantic-vs-literal distinction legible at a glance.
+            const isSentinel = presentation.format === 'relative' || presentation.format === 'humanize';
+            pushBadge(isSentinel ? 'trigger' : 'decimals',
+                      `format="${presentation.format}"`,
+                      isSentinel ? `Reserved sentinel — renderer applies ${presentation.format === 'relative' ? 'dayjs.fromNow()' : 'dayjs.duration().humanize()'}.`
+                                 : 'moment.js / day.js compatible format token string');
+        }
+        typeTd.appendChild(badgeRow);
+        row.appendChild(typeTd);
+
+        // ── Value cell ────────────────────────────────────────────────────────
+        const valueTd = document.createElement('td');
+        valueTd.appendChild(buildValueElement(service, item, isStatusIndicator));
+        row.appendChild(valueTd);
+
+        // ── Control cell ──────────────────────────────────────────────────────
+        const controlTd = document.createElement('td');
+        if (isProperty && writable) {
+            if (isTrigger) {
+                controlTd.appendChild(buildTriggerControl(service.id, item));
+            } else if (writeOnly) {
+                buildSecretControl(controlTd, service.id, item);
+            } else {
+                // The legacy renderer returns an HTML string — wrap it.
+                const wrap = document.createElement('div');
+                wrap.innerHTML = renderPropertyControl(service.id, item);
+                while (wrap.firstChild) controlTd.appendChild(wrap.firstChild);
+            }
+        } else {
+            controlTd.textContent = '—';
+        }
+        row.appendChild(controlTd);
+
+        tbody.appendChild(row);
+
+        // ── Raw sibling-doc inspector (collapsed by default) ──────────────────
+        const rawRow = document.createElement('tr');
+        rawRow.className = 'raw-doc-row';
+        const rawTd = document.createElement('td');
+        rawTd.colSpan = 4;
+        rawTd.appendChild(buildRawDocInspector(item));
+        rawRow.appendChild(rawTd);
+        tbody.appendChild(rawRow);
+    }
+
+    function buildValueElement(service, item, isStatusIndicator) {
+        const isProperty = item._kind === 'property';
+        const writeOnly = !!(item.schema && item.schema.writeOnly === true);
+        const elemId = isProperty
+            ? `prop-value-${service.id}-${item.identifier}`
+            : `mp-value-${service.id}-${item.identifier}`;
+
+        if (writeOnly) {
+            const span = document.createElement('span');
+            span.className = 'value-display secret-display';
+            span.id = elemId;
+            span.textContent = '(not set)';
+            return span;
+        }
+        if (isStatusIndicator) {
+            const pill = document.createElement('span');
+            pill.className = 'severity-pill neutral';
+            pill.id = elemId;
+            pill.textContent = '—';
+            const mapping = (item.presentation && item.presentation.statusMappings) || {};
+            pill.setAttribute('data-status-mappings', JSON.stringify(mapping));
+            return pill;
+        }
+        const span = document.createElement('span');
+        span.className = 'value-display';
+        span.id = elemId;
+        span.textContent = '-';
+        // Tag temporal cells with schema.format + presentation.format so paintValueElement can
+        // route through dayjs without re-walking the introspection JSON on every update.
+        const schemaFormat = item.schema && item.schema.format;
+        if (schemaFormat === 'date-time' || schemaFormat === 'duration') {
+            span.setAttribute('data-temporal', schemaFormat);
+            const presentationFormat = item.presentation && item.presentation.format;
+            if (presentationFormat) {
+                span.setAttribute('data-format', presentationFormat);
+            }
+        }
+        return span;
+    }
+
+    function buildTriggerControl(serviceIdentifier, prop) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'trigger-button';
+        btn.textContent = `Run ${resolveDisplayName(prop)}`;
+        btn.addEventListener('click', () => setServiceProperty(serviceIdentifier, prop.identifier, true));
+        return btn;
+    }
+
+    function buildSecretControl(parent, serviceIdentifier, prop) {
+        const input = document.createElement('input');
+        input.type = 'password';
+        input.placeholder = '(new secret)';
+        input.style.width = '120px';
+        parent.appendChild(input);
+
+        const setBtn = document.createElement('button');
+        setBtn.type = 'button';
+        setBtn.textContent = 'Set';
+        setBtn.addEventListener('click', () => {
+            setServiceProperty(serviceIdentifier, prop.identifier, input.value);
+            input.value = '';
+        });
+        parent.appendChild(setBtn);
+
+        const clearBtn = document.createElement('button');
+        clearBtn.type = 'button';
+        clearBtn.textContent = 'Clear';
+        clearBtn.addEventListener('click', () => setServiceProperty(serviceIdentifier, prop.identifier, null));
+        parent.appendChild(clearBtn);
+    }
+
+    function buildRawDocInspector(item) {
+        const details = document.createElement('details');
+        details.className = 'raw-doc';
+        const summary = document.createElement('summary');
+        summary.textContent = 'show schema · presentation · runtime';
+        details.appendChild(summary);
+
+        const panels = document.createElement('div');
+        panels.className = 'raw-doc-panels';
+        ['schema', 'presentation', 'runtime'].forEach(docKey => {
+            const panel = document.createElement('div');
+            panel.className = 'raw-doc-panel';
+            const heading = document.createElement('h5');
+            heading.textContent = docKey;
+            panel.appendChild(heading);
+            const pre = document.createElement('pre');
+            pre.textContent = JSON.stringify(item[docKey] ?? null, null, 2);
+            panel.appendChild(pre);
+            panels.appendChild(panel);
+        });
+        details.appendChild(panels);
+        return details;
     }
 
     // Get connections for a logic block (both outgoing and incoming)
@@ -1094,9 +1679,15 @@
             return `<input type="number" step="any" id="${inputId}" placeholder="${nullable ? '(null)' : ''}" onblur="${onCommit}" onkeypress="if(event.key==='Enter') { ${onCommit}; this.blur(); }">${clearBtn}`;
         }
 
-        // string (or anything else): text input
+        // string (or anything else): text input — or textarea for multiline / json hints.
         const sendNull = nullable ? 'true' : 'false';
         const onCommit = `setServiceProperty('${serviceIdentifier}', '${prop.identifier}', this.value === '' && ${sendNull} ? null : this.value)`;
+        const uiHint = prop.presentation && prop.presentation.uiHint;
+        if (uiHint === 'multiline' || uiHint === 'json') {
+            // Textarea — commits on blur (not Enter, since newlines are part of the value).
+            const fontFamily = uiHint === 'json' ? 'JetBrains Mono, monospace' : 'inherit';
+            return `<textarea id="${inputId}" rows="3" spellcheck="${uiHint === 'json' ? 'false' : 'true'}" placeholder="${nullable ? '(empty = null)' : 'Enter value'}" style="font-family:${fontFamily};min-width:240px;resize:vertical" onblur="${onCommit}"></textarea>${clearBtn}`;
+        }
         return `<input type="text" id="${inputId}" placeholder="${nullable ? '(empty = null)' : 'Enter value'}" onblur="${onCommit}" onkeypress="if(event.key==='Enter') { ${onCommit}; this.blur(); }">${clearBtn}`;
     }
 
@@ -1151,9 +1742,7 @@
     function updatePropertyValue(serviceIdentifier, propertyId, value) {
         const elem = document.getElementById(`prop-value-${serviceIdentifier}-${propertyId}`);
         if (elem) {
-            elem.textContent = formatValue(value);
-            elem.classList.add('updated');
-            setTimeout(() => elem.classList.remove('updated'), 500);
+            paintValueElement(elem, value);
         }
 
         const input = document.getElementById(`prop-input-${serviceIdentifier}-${propertyId}`);
@@ -1175,11 +1764,138 @@
     function updateMeasuringPointValue(serviceIdentifier, mpId, value) {
         const elem = document.getElementById(`mp-value-${serviceIdentifier}-${mpId}`);
         if (elem) {
-            elem.textContent = formatValue(value);
-            elem.classList.add('updated');
-            setTimeout(() => elem.classList.remove('updated'), 500);
+            paintValueElement(elem, value);
         }
     }
+
+    // Update a value display element. Handles four kinds:
+    // - severity-pill (status indicator): swap CSS class via data-status-mappings lookup
+    // - secret-display (writeOnly): "***" → "(set, hidden)"; null → "(cleared)"; undefined → "(not set)"
+    // - temporal value-display (data-temporal set): route through formatTemporal (dayjs)
+    // - generic value-display: formatted scalar / JSON
+    function paintValueElement(elem, value) {
+        if (elem.classList.contains('severity-pill')) {
+            const mappingJson = elem.getAttribute('data-status-mappings') || '{}';
+            let severity = 'neutral';
+            try {
+                const mapping = JSON.parse(mappingJson);
+                if (value !== null && value !== undefined && mapping[value]) {
+                    severity = mapping[value];
+                }
+            } catch (err) {
+                console.warn('Bad status-mappings JSON', err);
+            }
+            elem.className = `severity-pill ${severity}`;
+            elem.textContent = value === null || value === undefined ? '—' : String(value);
+        } else if (elem.classList.contains('secret-display')) {
+            if (value === '***') {
+                elem.textContent = '••••••• (set, hidden)';
+            } else if (value === null) {
+                elem.textContent = '(cleared)';
+            } else if (value === undefined) {
+                elem.textContent = '(not set)';
+            } else {
+                // Should not happen for a writeOnly property — the runtime is supposed to redact.
+                // Show the raw value but flag it as unexpected for debugging.
+                elem.textContent = '⚠ ' + formatValue(value);
+            }
+        } else if (elem.hasAttribute('data-temporal')) {
+            const schemaFormat = elem.getAttribute('data-temporal');
+            const presentationFormat = elem.getAttribute('data-format');
+            // Cache the raw value so the relative-time refresher can re-format on its timer
+            // without needing to round-trip through the server.
+            if (value === null || value === undefined) {
+                elem.removeAttribute('data-raw-value');
+            } else {
+                elem.setAttribute('data-raw-value', String(value));
+            }
+            elem.textContent = formatTemporal(value, schemaFormat, presentationFormat);
+        } else {
+            elem.textContent = formatValue(value);
+        }
+        elem.classList.add('updated');
+        setTimeout(() => elem.classList.remove('updated'), 500);
+    }
+
+    // Format a DateTime / TimeSpan value through dayjs using the Presentation.Format spec.
+    // schemaFormat: "date-time" or "duration" (from the JSON Schema's format keyword)
+    // presentationFormat: the moment-compatible token string from [Presentation(Format = ...)]
+    //                     or one of the reserved sentinels ("relative", "humanize"), or null.
+    // Falls back to a sensible default per type when presentationFormat is null.
+    function formatTemporal(value, schemaFormat, presentationFormat) {
+        if (value === null || value === undefined) return '∅';
+        if (!window.dayjs) return String(value);
+
+        if (schemaFormat === 'date-time') {
+            const d = dayjs(value);
+            if (!d.isValid()) return String(value);
+            if (presentationFormat === 'relative') {
+                // Auto-updating relative ("3 minutes ago"). The static text here is the
+                // snapshot at update time; the relative-time refresher (below) keeps it live.
+                return d.fromNow();
+            }
+            return d.format(presentationFormat || 'LLL');
+        }
+
+        if (schemaFormat === 'duration') {
+            // Normalize to milliseconds. The wire can deliver three shapes — see parseDurationToMs.
+            const ms = parseDurationToMs(value);
+            if (ms === null) return String(value);
+
+            const dur = dayjs.duration(ms);
+            if (presentationFormat === 'humanize') {
+                return dur.humanize();
+            }
+            return dur.format(presentationFormat || 'HH:mm:ss');
+        }
+
+        return String(value);
+    }
+
+    // Best-effort parse of a TimeSpan/duration wire value into milliseconds.
+    // Accepts three shapes:
+    //   - .NET TimeSpan ToString(): "[-][d.]hh:mm:ss[.fffffff]" — e.g. "00:00:00.1230000"
+    //   - ISO 8601 duration: "PT3H30M", "P1DT2H" — delegated to dayjs.duration
+    //   - Number: treated as milliseconds directly
+    // Returns null when nothing parses.
+    function parseDurationToMs(value) {
+        if (typeof value === 'number') return value;
+        if (typeof value !== 'string') return null;
+
+        // ISO 8601 duration — starts with P. dayjs.duration handles these natively.
+        if (/^-?P/i.test(value)) {
+            const d = dayjs.duration(value);
+            return (d.isValid && !d.isValid()) ? null : d.asMilliseconds();
+        }
+
+        // .NET TimeSpan: [-][d.]hh:mm:ss[.fffffff]
+        const m = /^(-)?(?:(\d+)\.)?(\d{1,2}):(\d{2}):(\d{2})(?:\.(\d+))?$/.exec(value);
+        if (!m) return null;
+        const sign = m[1] === '-' ? -1 : 1;
+        const days = parseInt(m[2] || '0', 10);
+        const hours = parseInt(m[3], 10);
+        const minutes = parseInt(m[4], 10);
+        const seconds = parseInt(m[5], 10);
+        // .NET ticks: 1 tick = 100 ns = 0.0001 ms. Pad/truncate to 7 ticks then convert.
+        const fractional = m[6] || '';
+        const ticks = parseInt((fractional + '0000000').slice(0, 7), 10);
+        const fracMs = ticks / 10000;
+        const totalMs = days * 86400000 + hours * 3600000 + minutes * 60000 + seconds * 1000 + fracMs;
+        return sign * totalMs;
+    }
+
+    // Refresh "relative" temporal cells every 30 s so "3 minutes ago" stays current
+    // without requiring a server-side push.
+    setInterval(() => {
+        document.querySelectorAll('[data-temporal="date-time"][data-format="relative"]').forEach(elem => {
+            // The cell text currently shows the formatted snapshot; re-derive from the last value
+            // pushed via the SignalR PropertyValueChanged handler. We don't store the raw value
+            // on the element today — best-effort re-parse the displayed value isn't reliable.
+            // Tradeoff: cache the raw value on the element when paint runs.
+            const raw = elem.getAttribute('data-raw-value');
+            if (raw) elem.textContent = formatTemporal(raw, 'date-time', 'relative');
+        });
+    }, 30_000);
 
     function contractUid(spId, svcId, contractId) {
         return `${spId}-${svcId}-${contractId}`;

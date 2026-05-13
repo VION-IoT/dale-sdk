@@ -2,7 +2,7 @@
 
 namespace Vion.Dale.Sdk.Examples.FunctionInterfaces
 {
-    [Contract(BetweenInterface = "IPing", AndInterface = "IPong")]
+    [LogicBlockContract(BetweenInterface = "IPing", AndInterface = "IPong")]
     public static class PingPong
     {
         [RequestResponse(From = "IPing", To = "IPong", ResponseType = typeof(PongResponse))]

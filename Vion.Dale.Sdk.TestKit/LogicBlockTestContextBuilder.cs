@@ -222,7 +222,7 @@ namespace Vion.Dale.Sdk.TestKit
                     continue;
                 }
 
-                var contractAttr = property.GetCustomAttribute<ServiceProviderContractAttribute>();
+                var contractAttr = property.GetCustomAttribute<ServiceProviderContractBindingAttribute>();
                 var identifier = contractAttr?.Identifier ?? property.Name;
                 lookup[identifier] = new LogicBlockContractId(Constants.LogicBlockId, identifier);
             }
@@ -231,37 +231,36 @@ namespace Vion.Dale.Sdk.TestKit
         }
 
         /// <summary>
-        ///     Discovers service identifiers from [Service] attributes on the logic block class and its properties.
+        ///     Discovers service identifiers from the logic-block class name and from any property
+        ///     whose type carries service-bearing attributes. The dropped [Service] attribute
+        ///     no longer participates in discovery — class-name and property-name are canonical.
         /// </summary>
         private static Dictionary<string, ServiceIdentifier> DiscoverServiceIds()
         {
             var type = typeof(TLogicBlock);
-            var lookup = new Dictionary<string, ServiceIdentifier>();
+            var lookup = new Dictionary<string, ServiceIdentifier>
+                         {
+                             [type.Name] = new ServiceIdentifier(type.Name),
+                         };
 
-            // Class-level [Service] attributes
-            var classServiceAttrs = type.GetCustomAttributes<ServiceAttribute>().ToList();
-            if (classServiceAttrs.Count == 0)
-            {
-                classServiceAttrs.Add(new ServiceAttribute());
-            }
-
-            foreach (var attr in classServiceAttrs)
-            {
-                var id = string.IsNullOrEmpty(attr.Identifier) ? type.Name : attr.Identifier;
-                lookup[id] = new ServiceIdentifier(id);
-            }
-
-            // Property-level [Service] attributes
+            // Property-level services: any property whose value is itself a service-bearing object.
             foreach (var prop in type.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
             {
-                var serviceAttr = prop.GetCustomAttribute<ServiceAttribute>();
-                if (serviceAttr != null)
+                var propertyType = prop.PropertyType;
+                var implementsServiceInterface = propertyType.GetInterfaces()
+                                                              .Any(i => i.GetCustomAttribute<ServiceInterfaceAttribute>() != null);
+                var hasServiceMembers = propertyType.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                                                    .Any(p => p.GetCustomAttribute<ServicePropertyAttribute>() != null
+                                                           || p.GetCustomAttribute<ServiceMeasuringPointAttribute>() != null);
+
+                if (!implementsServiceInterface && !hasServiceMembers)
                 {
-                    var propId = string.IsNullOrEmpty(serviceAttr.Identifier) ? prop.Name : serviceAttr.Identifier;
-                    if (!lookup.ContainsKey(propId))
-                    {
-                        lookup[propId] = new ServiceIdentifier(propId);
-                    }
+                    continue;
+                }
+
+                if (!lookup.ContainsKey(prop.Name))
+                {
+                    lookup[prop.Name] = new ServiceIdentifier(prop.Name);
                 }
             }
 

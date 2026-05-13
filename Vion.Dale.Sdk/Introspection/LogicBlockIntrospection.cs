@@ -26,15 +26,55 @@ namespace Vion.Dale.Sdk.Introspection
             InvokeConfigureMethod(logicBlock, logicBlockSetup);
 
             var logicBlockAnnotations = GetLogicBlockAnnotations(logicBlock.GetType());
+            var naturalPositions = BuildNaturalPositionMap(logicBlock.GetType());
+
+
 
             return new LogicBlockIntrospectionResult
                    {
                        TypeFullName = logicBlock.GetType().FullName!,
                        Interfaces = GetInterfaces(interfaces),
                        Contracts = GetContracts(contracts),
-                       Services = GetServices(serviceBinder),
+                       Services = GetServices(serviceBinder, naturalPositions),
                        Annotations = logicBlockAnnotations,
                    };
+        }
+
+        /// <summary>
+        ///     Walk the inheritance chain base-to-derived and assign each declared property a
+        ///     monotonically increasing index. Used to sort introspection output deterministically:
+        ///     base-class properties appear before derived-class properties; declaration order
+        ///     within a class is preserved.
+        ///     Keyed by <c>(DeclaringType, Name)</c> rather than <see cref="PropertyInfo" />
+        ///     reference because reflection paths from base-class vs derived-class entry points
+        ///     can yield different PropertyInfo instances for the same logical member.
+        /// </summary>
+        private static Dictionary<(Type DeclaringType, string Name), int> BuildNaturalPositionMap(Type logicBlockType)
+        {
+            var chain = new List<Type>();
+            var t = (Type?)logicBlockType;
+            while (t != null && t != typeof(object))
+            {
+                chain.Add(t);
+                t = t.BaseType;
+            }
+            chain.Reverse(); // base-first now
+
+            var map = new Dictionary<(Type, string), int>();
+            var position = 0;
+            foreach (var level in chain)
+            {
+                var declared = level.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
+                foreach (var prop in declared)
+                {
+                    var key = (prop.DeclaringType!, prop.Name);
+                    if (!map.ContainsKey(key))
+                    {
+                        map[key] = position++;
+                    }
+                }
+            }
+            return map;
         }
 
         private static LogicBlockConfigurationBuilder CreateLogicBlockConfigurationBuilder(Dictionary<string, LogicBlockContractBase> contracts,
@@ -115,7 +155,7 @@ namespace Vion.Dale.Sdk.Introspection
                 return;
             }
 
-            var contractAttr = logicInterfaceAttr.ContractType.GetCustomAttribute<ContractAttribute>();
+            var contractAttr = logicInterfaceAttr.ContractType.GetCustomAttribute<LogicBlockContractAttribute>();
             if (contractAttr == null)
             {
                 return;
@@ -185,7 +225,7 @@ namespace Vion.Dale.Sdk.Introspection
                             .ToList();
         }
 
-        private static List<LogicBlockIntrospectionResult.ServiceInfo> GetServices(ServiceBinder serviceBinder)
+        private static List<LogicBlockIntrospectionResult.ServiceInfo> GetServices(ServiceBinder serviceBinder, Dictionary<(Type DeclaringType, string Name), int> naturalPositions)
         {
             var result = new List<LogicBlockIntrospectionResult.ServiceInfo>();
 
@@ -210,13 +250,13 @@ namespace Vion.Dale.Sdk.Introspection
                 // Process property bindings
                 if (allServicePropertyBindings.TryGetValue(serviceIdentifier, out var propertyBindingMapOfInterface))
                 {
-                    ProcessBindings(propertyBindingMapOfInterface, service.Properties, ProcessPropertyBinding);
+                    ProcessBindings(propertyBindingMapOfInterface, service.Properties, ProcessPropertyBinding, naturalPositions);
                 }
 
                 // Process measuring point bindings
                 if (allServiceMeasuringPointBindings.TryGetValue(serviceIdentifier, out var measuringPointBindingMapOfInterface))
                 {
-                    ProcessBindings(measuringPointBindingMapOfInterface, service.MeasuringPoints, ProcessMeasuringPointBinding);
+                    ProcessBindings(measuringPointBindingMapOfInterface, service.MeasuringPoints, ProcessMeasuringPointBinding, naturalPositions);
                 }
 
                 // Process relations
@@ -268,15 +308,31 @@ namespace Vion.Dale.Sdk.Introspection
 
         private static void ProcessBindings<T>(IReadOnlyDictionary<Type, IReadOnlyDictionary<string, ServiceBinding>> bindingMapOfInterface,
                                                ICollection<T> targetCollection,
-                                               Func<ServiceBinding, Type?, T> bindingProcessor)
+                                               Func<ServiceBinding, Type?, T> bindingProcessor,
+                                               Dictionary<(Type DeclaringType, string Name), int> naturalPositions)
         {
+            // Flatten bindings across all interfaces, then sort by base-to-derived natural position
+            // so introspection output is deterministic regardless of reflection iteration order.
+            // Properties from base classes appear before properties from derived classes; declaration
+            // order within a class is preserved.
+            var flat = new List<(ServiceBinding binding, Type? interfaceType, int natural)>();
             foreach (var (serviceInterfaceType, bindingMap) in bindingMapOfInterface)
             {
                 foreach (var binding in bindingMap.Values)
                 {
-                    var processedBinding = bindingProcessor(binding, serviceInterfaceType);
-                    targetCollection.Add(processedBinding);
+                    var prop = binding.RootSourcePropertyInfo;
+                    var natural = prop.DeclaringType is { } declaringType
+                                  && naturalPositions.TryGetValue((declaringType, prop.Name), out var pos)
+                                      ? pos
+                                      : int.MaxValue;
+                    flat.Add((binding, serviceInterfaceType, natural));
                 }
+            }
+
+            foreach (var (binding, interfaceType, _) in flat.OrderBy(t => t.natural))
+            {
+                var processedBinding = bindingProcessor(binding, interfaceType);
+                targetCollection.Add(processedBinding);
             }
         }
 
@@ -403,8 +459,31 @@ namespace Vion.Dale.Sdk.Introspection
 
         private static Dictionary<string, object> GetLogicBlockAnnotations(Type logicBlockType)
         {
-            var logicBlockInfoAttribute = logicBlockType.GetCustomAttribute<LogicBlockInfoAttribute>();
-            return logicBlockInfoAttribute?.Annotations ?? new Dictionary<string, object>();
+            var logicBlockAttribute = logicBlockType.GetCustomAttribute<LogicBlockAttribute>();
+            var annotations = new Dictionary<string, object>();
+            if (logicBlockAttribute is null)
+            {
+                return annotations;
+            }
+
+            // Preserve the historical "DefaultName" key for downstream consumers (dashboard / cloud-api)
+            // until they migrate to "Name" in PR 5+. The attribute field is named Name; the wire key is unchanged.
+            if (!string.IsNullOrEmpty(logicBlockAttribute.Name))
+            {
+                annotations["DefaultName"] = logicBlockAttribute.Name!;
+            }
+
+            if (!string.IsNullOrEmpty(logicBlockAttribute.Icon))
+            {
+                annotations["Icon"] = logicBlockAttribute.Icon!;
+            }
+
+            if (logicBlockAttribute.Groups is { Length: > 0 } groups)
+            {
+                annotations["Groups"] = groups;
+            }
+
+            return annotations;
         }
     }
 }

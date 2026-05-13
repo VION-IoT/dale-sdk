@@ -21,14 +21,9 @@ namespace Vion.Dale.Sdk.Core
     }
 
     [AttributeUsage(AttributeTargets.Property)]
-    public class ServiceProviderContractAttribute : Attribute
+    public class ServiceProviderContractBindingAttribute : Attribute
     {
-        public string? Identifier { get; }
-
-        public ServiceProviderContractAttribute(string? identifier = null)
-        {
-            Identifier = identifier;
-        }
+        public string? Identifier { get; init; }
     }
 
     [AttributeUsage(AttributeTargets.Property)]
@@ -37,6 +32,24 @@ namespace Vion.Dale.Sdk.Core
         public string? DefaultName { get; set; }
 
         public string? Unit { get; set; }
+
+        public bool WriteOnly { get; init; }
+    }
+
+    [AttributeUsage(AttributeTargets.Property | AttributeTargets.Method)]
+    public class PresentationAttribute : Attribute
+    {
+        public string? DisplayName { get; init; }
+
+        public string? Group { get; init; }
+
+        public int Order { get; init; } = int.MinValue;
+
+        public bool StatusIndicator { get; init; }
+
+        public int Decimals { get; init; } = int.MinValue;
+
+        public string? UiHint { get; init; }
     }
 
     [AttributeUsage(AttributeTargets.Property)]
@@ -53,13 +66,8 @@ namespace Vion.Dale.Sdk.Core
         public bool Exclude { get; set; }
     }
 
-    [AttributeUsage(AttributeTargets.Property)]
-    public class StatusIndicatorAttribute : Attribute
-    {
-    }
-
     [AttributeUsage(AttributeTargets.Class)]
-    public class ContractAttribute : Attribute
+    public class LogicBlockContractAttribute : Attribute
     {
         public required string BetweenInterface { get; init; }
 

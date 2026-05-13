@@ -12,17 +12,16 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
     public enum AlarmState
     {
-        [EnumValueInfo("Alles in Ordnung")]
+        [EnumLabel("Alles in Ordnung")]
         Ok,
 
-        [EnumValueInfo("Warnung")]
+        [EnumLabel("Warnung")]
         Warning,
 
-        [EnumValueInfo("Kritisch")]
+        [EnumLabel("Kritisch")]
         Critical,
     }
 
-    [Service("RichDevice")]
     public class RichTypesLogicBlock : LogicBlockBase
     {
         // Primitives — including the new unsigned set
@@ -101,11 +100,11 @@ namespace Vion.Dale.Sdk.Test.Introspection
         [ServiceProperty(Title = "Bevorzugte Position")]
         public Coordinates? PreferredLocation { get; set; }
 
-        // [StatusIndicator] on a writable nullable enum — presentation.uiHint should be
+        // [Presentation(StatusIndicator = true)] on a writable nullable enum — presentation.uiHint should be
         // "statusIndicator", letting dashboards detect status-indicator properties by an
         // explicit hint rather than inferring from StatusMappings presence.
         [ServiceProperty(Title = "Aktueller Status")]
-        [StatusIndicator]
+        [Presentation(StatusIndicator = true)]
         public AlarmState? CurrentStatus { get; set; }
 
         // ImmutableArray — writable service property (needed for ServiceBinder round-trip tests)

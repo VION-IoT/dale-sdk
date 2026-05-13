@@ -8,20 +8,20 @@ namespace Vion.Dale.Sdk.Examples.LogicBlocks
 {
     public enum ChargingStationConnectionState
     {
-        [EnumValueInfo("Unbekannt")]
-        [StatusSeverity(StatusSeverity.Neutral)]
+        [EnumLabel("Unbekannt")]
+        [Severity(StatusSeverity.Neutral)]
         Unknown,
 
-        [EnumValueInfo("Verbinden...")]
-        [StatusSeverity(StatusSeverity.Warning)]
+        [EnumLabel("Verbinden...")]
+        [Severity(StatusSeverity.Warning)]
         Connecting,
 
-        [EnumValueInfo("Verbunden")]
-        [StatusSeverity(StatusSeverity.Success)]
+        [EnumLabel("Verbunden")]
+        [Severity(StatusSeverity.Success)]
         Connected,
 
-        [EnumValueInfo("Getrennt")]
-        [StatusSeverity(StatusSeverity.Error)]
+        [EnumLabel("Getrennt")]
+        [Severity(StatusSeverity.Error)]
         Disconnected,
     }
 
@@ -32,8 +32,7 @@ namespace Vion.Dale.Sdk.Examples.LogicBlocks
         public bool Foo { get; set; }
     }
 
-    [Service("ChargingStationMultiPointSimulation")]
-    [LogicBlockInfo("Ladestation Simulation", "ev-station")]
+    [LogicBlock(Name = "Ladestation Simulation", Icon = "ev-station")]
     public class ChargingStationMultiPointSimulation : LogicBlockBase, IChargingStationService, IPing, IToggleable
     {
         private readonly IDateTimeProvider _dateTimeProvider;
@@ -41,8 +40,8 @@ namespace Vion.Dale.Sdk.Examples.LogicBlocks
         private readonly ILogger _logger;
 
         //[Service("DefaultChargingPoint")]
-        //[Interface(typeof(IPing), "Ping1", "DefaultChargingPoint")]
-        //[Interface(typeof(IToggleable), "Toggleable1", "DefaultChargingPointXX")]
+        //[LogicBlockInterfaceBinding(typeof(IPing), Identifier = "Ping1", DefaultName = "DefaultChargingPoint")]
+        //[LogicBlockInterfaceBinding(typeof(IToggleable), Identifier = "Toggleable1", DefaultName = "DefaultChargingPointXX")]
         public ChargingPoint ChargingPoint1 { get; } = new();
 
         public ChargingPoint ChargingPoint2 { get; } = new();
@@ -126,8 +125,7 @@ namespace Vion.Dale.Sdk.Examples.LogicBlocks
             public int Counter { get; set; }
 
             [ServiceProperty(Unit = "kW")]
-            [Category(PropertyCategory.Configuration)]
-            [Display(group: "Energy")]
+            [Presentation(Group = "Energy")]
             public double MaximumActivePower
             {
                 get => _maximumActivePower;
@@ -143,7 +141,7 @@ namespace Vion.Dale.Sdk.Examples.LogicBlocks
             }
 
             [ServiceProperty]
-            [Category(PropertyCategory.Configuration)]
+            [Presentation(Group = PropertyGroup.Configuration)]
             public bool EnableCharging
             {
                 get => _enableCharging;
@@ -160,15 +158,13 @@ namespace Vion.Dale.Sdk.Examples.LogicBlocks
 
             [ServiceProperty(Unit = "kW")]
             [ServiceMeasuringPoint(Unit = "kW")]
-            [Importance(Importance.Primary)]
-            [Display(group: "Energy")]
+            [Presentation(Importance = Importance.Primary, Group = "Energy")]
             public double ActivePowerConsuming { get; private set; }
 
             [Persistent]
             [ServiceProperty(Unit = "kWh")]
             [ServiceMeasuringPoint(Unit = "kWh")]
-            [Importance(Importance.Secondary)]
-            [Display(group: "Energy")]
+            [Presentation(Importance = Importance.Secondary, Group = "Energy")]
             public double EnergyConsumedTotal { get; private set; }
 
             [ServiceProperty(Unit = "kW")]
@@ -178,7 +174,7 @@ namespace Vion.Dale.Sdk.Examples.LogicBlocks
             public double AllocatedActivePower { get; private set; }
 
             [ServiceProperty]
-            [StatusIndicator]
+            [Presentation(StatusIndicator = true)]
             public ChargingStationConnectionState ConnectionState { get; private set; } = ChargingStationConnectionState.Unknown;
 
             /// <inheritdoc />

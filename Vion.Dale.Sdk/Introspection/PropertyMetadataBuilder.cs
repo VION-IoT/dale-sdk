@@ -41,8 +41,7 @@ namespace Vion.Dale.Sdk.Introspection
         ///     <paramref name="schemaSource" /> supplies the schema-bearing attributes
         ///     (<c>[ServiceProperty]</c> / <c>[ServiceMeasuringPoint]</c>), while
         ///     <paramref name="presentationSource" /> supplies the UI-hint and runtime attributes
-        ///     (<c>[Display]</c>, <c>[Category]</c>, <c>[Importance]</c>, <c>[UIHint]</c>,
-        ///     <c>[StatusIndicator]</c>, <c>[Persistent]</c>).
+        ///     (<c>[Presentation]</c>, <c>[Persistent]</c>).
         ///     Used for interface-bound properties where the interface owns the schema contract and
         ///     the implementing logic-block property owns the UI hints.
         /// </summary>
@@ -59,10 +58,49 @@ namespace Vion.Dale.Sdk.Introspection
             // binding target when cloud calls SetPropertyValue. The interface only declares intent.
             var annotations = ExtractTypeAnnotations(sp, mp, HasPublicSetter(presentationSource), hasIdentityTitle);
             var schema = new TypeSchema(typeRef, annotations, structFieldAnnotations);
-            var presentation = ExtractPresentation(presentationSource, sp, mp, hasIdentityTitle);
+
+            // Per-field presentation merge: the class wins on any field it explicitly sets, and
+            // inherits from the interface on fields it leaves null. This lets interfaces declare
+            // shared UI semantics (Group, Importance) while classes override per-instance details
+            // (DisplayName, Order).
+            var interfacePresentation = ExtractPresentation(schemaSource, sp, mp, hasIdentityTitle);
+            var classPresentation = ExtractPresentation(presentationSource, sp, mp, hasIdentityTitle);
+            var presentation = MergePresentation(classPresentation, interfacePresentation);
+
             var runtime = ExtractRuntime(presentationSource);
 
             return new PropertyMetadata(schema, presentation, runtime);
+        }
+
+        /// <summary>
+        ///     Per-field merge: class values win; class-null fields inherit from interface.
+        /// </summary>
+        private static Presentation MergePresentation(Presentation classP, Presentation interfaceP)
+        {
+            if (interfaceP.IsEmpty)
+            {
+                return classP;
+            }
+
+            if (classP.IsEmpty)
+            {
+                return interfaceP;
+            }
+
+            var merged = new Presentation
+                         {
+                             DisplayName = classP.DisplayName ?? interfaceP.DisplayName,
+                             Group = classP.Group ?? interfaceP.Group,
+                             Order = classP.Order ?? interfaceP.Order,
+                             Category = classP.Category ?? interfaceP.Category,
+                             Importance = classP.Importance ?? interfaceP.Importance,
+                             UIHint = classP.UIHint ?? interfaceP.UIHint,
+                             Decimals = classP.Decimals ?? interfaceP.Decimals,
+                             Format = classP.Format ?? interfaceP.Format,
+                             StatusMappings = classP.StatusMappings ?? interfaceP.StatusMappings,
+                             EnumLabels = classP.EnumLabels ?? interfaceP.EnumLabels,
+                         };
+            return merged.IsEmpty ? Presentation.None : merged;
         }
 
         private static bool HasPublicSetter(PropertyInfo property) =>
@@ -90,10 +128,14 @@ namespace Vion.Dale.Sdk.Introspection
                                                               bool hasPublicSetter,
                                                               bool hasIdentityTitle)
         {
+            // Cross-fill: missing field on one side inherits from the other when both
+            // [ServiceProperty] and [ServiceMeasuringPoint] are applied to the same property.
+
             // Title: for enum/struct-typed properties (incl. nullable/array of), schema.title is
             // identity-bearing (the CLR type name). The property-level Title goes to
             // Presentation.DisplayName instead — see ExtractPresentation below.
             var title = hasIdentityTitle ? null : (sp?.Title ?? mp?.Title);
+            var description = sp?.Description ?? mp?.Description;
             var unit = sp?.Unit ?? mp?.Unit;
 
             // Minimum / Maximum: NegativeInfinity / PositiveInfinity are the sentinel "absent" values.
@@ -124,13 +166,23 @@ namespace Vion.Dale.Sdk.Introspection
             // but the cloud cannot write back to).
             var readOnly = (mp is not null && sp is null) || !hasPublicSetter;
 
+            // WriteOnly comes only from [ServiceProperty]; restricted to string / string? properties in v1
+            // (DALE022 analyzer enforces).
+            var writeOnly = sp?.WriteOnly ?? false;
+
+            // Kind comes only from [ServiceMeasuringPoint]; null when the property isn't a measuring point.
+            MeasuringPointKind? kind = mp is not null ? mp.Kind : null;
+
             return new TypeAnnotations
                    {
                        Title = title,
+                       Description = description,
                        Unit = unit,
                        Minimum = minimum,
                        Maximum = maximum,
                        ReadOnly = readOnly,
+                       WriteOnly = writeOnly,
+                       Kind = kind,
                    };
         }
 
@@ -139,44 +191,54 @@ namespace Vion.Dale.Sdk.Introspection
                                                        ServiceMeasuringPointAttribute? mp,
                                                        bool hasIdentityTitle)
         {
-            var display = property.GetCustomAttribute<DisplayAttribute>();
-            var category = property.GetCustomAttribute<CategoryAttribute>();
-            var importance = property.GetCustomAttribute<ImportanceAttribute>();
-            var uiHint = property.GetCustomAttribute<UIHintAttribute>();
-            var statusIndicator = property.GetCustomAttribute<StatusIndicatorAttribute>();
+            var presentationAttr = property.GetCustomAttribute<PresentationAttribute>();
 
-            // DisplayName: prefer explicit [Display(Name=...)] (the long-standing attribute).
+            // DisplayName: prefer explicit [Presentation(DisplayName=...)].
             // For enum/struct-typed properties, fall back to [ServiceProperty(Title=...)] /
             // [ServiceMeasuringPoint(Title=...)] — schema.title for those types carries the
             // CLR identity (e.g. "AlarmState"), not the property's display label, so without
             // this fallback the property-level Title would be silently lost.
-            var displayName = display?.Name ?? (hasIdentityTitle ? (sp?.Title ?? mp?.Title) : null);
+            var displayName = presentationAttr?.DisplayName
+                           ?? (hasIdentityTitle ? (sp?.Title ?? mp?.Title) : null);
 
-            // DisplayAttribute.Order uses -1 as the absent-sentinel. Map only non-negative values.
-            int? order = null;
-            if (display is not null && display.Order >= 0)
-            {
-                order = display.Order;
-            }
-
-            var statusMappings = ExtractStatusMappings(property, statusIndicator);
+            var statusMappings = ExtractStatusMappings(property, presentationAttr?.StatusIndicator ?? false);
             var enumLabels = ExtractEnumLabels(property);
 
-            // UIHint: explicit [UIHint("widget")] wins. Otherwise, [StatusIndicator] sets
-            // uiHint="statusIndicator" so dashboards can detect status-indicator properties
-            // by an explicit hint rather than inferring from the presence of StatusMappings
-            // (which is fragile — an enum can be a status indicator without per-member
-            // severity tagging if the dashboard just renders the raw value as the status).
-            var uiHintValue = uiHint?.Widget ?? (statusIndicator is not null ? "statusIndicator" : null);
+            // UiHint: explicit value wins; StatusIndicator = true auto-emits "statusIndicator"
+            // so dashboards can detect status-indicator properties by an explicit hint rather
+            // than inferring from StatusMappings presence (which is fragile — an enum can be a
+            // status indicator without per-member severity tagging).
+            var uiHint = presentationAttr?.UiHint
+                      ?? (presentationAttr?.StatusIndicator == true ? UiHints.StatusIndicator : null);
+
+            // int.MinValue is the "unset" sentinel for the attribute (attribute-parameter types
+            // can't be nullable). Map back to null on the wire.
+            int? order = presentationAttr is not null && presentationAttr.Order != int.MinValue
+                             ? presentationAttr.Order
+                             : null;
+            int? decimals = presentationAttr is not null && presentationAttr.Decimals != int.MinValue
+                                ? presentationAttr.Decimals
+                                : null;
+
+            // Emit Importance only when explicitly non-default. Treats Importance.Normal as the
+            // implicit baseline that doesn't need to traverse the wire — keeps the json clean.
+            string? importance = presentationAttr is not null && presentationAttr.Importance != Importance.Normal
+                                     ? presentationAttr.Importance.ToString()
+                                     : null;
 
             var presentation = new Presentation
                                {
                                    DisplayName = displayName,
-                                   Group = display?.Group,
+                                   Group = presentationAttr?.Group,
                                    Order = order,
-                                   Category = category?.Category.ToString(),
-                                   Importance = importance?.Importance.ToString(),
-                                   UIHint = uiHintValue,
+                                   // Category dropped — categories fold into Group (which is the same
+                                   // dashboard-side concept). Field on the codec record kept for codec
+                                   // compatibility but always null from this builder.
+                                   Category = null,
+                                   Importance = importance,
+                                   UIHint = uiHint,
+                                   Decimals = decimals,
+                                   Format = presentationAttr?.Format,
                                    StatusMappings = statusMappings,
                                    EnumLabels = enumLabels,
                                };
@@ -185,14 +247,15 @@ namespace Vion.Dale.Sdk.Introspection
             return presentation.IsEmpty ? Presentation.None : presentation;
         }
 
-        private static ImmutableDictionary<string, string>? ExtractStatusMappings(PropertyInfo property, StatusIndicatorAttribute? statusAttr)
+        private static ImmutableDictionary<string, string>? ExtractStatusMappings(PropertyInfo property, bool isStatusIndicator)
         {
-            if (statusAttr is null)
+            if (!isStatusIndicator)
             {
                 return null;
             }
 
-            // Only meaningful on (nullable-)enum-typed properties; silently ignore otherwise (DALE006 already warns).
+            // Only meaningful on (nullable-)enum-typed properties; silently ignore otherwise
+            // (DALE024 analyzer warns at compile time).
             var enumType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
             if (!enumType.IsEnum)
             {
@@ -203,7 +266,7 @@ namespace Vion.Dale.Sdk.Introspection
             foreach (var name in Enum.GetNames(enumType))
             {
                 var memberInfo = enumType.GetField(name);
-                var severity = memberInfo?.GetCustomAttribute<StatusSeverityAttribute>();
+                var severity = memberInfo?.GetCustomAttribute<SeverityAttribute>();
                 if (severity is not null)
                 {
                     builder[name] = severity.Severity.ToString().ToLowerInvariant();
@@ -214,7 +277,7 @@ namespace Vion.Dale.Sdk.Introspection
         }
 
         /// <summary>
-        ///     Reads <c>[EnumValueInfo("...")]</c> off each member of an enum-typed property and
+        ///     Reads <c>[EnumLabel("...")]</c> off each member of an enum-typed property and
         ///     returns a map of member-name → display label. Members without a label are omitted.
         ///     Returns null for non-enum properties or when no members carry a label (so
         ///     <see cref="Presentation.IsEmpty" /> stays true in the absent case).
@@ -243,8 +306,8 @@ namespace Vion.Dale.Sdk.Introspection
             foreach (var name in Enum.GetNames(enumType))
             {
                 var memberInfo = enumType.GetField(name);
-                var info = memberInfo?.GetCustomAttribute<EnumValueInfoAttribute>();
-                if (info?.DefaultName is { } label)
+                var info = memberInfo?.GetCustomAttribute<EnumLabelAttribute>();
+                if (info?.Label is { } label)
                 {
                     builder[name] = label;
                 }

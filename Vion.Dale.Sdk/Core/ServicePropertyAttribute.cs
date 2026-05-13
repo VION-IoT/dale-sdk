@@ -8,15 +8,29 @@ namespace Vion.Dale.Sdk.Core
     /// </summary>
     [PublicApi]
     [AttributeUsage(AttributeTargets.Property)]
-    public sealed class ServicePropertyAttribute : Attribute
+    public class ServicePropertyAttribute : Attribute
     {
         public string? Title { get; init; }
+
+        /// <summary>
+        ///     Long-form description for tooltips, search, and accessibility. Routes into
+        ///     <c>schema.annotations.description</c>. Independent of <see cref="Title" />.
+        /// </summary>
+        public string? Description { get; init; }
 
         public string? Unit { get; init; }
 
         public double Minimum { get; init; } = double.NegativeInfinity;
 
         public double Maximum { get; init; } = double.PositiveInfinity;
+
+        /// <summary>
+        ///     Marks a writable property as a secret — clients see a redaction sentinel
+        ///     (<c>"***"</c>) on the publish-state channel instead of the actual value.
+        ///     Restricted to <c>string</c> / <c>string?</c> properties in v1. Routes into
+        ///     <c>schema.annotations.writeOnly</c>.
+        /// </summary>
+        public bool WriteOnly { get; init; }
 
         [Obsolete("Use Title instead. Will be removed in next major.")]
         public string? DefaultName

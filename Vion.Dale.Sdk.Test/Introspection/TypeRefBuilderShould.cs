@@ -311,9 +311,9 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
-        public void EmitsEnumLabelsFromEnumValueInfoAttribute()
+        public void EmitsEnumLabelsFromEnumLabelAttribute()
         {
-            // AlarmState's members carry [EnumValueInfo("Alles in Ordnung")] etc.
+            // AlarmState's members carry [EnumLabel("Alles in Ordnung")] etc.
             // The labels route to presentation.enumLabels keyed by CLR member name.
             // Exercised via CurrentStatus (writable nullable enum) and CurrentAlarm (read-only enum
             // measuring point) — both should carry the same label map.

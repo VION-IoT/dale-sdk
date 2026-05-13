@@ -53,6 +53,7 @@ namespace Vion.Dale.DevHost.Web.Services
                                                                                       {
                                                                                           Id = lb.Id,
                                                                                           Name = lb.Name,
+                                                                                          Annotations = meta.Annotations,
                                                                                           Services = lb.Services
                                                                                                        .Select(s =>
                                                                                                                {

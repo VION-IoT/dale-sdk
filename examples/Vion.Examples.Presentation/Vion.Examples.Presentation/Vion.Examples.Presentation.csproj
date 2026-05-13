@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netstandard2.1</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <ImplicitUsings>false</ImplicitUsings>
+        <Nullable>enable</Nullable>
+
+        <!-- NuGet package metadata (set IsPackable=true when this stops using ProjectReferences) -->
+        <PackageId>Vion.Examples.Presentation</PackageId>
+        <Description>Vion IoT example LogicBlock exercising the declarative-presentation attribute surface (PropertyGroup, Importance, MeasuringPointKind, StatusIndicator, WriteOnly, UiHint).</Description>
+        <IsPackable>false</IsPackable>
+
+        <!--debug information from the source generator-->
+        <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+        <CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)Generated</CompilerGeneratedFilesOutputPath>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!--
+            ProjectReference (not PackageReference) while declarative-presentation is in flight:
+            lets DevHost visualize this block against the in-source SDK before the NuGet ships.
+            Flip to PackageReference before merge per the rich-types precedent.
+        -->
+        <ProjectReference Include="..\..\..\Vion.Dale.Sdk\Vion.Dale.Sdk.csproj" />
+        <!--shim to be able to use readonly record structs in netstandard2.1-->
+        <PackageReference Include="IsExternalInit" Version="1.0.3">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+    </ItemGroup>
+
+</Project>

@@ -17,14 +17,14 @@ namespace Vion.Dale.Sdk.Configuration.Contract
 
             foreach (var property in invalidContractProperties)
             {
-                throw new InvalidOperationException($"Property '{property.Name}' in '{type.Name}' has [ServiceProviderContract] attribute but no setter. " +
+                throw new InvalidOperationException($"Property '{property.Name}' in '{type.Name}' has [ServiceProviderContractBinding] attribute but no setter. " +
                                                     $"Contract properties must have at least a private setter to enable binding. " +
                                                     $"Example: public {property.PropertyType.Name} {property.Name} {{ get; private set; }}");
             }
 
             foreach (var property in contractProperties)
             {
-                var contractAttribute = property.GetCustomAttribute<ServiceProviderContractAttribute>();
+                var contractAttribute = property.GetCustomAttribute<ServiceProviderContractBindingAttribute>();
                 var identifier = contractAttribute?.Identifier ?? property.Name;
                 var contractInstance = contractFactory.Create(property.PropertyType, identifier);
                 property.SetValue(logicBlock, contractInstance);
@@ -42,7 +42,7 @@ namespace Vion.Dale.Sdk.Configuration.Contract
             return ReflectionHelper.GetProperties(type, true).Where(p => IsContractType(p.PropertyType) && !p.CanWrite).ToList();
         }
 
-        private static void ApplyMetadata(object contractInstance, ServiceProviderContractAttribute? contractAttr)
+        private static void ApplyMetadata(object contractInstance, ServiceProviderContractBindingAttribute? contractAttr)
         {
             if (contractAttr == null)
             {

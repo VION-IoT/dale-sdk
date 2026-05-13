@@ -15,7 +15,7 @@ namespace Vion.Dale.Sdk.Generators.Test
             var source = @"
 using Vion.Dale.Sdk.Core;
 
-[Contract(BetweenInterface = ""IProducer"", AndInterface = ""IConsumer"")]
+[LogicBlockContract(BetweenInterface = ""IProducer"", AndInterface = ""IConsumer"")]
 public static class EnergyContract { }
 ";
             await AnalyzerTestBase.VerifyAnalyzerAsync<ContractMessageAnalyzer>(source);
@@ -27,7 +27,7 @@ public static class EnergyContract { }
             var source = @"
 using Vion.Dale.Sdk.Core;
 
-[Contract(BetweenInterface = ""Producer"", AndInterface = ""IConsumer"")]
+[LogicBlockContract(BetweenInterface = ""Producer"", AndInterface = ""IConsumer"")]
 public static class {|#0:EnergyContract|} { }
 ";
             var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE009_ContractInterfaceNamePrefix)
@@ -42,7 +42,7 @@ public static class {|#0:EnergyContract|} { }
             var source = @"
 using Vion.Dale.Sdk.Core;
 
-[Contract(BetweenInterface = ""IProducer"", AndInterface = ""Consumer"")]
+[LogicBlockContract(BetweenInterface = ""IProducer"", AndInterface = ""Consumer"")]
 public static class {|#0:EnergyContract|} { }
 ";
             var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE009_ContractInterfaceNamePrefix)
@@ -59,7 +59,7 @@ public static class {|#0:EnergyContract|} { }
             var source = @"
 using Vion.Dale.Sdk.Core;
 
-[Contract(BetweenInterface = ""IProducer"", AndInterface = ""IConsumer"")]
+[LogicBlockContract(BetweenInterface = ""IProducer"", AndInterface = ""IConsumer"")]
 public static class EnergyContract
 {
     [Command(From = ""IProducer"", To = ""IConsumer"")]
@@ -75,7 +75,7 @@ public static class EnergyContract
             var source = @"
 using Vion.Dale.Sdk.Core;
 
-[Contract(BetweenInterface = ""IProducer"", AndInterface = ""IConsumer"")]
+[LogicBlockContract(BetweenInterface = ""IProducer"", AndInterface = ""IConsumer"")]
 public static class EnergyContract
 {
     [Command(From = ""IWrong"", To = ""IConsumer"")]
@@ -94,7 +94,7 @@ public static class EnergyContract
             var source = @"
 using Vion.Dale.Sdk.Core;
 
-[Contract(BetweenInterface = ""IProducer"", AndInterface = ""IConsumer"")]
+[LogicBlockContract(BetweenInterface = ""IProducer"", AndInterface = ""IConsumer"")]
 public static class EnergyContract
 {
     [Command(From = ""IProducer"", To = ""IWrong"")]
@@ -113,7 +113,7 @@ public static class EnergyContract
             var source = @"
 using Vion.Dale.Sdk.Core;
 
-[Contract(BetweenInterface = ""IProducer"", AndInterface = ""IConsumer"")]
+[LogicBlockContract(BetweenInterface = ""IProducer"", AndInterface = ""IConsumer"")]
 public static class EnergyContract
 {
     [StateUpdate(From = ""IConsumer"", To = ""IProducer"")]
@@ -131,7 +131,7 @@ public static class EnergyContract
             var source = @"
 using Vion.Dale.Sdk.Core;
 
-[Contract(BetweenInterface = ""IProducer"", AndInterface = ""IConsumer"")]
+[LogicBlockContract(BetweenInterface = ""IProducer"", AndInterface = ""IConsumer"")]
 public static class EnergyContract
 {
     [RequestResponse(From = ""IProducer"", To = ""IConsumer"", ResponseType = typeof(AllocateResponse))]
@@ -151,7 +151,7 @@ using Vion.Dale.Sdk.Core;
 
 public readonly record struct ExternalResponse;
 
-[Contract(BetweenInterface = ""IProducer"", AndInterface = ""IConsumer"")]
+[LogicBlockContract(BetweenInterface = ""IProducer"", AndInterface = ""IConsumer"")]
 public static class EnergyContract
 {
     [RequestResponse(From = ""IProducer"", To = ""IConsumer"", ResponseType = typeof(ExternalResponse))]
@@ -165,7 +165,7 @@ public static class EnergyContract
         }
 
         [TestMethod]
-        public async Task NoContractAttribute_NoDiagnostic()
+        public async Task NoLogicBlockContractAttribute_NoDiagnostic()
         {
             var source = @"
 public static class NotAContract

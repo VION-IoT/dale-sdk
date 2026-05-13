@@ -33,7 +33,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         {
             var type = (INamedTypeSymbol)context.Symbol;
 
-            var contractAttr = AnalyzerHelper.GetAttribute(type, AnalyzerHelper.ContractAttribute);
+            var contractAttr = AnalyzerHelper.GetAttribute(type, AnalyzerHelper.LogicBlockContractAttribute);
             if (contractAttr == null)
             {
                 return;

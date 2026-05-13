@@ -39,7 +39,7 @@
     <ItemGroup>
         <Compile Include="..\Vion.Dale.Sdk\Core\PublicApiAttribute.cs" LinkBase="Shared"/>
         <Compile Include="..\Vion.Dale.Sdk\Core\InternalApiAttribute.cs" LinkBase="Shared"/>
-        <Compile Include="..\Vion.Dale.Sdk\Core\ContractAttribute.cs" LinkBase="Shared"/>
+        <Compile Include="..\Vion.Dale.Sdk\Core\LogicBlockContractAttribute.cs" LinkBase="Shared"/>
         <Compile Include="..\Vion.Dale.Sdk\Core\ContractDirection.cs" LinkBase="Shared"/>
         <Compile Include="..\Vion.Dale.Sdk\Core\CommandAttribute.cs" LinkBase="Shared"/>
         <Compile Include="..\Vion.Dale.Sdk\Core\RequestResponseAttribute.cs" LinkBase="Shared"/>

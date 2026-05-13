@@ -44,27 +44,18 @@ namespace Vion.Dale.Sdk
     {
         /// <summary>
         ///     Determines if a type should be treated as a service and get the Observable aspect.
-        ///     This replicates the detection logic from DeclarativeServiceBinder:
+        ///     Auto-detected:
         ///     - Derives from LogicBlockBase, OR
-        ///     - Has explicit [Service] attribute, OR
         ///     - Implements a [ServiceInterface], OR
         ///     - Has properties with [ServiceProperty] or [ServiceMeasuringPoint] attributes
+        ///     The dropped [Service] attribute no longer participates in detection.
         /// </summary>
         public static bool IsServiceType(INamedType type)
         {
-            // Check if it is a logic block 
+            // Check if it is a logic block
             if (type.IsConvertibleTo(typeof(LogicBlockBase), ConversionKind.TypeDefinition))
             {
                 return true;
-            }
-
-            // Check for explicit [Service] attribute
-            foreach (var attr in type.Attributes)
-            {
-                if (attr.Type.IsConvertibleTo(typeof(ServiceAttribute), ConversionKind.TypeDefinition))
-                {
-                    return true;
-                }
             }
 
             // Check if type implements any interface marked with [ServiceInterface]

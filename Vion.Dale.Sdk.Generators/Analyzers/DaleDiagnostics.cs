@@ -103,16 +103,8 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                                                                                              DiagnosticSeverity.Warning,
                                                                                              true);
 
-        /// <summary>
-        ///     StatusIndicator should only be placed on enum-typed properties.
-        ///     On non-enum properties, the StatusMappings annotation is silently absent.
-        /// </summary>
-        public static readonly DiagnosticDescriptor DALE006_StatusIndicatorRequiresEnum = new("DALE006",
-                                                                                              "StatusIndicator requires an enum property",
-                                                                                              "Property '{0}' has [StatusIndicator] but type '{1}' is not an enum. Status mappings will be ignored.",
-                                                                                              Category,
-                                                                                              DiagnosticSeverity.Warning,
-                                                                                              true);
+        // DALE006 retired: [StatusIndicator] attribute deleted in declarative-presentation rollout.
+        // DALE024 (below) replaces it for [Presentation(StatusIndicator = true)].
 
         /// <summary>
         ///     Persistent on a read-only property has no effect — PersistentData silently skips it.
@@ -215,5 +207,53 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                                                                                           DiagnosticSeverity.Warning,
                                                                                           true,
                                                                                           customTags: new[] { WellKnownDiagnosticTags.CompilationEnd });
+
+        // --- Declarative-presentation analyzers ---
+
+        /// <summary>
+        ///     [Presentation(Decimals = N)] only meaningful on numeric properties.
+        ///     The decimals hint is silently ignored on other types.
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE021_DecimalsOnNonNumeric = new("DALE021",
+                                                                                       "[Presentation(Decimals)] only applies to numeric properties",
+                                                                                       "Property '{0}' sets Presentation.Decimals but type '{1}' is not numeric. The decimals hint will be ignored.",
+                                                                                       Category,
+                                                                                       DiagnosticSeverity.Warning,
+                                                                                       true);
+
+        /// <summary>
+        ///     [ServiceProperty(WriteOnly = true)] restricted to <c>string</c> / <c>string?</c> in v1.
+        ///     The wire-side redaction sentinel ("***") is a string literal — other types would
+        ///     break the codec round-trip.
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE022_WriteOnlyTypeRestriction = new("DALE022",
+                                                                                            "[ServiceProperty(WriteOnly)] only supported on string / string?",
+                                                                                            "Property '{0}' sets WriteOnly = true but type '{1}' is not string. WriteOnly is restricted to string / string? in v1.",
+                                                                                            Category,
+                                                                                            DiagnosticSeverity.Error,
+                                                                                            true);
+
+        /// <summary>
+        ///     [Presentation(UiHint = UiHints.Trigger)] requires a writable bool property.
+        ///     The trigger renderer commits <c>true</c> on click; non-bool types break the contract.
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE023_TriggerHintRequiresBool = new("DALE023",
+                                                                                           "[Presentation(UiHint = \"trigger\")] requires a writable bool property",
+                                                                                           "Property '{0}' uses UiHint \"trigger\" but {1}. Triggers require a writable bool property; the dashboard commits 'true' on click.",
+                                                                                           Category,
+                                                                                           DiagnosticSeverity.Error,
+                                                                                           true);
+
+        /// <summary>
+        ///     [Presentation(StatusIndicator = true)] requires an enum (or nullable-enum) property.
+        ///     On non-enum properties the StatusMappings annotation is silently absent.
+        ///     Replaces the retired DALE006 (which targeted the now-deleted [StatusIndicator]).
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE024_StatusIndicatorRequiresEnum = new("DALE024",
+                                                                                               "[Presentation(StatusIndicator = true)] requires an enum property",
+                                                                                               "Property '{0}' sets StatusIndicator = true but type '{1}' is not an enum. Status mappings will be ignored.",
+                                                                                               Category,
+                                                                                               DiagnosticSeverity.Warning,
+                                                                                               true);
     }
 }

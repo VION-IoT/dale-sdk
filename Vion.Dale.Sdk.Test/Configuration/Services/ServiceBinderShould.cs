@@ -18,7 +18,7 @@ namespace Vion.Dale.Sdk.Test.Configuration.Services
     [TestClass]
     public class ServiceBinderShould
     {
-        private const string ServiceId = "RichDevice";
+        private const string ServiceId = "RichTypesLogicBlock";
 
         // ===================================================================
         // Primitives — round-trip
@@ -177,7 +177,7 @@ namespace Vion.Dale.Sdk.Test.Configuration.Services
         {
             var (binder, _) = ServiceBinderTestHarness.Bind<TestLogicBlock>();
 
-            var ex = Assert.ThrowsExactly<ArgumentException>(() => binder.SetPropertyValue("TestDevice", "Mode", 1));
+            var ex = Assert.ThrowsExactly<ArgumentException>(() => binder.SetPropertyValue("TestLogicBlock", "Mode", 1));
             StringAssert.Contains(ex.Message, "Mode");
             StringAssert.Contains(ex.Message, "enum");
         }
@@ -196,7 +196,7 @@ namespace Vion.Dale.Sdk.Test.Configuration.Services
             // TestDevice.Mode is non-nullable OperatingMode — null is not a valid value.
             var (binder, _) = ServiceBinderTestHarness.Bind<TestLogicBlock>();
 
-            Assert.ThrowsExactly<ArgumentException>(() => binder.SetPropertyValue("TestDevice", "Mode", null));
+            Assert.ThrowsExactly<ArgumentException>(() => binder.SetPropertyValue("TestLogicBlock", "Mode", null));
         }
 
         [TestMethod]
@@ -206,9 +206,9 @@ namespace Vion.Dale.Sdk.Test.Configuration.Services
             // OperatingMode.Manual → binder receives the typed value → setter assigns directly.
             var (binder, block) = ServiceBinderTestHarness.Bind<TestLogicBlock>();
 
-            binder.SetPropertyValue("TestDevice", "Mode", OperatingMode.Manual);
+            binder.SetPropertyValue("TestLogicBlock", "Mode", OperatingMode.Manual);
 
-            Assert.AreEqual(OperatingMode.Manual, binder.GetPropertyValue("TestDevice", "Mode"));
+            Assert.AreEqual(OperatingMode.Manual, binder.GetPropertyValue("TestLogicBlock", "Mode"));
             Assert.AreEqual(OperatingMode.Manual, block.Mode);
         }
 
