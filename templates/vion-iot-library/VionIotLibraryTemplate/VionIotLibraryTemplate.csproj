@@ -20,8 +20,8 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Vion.Dale.Sdk" Version="0.0.0-ci.70"/>
-        <PackageReference Include="Vion.Dale.Sdk.DigitalIo" Version="0.0.0-ci.70"/>
+        <PackageReference Include="Vion.Dale.Sdk" Version="0.5.0"/>
+        <PackageReference Include="Vion.Dale.Sdk.DigitalIo" Version="0.5.0"/>
         <!--shim to be able to use readonly record structs in netstandard2.1-->
         <PackageReference Include="IsExternalInit" Version="1.0.3">
             <PrivateAssets>all</PrivateAssets>
