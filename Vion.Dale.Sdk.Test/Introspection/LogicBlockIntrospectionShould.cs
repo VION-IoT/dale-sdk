@@ -90,6 +90,11 @@ namespace Vion.Dale.Sdk.Test.Introspection
         Manual,
     }
 
+    // Literal "Energy" / "Visuals" group keys below are intentional: they exercise the
+    // custom-key path (no constant required). The DALE026 analyzer would normally suggest
+    // using a constant, but here the literals are the unit-under-test.
+#pragma warning disable DALE026
+
     [LogicBlock(Name = "Testgerät", Icon = "device-line")]
     public class TestLogicBlock : LogicBlockBase
     {
@@ -132,6 +137,8 @@ namespace Vion.Dale.Sdk.Test.Introspection
         {
         }
     }
+
+#pragma warning restore DALE026
 
     public class ContractTestLogicBlock : LogicBlockBase
     {

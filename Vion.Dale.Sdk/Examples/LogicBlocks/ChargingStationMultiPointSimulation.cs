@@ -125,7 +125,7 @@ namespace Vion.Dale.Sdk.Examples.LogicBlocks
             public int Counter { get; set; }
 
             [ServiceProperty(Unit = "kW")]
-            [Presentation(Group = "Energy")]
+            [Presentation(Group = PropertyGroup.Metric)]
             public double MaximumActivePower
             {
                 get => _maximumActivePower;
@@ -158,13 +158,13 @@ namespace Vion.Dale.Sdk.Examples.LogicBlocks
 
             [ServiceProperty(Unit = "kW")]
             [ServiceMeasuringPoint(Unit = "kW")]
-            [Presentation(Importance = Importance.Primary, Group = "Energy")]
+            [Presentation(Importance = Importance.Primary, Group = PropertyGroup.Metric)]
             public double ActivePowerConsuming { get; private set; }
 
             [Persistent]
             [ServiceProperty(Unit = "kWh")]
             [ServiceMeasuringPoint(Unit = "kWh")]
-            [Presentation(Importance = Importance.Secondary, Group = "Energy")]
+            [Presentation(Importance = Importance.Secondary, Group = PropertyGroup.Metric)]
             public double EnergyConsumedTotal { get; private set; }
 
             [ServiceProperty(Unit = "kW")]

@@ -255,5 +255,82 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                                                                                                Category,
                                                                                                DiagnosticSeverity.Warning,
                                                                                                true);
+
+        /// <summary>
+        ///     Two or more attributes deriving from the same platform base attribute appear on a
+        ///     single property — e.g. <c>[Kilowatts][Volts]</c> where both inherit from
+        ///     <c>ServicePropertyAttribute</c>. Author must pick one. Distinct platform bases on
+        ///     the same property (e.g. <c>[ServiceProperty][ServiceMeasuringPoint]</c>) are
+        ///     allowed and drive the cross-fill rule.
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE019_MultipleAttributesFromSameBase = new("DALE019",
+                                                                                                  "Multiple attributes derive from the same platform base attribute",
+                                                                                                  "Property '{0}' has multiple attributes deriving from '{1}': {2}. Pick one — preset-attribute inheritance does not support stacking.",
+                                                                                                  Category,
+                                                                                                  DiagnosticSeverity.Error,
+                                                                                                  true);
+
+        /// <summary>
+        ///     The same property name is declared in two or more implemented interfaces with
+        ///     incompatible attribute metadata (different <c>Unit</c>). The cascade rule has no
+        ///     way to pick a winner; author must override with an explicit attribute on the
+        ///     class or align the interface declarations.
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE020_MultiInterfaceConflict = new("DALE020",
+                                                                                          "Multi-interface attribute conflict",
+                                                                                          "Class '{0}' implements multiple interfaces declaring property '{1}' with conflicting Unit values ({2}). Override with an explicit attribute on the class or align the interface declarations.",
+                                                                                          Category,
+                                                                                          DiagnosticSeverity.Error,
+                                                                                          true);
+
+        /// <summary>
+        ///     A property declares both <c>[ServiceProperty]</c> and <c>[ServiceMeasuringPoint]</c>
+        ///     and both set the same field (Title / Description / Unit / Minimum / Maximum) to
+        ///     conflicting non-empty values. The cross-fill rule needs one source of truth per
+        ///     field — pick one attribute to carry the value.
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE025_CrossFillConflict = new("DALE025",
+                                                                                     "[ServiceProperty] / [ServiceMeasuringPoint] cross-fill conflict",
+                                                                                     "Property '{0}' has [ServiceProperty({1} = {2})] and [ServiceMeasuringPoint({1} = {3})] with conflicting values. Pick one and let the cross-fill rule do its job.",
+                                                                                     Category,
+                                                                                     DiagnosticSeverity.Warning,
+                                                                                     true);
+
+        /// <summary>
+        ///     A literal string passed as <c>[Presentation(Group = "...")]</c> doesn't match any
+        ///     constant declared in a <c>PropertyGroup</c>-named static class anywhere in the
+        ///     compilation. Likely a typo — recommended fix: use the constant. Suppressible via
+        ///     <c>#pragma warning disable</c> for one-off custom keys without a constant.
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE026_LiteralGroupKey = new("DALE026",
+                                                                                   "Literal Group key doesn't match any PropertyGroup constant",
+                                                                                   "Literal Group key \"{0}\" doesn't match any constant in a PropertyGroup-named static class. Recommended: use a constant. Suppress this warning if the literal is intentional.",
+                                                                                   Category,
+                                                                                   DiagnosticSeverity.Warning,
+                                                                                   true);
+
+        /// <summary>
+        ///     <c>[Presentation(Format = "...")]</c> is consumed by the renderer only for
+        ///     <c>DateTime</c> / <c>TimeSpan</c> properties (and nullable variants). On other
+        ///     types the format hint is silently ignored.
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE027_FormatOnNonTemporal = new("DALE027",
+                                                                                       "[Presentation(Format)] only applies to DateTime / TimeSpan properties",
+                                                                                       "Property '{0}' sets Presentation.Format but type '{1}' is not DateTime or TimeSpan. The format hint will be ignored.",
+                                                                                       Category,
+                                                                                       DiagnosticSeverity.Warning,
+                                                                                       true);
+
+        /// <summary>
+        ///     The sentinel <c>Formats.Relative</c> requires a <c>DateTime</c> property; the
+        ///     sentinel <c>Formats.Humanize</c> requires a <c>TimeSpan</c> property. On a
+        ///     mismatched property type the renderer falls back to the default formatter.
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE028_FormatSentinelTypeMismatch = new("DALE028",
+                                                                                              "Format sentinel doesn't match property type",
+                                                                                              "Property '{0}' uses Format = \"{1}\" which requires {2}, but the property type is '{3}'. The renderer will fall back to the default formatter.",
+                                                                                              Category,
+                                                                                              DiagnosticSeverity.Warning,
+                                                                                              true);
     }
 }

@@ -31,7 +31,15 @@ namespace Vion.Dale.Sdk.Core
     {
         public string? DefaultName { get; set; }
 
+        public string? Title { get; init; }
+
+        public string? Description { get; init; }
+
         public string? Unit { get; set; }
+
+        public double Minimum { get; init; } = double.NegativeInfinity;
+
+        public double Maximum { get; init; } = double.PositiveInfinity;
 
         public bool WriteOnly { get; init; }
     }
@@ -50,6 +58,8 @@ namespace Vion.Dale.Sdk.Core
         public int Decimals { get; init; } = int.MinValue;
 
         public string? UiHint { get; init; }
+
+        public string? Format { get; init; }
     }
 
     [AttributeUsage(AttributeTargets.Property)]
@@ -57,7 +67,47 @@ namespace Vion.Dale.Sdk.Core
     {
         public string? DefaultName { get; set; }
 
+        public string? Title { get; init; }
+
+        public string? Description { get; init; }
+
         public string? Unit { get; set; }
+
+        public double Minimum { get; init; } = double.NegativeInfinity;
+
+        public double Maximum { get; init; } = double.PositiveInfinity;
+    }
+
+    public static class PropertyGroup
+    {
+        public const string None = "";
+
+        public const string Identity = "identity";
+
+        public const string Status = "status";
+
+        public const string Configuration = "configuration";
+
+        public const string Metric = "metric";
+
+        public const string Diagnostics = "diagnostics";
+
+        public const string Alarm = "alarm";
+    }
+
+    public static class Formats
+    {
+        public const string Relative = "relative";
+
+        public const string Humanize = "humanize";
+
+        public const string LocaleFull = "LLLL";
+
+        public const string LocaleLong = "LLL";
+
+        public const string Iso = "YYYY-MM-DD HH:mm:ss";
+
+        public const string Clock = "HH:mm:ss";
     }
 
     [AttributeUsage(AttributeTargets.Property)]
