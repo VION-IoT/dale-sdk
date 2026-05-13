@@ -1,4 +1,5 @@
 using System;
+using Vion.Contracts.TypeRef;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Modbus.Rtu;
 using Microsoft.Extensions.Logging;
@@ -10,7 +11,7 @@ namespace Vion.Examples.ModbusRtu.LogicBlocks
     ///     Shows batch reads (contiguous register arrays), individual reads, holding register writes,
     ///     raw writes, and error handling patterns.
     /// </summary>
-    [LogicBlockInfo("EM122 Stromzähler", "flashlight-line")]
+    [LogicBlock(Name = "EM122 Stromzähler", Icon = "flashlight-line")]
     public class Em122ElectricityMeter : LogicBlockBase
     {
         private readonly ILogger _logger;
@@ -19,24 +20,21 @@ namespace Vion.Examples.ModbusRtu.LogicBlocks
 
         // ── Contract ──
 
-        [ServiceProviderContract("Modbus", "EM122 Modbus RTU")]
+        [ServiceProviderContractBinding(Identifier = "Modbus", DefaultName = "EM122 Modbus RTU")]
         public IModbusRtu Modbus { get; set; } = null!;
 
         // ── Configuration (Service Properties) ──
 
         [ServiceProperty(Title = "Modbus-Adresse")]
-        [Category(PropertyCategory.Configuration)]
-        [Display(group: "Konfiguration")]
+        [Presentation(Group = PropertyGroup.Configuration)]
         public int UnitId { get; set; } = 1;
 
         [ServiceProperty(Title = "Abfrage aktiv")]
-        [Category(PropertyCategory.Configuration)]
-        [Display(group: "Konfiguration")]
+        [Presentation(Group = PropertyGroup.Configuration)]
         public bool PollingEnabled { get; set; } = true;
 
         [ServiceProperty(Title = "Bedarfsperiode", Unit = "min")]
-        [Category(PropertyCategory.Configuration)]
-        [Display(group: "Konfiguration")]
+        [Presentation(Group = PropertyGroup.Configuration)]
         public float DemandPeriodMinutes
         {
             get => _demandPeriodMinutes;
@@ -51,9 +49,10 @@ namespace Vion.Examples.ModbusRtu.LogicBlocks
             }
         }
 
+        // Action property: getter returns false; setter triggers the action. The bool-as-trigger
+        // workaround pattern — UiHint = Trigger renders a button.
         [ServiceProperty(Title = "Energiezähler zurücksetzen")]
-        [Category(PropertyCategory.Action)]
-        [Display(group: "Konfiguration")]
+        [Presentation(Group = PropertyGroup.Configuration, UiHint = UiHints.Trigger)]
         public bool ResetEnergyCounters
         {
             get => false;
@@ -70,116 +69,111 @@ namespace Vion.Examples.ModbusRtu.LogicBlocks
         // ── Voltage (batch read: addr 0, count 3) ──
 
         [ServiceProperty(Title = "Spannung L1", Unit = "V")]
-        [ServiceMeasuringPoint(Title = "Spannung L1", Unit = "V")]
-        [Importance(Importance.Primary)]
-        [Display(group: "Spannung")]
+        [ServiceMeasuringPoint]
+        [Presentation(Group = PropertyGroup.Status, Importance = Importance.Primary)]
         public float VoltageL1 { get; private set; }
 
         [ServiceProperty(Title = "Spannung L2", Unit = "V")]
-        [ServiceMeasuringPoint(Title = "Spannung L2", Unit = "V")]
-        [Display(group: "Spannung")]
+        [ServiceMeasuringPoint]
+        [Presentation(Group = PropertyGroup.Status)]
         public float VoltageL2 { get; private set; }
 
         [ServiceProperty(Title = "Spannung L3", Unit = "V")]
-        [ServiceMeasuringPoint(Title = "Spannung L3", Unit = "V")]
-        [Display(group: "Spannung")]
+        [ServiceMeasuringPoint]
+        [Presentation(Group = PropertyGroup.Status)]
         public float VoltageL3 { get; private set; }
 
         // ── Current (batch read: addr 6, count 3) ──
 
         [ServiceProperty(Title = "Strom L1", Unit = "A")]
-        [ServiceMeasuringPoint(Title = "Strom L1", Unit = "A")]
-        [Importance(Importance.Primary)]
-        [Display(group: "Strom")]
+        [ServiceMeasuringPoint]
+        [Presentation(Group = PropertyGroup.Status, Importance = Importance.Primary)]
         public float CurrentL1 { get; private set; }
 
         [ServiceProperty(Title = "Strom L2", Unit = "A")]
-        [ServiceMeasuringPoint(Title = "Strom L2", Unit = "A")]
-        [Display(group: "Strom")]
+        [ServiceMeasuringPoint]
+        [Presentation(Group = PropertyGroup.Status)]
         public float CurrentL2 { get; private set; }
 
         [ServiceProperty(Title = "Strom L3", Unit = "A")]
-        [ServiceMeasuringPoint(Title = "Strom L3", Unit = "A")]
-        [Display(group: "Strom")]
+        [ServiceMeasuringPoint]
+        [Presentation(Group = PropertyGroup.Status)]
         public float CurrentL3 { get; private set; }
 
         // ── Active Power (batch read: addr 12, count 3) ──
 
         [ServiceProperty(Title = "Wirkleistung L1", Unit = "W")]
-        [ServiceMeasuringPoint(Title = "Wirkleistung L1", Unit = "W")]
-        [Display(group: "Leistung")]
+        [ServiceMeasuringPoint]
+        [Presentation(Group = PropertyGroup.Status)]
         public float ActivePowerL1 { get; private set; }
 
         [ServiceProperty(Title = "Wirkleistung L2", Unit = "W")]
-        [ServiceMeasuringPoint(Title = "Wirkleistung L2", Unit = "W")]
-        [Display(group: "Leistung")]
+        [ServiceMeasuringPoint]
+        [Presentation(Group = PropertyGroup.Status)]
         public float ActivePowerL2 { get; private set; }
 
         [ServiceProperty(Title = "Wirkleistung L3", Unit = "W")]
-        [ServiceMeasuringPoint(Title = "Wirkleistung L3", Unit = "W")]
-        [Display(group: "Leistung")]
+        [ServiceMeasuringPoint]
+        [Presentation(Group = PropertyGroup.Status)]
         public float ActivePowerL3 { get; private set; }
 
         // ── System totals (individual reads) ──
 
         [ServiceProperty(Title = "Wirkleistung Gesamt", Unit = "W")]
-        [ServiceMeasuringPoint(Title = "Wirkleistung Gesamt", Unit = "W")]
-        [Importance(Importance.Primary)]
-        [Display(group: "Leistung")]
+        [ServiceMeasuringPoint]
+        [Presentation(Group = PropertyGroup.Status, Importance = Importance.Primary)]
         public float TotalActivePower { get; private set; }
 
         [ServiceProperty(Title = "Scheinleistung Gesamt", Unit = "VA")]
-        [ServiceMeasuringPoint(Title = "Scheinleistung Gesamt", Unit = "VA")]
-        [Display(group: "Leistung")]
+        [ServiceMeasuringPoint]
+        [Presentation(Group = PropertyGroup.Status)]
         public float TotalApparentPower { get; private set; }
 
         [ServiceProperty(Title = "Blindleistung Gesamt", Unit = "VAr")]
-        [ServiceMeasuringPoint(Title = "Blindleistung Gesamt", Unit = "VAr")]
-        [Display(group: "Leistung")]
+        [ServiceMeasuringPoint]
+        [Presentation(Group = PropertyGroup.Status)]
         public float TotalReactivePower { get; private set; }
 
         [ServiceProperty(Title = "Leistungsfaktor Gesamt")]
-        [ServiceMeasuringPoint(Title = "Leistungsfaktor Gesamt")]
-        [Display(group: "Netzqualität")]
+        [ServiceMeasuringPoint]
+        [Presentation(Group = PropertyGroup.Status)]
         public float TotalPowerFactor { get; private set; }
 
         [ServiceProperty(Title = "Frequenz", Unit = "Hz")]
-        [ServiceMeasuringPoint(Title = "Frequenz", Unit = "Hz")]
-        [Importance(Importance.Secondary)]
-        [Display(group: "Netzqualität")]
+        [ServiceMeasuringPoint]
+        [Presentation(Group = PropertyGroup.Status, Importance = Importance.Secondary)]
         public float Frequency { get; private set; }
 
-        // ── Energy (individual reads) ──
+        // ── Energy (individual reads) — cumulative counters; can reset via ResetEnergyCounters.
+        // Mark as Total (not TotalIncreasing) because the reset path means they can decrease.
 
         [ServiceProperty(Title = "Bezug Energie", Unit = "kWh")]
-        [ServiceMeasuringPoint(Title = "Bezug Energie", Unit = "kWh")]
-        [Importance(Importance.Primary)]
-        [Display(group: "Energie")]
+        [ServiceMeasuringPoint(Kind = MeasuringPointKind.Total)]
+        [Presentation(Group = PropertyGroup.Metric, Importance = Importance.Primary)]
         public float ImportEnergy { get; private set; }
 
         [ServiceProperty(Title = "Lieferung Energie", Unit = "kWh")]
-        [ServiceMeasuringPoint(Title = "Lieferung Energie", Unit = "kWh")]
-        [Display(group: "Energie")]
+        [ServiceMeasuringPoint(Kind = MeasuringPointKind.Total)]
+        [Presentation(Group = PropertyGroup.Metric)]
         public float ExportEnergy { get; private set; }
 
         [ServiceProperty(Title = "Gesamtenergie", Unit = "kWh")]
-        [ServiceMeasuringPoint(Title = "Gesamtenergie", Unit = "kWh")]
-        [Importance(Importance.Secondary)]
-        [Display(group: "Energie")]
+        [ServiceMeasuringPoint(Kind = MeasuringPointKind.Total)]
+        [Presentation(Group = PropertyGroup.Metric, Importance = Importance.Secondary)]
         public float TotalEnergy { get; private set; }
 
         // ── Diagnostics ──
 
         [ServiceProperty(Title = "Erfolgreiche Abfragen")]
-        [Display(group: "Diagnose")]
+        [Presentation(Group = PropertyGroup.Diagnostics)]
         public int ReadCount { get; private set; }
 
         [ServiceProperty(Title = "Fehlgeschlagene Abfragen")]
-        [Display(group: "Diagnose")]
+        [Presentation(Group = PropertyGroup.Diagnostics)]
         public int ErrorCount { get; private set; }
 
         [ServiceProperty(Title = "Letzter Fehler")]
-        [Display(group: "Diagnose")]
+        [Presentation(Group = PropertyGroup.Diagnostics)]
         public string LastError { get; private set; } = "";
 
         // ── Constructor ──

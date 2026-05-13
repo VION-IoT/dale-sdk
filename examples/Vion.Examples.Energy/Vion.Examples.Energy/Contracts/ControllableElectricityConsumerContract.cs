@@ -3,7 +3,7 @@ using Vion.Dale.Sdk.Core;
 
 namespace Vion.Examples.Energy.Contracts
 {
-    [Contract(BetweenInterface = "IControllableElectricityConsumer",
+    [LogicBlockContract(BetweenInterface = "IControllableElectricityConsumer",
               AndInterface = "IControllableElectricityConsumerManager",
               BetweenDefaultName = "Verbraucher",
               AndDefaultName = "Energiemanager",

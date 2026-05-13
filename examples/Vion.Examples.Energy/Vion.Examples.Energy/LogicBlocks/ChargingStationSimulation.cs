@@ -1,4 +1,5 @@
 ﻿using System;
+using Vion.Contracts.TypeRef;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.DigitalIo.Input;
 using Vion.Dale.Sdk.DigitalIo.Output;
@@ -9,7 +10,7 @@ using Vion.Examples.Energy.Utils;
 
 namespace Vion.Examples.Energy.LogicBlocks
 {
-    [LogicBlockInfo("Ladestation Simulation", "charging-pile-2-line")]
+    [LogicBlock(Name = "Ladestation Simulation", Icon = "charging-pile-2-line")]
     public class ChargingStationSimulation : LogicBlockBase, IControllableElectricityConsumer
     {
         private readonly IDateTimeProvider _dateTimeProvider;
@@ -24,19 +25,18 @@ namespace Vion.Examples.Energy.LogicBlocks
 
         private double _requestedActivePower;
 
-        [ServiceProviderContract(defaultName: "Externe Sperre")]
+        [ServiceProviderContractBinding(DefaultName = "Externe Sperre")]
         public IDigitalInput ExternallyLockedInput { get; private set; }
 
-        [ServiceProviderContract(defaultName: "Ladevorgang aktiv")]
+        [ServiceProviderContractBinding(DefaultName = "Ladevorgang aktiv")]
         public IDigitalOutput ChargingOutput { get; private set; }
 
         [ServiceProperty(Title = "Externe Sperre aktiv")]
-        [Display(group: "Status")]
+        [Presentation(Group = PropertyGroup.Status)]
         public bool IsExternallyLocked { get; private set; }
 
         [ServiceProperty(Title = "Maximale Wirkleistung", Unit = "kW")]
-        [Category(PropertyCategory.Configuration)]
-        [Display(group: "Konfiguration")]
+        [Presentation(Group = PropertyGroup.Configuration)]
         public double MaximumActivePower
         {
             get => _maximumActivePower;
@@ -52,9 +52,7 @@ namespace Vion.Examples.Energy.LogicBlocks
         }
 
         [ServiceProperty(Title = "Ladefreigabe")]
-        [Category(PropertyCategory.Configuration)]
-        [Importance(Importance.Secondary)]
-        [Display(group: "Konfiguration")]
+        [Presentation(Group = PropertyGroup.Configuration, Importance = Importance.Secondary)]
         public bool EnableCharging
         {
             get => _enableCharging;
@@ -70,20 +68,18 @@ namespace Vion.Examples.Energy.LogicBlocks
         }
 
         [ServiceProperty(Title = "Wirkleistung", Unit = "kW")]
-        [ServiceMeasuringPoint(Title = "Wirkleistung", Unit = "kW")]
-        [Importance(Importance.Primary)]
-        [Display(group: "Status")]
+        [ServiceMeasuringPoint]
+        [Presentation(Group = PropertyGroup.Status, Importance = Importance.Primary)]
         public double ActivePowerConsuming { get; private set; }
 
         [Persistent]
         [ServiceProperty(Title = "Zählerstand Gesamtverbrauch Total", Unit = "kWh")]
-        [ServiceMeasuringPoint(Title = "Zählerstand Gesamtverbrauch Total", Unit = "kWh")]
-        [Category(PropertyCategory.Metric)]
-        [Display(group: "Zähler")]
+        [ServiceMeasuringPoint(Kind = MeasuringPointKind.TotalIncreasing)]
+        [Presentation(Group = PropertyGroup.Metric)]
         public double EnergyConsumedTotal { get; private set; }
 
         [ServiceProperty(Title = "Angeforderte Wirkleistung", Unit = "kW")]
-        [Display(group: "Status")]
+        [Presentation(Group = PropertyGroup.Status)]
         public double RequestedActivePower
         {
             get => _requestedActivePower;
@@ -99,7 +95,7 @@ namespace Vion.Examples.Energy.LogicBlocks
         }
 
         [ServiceProperty(Title = "Zugewiesene Wirkleistung", Unit = "kW")]
-        [Display(group: "Status")]
+        [Presentation(Group = PropertyGroup.Status)]
         public double AllocatedActivePower { get; private set; }
 
         public ChargingStationSimulation(IDateTimeProvider dateTimeProvider, ILogger logger) : base(logger)

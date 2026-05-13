@@ -1,4 +1,5 @@
-﻿using Vion.Dale.Sdk.Core;
+﻿using Vion.Contracts.TypeRef;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.DigitalIo.Input;
 using Vion.Dale.Sdk.DigitalIo.Output;
 using Vion.Dale.Sdk.Utils;
@@ -9,24 +10,24 @@ using Vion.Examples.Energy.Utils;
 
 namespace Vion.Examples.Energy.LogicBlocks
 {
-    [LogicBlockInfo("Ladestation Multi-Point Simulation", "charging-pile-2-line")]
+    [LogicBlock(Name = "Ladestation Multi-Point Simulation", Icon = "charging-pile-2-line")]
     public class ChargingStationMultiPointSimulation : LogicBlockBase
     {
         private readonly IDateTimeProvider _dateTimeProvider;
 
         private readonly ILogger _logger;
 
-        [ServiceProviderContract(defaultName: "Externe Sperre")]
+        [ServiceProviderContractBinding(DefaultName = "Externe Sperre")]
         public IDigitalInput ExternallyLockedInput { get; private set; }
 
-        [ServiceProviderContract(defaultName: "Ladepunkt 1 aktiv")]
+        [ServiceProviderContractBinding(DefaultName = "Ladepunkt 1 aktiv")]
         public IDigitalOutput ChargingPoint1Output { get; private set; }
 
-        [ServiceProviderContract(defaultName: "Ladepunkt 2 aktiv")]
+        [ServiceProviderContractBinding(DefaultName = "Ladepunkt 2 aktiv")]
         public IDigitalOutput ChargingPoint2Output { get; private set; }
 
         [ServiceProperty(Title = "Externe Sperre aktiv")]
-        [Display(group: "Status")]
+        [Presentation(Group = PropertyGroup.Status)]
         public bool IsExternallyLocked { get; private set; }
 
         public ChargingPoint ChargingPoint1 { get; }
@@ -86,8 +87,7 @@ namespace Vion.Examples.Energy.LogicBlocks
             private double _requestedActivePower;
 
             [ServiceProperty(Title = "Maximale Wirkleistung", Unit = "kW")]
-            [Category(PropertyCategory.Configuration)]
-            [Display(group: "Konfiguration")]
+            [Presentation(Group = PropertyGroup.Configuration)]
             public double MaximumActivePower
             {
                 get => _maximumActivePower;
@@ -103,9 +103,7 @@ namespace Vion.Examples.Energy.LogicBlocks
             }
 
             [ServiceProperty(Title = "Ladefreigabe")]
-            [Category(PropertyCategory.Configuration)]
-            [Importance(Importance.Secondary)]
-            [Display(group: "Konfiguration")]
+            [Presentation(Group = PropertyGroup.Configuration, Importance = Importance.Secondary)]
             public bool EnableCharging
             {
                 get => _enableCharging;
@@ -121,20 +119,18 @@ namespace Vion.Examples.Energy.LogicBlocks
             }
 
             [ServiceProperty(Title = "Wirkleistung", Unit = "kW")]
-            [ServiceMeasuringPoint(Title = "Wirkleistung", Unit = "kW")]
-            [Importance(Importance.Primary)]
-            [Display(group: "Status")]
+            [ServiceMeasuringPoint]
+            [Presentation(Group = PropertyGroup.Status, Importance = Importance.Primary)]
             public double ActivePowerConsuming { get; private set; }
 
             [Persistent]
             [ServiceProperty(Title = "Zählerstand Gesamtverbrauch Total", Unit = "kWh")]
-            [ServiceMeasuringPoint(Title = "Zählerstand Gesamtverbrauch Total", Unit = "kWh")]
-            [Category(PropertyCategory.Metric)]
-            [Display(group: "Zähler")]
+            [ServiceMeasuringPoint(Kind = MeasuringPointKind.TotalIncreasing)]
+            [Presentation(Group = PropertyGroup.Metric)]
             public double EnergyConsumedTotal { get; private set; }
 
             [ServiceProperty(Title = "Angeforderte Wirkleistung", Unit = "kW")]
-            [Display(group: "Status")]
+            [Presentation(Group = PropertyGroup.Status)]
             public double RequestedActivePower
             {
                 get => _requestedActivePower;
@@ -150,7 +146,7 @@ namespace Vion.Examples.Energy.LogicBlocks
             }
 
             [ServiceProperty(Title = "Zugewiesene Wirkleistung", Unit = "kW")]
-            [Display(group: "Status")]
+            [Presentation(Group = PropertyGroup.Status)]
             public double AllocatedActivePower { get; private set; }
 
             // CS8618: Metalama's [Observable] aspect injects a non-nullable PropertyChanged event that

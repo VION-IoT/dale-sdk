@@ -6,15 +6,15 @@ using Vion.Examples.ToggleLight.Contracts;
 
 namespace Vion.Examples.ToggleLight.LogicBlocks
 {
-    [LogicBlockInfo("Licht", "lightbulb-line")]
+    [LogicBlock(Name = "Licht", Icon = "lightbulb-line")]
     public class Light : LogicBlockBase, IToggleable
     {
         public enum Mode
         {
-            [EnumValueInfo("Schalten bei Druck")]
+            [EnumLabel("Schalten bei Druck")]
             ToggleOnPressed,
 
-            [EnumValueInfo("Schalten bei Loslassen")]
+            [EnumLabel("Schalten bei Loslassen")]
             ToggleOnReleased,
         }
 
@@ -25,12 +25,12 @@ namespace Vion.Examples.ToggleLight.LogicBlocks
         public IDigitalOutput DigitalOutput { get; set; }
 
         [ServiceProperty(Title = "Tastermodus")]
-        [Category(PropertyCategory.Configuration)]
+        [Presentation(Group = PropertyGroup.Configuration)]
         public Mode ToggleMode { get; set; } = Mode.ToggleOnPressed;
 
         [ServiceProperty(Title = "Ein")]
-        [ServiceMeasuringPoint(Title = "Ein")]
-        [Importance(Importance.Primary)]
+        [ServiceMeasuringPoint]
+        [Presentation(Importance = Importance.Primary)]
         public bool On
         {
             get => _on;
@@ -46,12 +46,11 @@ namespace Vion.Examples.ToggleLight.LogicBlocks
         }
 
         [ServiceProperty(Title = "Anzahl Einschaltungen")]
-        [Category(PropertyCategory.Metric)]
-        [Importance(Importance.Secondary)]
+        [Presentation(Group = PropertyGroup.Metric, Importance = Importance.Secondary)]
         public int TimesSwitchedOn { get; private set; }
 
         [ServiceProperty(Title = "Nutzungsdauer Total")]
-        [Category(PropertyCategory.Metric)]
+        [Presentation(Group = PropertyGroup.Metric)]
         public TimeSpan TotalTimeOn { get; private set; }
 
         public Light(ILogger logger) : base(logger)

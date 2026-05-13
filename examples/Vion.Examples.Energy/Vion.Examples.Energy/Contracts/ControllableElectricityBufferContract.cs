@@ -3,7 +3,7 @@ using Vion.Dale.Sdk.Core;
 
 namespace Vion.Examples.Energy.Contracts
 {
-    [Contract(BetweenInterface = "IControllableElectricityBuffer",
+    [LogicBlockContract(BetweenInterface = "IControllableElectricityBuffer",
               AndInterface = "IControllableElectricityBufferManager",
               BetweenDefaultName = "Speicher",
               AndDefaultName = "Energiemanager",

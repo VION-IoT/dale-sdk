@@ -8,7 +8,7 @@ using Vion.Examples.PingPong.ServiceInterfaces;
 
 namespace Vion.Examples.PingPong.LogicBlocks
 {
-    [LogicBlockInfo("Ping", "ping-pong-line")]
+    [LogicBlock(Name = "Ping", Icon = "ping-pong-line")]
     public class Ping : LogicBlockBase, IPing, IPingService
     {
         private readonly ILogger _logger;
@@ -40,13 +40,12 @@ namespace Vion.Examples.PingPong.LogicBlocks
         }
 
         /// <inheritdoc />
-        [Category(PropertyCategory.Metric)]
-        [Importance(Importance.Secondary)]
+        [Presentation(Group = PropertyGroup.Metric, Importance = Importance.Secondary)]
         public int PingsPerSecond { get; private set; } // from IPingService
 
         /// <inheritdoc />
         [ServiceProperty]
-        [Category(PropertyCategory.Configuration)]
+        [Presentation(Group = PropertyGroup.Configuration)]
         public bool Pause // from IPingService
         {
             get => _pause;

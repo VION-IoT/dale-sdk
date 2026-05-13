@@ -1,4 +1,5 @@
-﻿using Vion.Dale.Sdk.Core;
+﻿using Vion.Contracts.TypeRef;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Utils;
 using Microsoft.Extensions.Logging;
 using System;
@@ -9,7 +10,7 @@ using Vion.Examples.Energy.Utils;
 
 namespace Vion.Examples.Energy.LogicBlocks
 {
-    [LogicBlockInfo("Batterie Simulation", "battery-2-charge-line")]
+    [LogicBlock(Name = "Batterie Simulation", Icon = "battery-2-charge-line")]
     public class BatterySimulation : LogicBlockBase, IControllableElectricityBuffer
     {
         private readonly IDateTimeProvider _dateTimeProvider;
@@ -18,69 +19,61 @@ namespace Vion.Examples.Energy.LogicBlocks
 
         private DateTime? _lastUpdateTime;
 
-        [ServiceProviderContract(defaultName: "Ladezustand")]
+        [ServiceProviderContractBinding(DefaultName = "Ladezustand")]
         public IAnalogOutput StateOfChargeOutput { get; private set; }
 
-        [ServiceProviderContract(defaultName: "Batterie lädt")]
+        [ServiceProviderContractBinding(DefaultName = "Batterie lädt")]
         public IDigitalOutput BatteryChargingOutput { get; private set; }
 
-        [ServiceProviderContract(defaultName: "Batterie entlädt")]
+        [ServiceProviderContractBinding(DefaultName = "Batterie entlädt")]
         public IDigitalOutput BatteryDischargingOutput { get; private set; }
 
         [ServiceProperty(Title = "Ladezustand", Unit = "%")]
-        [ServiceMeasuringPoint(Title = "Ladezustand", Unit = "%")]
+        [ServiceMeasuringPoint]
         [Persistent]
-        [Importance(Importance.Primary)]
-        [Display(group: "Status")]
+        [Presentation(Group = PropertyGroup.Status, Importance = Importance.Primary)]
         public double StateOfCharge { get; private set; }
 
         [ServiceProperty(Title = "Kapazität", Unit = "kWh")]
-        [Category(PropertyCategory.Configuration)]
-        [Display(group: "Konfiguration")]
+        [Presentation(Group = PropertyGroup.Configuration)]
         public double Capacity { get; set; } = 100;
 
         [ServiceProperty(Title = "Maximale Wirkleistung Laden", Unit = "kW")]
-        [Category(PropertyCategory.Configuration)]
-        [Display(group: "Konfiguration")]
+        [Presentation(Group = PropertyGroup.Configuration)]
         public double MaximumActivePowerCharging { get; set; } = 10;
 
         [ServiceProperty(Title = "Maximale Wirkleistung Entladen", Unit = "kW")]
-        [Category(PropertyCategory.Configuration)]
-        [Display(group: "Konfiguration")]
+        [Presentation(Group = PropertyGroup.Configuration)]
         public double MaximumActivePowerDischarging { get; set; } = 10;
 
         [ServiceProperty(Title = "Wirkleistung Laden", Unit = "kW")]
-        [ServiceMeasuringPoint(Title = "Wirkleistung Laden", Unit = "kW")]
-        [Importance(Importance.Secondary)]
-        [Display(group: "Status")]
+        [ServiceMeasuringPoint]
+        [Presentation(Group = PropertyGroup.Status, Importance = Importance.Secondary)]
         public double ActivePowerCharging { get; private set; }
 
         [ServiceProperty(Title = "Wirkleistung Entladen", Unit = "kW")]
-        [ServiceMeasuringPoint(Title = "Wirkleistung Entladen", Unit = "kW")]
-        [Importance(Importance.Secondary)]
-        [Display(group: "Status")]
+        [ServiceMeasuringPoint]
+        [Presentation(Group = PropertyGroup.Status, Importance = Importance.Secondary)]
         public double ActivePowerDischarging { get; private set; }
 
         [Persistent]
         [ServiceProperty(Title = "Zählerstand Laden Total", Unit = "kWh")]
-        [ServiceMeasuringPoint(Title = "Zählerstand Laden Total", Unit = "kWh")]
-        [Category(PropertyCategory.Metric)]
-        [Display(group: "Zähler")]
+        [ServiceMeasuringPoint(Kind = MeasuringPointKind.TotalIncreasing)]
+        [Presentation(Group = PropertyGroup.Metric)]
         public double EnergyChargedTotal { get; private set; }
 
         [Persistent]
         [ServiceProperty(Title = "Zählerstand Entladen Total", Unit = "kWh")]
-        [ServiceMeasuringPoint(Title = "Zählerstand Entladen Total", Unit = "kWh")]
-        [Category(PropertyCategory.Metric)]
-        [Display(group: "Zähler")]
+        [ServiceMeasuringPoint(Kind = MeasuringPointKind.TotalIncreasing)]
+        [Presentation(Group = PropertyGroup.Metric)]
         public double EnergyDischargedTotal { get; private set; }
 
         [ServiceProperty(Title = "Aktuelle maximale Wirkleistung Entladen", Unit = "kW")]
-        [Display(group: "Status")]
+        [Presentation(Group = PropertyGroup.Status)]
         public double CurrentMaximumActivePowerDischarging { get; private set; }
 
         [ServiceProperty(Title = "Aktuelle maximale Wirkleistung Laden", Unit = "kW")]
-        [Display(group: "Status")]
+        [Presentation(Group = PropertyGroup.Status)]
         public double CurrentMaximumActivePowerCharging { get; private set; }
 
         public BatterySimulation(IDateTimeProvider dateTimeProvider, ILogger logger) : base(logger)

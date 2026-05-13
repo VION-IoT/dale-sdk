@@ -42,10 +42,10 @@ namespace VionIotLibraryTemplate
 
         // === I/O ===
 
-        [ServiceProviderContract("Button")]
+        [ServiceProviderContractBinding(Identifier = "Button")]
         public IDigitalInput Button { get; set; } = null!;
 
-        [ServiceProviderContract("LED")]
+        [ServiceProviderContractBinding(Identifier = "LED")]
         public IDigitalOutput Led { get; set; } = null!;
 
         // === Service Properties (Writable) ===

@@ -2,7 +2,7 @@
 
 namespace Vion.Examples.ToggleLight.Contracts
 {
-    [Contract(BetweenInterface = "IToggler",
+    [LogicBlockContract(BetweenInterface = "IToggler",
               AndInterface = "IToggleable",
               BetweenDefaultName = "Signalgeber",
               AndDefaultName = "Signalempfänger",

@@ -9,7 +9,7 @@ using Vion.Examples.Energy.Utils;
 
 namespace Vion.Examples.Energy.LogicBlocks
 {
-    [LogicBlockInfo("Energiemanager Simulation", "dashboard-line")]
+    [LogicBlock(Name = "Energiemanager Simulation", Icon = "dashboard-line")]
     public class EnergyManagerSimulation : LogicBlockBase,
                                            IObservableElectricitySupplierManager,
                                            IObservableElectricityConsumerManager,
@@ -20,13 +20,13 @@ namespace Vion.Examples.Energy.LogicBlocks
 
         public enum Mode
         {
-            [EnumValueInfo("Lastmanagement")]
+            [EnumLabel("Lastmanagement")]
             LoadManagement,
 
-            [EnumValueInfo("Eigenverbrauchsoptimierung")]
+            [EnumLabel("Eigenverbrauchsoptimierung")]
             SelfConsumptionOptimization,
 
-            [EnumValueInfo("Spitzenlastkappung")]
+            [EnumLabel("Spitzenlastkappung")]
             PeakShaving,
         }
 
@@ -61,204 +61,178 @@ namespace Vion.Examples.Energy.LogicBlocks
         private DateTime? _lastUpdateTimeVirtualGrid;
 
         [ServiceProperty(Title = "Modus")]
-        [Category(PropertyCategory.Configuration)]
-        [Importance(Importance.Secondary)]
-        [Display(group: "Konfiguration")]
+        [Presentation(Group = PropertyGroup.Configuration, Importance = Importance.Secondary)]
         public Mode ModeGlobal { get; set; } = Mode.LoadManagement;
 
         [ServiceProperty(Title = "Grenzwert Lastmanagement", Unit = "kW")]
-        [Category(PropertyCategory.Configuration)]
-        [Display(group: "Konfiguration")]
+        [Presentation(Group = PropertyGroup.Configuration)]
         public double LoadManagementLimit { get; set; } = 100.0;
 
         [ServiceProperty(Title = "Grenzwert Spitzenlastkappung", Unit = "kW")]
-        [Category(PropertyCategory.Configuration)]
-        [Display(group: "Konfiguration")]
+        [Presentation(Group = PropertyGroup.Configuration)]
         public double PeakShavingLimit { get; set; } = 50.0;
 
         [ServiceProperty(Title = "Grenzwert Eigenverbrauchsoptimierung", Unit = "kW")]
-        [Category(PropertyCategory.Configuration)]
-        [Display(group: "Konfiguration")]
+        [Presentation(Group = PropertyGroup.Configuration)]
         public double SelfConsumptionLimit { get; set; } = 0.0;
 
         [ServiceProperty(Title = "Antwortzeit Timeout")]
-        [Category(PropertyCategory.Configuration)]
-        [Display(group: "Konfiguration")]
+        [Presentation(Group = PropertyGroup.Configuration)]
         public TimeSpan RequestDataTimeout { get; set; } = TimeSpan.FromMilliseconds(500);
 
         [ServiceProperty(Title = "Antwortzeit")]
-        [Display(group: "Diagnose")]
+        [Presentation(Group = PropertyGroup.Diagnostics)]
         public TimeSpan RequestDataResponseTime { get; private set; }
 
         [ServiceProperty(Title = "Maximale Wirkleistung Erzeugung")]
-        [Display(group: "Status")]
+        [Presentation(Group = PropertyGroup.Status)]
         public double PeakActivePowerSupplying { get; private set; }
 
         [ServiceProperty(Title = "Gewichteter Ladezustand", Unit = "%")]
-        [Importance(Importance.Secondary)]
-        [Display(group: "Status")]
+        [Presentation(Group = PropertyGroup.Status, Importance = Importance.Secondary)]
         public double WeighedBufferStateOfCharge { get; private set; }
 
         [ServiceProperty(Title = "Wirkleistung Netzbezug", Unit = "kW")]
         [ServiceMeasuringPoint(Title = "Wirkleistung Netzbezug", Unit = "kW")]
-        [Importance(Importance.Primary)]
-        [Display(group: "Leistung")]
+        [Presentation(Group = PropertyGroup.Status, Importance = Importance.Primary)]
         public double ActivePowerImporting { get; private set; }
 
         [ServiceProperty(Title = "Wirkleistung Netzeinspeisung", Unit = "kW")]
         [ServiceMeasuringPoint(Title = "Wirkleistung Netzeinspeisung", Unit = "kW")]
-        [Importance(Importance.Primary)]
-        [Display(group: "Leistung")]
+        [Presentation(Group = PropertyGroup.Status, Importance = Importance.Primary)]
         public double ActivePowerExporting { get; private set; }
 
         [ServiceProperty(Title = "Wirkleistung Erzeugung Total", Unit = "kW")]
         [ServiceMeasuringPoint(Title = "Wirkleistung Erzeugung Total", Unit = "kW")]
-        [Importance(Importance.Secondary)]
-        [Display(group: "Leistung")]
+        [Presentation(Group = PropertyGroup.Status, Importance = Importance.Secondary)]
         public double ActivePowerSupplying { get; private set; }
 
         [ServiceProperty(Title = "Wirkleistung Verbrauch Total", Unit = "kW")]
         [ServiceMeasuringPoint(Title = "Wirkleistung Verbrauch Total", Unit = "kW")]
-        [Importance(Importance.Secondary)]
-        [Display(group: "Leistung")]
+        [Presentation(Group = PropertyGroup.Status, Importance = Importance.Secondary)]
         public double ActivePowerConsuming { get; private set; }
 
         [ServiceProperty(Title = "Wirkleistung Laden Total", Unit = "kW")]
         [ServiceMeasuringPoint(Title = "Wirkleistung Laden Total", Unit = "kW")]
-        [Importance(Importance.Secondary)]
-        [Display(group: "Leistung")]
+        [Presentation(Group = PropertyGroup.Status, Importance = Importance.Secondary)]
         public double ActivePowerCharging { get; private set; }
 
         [ServiceProperty(Title = "Wirkleistung Entladen Total", Unit = "kW")]
         [ServiceMeasuringPoint(Title = "Wirkleistung Entladen Total", Unit = "kW")]
-        [Importance(Importance.Secondary)]
-        [Display(group: "Leistung")]
+        [Presentation(Group = PropertyGroup.Status, Importance = Importance.Secondary)]
         public double ActivePowerDischarging { get; private set; }
 
         [ServiceProperty(Title = "Wirkleistung Batterie -> Verbrauch", Unit = "kW")]
         [ServiceMeasuringPoint(Title = "Wirkleistung Batterie -> Verbrauch", Unit = "kW")]
-        [Display(group: "Leistungsflüsse")]
+        [Presentation(Group = PropertyGroup.Status)]
         public double ActivePowerBuffersToConsumers { get; private set; }
 
         [ServiceProperty(Title = "Wirkleistung Batterie -> Netz", Unit = "kW")]
         [ServiceMeasuringPoint(Title = "Wirkleistung Batterie -> Netz", Unit = "kW")]
-        [Display(group: "Leistungsflüsse")]
+        [Presentation(Group = PropertyGroup.Status)]
         public double ActivePowerBuffersToGrid { get; private set; }
 
         [ServiceProperty(Title = "Wirkleistung Netz -> Batterie", Unit = "kW")]
         [ServiceMeasuringPoint(Title = "Wirkleistung Netz -> Batterie", Unit = "kW")]
-        [Display(group: "Leistungsflüsse")]
+        [Presentation(Group = PropertyGroup.Status)]
         public double ActivePowerGridToBuffers { get; private set; }
 
         [ServiceProperty(Title = "Wirkleistung Netz -> Verbrauch", Unit = "kW")]
         [ServiceMeasuringPoint(Title = "Wirkleistung Netz -> Verbrauch", Unit = "kW")]
-        [Display(group: "Leistungsflüsse")]
+        [Presentation(Group = PropertyGroup.Status)]
         public double ActivePowerGridToConsumers { get; private set; }
 
         [ServiceProperty(Title = "Wirkleistung Erzeugung -> Batterie", Unit = "kW")]
         [ServiceMeasuringPoint(Title = "Wirkleistung Erzeugung -> Batterie", Unit = "kW")]
-        [Display(group: "Leistungsflüsse")]
+        [Presentation(Group = PropertyGroup.Status)]
         public double ActivePowerProducersToBuffers { get; private set; }
 
         [ServiceProperty(Title = "Wirkleistung Erzeugung -> Verbraucher", Unit = "kW")]
         [ServiceMeasuringPoint(Title = "Wirkleistung Erzeugung -> Verbraucher", Unit = "kW")]
-        [Display(group: "Leistungsflüsse")]
+        [Presentation(Group = PropertyGroup.Status)]
         public double ActivePowerProducersToConsumers { get; private set; }
 
         [ServiceProperty(Title = "Wirkleistung Erzeugung -> Netz", Unit = "kW")]
         [ServiceMeasuringPoint(Title = "Wirkleistung Erzeugung -> Netz", Unit = "kW")]
-        [Display(group: "Leistungsflüsse")]
+        [Presentation(Group = PropertyGroup.Status)]
         public double ActivePowerProducersToGrid { get; private set; }
 
         [Persistent]
         [ServiceProperty(Title = "Zählerstand Netzbezug Total", Unit = "kWh")]
         [ServiceMeasuringPoint(Title = "Zählerstand Netzbezug Total", Unit = "kWh")]
-        [Category(PropertyCategory.Metric)]
-        [Display(group: "Zähler")]
+        [Presentation(Group = PropertyGroup.Metric)]
         public double EnergyImportTotal { get; private set; }
 
         [Persistent]
         [ServiceProperty(Title = "Zählerstand Netzeinspeisung Total", Unit = "kWh")]
         [ServiceMeasuringPoint(Title = "Zählerstand Netzeinspeisung Total", Unit = "kWh")]
-        [Category(PropertyCategory.Metric)]
-        [Display(group: "Zähler")]
+        [Presentation(Group = PropertyGroup.Metric)]
         public double EnergyExportTotal { get; private set; }
 
         [Persistent]
         [ServiceProperty(Title = "Zählerstand Erzeugung Total", Unit = "kWh")]
         [ServiceMeasuringPoint(Title = "Zählerstand Erzeugung Total", Unit = "kWh")]
-        [Category(PropertyCategory.Metric)]
-        [Display(group: "Zähler")]
+        [Presentation(Group = PropertyGroup.Metric)]
         public double EnergySuppliedTotal { get; private set; }
 
         [Persistent]
         [ServiceProperty(Title = "Zählerstand Verbrauch Total", Unit = "kWh")]
         [ServiceMeasuringPoint(Title = "Zählerstand Verbrauch Total", Unit = "kWh")]
-        [Category(PropertyCategory.Metric)]
-        [Display(group: "Zähler")]
+        [Presentation(Group = PropertyGroup.Metric)]
         public double EnergyConsumedTotal { get; private set; }
 
         [Persistent]
         [ServiceProperty(Title = "Zählerstand Laden Total", Unit = "kWh")]
         [ServiceMeasuringPoint(Title = "Zählerstand Laden Total", Unit = "kWh")]
-        [Category(PropertyCategory.Metric)]
-        [Display(group: "Zähler")]
+        [Presentation(Group = PropertyGroup.Metric)]
         public double EnergyChargedTotal { get; private set; }
 
         [Persistent]
         [ServiceProperty(Title = "Zählerstand Entladen Total", Unit = "kWh")]
         [ServiceMeasuringPoint(Title = "Zählerstand Entladen Total", Unit = "kWh")]
-        [Category(PropertyCategory.Metric)]
-        [Display(group: "Zähler")]
+        [Presentation(Group = PropertyGroup.Metric)]
         public double EnergyDischargedTotal { get; private set; }
 
         [Persistent]
         [ServiceProperty(Title = "Zählerstand Batterie -> Verbrauch", Unit = "kWh")]
         [ServiceMeasuringPoint(Title = "Zählerstand Batterie -> Verbrauch", Unit = "kWh")]
-        [Category(PropertyCategory.Metric)]
-        [Display(group: "Energieflüsse")]
+        [Presentation(Group = PropertyGroup.Metric)]
         public double EnergyBuffersToConsumers { get; private set; }
 
         [Persistent]
         [ServiceProperty(Title = "Zählerstand Batterie -> Netz", Unit = "kWh")]
         [ServiceMeasuringPoint(Title = "Zählerstand Batterie -> Netz", Unit = "kWh")]
-        [Category(PropertyCategory.Metric)]
-        [Display(group: "Energieflüsse")]
+        [Presentation(Group = PropertyGroup.Metric)]
         public double EnergyBuffersToGrid { get; private set; }
 
         [Persistent]
         [ServiceProperty(Title = "Zählerstand Netz -> Batterie", Unit = "kWh")]
         [ServiceMeasuringPoint(Title = "Zählerstand Netz -> Batterie", Unit = "kWh")]
-        [Category(PropertyCategory.Metric)]
-        [Display(group: "Energieflüsse")]
+        [Presentation(Group = PropertyGroup.Metric)]
         public double EnergyGridToBuffers { get; private set; }
 
         [Persistent]
         [ServiceProperty(Title = "Zählerstand Netz -> Verbrauch", Unit = "kWh")]
         [ServiceMeasuringPoint(Title = "Zählerstand Netz -> Verbrauch", Unit = "kWh")]
-        [Category(PropertyCategory.Metric)]
-        [Display(group: "Energieflüsse")]
+        [Presentation(Group = PropertyGroup.Metric)]
         public double EnergyGridToConsumers { get; private set; }
 
         [Persistent]
         [ServiceProperty(Title = "Zählerstand Erzeugung -> Batterie", Unit = "kWh")]
         [ServiceMeasuringPoint(Title = "Zählerstand Erzeugung -> Batterie", Unit = "kWh")]
-        [Category(PropertyCategory.Metric)]
-        [Display(group: "Energieflüsse")]
+        [Presentation(Group = PropertyGroup.Metric)]
         public double EnergyProducersToBuffers { get; private set; }
 
         [Persistent]
         [ServiceProperty(Title = "Zählerstand Erzeugung -> Verbrauch", Unit = "kWh")]
         [ServiceMeasuringPoint(Title = "Zählerstand Erzeugung -> Verbrauch", Unit = "kWh")]
-        [Category(PropertyCategory.Metric)]
-        [Display(group: "Energieflüsse")]
+        [Presentation(Group = PropertyGroup.Metric)]
         public double EnergyProducersToConsumers { get; private set; }
 
         [Persistent]
         [ServiceProperty(Title = "Zählerstand Erzeugung -> Netz", Unit = "kWh")]
         [ServiceMeasuringPoint(Title = "Zählerstand Erzeugung -> Netz", Unit = "kWh")]
-        [Category(PropertyCategory.Metric)]
-        [Display(group: "Energieflüsse")]
+        [Presentation(Group = PropertyGroup.Metric)]
         public double EnergyProducersToGrid { get; private set; }
 
         // total consumption, production, buffer charge/discharge energy

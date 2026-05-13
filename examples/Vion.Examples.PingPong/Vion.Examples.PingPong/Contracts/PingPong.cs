@@ -2,7 +2,7 @@
 
 namespace Vion.Examples.PingPong.Contracts
 {
-    [Contract(BetweenInterface = "IPing",
+    [LogicBlockContract(BetweenInterface = "IPing",
               AndInterface = "IPong",
               BetweenDefaultName = "Ping-Sender",
               AndDefaultName = "Pong-Empfänger",

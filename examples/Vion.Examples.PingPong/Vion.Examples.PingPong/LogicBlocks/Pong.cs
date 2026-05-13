@@ -6,7 +6,7 @@ using Vion.Examples.PingPong.ServiceInterfaces;
 
 namespace Vion.Examples.PingPong.LogicBlocks
 {
-    [LogicBlockInfo("Pong", "ping-pong-fill")]
+    [LogicBlock(Name = "Pong", Icon = "ping-pong-fill")]
     public class Pong : LogicBlockBase, IPong, IPongService
     {
         private readonly ILogger _logger;
@@ -33,8 +33,7 @@ namespace Vion.Examples.PingPong.LogicBlocks
         }
 
         /// <inheritdoc />
-        [Category(PropertyCategory.Metric)]
-        [Importance(Importance.Secondary)]
+        [Presentation(Group = PropertyGroup.Metric, Importance = Importance.Secondary)]
         public int PongsPerSecond { get; private set; } // from IPongService
 
         [Timer(1)]

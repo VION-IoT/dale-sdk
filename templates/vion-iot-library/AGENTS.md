@@ -29,12 +29,16 @@ LogicBlocks extend `LogicBlockBase` and use declarative attributes:
 
 | Attribute | Purpose |
 |-----------|---------|
-| `[ServiceProperty]` | Observable property (public setter = writable + persistent by default) |
-| `[ServiceMeasuringPoint]` | Read-only metric (`private set`) |
-| `[Timer(seconds)]` | Periodic callback method |
-| `[Persistent]` | Opts in private-set properties to persistence; `[Persistent(Exclude = true)]` opts out writable ones |
-| `[ServiceProviderContract("Name")]` | Hardware I/O binding (digital/analog) |
-| `[Interface]` / `[Command]` / `[RequestResponse]` | Inter-block messaging |
+| `[ServiceProperty]` | Observable property (public setter = writable + persistent by default). `Title`, `Description`, `Unit`, `Minimum`/`Maximum`, `WriteOnly` (string only) all configurable. |
+| `[ServiceMeasuringPoint]` | Read-only metric (`private set`). `Title`, `Description`, `Unit`, `Kind` (Measurement / Total / TotalIncreasing) configurable. |
+| `[Timer(seconds)]` | Periodic callback method. Method must be void + parameterless. |
+| `[Persistent]` | Opts in private-set properties to persistence; `[Persistent(Exclude = true)]` opts out writable ones. |
+| `[ServiceProviderContractBinding(Identifier = "Name")]` | Hardware I/O binding (digital/analog). Other named args: `DefaultName`, `Cardinality`, `Sharing`, `Tags`. |
+| `[Presentation(...)]` | UI hints: `Group` (use `PropertyGroup.*` constants), `Importance` (Primary/Secondary/Normal/Hidden), `Order`, `Decimals`, `StatusIndicator` (enum properties), `UiHint` (use `UiHints.*` constants like Trigger / Sparkline / Slider), `Format` (moment.js format string for `DateTime`/`TimeSpan`). |
+| `[LogicBlock(Name = "...", Icon = "...", Groups = new[] {...})]` | Block-level display metadata. |
+| `[LogicBlockContract]` / `[Command]` / `[RequestResponse]` / `[StateUpdate]` | Inter-block messaging. |
+| `[LogicBlockInterfaceBinding(typeof(IFoo))]` / `[RequiresLogicBlockInterface(typeof(IFoo))]` | Interface configuration / runtime dependency declaration. |
+| `[Severity(StatusSeverity.X)]` / `[EnumLabel("…")]` | Per-enum-member annotations: severity for status-indicator colouring; display label for the dashboard. |
 
 ## Project Structure
 

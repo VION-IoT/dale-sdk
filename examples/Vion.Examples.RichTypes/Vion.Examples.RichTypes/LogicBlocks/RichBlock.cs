@@ -10,7 +10,7 @@ namespace Vion.Examples.RichTypes.LogicBlocks
     ///     Used by Vion.Examples.RichTypes.DevHost to inspect the emitted introspection JSON
     ///     and exercise the schema/presentation/runtime three-doc shape.
     /// </summary>
-    [LogicBlockInfo("Rich Types Demo", "device-line")]
+    [LogicBlock(Name = "Rich Types Demo", Icon = "device-line")]
     public class RichBlock : LogicBlockBase
     {
         // ── Primitives — including the new unsigned set ────────────────────────────
@@ -77,7 +77,7 @@ namespace Vion.Examples.RichTypes.LogicBlocks
 
         // ── Enums ──────────────────────────────────────────────────────────────────
         [ServiceMeasuringPoint(Title = "Aktueller Alarm")]
-        [StatusIndicator]
+        [Presentation(StatusIndicator = true)]
         public AlarmState CurrentAlarm { get; private set; }
 
         [ServiceProperty(Title = "Bevorzugter Modus")]
@@ -106,16 +106,16 @@ namespace Vion.Examples.RichTypes.LogicBlocks
 
     public enum AlarmState
     {
-        [StatusSeverity(StatusSeverity.Success)]
-        [EnumValueInfo("Alles in Ordnung")]
+        [Severity(StatusSeverity.Success)]
+        [EnumLabel("Alles in Ordnung")]
         Ok,
 
-        [StatusSeverity(StatusSeverity.Warning)]
-        [EnumValueInfo("Warnung")]
+        [Severity(StatusSeverity.Warning)]
+        [EnumLabel("Warnung")]
         Warning,
 
-        [StatusSeverity(StatusSeverity.Error)]
-        [EnumValueInfo("Kritisch")]
+        [Severity(StatusSeverity.Error)]
+        [EnumLabel("Kritisch")]
         Critical,
     }
 }

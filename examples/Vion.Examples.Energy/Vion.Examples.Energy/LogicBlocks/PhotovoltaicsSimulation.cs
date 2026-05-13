@@ -1,4 +1,5 @@
 ﻿using System;
+using Vion.Contracts.TypeRef;
 using Vion.Dale.Sdk.AnalogIo.Output;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Utils;
@@ -9,7 +10,7 @@ using Vion.Examples.Energy.Utils;
 
 namespace Vion.Examples.Energy.LogicBlocks
 {
-    [LogicBlockInfo("Photovoltaik Simulation", "sun-line")]
+    [LogicBlock(Name = "Photovoltaik Simulation", Icon = "sun-line")]
     public class PhotovoltaicsSimulation : LogicBlockBase, IObservableElectricitySupplier
     {
         private readonly IDateTimeProvider _dateTimeProvider;
@@ -26,38 +27,34 @@ namespace Vion.Examples.Energy.LogicBlocks
 
         private IMeteoSubscription? _shortwaveRadiationSubscription;
 
-        [ServiceProviderContract(defaultName: "Auslastung")]
+        [ServiceProviderContractBinding(DefaultName = "Auslastung")]
         public IAnalogOutput ActivePowerPercentageOutput { get; private set; }
 
         [ServiceProperty(Title = "Fläche", Unit = "m²")]
-        [Category(PropertyCategory.Configuration)]
-        [Display(group: "Konfiguration")]
+        [Presentation(Group = PropertyGroup.Configuration)]
         public double PanelArea { get; set; } = 100;
 
         [ServiceProperty(Title = "Wirkungsgrad", Unit = "Faktor")]
-        [Category(PropertyCategory.Configuration)]
-        [Display(group: "Konfiguration")]
+        [Presentation(Group = PropertyGroup.Configuration)]
         public double PanelEfficiency { get; set; } = 0.2;
 
         [ServiceProperty(Title = "Maximale Kurzwellenstrahlung", Unit = "W/m²")]
-        [Category(PropertyCategory.Configuration)]
-        [Display(group: "Konfiguration")]
+        [Presentation(Group = PropertyGroup.Configuration)]
         public double MaxShortwaveRadiation { get; set; } = 350;
 
         [ServiceProperty(Title = "Maximale Wirkleistung", Unit = "kW")]
-        [Display(group: "Status")]
+        [Presentation(Group = PropertyGroup.Status)]
         public double PeakActivePower
         {
             get => PanelArea * PanelEfficiency * MaxShortwaveRadiation / 1000; // Convert W to kW
         }
 
         [ServiceProperty(Title = "Kurzwellenstrahlung", Unit = "W/m²")]
-        [Display(group: "Status")]
+        [Presentation(Group = PropertyGroup.Status)]
         public double ShortwaveRadiation { get; private set; }
 
         [ServiceProperty(Title = "Ort")]
-        [Category(PropertyCategory.Configuration)]
-        [Display(group: "Standort")]
+        [Presentation(Group = PropertyGroup.Identity)]
         public string LocationName
         {
             get => _locationName;
@@ -76,28 +73,23 @@ namespace Vion.Examples.Energy.LogicBlocks
 
         [ServiceProperty(Title = "Geografische Breite", Unit = "deg")]
         [Persistent]
-        [Category(PropertyCategory.Configuration)]
-        [Display(group: "Standort")]
+        [Presentation(Group = PropertyGroup.Identity)]
         public double Latitude { get; private set; } = 47.4991723; // Winterthur, Switzerland latitude
 
         [ServiceProperty(Title = "Geografishe Länge", Unit = "deg")]
         [Persistent]
-        [Category(PropertyCategory.Configuration)]
-        [Display(group: "Standort")]
+        [Presentation(Group = PropertyGroup.Identity)]
         public double Longitude { get; private set; } = 8.7291498; // Winterthur, Switzerland longitude
 
         [ServiceProperty(Title = "Wirkleistung", Unit = "kW")]
-        [ServiceMeasuringPoint(Title = "Wirkleistung", Unit = "kW")]
-        [Importance(Importance.Primary)]
-        [Display(group: "Status")]
+        [ServiceMeasuringPoint]
+        [Presentation(Group = PropertyGroup.Status, Importance = Importance.Primary)]
         public double ActivePowerSupplying { get; private set; }
 
         [Persistent]
         [ServiceProperty(Title = "Zählerstand Gesamterzeugung Total", Unit = "kWh")]
-        [ServiceMeasuringPoint(Title = "Zählerstand Gesamterzeugung Total", Unit = "kWh")]
-        [Category(PropertyCategory.Metric)]
-        [Importance(Importance.Secondary)]
-        [Display(group: "Zähler")]
+        [ServiceMeasuringPoint(Kind = MeasuringPointKind.TotalIncreasing)]
+        [Presentation(Group = PropertyGroup.Metric, Importance = Importance.Secondary)]
         public double EnergySuppliedTotal { get; private set; }
 
         public PhotovoltaicsSimulation(IDateTimeProvider dateTimeProvider, IMeteoService meteoService, IGeolocationService geolocationService, ILogger logger) :

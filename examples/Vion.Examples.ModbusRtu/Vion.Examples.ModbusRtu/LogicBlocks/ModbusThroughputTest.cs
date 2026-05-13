@@ -9,7 +9,7 @@ namespace Vion.Examples.ModbusRtu.LogicBlocks
     ///     Benchmarks Modbus RTU throughput by firing burst reads and measuring completions per second.
     ///     Demonstrates how batch size (number of registers per read) affects throughput.
     /// </summary>
-    [LogicBlockInfo("Modbus Durchsatztest", "speed-line")]
+    [LogicBlock(Name = "Modbus Durchsatztest", Icon = "speed-line")]
     public class ModbusThroughputTest : LogicBlockBase
     {
         private readonly ILogger _logger;
@@ -18,29 +18,26 @@ namespace Vion.Examples.ModbusRtu.LogicBlocks
 
         // ── Contract ──
 
-        [ServiceProviderContract("Modbus", "Durchsatztest Modbus RTU")]
+        [ServiceProviderContractBinding(Identifier = "Modbus", DefaultName = "Durchsatztest Modbus RTU")]
         public IModbusRtu Modbus { get; set; } = null!;
 
         // ── Configuration ──
 
         [ServiceProperty(Title = "Modbus-Adresse")]
-        [Category(PropertyCategory.Configuration)]
-        [Display(group: "Konfiguration")]
+        [Presentation(Group = PropertyGroup.Configuration)]
         public int UnitId { get; set; } = 1;
 
         [ServiceProperty(Title = "Anzahl Register pro Lesevorgang")]
-        [Category(PropertyCategory.Configuration)]
-        [Display(group: "Konfiguration")]
+        [Presentation(Group = PropertyGroup.Configuration)]
         public int RegisterCount { get; set; } = 1;
 
         [ServiceProperty(Title = "Anzahl Anfragen pro Burst")]
-        [Category(PropertyCategory.Configuration)]
-        [Display(group: "Konfiguration")]
+        [Presentation(Group = PropertyGroup.Configuration)]
         public int BurstSize { get; set; } = 100;
 
+        // Trigger workaround: getter returns false; setter starts the test.
         [ServiceProperty(Title = "Test starten")]
-        [Category(PropertyCategory.Action)]
-        [Display(group: "Konfiguration")]
+        [Presentation(Group = PropertyGroup.Configuration, UiHint = UiHints.Trigger)]
         public bool StartTest
         {
             get => false;
@@ -54,31 +51,30 @@ namespace Vion.Examples.ModbusRtu.LogicBlocks
             }
         }
 
-        // ── Results ──
+        // ── Results (Metric group — measurements + counters) ──
 
         [ServiceProperty(Title = "Lesevorgänge pro Sekunde")]
-        [Importance(Importance.Primary)]
-        [Display(group: "Ergebnis")]
+        [Presentation(Group = PropertyGroup.Metric, Importance = Importance.Primary)]
         public double ReadsPerSecond { get; private set; }
 
         [ServiceProperty(Title = "Durchschnittliche Latenz", Unit = "ms")]
-        [Display(group: "Ergebnis")]
+        [Presentation(Group = PropertyGroup.Metric)]
         public double AverageLatencyMs { get; private set; }
 
         [ServiceProperty(Title = "Erfolgreiche Anfragen")]
-        [Display(group: "Ergebnis")]
+        [Presentation(Group = PropertyGroup.Metric)]
         public int CompletedReads { get; private set; }
 
         [ServiceProperty(Title = "Fehlgeschlagene Anfragen")]
-        [Display(group: "Ergebnis")]
+        [Presentation(Group = PropertyGroup.Metric)]
         public int FailedReads { get; private set; }
 
         [ServiceProperty(Title = "Test läuft")]
-        [Display(group: "Ergebnis")]
+        [Presentation(Group = PropertyGroup.Status)]
         public bool TestRunning { get; private set; }
 
         [ServiceProperty(Title = "Letzte Testdauer", Unit = "ms")]
-        [Display(group: "Ergebnis")]
+        [Presentation(Group = PropertyGroup.Metric)]
         public double LastTestDurationMs { get; private set; }
 
         // ── Constructor ──

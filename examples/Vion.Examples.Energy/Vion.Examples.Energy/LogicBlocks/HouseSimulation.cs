@@ -1,4 +1,5 @@
 ﻿using System;
+using Vion.Contracts.TypeRef;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Utils;
 using Microsoft.Extensions.Logging;
@@ -7,7 +8,7 @@ using Vion.Examples.Energy.Utils;
 
 namespace Vion.Examples.Energy.LogicBlocks
 {
-    [LogicBlockInfo("Haus Simulation", "home-3-line")]
+    [LogicBlock(Name = "Haus Simulation", Icon = "home-3-line")]
     public class HouseSimulation : LogicBlockBase, IObservableElectricityConsumer
     {
         private readonly IDateTimeProvider _dateTimeProvider;
@@ -17,42 +18,34 @@ namespace Vion.Examples.Energy.LogicBlocks
         private DateTime? _lastUpdateTime;
 
         [ServiceProperty(Title = "Basisverbrauch", Unit = "kW")]
-        [Category(PropertyCategory.Configuration)]
-        [Display(group: "Konfiguration")]
+        [Presentation(Group = PropertyGroup.Configuration)]
         public double BaseConsumption { get; set; } = 0.45;
 
         [ServiceProperty(Title = "Verbrauchsspitze Morgen", Unit = "kW")]
-        [Category(PropertyCategory.Configuration)]
-        [Display(group: "Konfiguration")]
+        [Presentation(Group = PropertyGroup.Configuration)]
         public double MorningPeakConsumption { get; set; } = 1.2;
 
         [ServiceProperty(Title = "Verbrauchsspitze Kochen Abend", Unit = "kW")]
-        [Category(PropertyCategory.Configuration)]
-        [Display(group: "Konfiguration")]
+        [Presentation(Group = PropertyGroup.Configuration)]
         public double EveningCookingPeakConsumption { get; set; } = 2;
 
         [ServiceProperty(Title = "Verbrauchsspitze Heizen Abend", Unit = "kW")]
-        [Category(PropertyCategory.Configuration)]
-        [Display(group: "Konfiguration")]
+        [Presentation(Group = PropertyGroup.Configuration)]
         public double EventingHeatingPeakConsumption { get; set; } = 0.8;
 
         [ServiceProperty(Title = "Zeitzone")]
-        [Category(PropertyCategory.Configuration)]
-        [Display(group: "Konfiguration")]
+        [Presentation(Group = PropertyGroup.Configuration)]
         public string TimeZone { get; set; } = "Europe/Zurich";
 
         [ServiceProperty(Title = "Wirkleistung", Unit = "kW")]
-        [ServiceMeasuringPoint(Title = "Wirkleistung", Unit = "kW")]
-        [Importance(Importance.Primary)]
-        [Display(group: "Status")]
+        [ServiceMeasuringPoint]
+        [Presentation(Group = PropertyGroup.Status, Importance = Importance.Primary)]
         public double ActivePowerConsuming { get; private set; }
 
         [Persistent]
         [ServiceProperty(Title = "Zählerstand Gesamtverbrauch Total", Unit = "kWh")]
-        [ServiceMeasuringPoint(Title = "Zählerstand Gesamtverbrauch Total", Unit = "kWh")]
-        [Category(PropertyCategory.Metric)]
-        [Importance(Importance.Secondary)]
-        [Display(group: "Zähler")]
+        [ServiceMeasuringPoint(Kind = MeasuringPointKind.TotalIncreasing)]
+        [Presentation(Group = PropertyGroup.Metric, Importance = Importance.Secondary)]
         public double EnergyConsumedTotal { get; private set; }
 
         public HouseSimulation(IDateTimeProvider dateTimeProvider, ILogger logger) : base(logger)

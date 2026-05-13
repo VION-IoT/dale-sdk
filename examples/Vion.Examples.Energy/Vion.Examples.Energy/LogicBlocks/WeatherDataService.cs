@@ -5,7 +5,7 @@ using Vion.Examples.Energy.Services;
 
 namespace Vion.Examples.Energy.LogicBlocks
 {
-    [LogicBlockInfo("Wetterdaten", "cloud-line")]
+    [LogicBlock(Name = "Wetterdaten", Icon = "cloud-line")]
     public class WeatherDataService : LogicBlockBase, IWeatherDataProvider
     {
         private readonly IGeolocationService _geolocationService;
@@ -19,60 +19,57 @@ namespace Vion.Examples.Energy.LogicBlocks
         private IMeteoSubscription? _meteoSubscription;
 
         [ServiceProperty(Title = "Temperatur", Unit = "°C")]
-        [ServiceMeasuringPoint(Title = "Temperatur", Unit = "°C")]
-        [Importance(Importance.Primary)]
-        [Display(group: "Wetter")]
+        [ServiceMeasuringPoint]
+        [Presentation(Group = PropertyGroup.Status, Importance = Importance.Primary)]
         public double Temperature { get; private set; }
 
         [ServiceProperty(Title = "Luftfeuchtigkeit", Unit = "%")]
-        [ServiceMeasuringPoint(Title = "Luftfeuchtigkeit", Unit = "%")]
-        [Display(group: "Wetter")]
+        [ServiceMeasuringPoint]
+        [Presentation(Group = PropertyGroup.Status)]
         public double RelativeHumidity { get; private set; }
 
         [ServiceProperty(Title = "Taupunkt", Unit = "°C")]
-        [ServiceMeasuringPoint(Title = "Taupunkt", Unit = "°C")]
-        [Display(group: "Wetter")]
+        [ServiceMeasuringPoint]
+        [Presentation(Group = PropertyGroup.Status)]
         public double DewPoint { get; private set; }
 
         [ServiceProperty(Title = "Niederschlag", Unit = "mm")]
-        [ServiceMeasuringPoint(Title = "Niederschlag", Unit = "mm")]
-        [Display(group: "Wetter")]
+        [ServiceMeasuringPoint]
+        [Presentation(Group = PropertyGroup.Status)]
         public double Precipitation { get; private set; }
 
         [ServiceProperty(Title = "Regen", Unit = "mm")]
-        [ServiceMeasuringPoint(Title = "Regen", Unit = "mm")]
-        [Display(group: "Wetter")]
+        [ServiceMeasuringPoint]
+        [Presentation(Group = PropertyGroup.Status)]
         public double Rain { get; private set; }
 
         [ServiceProperty(Title = "Kurzwellenstrahlung", Unit = "W/m²")]
-        [ServiceMeasuringPoint(Title = "Kurzwellenstrahlung", Unit = "W/m²")]
-        [Importance(Importance.Secondary)]
-        [Display(group: "Wetter")]
+        [ServiceMeasuringPoint]
+        [Presentation(Group = PropertyGroup.Status, Importance = Importance.Secondary)]
         public double ShortwaveRadiation { get; private set; }
 
         [ServiceProperty(Title = "Windgeschwindigkeit", Unit = "km/h")]
-        [ServiceMeasuringPoint(Title = "Windgeschwindigkeit", Unit = "km/h")]
-        [Display(group: "Wetter")]
+        [ServiceMeasuringPoint]
+        [Presentation(Group = PropertyGroup.Status)]
         public double WindSpeed { get; private set; }
 
         [ServiceProperty(Title = "Windrichtung", Unit = "°")]
-        [ServiceMeasuringPoint(Title = "Windrichtung", Unit = "°")]
-        [Display(group: "Wetter")]
+        [ServiceMeasuringPoint]
+        [Presentation(Group = PropertyGroup.Status)]
         public double WindDirection { get; private set; }
 
         [ServiceProperty(Title = "Wolkenbedeckung", Unit = "%")]
-        [ServiceMeasuringPoint(Title = "Wolkenbedeckung", Unit = "%")]
-        [Display(group: "Wetter")]
+        [ServiceMeasuringPoint]
+        [Presentation(Group = PropertyGroup.Status)]
         public double CloudCover { get; private set; }
 
         [ServiceProperty(Title = "Luftdruck", Unit = "hPa")]
-        [ServiceMeasuringPoint(Title = "Luftdruck", Unit = "hPa")]
-        [Display(group: "Wetter")]
+        [ServiceMeasuringPoint]
+        [Presentation(Group = PropertyGroup.Status)]
         public double Pressure { get; private set; }
 
         [ServiceProperty(Title = "Ort")]
-        [Category(PropertyCategory.Configuration)]
-        [Display(group: "Standort")]
+        [Presentation(Group = PropertyGroup.Identity)]
         public string LocationName
         {
             get => _locationName;
@@ -91,14 +88,12 @@ namespace Vion.Examples.Energy.LogicBlocks
 
         [ServiceProperty(Title = "Geografische Breite", Unit = "deg")]
         [Persistent]
-        [Category(PropertyCategory.Configuration)]
-        [Display(group: "Standort")]
+        [Presentation(Group = PropertyGroup.Identity)]
         public double Latitude { get; private set; } = 47.4991723; // Winterthur, Switzerland latitude
 
         [ServiceProperty(Title = "Geografische Länge", Unit = "deg")]
         [Persistent]
-        [Category(PropertyCategory.Configuration)]
-        [Display(group: "Standort")]
+        [Presentation(Group = PropertyGroup.Identity)]
         public double Longitude { get; private set; } = 8.7291498; // Winterthur, Switzerland longitude
 
         public WeatherDataService(IMeteoService meteoService, IGeolocationService geolocationService, ILogger logger) : base(logger)

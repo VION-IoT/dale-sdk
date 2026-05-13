@@ -5,15 +5,15 @@ using Vion.Examples.ToggleLight.Contracts;
 
 namespace Vion.Examples.ToggleLight.LogicBlocks
 {
-    [LogicBlockInfo("Taster", "toggle-line")]
+    [LogicBlock(Name = "Taster", Icon = "toggle-line")]
     public class Toggle : LogicBlockBase, IToggler
     {
         public enum SignalMode
         {
-            [EnumValueInfo("Normal")]
+            [EnumLabel("Normal")]
             Normal,
 
-            [EnumValueInfo("Invertiert")]
+            [EnumLabel("Invertiert")]
             Inverted,
         }
 
@@ -22,7 +22,7 @@ namespace Vion.Examples.ToggleLight.LogicBlocks
         private bool _lastValue;
 
         [ServiceProperty(Title = "Signalmodus")]
-        [Category(PropertyCategory.Configuration)]
+        [Presentation(Group = PropertyGroup.Configuration)]
         public SignalMode Mode { get; set; } = SignalMode.Normal;
 
         public IDigitalInput DigitalInput { get; set; }

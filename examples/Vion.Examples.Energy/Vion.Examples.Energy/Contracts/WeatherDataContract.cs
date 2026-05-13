@@ -2,7 +2,7 @@
 
 namespace Vion.Examples.Energy.Contracts
 {
-    [Contract(BetweenInterface = "IWeatherDataProvider",
+    [LogicBlockContract(BetweenInterface = "IWeatherDataProvider",
               AndInterface = "IWeatherDataConsumer",
               BetweenDefaultName = "Wetterdatenquelle",
               AndDefaultName = "Wetterdatenempfänger",
