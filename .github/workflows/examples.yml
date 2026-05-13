@@ -23,6 +23,7 @@ jobs:
           - Vion.Examples.ToggleLight
           - Vion.Examples.Energy
           - Vion.Examples.ModbusRtu
+          - Vion.Examples.Presentation
           - Vion.Examples.RichTypes
     steps:
       - uses: actions/checkout@v4

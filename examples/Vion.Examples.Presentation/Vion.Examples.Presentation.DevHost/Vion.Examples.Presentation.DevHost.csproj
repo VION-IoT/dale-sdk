@@ -9,15 +9,11 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <!--
-            ProjectReference (not PackageReference) on the DevHost as well, so the entire chain
-            consumes the in-source SDK. Flip when the SDK ships.
-        -->
-        <ProjectReference Include="..\..\..\Vion.Dale.DevHost.Web\Vion.Dale.DevHost.Web.csproj" />
+        <PackageReference Include="Vion.Dale.DevHost.Web" Version="0.0.0-ci.70"/>
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\Vion.Examples.Presentation\Vion.Examples.Presentation.csproj" />
+        <ProjectReference Include="..\Vion.Examples.Presentation\Vion.Examples.Presentation.csproj"/>
     </ItemGroup>
 
 </Project>

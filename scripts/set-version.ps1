@@ -88,6 +88,15 @@ $exampleProjects = @(
         Path              = "examples\Vion.Examples.ModbusRtu\Vion.Examples.ModbusRtu.Test\Vion.Examples.ModbusRtu.Test.csproj"
         PackageReferences = @("Vion.Dale.Sdk.TestKit", "Vion.Dale.Sdk.Modbus.Rtu.TestKit")
     },
+    # Presentation example (no Test project — pack/upload only; demonstrates declarative-presentation surface)
+    @{
+        Path              = "examples\Vion.Examples.Presentation\Vion.Examples.Presentation\Vion.Examples.Presentation.csproj"
+        PackageReferences = @("Vion.Dale.Sdk")
+    },
+    @{
+        Path              = "examples\Vion.Examples.Presentation\Vion.Examples.Presentation.DevHost\Vion.Examples.Presentation.DevHost.csproj"
+        PackageReferences = @("Vion.Dale.DevHost.Web")
+    },
     # RichTypes example (no Test project — pack/upload only)
     @{
         Path              = "examples\Vion.Examples.RichTypes\Vion.Examples.RichTypes\Vion.Examples.RichTypes.csproj"
