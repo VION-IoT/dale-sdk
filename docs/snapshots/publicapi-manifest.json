@@ -25,6 +25,7 @@
     "Vion.Dale.Sdk.Core.LogicBlockBase",
     "Vion.Dale.Sdk.Core.LogicBlockContractAttribute",
     "Vion.Dale.Sdk.Core.LogicBlockInterfaceBindingAttribute",
+    "Vion.Dale.Sdk.Core.MeasuringPointKind",
     "Vion.Dale.Sdk.Core.PersistentAttribute",
     "Vion.Dale.Sdk.Core.PresentationAttribute",
     "Vion.Dale.Sdk.Core.PropertyGroup",
