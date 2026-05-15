@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json.Nodes;
+using Vion.Contracts.Conventions;
 using Vion.Contracts.Introspection;
 using Vion.Contracts.TypeRef;
 using Vion.Dale.Sdk.CodeGeneration;
@@ -121,14 +122,6 @@ namespace Vion.Dale.Sdk.Introspection
                                          var annotations = new Dictionary<string, object>(i.Value.MetaData.Annotations);
                                          MergeContractAnnotations(i.Value.LogicInterfaceType, annotations);
 
-                                         if (i.Value.MetaData.Dependency != null)
-                                         {
-                                             foreach (var kvp in i.Value.MetaData.Dependency.Annotations)
-                                             {
-                                                 annotations[kvp.Key] = kvp.Value;
-                                             }
-                                         }
-
                                          return new LogicBlockIntrospectionResult.InterfaceInfo
                                                 {
                                                     Identifier = i.Key,
@@ -212,14 +205,24 @@ namespace Vion.Dale.Sdk.Introspection
                                                 InvalidOperationException($"No interface with {nameof(ServiceProviderContractTypeAttribute)} found for type: {i.Value.GetType().FullName}");
                                         }
 
-                                        var attribute = interfaceWithAttr.GetCustomAttribute<ServiceProviderContractTypeAttribute>();
+                                        var attribute = interfaceWithAttr.GetCustomAttribute<ServiceProviderContractTypeAttribute>()!;
+
+                                        // Consumer-side Multiplicity arrives via ContractMetaData.Annotations;
+                                        // provider-side Consumers is declared on the contract-type interface
+                                        // and injected here (same loose-Annotations mechanism, token-valued,
+                                        // emitted only when non-default).
+                                        var annotations = new Dictionary<string, object>(i.Value.MetaData.Annotations);
+                                        if (attribute.Consumers != LinkMultiplicity.ZeroOrMore)
+                                        {
+                                            annotations[LogicBlockWiringConventions.ConsumersAnnotationKey] = LinkMultiplicityWire.ToToken(attribute.Consumers);
+                                        }
 
                                         return new LogicBlockIntrospectionResult.ContractInfo
                                                {
                                                    Identifier = i.Key,
                                                    ContractTypeFullName = ReflectionHelper.GetDisplayFullName(interfaceWithAttr),
-                                                   MatchingContractType = attribute!.ServiceProviderContractType,
-                                                   Annotations = i.Value.MetaData.Annotations,
+                                                   MatchingContractType = attribute.ServiceProviderContractType,
+                                                   Annotations = annotations,
                                                };
                                     })
                             .ToList();
