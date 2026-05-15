@@ -2,7 +2,8 @@ name: Pack & Publish
 # Two jobs:
 #   - publish: delegates pack/build/push to VION-IoT/shared-workflows
 #   - drift-and-docs: dale-sdk specific — snapshot regen, drift detection,
-#     auto-commit on PRs, push API reference to documentation on main
+#     auto-commit on PRs and on main, push API reference to documentation
+#     on main
 #
 # Pipeline logic for the publish job lives in VION-IoT/shared-workflows.
 
@@ -33,12 +34,14 @@ jobs:
     needs: publish
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # for the PR-time snapshot auto-commit
+      contents: write   # for snapshot auto-commit on PR head and on main
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 2   # main-only steps diff HEAD against HEAD~1
-          ref: ${{ github.event.pull_request.head.ref || '' }}   # check out PR head so auto-commit can push back
+          # Check out the PR head branch on PRs and the pushed branch (e.g. main)
+          # on pushes, so the auto-commit can push back to the right ref.
+          ref: ${{ github.head_ref || github.ref_name }}
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -76,15 +79,19 @@ jobs:
             --manifest /tmp/publicapi-current.json
 
       - name: Install packed CLI for snapshot
-        if: steps.version.outputs.is_release == 'false' && github.event_name == 'pull_request'
+        if: steps.version.outputs.is_release == 'false' && (github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))
         run: |
           dotnet tool install -g Vion.Dale.Cli \
             --add-source ./artifacts \
             --version ${{ steps.version.outputs.version }} \
             --no-cache
 
-      - name: Update snapshots (PRs only)
-        if: github.event_name == 'pull_request'
+      # Auto-commits the regenerated snapshot back to the PR head or to main
+      # itself when a feature was pushed direct-to-main. On main, the resulting
+      # commit becomes the new HEAD, so the HEAD~1-vs-HEAD diff in the notify
+      # steps below sees the API-surface change instead of stale-vs-stale.
+      - name: Update snapshots (auto-commit)
+        if: steps.version.outputs.is_release == 'false' && (github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))
         run: |
           cp /tmp/publicapi-current.json docs/snapshots/publicapi-manifest.json
 
@@ -102,7 +109,7 @@ jobs:
           git add docs/snapshots/publicapi-manifest.json docs/snapshots/cli-help-snapshot.txt
           if ! git diff --cached --quiet; then
             git commit -m "Update PublicApi manifest and CLI help snapshot [skip ci]"
-            git push
+            git push origin HEAD:${{ github.head_ref || github.ref_name }}
             echo "::notice::Auto-updated docs snapshots"
           else
             echo "Snapshots are up to date"
