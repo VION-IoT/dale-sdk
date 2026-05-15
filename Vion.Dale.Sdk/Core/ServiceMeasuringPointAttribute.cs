@@ -1,5 +1,4 @@
 using System;
-using Vion.Contracts.TypeRef;
 
 namespace Vion.Dale.Sdk.Core
 {

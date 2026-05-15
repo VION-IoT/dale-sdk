@@ -168,6 +168,31 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
     }
 
+    [LogicBlock(Name = "KindBlock", Icon = "gauge-line")]
+    public class MeasuringPointKindLogicBlock : LogicBlockBase
+    {
+        [ServiceMeasuringPoint(Unit = "kWh", Kind = MeasuringPointKind.TotalIncreasing)]
+        public double LifetimeEnergy { get; private set; }
+
+        [ServiceMeasuringPoint(Unit = "kWh", Kind = MeasuringPointKind.Total)]
+        public double DailyEnergy { get; private set; }
+
+        [ServiceMeasuringPoint(Unit = "kW")]
+        public double InstantPower { get; private set; }
+
+        public MeasuringPointKindLogicBlock() : base(new Mock<ILogger>().Object)
+        {
+        }
+
+        protected override void Ready()
+        {
+        }
+
+        protected override void Starting()
+        {
+        }
+    }
+
     public class PlainLogicBlock : LogicBlockBase
     {
         public PlainLogicBlock() : base(new Mock<ILogger>().Object)
@@ -502,6 +527,25 @@ namespace Vion.Dale.Sdk.Test.Introspection
             var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
 
             Assert.IsTrue(result.Contracts.Any(c => c.Identifier == "Temperature"));
+        }
+
+        [TestMethod]
+        public void EmitByteIdenticalXKindWireTokenForEachMeasuringPointKind()
+        {
+            // The Kind attribute now carries the SDK-Core mirror enum; PropertyMetadataBuilder
+            // casts it back to the canonical wire enum. The emitted x-kind token must stay
+            // byte-identical to the pre-mirror output (measurement / total / totalIncreasing).
+            var block = new MeasuringPointKindLogicBlock();
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+            var service = result.Services.First();
+
+            var lifetime = service.MeasuringPoints.First(m => m.Identifier == "LifetimeEnergy");
+            var daily = service.MeasuringPoints.First(m => m.Identifier == "DailyEnergy");
+            var instant = service.MeasuringPoints.First(m => m.Identifier == "InstantPower");
+
+            Assert.AreEqual("totalIncreasing", lifetime.Schema["x-kind"]?.GetValue<string>());
+            Assert.AreEqual("total", daily.Schema["x-kind"]?.GetValue<string>());
+            Assert.AreEqual("measurement", instant.Schema["x-kind"]?.GetValue<string>());
         }
 
         private LogicBlockIntrospectionResult.ServicePropertyInfo GetProperty(string identifier)

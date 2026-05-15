@@ -171,7 +171,10 @@ namespace Vion.Dale.Sdk.Introspection
             var writeOnly = sp?.WriteOnly ?? false;
 
             // Kind comes only from [ServiceMeasuringPoint]; null when the property isn't a measuring point.
-            MeasuringPointKind? kind = mp is not null ? mp.Kind : null;
+            // The attribute now carries the SDK-Core mirror enum; cast to the canonical wire enum
+            // at this boundary. Member values are identical, so the cast is total.
+            Vion.Contracts.TypeRef.MeasuringPointKind? kind =
+                mp is not null ? (Vion.Contracts.TypeRef.MeasuringPointKind)(int)mp.Kind : null;
 
             return new TypeAnnotations
                    {
