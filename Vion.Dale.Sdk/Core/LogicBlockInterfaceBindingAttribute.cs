@@ -26,6 +26,13 @@ namespace Vion.Dale.Sdk.Core
 
         public string[] Tags { get; init; } = Array.Empty<string>();
 
+        /// <summary>
+        ///     Consumer-side link multiplicity for this interface binding. Default
+        ///     <see cref="LinkMultiplicity.ZeroOrMore" /> (unconstrained — preserves
+        ///     the pre-multiplicity behaviour). Declared only; enforced downstream.
+        /// </summary>
+        public LinkMultiplicity Multiplicity { get; init; } = LinkMultiplicity.ZeroOrMore;
+
         public LogicBlockInterfaceBindingAttribute(Type forInterface)
         {
             ForInterface = forInterface;

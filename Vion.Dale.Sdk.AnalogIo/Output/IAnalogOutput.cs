@@ -8,7 +8,7 @@ namespace Vion.Dale.Sdk.AnalogIo.Output
     ///     Represents an analog output that can be used to communicate with hardware.
     /// </summary>
     [PublicApi]
-    [ServiceProviderContractType("AnalogOutput")]
+    [ServiceProviderContractType("AnalogOutput", Consumers = LinkMultiplicity.ZeroOrOne)]
     public interface IAnalogOutput
     {
         /// <summary>

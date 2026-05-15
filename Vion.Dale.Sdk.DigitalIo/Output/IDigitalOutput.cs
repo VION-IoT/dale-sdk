@@ -8,7 +8,7 @@ namespace Vion.Dale.Sdk.DigitalIo.Output
     ///     Represents a digital output that can be used to communicate with hardware.
     /// </summary>
     [PublicApi]
-    [ServiceProviderContractType("DigitalOutput")]
+    [ServiceProviderContractType("DigitalOutput", Consumers = LinkMultiplicity.ZeroOrOne)]
     public interface IDigitalOutput
     {
         /// <summary>

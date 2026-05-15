@@ -797,6 +797,27 @@
             margin-left: 8px;
         }
 
+        /* Wiring link-multiplicity (LinkMultiplicity) badges — consumer-side
+           Multiplicity and provider-side Consumers from the loose introspection
+           Annotations dict. Declared by the SDK; enforced downstream. */
+        .mult-badge {
+            display: inline-block;
+            padding: 2px 7px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+            background: rgba(129, 140, 248, 0.15);
+            color: #a5b4fc;
+            border: 1px solid rgba(129, 140, 248, 0.3);
+            margin-left: 6px;
+        }
+
+        .mult-badge.consumers {
+            background: rgba(45, 212, 191, 0.15);
+            color: #5eead4;
+            border-color: rgba(45, 212, 191, 0.3);
+        }
+
         /* Scrollbar styling */
         ::-webkit-scrollbar {
             width: 10px;
@@ -1005,12 +1026,21 @@
             connHeader.textContent = 'Connections';
             section.appendChild(connHeader);
 
+            // Map this LB's own interface identifier -> introspection annotations
+            // (carries the consumer-side LinkMultiplicity wiring token, if non-default).
+            const ifaceInfoMap = {};
+            (lb.interfaces || []).forEach(i => { ifaceInfoMap[i.identifier] = i; });
+
             const badgeContainer = document.createElement('div');
             badgeContainer.className = 'connection-badges';
             connections.forEach(conn => {
                 const badge = document.createElement('span');
                 badge.className = 'connection-badge';
                 badge.innerHTML = `<span class="arrow">${conn.arrow}</span> <span class="target-name">${conn.otherName}</span> <span class="iface-names">via ${conn.sourceIface} &#x2194; ${conn.targetIface}</span>`;
+                const ownInfo = ifaceInfoMap[conn.ownIface];
+                if (ownInfo) {
+                    multiplicityBadgeNodes(ownInfo.annotations).forEach(n => badge.appendChild(n));
+                }
                 badgeContainer.appendChild(badge);
             });
             section.appendChild(badgeContainer);
@@ -1404,6 +1434,34 @@
         return details;
     }
 
+    // Build wiring link-multiplicity badge elements from a loose introspection
+    // Annotations dict. Consumer-side `Multiplicity` and provider-side
+    // `Consumers` ride LogicBlockIntrospectionResult.{InterfaceInfo,
+    // ContractInfo}.Annotations as LinkMultiplicity token strings, and are
+    // omitted entirely when the unconstrained `ZeroOrMore` default applies.
+    // Returns DOM nodes (textContent only — no innerHTML) for safe insertion.
+    function multiplicityBadgeNodes(annotations) {
+        const nodes = [];
+        if (!annotations) return nodes;
+        // Wire keys are camelCased by JsonSerialization.DefaultOptions
+        // (DictionaryKeyPolicy) — "Multiplicity"/"Consumers" -> multiplicity/consumers.
+        if (annotations.multiplicity) {
+            const b = document.createElement('span');
+            b.className = 'mult-badge';
+            b.title = 'Consumer-side link multiplicity (LinkMultiplicity)';
+            b.textContent = `mult: ${annotations.multiplicity}`;
+            nodes.push(b);
+        }
+        if (annotations.consumers) {
+            const b = document.createElement('span');
+            b.className = 'mult-badge consumers';
+            b.title = 'Provider-side accepted consumers (LinkMultiplicity)';
+            b.textContent = `consumers: ${annotations.consumers}`;
+            nodes.push(b);
+        }
+        return nodes;
+    }
+
     // Get connections for a logic block (both outgoing and incoming)
     function getConnectionsForLb(lbId) {
         const connections = [];
@@ -1416,6 +1474,7 @@
                     otherName: m.targetLogicBlockName,
                     sourceIface: m.sourceInterfaceIdentifier,
                     targetIface: m.targetInterfaceIdentifier,
+                    ownIface: m.sourceInterfaceIdentifier,
                 });
             } else if (m.targetLogicBlockId === lbId) {
                 connections.push({
@@ -1423,6 +1482,7 @@
                     otherName: m.sourceLogicBlockName,
                     sourceIface: m.sourceInterfaceIdentifier,
                     targetIface: m.targetInterfaceIdentifier,
+                    ownIface: m.targetInterfaceIdentifier,
                 });
             }
         });
@@ -1496,6 +1556,13 @@
                     <label>${cm.contractIdentifier}${sharedHtml}</label>
                     <span class="value-display" id="ao-value-${uid}">0.0</span>
                 `;
+            }
+
+            // Append wiring-multiplicity badges (consumer-side Multiplicity +
+            // provider-side Consumers) into the contract's label, safely as DOM nodes.
+            const labelEl = control.querySelector('label');
+            if (labelEl) {
+                multiplicityBadgeNodes(info.annotations).forEach(n => labelEl.appendChild(n));
             }
 
             controls.push(control);

@@ -28,7 +28,6 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
 
             // Get explicitly defined interface attributes
             var interfaceAttributes = type.GetCustomAttributes<LogicBlockInterfaceBindingAttribute>().ToList();
-            var dependencyAttributes = type.GetCustomAttributes<RequiresLogicBlockInterfaceAttribute>().ToList();
 
             // Process each implemented interface
             foreach (var implementedLogicInterface in implementedLogicInterfaces)
@@ -36,7 +35,6 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
                 BindLogicInterface(logicBlock,
                                    implementedLogicInterface,
                                    interfaceAttributes,
-                                   dependencyAttributes,
                                    interfaceFactory,
                                    null);
             }
@@ -68,7 +66,6 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
 
                 // Get explicitly defined interface attributes for the property
                 var interfaceAttributes = property.GetCustomAttributes<LogicBlockInterfaceBindingAttribute>().ToList();
-                var dependencyAttributes = property.GetCustomAttributes<RequiresLogicBlockInterfaceAttribute>().ToList();
 
                 // Process each implemented interface
                 foreach (var implementedLogicInterface in implementedLogicInterfaces)
@@ -80,7 +77,6 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
                     BindLogicInterface(propertyValue,
                                        implementedLogicInterface,
                                        interfaceAttributes,
-                                       dependencyAttributes,
                                        interfaceFactory,
                                        defaultIdentifier);
                 }
@@ -90,7 +86,6 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
         private static void BindLogicInterface(object implementation,
                                                Type implementedLogicInterface,
                                                List<LogicBlockInterfaceBindingAttribute> interfaceAttributes,
-                                               List<RequiresLogicBlockInterfaceAttribute> dependencyAttributes,
                                                IInterfaceFactory interfaceFactory,
                                                string? defaultIdentifier)
         {
@@ -102,8 +97,7 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
             var identifier = interfaceAttribute.Identifier ?? defaultIdentifier ?? implementedLogicInterface.Name;
 
             var logicSendInterfaceInstance = CreateLogicSendInterface(interfaceFactory, logicSendInterfaceType, implementedLogicInterface, identifier, implementation);
-            var dependencyAttribute = dependencyAttributes.FirstOrDefault(attr => attr.ForInterface == implementedLogicInterface);
-            ApplyMetadata(logicSendInterfaceInstance, logicSendInterfaceType, interfaceAttribute, dependencyAttribute);
+            ApplyMetadata(logicSendInterfaceInstance, interfaceAttribute);
         }
 
         private static Type[] GetImplementedLogicInterfaces(Type type)
@@ -123,59 +117,24 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
             return implementationAttr.SenderInterface;
         }
 
-        private static void ApplyMetadata(object logicSendInterfaceInstance,
-                                          Type logicInterfaceType,
-                                          LogicBlockInterfaceBindingAttribute? interfaceAttr,
-                                          RequiresLogicBlockInterfaceAttribute? dependencyAttr)
+        private static void ApplyMetadata(object logicSendInterfaceInstance, LogicBlockInterfaceBindingAttribute interfaceAttr)
         {
             if (logicSendInterfaceInstance is not ILogicSenderInterface logicSendInterface)
             {
                 return;
             }
 
-            // Apply basic metadata
-            if (!string.IsNullOrEmpty(interfaceAttr?.DefaultName))
+            if (!string.IsNullOrEmpty(interfaceAttr.DefaultName))
             {
                 logicSendInterface.WithDefaultName(interfaceAttr.DefaultName);
             }
 
-            if (interfaceAttr?.Tags.Length > 0)
+            if (interfaceAttr.Tags.Length > 0)
             {
                 logicSendInterface.WithTags(interfaceAttr.Tags);
             }
 
-            // Apply dependency metadata if present
-            if (dependencyAttr != null)
-            {
-                ConfigureDependencyDynamic(logicSendInterfaceInstance, logicInterfaceType, dependencyAttr);
-            }
-        }
-
-        private static void ConfigureDependencyDynamic(object logicSendInterfaceInstance, Type logicInterfaceType, RequiresLogicBlockInterfaceAttribute dependencyAttr)
-        {
-            // Find the ConfigureDependency extension method
-            var configureDependencyMethod = typeof(LogicInterfaceExtensions).GetMethods(BindingFlags.Public | BindingFlags.Static)
-                                                                            .FirstOrDefault(m => m.Name == nameof(LogicInterfaceExtensions.ConfigureDependency) &&
-                                                                                                 m.IsGenericMethodDefinition);
-
-            if (configureDependencyMethod == null)
-            {
-                throw new InvalidOperationException("ConfigureDependency method not found");
-            }
-
-            // Make the generic method with the logic interface type (e.g., IToggler)
-            var genericMethod = configureDependencyMethod.MakeGenericMethod(logicInterfaceType);
-
-            // Call the method with the dependency attributes
-            genericMethod.Invoke(null,
-            [
-                logicSendInterfaceInstance,
-                dependencyAttr.DefaultName,
-                dependencyAttr.Cardinality,
-                dependencyAttr.Sharing,
-                dependencyAttr.CreationType,
-                dependencyAttr.Tags,
-            ]);
+            logicSendInterface.WithMultiplicity(interfaceAttr.Multiplicity);
         }
 
         /// <summary>

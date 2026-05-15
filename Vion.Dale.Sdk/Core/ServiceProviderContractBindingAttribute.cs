@@ -5,8 +5,11 @@ namespace Vion.Dale.Sdk.Core
     /// <summary>
     ///     Binds a LogicBlock property to a hardware service-provider function
     ///     (HAL: IAnalogOutput, IDigitalOutput, IModbusClient, …). The property type is the
-    ///     hardware contract; the attribute carries the identity / sharing / cardinality
-    ///     metadata for the binding.
+    ///     hardware contract; the attribute carries the identity / link-multiplicity
+    ///     metadata for the binding. Structurally the matched twin of
+    ///     <see cref="LogicBlockInterfaceBindingAttribute" /> — distinct only because
+    ///     the two are consumed by different binders (in-process actor link vs MQTT
+    ///     service-provider adapter).
     /// </summary>
     [PublicApi]
     [AttributeUsage(AttributeTargets.Property, AllowMultiple = false)]
@@ -16,9 +19,12 @@ namespace Vion.Dale.Sdk.Core
 
         public string? DefaultName { get; init; }
 
-        public CardinalityType Cardinality { get; init; } = CardinalityType.Mandatory;
-
-        public SharingType Sharing { get; init; } = SharingType.Shared;
+        /// <summary>
+        ///     Consumer-side link multiplicity for this contract binding. Default
+        ///     <see cref="LinkMultiplicity.ZeroOrMore" /> (unconstrained — preserves
+        ///     the pre-multiplicity behaviour). Declared only; enforced downstream.
+        /// </summary>
+        public LinkMultiplicity Multiplicity { get; init; } = LinkMultiplicity.ZeroOrMore;
 
         public string[] Tags { get; init; } = Array.Empty<string>();
     }

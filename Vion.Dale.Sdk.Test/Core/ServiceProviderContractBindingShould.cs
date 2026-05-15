@@ -15,8 +15,7 @@ namespace Vion.Dale.Sdk.Test.Core
         [ServiceProviderContractBinding(
             Identifier = "LED",
             DefaultName = "Status-LED",
-            Cardinality = CardinalityType.Optional,
-            Sharing = SharingType.Exclusive,
+            Multiplicity = LinkMultiplicity.ZeroOrOne,
             Tags = new[] { "output", "indicator" })]
         public ITestDigitalOutput Led { get; set; } = null!;
 
@@ -43,18 +42,16 @@ namespace Vion.Dale.Sdk.Test.Core
                 .GetCustomAttribute<ServiceProviderContractBindingAttribute>()!;
             Assert.AreEqual("LED", attr.Identifier);
             Assert.AreEqual("Status-LED", attr.DefaultName);
-            Assert.AreEqual(CardinalityType.Optional, attr.Cardinality);
-            Assert.AreEqual(SharingType.Exclusive, attr.Sharing);
+            Assert.AreEqual(LinkMultiplicity.ZeroOrOne, attr.Multiplicity);
             Assert.HasCount(2, attr.Tags);
         }
 
         [TestMethod]
-        public void DefaultCardinalityToMandatory()
+        public void DefaultMultiplicityToZeroOrMore()
         {
             var attr = typeof(TestLb).GetProperty(nameof(TestLb.Defaulted))!
                 .GetCustomAttribute<ServiceProviderContractBindingAttribute>()!;
-            Assert.AreEqual(CardinalityType.Mandatory, attr.Cardinality);
-            Assert.AreEqual(SharingType.Shared, attr.Sharing);
+            Assert.AreEqual(LinkMultiplicity.ZeroOrMore, attr.Multiplicity);
             Assert.HasCount(0, attr.Tags);
         }
     }

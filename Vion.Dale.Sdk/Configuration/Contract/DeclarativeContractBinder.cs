@@ -65,8 +65,7 @@ namespace Vion.Dale.Sdk.Configuration.Contract
                 metadata.Tags = contractAttr.Tags.ToList();
             }
 
-            metadata.Cardinality = contractAttr.Cardinality;
-            metadata.Sharing = contractAttr.Sharing;
+            metadata.Multiplicity = contractAttr.Multiplicity;
         }
 
         private static bool IsContractType(Type type)

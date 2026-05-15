@@ -20,24 +20,10 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
             return obj;
         }
 
-        public static TInterface ConfigureDependency<TInterface>(this TInterface obj,
-                                                                 string defaultName,
-                                                                 CardinalityType cardinality,
-                                                                 SharingType sharingType,
-                                                                 DependencyCreationType creationType,
-                                                                 params string[] tags)
+        public static TInterface WithMultiplicity<TInterface>(this TInterface obj, LinkMultiplicity multiplicity)
             where TInterface : ILogicSenderInterface
         {
-            obj.GetMetaData().Dependency = new FunctionInterfaceMetaData.FunctionInterfaceDependencyMetaData
-                                           {
-                                               Type = obj.AsImplementation().LogicInterfaceType,
-                                               MatchingType = obj.AsImplementation().MatchingLogicInterfaceType,
-                                               DefaultName = defaultName,
-                                               Cardinality = cardinality,
-                                               Sharing = sharingType,
-                                               CreationType = creationType,
-                                               Tags = tags.ToList(),
-                                           };
+            obj.GetMetaData().Multiplicity = multiplicity;
             return obj;
         }
 
