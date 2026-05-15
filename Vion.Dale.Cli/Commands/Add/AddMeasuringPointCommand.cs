@@ -20,11 +20,23 @@ namespace Vion.Dale.Cli.Commands.Add
             var toOption = new Option<string?>("--to") { Description = "Target LogicBlock class name (auto-detected if only one exists)" };
             var defaultNameOption = new Option<string?>("--default-name") { Description = "Title for [ServiceMeasuringPoint] (defaults to the measuring point name)" };
             var persistentOption = new Option<bool>("--persistent") { Description = "Add [Persistent] attribute (measuring points are not persistent by default)" };
+            var kindOption = new Option<string?>("--kind") { Description = "MeasuringPointKind on [ServiceMeasuringPoint]: Measurement, Total, or TotalIncreasing" };
+            kindOption.AcceptOnlyFromAmong("Measurement", "Total", "TotalIncreasing");
+            var groupOption = new Option<string?>("--group") { Description = "[Presentation] group: a PropertyGroup name (Status, Configuration, Metric, Diagnostics, Identity, Alarm) or an arbitrary raw key" };
+            var importanceOption = new Option<string?>("--importance") { Description = "[Presentation] importance: Primary, Secondary, Normal, or Hidden" };
+            importanceOption.AcceptOnlyFromAmong(PresentationSnippet.Importances);
+            var decimalsOption = new Option<int?>("--decimals") { Description = "[Presentation] numeric display precision" };
+            var formatOption = new Option<string?>("--format") { Description = "[Presentation] date/duration/numeric format-token string" };
 
             command.Options.Add(typeOption);
             command.Options.Add(toOption);
             command.Options.Add(defaultNameOption);
             command.Options.Add(persistentOption);
+            command.Options.Add(kindOption);
+            command.Options.Add(groupOption);
+            command.Options.Add(importanceOption);
+            command.Options.Add(decimalsOption);
+            command.Options.Add(formatOption);
 
             command.SetAction(parseResult =>
                               {
@@ -33,6 +45,11 @@ namespace Vion.Dale.Cli.Commands.Add
                                   var to = parseResult.GetValue(toOption);
                                   var defaultName = parseResult.GetValue(defaultNameOption);
                                   var persistent = parseResult.GetValue(persistentOption);
+                                  var kind = parseResult.GetValue(kindOption);
+                                  var group = parseResult.GetValue(groupOption);
+                                  var importance = parseResult.GetValue(importanceOption);
+                                  var decimals = parseResult.GetValue(decimalsOption);
+                                  var format = parseResult.GetValue(formatOption);
                                   var projectPath = parseResult.GetValue<string?>("--project");
 
                                   var project = CommandHelpers.RequireProject(projectPath);
@@ -55,7 +72,7 @@ namespace Vion.Dale.Cli.Commands.Add
                                       return 1;
                                   }
 
-                                  var snippet = BuildMeasuringPointSnippet(name!, type!, defaultName, persistent);
+                                  var snippet = BuildMeasuringPointSnippet(name!, type!, defaultName, persistent, kind, group, importance, decimals, format);
 
                                   if (!SourceInserter.InsertIntoClass(target.FilePath, target.ClassName, snippet))
                                   {
@@ -80,12 +97,28 @@ namespace Vion.Dale.Cli.Commands.Add
             return command;
         }
 
-        internal static string BuildMeasuringPointSnippet(string name, string type, string? defaultName, bool persistent)
+        internal static string BuildMeasuringPointSnippet(string name, string type, string? defaultName, bool persistent,
+                                                          string? kind, string? group, string? importance, int? decimals, string? format)
         {
             var lines = new List<string>();
 
             var displayName = defaultName ?? name;
-            lines.Add($"[ServiceMeasuringPoint(Title = \"{displayName}\")]");
+
+            // --kind is emitted as a property INSIDE [ServiceMeasuringPoint(...)], not a separate attribute.
+            var smpArgs = $"Title = \"{PresentationSnippet.EscapeCsString(displayName)}\"";
+            if (kind != null)
+            {
+                smpArgs += $", Kind = MeasuringPointKind.{kind}";
+            }
+
+            lines.Add($"[ServiceMeasuringPoint({smpArgs})]");
+
+            // [Presentation(...)] attribute, only when ≥1 presentation flag was supplied.
+            var presentation = PresentationSnippet.Build(group, importance, decimals, format);
+            if (presentation != null)
+            {
+                lines.Add(presentation);
+            }
 
             if (persistent)
             {

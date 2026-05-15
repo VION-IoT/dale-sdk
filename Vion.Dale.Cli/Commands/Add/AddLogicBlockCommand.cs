@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.CommandLine;
 using System.IO;
 using Vion.Dale.Cli.Helpers;
@@ -14,9 +15,16 @@ namespace Vion.Dale.Cli.Commands.Add
             var nameArg = new Argument<string>("name") { Description = "Name of the new LogicBlock class" };
             command.Arguments.Add(nameArg);
 
+            var displayNameOption = new Option<string?>("--name") { Description = "Human-readable name for [LogicBlock(Name = ...)] (defaults to the class name)" };
+            var iconOption = new Option<string?>("--icon") { Description = "Icon identifier for [LogicBlock(Icon = ...)] (Remixicon name without the \"ri-\" prefix)" };
+            command.Options.Add(displayNameOption);
+            command.Options.Add(iconOption);
+
             command.SetAction(parseResult =>
                               {
                                   var name = parseResult.GetValue(nameArg);
+                                  var displayName = parseResult.GetValue(displayNameOption);
+                                  var icon = parseResult.GetValue(iconOption);
                                   var projectPath = parseResult.GetValue<string?>("--project");
 
                                   var project = CommandHelpers.RequireProject(projectPath);
@@ -33,7 +41,7 @@ namespace Vion.Dale.Cli.Commands.Add
                                   }
 
                                   var ns = project.RootNamespace ?? project.ProjectName;
-                                  var content = GenerateLogicBlock(name!, ns);
+                                  var content = GenerateLogicBlock(name!, ns, displayName, icon);
                                   File.WriteAllText(outputPath, content);
 
                                   // Try to register in DependencyInjection.cs
@@ -58,14 +66,31 @@ namespace Vion.Dale.Cli.Commands.Add
             return command;
         }
 
-        private static string GenerateLogicBlock(string name, string ns)
+        internal static string GenerateLogicBlock(string name, string ns, string? displayName, string? icon)
         {
+            var classAttribute = string.Empty;
+            var args = new List<string>();
+            if (!string.IsNullOrWhiteSpace(displayName))
+            {
+                args.Add($"Name = \"{PresentationSnippet.EscapeCsString(displayName!)}\"");
+            }
+
+            if (!string.IsNullOrWhiteSpace(icon))
+            {
+                args.Add($"Icon = \"{PresentationSnippet.EscapeCsString(icon!)}\"");
+            }
+
+            if (args.Count > 0)
+            {
+                classAttribute = $"    [LogicBlock({string.Join(", ", args)})]\n";
+            }
+
             return $@"using Vion.Dale.Sdk.Core;
 using Microsoft.Extensions.Logging;
 
 namespace {ns}
 {{
-    public class {name} : LogicBlockBase
+{classAttribute}    public class {name} : LogicBlockBase
     {{
         private readonly ILogger _logger;
 
