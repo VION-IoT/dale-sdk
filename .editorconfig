@@ -1,0 +1,10 @@
+# Editor-layer counterpart to .gitattributes: tells every conforming
+# editor to write LF so the working tree matches what git stores.
+# Intentionally limited to line endings only — no style/indent rules.
+root = true
+
+[*]
+end_of_line = lf
+
+[*.{cmd,bat}]
+end_of_line = crlf
