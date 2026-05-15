@@ -3,7 +3,7 @@ using System.Linq.Expressions;
 
 namespace Vion.Dale.Sdk.Configuration.Services
 {
-    public class ServiceBuilder : ServiceBuilderBase
+    internal class ServiceBuilder : ServiceBuilderBase
     {
         public ServiceBuilder(ServiceBinder binder, string serviceIdentifier) : base(binder, serviceIdentifier)
         {

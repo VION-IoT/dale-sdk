@@ -7,7 +7,7 @@ namespace Vion.Dale.Sdk.Configuration.Services
     /// <summary>
     ///     Non-generic base implementation of service builder for reflection-free binding
     /// </summary>
-    public class ServiceBuilderBase
+    internal class ServiceBuilderBase
     {
         protected readonly ServiceBinder Binder;
 

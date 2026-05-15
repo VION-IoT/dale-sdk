@@ -251,11 +251,10 @@ namespace Vion.Dale.Sdk.Core
         }
 
         /// <summary>
-        ///     Can be overridden to provide custom configurationBuilder logic, e.g. creating interfaces, contracts, services and
-        ///     timers
-        ///     programmatically with full control
+        ///     Binds this logic block's interfaces, contracts, services and timers from their declarative attributes.
+        ///     Internal infrastructure invoked by the runtime; not an extension point.
         /// </summary>
-        protected virtual void Configure(ILogicBlockConfigurationBuilder configurationBuilder)
+        internal void Configure(ILogicBlockConfigurationBuilder configurationBuilder)
         {
             DeclarativeInterfaceBinder.BindInterfacesFromAttributes(this, configurationBuilder.Interfaces);
             DeclarativeContractBinder.BindContractsFromAttributes(this, configurationBuilder.Contracts);

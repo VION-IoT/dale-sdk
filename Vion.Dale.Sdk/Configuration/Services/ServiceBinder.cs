@@ -21,9 +21,9 @@ namespace Vion.Dale.Sdk.Configuration.Services
         private readonly Dictionary<string, List<ServiceRelationInfo>> _serviceRelations = [];
 
         /// <summary>
-        ///     For the user to declare a service and start binding properties
+        ///     Used by the declarative service binder to declare a service and start binding properties
         /// </summary>
-        public ServiceBuilder CreateService(string serviceIdentifier)
+        internal ServiceBuilder CreateService(string serviceIdentifier)
         {
             if (!_serviceProperties.ContainsKey(serviceIdentifier))
             {
@@ -36,6 +36,11 @@ namespace Vion.Dale.Sdk.Configuration.Services
             }
 
             return new ServiceBuilder(this, serviceIdentifier);
+        }
+
+        ServiceBuilder IServiceFactory.CreateService(string serviceIdentifier)
+        {
+            return CreateService(serviceIdentifier);
         }
 
         public event EventHandler<ServicePropertyChangedEventArgs>? ServicePropertyValueChanged;

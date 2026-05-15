@@ -9,7 +9,7 @@ using Vion.Dale.Sdk.Utils;
 
 namespace Vion.Dale.Sdk.Configuration
 {
-    public class LogicBlockConfigurationBuilder : ILogicBlockConfigurationBuilder
+    internal class LogicBlockConfigurationBuilder : ILogicBlockConfigurationBuilder
     {
         public LogicBlockConfigurationBuilder(Action<string, LogicBlockContractBase> addContract,
                                               Action<string, LogicSenderInterfaceBase> addInterface,
