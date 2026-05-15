@@ -5,7 +5,7 @@ using Vion.Dale.Sdk.Configuration.Timers;
 
 namespace Vion.Dale.Sdk.Configuration
 {
-    public interface ILogicBlockConfigurationBuilder
+    internal interface ILogicBlockConfigurationBuilder
     {
         public IContractFactory Contracts { get; }
 

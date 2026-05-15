@@ -1,6 +1,6 @@
 ﻿namespace Vion.Dale.Sdk.Configuration.Services
 {
-    public interface IServiceFactory
+    internal interface IServiceFactory
     {
         ServiceBuilder CreateService(string serviceIdentifier);
     }
