@@ -6,9 +6,12 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
+using System.Runtime.CompilerServices;
 using System.Runtime.Loader;
 using Vion.Dale.Sdk.Core;
 using Microsoft.Extensions.Logging;
+
+[assembly: InternalsVisibleTo("Vion.Dale.Plugin.Test")]
 
 namespace Vion.Dale.Plugin
 {
@@ -50,6 +53,15 @@ namespace Vion.Dale.Plugin
             _packageId = packageId;
             _logger = logger;
             _logger.LogInformation("PluginLoadContext created for plugin {PackageId} at path: {PluginPath}", _packageId, _pluginPath);
+
+            // Fail fast on a binary-incompatible SDK major-version skew BEFORE any plugin
+            // assembly is loaded into this context and BEFORE the runtime reflects over plugin
+            // types. The constructor is the earliest chokepoint that runs in this class: every
+            // Load() / EagerlyLoadSharedExtensions() / runtime type-reflection happens strictly
+            // after construction, and reading PE metadata does not require loading the assembly
+            // into the context. Differing minor/patch stays warn-and-continue (see
+            // LogDefaultContextLoad) — only a differing MAJOR is unrecoverable.
+            EnforceSdkMajorCompatibility();
         }
 
         /// <summary>
@@ -235,6 +247,128 @@ namespace Vion.Dale.Plugin
 
                                                              return false;
                                                          });
+        }
+
+        /// <summary>
+        ///     Scans the plugin DLLs in <see cref="_pluginPath" /> for an assembly reference to
+        ///     <c>Vion.Dale.Sdk</c> and fails the load fast if one of them references a different
+        ///     MAJOR version than the SDK the host runtime has actually loaded. Mirrors the
+        ///     enumeration in <see cref="EagerlyLoadSharedExtensions" /> and the defensive metadata
+        ///     posture of <see cref="HasDaleSharedAssemblyAttribute" />. Throws on the first plugin
+        ///     assembly with a differing major version; remaining assemblies are not inspected.
+        /// </summary>
+        private void EnforceSdkMajorCompatibility()
+        {
+            // The host's loaded SDK — the same assembly GetSharedAssemblyNames() keys off.
+            var sdkAssemblyName = typeof(LogicBlockBase).Assembly.GetName().Name!;
+            var hostSdkVersion = typeof(LogicBlockBase).Assembly.GetName().Version;
+
+            if (!Directory.Exists(_pluginPath))
+            {
+                return;
+            }
+
+            foreach (var dllPath in Directory.EnumerateFiles(_pluginPath, "*.dll"))
+            {
+                var fullPath = Path.GetFullPath(dllPath);
+                var referencedSdkVersion = TryReadReferencedSdkVersion(fullPath, sdkAssemblyName);
+                if (referencedSdkVersion == null)
+                {
+                    // Either the file is not a readable .NET assembly (a corrupt / non-managed
+                    // dll is not an SDK-version failure) or it simply does not reference the SDK.
+                    _logger.LogDebug("Skipping {DllPath} during the SDK-version check: it is not a readable .NET assembly " +
+                                     "or does not reference {SdkAssemblyName}",
+                                     fullPath,
+                                     sdkAssemblyName);
+                    continue;
+                }
+
+                // Throws PluginSdkVersionMismatchException on a differing major. Minor/patch
+                // differences return normally and remain warn-and-continue via LogDefaultContextLoad.
+                EnsureSdkMajorCompatible(_packageId, sdkAssemblyName, hostSdkVersion, referencedSdkVersion, _logger);
+            }
+        }
+
+        /// <summary>
+        ///     Pure, unit-testable seam: throws when <paramref name="pluginReferencedVersion" /> has a
+        ///     different MAJOR component than <paramref name="hostVersion" /> (both non-null). Minor and
+        ///     patch differences are intentionally NOT this method's concern — those stay with the
+        ///     existing warn-and-continue path (<see cref="LogDefaultContextLoad" />).
+        /// </summary>
+        /// <remarks>
+        ///     ACCEPTED, DELIBERATE CONSEQUENCE: during 0.x the major is always 0, so this gate is
+        ///     dormant pre-1.0 — a 0.4.3 → 0.5.0 skew stays a WARNING, not a hard fail. See spec §E
+        ///     "Consequence (accepted)" / decision 0022. Pinned by PluginSdkVersionGateShould.
+        /// </remarks>
+        internal static void EnsureSdkMajorCompatible(string packageId,
+                                                      string sdkAssemblyName,
+                                                      Version? hostVersion,
+                                                      Version? pluginReferencedVersion,
+                                                      ILogger logger)
+        {
+            if (hostVersion == null || pluginReferencedVersion == null)
+            {
+                return;
+            }
+
+            if (hostVersion.Major == pluginReferencedVersion.Major)
+            {
+                return;
+            }
+
+            var message = $"Plugin '{packageId}' was built against {sdkAssemblyName} {pluginReferencedVersion} " +
+                          $"but the host runtime has loaded {sdkAssemblyName} {hostVersion}. These major versions " +
+                          $"are incompatible (major {pluginReferencedVersion.Major} vs {hostVersion.Major}). " +
+                          $"Rebuild the plugin against a compatible {sdkAssemblyName} (matching major version {hostVersion.Major}.x) and redeploy it.";
+
+            logger.LogError("Plugin {PackageId} references {SdkAssemblyName} {PluginVersion} but the host loaded {HostVersion} — " +
+                            "incompatible major versions, failing the plugin load",
+                            packageId,
+                            sdkAssemblyName,
+                            pluginReferencedVersion,
+                            hostVersion);
+
+            throw new PluginSdkVersionMismatchException(message);
+        }
+
+        /// <summary>
+        ///     Reads the version of the <paramref name="sdkAssemblyName" /> assembly reference declared
+        ///     by the assembly at <paramref name="assemblyPath" />, using PEReader so nothing is loaded
+        ///     into any context. Returns <c>null</c> if the file cannot be read as a .NET assembly or
+        ///     does not reference the SDK at all — same defensive posture as
+        ///     <see cref="HasDaleSharedAssemblyAttribute" /> (a corrupt / non-.NET dll is not an
+        ///     SDK-version failure).
+        /// </summary>
+        internal static Version? TryReadReferencedSdkVersion(string assemblyPath, string sdkAssemblyName)
+        {
+            try
+            {
+                using var stream = File.OpenRead(assemblyPath);
+                using var peReader = new PEReader(stream);
+                if (!peReader.HasMetadata)
+                {
+                    return null;
+                }
+
+                var metadataReader = peReader.GetMetadataReader();
+
+                foreach (var handle in metadataReader.AssemblyReferences)
+                {
+                    var assemblyRef = metadataReader.GetAssemblyReference(handle);
+                    var name = metadataReader.GetString(assemblyRef.Name);
+                    if (name == sdkAssemblyName)
+                    {
+                        return assemblyRef.Version;
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // If we can't read the metadata (corrupted file, not a .NET assembly, etc.),
+                // treat it as "no SDK reference found" — it is not an SDK-version failure.
+            }
+
+            return null;
         }
 
         /// <summary>

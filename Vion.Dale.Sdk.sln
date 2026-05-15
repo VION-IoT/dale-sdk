@@ -136,6 +136,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vion.Examples.Presentation"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vion.Examples.Presentation.DevHost", "examples\Vion.Examples.Presentation\Vion.Examples.Presentation.DevHost\Vion.Examples.Presentation.DevHost.csproj", "{D63F60BB-C807-4054-9101-A017A6C9A587}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vion.Dale.Plugin.Test", "Vion.Dale.Plugin.Test\Vion.Dale.Plugin.Test.csproj", "{398559E8-3AC6-4414-BE15-07F20286F2D9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -722,6 +724,18 @@ Global
 		{D63F60BB-C807-4054-9101-A017A6C9A587}.Release|x64.Build.0 = Release|Any CPU
 		{D63F60BB-C807-4054-9101-A017A6C9A587}.Release|x86.ActiveCfg = Release|Any CPU
 		{D63F60BB-C807-4054-9101-A017A6C9A587}.Release|x86.Build.0 = Release|Any CPU
+		{398559E8-3AC6-4414-BE15-07F20286F2D9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{398559E8-3AC6-4414-BE15-07F20286F2D9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{398559E8-3AC6-4414-BE15-07F20286F2D9}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{398559E8-3AC6-4414-BE15-07F20286F2D9}.Debug|x64.Build.0 = Debug|Any CPU
+		{398559E8-3AC6-4414-BE15-07F20286F2D9}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{398559E8-3AC6-4414-BE15-07F20286F2D9}.Debug|x86.Build.0 = Debug|Any CPU
+		{398559E8-3AC6-4414-BE15-07F20286F2D9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{398559E8-3AC6-4414-BE15-07F20286F2D9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{398559E8-3AC6-4414-BE15-07F20286F2D9}.Release|x64.ActiveCfg = Release|Any CPU
+		{398559E8-3AC6-4414-BE15-07F20286F2D9}.Release|x64.Build.0 = Release|Any CPU
+		{398559E8-3AC6-4414-BE15-07F20286F2D9}.Release|x86.ActiveCfg = Release|Any CPU
+		{398559E8-3AC6-4414-BE15-07F20286F2D9}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
