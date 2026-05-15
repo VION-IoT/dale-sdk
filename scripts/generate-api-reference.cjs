@@ -127,11 +127,27 @@ function findPublicApiTypes(csFiles) {
         const lines = content.split('\n');
         let currentNamespace = '';
         let nextIsPublicApi = false;
+        let bracketDepth = 0;
 
         for (const line of lines) {
             const nsMatch = line.match(nsRe);
             if (nsMatch) {
                 currentNamespace = nsMatch[1];
+            }
+
+            const trimmed = line.trim();
+            const isComment = trimmed.startsWith('///') || trimmed.startsWith('//');
+
+            // Track [...] depth so continuation lines of multi-line attributes
+            // like [AttributeUsage(..., \n   AllowMultiple = true)] don't reset
+            // nextIsPublicApi. Skip comments (XML doc comments may contain
+            // unbalanced brackets in cref text).
+            const wasInsideAttribute = bracketDepth > 0;
+            if (!isComment) {
+                for (const ch of line) {
+                    if (ch === '[') bracketDepth++;
+                    else if (ch === ']') bracketDepth = Math.max(0, bracketDepth - 1);
+                }
             }
 
             if (attrRe.test(line)) {
@@ -146,8 +162,15 @@ function findPublicApiTypes(csFiles) {
                     const fqn = currentNamespace ? `${currentNamespace}.${typeName}` : typeName;
                     types.add(fqn);
                     nextIsPublicApi = false;
-                } else if (line.trim() === '' || line.trim().startsWith('//') || line.trim().startsWith('[') || line.trim().startsWith('///')) {
-                    // Skip blank lines, comments, and additional attributes
+                } else if (
+                    trimmed === '' ||
+                    trimmed.startsWith('//') ||
+                    trimmed.startsWith('[') ||
+                    trimmed.startsWith('///') ||
+                    wasInsideAttribute
+                ) {
+                    // Skip blank lines, comments, additional attributes, and
+                    // continuation lines of multi-line attributes.
                 } else {
                     nextIsPublicApi = false;
                 }
