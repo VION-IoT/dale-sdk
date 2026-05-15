@@ -27,9 +27,24 @@ namespace Vion.Dale.DevHost.Web.Api.Dtos
 
             public required List<Service> Services { get; set; }
 
+            /// <summary>
+            ///     Implemented logic-block interfaces (LB↔LB side). Each carries the loose
+            ///     introspection <c>Annotations</c> dict — including the consumer-side
+            ///     <c>Multiplicity</c> wiring token when a binding declares a non-default
+            ///     <c>LinkMultiplicity</c>.
+            /// </summary>
+            public required List<LogicBlockInterface> Interfaces { get; set; }
+
             public required List<LogicBlockContract> Contracts { get; set; }
 
             public required List<ContractMapping> ContractMappings { get; set; }
+        }
+
+        public class LogicBlockInterface
+        {
+            public required string Identifier { get; set; }
+
+            public required Dictionary<string, object> Annotations { get; set; }
         }
 
         public class Service

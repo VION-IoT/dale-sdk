@@ -109,6 +109,13 @@ namespace Vion.Dale.DevHost.Web.Services
                                                                                                                        };
                                                                                                                })
                                                                                                        .ToList(),
+                                                                                          Interfaces = meta.Interfaces
+                                                                                                           .Select(i => new ConfigurationOutput.LogicBlockInterface
+                                                                                                                        {
+                                                                                                                            Identifier = i.Identifier,
+                                                                                                                            Annotations = i.Annotations,
+                                                                                                                        })
+                                                                                                           .ToList(),
                                                                                           Contracts = meta.Contracts
                                                                                                           .Select(c => new ConfigurationOutput.LogicBlockContract
                                                                                                                        {
