@@ -199,7 +199,16 @@ namespace Vion.Dale.Sdk.Core
                     break;
 
                 case StopLogicBlockRequest: // stopping, before removal
-                    _persistentData.CreateSnapshot();
+                    // Guard only the snapshot: if Configure() aborted during InitializeLogicBlock,
+                    // PersistentData is never initialised and CreateSnapshot() would throw,
+                    // skipping the stop ack and hanging shutdown until timeout. Stopping(),
+                    // _started reset, ClearRetainedMessages and the StopLogicBlockResponse ack
+                    // must always run so the actor acks stop regardless of init state.
+                    if (_persistentData.IsInitialized)
+                    {
+                        _persistentData.CreateSnapshot();
+                    }
+
                     Stopping();
                     _started = false;
                     _serviceBinder.ClearRetainedMessages(_logger);
@@ -211,7 +220,18 @@ namespace Vion.Dale.Sdk.Core
                     break;
 
                 case GetPersistentDataSnapshotRequest: // after stopping, before removal
-                    actorContext.RespondToSender(new GetPersistentDataSnapshotResponse(Id, _persistentData.GetCurrentSnapshot()));
+                    // Same uninitialised-shutdown hang as the StopLogicBlockRequest /
+                    // HandlePeriodicStateSave guards, just the next message in the runtime
+                    // teardown sequence: the runtime sends StopLogicBlockRequest then
+                    // GetPersistentDataSnapshotRequest, each awaiting an acknowledgement. If
+                    // Configure() aborted during InitializeLogicBlock, PersistentData is never
+                    // initialised and GetCurrentSnapshot() would throw, so the response is never
+                    // sent and shutdown hangs until timeout. Always respond — with an empty
+                    // snapshot when uninitialised — so the runtime's wait is always satisfied.
+                    var snapshot = _persistentData.IsInitialized
+                        ? _persistentData.GetCurrentSnapshot()
+                        : new List<PersistentDataEntry>();
+                    actorContext.RespondToSender(new GetPersistentDataSnapshotResponse(Id, snapshot));
                     break;
 
                 case IContractMessage m: // delegate to contract
@@ -477,6 +497,19 @@ namespace Vion.Dale.Sdk.Core
             if (!_started)
             {
                 _logger.LogInformation("Logic block '{Id}' is not started, skipping periodic state save.", Id);
+                return;
+            }
+
+            // Defence-in-depth, mirroring the StopLogicBlockRequest guard: if Configure() aborted
+            // during InitializeLogicBlock, PersistentData is never initialised and both
+            // CreateSnapshot() and GetCurrentSnapshot() would throw. CreateSnapshot +
+            // GetCurrentSnapshot are one logical "snapshot and publish" operation, so guard them
+            // together; rescheduling a periodic save that can never produce a snapshot is
+            // pointless, so it stays inside the guard too. The normal (initialised) path is
+            // unchanged — all three statements still run exactly as before.
+            if (!_persistentData.IsInitialized)
+            {
+                _logger.LogWarning("Logic block '{Id}' has uninitialised PersistentData (Configure() likely aborted); skipping periodic state save.", Id);
                 return;
             }
 

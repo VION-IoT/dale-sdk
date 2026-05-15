@@ -26,6 +26,14 @@ namespace Vion.Dale.Sdk.Persistence
         private ServiceBinder _serviceBinder = null!;
 
         /// <summary>
+        ///     True exactly when <see cref="CheckInitialized" /> would NOT throw, i.e. after
+        ///     <see cref="Initialize" /> has run. Callers guard snapshot operations with this so an
+        ///     aborted LogicBlock Configure() (which leaves this uninitialised) cannot make the
+        ///     stop/periodic-save paths throw.
+        /// </summary>
+        public bool IsInitialized => _logicBlock is not null && _serviceBinder is not null && _logger is not null;
+
+        /// <summary>
         ///     Initialize persistent data metadata for the LogicBlock
         /// </summary>
         public void Initialize(object logicBlock, ServiceBinder serviceBinder, ILogger logger)
@@ -329,7 +337,7 @@ namespace Vion.Dale.Sdk.Persistence
 
         private void CheckInitialized()
         {
-            if (_logicBlock == null || _serviceBinder == null || _logger == null)
+            if (!IsInitialized)
             {
                 throw new InvalidOperationException("PersistentData not initialized");
             }
