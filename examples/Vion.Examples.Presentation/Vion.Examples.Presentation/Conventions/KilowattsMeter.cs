@@ -1,4 +1,3 @@
-using Vion.Contracts.TypeRef;
 using Vion.Dale.Sdk.Core;
 
 namespace Vion.Examples.Presentation.Conventions
