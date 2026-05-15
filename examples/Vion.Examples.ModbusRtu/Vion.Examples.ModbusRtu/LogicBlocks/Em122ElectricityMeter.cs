@@ -1,5 +1,4 @@
 using System;
-using Vion.Contracts.TypeRef;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Modbus.Rtu;
 using Microsoft.Extensions.Logging;

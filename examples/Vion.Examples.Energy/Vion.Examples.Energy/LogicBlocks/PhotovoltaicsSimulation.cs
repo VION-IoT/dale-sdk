@@ -1,5 +1,4 @@
 ﻿using System;
-using Vion.Contracts.TypeRef;
 using Vion.Dale.Sdk.AnalogIo.Output;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Utils;

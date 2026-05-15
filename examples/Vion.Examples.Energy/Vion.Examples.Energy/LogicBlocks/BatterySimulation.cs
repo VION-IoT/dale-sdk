@@ -1,5 +1,4 @@
-﻿using Vion.Contracts.TypeRef;
-using Vion.Dale.Sdk.Core;
+﻿using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Utils;
 using Microsoft.Extensions.Logging;
 using System;

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Immutable;
 using Microsoft.Extensions.Logging;
-using Vion.Contracts.TypeRef;
 using Vion.Dale.Sdk.Core;
 using Vion.Examples.Presentation.Conventions;
 
