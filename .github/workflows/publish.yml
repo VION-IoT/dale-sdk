@@ -5,6 +5,12 @@ name: Pack & Publish
 #     auto-commit on PRs and on main, push API reference to documentation
 #     on main
 #
+# Both jobs are gated on github.actor != github-actions[bot] so the snapshot
+# auto-commit's push triggers an empty (skipped) workflow run instead of an
+# infinite loop. The previous loop-break used a commit-message marker but
+# that marker leaked into squash-merge commits and suppressed legitimate
+# post-merge runs.
+#
 # Pipeline logic for the publish job lives in VION-IoT/shared-workflows.
 
 on:
