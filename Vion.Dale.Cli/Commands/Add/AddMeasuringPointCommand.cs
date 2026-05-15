@@ -18,7 +18,7 @@ namespace Vion.Dale.Cli.Commands.Add
 
             var typeOption = new Option<string>("--type", "-t") { Description = "C# type (e.g. double, int, bool)", Required = true };
             var toOption = new Option<string?>("--to") { Description = "Target LogicBlock class name (auto-detected if only one exists)" };
-            var defaultNameOption = new Option<string?>("--default-name") { Description = "DefaultName parameter for [ServiceMeasuringPoint]" };
+            var defaultNameOption = new Option<string?>("--default-name") { Description = "Title for [ServiceMeasuringPoint] (defaults to the measuring point name)" };
             var persistentOption = new Option<bool>("--persistent") { Description = "Add [Persistent] attribute (measuring points are not persistent by default)" };
 
             command.Options.Add(typeOption);

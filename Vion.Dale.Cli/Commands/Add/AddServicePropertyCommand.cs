@@ -20,7 +20,7 @@ namespace Vion.Dale.Cli.Commands.Add
             var toOption = new Option<string?>("--to") { Description = "Target LogicBlock class name (auto-detected if only one exists)" };
             var setterOption = new Option<string>("--setter") { Description = "Setter visibility", DefaultValueFactory = _ => "private" };
             setterOption.AcceptOnlyFromAmong("public", "private");
-            var defaultNameOption = new Option<string?>("--default-name") { Description = "DefaultName parameter for [ServiceProperty]" };
+            var defaultNameOption = new Option<string?>("--default-name") { Description = "Title for [ServiceProperty] (defaults to the property name)" };
             var persistentOption = new Option<bool>("--persistent") { Description = "Add [Persistent] attribute" };
 
             command.Options.Add(typeOption);

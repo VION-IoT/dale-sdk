@@ -1,3 +1,4 @@
+using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Vion.Dale.Cli.Commands.Add;
 
@@ -94,6 +95,34 @@ namespace Vion.Dale.Cli.Test.Commands
             // Measuring points always have private set — no public setter option
             Assert.IsTrue(snippet.Contains("private set;"));
             Assert.IsFalse(snippet.Contains("{ get; set; }"));
+        }
+
+        [TestMethod]
+        public void AddServicePropertyCommand_DefaultNameOption_DescriptionReferencesTitle()
+        {
+            var command = AddServicePropertyCommand.Create();
+            var option = command.Options.SingleOrDefault(o => o.Name == "--default-name");
+
+            Assert.IsNotNull(option, "Expected a --default-name option on the serviceproperty command.");
+            Assert.IsNotNull(option!.Description);
+            StringAssert.Contains(option.Description, "Title");
+            Assert.IsFalse(
+                option.Description!.Contains("DefaultName parameter"),
+                "Description still references the obsolete DefaultName attribute member.");
+        }
+
+        [TestMethod]
+        public void AddMeasuringPointCommand_DefaultNameOption_DescriptionReferencesTitle()
+        {
+            var command = AddMeasuringPointCommand.Create();
+            var option = command.Options.SingleOrDefault(o => o.Name == "--default-name");
+
+            Assert.IsNotNull(option, "Expected a --default-name option on the measuringpoint command.");
+            Assert.IsNotNull(option!.Description);
+            StringAssert.Contains(option.Description, "Title");
+            Assert.IsFalse(
+                option.Description!.Contains("DefaultName parameter"),
+                "Description still references the obsolete DefaultName attribute member.");
         }
     }
 }
