@@ -22,7 +22,12 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Skip the entire workflow when the trigger is our own snapshot auto-commit.
+  # Replaces a previous [skip ci] marker in the commit message — that marker
+  # got carried into squash-merge commits on main and silently suppressed the
+  # post-merge run.
   publish:
+    if: github.actor != 'github-actions[bot]'
     uses: VION-IoT/shared-workflows/.github/workflows/publish-nuget.yml@v1
     with:
       solution: Vion.Dale.Sdk.sln
@@ -31,6 +36,7 @@ jobs:
     secrets: inherit
 
   drift-and-docs:
+    if: github.actor != 'github-actions[bot]'
     needs: publish
     runs-on: ubuntu-latest
     permissions:
@@ -108,7 +114,9 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add docs/snapshots/publicapi-manifest.json docs/snapshots/cli-help-snapshot.txt
           if ! git diff --cached --quiet; then
-            git commit -m "Update PublicApi manifest and CLI help snapshot [skip ci]"
+            # No [skip ci] marker — the job-level actor guard above breaks
+            # the loop when the resulting push retriggers the workflow.
+            git commit -m "Update PublicApi manifest and CLI help snapshot"
             git push origin HEAD:${{ github.head_ref || github.ref_name }}
             echo "::notice::Auto-updated docs snapshots"
           else
