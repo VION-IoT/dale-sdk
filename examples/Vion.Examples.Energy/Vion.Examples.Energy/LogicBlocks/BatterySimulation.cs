@@ -10,6 +10,7 @@ using Vion.Examples.Energy.Utils;
 namespace Vion.Examples.Energy.LogicBlocks
 {
     [LogicBlock(Name = "Batterie Simulation", Icon = "battery-2-charge-line")]
+    [LogicBlockInterfaceBinding(typeof(IControllableElectricityBuffer), Multiplicity = LinkMultiplicity.ExactlyOne)]
     public class BatterySimulation : LogicBlockBase, IControllableElectricityBuffer
     {
         private readonly IDateTimeProvider _dateTimeProvider;

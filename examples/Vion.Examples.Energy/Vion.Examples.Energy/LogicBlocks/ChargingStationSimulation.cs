@@ -10,6 +10,7 @@ using Vion.Examples.Energy.Utils;
 namespace Vion.Examples.Energy.LogicBlocks
 {
     [LogicBlock(Name = "Ladestation Simulation", Icon = "charging-pile-2-line")]
+    [LogicBlockInterfaceBinding(typeof(IControllableElectricityConsumer), Multiplicity = LinkMultiplicity.ExactlyOne)]
     public class ChargingStationSimulation : LogicBlockBase, IControllableElectricityConsumer
     {
         private readonly IDateTimeProvider _dateTimeProvider;
@@ -24,7 +25,7 @@ namespace Vion.Examples.Energy.LogicBlocks
 
         private double _requestedActivePower;
 
-        [ServiceProviderContractBinding(DefaultName = "Externe Sperre")]
+        [ServiceProviderContractBinding(DefaultName = "Externe Sperre", Multiplicity = LinkMultiplicity.ZeroOrOne)]
         public IDigitalInput ExternallyLockedInput { get; private set; }
 
         [ServiceProviderContractBinding(DefaultName = "Ladevorgang aktiv")]

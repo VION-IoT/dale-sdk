@@ -6,6 +6,7 @@ using Vion.Examples.ToggleLight.Contracts;
 namespace Vion.Examples.ToggleLight.LogicBlocks
 {
     [LogicBlock(Name = "Taster", Icon = "toggle-line")]
+    [LogicBlockInterfaceBinding(typeof(IToggler), Multiplicity = LinkMultiplicity.OneOrMore)]
     public class Toggle : LogicBlockBase, IToggler
     {
         public enum SignalMode

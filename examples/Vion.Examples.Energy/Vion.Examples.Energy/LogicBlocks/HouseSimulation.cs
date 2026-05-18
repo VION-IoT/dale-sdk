@@ -8,6 +8,7 @@ using Vion.Examples.Energy.Utils;
 namespace Vion.Examples.Energy.LogicBlocks
 {
     [LogicBlock(Name = "Haus Simulation", Icon = "home-3-line")]
+    [LogicBlockInterfaceBinding(typeof(IObservableElectricityConsumer), Multiplicity = LinkMultiplicity.ExactlyOne)]
     public class HouseSimulation : LogicBlockBase, IObservableElectricityConsumer
     {
         private readonly IDateTimeProvider _dateTimeProvider;

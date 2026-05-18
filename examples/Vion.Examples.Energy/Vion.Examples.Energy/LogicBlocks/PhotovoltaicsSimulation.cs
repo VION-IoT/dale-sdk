@@ -10,6 +10,7 @@ using Vion.Examples.Energy.Utils;
 namespace Vion.Examples.Energy.LogicBlocks
 {
     [LogicBlock(Name = "Photovoltaik Simulation", Icon = "sun-line")]
+    [LogicBlockInterfaceBinding(typeof(IObservableElectricitySupplier), Multiplicity = LinkMultiplicity.ExactlyOne)]
     public class PhotovoltaicsSimulation : LogicBlockBase, IObservableElectricitySupplier
     {
         private readonly IDateTimeProvider _dateTimeProvider;

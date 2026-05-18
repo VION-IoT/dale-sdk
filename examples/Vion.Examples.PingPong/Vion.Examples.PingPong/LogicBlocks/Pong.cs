@@ -7,6 +7,7 @@ using Vion.Examples.PingPong.ServiceInterfaces;
 namespace Vion.Examples.PingPong.LogicBlocks
 {
     [LogicBlock(Name = "Pong", Icon = "ping-pong-fill")]
+    [LogicBlockInterfaceBinding(typeof(IPong), Multiplicity = LinkMultiplicity.ExactlyOne)]
     public class Pong : LogicBlockBase, IPong, IPongService
     {
         private readonly ILogger _logger;
