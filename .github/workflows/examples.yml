@@ -12,6 +12,9 @@ on:
       - 'examples/**'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   upload:
     runs-on: ubuntu-latest
