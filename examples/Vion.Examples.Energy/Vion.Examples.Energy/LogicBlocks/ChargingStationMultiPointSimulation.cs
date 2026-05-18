@@ -16,7 +16,7 @@ namespace Vion.Examples.Energy.LogicBlocks
 
         private readonly ILogger _logger;
 
-        [ServiceProviderContractBinding(DefaultName = "Externe Sperre")]
+        [ServiceProviderContractBinding(DefaultName = "Externe Sperre", Multiplicity = LinkMultiplicity.ZeroOrOne)]
         public IDigitalInput ExternallyLockedInput { get; private set; }
 
         [ServiceProviderContractBinding(DefaultName = "Ladepunkt 1 aktiv")]
@@ -29,8 +29,10 @@ namespace Vion.Examples.Energy.LogicBlocks
         [Presentation(Group = PropertyGroup.Status)]
         public bool IsExternallyLocked { get; private set; }
 
+        [LogicBlockInterfaceBinding(typeof(IControllableElectricityConsumer), Multiplicity = LinkMultiplicity.ExactlyOne)]
         public ChargingPoint ChargingPoint1 { get; }
 
+        [LogicBlockInterfaceBinding(typeof(IControllableElectricityConsumer), Multiplicity = LinkMultiplicity.ExactlyOne)]
         public ChargingPoint ChargingPoint2 { get; }
 
         public ChargingStationMultiPointSimulation(IDateTimeProvider dateTimeProvider, ILogger logger) : base(logger)
