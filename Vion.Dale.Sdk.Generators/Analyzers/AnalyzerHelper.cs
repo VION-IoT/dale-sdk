@@ -122,7 +122,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                 _ when type.ToDisplayString() == "System.TimeSpan" => true,
 
                 // Flat readonly record struct with primitive/enum/nullable-of-primitive-or-enum fields
-                INamedTypeSymbol { IsValueType: true, IsRecord: true, IsReadOnly: true } rs when AllStructFieldsArePrimitiveOrEnum(rs) => true,
+                INamedTypeSymbol named when IsFlatReadonlyRecordStruct(named) => true,
 
                 _ => false,
             };
@@ -130,18 +130,54 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
 
         /// <summary>
         ///     Returns true when <paramref name="namedType" /> is a flat readonly record struct:
-        ///     <c>IsValueType == true</c>, <c>IsRecord == true</c>, <c>IsReadOnly == true</c>, and
-        ///     every primary-constructor parameter is a primitive, enum, string, TimeSpan, or nullable
-        ///     of the same. Nested structs and arrays are not allowed — per spec §5.2 structs are flat.
+        ///     <c>IsValueType == true</c>, <c>IsReadOnly == true</c>, record-struct-shaped, and every
+        ///     primary-constructor parameter is a primitive, enum, string, TimeSpan, or nullable of
+        ///     the same. Nested structs and arrays are not allowed — per spec §5.2 structs are flat.
+        ///     <para>
+        ///         <see cref="INamedTypeSymbol.IsRecord" /> is known to return <c>false</c> for record
+        ///         structs loaded from metadata (Roslyn detects records via the <c>&lt;Clone&gt;$</c>
+        ///         synthesized method, which record structs have never had — see dotnet/roslyn#63566).
+        ///         So a bit-identical struct produces <c>IsRecord == true</c> from source and
+        ///         <c>IsRecord == false</c> from a referenced assembly, even with the same compiler.
+        ///         For metadata-loaded types we fall back to the synthesized <c>Deconstruct</c>
+        ///         method, which positional records (class and struct) always emit and which plain
+        ///         structs — including C# 12+ structs with primary constructors and system types like
+        ///         <c>decimal</c> — never receive.
+        ///     </para>
         /// </summary>
         internal static bool IsFlatReadonlyRecordStruct(INamedTypeSymbol namedType)
         {
-            if (!namedType.IsValueType || !namedType.IsRecord || !namedType.IsReadOnly)
+            if (!namedType.IsValueType || !namedType.IsReadOnly)
+            {
+                return false;
+            }
+
+            if (!namedType.IsRecord && !HasRecordStructMarker(namedType))
             {
                 return false;
             }
 
             return AllStructFieldsArePrimitiveOrEnum(namedType);
+        }
+
+        /// <summary>
+        ///     True if <paramref name="type" /> carries a synthesized <c>Deconstruct</c> method
+        ///     — auto-emitted for every positional record (class and struct) and never for plain
+        ///     structs (even C# 12+ structs with primary constructors) or system types like
+        ///     <c>decimal</c>. Used as a fallback when <see cref="INamedTypeSymbol.IsRecord" />
+        ///     reports <c>false</c> for record structs loaded from metadata.
+        /// </summary>
+        private static bool HasRecordStructMarker(INamedTypeSymbol type)
+        {
+            foreach (var member in type.GetMembers("Deconstruct"))
+            {
+                if (member is IMethodSymbol)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>
