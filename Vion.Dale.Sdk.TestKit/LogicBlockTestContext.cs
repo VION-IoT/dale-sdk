@@ -143,17 +143,20 @@ namespace Vion.Dale.Sdk.TestKit
         ///     sut.HandleResponse(id, response);       // feed response data
         ///     testContext.FlushPendingActions();       // now Calculate() runs
         ///     </code>
+        ///     <para>
+        ///         The drain is single-pass: actions queued by an action that runs during this call
+        ///         are deferred to the next <c>FlushPendingActions</c> call, mirroring production
+        ///         where <c>SendToSelfAfter</c> honours its delay. A self-rescheduling tick will
+        ///         therefore fire exactly once per call, not loop until the queue is empty.
+        ///     </para>
         /// </summary>
         public void FlushPendingActions()
         {
-            while (_pendingActions.Count > 0)
+            var snapshot = new List<Action>(_pendingActions);
+            _pendingActions.Clear();
+            foreach (var action in snapshot)
             {
-                var batch = new List<Action>(_pendingActions);
-                _pendingActions.Clear();
-                foreach (var action in batch)
-                {
-                    action();
-                }
+                action();
             }
         }
 

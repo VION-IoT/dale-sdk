@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 using Moq;
 
 namespace Vion.Dale.Sdk.TestKit.Test
@@ -284,6 +285,35 @@ namespace Vion.Dale.Sdk.TestKit.Test
             testContext.FlushPendingActions(); // second flush should be a no-op
 
             Assert.AreEqual(0.0, block.Power);
+        }
+
+        [TestMethod]
+        public void FlushPendingActions_DoesNotLoopWhenActionReschedulesItself()
+        {
+            // A periodic tick implemented via InvokeSynchronizedAfter (re-arming itself each
+            // invocation) used to cause FlushPendingActions to loop forever, allocating GBs.
+            // The drain must be single-pass: actions re-queued during the flush are deferred
+            // to the next FlushPendingActions call (mirroring production, where SendToSelfAfter
+            // honours its delay and only fires later).
+            var block = LogicBlockTestHelper.Create<SelfReschedulingLogicBlock>();
+            var testContext = block.CreateTestContext().Build();
+
+            // Ready() has queued one OnTick into _pendingActions. With a fixed flush, it runs
+            // once and re-queues its successor; with the buggy flush, it loops indefinitely.
+            // Run on a worker thread so the test thread can time-cap it and recover.
+            var flushTask = Task.Run(testContext.FlushPendingActions);
+            var completed = flushTask.Wait(TimeSpan.FromSeconds(2));
+
+            // Cooperative shutdown: if the flush was unbounded, set the stop flag so the
+            // background loop drops out the next time it reads it, then wait for it to drain
+            // before returning to the test runner. Without this an orphaned thread keeps
+            // allocating into subsequent tests.
+            block.StopRescheduling = true;
+            flushTask.Wait(TimeSpan.FromSeconds(5));
+
+            Assert.IsTrue(completed,
+                          "FlushPendingActions must not unboundedly drain when an action re-schedules itself via InvokeSynchronizedAfter.");
+            Assert.AreEqual(1, block.TickCount, "OnTick should fire exactly once per FlushPendingActions call.");
         }
     }
 }
