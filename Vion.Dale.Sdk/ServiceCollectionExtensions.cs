@@ -1,7 +1,7 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using System;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Examples.LogicBlocks;
-using Vion.Dale.Sdk.Utils;
 
 namespace Vion.Dale.Sdk
 {
@@ -15,8 +15,8 @@ namespace Vion.Dale.Sdk
             // logic blocks
             serviceCollection.AddTransient<ChargingStationMultiPointSimulation>();
 
-            // other, services, etc.
-            serviceCollection.AddTransient<IDateTimeProvider, DateTimeProvider>();
+            // TimeProvider.System is the real wall clock; tests swap it for a FakeTimeProvider via TestKit.
+            serviceCollection.AddSingleton(TimeProvider.System);
         }
     }
 }

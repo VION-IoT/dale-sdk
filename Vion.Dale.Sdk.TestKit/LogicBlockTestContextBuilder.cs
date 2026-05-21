@@ -6,7 +6,9 @@ using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Time.Testing;
 using Vion.Dale.Sdk.Abstractions;
+using Vion.Dale.Sdk.CodeGeneration;
 using Vion.Dale.Sdk.Configuration.Contract;
 using Vion.Dale.Sdk.Configuration.Interfaces;
 using Vion.Dale.Sdk.Configuration.Services;
@@ -45,11 +47,21 @@ namespace Vion.Dale.Sdk.TestKit
 
         /// <summary>
         ///     Adds a mapping to another logic block using a specific (self or delegated) implementation of the interface.
+        ///     <para>
+        ///         When <typeparamref name="TInterface" /> is inferred as a concrete class (the common
+        ///         shape of <c>WithLogicInterfaceMapping(lb =&gt; lb, id)</c>), this method throws if
+        ///         the class implements more than one <c>[LogicInterface]</c>-decorated contract
+        ///         interface — without an explicit generic argument the mapping would silently route
+        ///         to whichever contract happens to come first in metadata order, and a second
+        ///         ambiguous mapping would land on the wrong sender. Pass the contract interface
+        ///         explicitly, e.g. <c>WithLogicInterfaceMapping&lt;IContractA&gt;(lb =&gt; lb, id)</c>.
+        ///     </para>
         /// </summary>
         public LogicBlockTestContextBuilder<TLogicBlock> WithLogicInterfaceMapping<TInterface>(Func<TLogicBlock, TInterface> instance, InterfaceId mappedInstance)
             where TInterface : ILogicHandlerInterface
         {
             var interfaceType = typeof(TInterface);
+            GuardAgainstAmbiguousMappingTarget(interfaceType);
             var implementationInstance = instance(_logicBlock);
             if (!_logicInterfaceMappings.ContainsKey(interfaceType))
             {
@@ -58,6 +70,41 @@ namespace Vion.Dale.Sdk.TestKit
 
             _logicInterfaceMappings[interfaceType].Mappings.Add(mappedInstance);
             return this;
+        }
+
+        /// <summary>
+        ///     When <paramref name="targetType" /> is a class that implements more than one
+        ///     <c>[LogicInterface]</c>-decorated contract interface, the existing
+        ///     IsAssignableFrom+FirstOrDefault resolution in <see cref="SetLinkedInterfaces" />
+        ///     cannot tell which contract the caller meant. Two such mappings stack onto the same
+        ///     dictionary key, get routed to the first matching sender, and the second contract's
+        ///     sender silently receives zero mappings. Catch the ambiguity at registration time so
+        ///     the bug surfaces at the call site instead of as a missing verification later.
+        /// </summary>
+        private static void GuardAgainstAmbiguousMappingTarget(Type targetType)
+        {
+            // Interface TInterface (the explicit-generic form) is always unambiguous — it IS the
+            // contract interface the caller meant. Only a concrete class can carry the ambiguity.
+            if (targetType.IsInterface)
+            {
+                return;
+            }
+
+            var contractInterfaces = targetType.GetInterfaces()
+                                               .Where(i => i.GetCustomAttribute<LogicInterfaceAttribute>() != null)
+                                               .ToList();
+            if (contractInterfaces.Count <= 1)
+            {
+                return;
+            }
+
+            var candidates = string.Join(", ", contractInterfaces.Select(i => i.Name));
+            var firstCandidate = contractInterfaces[0].Name;
+            throw new InvalidOperationException(
+                $"WithLogicInterfaceMapping cannot infer which sender interface to map for class " +
+                $"'{targetType.Name}' because it implements {contractInterfaces.Count} contract interfaces ({candidates}). " +
+                $"Without an explicit generic argument the second mapping would silently land on the wrong sender. " +
+                $"Pass the contract interface explicitly, e.g. WithLogicInterfaceMapping<{firstCandidate}>(lb => lb, mappedInstance).");
         }
 
         /// <summary>
@@ -109,6 +156,23 @@ namespace Vion.Dale.Sdk.TestKit
         public LogicBlockTestContextBuilder<TLogicBlock> WithoutAutoStart()
         {
             _autoStart = false;
+            return this;
+        }
+
+        /// <summary>
+        ///     Bind the test context's virtual clock to a caller-owned <see cref="FakeTimeProvider" />.
+        ///     Use this when the block's constructor takes a <see cref="TimeProvider" /> and the test
+        ///     needs to ensure the block and <c>testContext.TimeProvider</c> share the same instance.
+        ///     <code>
+        ///     var clock = new FakeTimeProvider(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
+        ///     var sut = new MyBlock(clock, loggerMock.Object);
+        ///     var ctx = sut.CreateTestContext().WithTimeProvider(clock).Build();
+        ///     ctx.AdvanceTime(TimeSpan.FromSeconds(5)); // advances both sut's reads and ctx's deadlines
+        ///     </code>
+        /// </summary>
+        public LogicBlockTestContextBuilder<TLogicBlock> WithTimeProvider(FakeTimeProvider timeProvider)
+        {
+            _logicBlockTestContext.SetTimeProvider(timeProvider);
             return this;
         }
 
@@ -165,7 +229,10 @@ namespace Vion.Dale.Sdk.TestKit
             var services = new ServiceCollection();
             services.AddSingleton<ILoggerFactory>(NullLoggerFactory.Instance);
             services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
-            services.AddTransient<IDateTimeProvider, DateTimeProvider>();
+            // Inject the test context's virtual clock so logic blocks that depend on TimeProvider
+            // see the same UtcNow that AdvanceTime advances. Tests can still override by adding a
+            // different registration via WithServices, in which case the last registration wins.
+            services.AddSingleton<TimeProvider>(_logicBlockTestContext.TimeProvider);
             RegisterContractAssemblyServices(services);
             foreach (var configure in _serviceConfigurators)
             {

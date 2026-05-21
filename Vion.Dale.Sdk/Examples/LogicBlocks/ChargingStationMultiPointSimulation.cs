@@ -35,7 +35,7 @@ namespace Vion.Dale.Sdk.Examples.LogicBlocks
     [LogicBlock(Name = "Ladestation Simulation", Icon = "ev-station")]
     public class ChargingStationMultiPointSimulation : LogicBlockBase, IChargingStationService, IPing, IToggleable
     {
-        private readonly IDateTimeProvider _dateTimeProvider;
+        private readonly TimeProvider _timeProvider;
 
         private readonly ILogger _logger;
 
@@ -58,9 +58,9 @@ namespace Vion.Dale.Sdk.Examples.LogicBlocks
             get => Math.Clamp(ChargingPoint1.Counter + ChargingPoint2.Counter, 0, 1);
         }
 
-        public ChargingStationMultiPointSimulation(IDateTimeProvider dateTimeProvider, ILogger logger) : base(logger)
+        public ChargingStationMultiPointSimulation(TimeProvider timeProvider, ILogger logger) : base(logger)
         {
-            _dateTimeProvider = dateTimeProvider;
+            _timeProvider = timeProvider;
             _logger = logger;
         }
 
@@ -86,8 +86,8 @@ namespace Vion.Dale.Sdk.Examples.LogicBlocks
         public void OnTimer()
         {
             Foo = !Foo;
-            ChargingPoint1.Update(_dateTimeProvider, _logger);
-            ChargingPoint2.Update(_dateTimeProvider, _logger);
+            ChargingPoint1.Update(_timeProvider, _logger);
+            ChargingPoint2.Update(_timeProvider, _logger);
         }
 
         /// <inheritdoc />
@@ -199,7 +199,7 @@ namespace Vion.Dale.Sdk.Examples.LogicBlocks
             {
             }
 
-            public void Update(IDateTimeProvider dateTimeProvider, ILogger logger)
+            public void Update(TimeProvider timeProvider, ILogger logger)
             {
                 Counter++;
             }

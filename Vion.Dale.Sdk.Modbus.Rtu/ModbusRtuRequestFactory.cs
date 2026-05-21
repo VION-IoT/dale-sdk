@@ -10,18 +10,18 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
     /// </summary>
     internal partial class ModbusRtuRequestFactory : IModbusRtuRequestFactory
     {
-        private readonly IDateTimeProvider _dateTimeProvider;
+        private readonly TimeProvider _timeProvider;
 
         private readonly ILogger<ModbusRtuRequestFactory> _logger;
 
         /// <summary>
         ///     Initializes a new instance of the <see cref="ModbusRtuRequestFactory" /> class.
         /// </summary>
-        /// <param name="dateTimeProvider">Provides an abstraction for date and time operations.</param>
+        /// <param name="timeProvider">Provides an abstraction for date and time operations.</param>
         /// <param name="logger">The logger for logging.</param>
-        public ModbusRtuRequestFactory(IDateTimeProvider dateTimeProvider, ILogger<ModbusRtuRequestFactory> logger)
+        public ModbusRtuRequestFactory(TimeProvider timeProvider, ILogger<ModbusRtuRequestFactory> logger)
         {
-            _dateTimeProvider = dateTimeProvider;
+            _timeProvider = timeProvider;
             _logger = logger;
         }
 
@@ -36,8 +36,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
                                                          Action<Exception>? errorCallback)
         {
             var correlationId = Guid.NewGuid();
-            var createdAt = _dateTimeProvider.UtcNow;
-            var expiresAt = _dateTimeProvider.Add(createdAt, operationTimeout);
+            var createdAt = _timeProvider.GetUtcNow().UtcDateTime;
+            var expiresAt = createdAt + operationTimeout;
             var readRequest = new ReadModbusRtuRequest(functionCode,
                                                        (byte)unitIdentifier,
                                                        startingAddress,
@@ -96,8 +96,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
                                                          Action<Exception>? errorCallback)
         {
             var correlationId = Guid.NewGuid();
-            var createdAt = _dateTimeProvider.UtcNow;
-            var expiresAt = _dateTimeProvider.Add(createdAt, operationTimeout);
+            var createdAt = _timeProvider.GetUtcNow().UtcDateTime;
+            var expiresAt = createdAt + operationTimeout;
             var readRequest = new ReadModbusRtuRequest(functionCode,
                                                        (byte)unitIdentifier,
                                                        startingAddress,
@@ -155,8 +155,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
                                                         Action<Exception>? errorCallback)
         {
             var correlationId = Guid.NewGuid();
-            var createdAt = _dateTimeProvider.UtcNow;
-            var expiresAt = _dateTimeProvider.Add(createdAt, operationTimeout);
+            var createdAt = _timeProvider.GetUtcNow().UtcDateTime;
+            var expiresAt = createdAt + operationTimeout;
             var writeRequest = new WriteModbusRtuRequest(functionCode,
                                                          (byte)unitIdentifier,
                                                          address,

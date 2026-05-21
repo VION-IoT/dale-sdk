@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using Microsoft.Extensions.Time.Testing;
 using Moq;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Core;
@@ -16,18 +17,79 @@ namespace Vion.Dale.Sdk.TestKit
     ///     Test-friendly minimal actor context that records messages sent by the logic block.
     ///     Use the provided query/assertion helpers to inspect recorded messages.
     ///     <code>testContext.VerifyServicePropertyChanged(lb => lb.Power, value => Assert.AreEqual(3.5, value));</code>
+    ///     <para>
+    ///         Hosts a <see cref="FakeTimeProvider" /> as the virtual clock for both <c>UtcNow</c>
+    ///         reads (production code that depends on <c>TimeProvider</c>) and for the deadlines
+    ///         attached to <c>InvokeSynchronizedAfter</c> actions. Call
+    ///         <see cref="AdvanceTime" /> to move the clock forward and fire actions whose deadlines
+    ///         have elapsed; call <see cref="FlushPendingActions" /> for the legacy clock-agnostic
+    ///         drain.
+    ///     </para>
     /// </summary>
     [PublicApi]
     public class LogicBlockTestContext<TLogicBlock> : IActorContext
         where TLogicBlock : LogicBlockBase
     {
-        private readonly List<Action> _pendingActions = [];
+        // 2026-01-01 UTC matches the anchor that existing consumer tests already use; chosen
+        // here so the default flows through to blocks that read TimeProvider on construction.
+        private static readonly DateTimeOffset DefaultAnchor = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+        // (Deadline, Action) tuples — deadlines come from the FakeTimeProvider's UtcNow at the
+        // moment InvokeSynchronizedAfter was called, plus the requested delay. AdvanceTime
+        // dispatches in deadline order; FlushPendingActions ignores the deadline and drains all.
+        private readonly List<(DateTimeOffset Deadline, Action Action)> _pendingActions = [];
 
         private readonly IActorReference _self = new TestActorReference("self");
 
         private readonly IActorReference _sender = new TestActorReference("sender");
 
         private readonly List<(IActorReference Target, object Message, Dictionary<string, string>? Headers)> _sentMessages = [];
+
+        // Not readonly: the LogicBlockTestContextBuilder.WithTimeProvider hook swaps this for an
+        // externally-owned FakeTimeProvider so tests can construct their block with the same
+        // instance they then bind to the test context.
+        private FakeTimeProvider _timeProvider;
+
+        // Reentrancy guard so an action fired by AdvanceTime/FlushPendingActions cannot recursively
+        // re-enter dispatch — the semantics of nested time-advancement are surprising enough to
+        // forbid by default.
+        private bool _dispatching;
+
+        public LogicBlockTestContext() : this(DefaultAnchor)
+        {
+        }
+
+        public LogicBlockTestContext(DateTimeOffset virtualNowAnchor)
+        {
+            _timeProvider = new FakeTimeProvider(virtualNowAnchor);
+        }
+
+        /// <summary>
+        ///     The virtual clock backing this test context. Inject as <see cref="System.TimeProvider" />
+        ///     into your logic block to make its <c>UtcNow</c> reads deterministic.
+        /// </summary>
+        public FakeTimeProvider TimeProvider
+        {
+            get => _timeProvider;
+        }
+
+        /// <summary>
+        ///     Internal swap point used by <c>LogicBlockTestContextBuilder.WithTimeProvider</c> so
+        ///     the same FakeTimeProvider can be passed to the block's constructor and then bound to
+        ///     the test context, instead of the two clocks drifting independently.
+        /// </summary>
+        internal void SetTimeProvider(FakeTimeProvider timeProvider)
+        {
+            _timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
+        }
+
+        /// <summary>
+        ///     Current virtual time. Shorthand for <c>TimeProvider.GetUtcNow().UtcDateTime</c>.
+        /// </summary>
+        public DateTime VirtualNow
+        {
+            get => _timeProvider.GetUtcNow().UtcDateTime;
+        }
 
         /// <summary>
         ///     Assert that a SendCommand call was made with the given target and message.
@@ -135,25 +197,106 @@ namespace Vion.Dale.Sdk.TestKit
         }
 
         /// <summary>
-        ///     Execute all actions queued by <see cref="LogicBlockBase.InvokeSynchronizedAfter" />.
-        ///     In the real actor system these run after a delay; in tests they are captured and
-        ///     executed on demand so you can feed responses between the scheduling and the execution.
+        ///     Advance the virtual clock by <paramref name="delta" /> and dispatch every queued action
+        ///     whose deadline has elapsed, in deadline order. The clock is set to each action's deadline
+        ///     immediately before that action runs, so an action's own <c>UtcNow</c> read sees the time
+        ///     it was scheduled for (not the post-advance target). Actions queued during dispatch with a
+        ///     deadline still ≤ the target time fire in the same call (cascading); actions whose
+        ///     deadline lies beyond the target stay pending for a later <c>AdvanceTime</c>.
+        /// </summary>
+        public void AdvanceTime(TimeSpan delta)
+        {
+            if (delta < TimeSpan.Zero)
+            {
+                throw new ArgumentOutOfRangeException(nameof(delta), "AdvanceTime cannot move the clock backwards.");
+            }
+
+            if (_dispatching)
+            {
+                throw new InvalidOperationException(
+                    "AdvanceTime cannot be called recursively from within a fired action. Schedule follow-up work via InvokeSynchronizedAfter and let the outer AdvanceTime cascade.");
+            }
+
+            var target = _timeProvider.GetUtcNow() + delta;
+            _dispatching = true;
+            try
+            {
+                while (true)
+                {
+                    // Pick the next action whose deadline is in [now, target]. By repeatedly
+                    // finding the minimum we get deterministic deadline ordering even when actions
+                    // queued during dispatch land between already-due peers.
+                    var nextIndex = -1;
+                    var nextDeadline = DateTimeOffset.MaxValue;
+                    for (var i = 0; i < _pendingActions.Count; i++)
+                    {
+                        var d = _pendingActions[i].Deadline;
+                        if (d <= target && d < nextDeadline)
+                        {
+                            nextIndex = i;
+                            nextDeadline = d;
+                        }
+                    }
+
+                    if (nextIndex < 0)
+                    {
+                        break;
+                    }
+
+                    var (deadline, action) = _pendingActions[nextIndex];
+                    _pendingActions.RemoveAt(nextIndex);
+                    _timeProvider.SetUtcNow(deadline);
+                    action();
+                }
+
+                // Land the clock at the requested target, regardless of where the last dispatched
+                // action set it. Without this, AdvanceTime(10s) on an empty queue would be a no-op
+                // and the clock would lag the caller's intent.
+                _timeProvider.SetUtcNow(target);
+            }
+            finally
+            {
+                _dispatching = false;
+            }
+        }
+
+        /// <summary>
+        ///     Execute every action currently queued by <see cref="LogicBlockBase.InvokeSynchronizedAfter" />,
+        ///     ignoring their scheduled deadlines and ignoring the virtual clock. New code that wants
+        ///     deterministic time semantics should prefer <see cref="AdvanceTime" />; this method exists
+        ///     for tests that just want to drain the queue without caring about elapsed simulated time.
         ///     <code>
         ///     sut.OnTimer();                          // sends requests, queues Calculate
         ///     sut.HandleResponse(id, response);       // feed response data
         ///     testContext.FlushPendingActions();       // now Calculate() runs
         ///     </code>
+        ///     <para>
+        ///         The drain is single-pass: actions queued by an action that runs during this call
+        ///         are deferred to the next <c>FlushPendingActions</c> call. A self-rescheduling tick
+        ///         will therefore fire exactly once per call, not loop until the queue is empty.
+        ///     </para>
         /// </summary>
         public void FlushPendingActions()
         {
-            while (_pendingActions.Count > 0)
+            if (_dispatching)
             {
-                var batch = new List<Action>(_pendingActions);
-                _pendingActions.Clear();
-                foreach (var action in batch)
+                throw new InvalidOperationException(
+                    "FlushPendingActions cannot be called recursively from within a fired action.");
+            }
+
+            var snapshot = _pendingActions.ToList();
+            _pendingActions.Clear();
+            _dispatching = true;
+            try
+            {
+                foreach (var (_, action) in snapshot)
                 {
                     action();
                 }
+            }
+            finally
+            {
+                _dispatching = false;
             }
         }
 
@@ -225,7 +368,7 @@ namespace Vion.Dale.Sdk.TestKit
 
             if (message is InvokeActionMessage actionMessage)
             {
-                _pendingActions.Add(actionMessage.Action);
+                _pendingActions.Add((_timeProvider.GetUtcNow() + delay, actionMessage.Action));
             }
         }
 

@@ -57,7 +57,6 @@
     "Vion.Dale.Sdk.Modbus.Tcp.Client.Request.QueueOverflowPolicy",
     "Vion.Dale.Sdk.Modbus.Tcp.Client.Request.RequestDroppedException",
     "Vion.Dale.Sdk.Modbus.Tcp.ServiceCollectionExtensions",
-    "Vion.Dale.Sdk.Mqtt.RegistrationSecret",
-    "Vion.Dale.Sdk.Utils.IDateTimeProvider"
+    "Vion.Dale.Sdk.Mqtt.RegistrationSecret"
   ]
 }
