@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Utils;
 using Microsoft.Extensions.Logging;
@@ -11,7 +11,7 @@ namespace Vion.Examples.Energy.LogicBlocks
     [LogicBlockInterfaceBinding(typeof(IObservableElectricityConsumer), Multiplicity = LinkMultiplicity.ExactlyOne)]
     public class HouseSimulation : LogicBlockBase, IObservableElectricityConsumer
     {
-        private readonly IDateTimeProvider _dateTimeProvider;
+        private readonly TimeProvider _timeProvider;
 
         private readonly ILogger _logger;
 
@@ -48,22 +48,22 @@ namespace Vion.Examples.Energy.LogicBlocks
         [Presentation(Group = PropertyGroup.Metric, Importance = Importance.Secondary)]
         public double EnergyConsumedTotal { get; private set; }
 
-        public HouseSimulation(IDateTimeProvider dateTimeProvider, ILogger logger) : base(logger)
+        public HouseSimulation(TimeProvider timeProvider, ILogger logger) : base(logger)
         {
-            _dateTimeProvider = dateTimeProvider;
+            _timeProvider = timeProvider;
             _logger = logger;
         }
 
         /// <inheritdoc />
         public ObservableElectricityConsumerContract.DataResponse HandleRequest(ObservableElectricityConsumerContract.DataRequest request)
         {
-            return new ObservableElectricityConsumerContract.DataResponse(_dateTimeProvider.UtcNow, ActivePowerConsuming, EnergyConsumedTotal);
+            return new ObservableElectricityConsumerContract.DataResponse(_timeProvider.GetUtcNow().UtcDateTime, ActivePowerConsuming, EnergyConsumedTotal);
         }
 
         [Timer(5)]
         public void OnTimer()
         {
-            var currentTime = _dateTimeProvider.UtcNow;
+            var currentTime = _timeProvider.GetUtcNow().UtcDateTime;
             if (_lastUpdateTime.HasValue)
             {
                 var newActivePower = CalculatePower(currentTime);

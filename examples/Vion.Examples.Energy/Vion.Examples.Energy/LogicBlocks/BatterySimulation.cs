@@ -1,4 +1,4 @@
-﻿using Vion.Dale.Sdk.Core;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Utils;
 using Microsoft.Extensions.Logging;
 using System;
@@ -13,7 +13,7 @@ namespace Vion.Examples.Energy.LogicBlocks
     [LogicBlockInterfaceBinding(typeof(IControllableElectricityBuffer), Multiplicity = LinkMultiplicity.ExactlyOne)]
     public class BatterySimulation : LogicBlockBase, IControllableElectricityBuffer
     {
-        private readonly IDateTimeProvider _dateTimeProvider;
+        private readonly TimeProvider _timeProvider;
 
         private readonly ILogger _logger;
 
@@ -76,16 +76,16 @@ namespace Vion.Examples.Energy.LogicBlocks
         [Presentation(Group = PropertyGroup.Status)]
         public double CurrentMaximumActivePowerCharging { get; private set; }
 
-        public BatterySimulation(IDateTimeProvider dateTimeProvider, ILogger logger) : base(logger)
+        public BatterySimulation(TimeProvider timeProvider, ILogger logger) : base(logger)
         {
-            _dateTimeProvider = dateTimeProvider;
+            _timeProvider = timeProvider;
             _logger = logger;
         }
 
         /// <inheritdoc />
         public ControllableElectricityBufferContract.DataResponse HandleRequest(ControllableElectricityBufferContract.DataRequest request)
         {
-            return new ControllableElectricityBufferContract.DataResponse(_dateTimeProvider.UtcNow,
+            return new ControllableElectricityBufferContract.DataResponse(_timeProvider.GetUtcNow().UtcDateTime,
                                                                           ActivePowerCharging,
                                                                           ActivePowerDischarging,
                                                                           EnergyChargedTotal,
@@ -103,7 +103,7 @@ namespace Vion.Examples.Energy.LogicBlocks
         [Timer(5)]
         public void OnTimer()
         {
-            var currentTime = _dateTimeProvider.UtcNow;
+            var currentTime = _timeProvider.GetUtcNow().UtcDateTime;
             if (_lastUpdateTime.HasValue)
             {
                 var energyIncrementCharging = EnergyCalculator.CalculateEnergyIncrement(ActivePowerCharging, ActivePowerCharging, _lastUpdateTime.Value, currentTime);

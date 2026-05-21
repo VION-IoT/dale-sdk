@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.DigitalIo.Input;
 using Vion.Dale.Sdk.DigitalIo.Output;
@@ -13,7 +13,7 @@ namespace Vion.Examples.Energy.LogicBlocks
     [LogicBlockInterfaceBinding(typeof(IControllableElectricityConsumer), Multiplicity = LinkMultiplicity.ExactlyOne)]
     public class ChargingStationSimulation : LogicBlockBase, IControllableElectricityConsumer
     {
-        private readonly IDateTimeProvider _dateTimeProvider;
+        private readonly TimeProvider _timeProvider;
 
         private readonly ILogger _logger;
 
@@ -98,16 +98,16 @@ namespace Vion.Examples.Energy.LogicBlocks
         [Presentation(Group = PropertyGroup.Status)]
         public double AllocatedActivePower { get; private set; }
 
-        public ChargingStationSimulation(IDateTimeProvider dateTimeProvider, ILogger logger) : base(logger)
+        public ChargingStationSimulation(TimeProvider timeProvider, ILogger logger) : base(logger)
         {
-            _dateTimeProvider = dateTimeProvider;
+            _timeProvider = timeProvider;
             _logger = logger;
         }
 
         /// <inheritdoc />
         public ControllableElectricityConsumerContract.DataResponse HandleRequest(ControllableElectricityConsumerContract.DataRequest request)
         {
-            return new ControllableElectricityConsumerContract.DataResponse(_dateTimeProvider.UtcNow, ActivePowerConsuming, EnergyConsumedTotal);
+            return new ControllableElectricityConsumerContract.DataResponse(_timeProvider.GetUtcNow().UtcDateTime, ActivePowerConsuming, EnergyConsumedTotal);
         }
 
         /// <inheritdoc />
@@ -120,7 +120,7 @@ namespace Vion.Examples.Energy.LogicBlocks
         [Timer(5)]
         public void OnTimer()
         {
-            var currentTime = _dateTimeProvider.UtcNow;
+            var currentTime = _timeProvider.GetUtcNow().UtcDateTime;
             if (_lastUpdateTime.HasValue)
             {
                 var newActivePower = Math.Min(AllocatedActivePower, RequestedActivePower);

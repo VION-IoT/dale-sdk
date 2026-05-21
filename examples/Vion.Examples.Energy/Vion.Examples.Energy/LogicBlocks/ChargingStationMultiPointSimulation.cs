@@ -1,4 +1,4 @@
-﻿using Vion.Dale.Sdk.Core;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.DigitalIo.Input;
 using Vion.Dale.Sdk.DigitalIo.Output;
 using Vion.Dale.Sdk.Utils;
@@ -12,7 +12,7 @@ namespace Vion.Examples.Energy.LogicBlocks
     [LogicBlock(Name = "Ladestation Multi-Point Simulation", Icon = "charging-pile-2-line")]
     public class ChargingStationMultiPointSimulation : LogicBlockBase
     {
-        private readonly IDateTimeProvider _dateTimeProvider;
+        private readonly TimeProvider _timeProvider;
 
         private readonly ILogger _logger;
 
@@ -35,12 +35,12 @@ namespace Vion.Examples.Energy.LogicBlocks
         [LogicBlockInterfaceBinding(typeof(IControllableElectricityConsumer), Multiplicity = LinkMultiplicity.ExactlyOne)]
         public ChargingPoint ChargingPoint2 { get; }
 
-        public ChargingStationMultiPointSimulation(IDateTimeProvider dateTimeProvider, ILogger logger) : base(logger)
+        public ChargingStationMultiPointSimulation(TimeProvider timeProvider, ILogger logger) : base(logger)
         {
-            _dateTimeProvider = dateTimeProvider;
+            _timeProvider = timeProvider;
             _logger = logger;
-            ChargingPoint1 = new ChargingPoint(_dateTimeProvider, _logger);
-            ChargingPoint2 = new ChargingPoint(_dateTimeProvider, _logger);
+            ChargingPoint1 = new ChargingPoint(_timeProvider, _logger);
+            ChargingPoint2 = new ChargingPoint(_timeProvider, _logger);
         }
 
         [Timer(5)]
@@ -73,7 +73,7 @@ namespace Vion.Examples.Energy.LogicBlocks
 
         public class ChargingPoint : IControllableElectricityConsumer
         {
-            private readonly IDateTimeProvider _dateTimeProvider;
+            private readonly TimeProvider _timeProvider;
 
             private readonly ILogger _logger;
 
@@ -153,17 +153,17 @@ namespace Vion.Examples.Energy.LogicBlocks
             // CS8618: Metalama's [Observable] aspect injects a non-nullable PropertyChanged event that
             // the weaver wires up post-compilation; the compiler doesn't see that and complains. Safe to suppress.
 #pragma warning disable CS8618
-            public ChargingPoint(IDateTimeProvider dateTimeProvider, ILogger logger)
+            public ChargingPoint(TimeProvider timeProvider, ILogger logger)
 #pragma warning restore CS8618
             {
-                _dateTimeProvider = dateTimeProvider;
+                _timeProvider = timeProvider;
                 _logger = logger;
             }
 
             /// <inheritdoc />
             public ControllableElectricityConsumerContract.DataResponse HandleRequest(ControllableElectricityConsumerContract.DataRequest request)
             {
-                return new ControllableElectricityConsumerContract.DataResponse(_dateTimeProvider.UtcNow, ActivePowerConsuming, EnergyConsumedTotal);
+                return new ControllableElectricityConsumerContract.DataResponse(_timeProvider.GetUtcNow().UtcDateTime, ActivePowerConsuming, EnergyConsumedTotal);
             }
 
             /// <inheritdoc />
@@ -186,7 +186,7 @@ namespace Vion.Examples.Energy.LogicBlocks
 
             public void Update()
             {
-                var currentTime = _dateTimeProvider.UtcNow;
+                var currentTime = _timeProvider.GetUtcNow().UtcDateTime;
                 if (_lastUpdateTime.HasValue)
                 {
                     var newActivePower = Math.Min(AllocatedActivePower, RequestedActivePower);

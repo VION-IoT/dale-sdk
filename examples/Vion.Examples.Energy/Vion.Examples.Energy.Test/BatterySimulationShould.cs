@@ -1,7 +1,6 @@
 using System;
 using Vion.Dale.Sdk.TestKit;
-using Vion.Dale.Sdk.Utils;
-using Moq;
+using Microsoft.Extensions.Time.Testing;
 using Vion.Examples.Energy.Contracts;
 using Vion.Examples.Energy.LogicBlocks;
 using Xunit;
@@ -10,21 +9,19 @@ namespace Vion.Examples.Energy.Test
 {
     public class BatterySimulationShould
     {
-        private readonly Mock<IDateTimeProvider> _dateTimeMock = new();
+        private readonly FakeTimeProvider _timeProvider = new(new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero));
         private readonly BatterySimulation _sut;
-        private DateTime _currentTime = new(2026, 1, 1, 12, 0, 0, DateTimeKind.Utc);
 
         public BatterySimulationShould()
         {
-            _dateTimeMock.Setup(d => d.UtcNow).Returns(() => _currentTime);
-            _sut = new BatterySimulation(_dateTimeMock.Object, LogicBlockTestHelper.CreateLoggerMock().Object);
+            _sut = new BatterySimulation(_timeProvider, LogicBlockTestHelper.CreateLoggerMock().Object);
             _sut.Capacity = 100; // 100 kWh
             _sut.InitializeForTest();
         }
 
         private void AdvanceTime(TimeSpan offset)
         {
-            _currentTime += offset;
+            _timeProvider.Advance(offset);
         }
 
         /// <summary>

@@ -1,7 +1,6 @@
 using System;
 using Vion.Dale.Sdk.TestKit;
-using Vion.Dale.Sdk.Utils;
-using Moq;
+using Microsoft.Extensions.Time.Testing;
 using Vion.Examples.Energy.Contracts;
 using Vion.Examples.Energy.LogicBlocks;
 using Xunit;
@@ -10,20 +9,20 @@ namespace Vion.Examples.Energy.Test
 {
     public class HouseSimulationShould
     {
-        private readonly Mock<IDateTimeProvider> _dateTimeMock = new();
+        // Anchor at midnight so individual tests can SetUtcNow to any time-of-day on this date
+        // without violating FakeTimeProvider's monotonic-clock invariant.
+        private readonly FakeTimeProvider _timeProvider = new(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
         private readonly HouseSimulation _sut;
-        private DateTime _currentTime = new(2026, 1, 1, 12, 0, 0, DateTimeKind.Utc);
 
         public HouseSimulationShould()
         {
-            _dateTimeMock.Setup(d => d.UtcNow).Returns(() => _currentTime);
-            _sut = new HouseSimulation(_dateTimeMock.Object, LogicBlockTestHelper.CreateLoggerMock().Object);
+            _sut = new HouseSimulation(_timeProvider, LogicBlockTestHelper.CreateLoggerMock().Object);
             _sut.InitializeForTest();
         }
 
         private void AdvanceTime(TimeSpan offset)
         {
-            _currentTime += offset;
+            _timeProvider.Advance(offset);
         }
 
         // --- HandleRequest ---
@@ -54,14 +53,14 @@ namespace Vion.Examples.Energy.Test
         public void OnTimer_MorningPeakHigherThanNight()
         {
             // Set time to 3 AM (low consumption, Europe/Zurich = UTC+1)
-            _currentTime = new DateTime(2026, 1, 1, 2, 0, 0, DateTimeKind.Utc); // 3 AM local
+            _timeProvider.SetUtcNow(new DateTimeOffset(2026, 1, 1, 2, 0, 0, TimeSpan.Zero)); // 3 AM local
             _sut.OnTimer();
             AdvanceTime(TimeSpan.FromSeconds(5));
             _sut.OnTimer();
             var nightPower = _sut.ActivePowerConsuming;
 
             // Set time to 7 AM local (morning peak, Europe/Zurich = UTC+1)
-            _currentTime = new DateTime(2026, 1, 1, 6, 0, 0, DateTimeKind.Utc); // 7 AM local
+            _timeProvider.SetUtcNow(new DateTimeOffset(2026, 1, 1, 6, 0, 0, TimeSpan.Zero)); // 7 AM local
             _sut.OnTimer();
             AdvanceTime(TimeSpan.FromSeconds(5));
             _sut.OnTimer();
@@ -75,14 +74,14 @@ namespace Vion.Examples.Energy.Test
         public void OnTimer_EveningPeakHigherThanNight()
         {
             // Set time to 3 AM
-            _currentTime = new DateTime(2026, 1, 1, 2, 0, 0, DateTimeKind.Utc);
+            _timeProvider.SetUtcNow(new DateTimeOffset(2026, 1, 1, 2, 0, 0, TimeSpan.Zero));
             _sut.OnTimer();
             AdvanceTime(TimeSpan.FromSeconds(5));
             _sut.OnTimer();
             var nightPower = _sut.ActivePowerConsuming;
 
             // Set time to 6 PM local (evening cooking peak, UTC+1)
-            _currentTime = new DateTime(2026, 1, 1, 17, 0, 0, DateTimeKind.Utc);
+            _timeProvider.SetUtcNow(new DateTimeOffset(2026, 1, 1, 17, 0, 0, TimeSpan.Zero));
             _sut.OnTimer();
             AdvanceTime(TimeSpan.FromSeconds(5));
             _sut.OnTimer();
@@ -116,7 +115,7 @@ namespace Vion.Examples.Energy.Test
             _sut.EventingHeatingPeakConsumption = 0;
 
             // Use a time far from any peak (3 AM local)
-            _currentTime = new DateTime(2026, 1, 1, 2, 0, 0, DateTimeKind.Utc);
+            _timeProvider.SetUtcNow(new DateTimeOffset(2026, 1, 1, 2, 0, 0, TimeSpan.Zero));
             _sut.OnTimer();
             AdvanceTime(TimeSpan.FromSeconds(5));
             _sut.OnTimer();
