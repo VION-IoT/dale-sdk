@@ -12,7 +12,15 @@
 
         <!--documentation related-->
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
-        <NoWarn>$(NoWarn);1591</NoWarn>
+        <!-- 1591: missing XML doc comments.
+             NU1701 + SuppressTfmSupportBuildWarnings: Microsoft.Extensions.TimeProvider.Testing
+             10.0.0 only ships net8.0+ and net462+ targets, not netstandard2.1. End consumers run
+             on net8.0+ and pick that target at runtime; the netstandard2.1 build of the TestKit
+             uses the net462 reference assembly here (FakeTimeProvider is in both). Tests pass
+             across the full suite, so we accept the warning suppression rather than multi-target
+             every TestKit package just for the testing dependency. -->
+        <NoWarn>$(NoWarn);1591;NU1701</NoWarn>
+        <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
     </PropertyGroup>
 
     <ItemGroup>
@@ -28,6 +36,8 @@
         </PackageReference>
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0"/>
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0"/>
+        <!-- FakeTimeProvider drives virtual time inside LogicBlockTestContext (clock reads + scheduled actions). -->
+        <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.0.0"/>
         <PackageReference Include="Moq" Version="4.20.72"/>
     </ItemGroup>
 

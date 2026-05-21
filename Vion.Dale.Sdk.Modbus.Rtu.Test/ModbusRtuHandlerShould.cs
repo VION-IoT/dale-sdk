@@ -11,6 +11,7 @@ using Vion.Dale.Sdk.Mqtt;
 using Vion.Dale.Sdk.Utils;
 using Google.FlatBuffers;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Time.Testing;
 using Moq;
 
 namespace Vion.Dale.Sdk.Modbus.Rtu.Test
@@ -79,7 +80,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
 
         private readonly Mock<IActorContext> _actorContextMock = new();
 
-        private readonly Mock<IDateTimeProvider> _dateTimeProviderMock = new();
+        private readonly FakeTimeProvider _timeProvider = new(Now);
 
         private readonly Mock<ILogger<ModbusRtuHandler>> _loggerMock = new();
 
@@ -97,7 +98,6 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         public async Task InitializeAsync()
         {
             MqttConfiguration.InstallationTopic = "installation";
-            _dateTimeProviderMock.Setup(provider => provider.UtcNow).Returns(Now);
             _actorContextMock.Setup(actorContext => actorContext.LookupByName(MqttConstants.MqttClientName)).Returns(_mqttClientActorRefMock.Object);
             _actorContextMock.Setup(actorContext => actorContext.SendToSelfAfter(It.IsAny<object>(), It.IsAny<TimeSpan>()))
                              .Callback<object, TimeSpan>((message, delay) =>
@@ -105,7 +105,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
                                                              _scheduledExpirationMessage = message;
                                                              _scheduledExpirationDelay = delay;
                                                          });
-            _sut = new ModbusRtuHandler(_dateTimeProviderMock.Object, _loggerMock.Object);
+            _sut = new ModbusRtuHandler(_timeProvider, _loggerMock.Object);
             await LinkAsync((SpContractId, LinkedLogicBlockContractId, _logicBlockActorRefMock.Object));
             _actorContextMock.Invocations.Clear();
         }
@@ -454,7 +454,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             var correlationId = Guid.NewGuid();
             Exception? capturedException = null;
             await SendReadRequestAsync(correlationId, (_, exception) => capturedException = exception);
-            _dateTimeProviderMock.Setup(provider => provider.UtcNow).Returns(FutureExpiration.AddSeconds(1));
+            _timeProvider.SetUtcNow(FutureExpiration.AddSeconds(1));
 
             // Act
             await TriggerExpirationCheckAsync();
@@ -471,7 +471,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             var correlationId = Guid.NewGuid();
             Exception? capturedException = null;
             await SendWriteRequestAsync(correlationId, exception => capturedException = exception);
-            _dateTimeProviderMock.Setup(provider => provider.UtcNow).Returns(FutureExpiration.AddSeconds(1));
+            _timeProvider.SetUtcNow(FutureExpiration.AddSeconds(1));
 
             // Act
             await TriggerExpirationCheckAsync();

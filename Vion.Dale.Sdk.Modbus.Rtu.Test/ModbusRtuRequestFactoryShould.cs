@@ -1,7 +1,7 @@
 using System;
 using Vion.Contracts.FlatBuffers.Hw.Modbus;
-using Vion.Dale.Sdk.Utils;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Time.Testing;
 using Moq;
 
 namespace Vion.Dale.Sdk.Modbus.Rtu.Test
@@ -41,7 +41,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
 
         private static readonly DateTime ExpiresAt = CreatedAt + OperationTimeout;
 
-        private readonly Mock<IDateTimeProvider> _dateTimeProviderMock = new();
+        private readonly FakeTimeProvider _timeProvider = new(CreatedAt);
 
         private readonly Mock<ILogger<ModbusRtuRequestFactory>> _loggerMock = new();
 
@@ -58,9 +58,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         [TestInitialize]
         public void Initialize()
         {
-            _dateTimeProviderMock.Setup(provider => provider.UtcNow).Returns(CreatedAt);
-            _dateTimeProviderMock.Setup(provider => provider.Add(CreatedAt, OperationTimeout)).Returns(ExpiresAt);
-            _sut = new ModbusRtuRequestFactory(_dateTimeProviderMock.Object, _loggerMock.Object);
+            _sut = new ModbusRtuRequestFactory(_timeProvider, _loggerMock.Object);
         }
 
         [TestMethod]

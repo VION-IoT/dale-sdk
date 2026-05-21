@@ -27,7 +27,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
 
         private readonly TimeSpan _checkExpiredRequestsDelay = TimeSpan.FromSeconds(1);
 
-        private readonly IDateTimeProvider _dateTimeProvider;
+        private readonly TimeProvider _timeProvider;
 
         private readonly Dictionary<ServiceProviderContractId, string> _getResponseTopics = [];
 
@@ -56,11 +56,11 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
         /// <summary>
         ///     Initializes a new instance of the <see cref="ModbusRtuHandler" /> class.
         /// </summary>
-        /// <param name="dateTimeProvider">Provides an abstraction for date and time operations.</param>
+        /// <param name="timeProvider">Provides an abstraction for date and time operations.</param>
         /// <param name="logger">The logger used for logging.</param>
-        public ModbusRtuHandler(IDateTimeProvider dateTimeProvider, ILogger<ModbusRtuHandler> logger) : base(logger)
+        public ModbusRtuHandler(TimeProvider timeProvider, ILogger<ModbusRtuHandler> logger) : base(logger)
         {
-            _dateTimeProvider = dateTimeProvider;
+            _timeProvider = timeProvider;
             _logger = logger;
         }
 
@@ -159,7 +159,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
 
             if (_logger.IsEnabled(LogLevel.Debug))
             {
-                var elapsedMs = _dateTimeProvider.GetElapsedTime(pendingRequest.CreatedAt).TotalMilliseconds;
+                var elapsedMs = (_timeProvider.GetUtcNow().UtcDateTime - pendingRequest.CreatedAt).TotalMilliseconds;
                 LogReceivedReadResponse(pendingRequest.LogicBlockContractId, pendingRequest.CreatedAt, elapsedMs, correlationId);
             }
 
@@ -201,7 +201,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
                 return;
             }
 
-            if (_dateTimeProvider.UtcNow >= request.ExpiresAt)
+            if (_timeProvider.GetUtcNow().UtcDateTime >= request.ExpiresAt)
             {
                 PublishResponse(logicBlockContractId, null, _timeoutException, request.Callback, request.CorrelationId);
                 return;
@@ -309,7 +309,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
 
             if (_logger.IsEnabled(LogLevel.Debug))
             {
-                var elapsedMs = _dateTimeProvider.GetElapsedTime(pendingRequest.CreatedAt).TotalMilliseconds;
+                var elapsedMs = (_timeProvider.GetUtcNow().UtcDateTime - pendingRequest.CreatedAt).TotalMilliseconds;
                 LogReceivedWriteResponse(pendingRequest.LogicBlockContractId, pendingRequest.CreatedAt, elapsedMs, correlationId);
             }
 
@@ -351,7 +351,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
                 return;
             }
 
-            if (_dateTimeProvider.UtcNow >= request.ExpiresAt)
+            if (_timeProvider.GetUtcNow().UtcDateTime >= request.ExpiresAt)
             {
                 PublishResponse(logicBlockContractId, _timeoutException, request.Callback, request.CorrelationId);
                 return;
@@ -560,7 +560,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
             }
 
             LogCheckingForExpiredRequests(_pendingReadRequests.Count, _pendingWriteRequests.Count);
-            var utcNow = _dateTimeProvider.UtcNow;
+            var utcNow = _timeProvider.GetUtcNow().UtcDateTime;
             foreach (var (correlationId, pendingRequest) in _pendingReadRequests)
             {
                 if (utcNow < pendingRequest.ExpiresAt)

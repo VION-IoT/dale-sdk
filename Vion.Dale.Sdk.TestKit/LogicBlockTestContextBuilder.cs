@@ -6,6 +6,7 @@ using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Time.Testing;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Configuration.Contract;
 using Vion.Dale.Sdk.Configuration.Interfaces;
@@ -113,6 +114,23 @@ namespace Vion.Dale.Sdk.TestKit
         }
 
         /// <summary>
+        ///     Bind the test context's virtual clock to a caller-owned <see cref="FakeTimeProvider" />.
+        ///     Use this when the block's constructor takes a <see cref="TimeProvider" /> and the test
+        ///     needs to ensure the block and <c>testContext.TimeProvider</c> share the same instance.
+        ///     <code>
+        ///     var clock = new FakeTimeProvider(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
+        ///     var sut = new MyBlock(clock, loggerMock.Object);
+        ///     var ctx = sut.CreateTestContext().WithTimeProvider(clock).Build();
+        ///     ctx.AdvanceTime(TimeSpan.FromSeconds(5)); // advances both sut's reads and ctx's deadlines
+        ///     </code>
+        /// </summary>
+        public LogicBlockTestContextBuilder<TLogicBlock> WithTimeProvider(FakeTimeProvider timeProvider)
+        {
+            _logicBlockTestContext.SetTimeProvider(timeProvider);
+            return this;
+        }
+
+        /// <summary>
         ///     Initialize the logic block and apply any linked interfaces mapping.
         ///     After this returns the logic block's Configure(...), Ready(), and Starting() will have been executed
         ///     and the block is ready to process messages. Use <see cref="WithoutAutoStart" /> to skip starting.
@@ -165,7 +183,10 @@ namespace Vion.Dale.Sdk.TestKit
             var services = new ServiceCollection();
             services.AddSingleton<ILoggerFactory>(NullLoggerFactory.Instance);
             services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
-            services.AddTransient<IDateTimeProvider, DateTimeProvider>();
+            // Inject the test context's virtual clock so logic blocks that depend on TimeProvider
+            // see the same UtcNow that AdvanceTime advances. Tests can still override by adding a
+            // different registration via WithServices, in which case the last registration wins.
+            services.AddSingleton<TimeProvider>(_logicBlockTestContext.TimeProvider);
             RegisterContractAssemblyServices(services);
             foreach (var configure in _serviceConfigurators)
             {

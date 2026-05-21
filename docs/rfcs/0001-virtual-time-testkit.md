@@ -1,6 +1,15 @@
 # RFC 0001: Virtual time in `LogicBlockTestContext`
 
-Status: **Draft** — design-only, not implemented. Author: jonas.bertsch. Date: 2026-05-21.
+Status: **Implemented** — landed on branch `feat/testkit-timeprovider`, shipping in the same release as the bug fix. Author: jonas.bertsch. Date: 2026-05-21.
+
+## Implementation notes (post-merge)
+
+The implementation diverges from the original draft in two ways worth recording:
+
+- **`TimeProvider` instead of a custom `IDateTimeProvider` shim.** The whole SDK migrated off the homegrown `IDateTimeProvider` and onto .NET's `System.TimeProvider` (via `Microsoft.Bcl.TimeProvider` on netstandard2.1). The TestKit hosts a `Microsoft.Extensions.Time.Testing.FakeTimeProvider` rather than reinventing one. This means open questions 1, 2, 3 inherit the well-defined answers from `FakeTimeProvider` (deadline-ordered dispatch with cascading, monotonic clock, no reentrancy magic). Open question 5 (Stopwatch / monotonic) is covered by `TimeProvider.GetTimestamp()` / `GetElapsedTime(long)`.
+- **`WithTimeProvider(FakeTimeProvider)` builder hook.** Blocks that take `TimeProvider` in their ctor must be constructed with the same `FakeTimeProvider` the test context uses for scheduling, otherwise the block's `UtcNow` reads diverge from the deadlines `SendToSelfAfter` records. Tests own the `FakeTimeProvider`, pass it to the block, and bind it to the context via `.WithTimeProvider(clock)`. When the block doesn't depend on `TimeProvider`, callers can ignore this and use the test context's default-constructed clock.
+
+The original API surface (`VirtualNow`, `AdvanceTime`) shipped as proposed. `FlushPendingActions` kept its clock-agnostic single-pass drain semantics from the prior bug fix.
 
 ## Motivation
 
