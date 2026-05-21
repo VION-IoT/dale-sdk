@@ -209,7 +209,15 @@ namespace Vion.Dale.Sdk.Core
                         _persistentData.CreateSnapshot();
                     }
 
-                    Stopping();
+                    try
+                    {
+                        Stopping();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Exception in Stopping() for logic block '{LogicBlockName}' ({LogicBlockId}); continuing shutdown.", Name, Id);
+                    }
+
                     _started = false;
                     _serviceBinder.ClearRetainedMessages(_logger);
                     _actorContext.RespondToSender(new StopLogicBlockResponse());
