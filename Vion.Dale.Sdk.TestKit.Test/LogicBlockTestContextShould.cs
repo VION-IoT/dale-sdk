@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Time.Testing;
 using Moq;
+using Vion.Dale.Sdk.Utils;
 
 namespace Vion.Dale.Sdk.TestKit.Test
 {
@@ -413,6 +414,53 @@ namespace Vion.Dale.Sdk.TestKit.Test
             Assert.AreEqual(99.0, block.Power, "FlushPendingActions must ignore deadlines and run all queued actions.");
             Assert.AreEqual(testContext.VirtualNow, testContext.VirtualNow,
                             "FlushPendingActions must not advance the virtual clock.");
+        }
+
+        // --- WithLogicInterfaceMapping ambiguity guard ---
+
+        [TestMethod]
+        public void WithLogicInterfaceMapping_ThrowsWhenInferredTypeIsClassWithMultipleContracts()
+        {
+            // The bare lambda `lb => lb` infers TInterface as the block class. When that class
+            // implements more than one [LogicInterface] contract interface, the resolver inside
+            // SetLinkedInterfaces would pick FirstOrDefault and silently route both mappings to
+            // the wrong sender. The guard throws at registration time instead.
+            var block = LogicBlockTestHelper.Create<MultiSenderLogicBlock>();
+            var builder = block.CreateTestContext();
+            var someTarget = new InterfaceId("other-block", "IFakeContractA");
+
+            var ex = Assert.ThrowsExactly<InvalidOperationException>(() => builder.WithLogicInterfaceMapping(lb => lb, someTarget));
+
+            // Message must name both candidate contracts and point at the explicit-generic fix —
+            // otherwise the bug stays just as silent as before, only with a different surface.
+            StringAssert.Contains(ex.Message, "MultiSenderLogicBlock");
+            StringAssert.Contains(ex.Message, "IFakeContractA");
+            StringAssert.Contains(ex.Message, "IFakeContractB");
+            StringAssert.Contains(ex.Message, "WithLogicInterfaceMapping<");
+        }
+
+        [TestMethod]
+        public void WithLogicInterfaceMapping_AllowsExplicitGenericOnMultiSenderBlock()
+        {
+            // Escape hatch: when the caller spells out the contract interface, no ambiguity exists.
+            var block = LogicBlockTestHelper.Create<MultiSenderLogicBlock>();
+            var builder = block.CreateTestContext();
+
+            // Should not throw — explicit generic disambiguates.
+            builder.WithLogicInterfaceMapping<IFakeContractA>(lb => lb, new InterfaceId("other-a", "IFakeContractA"))
+                   .WithLogicInterfaceMapping<IFakeContractB>(lb => lb, new InterfaceId("other-b", "IFakeContractB"));
+        }
+
+        [TestMethod]
+        public void WithLogicInterfaceMapping_AllowsBareLambdaOnSingleSenderBlock()
+        {
+            // The guard must not penalise the common single-contract case — the bare-lambda form
+            // is unambiguous there because there is only one possible sender to route to.
+            var block = LogicBlockTestHelper.Create<SingleSenderLogicBlock>();
+            var builder = block.CreateTestContext();
+
+            // Should not throw.
+            builder.WithLogicInterfaceMapping(lb => lb, new InterfaceId("other-a", "IFakeContractA"));
         }
 
         [TestMethod]

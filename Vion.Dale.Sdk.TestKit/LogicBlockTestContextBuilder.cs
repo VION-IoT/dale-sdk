@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using Vion.Dale.Sdk.Abstractions;
+using Vion.Dale.Sdk.CodeGeneration;
 using Vion.Dale.Sdk.Configuration.Contract;
 using Vion.Dale.Sdk.Configuration.Interfaces;
 using Vion.Dale.Sdk.Configuration.Services;
@@ -46,11 +47,21 @@ namespace Vion.Dale.Sdk.TestKit
 
         /// <summary>
         ///     Adds a mapping to another logic block using a specific (self or delegated) implementation of the interface.
+        ///     <para>
+        ///         When <typeparamref name="TInterface" /> is inferred as a concrete class (the common
+        ///         shape of <c>WithLogicInterfaceMapping(lb =&gt; lb, id)</c>), this method throws if
+        ///         the class implements more than one <c>[LogicInterface]</c>-decorated contract
+        ///         interface — without an explicit generic argument the mapping would silently route
+        ///         to whichever contract happens to come first in metadata order, and a second
+        ///         ambiguous mapping would land on the wrong sender. Pass the contract interface
+        ///         explicitly, e.g. <c>WithLogicInterfaceMapping&lt;IContractA&gt;(lb =&gt; lb, id)</c>.
+        ///     </para>
         /// </summary>
         public LogicBlockTestContextBuilder<TLogicBlock> WithLogicInterfaceMapping<TInterface>(Func<TLogicBlock, TInterface> instance, InterfaceId mappedInstance)
             where TInterface : ILogicHandlerInterface
         {
             var interfaceType = typeof(TInterface);
+            GuardAgainstAmbiguousMappingTarget(interfaceType);
             var implementationInstance = instance(_logicBlock);
             if (!_logicInterfaceMappings.ContainsKey(interfaceType))
             {
@@ -59,6 +70,41 @@ namespace Vion.Dale.Sdk.TestKit
 
             _logicInterfaceMappings[interfaceType].Mappings.Add(mappedInstance);
             return this;
+        }
+
+        /// <summary>
+        ///     When <paramref name="targetType" /> is a class that implements more than one
+        ///     <c>[LogicInterface]</c>-decorated contract interface, the existing
+        ///     IsAssignableFrom+FirstOrDefault resolution in <see cref="SetLinkedInterfaces" />
+        ///     cannot tell which contract the caller meant. Two such mappings stack onto the same
+        ///     dictionary key, get routed to the first matching sender, and the second contract's
+        ///     sender silently receives zero mappings. Catch the ambiguity at registration time so
+        ///     the bug surfaces at the call site instead of as a missing verification later.
+        /// </summary>
+        private static void GuardAgainstAmbiguousMappingTarget(Type targetType)
+        {
+            // Interface TInterface (the explicit-generic form) is always unambiguous — it IS the
+            // contract interface the caller meant. Only a concrete class can carry the ambiguity.
+            if (targetType.IsInterface)
+            {
+                return;
+            }
+
+            var contractInterfaces = targetType.GetInterfaces()
+                                               .Where(i => i.GetCustomAttribute<LogicInterfaceAttribute>() != null)
+                                               .ToList();
+            if (contractInterfaces.Count <= 1)
+            {
+                return;
+            }
+
+            var candidates = string.Join(", ", contractInterfaces.Select(i => i.Name));
+            var firstCandidate = contractInterfaces[0].Name;
+            throw new InvalidOperationException(
+                $"WithLogicInterfaceMapping cannot infer which sender interface to map for class " +
+                $"'{targetType.Name}' because it implements {contractInterfaces.Count} contract interfaces ({candidates}). " +
+                $"Without an explicit generic argument the second mapping would silently land on the wrong sender. " +
+                $"Pass the contract interface explicitly, e.g. WithLogicInterfaceMapping<{firstCandidate}>(lb => lb, mappedInstance).");
         }
 
         /// <summary>
