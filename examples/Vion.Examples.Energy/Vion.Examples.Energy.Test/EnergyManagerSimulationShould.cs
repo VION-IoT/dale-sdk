@@ -1,7 +1,7 @@
 using System;
 using Vion.Dale.Sdk.TestKit;
 using Vion.Dale.Sdk.Utils;
-using Moq;
+using Microsoft.Extensions.Time.Testing;
 using Vion.Examples.Energy.Contracts;
 using Vion.Examples.Energy.LogicBlocks;
 using Xunit;
@@ -12,9 +12,11 @@ namespace Vion.Examples.Energy.Test
     {
         public EnergyManagerSimulationShould()
         {
-            _dateTimeMock.Setup(d => d.UtcNow).Returns(() => _currentTime);
-            _sut = new EnergyManagerSimulation(_dateTimeMock.Object, LogicBlockTestHelper.CreateLoggerMock().Object);
+            _sut = new EnergyManagerSimulation(_timeProvider, LogicBlockTestHelper.CreateLoggerMock().Object);
+            // EnergyManagerSimulation is multi-sender; bind the same FakeTimeProvider to the test
+            // context so SendToSelfAfter deadlines stay in sync with the block's UtcNow reads.
             _testContext = _sut.CreateTestContext()
+                               .WithTimeProvider(_timeProvider)
                                .WithLogicInterfaceMapping<IObservableElectricitySupplierManager>(PvId)
                                .WithLogicInterfaceMapping<IObservableElectricityConsumerManager>(HouseId)
                                .WithLogicInterfaceMapping<IControllableElectricityConsumerManager>(ChargingStationId)
@@ -31,23 +33,15 @@ namespace Vion.Examples.Energy.Test
 
         private static readonly InterfaceId BatteryId = new("battery-block", "IControllableElectricityBuffer");
 
-        private readonly Mock<IDateTimeProvider> _dateTimeMock = new();
+        private readonly FakeTimeProvider _timeProvider = new(new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero));
 
         private readonly EnergyManagerSimulation _sut;
 
         private readonly LogicBlockTestContext<EnergyManagerSimulation> _testContext;
 
-        private DateTime _currentTime = new(2026,
-                                            1,
-                                            1,
-                                            12,
-                                            0,
-                                            0,
-                                            DateTimeKind.Utc);
-
         private void AdvanceTime(TimeSpan offset)
         {
-            _currentTime += offset;
+            _timeProvider.Advance(offset);
         }
 
         /// <summary>
@@ -64,7 +58,7 @@ namespace Vion.Examples.Energy.Test
                               double batteryMaxDischarging = 10,
                               double batteryCapacity = 100)
         {
-            var now = _currentTime;
+            var now = _timeProvider.GetUtcNow().UtcDateTime;
 
             // State updates (normally sent proactively by linked blocks)
             _sut.HandleStateUpdate(PvId, new ObservableElectricitySupplierContract.StateUpdate(pvPower));

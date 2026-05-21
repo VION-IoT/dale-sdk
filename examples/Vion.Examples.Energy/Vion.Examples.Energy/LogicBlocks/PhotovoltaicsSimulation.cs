@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Vion.Dale.Sdk.AnalogIo.Output;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Utils;
@@ -13,7 +13,7 @@ namespace Vion.Examples.Energy.LogicBlocks
     [LogicBlockInterfaceBinding(typeof(IObservableElectricitySupplier), Multiplicity = LinkMultiplicity.ExactlyOne)]
     public class PhotovoltaicsSimulation : LogicBlockBase, IObservableElectricitySupplier
     {
-        private readonly IDateTimeProvider _dateTimeProvider;
+        private readonly TimeProvider _timeProvider;
 
         private readonly IGeolocationService _geolocationService;
 
@@ -92,10 +92,10 @@ namespace Vion.Examples.Energy.LogicBlocks
         [Presentation(Group = PropertyGroup.Metric, Importance = Importance.Secondary)]
         public double EnergySuppliedTotal { get; private set; }
 
-        public PhotovoltaicsSimulation(IDateTimeProvider dateTimeProvider, IMeteoService meteoService, IGeolocationService geolocationService, ILogger logger) :
+        public PhotovoltaicsSimulation(TimeProvider timeProvider, IMeteoService meteoService, IGeolocationService geolocationService, ILogger logger) :
             base(logger)
         {
-            _dateTimeProvider = dateTimeProvider;
+            _timeProvider = timeProvider;
             _meteoService = meteoService;
             _geolocationService = geolocationService;
             _logger = logger;
@@ -104,13 +104,13 @@ namespace Vion.Examples.Energy.LogicBlocks
         /// <inheritdoc />
         public ObservableElectricitySupplierContract.DataResponse HandleRequest(ObservableElectricitySupplierContract.DataRequest request)
         {
-            return new ObservableElectricitySupplierContract.DataResponse(_dateTimeProvider.UtcNow, ActivePowerSupplying, EnergySuppliedTotal);
+            return new ObservableElectricitySupplierContract.DataResponse(_timeProvider.GetUtcNow().UtcDateTime, ActivePowerSupplying, EnergySuppliedTotal);
         }
 
         [Timer(5)]
         public void OnTimer()
         {
-            var currentTime = _dateTimeProvider.UtcNow;
+            var currentTime = _timeProvider.GetUtcNow().UtcDateTime;
             if (_lastUpdateTime.HasValue)
             {
                 _shortwaveRadiationSubscription?.RequestUpdate();

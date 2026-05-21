@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Vion.Dale.Sdk.Core;
@@ -42,7 +42,7 @@ namespace Vion.Examples.Energy.LogicBlocks
 
         private readonly Dictionary<InterfaceId, ControllableElectricityConsumerContract.StateUpdate> _controllableElectricityConsumersState = [];
 
-        private readonly IDateTimeProvider _dateTimeProvider;
+        private readonly TimeProvider _timeProvider;
 
         private readonly Dictionary<InterfaceId, double> _gridEffectData = [];
 
@@ -237,9 +237,9 @@ namespace Vion.Examples.Energy.LogicBlocks
 
         // total consumption, production, buffer charge/discharge energy
 
-        public EnergyManagerSimulation(IDateTimeProvider dateTimeProvider, ILogger logger) : base(logger)
+        public EnergyManagerSimulation(TimeProvider timeProvider, ILogger logger) : base(logger)
         {
-            _dateTimeProvider = dateTimeProvider;
+            _timeProvider = timeProvider;
             _logger = logger;
         }
 
@@ -324,7 +324,7 @@ namespace Vion.Examples.Energy.LogicBlocks
 
         private void SendDataRequests()
         {
-            _lastDataRequestDataTime = _dateTimeProvider.UtcNow;
+            _lastDataRequestDataTime = _timeProvider.GetUtcNow().UtcDateTime;
 
             foreach (var id in this.GetLinkedObservableElectricitySuppliers())
             {
@@ -401,10 +401,10 @@ namespace Vion.Examples.Energy.LogicBlocks
             // find oldest timestamp in data dictionaries
             var oldestDataTime = new[]
                                  {
-                                     _controllableElectricityBuffersData.Values.Select(v => v.Timestamp).DefaultIfEmpty(_dateTimeProvider.UtcNow).Min(),
-                                     _controllableElectricityConsumersData.Values.Select(v => v.Timestamp).DefaultIfEmpty(_dateTimeProvider.UtcNow).Min(),
-                                     _observableElectricityConsumersData.Values.Select(v => v.Timestamp).DefaultIfEmpty(_dateTimeProvider.UtcNow).Min(),
-                                     _observableElectricitySuppliersData.Values.Select(v => v.Timestamp).DefaultIfEmpty(_dateTimeProvider.UtcNow).Min(),
+                                     _controllableElectricityBuffersData.Values.Select(v => v.Timestamp).DefaultIfEmpty(_timeProvider.GetUtcNow().UtcDateTime).Min(),
+                                     _controllableElectricityConsumersData.Values.Select(v => v.Timestamp).DefaultIfEmpty(_timeProvider.GetUtcNow().UtcDateTime).Min(),
+                                     _observableElectricityConsumersData.Values.Select(v => v.Timestamp).DefaultIfEmpty(_timeProvider.GetUtcNow().UtcDateTime).Min(),
+                                     _observableElectricitySuppliersData.Values.Select(v => v.Timestamp).DefaultIfEmpty(_timeProvider.GetUtcNow().UtcDateTime).Min(),
                                  }.Min();
 
             if (_lastDataRequestDataTime.HasValue)
@@ -497,7 +497,7 @@ namespace Vion.Examples.Energy.LogicBlocks
 
         private void CalculateVirtualGrid()
         {
-            var currentTime = _dateTimeProvider.UtcNow;
+            var currentTime = _timeProvider.GetUtcNow().UtcDateTime;
 
             if (_lastUpdateTimeVirtualGrid.HasValue)
             {
@@ -553,7 +553,7 @@ namespace Vion.Examples.Energy.LogicBlocks
 
         private void CalculateEnergyFlows()
         {
-            var currentTime = _dateTimeProvider.UtcNow;
+            var currentTime = _timeProvider.GetUtcNow().UtcDateTime;
             if (_lastUpdateTimeEnergyFlows.HasValue)
             {
                 // -----------------------------

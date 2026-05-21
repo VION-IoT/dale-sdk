@@ -1,7 +1,6 @@
 using System;
 using Vion.Dale.Sdk.TestKit;
-using Vion.Dale.Sdk.Utils;
-using Moq;
+using Microsoft.Extensions.Time.Testing;
 using Vion.Examples.Energy.Contracts;
 using Vion.Examples.Energy.LogicBlocks;
 using Xunit;
@@ -10,20 +9,18 @@ namespace Vion.Examples.Energy.Test
 {
     public class ChargingStationSimulationShould
     {
-        private readonly Mock<IDateTimeProvider> _dateTimeMock = new();
+        private readonly FakeTimeProvider _timeProvider = new(new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero));
         private readonly ChargingStationSimulation _sut;
-        private DateTime _currentTime = new(2026, 1, 1, 12, 0, 0, DateTimeKind.Utc);
 
         public ChargingStationSimulationShould()
         {
-            _dateTimeMock.Setup(d => d.UtcNow).Returns(() => _currentTime);
-            _sut = new ChargingStationSimulation(_dateTimeMock.Object, LogicBlockTestHelper.CreateLoggerMock().Object);
+            _sut = new ChargingStationSimulation(_timeProvider, LogicBlockTestHelper.CreateLoggerMock().Object);
             _sut.InitializeForTest();
         }
 
         private void AdvanceTime(TimeSpan offset)
         {
-            _currentTime += offset;
+            _timeProvider.Advance(offset);
         }
 
         // --- EnableCharging / RequestedActivePower ---
