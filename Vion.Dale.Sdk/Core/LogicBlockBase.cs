@@ -291,21 +291,123 @@ namespace Vion.Dale.Sdk.Core
         }
 
         /// <summary>
-        ///     Called when the logic block has been configured and is ready to run. this is the place to attach event handlers to
-        ///     contract or interface elements
+        ///     Called once after the block has been configured (attribute-driven bindings are in place) and is ready to run,
+        ///     but BEFORE the runtime has restored persisted <see cref="ServicePropertyAttribute" /> values, registered
+        ///     per-contract sender instances, or fired <see cref="Starting" />. The right place to <b>attach event handlers</b>
+        ///     to contract / interface elements and to do other block-local one-time setup that doesn't depend on SDK runtime
+        ///     state.
         /// </summary>
+        /// <remarks>
+        ///     <para>
+        ///         <b>Three things are NOT yet available in Ready:</b>
+        ///     </para>
+        ///     <list type="bullet">
+        ///         <item>
+        ///             <b>Persisted <see cref="ServicePropertyAttribute" /> values.</b> The runtime applies them between
+        ///             <see cref="Ready" /> and <see cref="Starting" />, so in Ready every property still holds its C#
+        ///             field-initialiser default. Code that reads a property expecting the operator-set / persisted value
+        ///             (rather than its compile-time default) belongs in <see cref="Starting" />.
+        ///         </item>
+        ///         <item>
+        ///             <b>Cross-block link topology.</b> The SDK-generated <c>GetLinkedXxx()</c> helpers from a
+        ///             <see cref="LogicBlockContractAttribute" />-decorated contract return an empty collection in Ready —
+        ///             per-contract sender instances are registered between Ready and Starting. Calling <c>GetLinkedXxx()</c>
+        ///             from Ready is silently wrong (no error, no warning, just empty).
+        ///         </item>
+        ///         <item>
+        ///             <b>Outbound emits.</b> Cross-block <c>this.SendStateUpdate(...)</c> calls iterate the still-empty link
+        ///             set and reach no one. Writes through a <see cref="ServicePropertyAttribute" /> setter are gated by an
+        ///             internal started flag, dropped, and logged at info level as
+        ///             <c>"is not started, ignoring property change"</c>. Initial values for
+        ///             <see cref="ServicePropertyAttribute" /> and <see cref="ServiceMeasuringPointAttribute" /> are
+        ///             auto-published by the runtime after <see cref="Starting" /> — no manual emit needed for those.
+        ///         </item>
+        ///     </list>
+        ///     <para>
+        ///         <b>Rule of thumb:</b> if it depends on the SDK having finished its between-Ready-and-Starting work
+        ///         (persistence restore, link registration, sender-instance attachment), it belongs in <see cref="Starting" />,
+        ///         not Ready.
+        ///     </para>
+        /// </remarks>
+        /// <seealso cref="Starting" />
+        /// <seealso cref="Stopping" />
         protected abstract void Ready();
 
         /// <summary>
-        ///     Called when the logic block is started (after it has been initialized/ready)
+        ///     Called once after <see cref="Ready" /> and after the runtime has restored persisted
+        ///     <see cref="ServicePropertyAttribute" /> values and registered per-contract sender instances. The right place
+        ///     for setup that depends on SDK runtime state: reading persisted property values, enumerating contract links via
+        ///     <c>GetLinkedXxx()</c>, scheduling first periodic ticks, and emitting initial cross-block contract state-updates.
         /// </summary>
+        /// <remarks>
+        ///     <para>
+        ///         <b>Typical Starting work:</b>
+        ///     </para>
+        ///     <list type="bullet">
+        ///         <item>
+        ///             Configure external clients and protocol bindings from <see cref="ServicePropertyAttribute" />
+        ///             values — persisted values are applied by now.
+        ///         </item>
+        ///         <item>
+        ///             Snapshot the static link topology via the generated <c>GetLinkedXxx()</c> helpers if the block needs
+        ///             to know its peers.
+        ///         </item>
+        ///         <item>
+        ///             Schedule the first periodic tick via <see cref="InvokeSynchronizedAfter" /> — the canonical
+        ///             self-rescheduling pattern: <see cref="Starting" /> kicks off the first
+        ///             <c>InvokeSynchronizedAfter</c>; the scheduled action does its work and re-schedules itself.
+        ///         </item>
+        ///         <item>
+        ///             Emit initial cross-block contract <c>[StateUpdate]</c> messages via <c>this.SendStateUpdate(...)</c> —
+        ///             linked blocks typically rely on these at startup to know peer state. Initial values for
+        ///             <see cref="ServicePropertyAttribute" /> and <see cref="ServiceMeasuringPointAttribute" /> are
+        ///             auto-published by the runtime, so no manual emit is needed for those.
+        ///         </item>
+        ///     </list>
+        /// </remarks>
+        /// <seealso cref="Ready" />
+        /// <seealso cref="Stopping" />
         protected virtual void Starting()
         {
         }
 
         /// <summary>
-        ///     Called when the logic block is stopped (before it gets removed)
+        ///     Called once before the block is removed, after the runtime processes a stop request. The right place to
+        ///     <b>release resources acquired during the block's lifetime</b>: detach event handlers attached in
+        ///     <see cref="Ready" />, cancel in-flight operations, dispose injected clients, flush pending I/O.
         /// </summary>
+        /// <remarks>
+        ///     <para>
+        ///         <b>What's still available:</b> the block is still in its started state during Stopping (the internal
+        ///         started flag is reset only after Stopping returns), so contract bindings, link topology, and
+        ///         <see cref="ServicePropertyAttribute" /> values behave normally.
+        ///     </para>
+        ///     <para>
+        ///         <b>Three things worth knowing:</b>
+        ///     </para>
+        ///     <list type="bullet">
+        ///         <item>
+        ///             <b>Persistence snapshot is already captured.</b> The runtime captures the persistent-state snapshot
+        ///             before calling Stopping, so writes to a <see cref="ServicePropertyAttribute" /> from inside Stopping
+        ///             do <em>not</em> survive a restart.
+        ///         </item>
+        ///         <item>
+        ///             <b>Outbound emits are not guaranteed to be observed.</b> Linked blocks may already be shutting down;
+        ///             do not rely on cross-block <c>this.SendStateUpdate(...)</c> calls from Stopping reaching peers.
+        ///         </item>
+        ///         <item>
+        ///             <b>Exceptions don't halt shutdown.</b> Any exception thrown from Stopping is logged at error level
+        ///             and swallowed — the block still stops, the runtime still acks. Stopping cannot be used to signal a
+        ///             refused shutdown.
+        ///         </item>
+        ///     </list>
+        ///     <para>
+        ///         <b>Symmetry rule:</b> anything attached or scheduled in <see cref="Ready" /> / <see cref="Starting" />
+        ///         should typically be detached or cancelled here.
+        ///     </para>
+        /// </remarks>
+        /// <seealso cref="Ready" />
+        /// <seealso cref="Starting" />
         protected virtual void Stopping()
         {
         }
