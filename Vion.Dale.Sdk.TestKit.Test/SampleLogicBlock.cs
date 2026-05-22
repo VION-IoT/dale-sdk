@@ -38,6 +38,16 @@ namespace Vion.Dale.Sdk.TestKit.Test
             InvokeSynchronizedAfter(() => Power = value, TimeSpan.FromMilliseconds(500));
         }
 
+        /// <summary>
+        ///     Simulates the "schedule a follow-up on next dispatch" pattern used by production callbacks
+        ///     (e.g. Modbus / HTTP response handlers, or contract-update bypass handlers): the action is
+        ///     queued via <see cref="LogicBlockBase.InvokeSynchronized" /> with no delay.
+        /// </summary>
+        public void ScheduleImmediatePowerUpdate(double value)
+        {
+            InvokeSynchronized(() => Power = value);
+        }
+
         protected override void Ready()
         {
         }

@@ -249,6 +249,25 @@ namespace Vion.Dale.Sdk.TestKit.Test
         }
 
         [TestMethod]
+        public void FlushPendingActions_ExecutesImmediateInvokeSynchronizedAction()
+        {
+            // Repro for the asymmetry between SendToSelf and SendToSelfAfter in the TestKit:
+            // InvokeSynchronized(action) — used by production for "do this on next dispatch"
+            // callbacks (Modbus / HTTP response handlers, contract-update bypass handlers) —
+            // must be drained by FlushPendingActions, just like InvokeSynchronizedAfter.
+            var block = LogicBlockTestHelper.Create<SampleLogicBlock>();
+            var testContext = block.CreateTestContext().Build();
+
+            block.ScheduleImmediatePowerUpdate(42.0);
+
+            Assert.AreEqual(0.0, block.Power, "InvokeSynchronized action should be queued, not executed inline.");
+
+            testContext.FlushPendingActions();
+
+            Assert.AreEqual(42.0, block.Power, "FlushPendingActions must drain InvokeSynchronized actions too, not only InvokeSynchronizedAfter.");
+        }
+
+        [TestMethod]
         public void FlushPendingActions_ExecuteMultipleActions()
         {
             var block = LogicBlockTestHelper.Create<SampleLogicBlock>();
@@ -302,6 +321,21 @@ namespace Vion.Dale.Sdk.TestKit.Test
             testContext.AdvanceTime(TimeSpan.FromMilliseconds(500));
 
             Assert.AreEqual(42.0, block.Power);
+        }
+
+        [TestMethod]
+        public void AdvanceTime_FiresImmediateInvokeSynchronizedAction()
+        {
+            // InvokeSynchronized actions enlist with deadline = "now-at-scheduling-time", so
+            // any non-negative AdvanceTime — including TimeSpan.Zero — must fire them.
+            var block = LogicBlockTestHelper.Create<SampleLogicBlock>();
+            var testContext = block.CreateTestContext().Build();
+
+            block.ScheduleImmediatePowerUpdate(7.0);
+
+            testContext.AdvanceTime(TimeSpan.Zero);
+
+            Assert.AreEqual(7.0, block.Power, "AdvanceTime(Zero) must drain InvokeSynchronized actions whose deadline is the current virtual time.");
         }
 
         [TestMethod]
