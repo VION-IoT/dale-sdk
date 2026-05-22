@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>netstandard2.1</TargetFramework>
+        <TargetFramework>net10.0</TargetFramework>
         <LangVersion>latest</LangVersion>
         <ImplicitUsings>false</ImplicitUsings>
         <Nullable>enable</Nullable>
@@ -13,23 +13,8 @@
 
         <!--documentation related-->
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
-        <NoWarn>$(NoWarn);1591;NU1701</NoWarn>
-        <!-- Transitive Microsoft.Extensions.TimeProvider.Testing only ships net8.0+/net462+; we run net10.0+ tests against this and the warning is cosmetic. -->
-        <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
+        <NoWarn>$(NoWarn);1591</NoWarn>
     </PropertyGroup>
-
-    <ItemGroup>
-        <!--shim to be able to use readonly record structs in netstandard2.1-->
-        <PackageReference Include="IsExternalInit" Version="1.0.3">
-            <PrivateAssets>all</PrivateAssets>
-            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-        </PackageReference>
-        <!--shim to be able to use required members in netstandard2.1-->
-        <PackageReference Include="RequiredMemberAttribute" Version="1.0.0">
-            <PrivateAssets>all</PrivateAssets>
-            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-        </PackageReference>
-    </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\Vion.Dale.Sdk.Modbus.Rtu\Vion.Dale.Sdk.Modbus.Rtu.csproj"/>
