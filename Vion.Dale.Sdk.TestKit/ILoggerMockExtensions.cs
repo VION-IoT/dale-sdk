@@ -23,7 +23,7 @@ namespace Vion.Dale.Sdk.TestKit
         {
             loggerMock.Verify(l => l.Log(logLevel,
                                          It.IsAny<EventId>(),
-                                         It.Is<It.IsAnyType>((v, t) => v.ToString().Contains(contains)),
+                                         It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains(contains)),
                                          It.IsAny<Exception>(),
                                          It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
                               times);
@@ -33,7 +33,7 @@ namespace Vion.Dale.Sdk.TestKit
         {
             loggerMock.Verify(l => l.Log(logLevel,
                                          It.IsAny<EventId>(),
-                                         It.Is<It.IsAnyType>((v, t) => v.ToString().Contains(contains)),
+                                         It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains(contains)),
                                          It.IsAny<Exception>(),
                                          It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
                               times);

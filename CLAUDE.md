@@ -94,7 +94,7 @@ Env vars: `DALE_CLIENT_ID`, `DALE_CLIENT_SECRET`, `DALE_INTEGRATOR_ID` (all user
 - `Nullable: enabled`.
 - Format with `jb cleanupcode Vion.Dale.Sdk.sln --profile="Built-in: Reformat Code"` (JetBrains CLI).
 - Allman brace style throughout.
-- Targets: `netstandard2.1` for SDK (cross-platform plugin compatibility), `netstandard2.0` for source generator, `net10.0` for CLI / DevHost / ProtoActor / Plugin / LogicBlockParser / tests.
+- Targets: `netstandard2.1` for SDK runtime + I/O / protocol contracts + Http (cross-platform plugin compatibility), `netstandard2.0` for source generator, `net10.0` for TestKits / CLI / DevHost / ProtoActor / Plugin / LogicBlockParser / tests.
 
 ## Related Repos
 

@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <TargetFramework>netstandard2.1</TargetFramework>
+        <TargetFramework>net10.0</TargetFramework>
         <LangVersion>latest</LangVersion>
         <ImplicitUsings>false</ImplicitUsings>
         <Nullable>enable</Nullable>
@@ -12,28 +12,11 @@
 
         <!--documentation related-->
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
-        <!-- 1591: missing XML doc comments.
-             NU1701 + SuppressTfmSupportBuildWarnings: Microsoft.Extensions.TimeProvider.Testing
-             10.0.0 only ships net8.0+ and net462+ targets, not netstandard2.1. End consumers run
-             on net8.0+ and pick that target at runtime; the netstandard2.1 build of the TestKit
-             uses the net462 reference assembly here (FakeTimeProvider is in both). Tests pass
-             across the full suite, so we accept the warning suppression rather than multi-target
-             every TestKit package just for the testing dependency. -->
-        <NoWarn>$(NoWarn);1591;NU1701</NoWarn>
-        <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
+        <!-- 1591: missing XML doc comments. -->
+        <NoWarn>$(NoWarn);1591</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>
-        <!--shim to be able to use readonly record structs in netstandard2.1-->
-        <PackageReference Include="IsExternalInit" Version="1.0.3">
-            <PrivateAssets>all</PrivateAssets>
-            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-        </PackageReference>
-        <!--shim to be able to use required members in netstandard2.1-->
-        <PackageReference Include="RequiredMemberAttribute" Version="1.0.0">
-            <PrivateAssets>all</PrivateAssets>
-            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-        </PackageReference>
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0"/>
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0"/>
         <!-- FakeTimeProvider drives virtual time inside LogicBlockTestContext (clock reads + scheduled actions). -->
