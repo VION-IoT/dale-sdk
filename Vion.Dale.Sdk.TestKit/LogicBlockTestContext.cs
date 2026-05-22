@@ -20,7 +20,7 @@ namespace Vion.Dale.Sdk.TestKit
     ///     <para>
     ///         Hosts a <see cref="FakeTimeProvider" /> as the virtual clock for both <c>UtcNow</c>
     ///         reads (production code that depends on <c>TimeProvider</c>) and for the deadlines
-    ///         attached to <c>InvokeSynchronizedAfter</c> actions. Call
+    ///         attached to <c>InvokeSynchronized</c> / <c>InvokeSynchronizedAfter</c> actions. Call
     ///         <see cref="AdvanceTime" /> to move the clock forward and fire actions whose deadlines
     ///         have elapsed; call <see cref="FlushPendingActions" /> for the legacy clock-agnostic
     ///         drain.
@@ -261,10 +261,11 @@ namespace Vion.Dale.Sdk.TestKit
         }
 
         /// <summary>
-        ///     Execute every action currently queued by <see cref="LogicBlockBase.InvokeSynchronizedAfter" />,
-        ///     ignoring their scheduled deadlines and ignoring the virtual clock. New code that wants
-        ///     deterministic time semantics should prefer <see cref="AdvanceTime" />; this method exists
-        ///     for tests that just want to drain the queue without caring about elapsed simulated time.
+        ///     Execute every action currently queued by <see cref="LogicBlockBase.InvokeSynchronized" />
+        ///     or <see cref="LogicBlockBase.InvokeSynchronizedAfter" />, ignoring their scheduled
+        ///     deadlines and ignoring the virtual clock. New code that wants deterministic time
+        ///     semantics should prefer <see cref="AdvanceTime" />; this method exists for tests that
+        ///     just want to drain the queue without caring about elapsed simulated time.
         ///     <code>
         ///     sut.OnTimer();                          // sends requests, queues Calculate
         ///     sut.HandleResponse(id, response);       // feed response data
@@ -360,6 +361,16 @@ namespace Vion.Dale.Sdk.TestKit
         void IActorContext.SendToSelf(object message)
         {
             _sentMessages.Add((_self, message, null));
+
+            // Mirror SendToSelfAfter's drain enlistment: in production the runtime dispatches
+            // InvokeActionMessage on its next message-pump iteration; in TestKit there is no pump,
+            // so we enlist with deadline = now so FlushPendingActions / AdvanceTime(>=0) drain it.
+            // Without this, LogicBlockBase.InvokeSynchronized(action) is silently lost under the
+            // TestKit (whereas InvokeSynchronizedAfter(action, TimeSpan.Zero) would work).
+            if (message is InvokeActionMessage actionMessage)
+            {
+                _pendingActions.Add((_timeProvider.GetUtcNow(), actionMessage.Action));
+            }
         }
 
         void IActorContext.SendToSelfAfter(object message, TimeSpan delay)
