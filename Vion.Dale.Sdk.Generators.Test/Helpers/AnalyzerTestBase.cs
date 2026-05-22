@@ -1,6 +1,7 @@
 using System.IO;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Testing;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
@@ -32,6 +33,15 @@ namespace Vion.Dale.Sdk.Generators.Test.Helpers
 
             // Add attribute stubs as an additional source file
             test.TestState.Sources.Add(("TestAttributeStubs.cs", AttributeStubs));
+
+            // Pin LanguageVersion so tests can exercise newer C# features (e.g. C# 13 'field'
+            // contextual keyword) regardless of what the test framework's default would pick.
+            test.SolutionTransforms.Add((solution, projectId) =>
+            {
+                var project = solution.GetProject(projectId)!;
+                var parseOptions = (CSharpParseOptions)project.ParseOptions!;
+                return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.Latest));
+            });
 
             test.ExpectedDiagnostics.AddRange(expected);
             await test.RunAsync();

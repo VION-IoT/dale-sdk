@@ -160,6 +160,12 @@ namespace Vion.Dale.Sdk.Core
     {
     }
 
+    // Minimal LogicBlockBase stub — sufficient for analyzers that key off derivation from
+    // Vion.Dale.Sdk.Core.LogicBlockBase (e.g. MetalamaFieldKeywordAnalyzer).
+    public abstract class LogicBlockBase
+    {
+    }
+
     [AttributeUsage(AttributeTargets.Assembly, AllowMultiple = true)]
     public class PublicApiNamespaceAttribute : Attribute
     {
