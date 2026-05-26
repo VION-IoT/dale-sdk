@@ -310,6 +310,22 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                                                                                    true);
 
         /// <summary>
+        ///     A property on a <c>LogicBlockBase</c> subclass has a custom setter body that uses
+        ///     the C# 13 <c>field</c> keyword. Metalama's <c>[Observable]</c> aspect (auto-applied
+        ///     by <c>MetalamaTransitiveFabric</c> to every <c>LogicBlockBase</c> subclass) rewrites
+        ///     setters without understanding the synthesized field-keyword backing, and the
+        ///     user-written body is silently dropped at runtime — side effects (forwarded writes,
+        ///     state-update emits, logging) never run. Use an explicit private backing field
+        ///     instead until the upstream aspect is fixed.
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE029_MetalamaFieldKeywordSetter = new("DALE029",
+                                                                                              "Setter body using 'field' keyword is silently dropped by Metalama [Observable]",
+                                                                                              "Property '{0}' has a custom setter body that uses the C# 13 'field' keyword. Metalama's [Observable] aspect (auto-applied to LogicBlockBase subclasses) silently drops the body at runtime, so side effects (forwarded writes, state-update emits, logging) never run. Use an explicit private backing field instead.",
+                                                                                              Category,
+                                                                                              DiagnosticSeverity.Warning,
+                                                                                              true);
+
+        /// <summary>
         ///     <c>[Presentation(Format = "...")]</c> is consumed by the renderer only for
         ///     <c>DateTime</c> / <c>TimeSpan</c> properties (and nullable variants). On other
         ///     types the format hint is silently ignored.

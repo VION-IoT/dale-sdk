@@ -55,7 +55,7 @@
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
         <!-- INotifyPropertyChanged/Observability aspect support (transitive) -->
-        <PackageReference Include="Metalama.Patterns.Observability" Version="2026.0.21" />
+        <PackageReference Include="Metalama.Patterns.Observability" Version="2026.0.23" />
         <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0" />
         <!-- TimeProvider backport for netstandard2.1. Replaces homegrown IDateTimeProvider. -->
         <PackageReference Include="Microsoft.Bcl.TimeProvider" Version="10.0.0" />
