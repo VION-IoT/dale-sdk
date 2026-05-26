@@ -40,6 +40,23 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
                                                wordOrder: WordOrder32.MswToLsw);
         }
 
+        /// <summary>
+        ///     Issues a 1×UInt32 holding-register write at address 40378 (parallels the customer's
+        ///     active-power-limit setpoint use case). The fake records the encoded bytes; tests can
+        ///     read them back from <c>Proxy.WriteHistory</c> to verify the wire format.
+        /// </summary>
+        public void WriteActivePowerLimit(uint value, WordOrder32 wordOrder = WordOrder32.MswToLsw)
+        {
+            _client.WriteMultipleHoldingRegistersAsUInt(unitIdentifier: 1,
+                                                        startingAddress: 40378,
+                                                        values: new[] { value },
+                                                        dispatcher: this,
+                                                        successCallback: null,
+                                                        errorCallback: ex => LastReadError = ex,
+                                                        byteOrder: ByteOrder.MsbToLsb,
+                                                        wordOrder: wordOrder);
+        }
+
         protected override void Ready()
         {
         }

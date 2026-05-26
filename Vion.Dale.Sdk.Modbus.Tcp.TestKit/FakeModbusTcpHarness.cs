@@ -24,6 +24,16 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
     ///     ctx.FlushPendingActions();
     ///     Assert.AreEqual(0x12345678u, sut.Power);
     ///     </code>
+    ///     <para>
+    ///         <b>Why an internal service provider:</b> <c>ModbusTcpClientWrapper</c>, <c>RequestFactory</c>,
+    ///         and <c>BitConverterProxy</c> are <c>internal</c> to their assemblies, so the TestKit cannot
+    ///         <c>new</c> them directly. Calling <see cref="ServiceCollectionExtensions.AddDaleModbusTcpSdk" />
+    ///         constructs the full production graph; we then override just <see cref="IModbusTcpClientProxy" />
+    ///         (the fake) and <see cref="IRequestQueue" /> (the synchronous queue) — last-registered-wins on
+    ///         <see cref="ServiceCollection" /> picks our overrides. Everything between the SUT and the fake
+    ///         is real SDK code: the same <c>ModbusTcpClientWrapper</c> that ships, exercising the same
+    ///         byte / word-order conversion path.
+    ///     </para>
     /// </summary>
     [PublicApi]
     public sealed class FakeModbusTcpHarness : IDisposable
