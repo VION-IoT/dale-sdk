@@ -155,6 +155,32 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
             EnqueueWriteFault(unitId, address, new ModbusException(code, message ?? $"Modbus exception {code} simulated by FakeModbusTcpClientProxy."));
         }
 
+        /// <summary>
+        ///     Convenience: queues an <see cref="OperationTimeoutException" /> to surface on the next read at
+        ///     (unitId, startingAddress) — what production raises after the operation timeout elapses with no
+        ///     response from the device.
+        ///     <para>
+        ///         <b>Limitation:</b> the synchronous test queue cannot simulate "no response at all" (it would
+        ///         block <c>GetAwaiter().GetResult()</c> indefinitely), so the timeout fires immediately rather
+        ///         than after the wall-clock timeout duration. From the SUT's perspective this is observably
+        ///         identical: the error callback receives the same exception type either way.
+        ///     </para>
+        /// </summary>
+        public void EnqueueReadTimeout(int unitId, ushort startingAddress)
+        {
+            EnqueueReadFault(unitId, startingAddress, new OperationTimeoutException());
+        }
+
+        /// <summary>
+        ///     Convenience: queues an <see cref="OperationTimeoutException" /> to surface on the next write at
+        ///     (unitId, address). Same limitation as <see cref="EnqueueReadTimeout" /> — fires immediately
+        ///     rather than after a wall-clock wait.
+        /// </summary>
+        public void EnqueueWriteTimeout(int unitId, ushort address)
+        {
+            EnqueueWriteFault(unitId, address, new OperationTimeoutException());
+        }
+
         private void EnqueueFault(OperationKind op, int unitId, ushort address, Exception exception)
         {
             var key = (op, unitId, address);

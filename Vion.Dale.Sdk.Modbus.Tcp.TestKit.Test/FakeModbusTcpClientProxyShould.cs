@@ -212,6 +212,49 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
             Assert.HasCount(1, harness.Proxy.WriteHistory, "The attempted write should still be recorded in history even after the fake threw.");
         }
 
+        // --- Fault injection: operation timeouts ---
+
+        [TestMethod]
+        public void SurfaceOperationTimeout_OnRead_AsErrorCallback()
+        {
+            // Pattern: simulate a device that's online but unresponsive (cable yanked mid-read,
+            // firmware hang, etc.). Production raises OperationTimeoutException after the
+            // operation timeout elapses; the fake surfaces the same exception immediately
+            // because a synchronous test queue can't actually wait for a wall-clock timeout.
+            using var harness = new FakeModbusTcpHarness();
+            harness.Proxy.EnqueueReadTimeout(unitId: 1, startingAddress: 40000);
+
+            var sut = CreateBlock(harness);
+            var ctx = sut.CreateTestContext().Build();
+
+            sut.ReadPowerOnce();
+            ctx.FlushPendingActions();
+
+            Assert.IsInstanceOfType<OperationTimeoutException>(sut.LastReadError);
+            Assert.AreEqual(0u, sut.Power, "Power should not have been updated on a timed-out read.");
+        }
+
+        [TestMethod]
+        public void RecoverFromTimeout_OnNextRead()
+        {
+            // Pattern: device hung for one tick, then came back. Drive-flush-assert twice — first
+            // produces the timeout, second succeeds with the in-memory value.
+            using var harness = new FakeModbusTcpHarness();
+            harness.Proxy.SetHoldingRegisters(unitId: 1, startingAddress: 40000, registerBytes: new byte[] { 0x00, 0x00, 0x00, 0x63 });
+            harness.Proxy.EnqueueReadTimeout(unitId: 1, startingAddress: 40000);
+
+            var sut = CreateBlock(harness);
+            var ctx = sut.CreateTestContext().Build();
+
+            sut.ReadPowerOnce();
+            ctx.FlushPendingActions();
+            Assert.IsInstanceOfType<OperationTimeoutException>(sut.LastReadError);
+
+            sut.ReadPowerOnce();
+            ctx.FlushPendingActions();
+            Assert.AreEqual(99u, sut.Power, "Second read should land the in-memory value.");
+        }
+
         // --- Connection lifecycle: previews the IP-change reconnect assertion pattern ---
 
         [TestMethod]
