@@ -63,7 +63,11 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
             Client = _serviceProvider.GetRequiredService<ILogicBlockModbusTcpClient>();
         }
 
-        /// <summary>The fake proxy — use this to pre-populate registers and (in later versions) inject faults.</summary>
+        /// <summary>
+        ///     The fake proxy — pre-populate registers / coils via its <c>SetX</c> methods, inject faults
+        ///     via its <c>EnqueueX</c> methods, and inspect what happened via its <c>ReadHistory</c> /
+        ///     <c>WriteHistory</c> / <c>ConnectionHistory</c> properties or the <c>Verify*</c> extensions.
+        /// </summary>
         public FakeModbusTcpClientProxy Proxy { get; }
 
         /// <summary>The fully wired client to inject into the SUT. Uses real SDK conversion against the fake proxy.</summary>

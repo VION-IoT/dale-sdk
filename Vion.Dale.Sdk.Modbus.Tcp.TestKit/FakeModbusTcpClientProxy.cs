@@ -16,9 +16,26 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
     ///     substitution layer that lets a test exercise the SUT's byte-level wire-format handling
     ///     without a socket, without a background thread, and without the FluentModbus dependency.
     ///     <para>
-    ///         All operations are recorded for verification — see <see cref="ReadHistory" />,
-    ///         <see cref="WriteHistory" />, <see cref="ConnectionHistory" />. Day-one happy path only;
-    ///         fault injection (exception codes, timeouts, disconnects) is planned for follow-up commits.
+    ///         <b>Pre-populate state:</b> <c>SetHoldingRegister(s)</c>, <c>SetInputRegister(s)</c>,
+    ///         <c>SetCoil</c>, <c>SetDiscreteInput</c>.
+    ///     </para>
+    ///     <para>
+    ///         <b>Inject faults (FIFO per address):</b> <c>EnqueueReadFault</c> / <c>EnqueueWriteFault</c>
+    ///         for any <see cref="Exception" />; <c>EnqueueReadModbusException</c> / <c>EnqueueWriteModbusException</c>
+    ///         for protocol exceptions by code; <c>EnqueueReadTimeout</c> / <c>EnqueueWriteTimeout</c>
+    ///         for <see cref="OperationTimeoutException" />; <c>EnqueueConnectFailure</c> for transient
+    ///         connection failures.
+    ///     </para>
+    ///     <para>
+    ///         <b>Verify what happened:</b> raw history via <see cref="ReadHistory" />,
+    ///         <see cref="WriteHistory" />, <see cref="ConnectionHistory" />, or sugar via the
+    ///         <c>VerifyReadSent</c> / <c>VerifyWriteSent</c> / <c>VerifyConnectAttempted</c> /
+    ///         <c>VerifyDisconnectCalled</c> extension methods.
+    ///     </para>
+    ///     <para>
+    ///         For most tests, construct via <see cref="FakeModbusTcpHarness" /> rather than directly —
+    ///         the harness wires the fake into a real <c>LogicBlockModbusTcpClient</c> with the
+    ///         <see cref="SynchronousRequestQueue" /> in front of it.
     ///     </para>
     /// </summary>
     [PublicApi]
