@@ -10,16 +10,10 @@ using Vion.Dale.Sdk.Modbus.Tcp.Client.Request;
 namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
 {
     /// <summary>
-    ///     A drop-in <see cref="IRequestQueue" /> that runs each request synchronously on the calling
-    ///     thread instead of dispatching to a background consumer. Pairs with the TestKit's
-    ///     <c>LogicBlockTestContext</c>: the request's success / error callback flows through
-    ///     <c>IActorDispatcher.InvokeSynchronized</c> just as in production, lands in
-    ///     <c>_pendingActions</c>, and drains on the next <c>FlushPendingActions()</c>.
-    ///     <para>
-    ///         This is the key piece that makes Modbus TCP testing fit the unit-test drive-flush-assert
-    ///         rhythm: no background thread means no race between the SUT's callback landing in the
-    ///         pending queue and the test thread's flush.
-    ///     </para>
+    ///     Drop-in <see cref="IRequestQueue" /> that runs each request synchronously on the calling thread
+    ///     instead of dispatching to a background consumer. Success / error callbacks flow through
+    ///     <c>IActorDispatcher.InvokeSynchronized</c> just as in production and drain on the next
+    ///     <c>LogicBlockTestContext.FlushPendingActions()</c>.
     /// </summary>
     [PublicApi]
     public sealed class SynchronousRequestQueue : IRequestQueue

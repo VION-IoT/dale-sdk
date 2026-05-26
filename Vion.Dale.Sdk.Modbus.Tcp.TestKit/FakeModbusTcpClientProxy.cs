@@ -10,33 +10,10 @@ using Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation;
 namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
 {
     /// <summary>
-    ///     In-memory fake for <see cref="IModbusTcpClientProxy" />. Stores register / coil contents in
-    ///     raw bytes per (unitId, address); the SDK's real <c>ModbusTcpClientWrapper</c> sits above and
-    ///     handles every byte / word-order conversion against the bytes returned here. This is the
-    ///     substitution layer that lets a test exercise the SUT's byte-level wire-format handling
-    ///     without a socket, without a background thread, and without the FluentModbus dependency.
-    ///     <para>
-    ///         <b>Pre-populate state:</b> <c>SetHoldingRegister(s)</c>, <c>SetInputRegister(s)</c>,
-    ///         <c>SetCoil</c>, <c>SetDiscreteInput</c>.
-    ///     </para>
-    ///     <para>
-    ///         <b>Inject faults (FIFO per address):</b> <c>EnqueueReadFault</c> / <c>EnqueueWriteFault</c>
-    ///         for any <see cref="Exception" />; <c>EnqueueReadModbusException</c> / <c>EnqueueWriteModbusException</c>
-    ///         for protocol exceptions by code; <c>EnqueueReadTimeout</c> / <c>EnqueueWriteTimeout</c>
-    ///         for <see cref="OperationTimeoutException" />; <c>EnqueueConnectFailure</c> for transient
-    ///         connection failures.
-    ///     </para>
-    ///     <para>
-    ///         <b>Verify what happened:</b> raw history via <see cref="ReadHistory" />,
-    ///         <see cref="WriteHistory" />, <see cref="ConnectionHistory" />, or sugar via the
-    ///         <c>VerifyReadSent</c> / <c>VerifyWriteSent</c> / <c>VerifyConnectAttempted</c> /
-    ///         <c>VerifyDisconnectCalled</c> extension methods.
-    ///     </para>
-    ///     <para>
-    ///         For most tests, construct via <see cref="FakeModbusTcpHarness" /> rather than directly —
-    ///         the harness wires the fake into a real <c>LogicBlockModbusTcpClient</c> with the
-    ///         <see cref="SynchronousRequestQueue" /> in front of it.
-    ///     </para>
+    ///     In-memory fake for <see cref="IModbusTcpClientProxy" />. Stores register / coil contents in raw
+    ///     bytes per (unitId, address); the SDK's real <c>ModbusTcpClientWrapper</c> handles all byte /
+    ///     word-order conversion against them. Most tests should use <see cref="FakeModbusTcpHarness" />
+    ///     rather than constructing this directly.
     /// </summary>
     [PublicApi]
     public sealed class FakeModbusTcpClientProxy : IModbusTcpClientProxy
@@ -140,10 +117,9 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
         #region Fault injection
 
         /// <summary>
-        ///     Queues an exception to throw on the next read at (unitId, startingAddress). Faults are
-        ///     consumed FIFO — calling this twice queues two faults; the third read at that address
-        ///     succeeds from the in-memory store. Matches by the operation's <em>starting</em> address;
-        ///     in Modbus, exception responses apply to the whole request, not per-register.
+        ///     Queues an exception to throw on the next read at (unitId, startingAddress). Consumed FIFO —
+        ///     queue multiple to model "fail, fail, recover" sequences. Matches by the read's starting
+        ///     address (Modbus exceptions apply to the whole request, not per-register).
         /// </summary>
         public void EnqueueReadFault(int unitId, ushort startingAddress, Exception exception)
         {
@@ -151,8 +127,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
         }
 
         /// <summary>
-        ///     Queues an exception to throw on the next write at (unitId, address). FIFO consumption,
-        ///     same as <see cref="EnqueueReadFault" />.
+        ///     Queues an exception to throw on the next write at (unitId, address). Consumed FIFO.
         /// </summary>
         public void EnqueueWriteFault(int unitId, ushort address, Exception exception)
         {
@@ -179,14 +154,9 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
 
         /// <summary>
         ///     Convenience: queues an <see cref="OperationTimeoutException" /> to surface on the next read at
-        ///     (unitId, startingAddress) — what production raises after the operation timeout elapses with no
-        ///     response from the device.
-        ///     <para>
-        ///         <b>Limitation:</b> the synchronous test queue cannot simulate "no response at all" (it would
-        ///         block <c>GetAwaiter().GetResult()</c> indefinitely), so the timeout fires immediately rather
-        ///         than after the wall-clock timeout duration. From the SUT's perspective this is observably
-        ///         identical: the error callback receives the same exception type either way.
-        ///     </para>
+        ///     (unitId, startingAddress). The synchronous test queue can't wait for a wall-clock timeout, so
+        ///     the exception fires immediately — observably identical to a real timeout from the SUT's
+        ///     point of view (same exception type via the same error callback).
         /// </summary>
         public void EnqueueReadTimeout(int unitId, ushort startingAddress)
         {
@@ -195,8 +165,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
 
         /// <summary>
         ///     Convenience: queues an <see cref="OperationTimeoutException" /> to surface on the next write at
-        ///     (unitId, address). Same limitation as <see cref="EnqueueReadTimeout" /> — fires immediately
-        ///     rather than after a wall-clock wait.
+        ///     (unitId, address). Same immediate-fire behaviour as <see cref="EnqueueReadTimeout" />.
         /// </summary>
         public void EnqueueWriteTimeout(int unitId, ushort address)
         {
@@ -204,11 +173,9 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
         }
 
         /// <summary>
-        ///     Queues an exception to throw on the next <c>ConnectAsync</c> call. Consumed FIFO, so two
-        ///     queued failures will cause the next two connection attempts to fail before a third
-        ///     succeeds. Models a device that's transiently unreachable — gateway reboot, network
-        ///     blip, etc. The attempt is still recorded on <see cref="ConnectionHistory" /> with its
-        ///     target IP and port, so the SUT's reconnect target is verifiable even on failure.
+        ///     Queues an exception to throw on the next <c>ConnectAsync</c> call. Consumed FIFO. The
+        ///     attempt is still recorded on <see cref="ConnectionHistory" /> with its target IP and port,
+        ///     so the SUT's reconnect target is verifiable even on failure.
         /// </summary>
         public void EnqueueConnectFailure(Exception exception)
         {

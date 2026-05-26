@@ -6,23 +6,20 @@ using Vion.Dale.Sdk.TestKit;
 namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
 {
     /// <summary>
-    ///     Verification helpers over the fake proxy's recorded histories. Sugar for the most common
-    ///     assertion patterns; tests that need finer-grained matching can inspect <c>ReadHistory</c>,
-    ///     <c>WriteHistory</c>, and <c>ConnectionHistory</c> directly. All parameters except the
-    ///     receiver are optional — null = "any value matches".
+    ///     Verification extension methods for asserting Modbus TCP operations in tests.
     /// </summary>
     [PublicApi]
     public static class FakeModbusTcpClientProxyExtensions
     {
         /// <summary>
-        ///     Assert that a read operation matching the given filters was sent through the fake.
+        ///     Assert that a Modbus read was sent.
         /// </summary>
         /// <param name="proxy">The fake proxy to inspect.</param>
-        /// <param name="unitId">Unit identifier filter, or null to match any unit.</param>
-        /// <param name="startingAddress">Starting-address filter, or null to match any address.</param>
-        /// <param name="quantity">Register/coil quantity filter, or null to match any quantity.</param>
-        /// <param name="kind">Modbus function filter (HoldingRegisters / InputRegisters / Coils / DiscreteInputs), or null to match any.</param>
-        /// <param name="times">Expected match count via Moq's <see cref="Times" />, or null for <see cref="Times.Once" />.</param>
+        /// <param name="unitId">The expected unit identifier, or null for any.</param>
+        /// <param name="startingAddress">The expected starting address, or null for any.</param>
+        /// <param name="quantity">The expected register/coil quantity, or null for any.</param>
+        /// <param name="kind">The expected Modbus function, or null for any.</param>
+        /// <param name="times">The expected number of times, or null for once.</param>
         public static void VerifyReadSent(this FakeModbusTcpClientProxy proxy,
                                           int? unitId = null,
                                           ushort? startingAddress = null,
@@ -36,18 +33,18 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
                                                        (kind == null || r.Kind == kind.Value))
                               .ToList();
 
-            (times ?? Times.Once()).AssertCount(matches.Count, $"Read verification failed (unitId={unitId}, address={startingAddress}, quantity={quantity}, kind={kind}).");
+            (times ?? Times.Once()).AssertCount(matches.Count, $"ModbusRead verification failed (unitId={unitId}, address={startingAddress}, quantity={quantity}, kind={kind}).");
         }
 
         /// <summary>
-        ///     Assert that a write operation matching the given filters was sent through the fake.
+        ///     Assert that a Modbus write was sent.
         /// </summary>
         /// <param name="proxy">The fake proxy to inspect.</param>
-        /// <param name="unitId">Unit identifier filter, or null to match any unit.</param>
-        /// <param name="address">Target address filter, or null to match any address.</param>
-        /// <param name="expectedBytes">Expected wire-format payload (raw bytes), or null to skip byte verification. Useful for wire-format regression tests.</param>
-        /// <param name="kind">Write-function filter (SingleRegister / MultipleRegisters / SingleCoil / MultipleCoils), or null to match any.</param>
-        /// <param name="times">Expected match count via Moq's <see cref="Times" />, or null for <see cref="Times.Once" />.</param>
+        /// <param name="unitId">The expected unit identifier, or null for any.</param>
+        /// <param name="address">The expected target address, or null for any.</param>
+        /// <param name="expectedBytes">The expected wire-format payload (raw bytes), or null to skip byte verification.</param>
+        /// <param name="kind">The expected write function, or null for any.</param>
+        /// <param name="times">The expected number of times, or null for once.</param>
         public static void VerifyWriteSent(this FakeModbusTcpClientProxy proxy,
                                            int? unitId = null,
                                            ushort? address = null,
@@ -61,16 +58,16 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
                                                         (expectedBytes == null || w.Bytes.SequenceEqual(expectedBytes)))
                                .ToList();
 
-            (times ?? Times.Once()).AssertCount(matches.Count, $"Write verification failed (unitId={unitId}, address={address}, kind={kind}, expectedBytes={(expectedBytes == null ? "(any)" : string.Join(" ", expectedBytes.Select(b => b.ToString("X2"))))}).");
+            (times ?? Times.Once()).AssertCount(matches.Count, $"ModbusWrite verification failed (unitId={unitId}, address={address}, kind={kind}, expectedBytes={(expectedBytes == null ? "(any)" : string.Join(" ", expectedBytes.Select(b => b.ToString("X2"))))}).");
         }
 
         /// <summary>
-        ///     Assert that a <c>ConnectAsync</c> attempt matching the given filters was made.
+        ///     Assert that a <c>ConnectAsync</c> attempt was made.
         /// </summary>
         /// <param name="proxy">The fake proxy to inspect.</param>
-        /// <param name="ipAddress">IP-address filter (as a string), or null to match any IP.</param>
-        /// <param name="port">Port filter, or null to match any port.</param>
-        /// <param name="times">Expected match count via Moq's <see cref="Times" />, or null for <see cref="Times.Once" />.</param>
+        /// <param name="ipAddress">The expected IP address (as a string), or null for any.</param>
+        /// <param name="port">The expected port, or null for any.</param>
+        /// <param name="times">The expected number of times, or null for once.</param>
         public static void VerifyConnectAttempted(this FakeModbusTcpClientProxy proxy,
                                                   string? ipAddress = null,
                                                   int? port = null,
@@ -81,12 +78,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
                                                               (port == null || e.Port == port.Value))
                                .ToList();
 
-            (times ?? Times.Once()).AssertCount(matches.Count, $"Connect verification failed (ipAddress={ipAddress ?? "(any)"}, port={port}).");
+            (times ?? Times.Once()).AssertCount(matches.Count, $"ConnectAttempted verification failed (ipAddress={ipAddress ?? "(any)"}, port={port}).");
         }
 
         /// <summary>
-        ///     Assert that <c>Disconnect</c> was called on the proxy the expected number of times.
+        ///     Assert that <c>Disconnect</c> was called on the proxy.
         /// </summary>
+        /// <param name="proxy">The fake proxy to inspect.</param>
+        /// <param name="times">The expected number of times, or null for once.</param>
         public static void VerifyDisconnectCalled(this FakeModbusTcpClientProxy proxy, Times? times = null)
         {
             var count = proxy.ConnectionHistory.Count(e => e.Kind == ConnectionEventKind.Disconnect);

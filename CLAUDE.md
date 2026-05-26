@@ -20,7 +20,7 @@ Vion.Dale.Sdk.Modbus.*/     Modbus Core/Tcp/Rtu protocol bindings
 Vion.Dale.Sdk.DigitalIo/    Digital I/O contract abstractions
 Vion.Dale.Sdk.AnalogIo/     Analog I/O contract abstractions
 Vion.Dale.Sdk.TestKit/      Test helpers for logic block unit testing
-Vion.Dale.Sdk.*.TestKit/    I/O-specific test helpers (DigitalIo, AnalogIo, Modbus.Rtu)
+Vion.Dale.Sdk.*.TestKit/    I/O-specific test helpers (DigitalIo, AnalogIo, Modbus.Rtu, Modbus.Tcp)
 Vion.Dale.ProtoActor/       Proto.Actor integration (net10.0)
 Vion.Dale.Plugin/           Plugin AssemblyLoadContext (net10.0) — shared by the runtime + LogicBlockParser
 Vion.Dale.LogicBlockParser/ Assembly introspector — bundled into Vion.Dale.Sdk as a tool
