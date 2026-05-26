@@ -336,6 +336,58 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
             Assert.AreEqual("192.168.1.99", events[2].IpAddress?.ToString());
         }
 
+        // --- Verify helpers: sugar over the raw history accessors ---
+
+        [TestMethod]
+        public void VerifyReadAndWriteAndConnect_WithSugarHelpers()
+        {
+            // Pattern: same assertions as the raw-history tests above, expressed via Verify*
+            // extension methods. Cleaner for tests that only care about "did X happen" rather than
+            // "what does the full history look like". Sugar over harness.Proxy.{Read|Write|Connection}History.
+            using var harness = new FakeModbusTcpHarness();
+            harness.Proxy.SetHoldingRegisters(unitId: 1, startingAddress: 40000, registerBytes: new byte[] { 0x12, 0x34, 0x56, 0x78 });
+
+            var sut = CreateBlock(harness);
+            var ctx = sut.CreateTestContext().Build();
+
+            sut.ReadPowerOnce();
+            sut.WriteActivePowerLimit(value: 0x12345678u);
+            ctx.FlushPendingActions();
+
+            // Read assertion: at addr 40000, 2 registers (one UInt32), via HoldingRegisters function.
+            harness.Proxy.VerifyReadSent(unitId: 1, startingAddress: 40000, quantity: 2, kind: ReadEventKind.HoldingRegisters);
+
+            // Write assertion: at addr 40378, with exact wire bytes — the byte-level regression net
+            // expressed as a single line. MswToLsw default → high word 0x1234 at addr+0, low 0x5678 at addr+1.
+            harness.Proxy.VerifyWriteSent(unitId: 1, address: 40378, expectedBytes: new byte[] { 0x12, 0x34, 0x56, 0x78 });
+
+            // Connection assertion: the SUT's ctor set 127.0.0.1, the lazy connect targets that.
+            harness.Proxy.VerifyConnectAttempted(ipAddress: "127.0.0.1", port: 502);
+        }
+
+        [TestMethod]
+        public void VerifyConnectionSequence_OnIpChange_WithSugarHelpers()
+        {
+            // Pattern: the customer's IP-change reconnect scenario, expressed via Verify*. Reads as
+            // a story: connect to old, disconnect once, connect to new.
+            using var harness = new FakeModbusTcpHarness();
+            harness.Proxy.SetHoldingRegisters(unitId: 1, startingAddress: 40000, registerBytes: new byte[] { 0, 0, 0, 0 });
+
+            var sut = CreateBlock(harness);
+            var ctx = sut.CreateTestContext().Build();
+
+            sut.ReadPowerOnce();
+            ctx.FlushPendingActions();
+
+            harness.Client.IpAddress = "192.168.1.99";
+            sut.ReadPowerOnce();
+            ctx.FlushPendingActions();
+
+            harness.Proxy.VerifyConnectAttempted(ipAddress: "127.0.0.1");
+            harness.Proxy.VerifyDisconnectCalled();
+            harness.Proxy.VerifyConnectAttempted(ipAddress: "192.168.1.99");
+        }
+
         private static SampleModbusTcpBlock CreateBlock(FakeModbusTcpHarness harness)
         {
             return new SampleModbusTcpBlock(harness.Client, new Mock<ILogger>().Object);
