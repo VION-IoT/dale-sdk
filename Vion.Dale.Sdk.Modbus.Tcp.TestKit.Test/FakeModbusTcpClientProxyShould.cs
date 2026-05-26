@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using Vion.Dale.Sdk.Modbus.Core.Conversion;
 using Vion.Dale.Sdk.Modbus.Core.Exceptions;
+using Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation;
 using Vion.Dale.Sdk.TestKit;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
@@ -278,6 +279,61 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
             Assert.AreEqual(ConnectionEventKind.Connect, harness.Proxy.ConnectionHistory[0].Kind);
             Assert.AreEqual("127.0.0.1", harness.Proxy.ConnectionHistory[0].IpAddress?.ToString());
             Assert.AreEqual(502, harness.Proxy.ConnectionHistory[0].Port);
+        }
+
+        // --- Connection failures + IP-change reconnect (customer-asked reconnect-on-endpoint-change pattern) ---
+
+        [TestMethod]
+        public void SurfaceConnectionFailure_AsErrorCallback_AndStillRecordTheAttempt()
+        {
+            // Pattern: transient unreachability (gateway reboot, network blip). The SUT's
+            // errorCallback receives the failure; ConnectionHistory still records the attempt's
+            // target IP/port so tests can verify the SUT tried to reach the right endpoint.
+            using var harness = new FakeModbusTcpHarness();
+            harness.Proxy.EnqueueConnectFailure(new ConnectionTimeoutException(3.0));
+
+            var sut = CreateBlock(harness);
+            var ctx = sut.CreateTestContext().Build();
+
+            sut.ReadPowerOnce();
+            ctx.FlushPendingActions();
+
+            Assert.IsInstanceOfType<ConnectionTimeoutException>(sut.LastReadError);
+            Assert.HasCount(1, harness.Proxy.ConnectionHistory, "The failed connect attempt should still be in history.");
+            Assert.AreEqual(ConnectionEventKind.Connect, harness.Proxy.ConnectionHistory[0].Kind);
+            Assert.AreEqual("127.0.0.1", harness.Proxy.ConnectionHistory[0].IpAddress?.ToString());
+        }
+
+        [TestMethod]
+        public void ReconnectToNewEndpoint_OnIpAddressChange()
+        {
+            // Pattern: the customer's runtime-reconfig scenario. The SUT's Connection.IpAddress
+            // setter forwards to the wrapper which sets _reconnectRequired = true. On the next
+            // operation, the wrapper calls Disconnect() (proxy.IsConnected was true) then
+            // ConnectAsync(newIp). ConnectionHistory reveals the whole sequence: Connect(old),
+            // Disconnect, Connect(new).
+            using var harness = new FakeModbusTcpHarness();
+            harness.Proxy.SetHoldingRegisters(unitId: 1, startingAddress: 40000, registerBytes: new byte[] { 0, 0, 0, 0 });
+
+            var sut = CreateBlock(harness);
+            var ctx = sut.CreateTestContext().Build();
+
+            // First op: connects to the SUT's initial IP (127.0.0.1, set in the SUT's ctor).
+            sut.ReadPowerOnce();
+            ctx.FlushPendingActions();
+
+            // Reconfigure the SUT's endpoint at runtime, then issue another op.
+            harness.Client.IpAddress = "192.168.1.99";
+            sut.ReadPowerOnce();
+            ctx.FlushPendingActions();
+
+            var events = harness.Proxy.ConnectionHistory.ToList();
+            Assert.HasCount(3, events, "Should have: Connect(old) → Disconnect → Connect(new).");
+            Assert.AreEqual(ConnectionEventKind.Connect, events[0].Kind);
+            Assert.AreEqual("127.0.0.1", events[0].IpAddress?.ToString());
+            Assert.AreEqual(ConnectionEventKind.Disconnect, events[1].Kind);
+            Assert.AreEqual(ConnectionEventKind.Connect, events[2].Kind);
+            Assert.AreEqual("192.168.1.99", events[2].IpAddress?.ToString());
         }
 
         private static SampleModbusTcpBlock CreateBlock(FakeModbusTcpHarness harness)

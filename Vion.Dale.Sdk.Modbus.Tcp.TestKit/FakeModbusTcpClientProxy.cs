@@ -43,6 +43,11 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
         // faults supports "fail, fail, recover" sequences without explicit cleanup.
         private readonly Dictionary<(OperationKind Op, int UnitId, ushort Address), Queue<Exception>> _pendingFaults = new();
 
+        // FIFO queue of connection failures. Each ConnectAsync attempt dequeues one if available and
+        // throws; otherwise the attempt succeeds. Separate from _pendingFaults because connections
+        // aren't keyed by unitId/address.
+        private readonly Queue<Exception> _pendingConnectFailures = new();
+
         /// <summary>
         ///     True after <c>ConnectAsync</c> has been called and before <c>Disconnect</c>.
         ///     The real wrapper calls <c>ConnectAsync</c> lazily on the first operation if disconnected.
@@ -181,6 +186,18 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
             EnqueueWriteFault(unitId, address, new OperationTimeoutException());
         }
 
+        /// <summary>
+        ///     Queues an exception to throw on the next <c>ConnectAsync</c> call. Consumed FIFO, so two
+        ///     queued failures will cause the next two connection attempts to fail before a third
+        ///     succeeds. Models a device that's transiently unreachable — gateway reboot, network
+        ///     blip, etc. The attempt is still recorded on <see cref="ConnectionHistory" /> with its
+        ///     target IP and port, so the SUT's reconnect target is verifiable even on failure.
+        /// </summary>
+        public void EnqueueConnectFailure(Exception exception)
+        {
+            _pendingConnectFailures.Enqueue(exception);
+        }
+
         private void EnqueueFault(OperationKind op, int unitId, ushort address, Exception exception)
         {
             var key = (op, unitId, address);
@@ -211,7 +228,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
 
         Task IModbusTcpClientProxy.ConnectAsync(IPAddress ipAddress, int port, TimeSpan connectionTimeout, CancellationToken cancellationToken)
         {
+            // Record the attempt with its target IP/port regardless of outcome — tests inspecting
+            // ConnectionHistory can correlate the target with their EnqueueConnectFailure calls.
             _connectionHistory.Add(new ConnectionEvent(ConnectionEventKind.Connect, ipAddress, port));
+            if (_pendingConnectFailures.Count > 0)
+            {
+                throw _pendingConnectFailures.Dequeue();
+            }
+
             IsConnected = true;
             return Task.CompletedTask;
         }
