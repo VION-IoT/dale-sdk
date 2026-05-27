@@ -269,6 +269,16 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
+        public void EmitsReadOnlyOnServicePropertyWithReadOnlyOptIn()
+        {
+            // [ServiceProperty(ReadOnly = true)] forces the wire read-only flag even though the C# property
+            // has a public setter (so cross-assembly helpers can still assign it). The cloud must see
+            // readOnly=true and refuse SetPropertyValue.
+            var schema = GetSchema("WriteRegisters");
+            Assert.IsTrue(schema["readOnly"]?.GetValue<bool>() ?? false);
+        }
+
+        [TestMethod]
         public void RoutesEnumPropertyTitleToPresentationDisplayName()
         {
             // PreferredMode is `OperatingMode?` (nullable enum). schema.title carries the enum's

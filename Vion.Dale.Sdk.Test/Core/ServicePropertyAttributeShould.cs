@@ -32,5 +32,19 @@ namespace Vion.Dale.Sdk.Test.Core
             var attr = new ServicePropertyAttribute();
             Assert.IsFalse(attr.WriteOnly);
         }
+
+        [TestMethod]
+        public void RoundTripReadOnly()
+        {
+            var attr = new ServicePropertyAttribute { ReadOnly = true };
+            Assert.IsTrue(attr.ReadOnly);
+        }
+
+        [TestMethod]
+        public void DefaultReadOnlyToFalse()
+        {
+            var attr = new ServicePropertyAttribute();
+            Assert.IsFalse(attr.ReadOnly);
+        }
     }
 }

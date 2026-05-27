@@ -48,6 +48,11 @@ namespace Vion.Dale.Sdk.Test.Introspection
         [ServiceProperty(Title = "Anzahl Einschaltungen")]
         public int TimesSwitchedOn { get; private set; }
 
+        // [ServiceProperty(ReadOnly = true)] with a PUBLIC setter — opt-out for properties that need a public
+        // setter for cross-assembly helpers but must remain cloud-read-only. Symmetric to WriteOnly.
+        [ServiceProperty(Title = "Letzte Register-Schreibvorgänge", ReadOnly = true)]
+        public ImmutableArray<int> WriteRegisters { get; set; } = ImmutableArray<int>.Empty;
+
         // Nullable primitives
         [ServiceProperty]
         public double? Target { get; set; }
