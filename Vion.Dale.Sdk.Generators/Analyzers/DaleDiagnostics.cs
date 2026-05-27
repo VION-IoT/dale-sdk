@@ -326,6 +326,19 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                                                                                               true);
 
         /// <summary>
+        ///     <c>[ServiceProperty(ReadOnly = true, WriteOnly = true)]</c> is incoherent: <c>ReadOnly</c>
+        ///     blocks cloud writes while <c>WriteOnly</c> redacts the publish-state value for clients.
+        ///     The two flags hide opposite directions of the value flow and cannot meaningfully combine —
+        ///     pick one.
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE030_ReadOnlyAndWriteOnlyMutuallyExclusive = new("DALE030",
+                                                                                                         "[ServiceProperty(ReadOnly, WriteOnly)] are mutually exclusive",
+                                                                                                         "Property '{0}' sets both ReadOnly = true and WriteOnly = true on [ServiceProperty]. These flags hide opposite directions of the value flow — ReadOnly blocks cloud writes; WriteOnly redacts the publish-state value. Pick one.",
+                                                                                                         Category,
+                                                                                                         DiagnosticSeverity.Error,
+                                                                                                         true);
+
+        /// <summary>
         ///     <c>[Presentation(Format = "...")]</c> is consumed by the renderer only for
         ///     <c>DateTime</c> / <c>TimeSpan</c> properties (and nullable variants). On other
         ///     types the format hint is silently ignored.

@@ -42,6 +42,8 @@ namespace Vion.Dale.Sdk.Core
         public double Maximum { get; init; } = double.PositiveInfinity;
 
         public bool WriteOnly { get; init; }
+
+        public bool ReadOnly { get; init; }
     }
 
     [AttributeUsage(AttributeTargets.Property | AttributeTargets.Method)]

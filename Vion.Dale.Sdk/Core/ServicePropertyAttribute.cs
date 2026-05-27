@@ -32,6 +32,15 @@ namespace Vion.Dale.Sdk.Core
         /// </summary>
         public bool WriteOnly { get; init; }
 
+        /// <summary>
+        ///     Marks the property as read-only on the wire even when the C# property has a public setter.
+        ///     Use this when a cross-assembly helper needs to assign the value (requires the public setter)
+        ///     but the cloud must not be able to SetPropertyValue it back. Routes into
+        ///     <c>schema.annotations.readOnly</c> — same wire flag that a private setter or a
+        ///     <c>[ServiceMeasuringPoint]</c> would set, so the dashboard groups it with metrics.
+        /// </summary>
+        public bool ReadOnly { get; init; }
+
         [Obsolete("Use Title instead. Will be removed in next major.")]
         public string? DefaultName
         {

@@ -160,11 +160,15 @@ namespace Vion.Dale.Sdk.Introspection
                 maximum = mp.Maximum;
             }
 
-            // ReadOnly: a measuring point alone (without a service-property attribute) marks the property as read-only.
-            // Also: any property without a public setter is read-only on the wire — matches the legacy `Writable` rule
-            // (e.g. `[ServiceProperty] public int Foo { get; private set; }` exposes a metric the gateway publishes
-            // but the cloud cannot write back to).
-            var readOnly = (mp is not null && sp is null) || !hasPublicSetter;
+            // ReadOnly on the wire when ANY of:
+            //   - measuring point alone, without a service-property attribute (canonical metric — read-only)
+            //   - no public C# setter (legacy implicit rule; e.g. `[ServiceProperty] public int Foo { get; private set; }`
+            //     exposes a value the gateway publishes but the cloud cannot SetPropertyValue back to)
+            //   - [ServiceProperty(ReadOnly = true)] explicitly opts in — needed when a cross-assembly helper
+            //     requires the public setter but the cloud must not write the value.
+            var readOnly = (mp is not null && sp is null)
+                           || !hasPublicSetter
+                           || (sp?.ReadOnly ?? false);
 
             // WriteOnly comes only from [ServiceProperty]; restricted to string / string? properties in v1
             // (DALE022 analyzer enforces).
