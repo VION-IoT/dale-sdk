@@ -40,6 +40,16 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                 return;
             }
 
+            // On an interface the suggested remedy ({ get; private set; }) is a compile error, and this
+            // rule's rationale — a private setter is needed for Metalama INPC weaving — is an
+            // implementation concern (no weaving happens on an interface). The check belongs on the
+            // concrete implementation. (Abstract class properties keep firing: a public abstract setter
+            // propagates to overrides, which can't narrow accessibility, so it's still actionable there.)
+            if (property.ContainingType.TypeKind == TypeKind.Interface)
+            {
+                return;
+            }
+
             // Check for PUBLIC setter specifically (private setter is fine for Metalama INPC)
             if (property.SetMethod != null && property.SetMethod.DeclaredAccessibility == Accessibility.Public)
             {

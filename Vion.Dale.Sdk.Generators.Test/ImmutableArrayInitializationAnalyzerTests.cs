@@ -98,5 +98,38 @@ public class MyBlock
 }";
             await AnalyzerTestBase.VerifyAnalyzerAsync<ImmutableArrayInitializationAnalyzer>(source);
         }
+
+        // --- Interface / abstract members: can't carry an initializer; obligation is on the impl ---
+
+        [TestMethod]
+        public async Task InterfaceMember_ImmutableArrayWithoutInitializer_NoDiagnostic()
+        {
+            // An interface property can't have an initializer (compile error), so DALE018 here would be
+            // unactionable. The check belongs on the implementing block.
+            var source = @"
+using System.Collections.Immutable;
+using Vion.Dale.Sdk.Core;
+
+public interface IMyService
+{
+    [ServiceProperty] ImmutableArray<double> Samples { get; set; }
+}";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<ImmutableArrayInitializationAnalyzer>(source);
+        }
+
+        [TestMethod]
+        public async Task AbstractProperty_ImmutableArrayWithoutInitializer_NoDiagnostic()
+        {
+            // An abstract auto-property can't have an initializer either; the concrete override initialises.
+            var source = @"
+using System.Collections.Immutable;
+using Vion.Dale.Sdk.Core;
+
+public abstract class MyBaseBlock
+{
+    [ServiceProperty] public abstract ImmutableArray<double> Samples { get; set; }
+}";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<ImmutableArrayInitializationAnalyzer>(source);
+        }
     }
 }

@@ -74,5 +74,21 @@ public class MyBlock
 }";
             await AnalyzerTestBase.VerifyAnalyzerAsync<MeasuringPointAnalyzer>(source);
         }
+
+        [TestMethod]
+        public async Task InterfaceMeasuringPointWithSetter_NoDiagnostic()
+        {
+            // On an interface the suggested { get; private set; } remedy is a compile error, and the
+            // private-setter-for-INPC-weaving rationale is an implementation concern. The check belongs
+            // on the concrete implementation, so no diagnostic on the interface declaration.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public interface IMyService
+{
+    [ServiceMeasuringPoint] double Value { get; set; }
+}";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<MeasuringPointAnalyzer>(source);
+        }
     }
 }
