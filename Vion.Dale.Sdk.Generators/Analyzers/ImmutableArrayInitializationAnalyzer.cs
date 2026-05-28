@@ -43,6 +43,15 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                 return;
             }
 
+            // Interface members and abstract properties can't carry an initializer — adding one is a
+            // compile error. The init obligation (and the actionable DALE018) belongs to the concrete
+            // implementation, where this analyzer keeps firing. Without this guard, a [ServiceProperty]
+            // ImmutableArray<T> declared on a [ServiceInterface] produces an unactionable false positive.
+            if (property.ContainingType.TypeKind == TypeKind.Interface || property.IsAbstract)
+            {
+                return;
+            }
+
             // Check syntax for an initializer on the property declaration.
             foreach (var syntaxRef in property.DeclaringSyntaxReferences)
             {
