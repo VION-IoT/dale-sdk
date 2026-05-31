@@ -1,7 +1,9 @@
 using System;
+using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
+using System.Threading;
 using System.Threading.Tasks;
 using Vion.Dale.DevHost.Web;
 
@@ -68,6 +70,32 @@ namespace Vion.Dale.DevHost.Test
 
             var messagesResponse = await client.GetAsync("/api/messages?block=counter");
             Assert.AreEqual(HttpStatusCode.OK, messagesResponse.StatusCode);
+        }
+
+        [TestMethod]
+        public async Task DevHostWebRunner_InHeadlessMode_PrintsReadinessAndDoesNotBlock()
+        {
+            var port = FreePort();
+            var originalOut = Console.Out;
+            var captured = new StringWriter();
+            Environment.SetEnvironmentVariable(DevHostWebRunner.NoBrowserEnvVar, "1");
+            Console.SetOut(captured);
+            try
+            {
+                await using var host = BuildWebHost(port);
+
+                // Cancels shortly after startup so RunAsync returns (it otherwise waits forever).
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+                await DevHostWebRunner.RunAsync(host, port, cts.Token);
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+                Environment.SetEnvironmentVariable(DevHostWebRunner.NoBrowserEnvVar, null);
+            }
+
+            StringAssert.Contains(captured.ToString(), "\"ready\":true", "Headless mode should print a JSON readiness line.");
+            StringAssert.Contains(captured.ToString(), $"\"port\":{port}", "Readiness line should include the port.");
         }
     }
 }
