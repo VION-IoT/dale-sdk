@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Vion.Dale.DevHost.Control;
+using Vion.Dale.Sdk.Messages;
 
 namespace Vion.Dale.DevHost.Test
 {
@@ -69,6 +70,27 @@ namespace Vion.Dale.DevHost.Test
                 timeout: TimeSpan.FromMilliseconds(200));
 
             Assert.IsNull(observed);
+        }
+
+        [TestMethod]
+        public async Task RecordedMessages_CaptureWhatTheBlockReceived()
+        {
+            // The message tap (opt-in ProtoActor observer) records messages each actor receives. Driving a
+            // property set sends a SetServicePropertyValueRequest to the block's actor; the tap must capture
+            // it under that block. This is the mechanism behind "assert device-x received a DataRequest".
+            await using var host = BuildHost();
+            await host.StartAsync();
+
+            await host.Control.SetPropertyAsync("counter", "Counter", 7);
+            await host.Control.WaitForAsync(
+                e => e is ServicePropertyChanged { Property: "Counter" } sp && Convert.ToInt32(sp.Value) == 7 ? sp.Value : null,
+                timeout: TimeSpan.FromSeconds(5));
+
+            var received = host.Control.RecordedMessages("counter");
+
+            Assert.IsNotEmpty(received, "The tap should have recorded messages the counter block received.");
+            Assert.IsTrue(received.Any(m => m.Message is SetServicePropertyValueRequest),
+                          "The set-property request the block received should have been captured by the tap.");
         }
 
         [TestMethod]

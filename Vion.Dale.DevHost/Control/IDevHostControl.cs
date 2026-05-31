@@ -53,6 +53,13 @@ namespace Vion.Dale.DevHost.Control
         Task<T?> WaitForAsync<T>(Func<DevHostEvent, T?> selector, TimeSpan timeout)
             where T : class;
 
+        /// <summary>
+        ///     The inter-actor messages a block received this run (the message tap) — the multi-block analogue
+        ///     of TestKit's <c>Verify*</c>. Pass a block name or id to filter, or null for all. Lets a test
+        ///     assert e.g. "device-x received a request", the highest-yield diagnostic for a missing-poll bug.
+        /// </summary>
+        IReadOnlyList<TappedMessage> RecordedMessages(string? blockIdOrName = null);
+
         /// <summary>Subscribe to live log lines. Dispose the returned token to unsubscribe.</summary>
         IDisposable SubscribeLogs(Action<LogLine> sink);
 

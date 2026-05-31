@@ -26,6 +26,8 @@ namespace Vion.Dale.DevHost.Control
 
         private readonly IActorSystem _actorSystem;
 
+        private readonly MessageTap _messageTap;
+
         // Event-stream fan-out + pending WaitForAsync waiters share one lock — both touched from actor threads.
         private readonly object _gate = new();
 
@@ -40,13 +42,19 @@ namespace Vion.Dale.DevHost.Control
         // Services aren't populated until DevHostIntrospection runs, which may be after this is constructed.
         private Dictionary<string, string>? _serviceToBlock;
 
-        public DevHostControl(DevConfiguration configuration, DevHostEvents events, DevHostLogSink logSink, DevHostIntrospection introspection, IActorSystem actorSystem)
+        public DevHostControl(DevConfiguration configuration,
+                              DevHostEvents events,
+                              DevHostLogSink logSink,
+                              DevHostIntrospection introspection,
+                              IActorSystem actorSystem,
+                              MessageTap messageTap)
         {
             _configuration = configuration;
             _events = events;
             _logSink = logSink;
             _introspection = introspection;
             _actorSystem = actorSystem;
+            _messageTap = messageTap;
 
             _events.ServicePropertyChanged += OnServiceProperty;
             _events.ServiceMeasuringPointChanged += OnMeasuringPoint;
@@ -204,6 +212,22 @@ namespace Vion.Dale.DevHost.Control
         public IReadOnlyList<LogLine> RecentLogs(int max = 500)
         {
             return _logSink.Recent(max);
+        }
+
+        public IReadOnlyList<TappedMessage> RecordedMessages(string? blockIdOrName = null)
+        {
+            if (blockIdOrName is null)
+            {
+                return _messageTap.Snapshot();
+            }
+
+            var block = ResolveBlock(blockIdOrName);
+            if (block is null)
+            {
+                return Array.Empty<TappedMessage>();
+            }
+
+            return _messageTap.Snapshot(LogicBlockUtils.CreateLogicBlockName(block.Name, block.Id));
         }
 
         public void Dispose()

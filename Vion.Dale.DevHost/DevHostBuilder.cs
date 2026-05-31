@@ -106,6 +106,11 @@ namespace Vion.Dale.DevHost
             _services.AddSingleton<Control.DevHostLogSink>();
             _services.AddSingleton<ILoggerProvider>(sp => new Control.DevHostLogSinkProvider(sp.GetRequiredService<Control.DevHostLogSink>()));
             _services.AddSingleton<Control.DevHostIntrospection>();
+            // Message tap: the SAME instance is registered as both the concrete type and the opt-in
+            // IActorMessageObserver the ProtoActor middleware looks up (RFC 0003). Registering the observer
+            // here — only in DevHost — is what activates the tap; the production runtime registers none.
+            _services.AddSingleton<Control.MessageTap>();
+            _services.AddSingleton<Vion.Dale.Sdk.Abstractions.IActorMessageObserver>(sp => sp.GetRequiredService<Control.MessageTap>());
             _services.AddSingleton<Control.IDevHostControl, Control.DevHostControl>();
 
             // Register initializer
