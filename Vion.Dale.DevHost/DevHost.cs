@@ -153,6 +153,22 @@ namespace Vion.Dale.DevHost
                 _logger.LogWarning(ex, "Error while stopping during DisposeAsync; continuing teardown.");
             }
 
+            // Deterministically tear down the actor system so its scheduler/threads are released now, rather
+            // than lingering until GC. Important for tests that build many hosts in one process — without it,
+            // accumulated actor systems contend for the thread pool and intermittently stall operations.
+            try
+            {
+                var actorSystem = _serviceProvider.GetService<Vion.Dale.Sdk.Abstractions.IActorSystem>();
+                if (actorSystem is not null)
+                {
+                    await actorSystem.ShutdownAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error shutting down the actor system during DisposeAsync; continuing teardown.");
+            }
+
             if (_serviceProvider is IAsyncDisposable asyncDisposable)
             {
                 await asyncDisposable.DisposeAsync();
