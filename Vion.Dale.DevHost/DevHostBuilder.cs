@@ -100,6 +100,13 @@ namespace Vion.Dale.DevHost
             // Register DevHostEvents as singleton
             _services.AddSingleton<DevHostEvents>();
 
+            // Headless control surface (RFC 0003): a log sink + ILoggerProvider that captures the
+            // DevHost's log output (additive — alongside the console provider, which is unchanged), and
+            // the IDevHostControl facade for tests / agents. All additive; the web UI is unaffected.
+            _services.AddSingleton<Control.DevHostLogSink>();
+            _services.AddSingleton<ILoggerProvider>(sp => new Control.DevHostLogSinkProvider(sp.GetRequiredService<Control.DevHostLogSink>()));
+            _services.AddSingleton<Control.IDevHostControl, Control.DevHostControl>();
+
             // Register initializer
             _services.AddSingleton<DevLogicSystemInitializer>();
 

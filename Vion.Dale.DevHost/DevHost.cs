@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Vion.Dale.DevHost.Control;
 
 namespace Vion.Dale.DevHost
 {
@@ -21,6 +22,8 @@ namespace Vion.Dale.DevHost
 
         private readonly IServiceProvider _serviceProvider;
 
+        private bool _disposed;
+
         public DevHost(IServiceProvider serviceProvider, List<Assembly> pluginAssemblies, DevConfiguration configuration, ILogger logger)
         {
             _serviceProvider = serviceProvider;
@@ -28,6 +31,9 @@ namespace Vion.Dale.DevHost
             _configuration = configuration;
             _logger = logger;
         }
+
+        /// <inheritdoc />
+        public IDevHostControl Control => _serviceProvider.GetRequiredService<IDevHostControl>();
 
         public async Task StartAsync(CancellationToken cancellationToken = default)
         {
@@ -113,6 +119,38 @@ namespace Vion.Dale.DevHost
             // }
 
             _logger.LogInformation("Development host stopped");
+        }
+
+        /// <summary>
+        ///     Stops the host (idempotent) and disposes the owned service provider. Enables
+        ///     <c>await using var host = …Build()</c> in tests for clean per-test teardown.
+        /// </summary>
+        public async ValueTask DisposeAsync()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+
+            try
+            {
+                await StopAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error while stopping during DisposeAsync; continuing teardown.");
+            }
+
+            if (_serviceProvider is IAsyncDisposable asyncDisposable)
+            {
+                await asyncDisposable.DisposeAsync();
+            }
+            else if (_serviceProvider is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
         }
     }
 }

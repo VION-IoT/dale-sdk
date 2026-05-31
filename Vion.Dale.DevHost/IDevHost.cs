@@ -1,9 +1,11 @@
-﻿using System.Threading;
+﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
+using Vion.Dale.DevHost.Control;
 
 namespace Vion.Dale.DevHost
 {
-    public interface IDevHost
+    public interface IDevHost : IAsyncDisposable
     {
         /// <summary>
         ///     Starts the development host
@@ -19,5 +21,11 @@ namespace Vion.Dale.DevHost
         ///     Stops the development host
         /// </summary>
         Task StopAsync(CancellationToken cancellationToken = default);
+
+        /// <summary>
+        ///     Headless, scriptable control surface for the running network (CI / tests / agents).
+        ///     Available after <see cref="StartAsync" />. See RFC 0003.
+        /// </summary>
+        IDevHostControl Control { get; }
     }
 }
