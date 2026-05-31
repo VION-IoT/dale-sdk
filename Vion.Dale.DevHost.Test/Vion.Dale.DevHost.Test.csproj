@@ -21,6 +21,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Vion.Dale.DevHost\Vion.Dale.DevHost.csproj"/>
+        <ProjectReference Include="..\Vion.Dale.DevHost.Web\Vion.Dale.DevHost.Web.csproj"/>
         <ProjectReference Include="..\Vion.Dale.Sdk\Vion.Dale.Sdk.csproj"/>
         <ProjectReference Include="..\Vion.Dale.Sdk.Generators\Vion.Dale.Sdk.Generators.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer"/>
     </ItemGroup>

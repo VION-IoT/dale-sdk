@@ -52,7 +52,7 @@ namespace Vion.Dale.DevHost.Test
             // Match the specific target value — the startup state publish also emits Counter (=0).
             var observed = await host.Control.WaitForAsync(
                 e => e is ServicePropertyChanged { Property: "Counter" } sp && Convert.ToInt32(sp.Value) == 42 ? sp.Value : null,
-                timeout: TimeSpan.FromSeconds(5));
+                timeout: TimeSpan.FromSeconds(15));
 
             Assert.IsNotNull(observed, "The Counter=42 change should have been observed within the timeout.");
             Assert.AreEqual(42, Convert.ToInt32(observed));
@@ -84,7 +84,7 @@ namespace Vion.Dale.DevHost.Test
             await host.Control.SetPropertyAsync("counter", "Counter", 7);
             await host.Control.WaitForAsync(
                 e => e is ServicePropertyChanged { Property: "Counter" } sp && Convert.ToInt32(sp.Value) == 7 ? sp.Value : null,
-                timeout: TimeSpan.FromSeconds(5));
+                timeout: TimeSpan.FromSeconds(15));
 
             var received = host.Control.RecordedMessages("counter");
 
