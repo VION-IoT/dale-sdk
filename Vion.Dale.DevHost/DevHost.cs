@@ -53,6 +53,16 @@ namespace Vion.Dale.DevHost
                 await hostedService.StartAsync(cancellationToken);
             }
 
+            // Introspect logic blocks for the headless control surface (RFC 0003) before the logic system
+            // is initialized — this assigns service ids in a headless boot, which the initializer then reads.
+            // Additive: in a .WithWebUi() boot the web state provider already populated them, so this is a no-op
+            // for service-id assignment and just records control metadata.
+            _serviceProvider.GetRequiredService<DevHostIntrospection>().EnsureIntrospected();
+
+            // Eagerly construct the control facade now so it subscribes to the event stream BEFORE blocks
+            // start publishing — otherwise its last-known-value cache would miss the initial state publish.
+            _ = _serviceProvider.GetRequiredService<IDevHostControl>();
+
             // Get the initializer from DI
             var initializer = _serviceProvider.GetRequiredService<DevLogicSystemInitializer>();
 

@@ -105,6 +105,7 @@ namespace Vion.Dale.DevHost
             // the IDevHostControl facade for tests / agents. All additive; the web UI is unaffected.
             _services.AddSingleton<Control.DevHostLogSink>();
             _services.AddSingleton<ILoggerProvider>(sp => new Control.DevHostLogSinkProvider(sp.GetRequiredService<Control.DevHostLogSink>()));
+            _services.AddSingleton<Control.DevHostIntrospection>();
             _services.AddSingleton<Control.IDevHostControl, Control.DevHostControl>();
 
             // Register initializer

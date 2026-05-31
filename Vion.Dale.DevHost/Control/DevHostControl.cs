@@ -1,8 +1,15 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Vion.Dale.DevHost.Mocking;
+using Vion.Dale.Sdk.Abstractions;
+using Vion.Dale.Sdk.DigitalIo.Input;
+using Vion.Dale.Sdk.AnalogIo.Input;
+using Vion.Dale.Sdk.Messages;
+using Vion.Dale.Sdk.Utils;
 
 namespace Vion.Dale.DevHost.Control
 {
@@ -15,6 +22,10 @@ namespace Vion.Dale.DevHost.Control
 
         private readonly DevHostLogSink _logSink;
 
+        private readonly DevHostIntrospection _introspection;
+
+        private readonly IActorSystem _actorSystem;
+
         // Event-stream fan-out + pending WaitForAsync waiters share one lock — both touched from actor threads.
         private readonly object _gate = new();
 
@@ -22,23 +33,20 @@ namespace Vion.Dale.DevHost.Control
 
         private readonly List<Func<DevHostEvent, bool>> _waiters = new();
 
-        // service-id (GUID carried on the events) → block name assigned in DevConfigurationBuilder.
-        private readonly Dictionary<string, string> _serviceToBlock;
+        // Last-known value per (serviceConfigId, memberName) — fed by the change events, read by GetProperty.
+        private readonly ConcurrentDictionary<(string ServiceId, string Member), object?> _values = new();
 
-        public DevHostControl(DevConfiguration configuration, DevHostEvents events, DevHostLogSink logSink)
+        // service-id (GUID carried on the events) → block name. Built lazily: in a headless boot the config's
+        // Services aren't populated until DevHostIntrospection runs, which may be after this is constructed.
+        private Dictionary<string, string>? _serviceToBlock;
+
+        public DevHostControl(DevConfiguration configuration, DevHostEvents events, DevHostLogSink logSink, DevHostIntrospection introspection, IActorSystem actorSystem)
         {
             _configuration = configuration;
             _events = events;
             _logSink = logSink;
-
-            _serviceToBlock = new Dictionary<string, string>();
-            foreach (var block in configuration.LogicBlocks)
-            {
-                foreach (var service in block.Services)
-                {
-                    _serviceToBlock[service.Id] = block.Name;
-                }
-            }
+            _introspection = introspection;
+            _actorSystem = actorSystem;
 
             _events.ServicePropertyChanged += OnServiceProperty;
             _events.ServiceMeasuringPointChanged += OnMeasuringPoint;
@@ -53,6 +61,74 @@ namespace Vion.Dale.DevHost.Control
             return _configuration.LogicBlocks
                                  .Select(b => new BlockInfo(b.Id, b.Name, b.LogicBlockType.Name, b.Services.Select(s => s.Id).ToList()))
                                  .ToList();
+        }
+
+        public object? GetProperty(string blockIdOrName, string propertyName)
+        {
+            var block = ResolveBlock(blockIdOrName);
+            if (block is null || !_introspection.TryGetServiceId(block.Id, propertyName, out var serviceId))
+            {
+                return null;
+            }
+
+            return _values.TryGetValue((serviceId, propertyName), out var value) ? value : null;
+        }
+
+        public IReadOnlyDictionary<string, object?> GetAllProperties(string blockIdOrName)
+        {
+            var result = new Dictionary<string, object?>();
+            var block = ResolveBlock(blockIdOrName);
+            if (block is null)
+            {
+                return result;
+            }
+
+            foreach (var propertyName in _introspection.PropertyNames(block.Id))
+            {
+                result[propertyName] = GetProperty(block.Id, propertyName);
+            }
+
+            return result;
+        }
+
+        public Task SetPropertyAsync(string blockIdOrName, string propertyName, object value)
+        {
+            var block = ResolveBlock(blockIdOrName)
+                        ?? throw new InvalidOperationException($"Unknown block '{blockIdOrName}'.");
+
+            if (!_introspection.TryGetServiceId(block.Id, propertyName, out var serviceId))
+            {
+                throw new InvalidOperationException(
+                    $"Block '{block.Name}' has no service property or measuring point named '{propertyName}'. " +
+                    "(Note: get/set on the in-process control surface requires a headless boot; the property metadata " +
+                    "is introspected at StartAsync.)");
+            }
+
+            var blockActor = _actorSystem.LookupByName(LogicBlockUtils.CreateLogicBlockName(block.Name, block.Id));
+            var handler = _actorSystem.LookupByName(nameof(MockServicePropertyHandler));
+            _actorSystem.SendTo(handler, new MockSetServicePropertyValue(blockActor, new SetServicePropertyValueRequest(new ServiceIdentifier(serviceId), propertyName, value)));
+
+            return Task.CompletedTask;
+        }
+
+        public Task SetDigitalInputAsync(string serviceProviderId, string serviceId, string contractId, bool value)
+        {
+            var handler = _actorSystem.LookupByName(nameof(DigitalInputHandler));
+            _actorSystem.SendTo(handler, new MockSetDigitalInputMessage(serviceProviderId, serviceId, contractId, value));
+            return Task.CompletedTask;
+        }
+
+        public Task SetAnalogInputAsync(string serviceProviderId, string serviceId, string contractId, double value)
+        {
+            var handler = _actorSystem.LookupByName(nameof(AnalogInputHandler));
+            _actorSystem.SendTo(handler, new MockSetAnalogInputMessage(serviceProviderId, serviceId, contractId, value));
+            return Task.CompletedTask;
+        }
+
+        private DevLogicBlockConfig? ResolveBlock(string blockIdOrName)
+        {
+            return _configuration.LogicBlocks.FirstOrDefault(b => b.Name == blockIdOrName)
+                   ?? _configuration.LogicBlocks.FirstOrDefault(b => b.Id == blockIdOrName);
         }
 
         public IDisposable Subscribe(Action<DevHostEvent> sink)
@@ -142,16 +218,38 @@ namespace Vion.Dale.DevHost.Control
 
         private string BlockFor(string serviceId)
         {
-            return _serviceToBlock.TryGetValue(serviceId, out var name) ? name : serviceId;
+            // Built lazily and cached once the config's Services are populated (after introspection), since
+            // this control instance can be constructed before that happens in a headless boot.
+            var map = _serviceToBlock;
+            if (map is null || map.Count == 0)
+            {
+                map = new Dictionary<string, string>();
+                foreach (var block in _configuration.LogicBlocks)
+                {
+                    foreach (var service in block.Services)
+                    {
+                        map[service.Id] = block.Name;
+                    }
+                }
+
+                if (map.Count > 0)
+                {
+                    _serviceToBlock = map;
+                }
+            }
+
+            return map.TryGetValue(serviceId, out var name) ? name : serviceId;
         }
 
         private void OnServiceProperty(object? sender, ServicePropertyChangedEventArgs e)
         {
+            _values[(e.ServiceIdentifier, e.PropertyIdentifier)] = e.Value;
             Publish(new ServicePropertyChanged(BlockFor(e.ServiceIdentifier), e.ServiceIdentifier, e.PropertyIdentifier, e.Value));
         }
 
         private void OnMeasuringPoint(object? sender, ServiceMeasuringPointChangedEventArgs e)
         {
+            _values[(e.ServiceIdentifier, e.MeasuringPointIdentifier)] = e.Value;
             Publish(new ServiceMeasuringPointChanged(BlockFor(e.ServiceIdentifier), e.ServiceIdentifier, e.MeasuringPointIdentifier, e.Value));
         }
 

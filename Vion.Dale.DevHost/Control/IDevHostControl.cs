@@ -19,6 +19,26 @@ namespace Vion.Dale.DevHost.Control
         IReadOnlyList<BlockInfo> ListBlocks();
 
         /// <summary>
+        ///     Read the last-known value of a block's <c>[ServiceProperty]</c> / <c>[ServiceMeasuringPoint]</c>,
+        ///     keyed by the block name (assigned in <c>AddLogicBlock(name:)</c>) or its id, plus the member
+        ///     name. Returns <c>null</c> if the property is unknown or hasn't produced a value yet. This is the
+        ///     last <em>published</em> value — exactly what the web UI shows (RFC 0003).
+        /// </summary>
+        object? GetProperty(string blockIdOrName, string propertyName);
+
+        /// <summary>All last-known property/measuring-point values for a block, keyed by member name.</summary>
+        IReadOnlyDictionary<string, object?> GetAllProperties(string blockIdOrName);
+
+        /// <summary>Write a writable <c>[ServiceProperty]</c> ("knob") — the programmatic equivalent of the UI's edit field.</summary>
+        System.Threading.Tasks.Task SetPropertyAsync(string blockIdOrName, string propertyName, object value);
+
+        /// <summary>Set a mocked digital input value, routed to the linked blocks just like the web UI's HAL control.</summary>
+        System.Threading.Tasks.Task SetDigitalInputAsync(string serviceProviderId, string serviceId, string contractId, bool value);
+
+        /// <summary>Set a mocked analog input value, routed to the linked blocks just like the web UI's HAL control.</summary>
+        System.Threading.Tasks.Task SetAnalogInputAsync(string serviceProviderId, string serviceId, string contractId, double value);
+
+        /// <summary>
         ///     Subscribe to the normalized state-change event stream (the projection of <see cref="IDevHostEvents" />).
         ///     Dispose the returned token to unsubscribe.
         /// </summary>

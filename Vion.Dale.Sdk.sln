@@ -142,6 +142,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vion.Dale.Sdk.Modbus.Tcp.Te
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test", "Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test\Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test.csproj", "{E88ADC2C-E9D6-4795-978E-21447E5D5351}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vion.Dale.DevHost.Test", "Vion.Dale.DevHost.Test\Vion.Dale.DevHost.Test.csproj", "{C94A9654-807D-4A9A-944A-F80C8E633301}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -764,6 +766,18 @@ Global
 		{E88ADC2C-E9D6-4795-978E-21447E5D5351}.Release|x64.Build.0 = Release|Any CPU
 		{E88ADC2C-E9D6-4795-978E-21447E5D5351}.Release|x86.ActiveCfg = Release|Any CPU
 		{E88ADC2C-E9D6-4795-978E-21447E5D5351}.Release|x86.Build.0 = Release|Any CPU
+		{C94A9654-807D-4A9A-944A-F80C8E633301}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C94A9654-807D-4A9A-944A-F80C8E633301}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C94A9654-807D-4A9A-944A-F80C8E633301}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{C94A9654-807D-4A9A-944A-F80C8E633301}.Debug|x64.Build.0 = Debug|Any CPU
+		{C94A9654-807D-4A9A-944A-F80C8E633301}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{C94A9654-807D-4A9A-944A-F80C8E633301}.Debug|x86.Build.0 = Debug|Any CPU
+		{C94A9654-807D-4A9A-944A-F80C8E633301}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C94A9654-807D-4A9A-944A-F80C8E633301}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C94A9654-807D-4A9A-944A-F80C8E633301}.Release|x64.ActiveCfg = Release|Any CPU
+		{C94A9654-807D-4A9A-944A-F80C8E633301}.Release|x64.Build.0 = Release|Any CPU
+		{C94A9654-807D-4A9A-944A-F80C8E633301}.Release|x86.ActiveCfg = Release|Any CPU
+		{C94A9654-807D-4A9A-944A-F80C8E633301}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
