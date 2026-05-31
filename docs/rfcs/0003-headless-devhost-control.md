@@ -1,6 +1,37 @@
 # RFC 0003: Headless, scriptable control surface for DevHost
 
-Status: **Draft** — design-only, not implemented. Author: jonas.bertsch. Date: 2026-05-29.
+Status: **Implemented** (v1) on branch `feat/headless-devhost-control`. Author: jonas.bertsch. Date: 2026-05-29.
+
+## Implementation status (what shipped)
+
+The primary surface — the in-process `IDevHostControl` (reached via `IDevHost.Control`) — shipped in full:
+topology (`ListBlocks`), live state (`GetProperty` / `GetAllProperties` via an event-fed cache), knobs
+(`SetPropertyAsync`, `SetDigitalInputAsync`, `SetAnalogInputAsync`), observation (`Subscribe`,
+`WaitForAsync`), **log streaming** (`SubscribeLogs` / `RecentLogs` via an additive `ILoggerProvider`), and the
+**message tap** (`RecordedMessages`). Introspection moved into core (`DevHostIntrospection`, runs before init,
+additive to the web path). `IDevHost` is now `IAsyncDisposable`. The message tap is a provably-additive,
+opt-in `IActorMessageObserver` hook in `Vion.Dale.ProtoActor` (production registers none → unchanged).
+
+The secondary HTTP surface shipped as additive routes on a new `ControlController` (`GET /api/blocks`,
+`/api/state/{block}`, `/api/state/{block}/{property}`, `/api/logs/recent`, `/api/messages`), plus
+`DevHostWebRunner` + `dale dev --headless` (`DALE_DEVHOST_NO_BROWSER` + readiness line). Validated by the
+first automated test of the web path (`Vion.Dale.DevHost.Test/WebControlEndpointsShould`).
+
+**Deferred (documented follow-ups), not blockers:**
+
+- **Live-tail SSE** `GET /api/logs` — only `GET /api/logs/recent` (JSON snapshot) shipped; the snapshot covers
+  the core "read the console" need.
+- **Template / example `Program.cs` adoption of `DevHostWebRunner`** — they reference published packages
+  (CLAUDE.md: checked-in refs must match a published version), so they can adopt the unpublished runner only
+  after the next release bumps their refs. Until then `dale dev --headless` is a no-op on already-generated
+  projects — exactly the compat note below.
+- **Cross-block (2-block contract) demonstration test** — the tap is validated via a received service-request;
+  a full block→block contract scenario (the motivating orchestrator/device case) is a richer example to add.
+
+Original design follows.
+
+Revision 1 → 5 history retained below.
+
 Revision 2: recentred on the in-process API after a consistency review against the `dale` CLI; the
 HTTP/CLI tier shrank from a new endpoint + `--headless` flag to "extend the existing `/api` + an env var".
 Revision 3: added **log streaming** as a first-class v1 capability (it was missing — events ≠ logs, and the
