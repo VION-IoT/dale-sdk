@@ -2,12 +2,17 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
+using Vion.Contracts.Codec;
+using Vion.Contracts.TypeRef;
 using Vion.Dale.DevHost.Mocking;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.DigitalIo.Input;
+using Vion.Dale.Sdk.DigitalIo.Output;
 using Vion.Dale.Sdk.AnalogIo.Input;
+using Vion.Dale.Sdk.AnalogIo.Output;
 using Vion.Dale.Sdk.Messages;
 using Vion.Dale.Sdk.Utils;
 
@@ -71,6 +76,11 @@ namespace Vion.Dale.DevHost.Control
                                  .ToList();
         }
 
+        public ConfigurationOutput GetConfiguration()
+        {
+            return _introspection.BuildConfiguration();
+        }
+
         public object? GetProperty(string logicBlockIdOrName, string propertyName)
         {
             var logicBlock = ResolveLogicBlock(logicBlockIdOrName);
@@ -110,9 +120,21 @@ namespace Vion.Dale.DevHost.Control
                     $"Logic block '{logicBlock.Name}' has no service property or measuring point named '{propertyName}'.");
             }
 
+            return SetServicePropertyValueAsync(serviceId, propertyName, value);
+        }
+
+        public Task SetServicePropertyValueAsync(string serviceId, string propertyName, object value)
+        {
+            var logicBlock = _configuration.LogicBlocks.FirstOrDefault(lb => lb.Services.Any(s => s.Id == serviceId))
+                             ?? throw new InvalidOperationException($"Unknown service id '{serviceId}'.");
+
+            // Decode JSON values (the HTTP path delivers JsonElement) into the precise CLR type the block
+            // expects; CLR values from in-process callers pass through unchanged.
+            var typedValue = NormalizeValue(serviceId, propertyName, value);
+
             var logicBlockActor = _actorSystem.LookupByName(LogicBlockUtils.CreateLogicBlockName(logicBlock.Name, logicBlock.Id));
             var handler = _actorSystem.LookupByName(nameof(MockServicePropertyHandler));
-            _actorSystem.SendTo(handler, new MockSetServicePropertyValue(logicBlockActor, new SetServicePropertyValueRequest(new ServiceIdentifier(serviceId), propertyName, value)));
+            _actorSystem.SendTo(handler, new MockSetServicePropertyValue(logicBlockActor, new SetServicePropertyValueRequest(new ServiceIdentifier(serviceId), propertyName, typedValue!)));
 
             return Task.CompletedTask;
         }
@@ -129,6 +151,48 @@ namespace Vion.Dale.DevHost.Control
             var handler = _actorSystem.LookupByName(nameof(AnalogInputHandler));
             _actorSystem.SendTo(handler, new MockSetAnalogInputMessage(serviceProviderId, serviceId, contractId, value));
             return Task.CompletedTask;
+        }
+
+        public void PublishAllStates()
+        {
+            _actorSystem.SendTo(_actorSystem.LookupByName(nameof(DigitalInputHandler)), new MockPublishAllStatesMessage());
+            _actorSystem.SendTo(_actorSystem.LookupByName(nameof(DigitalOutputHandler)), new MockPublishAllStatesMessage());
+            _actorSystem.SendTo(_actorSystem.LookupByName(nameof(AnalogInputHandler)), new MockPublishAllStatesMessage());
+            _actorSystem.SendTo(_actorSystem.LookupByName(nameof(AnalogOutputHandler)), new MockPublishAllStatesMessage());
+            _actorSystem.SendTo(_actorSystem.LookupByName(nameof(MockServicePropertyHandler)), new MockPublishAllStatesMessage());
+            _actorSystem.SendTo(_actorSystem.LookupByName(nameof(MockServiceMeasuringPointHandler)), new MockPublishAllStatesMessage());
+        }
+
+        // JSON → typed CLR for the HTTP set path (moved here when IDevHostStateProvider was collapsed into the
+        // control surface). Re-parses the property's JSON Schema into a TypeRef and delegates to the same
+        // PropertyValueCodec the runtime uses. CLR values pass through untouched.
+        private object? NormalizeValue(string serviceId, string propertyName, object value)
+        {
+            var isJson = value is System.Text.Json.JsonElement || value is JsonNode;
+            if (!isJson)
+            {
+                return value;
+            }
+
+            if (!_introspection.TryGetPropertyConversion(serviceId, propertyName, out var schema, out var clrType) || schema is null || clrType is null)
+            {
+                // No schema/type available — hand the raw value through rather than fail.
+                return value;
+            }
+
+            var typeRef = TypeSchemaSerialization.FromJsonSchema(schema).Type;
+            // The codec reads JsonElement-backed nodes. The HTTP path already produces those (JsonElement →
+            // re-parsed). An in-process JsonNode may instead be CLR-backed (e.g. JsonValue.Create(99)), which the
+            // codec can't read — round-trip it through its JSON string so any JsonNode input honours the contract.
+            JsonNode? json = value switch
+            {
+                System.Text.Json.JsonElement je when je.ValueKind == System.Text.Json.JsonValueKind.Null => null,
+                System.Text.Json.JsonElement je => JsonNode.Parse(je.GetRawText()),
+                JsonNode node => JsonNode.Parse(node.ToJsonString()),
+                _ => null,
+            };
+
+            return PropertyValueCodec.JsonToClr(json, typeRef, clrType);
         }
 
         private DevLogicBlockConfig? ResolveLogicBlock(string logicBlockIdOrName)

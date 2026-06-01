@@ -79,6 +79,51 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        public async Task GetConfiguration_AfterStart_DescribesTheWiredNetworkWithSchemas()
+        {
+            // The heavyweight introspection (what the web UI renders) is reachable in-process through the one
+            // control abstraction — agents can read property/measuring-point schemas without standing up the
+            // web stack. This is the capability the collapsed IDevHostStateProvider used to gate behind the web.
+            await using var host = BuildHost();
+            await host.StartAsync();
+
+            var config = host.Control.GetConfiguration();
+
+            Assert.IsNotNull(config);
+            var block = config.LogicBlocks.Single(b => b.Name == "counter");
+            var service = block.Services.Single();
+
+            var counter = service.ServiceProperties.Single(p => p.Identifier == "Counter");
+            Assert.IsNotNull(counter.Schema, "Each service property must carry its JSON schema.");
+            Assert.IsTrue(service.ServiceMeasuringPoints.Any(m => m.Identifier == "CounterDoubled"),
+                          "The computed measuring point must be described in the configuration.");
+        }
+
+        [TestMethod]
+        public async Task SetServicePropertyValueAsync_ByServiceId_DecodesAJsonValue()
+        {
+            // The HTTP set path addresses a property by its service id and arrives as JSON. The unified control
+            // must decode that JSON against the property schema into the precise CLR type — exercise that branch
+            // directly with a JsonNode so the conversion is covered without the web stack in the loop.
+            await using var host = BuildHost();
+            await host.StartAsync();
+
+            var serviceId = host.Control.GetConfiguration()
+                                .LogicBlocks.Single(b => b.Name == "counter")
+                                .Services.Single(s => s.ServiceProperties.Any(p => p.Identifier == "Counter"))
+                                .Id;
+
+            await host.Control.SetServicePropertyValueAsync(serviceId, "Counter", System.Text.Json.Nodes.JsonValue.Create(99));
+
+            var observed = await host.Control.WaitForAsync(
+                e => e is ServicePropertyChanged { Property: "Counter" } sp && Convert.ToInt32(sp.Value) == 99 ? sp.Value : null,
+                timeout: TimeSpan.FromSeconds(15));
+
+            Assert.IsNotNull(observed, "Setting by service id with a JSON value should be applied.");
+            Assert.AreEqual(99, Convert.ToInt32(host.Control.GetProperty("counter", "Counter")));
+        }
+
+        [TestMethod]
         public async Task WaitFor_ReturnsNull_OnTimeout_WhenNothingMatches()
         {
             await using var host = BuildHost();

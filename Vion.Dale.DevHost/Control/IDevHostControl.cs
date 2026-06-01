@@ -19,6 +19,13 @@ namespace Vion.Dale.DevHost.Control
         IReadOnlyList<LogicBlockInfo> ListLogicBlocks();
 
         /// <summary>
+        ///     The full introspection of the wired network — services, property/measuring-point schemas,
+        ///     presentation, contracts, and wiring. The heavyweight view the web UI renders; <see cref="ListLogicBlocks" />
+        ///     is the lightweight topology.
+        /// </summary>
+        ConfigurationOutput GetConfiguration();
+
+        /// <summary>
         ///     Read the last-known value of a logic block's <c>[ServiceProperty]</c> or
         ///     <c>[ServiceMeasuringPoint]</c>, keyed by the logic block name (assigned in <c>AddLogicBlock(name:)</c>)
         ///     or its id, plus the member name. Returns <c>null</c> if the member is unknown or hasn't produced a
@@ -32,11 +39,25 @@ namespace Vion.Dale.DevHost.Control
         /// <summary>Write a writable <c>[ServiceProperty]</c> ("knob") — the programmatic equivalent of the UI's edit field.</summary>
         Task SetPropertyAsync(string logicBlockIdOrName, string propertyName, object value);
 
+        /// <summary>
+        ///     Write a service property addressed by its service identifier (the GUID from
+        ///     <see cref="GetConfiguration" />), accepting either a CLR value or a JSON value (a
+        ///     <c>JsonElement</c> / <c>JsonNode</c> is decoded against the property schema). This is the
+        ///     addressing the web UI uses; in-process callers usually prefer <see cref="SetPropertyAsync" />.
+        /// </summary>
+        Task SetServicePropertyValueAsync(string serviceId, string propertyName, object value);
+
         /// <summary>Set a mocked digital input value, routed to the linked logic blocks just like the web UI's HAL control.</summary>
         Task SetDigitalInputAsync(string serviceProviderId, string serviceId, string contractId, bool value);
 
         /// <summary>Set a mocked analog input value, routed to the linked logic blocks just like the web UI's HAL control.</summary>
         Task SetAnalogInputAsync(string serviceProviderId, string serviceId, string contractId, double value);
+
+        /// <summary>
+        ///     Ask every mock handler to re-publish its current state — used by the web UI on (re)connect to
+        ///     prime a fresh client. In-process callers rarely need this (the value cache is already warm).
+        /// </summary>
+        void PublishAllStates();
 
         /// <summary>
         ///     Subscribe to the normalized state-change event stream (the projection of <see cref="IDevHostEvents" />).

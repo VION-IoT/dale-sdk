@@ -3,38 +3,31 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Vion.Dale.DevHost.Control;
 using Vion.Dale.DevHost.Web.Api.Dtos;
-using Vion.Dale.DevHost.Web.Services;
 
 namespace Vion.Dale.DevHost.Web.Api.Controllers
 {
     /// <summary>
     ///     The DevHost HTTP API under <c>/api</c> — the single surface shared by the web UI and headless
-    ///     tools/agents. Write/configuration endpoints are backed by <see cref="IDevHostStateProvider" /> (the
-    ///     UI's existing contract); the read/observe endpoints are backed by the headless
-    ///     <see cref="IDevHostControl" /> (RFC 0003). One controller so both clients use one documented API.
+    ///     tools/agents, backed entirely by the one control abstraction <see cref="IDevHostControl" /> (RFC 0003).
     /// </summary>
     [ApiController]
     [Route("api")]
     public class DevHostController : ControllerBase
     {
-        private readonly IDevHostStateProvider _stateProvider;
-
         private readonly IDevHostControl _control;
 
-        public DevHostController(IDevHostStateProvider stateProvider, IDevHostControl control)
+        public DevHostController(IDevHostControl control)
         {
-            _stateProvider = stateProvider;
             _control = control;
         }
 
-        // --- Configuration & writes (UI's existing contract) ---
+        // --- Configuration & writes ---
 
         /// <summary>Full introspection — services, property schemas, presentation, wiring — for rendering.</summary>
         [HttpGet("configuration")]
-        public async Task<ActionResult<ConfigurationOutput>> GetConfiguration()
+        public ActionResult<ConfigurationOutput> GetConfiguration()
         {
-            var config = await _stateProvider.GetConfigurationAsync();
-            return Ok(config);
+            return Ok(_control.GetConfiguration());
         }
 
         [HttpPost("hal/di/{serviceProviderIdentifier}/{serviceIdentifier}/{contractIdentifier}")]
@@ -43,7 +36,7 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
                                                              string contractIdentifier,
                                                              [FromBody] SetValueInput<bool> input)
         {
-            await _stateProvider.SetDigitalInputValueAsync(serviceProviderIdentifier, serviceIdentifier, contractIdentifier, input.Value);
+            await _control.SetDigitalInputAsync(serviceProviderIdentifier, serviceIdentifier, contractIdentifier, input.Value);
             return Ok();
         }
 
@@ -53,14 +46,14 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
                                                             string contractIdentifier,
                                                             [FromBody] SetValueInput<double> input)
         {
-            await _stateProvider.SetAnalogInputValueAsync(serviceProviderIdentifier, serviceIdentifier, contractIdentifier, input.Value);
+            await _control.SetAnalogInputAsync(serviceProviderIdentifier, serviceIdentifier, contractIdentifier, input.Value);
             return Ok();
         }
 
         [HttpPost("dale/property/{serviceIdentifier}/{propertyIdentifier}")]
         public async Task<ActionResult> SetServicePropertyValue(string serviceIdentifier, string propertyIdentifier, [FromBody] SetValueInput<object> input)
         {
-            await _stateProvider.SetServicePropertyValueAsync(serviceIdentifier, propertyIdentifier, input.Value);
+            await _control.SetServicePropertyValueAsync(serviceIdentifier, propertyIdentifier, input.Value);
             return Ok();
         }
 
@@ -107,7 +100,6 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
         [HttpGet("messages")]
         public ActionResult GetMessages([FromQuery] string? logicBlock = null)
         {
-            // The raw message instance can be an arbitrary CLR type; project to a serialization-safe shape.
             var messages = _control.RecordedMessages(logicBlock)
                                    .Select(m => new
                                                 {
