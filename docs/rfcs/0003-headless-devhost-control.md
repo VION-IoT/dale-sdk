@@ -68,6 +68,11 @@ HTTP surface DevHost already exposes.
 
 ## What already exists (and what doesn't)
 
+> **Note (post-implementation):** this table is the pre-RFC baseline. The cited `DevHostStateProvider` /
+> `IDevHostStateProvider` (web-only) were later **collapsed into the one core `IDevHostControl`** — its
+> config/state/set logic now lives in `Vion.Dale.DevHost/Control` (`DevHostControl`, `DevHostIntrospection`),
+> so those `.Web/Services/*` links no longer resolve. The "❌" rows below are exactly the gaps this RFC closed.
+
 | Capability | State today | Cite |
 |---|---|---|
 | Boot wired network without web server | ✅ `.WithWebUi()` is an *optional* extension; the core boot path has no web dependency | [DevHostBuilderExtensions.cs:8](../../Vion.Dale.DevHost.Web/DevHostBuilderExtensions.cs#L8) |
@@ -192,7 +197,7 @@ public interface IDevHostControl
     object? GetProperty(string blockId, string propertyName);
     IReadOnlyDictionary<string, object?> GetAllProperties(string blockId);
 
-    // Write knobs / inputs (extraction of the existing DevHostStateProvider set-path)
+    // Write knobs / inputs (the former DevHostStateProvider set-path, now collapsed into this surface)
     Task SetPropertyAsync(string blockId, string propertyName, object value);
     Task SetDigitalInputAsync(string spId, string svcId, string contractId, bool value);
     Task SetAnalogInputAsync(string spId, string svcId, string contractId, double value);
@@ -214,7 +219,7 @@ public interface IDevHostControl
 
 **The missing live-value read** is a small `LastKnownStateCache` that subscribes to `IDevHostEvents` at boot and
 records the latest value per `(blockId, propertyName)` — honest, because it returns exactly what the UI shows
-(both are fed by the same stream). `PublishAllStatesAsync()` is invoked once on start to warm it.
+(both are fed by the same stream). `PublishAllStates()` is invoked once on start to warm it.
 
 **Message tap.** The motivating bug is "an outbound poll was never *sent*" — a state read can't show that
 directly, but a tap on inter-block messages can ("assert device-x received a `DataRequest` this run"). This is
@@ -286,8 +291,10 @@ human watches the UI" scenario, reuse the HTTP surface DevHost **already** expos
 
 - **`IDevHost` gains a member** (`Control`). It is implemented only by the internal `DevHost`, so this is not a
   breaking change for external implementers (there are none). `Start/Run/Stop` callers are unaffected.
-- **Moving `IDevHostStateProvider`'s set-logic from `.Web` into core**: the type stays public; `.Web` keeps a
-  thin registration. Existing `.WithWebUi()` callers are unaffected.
+- **Collapsing `IDevHostStateProvider` into `IDevHostControl`**: the web-only state provider is removed
+  entirely; configuration, state-publish, and the set-path now live on the one core control abstraction, which
+  `.Web` (controller, SignalR hub, hosted service) consumes directly. Existing `.WithWebUi()` callers are
+  unaffected — the `/api` routes, SPA, and SignalR stream behave identically.
 - **GET-state and log routes** ship in `.Web` — consumers get them on package upgrade, no `Program.cs` change.
 - **The log `ILoggerProvider` sink** is additive: the host registers it into the existing logging pipeline
   alongside `AddConsole` (console output is unchanged; the sink just also feeds `SubscribeLogs` / the buffer).
