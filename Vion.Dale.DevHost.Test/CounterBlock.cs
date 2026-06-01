@@ -1,3 +1,4 @@
+using System;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Core;
@@ -25,6 +26,12 @@ namespace Vion.Dale.DevHost.Test
 
         [ServiceMeasuringPoint(Title = "Counter doubled")]
         public int CounterDoubled { get; private set; }
+
+        // Writable Duration knob — TimeSpan maps to PrimitiveKind.Duration, whose wire form differs between
+        // the codec (ISO-8601 "PT5S") and the .NET ToString form ("00:00:05") the web UI submits. Used to
+        // guard that the write path accepts both and the web read path emits the codec's ISO-8601 form.
+        [ServiceProperty(Title = "Control interval")]
+        public TimeSpan ControlInterval { get; set; } = TimeSpan.FromSeconds(1);
 
         public CounterBlock(ILogger logger) : base(logger)
         {

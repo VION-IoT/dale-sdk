@@ -192,7 +192,32 @@ namespace Vion.Dale.DevHost.Control
                 _ => null,
             };
 
+            // Duration is the one primitive whose wire form is ambiguous: the codec parses ISO-8601 ("PT5S")
+            // only (XmlConvert.ToTimeSpan), but the web UI and .NET callers submit the .NET ToString form
+            // ("00:00:05"). Accept both here, otherwise every TimeSpan property is unwritable from the UI
+            // (FormatException → HTTP 500). The UI's read side is already tolerant of both forms.
+            var underlyingClr = Nullable.GetUnderlyingType(clrType) ?? clrType;
+            if (underlyingClr == typeof(TimeSpan) && json is JsonValue durationValue && durationValue.TryGetValue<string>(out var durationText) && TryParseDuration(durationText, out var duration))
+            {
+                return duration;
+            }
+
             return PropertyValueCodec.JsonToClr(json, typeRef, clrType);
+        }
+
+        // Parse a Duration from either the ISO-8601 form ("PT5S", the codec/MQTT canonical) or the .NET
+        // TimeSpan ToString form ("00:00:05", what the web UI renders and submits).
+        private static bool TryParseDuration(string text, out TimeSpan value)
+        {
+            try
+            {
+                value = System.Xml.XmlConvert.ToTimeSpan(text);
+                return true;
+            }
+            catch (FormatException)
+            {
+                return TimeSpan.TryParse(text, System.Globalization.CultureInfo.InvariantCulture, out value);
+            }
         }
 
         private DevLogicBlockConfig? ResolveLogicBlock(string logicBlockIdOrName)
