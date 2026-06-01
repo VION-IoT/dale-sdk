@@ -121,3 +121,39 @@ dale dev
 ```
 
 Works from the solution directory, library project directory, or DevHost directory.
+
+## Headless control (for CI & agents)
+
+The DevHost boots the *real* wired multi-block network (unlike TestKit, which stubs every collaborator), and
+it can be driven and observed without the browser — to catch bugs that only appear in the wired,
+real-messaging path (e.g. a block that never actually sends the request a unit test hand-feeds it).
+
+**In-process (integration tests — the recommended way).** Add a `Vion.Dale.DevHost` reference to a test
+project and drive the network through `IDevHost.Control` (`IDevHostControl`):
+
+```csharp
+await using var host = DevHostBuilder.Create()
+    .WithDi<DependencyInjection>()
+    .WithConfiguration(DevConfigurationBuilder.Create().AddLogicBlock<MyBlock>("my").AutoConnect().Build())
+    .Build();
+await host.StartAsync();
+
+await host.Control.SetPropertyAsync("my", "SomeKnob", 16.0);          // set an input
+
+// Read state — service properties AND measuring points (for asserting calculations):
+var metric = host.Control.GetProperty("my", "SomeMetric");
+
+// Wait for a future change (condition-based; the live runtime has no synchronous time-step):
+var v = await host.Control.WaitForAsync(
+    e => e is ServicePropertyChanged { Property: "SomeMetric" } sp ? sp.Value : null, TimeSpan.FromSeconds(5));
+
+// Assert what another block actually received (the multi-block analogue of TestKit's Verify*):
+var msgs = host.Control.RecordedMessages("other-block");
+
+// Read the console programmatically:
+foreach (var line in host.Control.RecentLogs()) TestContext.WriteLine(line.ToString());
+```
+
+**Over HTTP (external tools / scripts).** While `dale dev` runs, the same `/api` the web UI uses also serves
+read endpoints: `GET /api/logicblocks`, `GET /api/state/{logicBlock}[/{property}]`, `GET /api/logs/recent`,
+`GET /api/messages?logicBlock={name}`, alongside the existing `POST /api/dale/property/...` to set values.

@@ -38,9 +38,9 @@ namespace Vion.Dale.DevHost.Control
         // Last-known value per (serviceConfigId, memberName) — fed by the change events, read by GetProperty.
         private readonly ConcurrentDictionary<(string ServiceId, string Member), object?> _values = new();
 
-        // service-id (GUID carried on the events) → block name. Built lazily: in a headless boot the config's
-        // Services aren't populated until DevHostIntrospection runs, which may be after this is constructed.
-        private Dictionary<string, string>? _serviceToBlock;
+        // service-id (GUID carried on the events) → logic block name. Built lazily: in a headless boot the
+        // config's Services aren't populated until DevHostIntrospection runs, which may be after construction.
+        private Dictionary<string, string>? _serviceToLogicBlock;
 
         public DevHostControl(DevConfiguration configuration,
                               DevHostEvents events,
@@ -64,17 +64,17 @@ namespace Vion.Dale.DevHost.Control
             _events.AnalogOutputChanged += OnAnalogOutput;
         }
 
-        public IReadOnlyList<BlockInfo> ListBlocks()
+        public IReadOnlyList<LogicBlockInfo> ListLogicBlocks()
         {
             return _configuration.LogicBlocks
-                                 .Select(b => new BlockInfo(b.Id, b.Name, b.LogicBlockType.Name, b.Services.Select(s => s.Id).ToList()))
+                                 .Select(b => new LogicBlockInfo(b.Id, b.Name, b.LogicBlockType.Name, b.Services.Select(s => s.Id).ToList()))
                                  .ToList();
         }
 
-        public object? GetProperty(string blockIdOrName, string propertyName)
+        public object? GetProperty(string logicBlockIdOrName, string propertyName)
         {
-            var block = ResolveBlock(blockIdOrName);
-            if (block is null || !_introspection.TryGetServiceId(block.Id, propertyName, out var serviceId))
+            var logicBlock = ResolveLogicBlock(logicBlockIdOrName);
+            if (logicBlock is null || !_introspection.TryGetServiceId(logicBlock.Id, propertyName, out var serviceId))
             {
                 return null;
             }
@@ -82,39 +82,37 @@ namespace Vion.Dale.DevHost.Control
             return _values.TryGetValue((serviceId, propertyName), out var value) ? value : null;
         }
 
-        public IReadOnlyDictionary<string, object?> GetAllProperties(string blockIdOrName)
+        public IReadOnlyDictionary<string, object?> GetAllProperties(string logicBlockIdOrName)
         {
             var result = new Dictionary<string, object?>();
-            var block = ResolveBlock(blockIdOrName);
-            if (block is null)
+            var logicBlock = ResolveLogicBlock(logicBlockIdOrName);
+            if (logicBlock is null)
             {
                 return result;
             }
 
-            foreach (var propertyName in _introspection.PropertyNames(block.Id))
+            foreach (var propertyName in _introspection.PropertyNames(logicBlock.Id))
             {
-                result[propertyName] = GetProperty(block.Id, propertyName);
+                result[propertyName] = GetProperty(logicBlock.Id, propertyName);
             }
 
             return result;
         }
 
-        public Task SetPropertyAsync(string blockIdOrName, string propertyName, object value)
+        public Task SetPropertyAsync(string logicBlockIdOrName, string propertyName, object value)
         {
-            var block = ResolveBlock(blockIdOrName)
-                        ?? throw new InvalidOperationException($"Unknown block '{blockIdOrName}'.");
+            var logicBlock = ResolveLogicBlock(logicBlockIdOrName)
+                             ?? throw new InvalidOperationException($"Unknown logic block '{logicBlockIdOrName}'.");
 
-            if (!_introspection.TryGetServiceId(block.Id, propertyName, out var serviceId))
+            if (!_introspection.TryGetServiceId(logicBlock.Id, propertyName, out var serviceId))
             {
                 throw new InvalidOperationException(
-                    $"Block '{block.Name}' has no service property or measuring point named '{propertyName}'. " +
-                    "(Note: get/set on the in-process control surface requires a headless boot; the property metadata " +
-                    "is introspected at StartAsync.)");
+                    $"Logic block '{logicBlock.Name}' has no service property or measuring point named '{propertyName}'.");
             }
 
-            var blockActor = _actorSystem.LookupByName(LogicBlockUtils.CreateLogicBlockName(block.Name, block.Id));
+            var logicBlockActor = _actorSystem.LookupByName(LogicBlockUtils.CreateLogicBlockName(logicBlock.Name, logicBlock.Id));
             var handler = _actorSystem.LookupByName(nameof(MockServicePropertyHandler));
-            _actorSystem.SendTo(handler, new MockSetServicePropertyValue(blockActor, new SetServicePropertyValueRequest(new ServiceIdentifier(serviceId), propertyName, value)));
+            _actorSystem.SendTo(handler, new MockSetServicePropertyValue(logicBlockActor, new SetServicePropertyValueRequest(new ServiceIdentifier(serviceId), propertyName, value)));
 
             return Task.CompletedTask;
         }
@@ -133,10 +131,10 @@ namespace Vion.Dale.DevHost.Control
             return Task.CompletedTask;
         }
 
-        private DevLogicBlockConfig? ResolveBlock(string blockIdOrName)
+        private DevLogicBlockConfig? ResolveLogicBlock(string logicBlockIdOrName)
         {
-            return _configuration.LogicBlocks.FirstOrDefault(b => b.Name == blockIdOrName)
-                   ?? _configuration.LogicBlocks.FirstOrDefault(b => b.Id == blockIdOrName);
+            return _configuration.LogicBlocks.FirstOrDefault(b => b.Name == logicBlockIdOrName)
+                   ?? _configuration.LogicBlocks.FirstOrDefault(b => b.Id == logicBlockIdOrName);
         }
 
         public IDisposable Subscribe(Action<DevHostEvent> sink)
@@ -214,20 +212,20 @@ namespace Vion.Dale.DevHost.Control
             return _logSink.Recent(max);
         }
 
-        public IReadOnlyList<TappedMessage> RecordedMessages(string? blockIdOrName = null)
+        public IReadOnlyList<TappedMessage> RecordedMessages(string? logicBlockIdOrName = null)
         {
-            if (blockIdOrName is null)
+            if (logicBlockIdOrName is null)
             {
                 return _messageTap.Snapshot();
             }
 
-            var block = ResolveBlock(blockIdOrName);
-            if (block is null)
+            var logicBlock = ResolveLogicBlock(logicBlockIdOrName);
+            if (logicBlock is null)
             {
                 return Array.Empty<TappedMessage>();
             }
 
-            return _messageTap.Snapshot(LogicBlockUtils.CreateLogicBlockName(block.Name, block.Id));
+            return _messageTap.Snapshot(LogicBlockUtils.CreateLogicBlockName(logicBlock.Name, logicBlock.Id));
         }
 
         public void Dispose()
@@ -240,25 +238,25 @@ namespace Vion.Dale.DevHost.Control
             _events.AnalogOutputChanged -= OnAnalogOutput;
         }
 
-        private string BlockFor(string serviceId)
+        private string LogicBlockNameFor(string serviceId)
         {
             // Built lazily and cached once the config's Services are populated (after introspection), since
             // this control instance can be constructed before that happens in a headless boot.
-            var map = _serviceToBlock;
+            var map = _serviceToLogicBlock;
             if (map is null || map.Count == 0)
             {
                 map = new Dictionary<string, string>();
-                foreach (var block in _configuration.LogicBlocks)
+                foreach (var logicBlock in _configuration.LogicBlocks)
                 {
-                    foreach (var service in block.Services)
+                    foreach (var service in logicBlock.Services)
                     {
-                        map[service.Id] = block.Name;
+                        map[service.Id] = logicBlock.Name;
                     }
                 }
 
                 if (map.Count > 0)
                 {
-                    _serviceToBlock = map;
+                    _serviceToLogicBlock = map;
                 }
             }
 
@@ -268,13 +266,13 @@ namespace Vion.Dale.DevHost.Control
         private void OnServiceProperty(object? sender, ServicePropertyChangedEventArgs e)
         {
             _values[(e.ServiceIdentifier, e.PropertyIdentifier)] = e.Value;
-            Publish(new ServicePropertyChanged(BlockFor(e.ServiceIdentifier), e.ServiceIdentifier, e.PropertyIdentifier, e.Value));
+            Publish(new ServicePropertyChanged(LogicBlockNameFor(e.ServiceIdentifier), e.ServiceIdentifier, e.PropertyIdentifier, e.Value));
         }
 
         private void OnMeasuringPoint(object? sender, ServiceMeasuringPointChangedEventArgs e)
         {
             _values[(e.ServiceIdentifier, e.MeasuringPointIdentifier)] = e.Value;
-            Publish(new ServiceMeasuringPointChanged(BlockFor(e.ServiceIdentifier), e.ServiceIdentifier, e.MeasuringPointIdentifier, e.Value));
+            Publish(new ServiceMeasuringPointChanged(LogicBlockNameFor(e.ServiceIdentifier), e.ServiceIdentifier, e.MeasuringPointIdentifier, e.Value));
         }
 
         private void OnDigitalInput(object? sender, DigitalInputChangedEventArgs e)

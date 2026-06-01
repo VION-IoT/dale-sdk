@@ -56,7 +56,7 @@ namespace Vion.Dale.DevHost.Test
             Assert.AreEqual(HttpStatusCode.OK, configResponse.StatusCode, "Existing /api/configuration must still work.");
 
             // New control routes.
-            var blocksResponse = await client.GetAsync("/api/blocks");
+            var blocksResponse = await client.GetAsync("/api/logicblocks");
             Assert.AreEqual(HttpStatusCode.OK, blocksResponse.StatusCode);
             var blocksBody = await blocksResponse.Content.ReadAsStringAsync();
             StringAssert.Contains(blocksBody, "counter");
@@ -68,7 +68,7 @@ namespace Vion.Dale.DevHost.Test
             var logsResponse = await client.GetAsync("/api/logs/recent?max=50");
             Assert.AreEqual(HttpStatusCode.OK, logsResponse.StatusCode);
 
-            var messagesResponse = await client.GetAsync("/api/messages?block=counter");
+            var messagesResponse = await client.GetAsync("/api/messages?logicBlock=counter");
             Assert.AreEqual(HttpStatusCode.OK, messagesResponse.StatusCode);
         }
 

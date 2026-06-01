@@ -8,8 +8,23 @@ namespace Vion.Dale.DevHost.Test
     [LogicBlock(Name = "Counter")]
     public class CounterBlock : LogicBlockBase
     {
+        private int _counter;
+
         [ServiceProperty(Title = "Counter")]
-        public int Counter { get; set; }
+        public int Counter
+        {
+            get => _counter;
+
+            set
+            {
+                _counter = value;
+                // A computed read-only metric — lets tests assert a "calculation" via a measuring point.
+                CounterDoubled = value * 2;
+            }
+        }
+
+        [ServiceMeasuringPoint(Title = "Counter doubled")]
+        public int CounterDoubled { get; private set; }
 
         public CounterBlock(ILogger logger) : base(logger)
         {

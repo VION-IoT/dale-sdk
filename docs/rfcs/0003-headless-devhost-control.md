@@ -5,15 +5,16 @@ Status: **Implemented** (v1) on branch `feat/headless-devhost-control`. Author: 
 ## Implementation status (what shipped)
 
 The primary surface — the in-process `IDevHostControl` (reached via `IDevHost.Control`) — shipped in full:
-topology (`ListBlocks`), live state (`GetProperty` / `GetAllProperties` via an event-fed cache), knobs
+topology (`ListLogicBlocks`), live state (`GetProperty` / `GetAllProperties` via an event-fed cache), knobs
 (`SetPropertyAsync`, `SetDigitalInputAsync`, `SetAnalogInputAsync`), observation (`Subscribe`,
 `WaitForAsync`), **log streaming** (`SubscribeLogs` / `RecentLogs` via an additive `ILoggerProvider`), and the
 **message tap** (`RecordedMessages`). Introspection moved into core (`DevHostIntrospection`, runs before init,
 additive to the web path). `IDevHost` is now `IAsyncDisposable`. The message tap is a provably-additive,
 opt-in `IActorMessageObserver` hook in `Vion.Dale.ProtoActor` (production registers none → unchanged).
 
-The secondary HTTP surface shipped as additive routes on a new `ControlController` (`GET /api/blocks`,
-`/api/state/{block}`, `/api/state/{block}/{property}`, `/api/logs/recent`, `/api/messages`), plus
+The secondary HTTP surface shipped as additive routes on the existing `DevHostController` — one `/api` shared by
+the UI and headless tools (`GET /api/logicblocks`, `/api/state/{logicBlock}`,
+`/api/state/{logicBlock}/{property}`, `/api/logs/recent`, `/api/messages`), plus
 `DevHostWebRunner` + `dale dev --headless` (`DALE_DEVHOST_NO_BROWSER` + readiness line). Validated by the
 first automated test of the web path (`Vion.Dale.DevHost.Test/WebControlEndpointsShould`).
 
@@ -183,7 +184,7 @@ public interface IDevHost
 public interface IDevHostControl
 {
     // Topology / introspection
-    IReadOnlyList<BlockInfo> ListBlocks();
+    IReadOnlyList<LogicBlockInfo> ListLogicBlocks();
     ConfigurationOutput GetConfiguration();
 
     // Read live values — backed by a cache that subscribes to IDevHostEvents,
@@ -242,7 +243,7 @@ await host.StartAsync();
 await host.Control.SetPropertyAsync("consumer-a", "RequestedCurrentA", 16.0);    // set a knob
 
 var budgets = await host.Control.WaitForAsync(                                    // observe (condition-based)
-    e => e is ServicePropertyChanged { BlockId: "energy-manager", Property: "LastBudgets" } sp ? sp.Value : null,
+    e => e is ServicePropertyChanged { LogicBlockId: "energy-manager", Property: "LastBudgets" } sp ? sp.Value : null,
     timeout: TimeSpan.FromSeconds(5));
 
 // budgets != null  AND  host.Control.RecordedMessages("device-x") non-empty  ⇒  the poll actually fired.
@@ -263,7 +264,7 @@ human watches the UI" scenario, reuse the HTTP surface DevHost **already** expos
 - **Add a log stream over HTTP** — `GET /api/logs` as SSE (live tail) plus `GET /api/logs/recent` (scrollback),
   fed by the same `ILoggerProvider` sink as the in-process `SubscribeLogs`. This is the agent's remote
   equivalent of the console an interactive `dale dev` user reads. Also ships in `.Web`, no `Program.cs` change.
-- **Expose the message tap** — `GET /api/messages?block={blockId}` (and unfiltered `GET /api/messages`), fed by
+- **Expose the message tap** — `GET /api/messages?logicBlock={blockId}` (and unfiltered `GET /api/messages`), fed by
   the same tap as the in-process `RecordedMessages`. This is what lets the interactive agent path *root-cause*
   message bugs (assert "device-x received no `DataRequest`"), not just observe symptoms — see example B below.
   Ships in `.Web`, no `Program.cs` change.
@@ -331,7 +332,7 @@ public class WiredLoopTests
         await host.Control.SetPropertyAsync("consumer-a", "RequestedCurrentA", 16.0);
 
         var budgets = await host.Control.WaitForAsync(
-            e => e is ServicePropertyChanged { BlockId: "energy-manager", Property: "LastBudgets" } sp ? sp.Value : null,
+            e => e is ServicePropertyChanged { LogicBlockId: "energy-manager", Property: "LastBudgets" } sp ? sp.Value : null,
             timeout: TimeSpan.FromSeconds(5));
 
         if (budgets is null)                                  // on failure: the console, programmatically
@@ -378,7 +379,7 @@ GET /api/logs?level=Debug         // SSE stream
 
 // 6. Confirm the root cause — the message tap.
 //    If open question 7 is accepted, directly over HTTP:
-GET /api/messages?block=device-x
+GET /api/messages?logicBlock=device-x
    → []            // device-x received no DataRequest → the outbound poll is a stub
 //    Otherwise, drop to the in-process test in (A): RecordedMessages("device-x") is in-process only today.
 ```
@@ -394,11 +395,11 @@ is verifiably MCP-shaped:
 
 | MCP tool | `/api` route | `IDevHostControl` equivalent |
 |---|---|---|
-| `list_blocks` | `GET /api/configuration` | `ListBlocks()` / `GetConfiguration()` |
+| `list_blocks` | `GET /api/configuration` | `ListLogicBlocks()` / `GetConfiguration()` |
 | `get_state` | `GET /api/state/{block}/{prop}` | `GetProperty(block, prop)` |
 | `set_property` | `POST /api/dale/property/{svc}/{prop}` | `SetPropertyAsync(...)` |
 | `read_log` | `GET /api/logs` (SSE) / `/api/logs/recent` | `SubscribeLogs(...)` / `RecentLogs(...)` |
-| `recorded_messages` | `GET /api/messages?block=` *(open question 7)* | `RecordedMessages(block)` |
+| `recorded_messages` | `GET /api/messages?logicBlock=` *(open question 7)* | `RecordedMessages(block)` |
 
 `step` is deliberately absent — there is no synchronous time step (see the determinism trade-off); an agent waits
 on state/logs over wall-clock, exactly as in B.
@@ -424,7 +425,7 @@ on state/logs over wall-clock, exactly as in B.
    in-process API for parallel CI"? (Lean: document the limitation; don't build ephemeral-port plumbing in v1.)
 6. **Result acknowledgement.** `SetPropertyAsync` is fire-and-forget into the actor system today. (Lean: the
    `WaitForAsync` pattern on the resulting change event is sufficient; don't add acks.)
-7. **Expose the message tap over `/api`?** **Resolved — accepted.** `GET /api/messages?block={blockId}` is in
+7. **Expose the message tap over `/api`?** **Resolved — accepted.** `GET /api/messages?logicBlock={blockId}` is in
    the secondary HTTP design above, fed by the same tap as the in-process `RecordedMessages`, so the interactive
    agent path can root-cause *message* bugs (assert "no `DataRequest` reached device-x"), not just observe
    symptoms. Still contingent on the tap seam (open question 3) being clean; if that seam proves expensive, the

@@ -29,16 +29,16 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task ListBlocks_AfterStart_ReturnsTheConfiguredBlock()
+        public async Task ListLogicBlocks_AfterStart_ReturnsTheConfiguredBlock()
         {
             await using var host = BuildHost();
             await host.StartAsync();
 
-            var blocks = host.Control.ListBlocks();
+            var logicBlocks = host.Control.ListLogicBlocks();
 
-            Assert.HasCount(1, blocks);
-            Assert.AreEqual("counter", blocks[0].Name);
-            Assert.AreEqual(nameof(CounterBlock), blocks[0].TypeName);
+            Assert.HasCount(1, logicBlocks);
+            Assert.AreEqual("counter", logicBlocks[0].Name);
+            Assert.AreEqual(nameof(CounterBlock), logicBlocks[0].TypeName);
         }
 
         [TestMethod]
@@ -57,6 +57,25 @@ namespace Vion.Dale.DevHost.Test
             Assert.IsNotNull(observed, "The Counter=42 change should have been observed within the timeout.");
             Assert.AreEqual(42, Convert.ToInt32(observed));
             Assert.AreEqual(42, Convert.ToInt32(host.Control.GetProperty("counter", "Counter")));
+        }
+
+        [TestMethod]
+        public async Task ReadComputedMeasuringPoint_AfterSettingAProperty()
+        {
+            // Measuring points (read-only computed metrics) are first-class on the control surface: setting
+            // Counter computes CounterDoubled, and the headless surface must expose it for asserting calculations.
+            await using var host = BuildHost();
+            await host.StartAsync();
+
+            await host.Control.SetPropertyAsync("counter", "Counter", 21);
+
+            var doubled = await host.Control.WaitForAsync(
+                e => e is ServiceMeasuringPointChanged { MeasuringPoint: "CounterDoubled" } mp && Convert.ToInt32(mp.Value) == 42 ? mp.Value : null,
+                timeout: TimeSpan.FromSeconds(15));
+
+            Assert.IsNotNull(doubled, "The computed measuring point should have been observed.");
+            Assert.AreEqual(42, Convert.ToInt32(doubled));
+            Assert.AreEqual(42, Convert.ToInt32(host.Control.GetProperty("counter", "CounterDoubled")), "GetProperty must read measuring points too.");
         }
 
         [TestMethod]

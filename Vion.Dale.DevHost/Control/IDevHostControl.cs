@@ -9,34 +9,34 @@ namespace Vion.Dale.DevHost.Control
     ///     the web UI, for CI / integration tests / agents. Reachable via <see cref="IDevHost.Control" /> after
     ///     <see cref="IDevHost.StartAsync" />. See RFC 0003.
     ///     <para>
-    ///         This is the observation surface (topology, state-change events, logs). Get/set of properties and
-    ///         the inter-block message tap are added in later increments — see RFC 0003.
+    ///         Covers topology, reading/writing state (service properties and measuring points), driving inputs,
+    ///         observing the state-change stream, the inter-block message tap, and the log stream.
     ///     </para>
     /// </summary>
     public interface IDevHostControl
     {
-        /// <summary>The blocks in the wired network, with their ids, names, type, and service identifiers.</summary>
-        IReadOnlyList<BlockInfo> ListBlocks();
+        /// <summary>The logic blocks in the wired network, with their ids, names, type, and service identifiers.</summary>
+        IReadOnlyList<LogicBlockInfo> ListLogicBlocks();
 
         /// <summary>
-        ///     Read the last-known value of a block's <c>[ServiceProperty]</c> / <c>[ServiceMeasuringPoint]</c>,
-        ///     keyed by the block name (assigned in <c>AddLogicBlock(name:)</c>) or its id, plus the member
-        ///     name. Returns <c>null</c> if the property is unknown or hasn't produced a value yet. This is the
-        ///     last <em>published</em> value — exactly what the web UI shows (RFC 0003).
+        ///     Read the last-known value of a logic block's <c>[ServiceProperty]</c> or
+        ///     <c>[ServiceMeasuringPoint]</c>, keyed by the logic block name (assigned in <c>AddLogicBlock(name:)</c>)
+        ///     or its id, plus the member name. Returns <c>null</c> if the member is unknown or hasn't produced a
+        ///     value yet. This is the last <em>published</em> value — exactly what the web UI shows (RFC 0003).
         /// </summary>
-        object? GetProperty(string blockIdOrName, string propertyName);
+        object? GetProperty(string logicBlockIdOrName, string propertyName);
 
-        /// <summary>All last-known property/measuring-point values for a block, keyed by member name.</summary>
-        IReadOnlyDictionary<string, object?> GetAllProperties(string blockIdOrName);
+        /// <summary>All last-known service-property and measuring-point values for a logic block, keyed by member name.</summary>
+        IReadOnlyDictionary<string, object?> GetAllProperties(string logicBlockIdOrName);
 
         /// <summary>Write a writable <c>[ServiceProperty]</c> ("knob") — the programmatic equivalent of the UI's edit field.</summary>
-        System.Threading.Tasks.Task SetPropertyAsync(string blockIdOrName, string propertyName, object value);
+        Task SetPropertyAsync(string logicBlockIdOrName, string propertyName, object value);
 
-        /// <summary>Set a mocked digital input value, routed to the linked blocks just like the web UI's HAL control.</summary>
-        System.Threading.Tasks.Task SetDigitalInputAsync(string serviceProviderId, string serviceId, string contractId, bool value);
+        /// <summary>Set a mocked digital input value, routed to the linked logic blocks just like the web UI's HAL control.</summary>
+        Task SetDigitalInputAsync(string serviceProviderId, string serviceId, string contractId, bool value);
 
-        /// <summary>Set a mocked analog input value, routed to the linked blocks just like the web UI's HAL control.</summary>
-        System.Threading.Tasks.Task SetAnalogInputAsync(string serviceProviderId, string serviceId, string contractId, double value);
+        /// <summary>Set a mocked analog input value, routed to the linked logic blocks just like the web UI's HAL control.</summary>
+        Task SetAnalogInputAsync(string serviceProviderId, string serviceId, string contractId, double value);
 
         /// <summary>
         ///     Subscribe to the normalized state-change event stream (the projection of <see cref="IDevHostEvents" />).
@@ -48,17 +48,18 @@ namespace Vion.Dale.DevHost.Control
         ///     Wait until an event satisfies <paramref name="selector" /> (returns non-null), or until
         ///     <paramref name="timeout" /> elapses. Returns the selector's value, or <c>null</c> on timeout —
         ///     condition-based waiting, the multi-block runtime's substitute for synchronous time stepping
-        ///     (RFC 0003, "the determinism trade-off").
+        ///     (RFC 0003, "the determinism trade-off"). Observes only events that occur after the call.
         /// </summary>
         Task<T?> WaitForAsync<T>(Func<DevHostEvent, T?> selector, TimeSpan timeout)
             where T : class;
 
         /// <summary>
-        ///     The inter-actor messages a block received this run (the message tap) — the multi-block analogue
-        ///     of TestKit's <c>Verify*</c>. Pass a block name or id to filter, or null for all. Lets a test
-        ///     assert e.g. "device-x received a request", the highest-yield diagnostic for a missing-poll bug.
+        ///     The inter-actor messages a logic block received this run (the message tap) — the multi-block
+        ///     analogue of TestKit's <c>Verify*</c>. Pass a logic block name or id to filter, or null for all.
+        ///     Lets a test assert e.g. "device-x received a request", the highest-yield diagnostic for a
+        ///     missing-poll bug.
         /// </summary>
-        IReadOnlyList<TappedMessage> RecordedMessages(string? blockIdOrName = null);
+        IReadOnlyList<TappedMessage> RecordedMessages(string? logicBlockIdOrName = null);
 
         /// <summary>Subscribe to live log lines. Dispose the returned token to unsubscribe.</summary>
         IDisposable SubscribeLogs(Action<LogLine> sink);
@@ -67,6 +68,6 @@ namespace Vion.Dale.DevHost.Control
         IReadOnlyList<LogLine> RecentLogs(int max = 500);
     }
 
-    /// <summary>Topology entry for <see cref="IDevHostControl.ListBlocks" />.</summary>
-    public sealed record BlockInfo(string Id, string Name, string TypeName, IReadOnlyList<string> ServiceIds);
+    /// <summary>Topology entry for <see cref="IDevHostControl.ListLogicBlocks" />.</summary>
+    public sealed record LogicBlockInfo(string Id, string Name, string TypeName, IReadOnlyList<string> ServiceIds);
 }
