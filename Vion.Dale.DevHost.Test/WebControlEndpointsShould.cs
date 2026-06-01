@@ -119,6 +119,49 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        public async Task TimeSpanProperty_WritesDotNetForm_AndReadsBackAsIso8601()
+        {
+            // Regression for the "cannot write any TimeSpan property" bug. The UI submits the .NET TimeSpan
+            // form ("00:00:05") — that must succeed (write tolerance), and the value must read back as the
+            // ISO-8601 duration the codec/MQTT contract uses ("PT5S"), not the .NET form. Read and write both
+            // match the codec.
+            var port = FreePort();
+            await using var host = BuildWebHost(port);
+            await host.StartAsync();
+
+            using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
+
+            var blocksJson = await client.GetStringAsync("/api/logicblocks");
+            using var blocksDoc = JsonDocument.Parse(blocksJson);
+            var serviceId = blocksDoc.RootElement[0].GetProperty("serviceIds")[0].GetString();
+
+            // The .NET TimeSpan form the web UI submits — must not 500.
+            var setResponse = await client.PostAsJsonAsync($"/api/dale/property/{serviceId}/ControlInterval", new { value = "00:00:05" });
+            Assert.AreEqual(HttpStatusCode.OK, setResponse.StatusCode, "Posting the .NET TimeSpan form must succeed (write tolerance).");
+
+            // Read back: the wire form must be the codec's ISO-8601 duration, not the .NET form.
+            string? wire = null;
+            for (var i = 0; i < 50 && wire != "PT5S"; i++)
+            {
+                var stateResponse = await client.GetAsync("/api/state/counter/ControlInterval");
+                Assert.AreEqual(HttpStatusCode.OK, stateResponse.StatusCode);
+                using var stateDoc = JsonDocument.Parse(await stateResponse.Content.ReadAsStringAsync());
+                var v = stateDoc.RootElement.GetProperty("value");
+                if (v.ValueKind == JsonValueKind.String)
+                {
+                    wire = v.GetString();
+                }
+
+                if (wire != "PT5S")
+                {
+                    await Task.Delay(100);
+                }
+            }
+
+            Assert.AreEqual("PT5S", wire, "A TimeSpan must read back as an ISO-8601 duration on the wire (codec/MQTT canonical), not the .NET form.");
+        }
+
+        [TestMethod]
         public async Task SignalRHub_OnConnect_PrimesTheClientWithCurrentState()
         {
             // The live web UI relies on the SignalR hub priming a freshly connected client. Collapsing the state

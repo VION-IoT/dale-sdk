@@ -9,6 +9,7 @@ using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Vion.Dale.DevHost.Control;
 using Vion.Dale.DevHost.Web.Api.Hubs;
+using Vion.Dale.DevHost.Web.Api.Serialization;
 using Vion.Dale.Sdk.Mqtt;
 
 namespace Vion.Dale.DevHost.Web.Services
@@ -59,6 +60,10 @@ namespace Vion.Dale.DevHost.Web.Services
                                        {
                                            options.JsonSerializerOptions.Converters.Add(converter);
                                        }
+
+                                       // Emit TimeSpan as ISO-8601 duration ("PT5S"), matching the codec/MQTT wire
+                                       // form, not the .NET ToString form System.Text.Json defaults to.
+                                       options.JsonSerializerOptions.Converters.Add(new Iso8601TimeSpanConverter());
                                    });
             ;
 
@@ -73,6 +78,9 @@ namespace Vion.Dale.DevHost.Web.Services
                                         {
                                             opts.PayloadSerializerOptions.Converters.Add(converter);
                                         }
+
+                                        // ISO-8601 duration on the SignalR stream too (spec §5.4.1 rich-types wire form).
+                                        opts.PayloadSerializerOptions.Converters.Add(new Iso8601TimeSpanConverter());
                                     });
             builder.Services.AddCors(options => { options.AddDefaultPolicy(policy => { policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader(); }); });
 

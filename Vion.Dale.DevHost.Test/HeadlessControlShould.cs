@@ -140,6 +140,37 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        public async Task SetTimeSpanProperty_AcceptsBothDotNetAndIsoDurationFormats()
+        {
+            // TimeSpan maps to PrimitiveKind.Duration. The rich-types codec parses ISO-8601 ("PT5S") only,
+            // but the web UI (and .NET habit) submit the .NET ToString form ("00:00:05"). The write path must
+            // accept both, or every TimeSpan property is unwritable from the UI (FormatException → HTTP 500).
+            await using var host = BuildHost();
+            await host.StartAsync();
+
+            var serviceId = host.Control.GetConfiguration()
+                                .LogicBlocks.Single(b => b.Name == "counter")
+                                .Services.Single(s => s.ServiceProperties.Any(p => p.Identifier == "ControlInterval"))
+                                .Id;
+
+            // .NET TimeSpan form — what the web UI submits today.
+            await host.Control.SetServicePropertyValueAsync(serviceId, "ControlInterval", System.Text.Json.Nodes.JsonValue.Create("00:00:05"));
+            var dotNet = await host.Control.WaitForAsync(
+                e => e is ServicePropertyChanged { Property: "ControlInterval" } sp && (TimeSpan)sp.Value! == TimeSpan.FromSeconds(5) ? sp.Value : null,
+                timeout: TimeSpan.FromSeconds(15));
+            Assert.IsNotNull(dotNet, "The .NET TimeSpan form (00:00:05) must be accepted.");
+
+            // ISO-8601 duration — the codec/MQTT canonical form.
+            await host.Control.SetServicePropertyValueAsync(serviceId, "ControlInterval", System.Text.Json.Nodes.JsonValue.Create("PT10S"));
+            var iso = await host.Control.WaitForAsync(
+                e => e is ServicePropertyChanged { Property: "ControlInterval" } sp && (TimeSpan)sp.Value! == TimeSpan.FromSeconds(10) ? sp.Value : null,
+                timeout: TimeSpan.FromSeconds(15));
+            Assert.IsNotNull(iso, "The ISO-8601 duration form (PT10S) must be accepted.");
+
+            Assert.AreEqual(TimeSpan.FromSeconds(10), (TimeSpan)host.Control.GetProperty("counter", "ControlInterval")!);
+        }
+
+        [TestMethod]
         public async Task WaitFor_ReturnsNull_OnTimeout_WhenNothingMatches()
         {
             await using var host = BuildHost();
