@@ -144,6 +144,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vion.Dale.Sdk.Modbus.Tcp.Te
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vion.Dale.DevHost.Test", "Vion.Dale.DevHost.Test\Vion.Dale.DevHost.Test.csproj", "{C94A9654-807D-4A9A-944A-F80C8E633301}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vion.Examples.PingPong.IntegrationTest", "examples\Vion.Examples.PingPong\Vion.Examples.PingPong.IntegrationTest\Vion.Examples.PingPong.IntegrationTest.csproj", "{4C7A255F-BFE0-4C69-9FA9-457D8D9D515D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -778,6 +780,18 @@ Global
 		{C94A9654-807D-4A9A-944A-F80C8E633301}.Release|x64.Build.0 = Release|Any CPU
 		{C94A9654-807D-4A9A-944A-F80C8E633301}.Release|x86.ActiveCfg = Release|Any CPU
 		{C94A9654-807D-4A9A-944A-F80C8E633301}.Release|x86.Build.0 = Release|Any CPU
+		{4C7A255F-BFE0-4C69-9FA9-457D8D9D515D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4C7A255F-BFE0-4C69-9FA9-457D8D9D515D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4C7A255F-BFE0-4C69-9FA9-457D8D9D515D}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{4C7A255F-BFE0-4C69-9FA9-457D8D9D515D}.Debug|x64.Build.0 = Debug|Any CPU
+		{4C7A255F-BFE0-4C69-9FA9-457D8D9D515D}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{4C7A255F-BFE0-4C69-9FA9-457D8D9D515D}.Debug|x86.Build.0 = Debug|Any CPU
+		{4C7A255F-BFE0-4C69-9FA9-457D8D9D515D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4C7A255F-BFE0-4C69-9FA9-457D8D9D515D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4C7A255F-BFE0-4C69-9FA9-457D8D9D515D}.Release|x64.ActiveCfg = Release|Any CPU
+		{4C7A255F-BFE0-4C69-9FA9-457D8D9D515D}.Release|x64.Build.0 = Release|Any CPU
+		{4C7A255F-BFE0-4C69-9FA9-457D8D9D515D}.Release|x86.ActiveCfg = Release|Any CPU
+		{4C7A255F-BFE0-4C69-9FA9-457D8D9D515D}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -809,5 +823,6 @@ Global
 		{2ADFD8DA-B552-4CF7-0CAA-FA40707D6687} = {B36A84DF-456D-A817-6EDD-3EC3E7F6E11F}
 		{999A3A9D-7D55-4537-BAA1-56727B856082} = {2ADFD8DA-B552-4CF7-0CAA-FA40707D6687}
 		{D63F60BB-C807-4054-9101-A017A6C9A587} = {2ADFD8DA-B552-4CF7-0CAA-FA40707D6687}
+		{4C7A255F-BFE0-4C69-9FA9-457D8D9D515D} = {C16C772E-C5FA-321A-55C0-52BBA310CC9E}
 	EndGlobalSection
 EndGlobal

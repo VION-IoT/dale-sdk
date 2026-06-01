@@ -63,6 +63,11 @@ $exampleProjects = @(
         Path              = "examples\Vion.Examples.PingPong\Vion.Examples.PingPong.Test\Vion.Examples.PingPong.Test.csproj"
         PackageReferences = @("Vion.Dale.Sdk.TestKit", "Vion.Dale.Sdk.DigitalIo.TestKit")
     },
+    @{
+        # Headless IDevHostControl integration test (RFC 0003) — references the core DevHost package directly.
+        Path              = "examples\Vion.Examples.PingPong\Vion.Examples.PingPong.IntegrationTest\Vion.Examples.PingPong.IntegrationTest.csproj"
+        PackageReferences = @("Vion.Dale.DevHost")
+    },
     # Energy example
     @{
         Path              = "examples\Vion.Examples.Energy\Vion.Examples.Energy\Vion.Examples.Energy.csproj"
@@ -181,6 +186,7 @@ function Clear-NuGetPackageCache
         "Vion.Dale.Sdk.Modbus.Rtu",
         "Vion.Dale.Sdk.Modbus.Rtu.TestKit",
         "Vion.Dale.Sdk.TestKit",
+        "Vion.Dale.DevHost",
         "Vion.Dale.DevHost.Web"
     )
 

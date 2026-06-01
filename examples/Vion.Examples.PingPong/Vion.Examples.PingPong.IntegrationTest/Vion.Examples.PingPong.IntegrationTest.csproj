@@ -6,8 +6,9 @@
         <IsPackable>false</IsPackable>
     </PropertyGroup>
     <ItemGroup>
-        <PackageReference Include="Vion.Dale.Sdk.TestKit" Version="0.6.0"/>
-        <PackageReference Include="Vion.Dale.Sdk.DigitalIo.TestKit" Version="0.6.0"/>
+        <!-- The headless control surface (RFC 0003) lives in the core Vion.Dale.DevHost package — no web UI
+             needed to drive a wired network from a test. -->
+        <PackageReference Include="Vion.Dale.DevHost" Version="0.6.0"/>
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1"/>
         <PackageReference Include="xunit.v3" Version="3.1.0"/>
         <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">

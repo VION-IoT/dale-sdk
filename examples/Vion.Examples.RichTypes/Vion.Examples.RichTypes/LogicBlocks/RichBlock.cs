@@ -105,6 +105,14 @@ namespace Vion.Examples.RichTypes.LogicBlocks
         [Presentation(Group = PropertyGroup.Metric, Order = 20)]
         public uint UIntCounter { get; private set; }
 
+        /// <summary>
+        ///     Read-only <see cref="TimeSpan" /> measuring point — the duration shape on the publish/render
+        ///     path (ISO-8601 on the wire). Ticks upward so the duration rendering is visibly live.
+        /// </summary>
+        [ServiceMeasuringPoint(Description = "Laufzeit seit Start (Duration).")]
+        [Presentation(DisplayName = "Laufzeit", Group = PropertyGroup.Metric, Order = 30)]
+        public TimeSpan Uptime { get; private set; }
+
         // ── Configuration ─────────────────────────────────────────────────────────
 
         /// <summary>
@@ -131,6 +139,17 @@ namespace Vion.Examples.RichTypes.LogicBlocks
         [Presentation(Group = PropertyGroup.Configuration, Order = 30,
                       UiHint = UiHints.Slider, Decimals = 1)]
         public double VoltageSetpoint { get; set; } = 230.0;
+
+        /// <summary>
+        ///     Writable <see cref="TimeSpan" /> — maps to the rich-types <c>format=duration</c> shape, carried
+        ///     on the wire as an ISO-8601 duration (e.g. <c>PT2S</c>). Demonstrates that durations round-trip
+        ///     through the DevHost UI and the codec; the dashboard renders a clock-style (HH:MM:SS) editor over
+        ///     the same value.
+        /// </summary>
+        [ServiceProperty(Title = "Abtastintervall",
+                         Description = "Gewünschtes Abtastintervall (Duration; ISO-8601 PT… auf dem Draht).")]
+        [Presentation(Group = PropertyGroup.Configuration, Order = 35)]
+        public TimeSpan SampleInterval { get; set; } = TimeSpan.FromSeconds(2);
 
         [ServiceProperty(Title = "Gerätename")]
         [Presentation(Group = PropertyGroup.Configuration, Order = 40)]
@@ -210,6 +229,9 @@ namespace Vion.Examples.RichTypes.LogicBlocks
         {
             _tickCount++;
             var now = DateTime.UtcNow;
+
+            // Duration measuring point — ticks upward (timer fires every 2s).
+            Uptime = TimeSpan.FromSeconds(_tickCount * 2);
 
             // Drifting GPS fix
             var t = _tickCount * 0.1;
