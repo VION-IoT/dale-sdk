@@ -7,6 +7,7 @@ using System.Net.Sockets;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.SignalR.Client;
 using Vion.Dale.DevHost.Web;
 
 namespace Vion.Dale.DevHost.Test
@@ -115,6 +116,46 @@ namespace Vion.Dale.DevHost.Test
             }
 
             Assert.AreEqual(123, value, "The value set via the unified control POST should be observable on the state route.");
+        }
+
+        [TestMethod]
+        public async Task SignalRHub_OnConnect_PrimesTheClientWithCurrentState()
+        {
+            // The live web UI relies on the SignalR hub priming a freshly connected client. Collapsing the state
+            // provider moved that prime onto IDevHostControl (hub.OnConnectedAsync -> control.PublishAllStates ->
+            // broadcaster -> client). HTTP route tests can't reach this; a real SignalR client can. This guards
+            // the exact path a browser exercises on (re)connect.
+            var port = FreePort();
+            await using var host = BuildWebHost(port);
+            await host.StartAsync();
+
+            var connection = new HubConnectionBuilder()
+                             .WithUrl($"http://localhost:{port}/hub")
+                             .Build();
+
+            var primed = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
+            connection.On<JsonElement>("PropertyValueChanged", payload =>
+                                                               {
+                                                                   // Any PropertyValueChanged for Counter confirms the
+                                                                   // prime-on-connect broadcast reached this client.
+                                                                   if (payload.TryGetProperty("propertyIdentifier", out var pid) && pid.GetString() == "Counter")
+                                                                   {
+                                                                       primed.TrySetResult(pid.GetString());
+                                                                   }
+                                                               });
+
+            try
+            {
+                await connection.StartAsync();
+
+                var completed = await Task.WhenAny(primed.Task, Task.Delay(TimeSpan.FromSeconds(15)));
+                Assert.AreEqual(primed.Task, completed, "A connected SignalR client should be primed with state on connect.");
+                Assert.AreEqual("Counter", await primed.Task);
+            }
+            finally
+            {
+                await connection.DisposeAsync();
+            }
         }
 
         [TestMethod]

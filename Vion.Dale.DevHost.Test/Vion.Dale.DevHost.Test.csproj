@@ -15,6 +15,7 @@
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1"/>
+        <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.0"/>
         <PackageReference Include="Metalama.Patterns.Observability" Version="2026.0.23"/>
         <PackageReference Include="MSTest" Version="4.0.2"/>
     </ItemGroup>
