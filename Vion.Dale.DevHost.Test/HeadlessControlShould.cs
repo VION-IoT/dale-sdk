@@ -47,16 +47,37 @@ namespace Vion.Dale.DevHost.Test
             await using var host = BuildHost();
             await host.StartAsync();
 
-            await host.Control.SetPropertyAsync("counter", "Counter", 42);
-
-            // Match the specific target value — the startup state publish also emits Counter (=0).
-            var observed = await host.Control.WaitForAsync(
+            // Register the observer BEFORE triggering the change — WaitForAsync observes only future events.
+            // Match the specific target value; the startup state publish also emits Counter (=0).
+            var observe = host.Control.WaitForAsync(
                 e => e is ServicePropertyChanged { Property: "Counter" } sp && Convert.ToInt32(sp.Value) == 42 ? sp.Value : null,
                 timeout: TimeSpan.FromSeconds(15));
 
-            Assert.IsNotNull(observed, "The Counter=42 change should have been observed within the timeout.");
+            await host.Control.SetPropertyAsync("counter", "Counter", 42);
+
+            var observed = await observe;
+            Assert.IsNotNull(observed, "The Counter=42 change should have been observed.");
             Assert.AreEqual(42, Convert.ToInt32(observed));
             Assert.AreEqual(42, Convert.ToInt32(host.Control.GetProperty("counter", "Counter")));
+        }
+
+        [TestMethod]
+        public async Task SetPropertyAsync_AwaitsApply_SoReadAfterWriteReflectsTheNewValue()
+        {
+            // Regression (in-process set silent no-op): SetPropertyAsync must complete only after the value is
+            // applied AND published, so an immediate GetProperty returns the new value instead of racing the
+            // actor. Before the fix the set was fire-and-forget, so `await Set; Get` returned the stale value
+            // for every type (int/enum/double/TimeSpan) — which read as a silent no-op.
+            await using var host = BuildHost();
+            await host.StartAsync();
+
+            await host.Control.SetPropertyAsync("counter", "Counter", 99);
+            Assert.AreEqual(99, Convert.ToInt32(host.Control.GetProperty("counter", "Counter")),
+                            "int read-after-write must be immediate after the await.");
+
+            await host.Control.SetPropertyAsync("counter", "ControlInterval", TimeSpan.FromSeconds(60));
+            Assert.AreEqual(TimeSpan.FromSeconds(60), (TimeSpan)host.Control.GetProperty("counter", "ControlInterval")!,
+                            "TimeSpan read-after-write must be immediate after the await.");
         }
 
         [TestMethod]
@@ -69,13 +90,10 @@ namespace Vion.Dale.DevHost.Test
 
             await host.Control.SetPropertyAsync("counter", "Counter", 21);
 
-            var doubled = await host.Control.WaitForAsync(
-                e => e is ServiceMeasuringPointChanged { MeasuringPoint: "CounterDoubled" } mp && Convert.ToInt32(mp.Value) == 42 ? mp.Value : null,
-                timeout: TimeSpan.FromSeconds(15));
-
-            Assert.IsNotNull(doubled, "The computed measuring point should have been observed.");
-            Assert.AreEqual(42, Convert.ToInt32(doubled));
-            Assert.AreEqual(42, Convert.ToInt32(host.Control.GetProperty("counter", "CounterDoubled")), "GetProperty must read measuring points too.");
+            // The set is awaited until applied + published, and CounterDoubled is computed inside the Counter
+            // setter, so it is already in the value cache — GetProperty reads computed measuring points too.
+            Assert.AreEqual(42, Convert.ToInt32(host.Control.GetProperty("counter", "CounterDoubled")),
+                            "CounterDoubled = Counter * 2 must be readable after setting Counter.");
         }
 
         [TestMethod]
@@ -131,12 +149,8 @@ namespace Vion.Dale.DevHost.Test
 
             await host.Control.SetServicePropertyValueAsync(serviceId, "Counter", System.Text.Json.Nodes.JsonValue.Create(99));
 
-            var observed = await host.Control.WaitForAsync(
-                e => e is ServicePropertyChanged { Property: "Counter" } sp && Convert.ToInt32(sp.Value) == 99 ? sp.Value : null,
-                timeout: TimeSpan.FromSeconds(15));
-
-            Assert.IsNotNull(observed, "Setting by service id with a JSON value should be applied.");
-            Assert.AreEqual(99, Convert.ToInt32(host.Control.GetProperty("counter", "Counter")));
+            Assert.AreEqual(99, Convert.ToInt32(host.Control.GetProperty("counter", "Counter")),
+                            "Setting by service id with a JSON value should decode + apply.");
         }
 
         [TestMethod]
@@ -155,19 +169,13 @@ namespace Vion.Dale.DevHost.Test
 
             // .NET TimeSpan form — what the web UI submits today.
             await host.Control.SetServicePropertyValueAsync(serviceId, "ControlInterval", System.Text.Json.Nodes.JsonValue.Create("00:00:05"));
-            var dotNet = await host.Control.WaitForAsync(
-                e => e is ServicePropertyChanged { Property: "ControlInterval" } sp && (TimeSpan)sp.Value! == TimeSpan.FromSeconds(5) ? sp.Value : null,
-                timeout: TimeSpan.FromSeconds(15));
-            Assert.IsNotNull(dotNet, "The .NET TimeSpan form (00:00:05) must be accepted.");
+            Assert.AreEqual(TimeSpan.FromSeconds(5), (TimeSpan)host.Control.GetProperty("counter", "ControlInterval")!,
+                            "The .NET TimeSpan form (00:00:05) must be accepted.");
 
             // ISO-8601 duration — the codec/MQTT canonical form.
             await host.Control.SetServicePropertyValueAsync(serviceId, "ControlInterval", System.Text.Json.Nodes.JsonValue.Create("PT10S"));
-            var iso = await host.Control.WaitForAsync(
-                e => e is ServicePropertyChanged { Property: "ControlInterval" } sp && (TimeSpan)sp.Value! == TimeSpan.FromSeconds(10) ? sp.Value : null,
-                timeout: TimeSpan.FromSeconds(15));
-            Assert.IsNotNull(iso, "The ISO-8601 duration form (PT10S) must be accepted.");
-
-            Assert.AreEqual(TimeSpan.FromSeconds(10), (TimeSpan)host.Control.GetProperty("counter", "ControlInterval")!);
+            Assert.AreEqual(TimeSpan.FromSeconds(10), (TimeSpan)host.Control.GetProperty("counter", "ControlInterval")!,
+                            "The ISO-8601 duration form (PT10S) must be accepted.");
         }
 
         [TestMethod]
@@ -192,10 +200,9 @@ namespace Vion.Dale.DevHost.Test
             await using var host = BuildHost();
             await host.StartAsync();
 
+            // The set is awaited until applied + published, so by now the block's actor has received the
+            // SetServicePropertyValueRequest and the tap has recorded it.
             await host.Control.SetPropertyAsync("counter", "Counter", 7);
-            await host.Control.WaitForAsync(
-                e => e is ServicePropertyChanged { Property: "Counter" } sp && Convert.ToInt32(sp.Value) == 7 ? sp.Value : null,
-                timeout: TimeSpan.FromSeconds(15));
 
             var received = host.Control.RecordedMessages("counter");
 
