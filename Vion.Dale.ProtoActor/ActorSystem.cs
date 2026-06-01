@@ -20,10 +20,15 @@ namespace Vion.Dale.ProtoActor
 
         private readonly IServiceProvider _serviceProvider;
 
+        // Optional, opt-in message tap (RFC 0003). Null unless a consumer (DevHost) registered one — the
+        // production runtime does not, so middleware behaviour is unchanged there.
+        private readonly IActorMessageObserver? _messageObserver;
+
         public ActorSystem(IServiceProvider serviceProvider, ILogger<ActorSystem> logger)
         {
             _serviceProvider = serviceProvider;
             _logger = logger;
+            _messageObserver = serviceProvider.GetService<IActorMessageObserver>();
             _actorSystem = serviceProvider.GetService<Proto.ActorSystem>() ?? throw new InvalidOperationException("Actor system is not registered in the service provider.");
             _actorSystem.EventStream.Subscribe<DeadLetterEvent>(e =>
                                                                 {
@@ -178,7 +183,7 @@ namespace Vion.Dale.ProtoActor
             }
 
             var pid = _actorSystem.Root.SpawnNamed(Props.FromProducer(() => (IActor)genericActor)
-                                                        .WithReceiverMiddleware(ActorMiddleware.ReceiveMiddleware(logger ?? _logger))
+                                                        .WithReceiverMiddleware(ActorMiddleware.ReceiveMiddleware(logger ?? _logger, _messageObserver))
                                                         .WithSenderMiddleware(ActorMiddleware.SenderMiddleware(logger ?? _logger)),
                                                    name);
             return pid.ToActorReference();
@@ -189,7 +194,7 @@ namespace Vion.Dale.ProtoActor
             where TActorReceiver : IActorReceiver
         {
             var pid = _actorSystem.Root.SpawnNamed(Props.FromProducer(() => new Actor<TActorReceiver>(factory()))
-                                                        .WithReceiverMiddleware(ActorMiddleware.ReceiveMiddleware(logger as ILogger ?? _logger))
+                                                        .WithReceiverMiddleware(ActorMiddleware.ReceiveMiddleware(logger as ILogger ?? _logger, _messageObserver))
                                                         .WithSenderMiddleware(ActorMiddleware.SenderMiddleware(logger as ILogger ?? _logger)),
                                                    name);
             return pid.ToActorReference();

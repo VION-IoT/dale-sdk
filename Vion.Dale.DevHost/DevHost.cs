@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Vion.Dale.DevHost.Control;
 
 namespace Vion.Dale.DevHost
 {
@@ -21,6 +22,8 @@ namespace Vion.Dale.DevHost
 
         private readonly IServiceProvider _serviceProvider;
 
+        private bool _disposed;
+
         public DevHost(IServiceProvider serviceProvider, List<Assembly> pluginAssemblies, DevConfiguration configuration, ILogger logger)
         {
             _serviceProvider = serviceProvider;
@@ -28,6 +31,9 @@ namespace Vion.Dale.DevHost
             _configuration = configuration;
             _logger = logger;
         }
+
+        /// <inheritdoc />
+        public IDevHostControl Control => _serviceProvider.GetRequiredService<IDevHostControl>();
 
         public async Task StartAsync(CancellationToken cancellationToken = default)
         {
@@ -39,7 +45,20 @@ namespace Vion.Dale.DevHost
                 _logger.LogInformation("  - {AssemblyName}", assembly.GetName().Name);
             }
 
-            // Start hosted services (e.g. WebHostService)
+            // Introspect logic blocks and eagerly construct the control facade BEFORE starting hosted services.
+            // Order matters for two reasons:
+            //  1. The web server (WebHostService) serves /api/configuration as soon as it starts. If it started
+            //     first, a request could race in while the introspection metadata is still empty, throwing
+            //     KeyNotFoundException in DevHostIntrospection.BuildConfiguration. Introspecting first guarantees
+            //     the server never serves an unintrospected host.
+            //  2. The control facade must subscribe to the event stream before blocks publish, or its
+            //     last-known-value cache would miss the initial state publish.
+            // Introspection also assigns service ids — the single source of truth now the web state provider is
+            // gone — which the initializer reads in InitializeAsync below.
+            _serviceProvider.GetRequiredService<DevHostIntrospection>().EnsureIntrospected();
+            _ = _serviceProvider.GetRequiredService<IDevHostControl>();
+
+            // Start hosted services (e.g. WebHostService) — safe now that introspection has completed.
             _hostedServices.AddRange(_serviceProvider.GetServices<IHostedService>());
             foreach (var hostedService in _hostedServices)
             {
@@ -113,6 +132,54 @@ namespace Vion.Dale.DevHost
             // }
 
             _logger.LogInformation("Development host stopped");
+        }
+
+        /// <summary>
+        ///     Stops the host (idempotent) and disposes the owned service provider. Enables
+        ///     <c>await using var host = …Build()</c> in tests for clean per-test teardown.
+        /// </summary>
+        public async ValueTask DisposeAsync()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+
+            try
+            {
+                await StopAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error while stopping during DisposeAsync; continuing teardown.");
+            }
+
+            // Deterministically tear down the actor system so its scheduler/threads are released now, rather
+            // than lingering until GC. Important for tests that build many hosts in one process — without it,
+            // accumulated actor systems contend for the thread pool and intermittently stall operations.
+            try
+            {
+                var actorSystem = _serviceProvider.GetService<Vion.Dale.Sdk.Abstractions.IActorSystem>();
+                if (actorSystem is not null)
+                {
+                    await actorSystem.ShutdownAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error shutting down the actor system during DisposeAsync; continuing teardown.");
+            }
+
+            if (_serviceProvider is IAsyncDisposable asyncDisposable)
+            {
+                await asyncDisposable.DisposeAsync();
+            }
+            else if (_serviceProvider is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
         }
     }
 }

@@ -1,22 +1,22 @@
-﻿using System.Threading.Tasks;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.SignalR;
-using Vion.Dale.DevHost.Web.Services;
+using Vion.Dale.DevHost.Control;
 
 namespace Vion.Dale.DevHost.Web.Api.Hubs
 {
     public class DevHostHub : Hub
     {
-        private readonly IDevHostStateProvider _stateProvider;
+        private readonly IDevHostControl _control;
 
-        public DevHostHub(IDevHostStateProvider stateProvider)
+        public DevHostHub(IDevHostControl control)
         {
-            _stateProvider = stateProvider;
+            _control = control;
         }
 
         public override async Task OnConnectedAsync()
         {
             await base.OnConnectedAsync();
-            await _stateProvider.PublishAllStatesAsync();
+            _control.PublishAllStates();
         }
     }
 }

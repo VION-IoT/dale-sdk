@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
+using Vion.Dale.DevHost.Control;
 using Vion.Dale.DevHost.Web.Api.Hubs;
 using Vion.Dale.Sdk.Mqtt;
 
@@ -23,16 +24,19 @@ namespace Vion.Dale.DevHost.Web.Services
 
         private readonly DevHostEvents _devHostEvents;
 
-        private readonly IDevHostStateProvider _stateProvider;
+        private readonly IDevHostControl _control;
 
         private WebApplication? _app;
 
-        public WebHostService(WebHostConfiguration config, DevConfiguration devConfiguration, IDevHostStateProvider stateProvider, DevHostEvents devHostEvents)
+        public WebHostService(WebHostConfiguration config,
+                              DevConfiguration devConfiguration,
+                              DevHostEvents devHostEvents,
+                              IDevHostControl control)
         {
             _config = config;
             _devConfiguration = devConfiguration;
-            _stateProvider = stateProvider;
             _devHostEvents = devHostEvents;
+            _control = control;
         }
 
         public Task StartAsync(CancellationToken cancellationToken)
@@ -74,8 +78,8 @@ namespace Vion.Dale.DevHost.Web.Services
 
             // Register DevHost services as singletons in the WebApplication
             builder.Services.AddSingleton(_devConfiguration);
-            builder.Services.AddSingleton(_stateProvider);
             builder.Services.AddSingleton(_devHostEvents);
+            builder.Services.AddSingleton(_control);
             builder.Services.AddSingleton<DevHostEventBroadcaster>();
 
             _app = builder.Build();

@@ -80,6 +80,7 @@ Usage:
   Vion.Dale.Cli dev [options]
 
 Options:
+  --headless                 Run without opening a browser. Serves the control API and prints a JSON readiness line on stdout — for tools, CI, and agents.
   -?, -h, --help             Show help and usage information
   -o, --output <json|table>  Output format [default: table]
   --project <project>        Path to .csproj file

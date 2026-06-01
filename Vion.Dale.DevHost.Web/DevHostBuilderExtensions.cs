@@ -9,8 +9,9 @@ namespace Vion.Dale.DevHost.Web
         {
             builder.ConfigureServices(services =>
                                       {
-                                          // Register web-specific services
-                                          services.AddSingleton<IDevHostStateProvider, DevHostStateProvider>();
+                                          // Register web-specific services. State/config/set all go through the
+                                          // core IDevHostControl now (registered by DevHostBuilder), so there is
+                                          // no web-only state provider — one abstraction, one API.
                                           services.AddSingleton<DevHostEventBroadcaster>();
 
                                           // Store port configuration

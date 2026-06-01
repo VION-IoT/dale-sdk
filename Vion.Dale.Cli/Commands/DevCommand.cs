@@ -12,9 +12,25 @@ namespace Vion.Dale.Cli.Commands
         {
             var command = new Command("dev", "Start the DevHost with web UI");
 
+            var headlessOption = new Option<bool>("--headless")
+                                 {
+                                     Description = "Run without opening a browser. Serves the control API and prints a JSON readiness line on stdout — for tools, CI, and agents.",
+                                 };
+            command.Options.Add(headlessOption);
+
             command.SetAction(async (parseResult, cancellationToken) =>
                               {
                                   var projectPath = parseResult.GetValue<string?>("--project");
+                                  var headless = parseResult.GetValue(headlessOption);
+
+                                  // The DevHost process (consumer-owned Program.cs via DevHostWebRunner) reads this
+                                  // env var to skip the browser and emit a readiness line. UseShellExecute=false in
+                                  // DotnetRunner means the spawned `dotnet run` inherits it. Name hardcoded to keep
+                                  // the CLI's no-SDK-dependency rule (mirrors DevHostWebRunner.NoBrowserEnvVar).
+                                  if (headless)
+                                  {
+                                      System.Environment.SetEnvironmentVariable("DALE_DEVHOST_NO_BROWSER", "1");
+                                  }
 
                                   // Strategy: find the DevHost .csproj by searching for {Name}.DevHost.csproj
                                   var devHostCsproj = FindDevHostProject(projectPath);
@@ -27,8 +43,8 @@ namespace Vion.Dale.Cli.Commands
                                   var devHostName = Path.GetFileNameWithoutExtension(devHostCsproj);
                                   var workingDir = Path.GetDirectoryName(Path.GetDirectoryName(devHostCsproj)) ?? ".";
 
-                                  DaleConsole.Info($"Starting {devHostName}...");
-                                  DaleConsole.Info("  Web UI at http://localhost:5000");
+                                  DaleConsole.Info($"Starting {devHostName}{(headless ? " (headless)" : "")}...");
+                                  DaleConsole.Info(headless ? "  Control API at http://localhost:5000/api (no browser)" : "  Web UI at http://localhost:5000");
                                   DaleConsole.Blank();
 
                                   var args = new[] { "--project", devHostCsproj }.Concat(parseResult.UnmatchedTokens).ToList();
