@@ -45,23 +45,26 @@ namespace Vion.Dale.DevHost
                 _logger.LogInformation("  - {AssemblyName}", assembly.GetName().Name);
             }
 
-            // Start hosted services (e.g. WebHostService)
+            // Introspect logic blocks and eagerly construct the control facade BEFORE starting hosted services.
+            // Order matters for two reasons:
+            //  1. The web server (WebHostService) serves /api/configuration as soon as it starts. If it started
+            //     first, a request could race in while the introspection metadata is still empty, throwing
+            //     KeyNotFoundException in DevHostIntrospection.BuildConfiguration. Introspecting first guarantees
+            //     the server never serves an unintrospected host.
+            //  2. The control facade must subscribe to the event stream before blocks publish, or its
+            //     last-known-value cache would miss the initial state publish.
+            // Introspection also assigns service ids — the single source of truth now the web state provider is
+            // gone — which the initializer reads in InitializeAsync below.
+            _serviceProvider.GetRequiredService<DevHostIntrospection>().EnsureIntrospected();
+            _ = _serviceProvider.GetRequiredService<IDevHostControl>();
+
+            // Start hosted services (e.g. WebHostService) — safe now that introspection has completed.
             _hostedServices.AddRange(_serviceProvider.GetServices<IHostedService>());
             foreach (var hostedService in _hostedServices)
             {
                 _logger.LogDebug("Starting hosted service: {ServiceType}", hostedService.GetType().Name);
                 await hostedService.StartAsync(cancellationToken);
             }
-
-            // Introspect logic blocks for the headless control surface (RFC 0003) before the logic system
-            // is initialized — this assigns service ids in a headless boot, which the initializer then reads.
-            // Additive: in a .WithWebUi() boot the web state provider already populated them, so this is a no-op
-            // for service-id assignment and just records control metadata.
-            _serviceProvider.GetRequiredService<DevHostIntrospection>().EnsureIntrospected();
-
-            // Eagerly construct the control facade now so it subscribes to the event stream BEFORE blocks
-            // start publishing — otherwise its last-known-value cache would miss the initial state publish.
-            _ = _serviceProvider.GetRequiredService<IDevHostControl>();
 
             // Get the initializer from DI
             var initializer = _serviceProvider.GetRequiredService<DevLogicSystemInitializer>();

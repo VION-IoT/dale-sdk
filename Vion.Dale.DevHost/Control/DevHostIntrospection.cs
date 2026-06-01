@@ -34,7 +34,12 @@ namespace Vion.Dale.DevHost.Control
         // blockId → (propertyOrMeasuringPointName → serviceConfigId)
         private readonly Dictionary<string, Dictionary<string, string>> _propertyToServiceId = new();
 
-        private bool _done;
+        // Guards introspection: it now runs once in DevHost.StartAsync, but the accessors below also call
+        // EnsureIntrospected defensively, and the web server can serve concurrent requests, so the one-time
+        // population must be thread-safe.
+        private readonly object _gate = new();
+
+        private volatile bool _done;
 
         public DevHostIntrospection(DevConfiguration configuration, IServiceProvider serviceProvider, ILogger<DevHostIntrospection> logger)
         {
@@ -43,7 +48,7 @@ namespace Vion.Dale.DevHost.Control
             _logger = logger;
         }
 
-        /// <summary>Introspect once (idempotent). Call before the logic system is initialized.</summary>
+        /// <summary>Introspect once (idempotent, thread-safe). Call before the logic system is initialized.</summary>
         public void EnsureIntrospected()
         {
             if (_done)
@@ -51,8 +56,20 @@ namespace Vion.Dale.DevHost.Control
                 return;
             }
 
-            _done = true;
+            lock (_gate)
+            {
+                if (_done)
+                {
+                    return;
+                }
 
+                Introspect();
+                _done = true;
+            }
+        }
+
+        private void Introspect()
+        {
             foreach (var block in _configuration.LogicBlocks)
             {
                 if (_serviceProvider.GetService(block.LogicBlockType) is not LogicBlockBase instance)
@@ -99,6 +116,7 @@ namespace Vion.Dale.DevHost.Control
         /// <summary>Resolve a block's property/measuring-point name to the service-config id carrying it.</summary>
         public bool TryGetServiceId(string blockId, string propertyName, out string serviceId)
         {
+            EnsureIntrospected();
             serviceId = string.Empty;
             return _propertyToServiceId.TryGetValue(blockId, out var map) && map.TryGetValue(propertyName, out serviceId!);
         }
@@ -106,6 +124,7 @@ namespace Vion.Dale.DevHost.Control
         /// <summary>All property/measuring-point names known for a block.</summary>
         public IReadOnlyCollection<string> PropertyNames(string blockId)
         {
+            EnsureIntrospected();
             return _propertyToServiceId.TryGetValue(blockId, out var map) ? map.Keys.ToList() : Array.Empty<string>();
         }
 
@@ -115,6 +134,7 @@ namespace Vion.Dale.DevHost.Control
         /// </summary>
         public bool TryGetPropertyConversion(string serviceId, string propertyName, out JsonNode? schema, out Type? clrType)
         {
+            EnsureIntrospected();
             schema = null;
             clrType = null;
 
@@ -140,6 +160,11 @@ namespace Vion.Dale.DevHost.Control
         /// <summary>Build the full introspection output for the wired network (the heavyweight view).</summary>
         public ConfigurationOutput BuildConfiguration()
         {
+            // Self-initialize: a caller may reach this before DevHost.StartAsync has run EnsureIntrospected —
+            // e.g. an /api/configuration request racing host startup, or an agent calling
+            // Control.GetConfiguration directly. Idempotent, so it's a no-op once introspection has happened.
+            EnsureIntrospected();
+
             return new ConfigurationOutput
                    {
                        LogicBlocks = _configuration.LogicBlocks.Select(BuildLogicBlock).ToList(),

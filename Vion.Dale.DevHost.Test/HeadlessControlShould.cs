@@ -100,6 +100,22 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        public async Task GetConfiguration_BeforeStart_SelfIntrospects()
+        {
+            // Regression: the web server starts serving /api/configuration as part of host startup, and a
+            // request can race in before DevHost.StartAsync has run introspection. BuildConfiguration must
+            // self-initialize rather than throw KeyNotFoundException for the first block. Calling
+            // GetConfiguration on a built-but-not-started host exercises exactly that defensive path.
+            await using var host = BuildHost();
+
+            var config = host.Control.GetConfiguration();
+
+            Assert.IsNotNull(config);
+            Assert.IsTrue(config.LogicBlocks.Any(b => b.Name == "counter"),
+                          "Configuration must describe the wired blocks even when reached before StartAsync.");
+        }
+
+        [TestMethod]
         public async Task SetServicePropertyValueAsync_ByServiceId_DecodesAJsonValue()
         {
             // The HTTP set path addresses a property by its service id and arrives as JSON. The unified control
