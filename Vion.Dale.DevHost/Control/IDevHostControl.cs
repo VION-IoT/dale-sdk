@@ -36,7 +36,13 @@ namespace Vion.Dale.DevHost.Control
         /// <summary>All last-known service-property and measuring-point values for a logic block, keyed by member name.</summary>
         IReadOnlyDictionary<string, object?> GetAllProperties(string logicBlockIdOrName);
 
-        /// <summary>Write a writable <c>[ServiceProperty]</c> ("knob") — the programmatic equivalent of the UI's edit field.</summary>
+        /// <summary>
+        ///     Write a writable <c>[ServiceProperty]</c> ("knob") — the programmatic equivalent of the UI's edit
+        ///     field. The returned task completes once the value has been applied and re-published, so a
+        ///     subsequent <see cref="GetProperty" /> reflects the new value (read-after-write is reliable; no
+        ///     separate <see cref="WaitForAsync{T}" /> is needed for the property you just set). To observe a
+        ///     <em>downstream</em> change instead, register <see cref="WaitForAsync{T}" /> <em>before</em> calling this.
+        /// </summary>
         Task SetPropertyAsync(string logicBlockIdOrName, string propertyName, object value);
 
         /// <summary>
@@ -44,6 +50,8 @@ namespace Vion.Dale.DevHost.Control
         ///     <see cref="GetConfiguration" />), accepting either a CLR value or a JSON value (a
         ///     <c>JsonElement</c> / <c>JsonNode</c> is decoded against the property schema). This is the
         ///     addressing the web UI uses; in-process callers usually prefer <see cref="SetPropertyAsync" />.
+        ///     Like <see cref="SetPropertyAsync" />, the task completes once the value has been applied and
+        ///     re-published.
         /// </summary>
         Task SetServicePropertyValueAsync(string serviceId, string propertyName, object value);
 

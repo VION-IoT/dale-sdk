@@ -123,7 +123,7 @@ namespace Vion.Dale.DevHost.Control
             return SetServicePropertyValueAsync(serviceId, propertyName, value);
         }
 
-        public Task SetServicePropertyValueAsync(string serviceId, string propertyName, object value)
+        public async Task SetServicePropertyValueAsync(string serviceId, string propertyName, object value)
         {
             var logicBlock = _configuration.LogicBlocks.FirstOrDefault(lb => lb.Services.Any(s => s.Id == serviceId))
                              ?? throw new InvalidOperationException($"Unknown service id '{serviceId}'.");
@@ -134,9 +134,20 @@ namespace Vion.Dale.DevHost.Control
 
             var logicBlockActor = _actorSystem.LookupByName(LogicBlockUtils.CreateLogicBlockName(logicBlock.Name, logicBlock.Id));
             var handler = _actorSystem.LookupByName(nameof(MockServicePropertyHandler));
+
+            // The actor applies the set and re-publishes the value asynchronously; the SendTo below is
+            // fire-and-forget. Await that publish so a read-after-write — `await SetPropertyAsync(...)` then
+            // `GetProperty(...)` — reflects the new value instead of racing the actor and returning the stale
+            // one. Register the waiter BEFORE sending: WaitForAsync only observes events raised after the call.
+            // A set that doesn't change the value raises no event, so the wait falls back to its timeout rather
+            // than hanging (GetProperty already returns the correct, unchanged value in that case).
+            var applied = WaitForAsync(
+                e => e is ServicePropertyChanged sp && sp.ServiceId == serviceId && sp.Property == propertyName ? (object)sp : null,
+                timeout: TimeSpan.FromSeconds(5));
+
             _actorSystem.SendTo(handler, new MockSetServicePropertyValue(logicBlockActor, new SetServicePropertyValueRequest(new ServiceIdentifier(serviceId), propertyName, typedValue!)));
 
-            return Task.CompletedTask;
+            await applied.ConfigureAwait(false);
         }
 
         public Task SetDigitalInputAsync(string serviceProviderId, string serviceId, string contractId, bool value)
