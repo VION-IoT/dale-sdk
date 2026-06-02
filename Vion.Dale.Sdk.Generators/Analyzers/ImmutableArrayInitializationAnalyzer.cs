@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 
@@ -52,11 +53,35 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                 return;
             }
 
-            // Check syntax for an initializer on the property declaration.
+            // DALE018 only applies to auto-implemented properties: the compiler-generated backing field behind an
+            // auto `get;` defaults to default(ImmutableArray<T>) — which throws on access — unless the property
+            // carries an initializer. A property with an explicit getter (an expression body `=> ...`, or a get
+            // accessor with a body) is opaque: the analyzer can't prove it returns default, and the developer owns
+            // what it returns (e.g. an initialized backing field with setter coercion). Such properties also can't
+            // carry a property-level initializer, so checking only for that produced a false positive — exempt them.
             foreach (var syntaxRef in property.DeclaringSyntaxReferences)
             {
-                var syntax = syntaxRef.GetSyntax(context.CancellationToken);
-                if (syntax is PropertyDeclarationSyntax propDecl && propDecl.Initializer != null)
+                if (syntaxRef.GetSyntax(context.CancellationToken) is not PropertyDeclarationSyntax propDecl)
+                {
+                    continue;
+                }
+
+                // Property-level initializer (legal only on auto-properties) → safe.
+                if (propDecl.Initializer != null)
+                {
+                    return;
+                }
+
+                // Expression-bodied property (`public ... Plan => ...;`) → explicit getter → exempt.
+                if (propDecl.ExpressionBody != null)
+                {
+                    return;
+                }
+
+                // Explicit get accessor (`get => ...;` or `get { ... }`) → exempt. Only a bodyless `get;` reads
+                // the default-backed field that can throw.
+                var getter = propDecl.AccessorList?.Accessors.FirstOrDefault(a => a.IsKind(SyntaxKind.GetAccessorDeclaration));
+                if (getter != null && (getter.Body != null || getter.ExpressionBody != null))
                 {
                     return;
                 }

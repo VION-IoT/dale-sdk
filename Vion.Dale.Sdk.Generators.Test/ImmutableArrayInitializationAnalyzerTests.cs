@@ -69,6 +69,71 @@ public class MyBlock
             await AnalyzerTestBase.VerifyAnalyzerAsync<ImmutableArrayInitializationAnalyzer>(source);
         }
 
+        // --- Explicit accessors: opaque getter, can't carry a property initializer → should NOT trigger DALE018 ---
+
+        [TestMethod]
+        public async Task ImmutableArrayWithExplicitGetterAndInitializedBackingField_NoDiagnostic()
+        {
+            // DALE018 targets auto-implemented properties, whose compiler backing field defaults to a throwing
+            // default ImmutableArray. A property with an explicit getter returning an initialized backing field
+            // can never return default — and explicit accessors can't carry a property-level initializer anyway,
+            // so the old property-initializer-only check produced a false positive here.
+            var source = @"
+using System.Collections.Immutable;
+using Vion.Dale.Sdk.Core;
+
+public class MyBlock
+{
+    private ImmutableArray<int> _plan = ImmutableArray<int>.Empty;
+
+    [ServiceProperty]
+    public ImmutableArray<int> Plan
+    {
+        get => _plan;
+        set => _plan = value.IsDefault ? ImmutableArray<int>.Empty : value;
+    }
+}";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<ImmutableArrayInitializationAnalyzer>(source);
+        }
+
+        [TestMethod]
+        public async Task ImmutableArrayExpressionBodiedProperty_NoDiagnostic()
+        {
+            // An expression-bodied (computed) getter is opaque — the developer owns what it returns.
+            var source = @"
+using System.Collections.Immutable;
+using Vion.Dale.Sdk.Core;
+
+public class MyBlock
+{
+    private ImmutableArray<int> _plan = ImmutableArray<int>.Empty;
+
+    [ServiceMeasuringPoint] public ImmutableArray<int> Plan => _plan;
+}";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<ImmutableArrayInitializationAnalyzer>(source);
+        }
+
+        [TestMethod]
+        public async Task ImmutableArrayWithBlockBodiedGetter_NoDiagnostic()
+        {
+            var source = @"
+using System.Collections.Immutable;
+using Vion.Dale.Sdk.Core;
+
+public class MyBlock
+{
+    private ImmutableArray<int> _plan = ImmutableArray<int>.Empty;
+
+    [ServiceProperty]
+    public ImmutableArray<int> Plan
+    {
+        get { return _plan; }
+        set { _plan = value; }
+    }
+}";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<ImmutableArrayInitializationAnalyzer>(source);
+        }
+
         // --- Non-ImmutableArray types: should NOT trigger DALE018 ---
 
         [TestMethod]
