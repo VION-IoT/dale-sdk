@@ -1,6 +1,6 @@
+using System.Collections.Generic;
 using System.CommandLine;
 using System.IO;
-using System.Linq;
 using Vion.Dale.Cli.Helpers;
 using Vion.Dale.Cli.Output;
 
@@ -47,11 +47,32 @@ namespace Vion.Dale.Cli.Commands
                                   DaleConsole.Info(headless ? "  Control API at http://localhost:5000/api (no browser)" : "  Web UI at http://localhost:5000");
                                   DaleConsole.Blank();
 
-                                  var args = new[] { "--project", devHostCsproj }.Concat(parseResult.UnmatchedTokens).ToList();
-                                  return await DotnetRunner.RunAsync("run", args, workingDir);
+                                  var runArguments = BuildRunArguments(devHostCsproj, parseResult.UnmatchedTokens);
+                                  return await DotnetRunner.RunAsync("run", runArguments, workingDir);
                               });
 
             return command;
+        }
+
+        /// <summary>
+        ///     Builds the <c>dotnet run</c> arguments for the DevHost: the target project, then any extra tokens
+        ///     the user passed after <c>--</c> (e.g. <c>dale dev -- operator-steering</c> to select a
+        ///     consumer-defined scenario the DevHost's <c>Program.cs</c> switches on). Forwarded tokens are
+        ///     delimited with <c>--</c> so <c>dotnet run</c> passes them to the application verbatim — including
+        ///     option-like names (a leading <c>-</c>, or names that collide with <c>dotnet run</c> flags) — rather
+        ///     than trying to interpret them itself.
+        /// </summary>
+        internal static List<string> BuildRunArguments(string devHostCsproj, IReadOnlyList<string> forwardedArgs)
+        {
+            var args = new List<string> { "--project", devHostCsproj };
+
+            if (forwardedArgs.Count > 0)
+            {
+                args.Add("--");
+                args.AddRange(forwardedArgs);
+            }
+
+            return args;
         }
 
         /// <summary>
