@@ -339,6 +339,22 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                                                                                                          true);
 
         /// <summary>
+        ///     A computed observable property (an explicit/expression-bodied getter carrying [ServiceProperty]
+        ///     or [ServiceMeasuringPoint]) derives its value from a MEMBER of a struct-typed observable property
+        ///     — e.g. <c>Bands.Capacity</c> where <c>Bands</c> is a struct [ServiceProperty]. The
+        ///     Metalama.Patterns.Observability aspect tracks whole-property changes and method calls on the
+        ///     struct, but NOT direct struct-member reads, so the computed property is woven without a dependency
+        ///     on the struct property and never re-publishes when it changes — a silent, permanently-stale value
+        ///     with no other compile-time signal.
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE031_ObservableStructMemberDependencyNotTracked = new("DALE031",
+                                                                                                             "Computed observable property reads an untracked struct member",
+                                                                                                             "Property '{0}' reads '{1}.{2}', a member of the struct-typed observable property '{1}'. The Observability aspect does not track struct-member reads, so '{0}' will not re-publish when '{1}' changes. Derive '{0}' from scalar observable properties, recompute it in '{1}'s setter, or call a method on '{1}' (method calls are tracked).",
+                                                                                                             Category,
+                                                                                                             DiagnosticSeverity.Warning,
+                                                                                                             true);
+
+        /// <summary>
         ///     <c>[Presentation(Format = "...")]</c> is consumed by the renderer only for
         ///     <c>DateTime</c> / <c>TimeSpan</c> properties (and nullable variants). On other
         ///     types the format hint is silently ignored.
