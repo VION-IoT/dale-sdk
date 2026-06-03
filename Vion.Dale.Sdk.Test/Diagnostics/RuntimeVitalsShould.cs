@@ -114,5 +114,28 @@ namespace Vion.Dale.Sdk.Test.Diagnostics
             Assert.AreEqual("logicblock_Idle_1", actor.ActorName);
             Assert.AreEqual(0L, actor.MessagesHandled);
         }
+
+        [TestMethod]
+        public void ReportMailboxDepthAsPostedMinusReceived()
+        {
+            var vitals = new RuntimeVitals(new FakeTimeProvider());
+
+            vitals.OnMessagePosted("a");
+            vitals.OnMessagePosted("a");
+            vitals.OnMessagePosted("a");
+            vitals.OnMessageReceived("a");
+
+            Assert.AreEqual(2, vitals.Snapshot().Single().MailboxDepth);
+        }
+
+        [TestMethod]
+        public void NotReportNegativeMailboxDepth()
+        {
+            var vitals = new RuntimeVitals(new FakeTimeProvider());
+
+            vitals.OnMessageReceived("a");
+
+            Assert.AreEqual(0, vitals.Snapshot().Single().MailboxDepth);
+        }
     }
 }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Vion.Dale.Sdk.Abstractions;
 
 namespace Vion.Dale.Sdk.Diagnostics
@@ -11,7 +12,7 @@ namespace Vion.Dale.Sdk.Diagnostics
     ///     mailbox-statistics hook; read via <see cref="Snapshot" />. All timing uses the injected
     ///     <see cref="TimeProvider" /> so the TestKit can drive it deterministically.
     /// </summary>
-    public sealed class RuntimeVitals : IActorMessageObserver
+    public sealed class RuntimeVitals : IActorMessageObserver, IActorVitalsCollector
     {
         private readonly TimeProvider _timeProvider;
         private readonly ConcurrentDictionary<string, ActorState> _actors = new ConcurrentDictionary<string, ActorState>();
@@ -43,6 +44,18 @@ namespace Vion.Dale.Sdk.Diagnostics
             state.SetIdentity(identity);
         }
 
+        /// <summary>Records a message being posted to an actor's mailbox (mailbox-depth numerator).</summary>
+        public void OnMessagePosted(string actorName)
+        {
+            _actors.GetOrAdd(actorName, _ => new ActorState()).OnMessagePosted();
+        }
+
+        /// <summary>Records a message being taken off an actor's mailbox for handling.</summary>
+        public void OnMessageReceived(string actorName)
+        {
+            _actors.GetOrAdd(actorName, _ => new ActorState()).OnMessageReceived();
+        }
+
         /// <summary>A point-in-time copy of every tracked actor's vitals.</summary>
         public IReadOnlyList<ActorVitals> Snapshot()
         {
@@ -53,6 +66,8 @@ namespace Vion.Dale.Sdk.Diagnostics
         {
             private long _messagesHandled;
             private long _errors;
+            private long _messagesPosted;
+            private long _messagesReceived;
             private TimeSpan _handlerDurationMax;
             private DateTimeOffset _lastActivityUtc;
             private ActorIdentity? _identity;
@@ -60,6 +75,16 @@ namespace Vion.Dale.Sdk.Diagnostics
             public void SetIdentity(ActorIdentity identity)
             {
                 _identity = identity;
+            }
+
+            public void OnMessagePosted()
+            {
+                Interlocked.Increment(ref _messagesPosted);
+            }
+
+            public void OnMessageReceived()
+            {
+                Interlocked.Increment(ref _messagesReceived);
             }
 
             public void RecordHandled(TimeSpan elapsed, Exception? exception, DateTimeOffset now)
@@ -80,7 +105,8 @@ namespace Vion.Dale.Sdk.Diagnostics
 
             public ActorVitals ToSnapshot(string actorName)
             {
-                return new ActorVitals(actorName, _identity, _messagesHandled, _errors, _handlerDurationMax, _lastActivityUtc);
+                var mailboxDepth = (int)Math.Max(0L, Interlocked.Read(ref _messagesPosted) - Interlocked.Read(ref _messagesReceived));
+                return new ActorVitals(actorName, _identity, _messagesHandled, _errors, _handlerDurationMax, mailboxDepth, _lastActivityUtc);
             }
         }
     }
