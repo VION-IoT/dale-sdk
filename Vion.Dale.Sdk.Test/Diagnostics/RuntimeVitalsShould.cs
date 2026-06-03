@@ -137,5 +137,19 @@ namespace Vion.Dale.Sdk.Test.Diagnostics
 
             Assert.AreEqual(0, vitals.Snapshot().Single().MailboxDepth);
         }
+
+        [TestMethod]
+        public void TrackMaxTimerCallbackDurationAndAbsoluteJitter()
+        {
+            var vitals = new RuntimeVitals(new FakeTimeProvider());
+
+            vitals.OnTimerCallback("a", TimeSpan.FromMilliseconds(10), TimeSpan.FromMilliseconds(3));
+            vitals.OnTimerCallback("a", TimeSpan.FromMilliseconds(4), TimeSpan.FromMilliseconds(-9));
+            vitals.OnTimerCallback("a", TimeSpan.FromMilliseconds(25), TimeSpan.FromMilliseconds(2));
+
+            var actor = vitals.Snapshot().Single();
+            Assert.AreEqual(TimeSpan.FromMilliseconds(25), actor.TimerCallbackDurationMax);
+            Assert.AreEqual(TimeSpan.FromMilliseconds(9), actor.TimerJitterMax);
+        }
     }
 }

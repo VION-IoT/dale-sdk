@@ -13,5 +13,7 @@ namespace Vion.Dale.Sdk.Diagnostics
         long Errors,
         TimeSpan HandlerDurationMax,
         int MailboxDepth,
+        TimeSpan TimerCallbackDurationMax,
+        TimeSpan TimerJitterMax,
         DateTimeOffset LastActivityUtc);
 }

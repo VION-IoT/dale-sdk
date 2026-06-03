@@ -56,6 +56,12 @@ namespace Vion.Dale.Sdk.Diagnostics
             _actors.GetOrAdd(actorName, _ => new ActorState()).OnMessageReceived();
         }
 
+        /// <summary>Records a [Timer] callback's execution duration and scheduler jitter for an actor.</summary>
+        public void OnTimerCallback(string actorName, TimeSpan callbackDuration, TimeSpan jitter)
+        {
+            _actors.GetOrAdd(actorName, _ => new ActorState()).RecordTimerCallback(callbackDuration, jitter);
+        }
+
         /// <summary>A point-in-time copy of every tracked actor's vitals.</summary>
         public IReadOnlyList<ActorVitals> Snapshot()
         {
@@ -69,6 +75,8 @@ namespace Vion.Dale.Sdk.Diagnostics
             private long _messagesPosted;
             private long _messagesReceived;
             private TimeSpan _handlerDurationMax;
+            private TimeSpan _timerCallbackDurationMax;
+            private TimeSpan _timerJitterMax;
             private DateTimeOffset _lastActivityUtc;
             private ActorIdentity? _identity;
 
@@ -103,10 +111,24 @@ namespace Vion.Dale.Sdk.Diagnostics
                 _lastActivityUtc = now;
             }
 
+            public void RecordTimerCallback(TimeSpan callbackDuration, TimeSpan jitter)
+            {
+                if (callbackDuration > _timerCallbackDurationMax)
+                {
+                    _timerCallbackDurationMax = callbackDuration;
+                }
+
+                var absoluteJitter = jitter.Duration();
+                if (absoluteJitter > _timerJitterMax)
+                {
+                    _timerJitterMax = absoluteJitter;
+                }
+            }
+
             public ActorVitals ToSnapshot(string actorName)
             {
                 var mailboxDepth = (int)Math.Max(0L, Interlocked.Read(ref _messagesPosted) - Interlocked.Read(ref _messagesReceived));
-                return new ActorVitals(actorName, _identity, _messagesHandled, _errors, _handlerDurationMax, mailboxDepth, _lastActivityUtc);
+                return new ActorVitals(actorName, _identity, _messagesHandled, _errors, _handlerDurationMax, mailboxDepth, _timerCallbackDurationMax, _timerJitterMax, _lastActivityUtc);
             }
         }
     }

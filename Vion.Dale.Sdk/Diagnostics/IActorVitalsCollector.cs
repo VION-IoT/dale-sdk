@@ -1,3 +1,5 @@
+using System;
+
 namespace Vion.Dale.Sdk.Diagnostics
 {
     /// <summary>
@@ -16,5 +18,8 @@ namespace Vion.Dale.Sdk.Diagnostics
 
         /// <summary>Records a message being taken off an actor's mailbox for handling.</summary>
         void OnMessageReceived(string actorName);
+
+        /// <summary>Records one [Timer] callback's execution duration and scheduler jitter (actual minus requested delay).</summary>
+        void OnTimerCallback(string actorName, TimeSpan callbackDuration, TimeSpan jitter);
     }
 }
