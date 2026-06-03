@@ -1,4 +1,4 @@
-# RFC 0003: Emission policy — throttling, deadband & dedup for service properties and measuring points
+# RFC 0004: Emission policy — throttling, deadband & dedup for service properties and measuring points
 
 Status: **Draft** — design-only, not implemented. Author: jonas.bertsch. Date: 2026-05-31.
 
