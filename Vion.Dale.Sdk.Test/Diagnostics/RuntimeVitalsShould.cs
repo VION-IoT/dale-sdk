@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using Microsoft.Extensions.Time.Testing;
+using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Diagnostics;
 
 namespace Vion.Dale.Sdk.Test.Diagnostics
@@ -68,6 +69,16 @@ namespace Vion.Dale.Sdk.Test.Diagnostics
             Assert.HasCount(2, snapshot);
             Assert.AreEqual(1L, snapshot.Single(v => v.ActorName == "a").MessagesHandled);
             Assert.AreEqual(2L, snapshot.Single(v => v.ActorName == "b").MessagesHandled);
+        }
+
+        [TestMethod]
+        public void FeedTheCoreWhenInvokedThroughTheObserverInterface()
+        {
+            IActorMessageObserver observer = new RuntimeVitals(new FakeTimeProvider());
+
+            observer.OnHandled("a", new object(), TimeSpan.FromMilliseconds(2), exception: null);
+
+            Assert.AreEqual(1L, ((RuntimeVitals)observer).Snapshot().Single().MessagesHandled);
         }
     }
 }

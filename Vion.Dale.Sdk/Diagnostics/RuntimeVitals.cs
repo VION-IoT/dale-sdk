@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using Vion.Dale.Sdk.Abstractions;
 
 namespace Vion.Dale.Sdk.Diagnostics
 {
@@ -10,7 +11,7 @@ namespace Vion.Dale.Sdk.Diagnostics
     ///     mailbox-statistics hook; read via <see cref="Snapshot" />. All timing uses the injected
     ///     <see cref="TimeProvider" /> so the TestKit can drive it deterministically.
     /// </summary>
-    public sealed class RuntimeVitals
+    public sealed class RuntimeVitals : IActorMessageObserver
     {
         private readonly TimeProvider _timeProvider;
         private readonly ConcurrentDictionary<string, ActorState> _actors = new ConcurrentDictionary<string, ActorState>();
@@ -18,6 +19,14 @@ namespace Vion.Dale.Sdk.Diagnostics
         public RuntimeVitals(TimeProvider timeProvider)
         {
             _timeProvider = timeProvider;
+        }
+
+        /// <summary>
+        ///     Not used by the vitals core — rate, handler duration and errors are captured in
+        ///     <see cref="OnHandled" />. Present only to satisfy <see cref="IActorMessageObserver" />.
+        /// </summary>
+        public void OnReceived(string actorName, object message)
+        {
         }
 
         /// <summary>Records the outcome of an actor handling a single message.</summary>
