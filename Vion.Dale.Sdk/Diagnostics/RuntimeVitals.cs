@@ -12,7 +12,7 @@ namespace Vion.Dale.Sdk.Diagnostics
     ///     mailbox-statistics hook; read via <see cref="Snapshot" />. All timing uses the injected
     ///     <see cref="TimeProvider" /> so the TestKit can drive it deterministically.
     /// </summary>
-    public sealed class RuntimeVitals : IActorMessageObserver, IActorVitalsCollector
+    public sealed class RuntimeVitals : IActorMessageObserver, IActorVitalsCollector, IRuntimeDiagnostics
     {
         private readonly TimeProvider _timeProvider;
         private readonly ConcurrentDictionary<string, ActorState> _actors = new ConcurrentDictionary<string, ActorState>();

@@ -6,9 +6,11 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Vion.Dale.ProtoActor.Extensions;
 using Vion.Dale.Sdk.Abstractions;
+using Vion.Dale.Sdk.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Proto;
+using Proto.Mailbox;
 
 namespace Vion.Dale.ProtoActor
 {
@@ -29,12 +31,17 @@ namespace Vion.Dale.ProtoActor
         // FakeTimeProvider under test. Defaults to the system clock when none is registered.
         private readonly TimeProvider _timeProvider;
 
+        // RFC 0005: the vitals core's spawn-time write surface. Null when the core isn't registered
+        // (a bare host, or the TestKit with vitals off), leaving spawn behaviour unchanged.
+        private readonly IActorVitalsCollector? _vitalsCollector;
+
         public ActorSystem(IServiceProvider serviceProvider, ILogger<ActorSystem> logger)
         {
             _serviceProvider = serviceProvider;
             _logger = logger;
             _messageObserver = CompositeActorMessageObserver.Combine(serviceProvider.GetServices<IActorMessageObserver>());
             _timeProvider = serviceProvider.GetService<TimeProvider>() ?? TimeProvider.System;
+            _vitalsCollector = serviceProvider.GetService<IActorVitalsCollector>();
             _actorSystem = serviceProvider.GetService<Proto.ActorSystem>() ?? throw new InvalidOperationException("Actor system is not registered in the service provider.");
             _actorSystem.EventStream.Subscribe<DeadLetterEvent>(e =>
                                                                 {
@@ -188,10 +195,12 @@ namespace Vion.Dale.ProtoActor
                 throw new InvalidOperationException($"Actor type {actorType.FullName} is not registered in the service provider.");
             }
 
-            var pid = _actorSystem.Root.SpawnNamed(Props.FromProducer(() => (IActor)genericActor)
-                                                        .WithReceiverMiddleware(ActorMiddleware.ReceiveMiddleware(logger ?? _logger, _messageObserver, _timeProvider))
-                                                        .WithSenderMiddleware(ActorMiddleware.SenderMiddleware(logger ?? _logger)),
-                                                   name);
+            var props = Props.FromProducer(() => (IActor)genericActor)
+                             .WithReceiverMiddleware(ActorMiddleware.ReceiveMiddleware(logger ?? _logger, _messageObserver, _timeProvider))
+                             .WithSenderMiddleware(ActorMiddleware.SenderMiddleware(logger ?? _logger));
+            props = WithVitals(props, actorReceiverType, name);
+
+            var pid = _actorSystem.Root.SpawnNamed(props, name);
             return pid.ToActorReference();
         }
 
@@ -199,11 +208,26 @@ namespace Vion.Dale.ProtoActor
         public IActorReference CreateRootActorFor<TActorReceiver>(Func<TActorReceiver> factory, string name, object? logger)
             where TActorReceiver : IActorReceiver
         {
-            var pid = _actorSystem.Root.SpawnNamed(Props.FromProducer(() => new Actor<TActorReceiver>(factory()))
-                                                        .WithReceiverMiddleware(ActorMiddleware.ReceiveMiddleware(logger as ILogger ?? _logger, _messageObserver, _timeProvider))
-                                                        .WithSenderMiddleware(ActorMiddleware.SenderMiddleware(logger as ILogger ?? _logger)),
-                                                   name);
+            var props = Props.FromProducer(() => new Actor<TActorReceiver>(factory()))
+                             .WithReceiverMiddleware(ActorMiddleware.ReceiveMiddleware(logger as ILogger ?? _logger, _messageObserver, _timeProvider))
+                             .WithSenderMiddleware(ActorMiddleware.SenderMiddleware(logger as ILogger ?? _logger));
+            props = WithVitals(props, typeof(TActorReceiver), name);
+
+            var pid = _actorSystem.Root.SpawnNamed(props, name);
             return pid.ToActorReference();
+        }
+
+        // RFC 0005: register the actor's identity and attach mailbox-depth statistics when the vitals core
+        // is present. No-op otherwise, so spawn behaviour is unchanged for hosts without diagnostics.
+        private Props WithVitals(Props props, Type receiverType, string name)
+        {
+            if (_vitalsCollector == null)
+            {
+                return props;
+            }
+
+            _vitalsCollector.Register(name, ActorIdentity.For(receiverType, name));
+            return props.WithMailbox(() => UnboundedMailbox.Create(new VitalsMailboxStatistics(name, _vitalsCollector)));
         }
 
         /// <inheritdoc />

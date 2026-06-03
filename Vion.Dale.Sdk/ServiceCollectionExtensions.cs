@@ -1,6 +1,8 @@
 using System;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Vion.Dale.Sdk.Abstractions;
+using Vion.Dale.Sdk.Diagnostics;
 using Vion.Dale.Sdk.Examples.LogicBlocks;
 
 namespace Vion.Dale.Sdk
@@ -17,6 +19,13 @@ namespace Vion.Dale.Sdk
 
             // TimeProvider.System is the real wall clock; tests swap it for a FakeTimeProvider via TestKit.
             serviceCollection.AddSingleton(TimeProvider.System);
+
+            // RFC 0005 vitals core: one singleton observed through three surfaces — the per-message observer,
+            // the spawn-time collector, and the read-only diagnostics snapshot.
+            serviceCollection.AddSingleton<RuntimeVitals>();
+            serviceCollection.AddSingleton<IActorMessageObserver>(sp => sp.GetRequiredService<RuntimeVitals>());
+            serviceCollection.AddSingleton<IActorVitalsCollector>(sp => sp.GetRequiredService<RuntimeVitals>());
+            serviceCollection.AddSingleton<IRuntimeDiagnostics>(sp => sp.GetRequiredService<RuntimeVitals>());
         }
     }
 }
