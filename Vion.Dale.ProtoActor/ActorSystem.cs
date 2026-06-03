@@ -25,11 +25,16 @@ namespace Vion.Dale.ProtoActor
         // observer keeps the original behaviour.
         private readonly IActorMessageObserver? _messageObserver;
 
+        // Drives handler-duration measurement in the middleware: the real clock in production, a
+        // FakeTimeProvider under test. Defaults to the system clock when none is registered.
+        private readonly TimeProvider _timeProvider;
+
         public ActorSystem(IServiceProvider serviceProvider, ILogger<ActorSystem> logger)
         {
             _serviceProvider = serviceProvider;
             _logger = logger;
             _messageObserver = CompositeActorMessageObserver.Combine(serviceProvider.GetServices<IActorMessageObserver>());
+            _timeProvider = serviceProvider.GetService<TimeProvider>() ?? TimeProvider.System;
             _actorSystem = serviceProvider.GetService<Proto.ActorSystem>() ?? throw new InvalidOperationException("Actor system is not registered in the service provider.");
             _actorSystem.EventStream.Subscribe<DeadLetterEvent>(e =>
                                                                 {
@@ -184,7 +189,7 @@ namespace Vion.Dale.ProtoActor
             }
 
             var pid = _actorSystem.Root.SpawnNamed(Props.FromProducer(() => (IActor)genericActor)
-                                                        .WithReceiverMiddleware(ActorMiddleware.ReceiveMiddleware(logger ?? _logger, _messageObserver))
+                                                        .WithReceiverMiddleware(ActorMiddleware.ReceiveMiddleware(logger ?? _logger, _messageObserver, _timeProvider))
                                                         .WithSenderMiddleware(ActorMiddleware.SenderMiddleware(logger ?? _logger)),
                                                    name);
             return pid.ToActorReference();
@@ -195,7 +200,7 @@ namespace Vion.Dale.ProtoActor
             where TActorReceiver : IActorReceiver
         {
             var pid = _actorSystem.Root.SpawnNamed(Props.FromProducer(() => new Actor<TActorReceiver>(factory()))
-                                                        .WithReceiverMiddleware(ActorMiddleware.ReceiveMiddleware(logger as ILogger ?? _logger, _messageObserver))
+                                                        .WithReceiverMiddleware(ActorMiddleware.ReceiveMiddleware(logger as ILogger ?? _logger, _messageObserver, _timeProvider))
                                                         .WithSenderMiddleware(ActorMiddleware.SenderMiddleware(logger as ILogger ?? _logger)),
                                                    name);
             return pid.ToActorReference();

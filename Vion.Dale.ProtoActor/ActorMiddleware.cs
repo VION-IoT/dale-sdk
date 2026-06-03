@@ -9,17 +9,20 @@ namespace Vion.Dale.ProtoActor
 {
     public static class ActorMiddleware
     {
-        public static Func<Receiver, Receiver> ReceiveMiddleware(ILogger logger, IActorMessageObserver? observer = null)
+        public static Func<Receiver, Receiver> ReceiveMiddleware(ILogger logger, IActorMessageObserver? observer = null, TimeProvider? timeProvider = null)
         {
+            var clock = timeProvider ?? TimeProvider.System;
             return next => async (context, envelope) =>
                            {
+                               var actorName = context.Self?.Id ?? string.Empty;
+
                                // Optional, opt-in tap (RFC 0003): only active when an observer is registered
                                // (DevHost). Null in production → behaviour is unchanged.
                                if (observer != null && envelope.Message is not null)
                                {
                                    try
                                    {
-                                       observer.OnReceived(context.Self?.Id ?? string.Empty, envelope.Message);
+                                       observer.OnReceived(actorName, envelope.Message);
                                    }
                                    catch
                                    {
@@ -36,7 +39,10 @@ namespace Vion.Dale.ProtoActor
                                                        SerializeHeaders(envelope.Header));
                                    }
 
-                                   await next(context, envelope);
+                                   // RFC 0005: time the handler and report the outcome (including the swallowed
+                                   // exception) to the vitals collector via OnHandled, preserving the existing
+                                   // log-and-swallow below.
+                                   await ObservedHandler.RunAsync(observer, actorName, envelope.Message, clock, () => next(context, envelope));
                                }
                                catch (Exception ex)
                                {
