@@ -8,6 +8,7 @@ namespace Vion.Dale.Sdk.Diagnostics
     /// </summary>
     public sealed record ActorVitals(
         string ActorName,
+        ActorIdentity? Identity,
         long MessagesHandled,
         long Errors,
         TimeSpan HandlerDurationMax,

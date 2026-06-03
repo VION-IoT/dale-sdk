@@ -80,5 +80,39 @@ namespace Vion.Dale.Sdk.Test.Diagnostics
 
             Assert.AreEqual(1L, ((RuntimeVitals)observer).Snapshot().Single().MessagesHandled);
         }
+
+        [TestMethod]
+        public void IncludeARegisteredIdentityInTheSnapshot()
+        {
+            var vitals = new RuntimeVitals(new FakeTimeProvider());
+            var identity = new ActorIdentity(ActorCategory.LogicBlock, "Heater", "Vion.Examples.Energy");
+
+            vitals.Register("logicblock_Heater_1", identity);
+            vitals.OnHandled("logicblock_Heater_1", new object(), TimeSpan.FromMilliseconds(1), exception: null);
+
+            Assert.AreEqual(identity, vitals.Snapshot().Single().Identity);
+        }
+
+        [TestMethod]
+        public void HaveNoIdentityForAnActorThatWasNeverRegistered()
+        {
+            var vitals = new RuntimeVitals(new FakeTimeProvider());
+
+            vitals.OnHandled("x", new object(), TimeSpan.Zero, exception: null);
+
+            Assert.IsNull(vitals.Snapshot().Single().Identity);
+        }
+
+        [TestMethod]
+        public void IncludeARegisteredActorEvenBeforeItHandlesAMessage()
+        {
+            var vitals = new RuntimeVitals(new FakeTimeProvider());
+
+            vitals.Register("logicblock_Idle_1", new ActorIdentity(ActorCategory.LogicBlock, "Idle", "Lib"));
+
+            var actor = vitals.Snapshot().Single();
+            Assert.AreEqual("logicblock_Idle_1", actor.ActorName);
+            Assert.AreEqual(0L, actor.MessagesHandled);
+        }
     }
 }

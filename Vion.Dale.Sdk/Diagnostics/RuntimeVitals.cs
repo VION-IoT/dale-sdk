@@ -36,6 +36,13 @@ namespace Vion.Dale.Sdk.Diagnostics
             state.RecordHandled(elapsed, exception, _timeProvider.GetUtcNow());
         }
 
+        /// <summary>Records an actor's identity (category + dimensions), resolved at spawn time.</summary>
+        public void Register(string actorName, ActorIdentity identity)
+        {
+            var state = _actors.GetOrAdd(actorName, _ => new ActorState());
+            state.SetIdentity(identity);
+        }
+
         /// <summary>A point-in-time copy of every tracked actor's vitals.</summary>
         public IReadOnlyList<ActorVitals> Snapshot()
         {
@@ -48,6 +55,12 @@ namespace Vion.Dale.Sdk.Diagnostics
             private long _errors;
             private TimeSpan _handlerDurationMax;
             private DateTimeOffset _lastActivityUtc;
+            private ActorIdentity? _identity;
+
+            public void SetIdentity(ActorIdentity identity)
+            {
+                _identity = identity;
+            }
 
             public void RecordHandled(TimeSpan elapsed, Exception? exception, DateTimeOffset now)
             {
@@ -67,7 +80,7 @@ namespace Vion.Dale.Sdk.Diagnostics
 
             public ActorVitals ToSnapshot(string actorName)
             {
-                return new ActorVitals(actorName, _messagesHandled, _errors, _handlerDurationMax, _lastActivityUtc);
+                return new ActorVitals(actorName, _identity, _messagesHandled, _errors, _handlerDurationMax, _lastActivityUtc);
             }
         }
     }
