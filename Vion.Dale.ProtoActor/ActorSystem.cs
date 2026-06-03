@@ -20,15 +20,16 @@ namespace Vion.Dale.ProtoActor
 
         private readonly IServiceProvider _serviceProvider;
 
-        // Optional, opt-in message tap (RFC 0003). Null unless a consumer (DevHost) registered one — the
-        // production runtime does not, so middleware behaviour is unchanged there.
+        // Optional, opt-in message observers (DevHost's tap — RFC 0003 — and the vitals collector — RFC 0005),
+        // combined into the single middleware slot. Null when none is registered, so a host that registers no
+        // observer keeps the original behaviour.
         private readonly IActorMessageObserver? _messageObserver;
 
         public ActorSystem(IServiceProvider serviceProvider, ILogger<ActorSystem> logger)
         {
             _serviceProvider = serviceProvider;
             _logger = logger;
-            _messageObserver = serviceProvider.GetService<IActorMessageObserver>();
+            _messageObserver = CompositeActorMessageObserver.Combine(serviceProvider.GetServices<IActorMessageObserver>());
             _actorSystem = serviceProvider.GetService<Proto.ActorSystem>() ?? throw new InvalidOperationException("Actor system is not registered in the service provider.");
             _actorSystem.EventStream.Subscribe<DeadLetterEvent>(e =>
                                                                 {
