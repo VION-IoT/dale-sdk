@@ -31,13 +31,13 @@ namespace Vion.Dale.Sdk.Diagnostics
                                            () => Counts(diagnostics, v => v.Errors),
                                            unit: "{error}",
                                            description: "Handler exceptions per actor since start.");
-            _meter.CreateObservableCounter("vion.actor.handler_duration_total",
+            _meter.CreateObservableCounter("vion.actor.handler_duration",
                                            () => Seconds(diagnostics, v => v.HandlerDurationTotal),
                                            unit: "s",
-                                           description: "Cumulative handler time per actor; rate() is the busy fraction, and total / messages_handled is the mean handler duration.");
+                                           description: "Cumulative handler time per actor (Prometheus appends _total); rate() is the busy fraction, and dividing by messages_handled gives the mean handler duration.");
             _meter.CreateObservableGauge("vion.actor.handler_duration_max",
-                                         () => Milliseconds(diagnostics, v => v.HandlerDurationMax),
-                                         unit: "ms",
+                                         () => Seconds(diagnostics, v => v.HandlerDurationMax),
+                                         unit: "s",
                                          description: "Max handler duration per actor over the recent window.");
             _meter.CreateObservableGauge("vion.actor.mailbox_depth",
                                          () => Counts(diagnostics, v => (long)v.MailboxDepth),
@@ -48,12 +48,12 @@ namespace Vion.Dale.Sdk.Diagnostics
                                          unit: "{message}",
                                          description: "Peak mailbox depth per actor over the recent window.");
             _meter.CreateObservableGauge("vion.actor.timer_callback_duration_max",
-                                         () => Milliseconds(diagnostics, v => v.TimerCallbackDurationMax),
-                                         unit: "ms",
+                                         () => Seconds(diagnostics, v => v.TimerCallbackDurationMax),
+                                         unit: "s",
                                          description: "Max [Timer] callback duration per actor over the recent window.");
             _meter.CreateObservableGauge("vion.actor.timer_jitter_max",
-                                         () => Milliseconds(diagnostics, v => v.TimerJitterMax),
-                                         unit: "ms",
+                                         () => Seconds(diagnostics, v => v.TimerJitterMax),
+                                         unit: "s",
                                          description: "Max [Timer] scheduler jitter per actor over the recent window.");
         }
 
@@ -65,11 +65,6 @@ namespace Vion.Dale.Sdk.Diagnostics
         private static IEnumerable<Measurement<long>> Counts(IRuntimeDiagnostics diagnostics, Func<ActorVitals, long> selector)
         {
             return diagnostics.Snapshot().Select(v => new Measurement<long>(selector(v), TagsFor(v)));
-        }
-
-        private static IEnumerable<Measurement<double>> Milliseconds(IRuntimeDiagnostics diagnostics, Func<ActorVitals, TimeSpan> selector)
-        {
-            return diagnostics.Snapshot().Select(v => new Measurement<double>(selector(v).TotalMilliseconds, TagsFor(v)));
         }
 
         private static IEnumerable<Measurement<double>> Seconds(IRuntimeDiagnostics diagnostics, Func<ActorVitals, TimeSpan> selector)

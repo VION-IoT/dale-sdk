@@ -45,7 +45,7 @@ namespace Vion.Dale.Sdk.Test.Diagnostics
         }
 
         [TestMethod]
-        public void EmitHandlerDurationMaxGaugeInMilliseconds()
+        public void EmitHandlerDurationMaxGaugeInSeconds()
         {
             var vitals = new RuntimeVitals(new FakeTimeProvider());
             vitals.Register("logicblock_Heater_1", new ActorIdentity(ActorCategory.LogicBlock, "Heater", "Lib"));
@@ -54,11 +54,11 @@ namespace Vion.Dale.Sdk.Test.Diagnostics
             using var meter = new ActorVitalsMeter(vitals);
             var measurement = Collect<double>("vion.actor.handler_duration_max").Single();
 
-            Assert.AreEqual(12.0, measurement.Value, 0.0001);
+            Assert.AreEqual(0.012, measurement.Value, 0.0001);
         }
 
         [TestMethod]
-        public void EmitCumulativeHandlerDurationTotalInSeconds()
+        public void EmitCumulativeHandlerDurationInSeconds()
         {
             var vitals = new RuntimeVitals(new FakeTimeProvider());
             vitals.Register("logicblock_Heater_1", new ActorIdentity(ActorCategory.LogicBlock, "Heater", "Lib"));
@@ -66,7 +66,7 @@ namespace Vion.Dale.Sdk.Test.Diagnostics
             vitals.OnHandled("logicblock_Heater_1", new object(), TimeSpan.FromMilliseconds(300), exception: null);
 
             using var meter = new ActorVitalsMeter(vitals);
-            var measurement = Collect<double>("vion.actor.handler_duration_total").Single();
+            var measurement = Collect<double>("vion.actor.handler_duration").Single();
 
             Assert.AreEqual(0.5, measurement.Value, 0.0001);
         }
