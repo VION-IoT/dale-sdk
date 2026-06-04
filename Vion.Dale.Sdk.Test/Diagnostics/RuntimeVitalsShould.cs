@@ -151,5 +151,48 @@ namespace Vion.Dale.Sdk.Test.Diagnostics
             Assert.AreEqual(TimeSpan.FromMilliseconds(25), actor.TimerCallbackDurationMax);
             Assert.AreEqual(TimeSpan.FromMilliseconds(9), actor.TimerJitterMax);
         }
+
+        [TestMethod]
+        public void WindowTheHandlerDurationMaxSoItDoesNotGoStale()
+        {
+            var clock = new FakeTimeProvider();
+            var window = TimeSpan.FromSeconds(10);
+            var vitals = new RuntimeVitals(clock, window);
+
+            vitals.OnHandled("a", new object(), TimeSpan.FromMilliseconds(50), exception: null);
+            clock.Advance(window + TimeSpan.FromSeconds(1));
+            vitals.OnHandled("a", new object(), TimeSpan.FromMilliseconds(4), exception: null);
+
+            Assert.AreEqual(TimeSpan.FromMilliseconds(4), vitals.Snapshot().Single().HandlerDurationMax);
+        }
+
+        [TestMethod]
+        public void AccumulateHandlerDurationTotalAcrossWindows()
+        {
+            var clock = new FakeTimeProvider();
+            var window = TimeSpan.FromSeconds(10);
+            var vitals = new RuntimeVitals(clock, window);
+
+            vitals.OnHandled("a", new object(), TimeSpan.FromMilliseconds(5), exception: null);
+            clock.Advance(window + TimeSpan.FromSeconds(1));
+            vitals.OnHandled("a", new object(), TimeSpan.FromMilliseconds(12), exception: null);
+
+            Assert.AreEqual(TimeSpan.FromMilliseconds(17), vitals.Snapshot().Single().HandlerDurationTotal);
+        }
+
+        [TestMethod]
+        public void TrackThePeakMailboxDepthOverTheWindow()
+        {
+            var vitals = new RuntimeVitals(new FakeTimeProvider());
+
+            vitals.OnMessagePosted("a");
+            vitals.OnMessagePosted("a");
+            vitals.OnMessagePosted("a");
+            vitals.OnMessageReceived("a");
+
+            var actor = vitals.Snapshot().Single();
+            Assert.AreEqual(2, actor.MailboxDepth);
+            Assert.AreEqual(3, actor.MailboxDepthMax);
+        }
     }
 }

@@ -57,6 +57,36 @@ namespace Vion.Dale.Sdk.Test.Diagnostics
             Assert.AreEqual(12.0, measurement.Value, 0.0001);
         }
 
+        [TestMethod]
+        public void EmitCumulativeHandlerDurationTotalInSeconds()
+        {
+            var vitals = new RuntimeVitals(new FakeTimeProvider());
+            vitals.Register("logicblock_Heater_1", new ActorIdentity(ActorCategory.LogicBlock, "Heater", "Lib"));
+            vitals.OnHandled("logicblock_Heater_1", new object(), TimeSpan.FromMilliseconds(200), exception: null);
+            vitals.OnHandled("logicblock_Heater_1", new object(), TimeSpan.FromMilliseconds(300), exception: null);
+
+            using var meter = new ActorVitalsMeter(vitals);
+            var measurement = Collect<double>("vion.actor.handler_duration_total").Single();
+
+            Assert.AreEqual(0.5, measurement.Value, 0.0001);
+        }
+
+        [TestMethod]
+        public void EmitPeakMailboxDepthGauge()
+        {
+            var vitals = new RuntimeVitals(new FakeTimeProvider());
+            vitals.Register("MqttClient", new ActorIdentity(ActorCategory.Runtime, "MqttClient", Library: null));
+            vitals.OnMessagePosted("MqttClient");
+            vitals.OnMessagePosted("MqttClient");
+            vitals.OnMessagePosted("MqttClient");
+            vitals.OnMessageReceived("MqttClient");
+
+            using var meter = new ActorVitalsMeter(vitals);
+            var measurement = Collect<long>("vion.actor.mailbox_depth_max").Single();
+
+            Assert.AreEqual(3L, measurement.Value);
+        }
+
         private static List<(T Value, KeyValuePair<string, object?>[] Tags)> Collect<T>(string instrumentName)
             where T : struct
         {

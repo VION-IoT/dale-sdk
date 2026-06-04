@@ -8,18 +8,29 @@ using Vion.Dale.Sdk.Abstractions;
 namespace Vion.Dale.Sdk.Diagnostics
 {
     /// <summary>
-    ///     In-proc, per-actor vitals aggregate. Fed by the actor middleware (handler outcomes) and the
-    ///     mailbox-statistics hook; read via <see cref="Snapshot" />. All timing uses the injected
-    ///     <see cref="TimeProvider" /> so the TestKit can drive it deterministically.
+    ///     In-proc, per-actor vitals aggregate. Fed by the actor middleware (handler outcomes), the Proto
+    ///     mailbox-statistics hook, the spawn-time registry, and the <c>[Timer]</c> watchdog; read via
+    ///     <see cref="Snapshot" />. All timing uses the injected <see cref="TimeProvider" /> so the TestKit
+    ///     can drive it deterministically. The <c>*Max</c> vitals are tracked over a recent window (default
+    ///     one minute) rather than the actor's lifetime.
     /// </summary>
     public sealed class RuntimeVitals : IActorMessageObserver, IActorVitalsCollector, IRuntimeDiagnostics
     {
+        private static readonly TimeSpan DefaultWindow = TimeSpan.FromMinutes(1);
+
         private readonly TimeProvider _timeProvider;
+        private readonly TimeSpan _window;
         private readonly ConcurrentDictionary<string, ActorState> _actors = new ConcurrentDictionary<string, ActorState>();
 
         public RuntimeVitals(TimeProvider timeProvider)
+            : this(timeProvider, DefaultWindow)
+        {
+        }
+
+        public RuntimeVitals(TimeProvider timeProvider, TimeSpan window)
         {
             _timeProvider = timeProvider;
+            _window = window;
         }
 
         /// <summary>
@@ -33,33 +44,31 @@ namespace Vion.Dale.Sdk.Diagnostics
         /// <summary>Records the outcome of an actor handling a single message.</summary>
         public void OnHandled(string actorName, object message, TimeSpan elapsed, Exception? exception)
         {
-            var state = _actors.GetOrAdd(actorName, _ => new ActorState());
-            state.RecordHandled(elapsed, exception, _timeProvider.GetUtcNow());
+            GetOrAddState(actorName).RecordHandled(elapsed, exception, _timeProvider.GetUtcNow());
         }
 
         /// <summary>Records an actor's identity (category + dimensions), resolved at spawn time.</summary>
         public void Register(string actorName, ActorIdentity identity)
         {
-            var state = _actors.GetOrAdd(actorName, _ => new ActorState());
-            state.SetIdentity(identity);
+            GetOrAddState(actorName).SetIdentity(identity);
         }
 
         /// <summary>Records a message being posted to an actor's mailbox (mailbox-depth numerator).</summary>
         public void OnMessagePosted(string actorName)
         {
-            _actors.GetOrAdd(actorName, _ => new ActorState()).OnMessagePosted();
+            GetOrAddState(actorName).OnMessagePosted();
         }
 
         /// <summary>Records a message being taken off an actor's mailbox for handling.</summary>
         public void OnMessageReceived(string actorName)
         {
-            _actors.GetOrAdd(actorName, _ => new ActorState()).OnMessageReceived();
+            GetOrAddState(actorName).OnMessageReceived();
         }
 
-        /// <summary>Records a [Timer] callback's execution duration and scheduler jitter for an actor.</summary>
+        /// <summary>Records a <c>[Timer]</c> callback's execution duration and scheduler jitter for an actor.</summary>
         public void OnTimerCallback(string actorName, TimeSpan callbackDuration, TimeSpan jitter)
         {
-            _actors.GetOrAdd(actorName, _ => new ActorState()).RecordTimerCallback(callbackDuration, jitter);
+            GetOrAddState(actorName).RecordTimerCallback(callbackDuration, jitter);
         }
 
         /// <summary>A point-in-time copy of every tracked actor's vitals.</summary>
@@ -68,17 +77,34 @@ namespace Vion.Dale.Sdk.Diagnostics
             return _actors.Select(entry => entry.Value.ToSnapshot(entry.Key)).ToList();
         }
 
+        // Static factory + 'this' arg so the per-message GetOrAdd allocates no closure.
+        private ActorState GetOrAddState(string actorName)
+        {
+            return _actors.GetOrAdd(actorName, static (_, self) => new ActorState(self._timeProvider, self._window), this);
+        }
+
         private sealed class ActorState
         {
+            private readonly WindowedMax<TimeSpan> _handlerDurationMax;
+            private readonly WindowedMax<TimeSpan> _timerCallbackDurationMax;
+            private readonly WindowedMax<TimeSpan> _timerJitterMax;
+            private readonly WindowedMax<int> _mailboxDepthMax;
+
             private long _messagesHandled;
             private long _errors;
             private long _messagesPosted;
             private long _messagesReceived;
-            private TimeSpan _handlerDurationMax;
-            private TimeSpan _timerCallbackDurationMax;
-            private TimeSpan _timerJitterMax;
+            private TimeSpan _handlerDurationTotal;
             private DateTimeOffset _lastActivityUtc;
             private ActorIdentity? _identity;
+
+            public ActorState(TimeProvider timeProvider, TimeSpan window)
+            {
+                _handlerDurationMax = new WindowedMax<TimeSpan>(timeProvider, window);
+                _timerCallbackDurationMax = new WindowedMax<TimeSpan>(timeProvider, window);
+                _timerJitterMax = new WindowedMax<TimeSpan>(timeProvider, window);
+                _mailboxDepthMax = new WindowedMax<int>(timeProvider, window);
+            }
 
             public void SetIdentity(ActorIdentity identity)
             {
@@ -92,6 +118,10 @@ namespace Vion.Dale.Sdk.Diagnostics
 
             public void OnMessageReceived()
             {
+                // Backlog at the moment of dequeue (including this message) is the peak the window should
+                // catch; computed before incrementing received. Runs on the actor thread (single writer).
+                var depth = (int)Math.Max(0L, Interlocked.Read(ref _messagesPosted) - Interlocked.Read(ref _messagesReceived));
+                _mailboxDepthMax.Record(depth);
                 Interlocked.Increment(ref _messagesReceived);
             }
 
@@ -103,32 +133,32 @@ namespace Vion.Dale.Sdk.Diagnostics
                     _errors++;
                 }
 
-                if (elapsed > _handlerDurationMax)
-                {
-                    _handlerDurationMax = elapsed;
-                }
-
+                _handlerDurationMax.Record(elapsed);
+                _handlerDurationTotal += elapsed;
                 _lastActivityUtc = now;
             }
 
             public void RecordTimerCallback(TimeSpan callbackDuration, TimeSpan jitter)
             {
-                if (callbackDuration > _timerCallbackDurationMax)
-                {
-                    _timerCallbackDurationMax = callbackDuration;
-                }
-
-                var absoluteJitter = jitter.Duration();
-                if (absoluteJitter > _timerJitterMax)
-                {
-                    _timerJitterMax = absoluteJitter;
-                }
+                _timerCallbackDurationMax.Record(callbackDuration);
+                _timerJitterMax.Record(jitter.Duration());
             }
 
             public ActorVitals ToSnapshot(string actorName)
             {
                 var mailboxDepth = (int)Math.Max(0L, Interlocked.Read(ref _messagesPosted) - Interlocked.Read(ref _messagesReceived));
-                return new ActorVitals(actorName, _identity, _messagesHandled, _errors, _handlerDurationMax, mailboxDepth, _timerCallbackDurationMax, _timerJitterMax, _lastActivityUtc);
+                return new ActorVitals(
+                    actorName,
+                    _identity,
+                    _messagesHandled,
+                    _errors,
+                    _handlerDurationMax.Read(),
+                    _handlerDurationTotal,
+                    mailboxDepth,
+                    _mailboxDepthMax.Read(),
+                    _timerCallbackDurationMax.Read(),
+                    _timerJitterMax.Read(),
+                    _lastActivityUtc);
             }
         }
     }
