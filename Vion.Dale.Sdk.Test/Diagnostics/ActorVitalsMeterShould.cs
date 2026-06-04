@@ -23,8 +23,8 @@ namespace Vion.Dale.Sdk.Test.Diagnostics
 
             Assert.AreEqual(2L, measurement.Value);
             Assert.AreEqual("logic-block", Tag(measurement.Tags, "actor.kind"));
-            Assert.AreEqual("Heater", Tag(measurement.Tags, "block.type"));
-            Assert.AreEqual("logicblock_Heater_1", Tag(measurement.Tags, "block.id"));
+            Assert.AreEqual("Heater", Tag(measurement.Tags, "logicblock.type"));
+            Assert.AreEqual("logicblock_Heater_1", Tag(measurement.Tags, "logicblock.id"));
             Assert.AreEqual("Vion.Examples.Energy", Tag(measurement.Tags, "library"));
         }
 

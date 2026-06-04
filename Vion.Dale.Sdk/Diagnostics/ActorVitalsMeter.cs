@@ -72,7 +72,7 @@ namespace Vion.Dale.Sdk.Diagnostics
                 return new[]
                 {
                     new KeyValuePair<string, object?>("actor.kind", "unknown"),
-                    new KeyValuePair<string, object?>("block.id", vitals.ActorName),
+                    new KeyValuePair<string, object?>("actor.id", vitals.ActorName),
                 };
             }
 
@@ -81,8 +81,8 @@ namespace Vion.Dale.Sdk.Diagnostics
                 return new[]
                 {
                     new KeyValuePair<string, object?>("actor.kind", "logic-block"),
-                    new KeyValuePair<string, object?>("block.type", identity.Type),
-                    new KeyValuePair<string, object?>("block.id", vitals.ActorName),
+                    new KeyValuePair<string, object?>("logicblock.type", identity.Type),
+                    new KeyValuePair<string, object?>("logicblock.id", vitals.ActorName),
                     new KeyValuePair<string, object?>("library", identity.Library ?? string.Empty),
                 };
             }
