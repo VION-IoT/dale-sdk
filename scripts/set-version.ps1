@@ -127,9 +127,9 @@ $exampleProjects = @(
     }
 )
 
-# First-party logic-block libraries under libraries/. Unlike examples, a library's own <Version> is
-# independent of the SDK release and is intentionally NOT bumped here (it ships on its own cadence) —
-# only its Vion.Dale.* package references track the SDK.
+# First-party logic-block libraries under libraries/. Their Vion.Dale.* package references and (for
+# the packable main project) their own <Version> both track the SDK release — kept loosely in lockstep
+# with the SDK and the examples.
 $libraryProjects = @(
     @{
         Path              = "libraries\Vion.Diagnostics\Vion.Diagnostics\Vion.Diagnostics.csproj"
@@ -143,6 +143,12 @@ $libraryProjects = @(
         Path              = "libraries\Vion.Diagnostics\Vion.Diagnostics.Test\Vion.Diagnostics.Test.csproj"
         PackageReferences = @("Vion.Dale.Sdk.TestKit")
     }
+)
+
+# Library main projects whose <Version> tracks the SDK release (packed by `dale upload`). Only the
+# main project per library carries a <Version>; DevHost / Test do not pack.
+$libraryMainProjectsWithVersion = @(
+    "libraries\Vion.Diagnostics\Vion.Diagnostics\Vion.Diagnostics.csproj"
 )
 
 function Set-ProjectVersion
@@ -296,6 +302,19 @@ foreach ($projectPath in $exampleMainProjectsWithVersion)
     else
     {
         Write-Warning "Example main project not found: $projectPath"
+    }
+}
+
+Write-Host "`nUpdating library main project versions..." -ForegroundColor Yellow
+foreach ($projectPath in $libraryMainProjectsWithVersion)
+{
+    if (Test-Path $projectPath)
+    {
+        Set-ProjectVersion -projectPath $projectPath -version $Version
+    }
+    else
+    {
+        Write-Warning "Library main project not found: $projectPath"
     }
 }
 

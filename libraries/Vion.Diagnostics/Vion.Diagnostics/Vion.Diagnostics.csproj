@@ -9,7 +9,9 @@
         <!-- Logic-block library metadata. Packed + uploaded via `dale upload` on its own
              per-library-tag lane (Vion.Diagnostics/vX.Y.Z), not published to nuget.org. -->
         <PackageId>Vion.Diagnostics</PackageId>
-        <Version>0.1.0</Version>
+        <!-- Tracks the SDK release version (loosely in lockstep with the SDK + examples);
+             bumped by scripts/set-version.ps1. -->
+        <Version>0.7.0</Version>
         <Authors>Vion-IoT</Authors>
         <Company>Vion-IoT</Company>
         <Description>VION runtime diagnostics logic block (RFC 0005 Sink 2): a dashboard-native per-actor vitals table + runtime-health rollup, read from the SDK's IRuntimeDiagnostics.</Description>
