@@ -33,6 +33,11 @@ namespace Vion.Dale.DevHost.Control
             }
         }
 
+        /// <summary>The message tap records messages on receipt only; handler outcomes are not tapped.</summary>
+        public void OnHandled(string actorName, object message, TimeSpan elapsed, Exception? exception)
+        {
+        }
+
         /// <summary>All captured messages, optionally filtered to those received by <paramref name="actorName" />.</summary>
         public IReadOnlyList<TappedMessage> Snapshot(string? actorName = null)
         {

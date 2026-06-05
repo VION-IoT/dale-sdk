@@ -9,6 +9,7 @@ using Vion.Dale.Sdk.Configuration.Contract;
 using Vion.Dale.Sdk.Configuration.Interfaces;
 using Vion.Dale.Sdk.Configuration.Services;
 using Vion.Dale.Sdk.Configuration.Timers;
+using Vion.Dale.Sdk.Diagnostics;
 using Vion.Dale.Sdk.Messages;
 using Vion.Dale.Sdk.Persistence;
 using Vion.Dale.Sdk.Utils;
@@ -45,6 +46,13 @@ namespace Vion.Dale.Sdk.Core
         private bool _initializeDeferred;
 
         private readonly Dictionary<string, (TimeSpan interval, Action callback)> _timerCallbacks = [];
+
+        // RFC 0005 watchdog: raw per-[Timer] callback duration + scheduler jitter, reported to the vitals
+        // core when one is registered. Absent in bare hosts and the TestKit, where measurement is skipped.
+        private readonly Dictionary<string, long> _timerLastTickTimestamp = [];
+        private IActorVitalsCollector? _vitalsCollector;
+        private TimeProvider _timeProvider = TimeProvider.System;
+        private string? _vitalsActorName;
 
         private IActorContext _actorContext = null!;
 
@@ -120,6 +128,13 @@ namespace Vion.Dale.Sdk.Core
                 case InitializeLogicBlock m: // initialization
                     Id = m.LogicBlockId;
                     Name = m.LogicBlockName;
+
+                    // RFC 0005: resolve the vitals collector + clock for per-[Timer] watchdog signals.
+                    // Optional — absent in bare hosts and the TestKit, where timer measurement is skipped.
+                    _vitalsCollector = m.ServiceProvider.GetService(typeof(IActorVitalsCollector)) as IActorVitalsCollector;
+                    _timeProvider = m.ServiceProvider.GetService(typeof(TimeProvider)) as TimeProvider ?? TimeProvider.System;
+                    _vitalsActorName = LogicBlockUtils.CreateLogicBlockName(Name, Id);
+
                     _logger.LogDebug("Initializing logic block '{LogicBlockName}' ({LogicBlockId}) with {ContractMappingCount} contract mappings",
                                      Name,
                                      Id,
@@ -558,7 +573,37 @@ namespace Vion.Dale.Sdk.Core
                 return;
             }
 
-            callback();
+            if (_vitalsCollector == null)
+            {
+                callback();
+                return;
+            }
+
+            // RFC 0005 watchdog: measure the callback duration and the scheduler jitter (actual minus
+            // requested inter-tick delay), reporting both to the vitals core. The callback's exception
+            // still propagates (the finally only reports), so behaviour is otherwise unchanged.
+            var jitter = ComputeTimerJitter(message.Identifier, interval);
+            var startTimestamp = _timeProvider.GetTimestamp();
+            try
+            {
+                callback();
+            }
+            finally
+            {
+                _vitalsCollector.OnTimerCallback(_vitalsActorName!, _timeProvider.GetElapsedTime(startTimestamp), jitter);
+            }
+        }
+
+        private TimeSpan ComputeTimerJitter(string timerIdentifier, TimeSpan interval)
+        {
+            var jitter = TimeSpan.Zero;
+            if (_timerLastTickTimestamp.TryGetValue(timerIdentifier, out var lastTimestamp))
+            {
+                jitter = _timeProvider.GetElapsedTime(lastTimestamp) - interval;
+            }
+
+            _timerLastTickTimestamp[timerIdentifier] = _timeProvider.GetTimestamp();
+            return jitter;
         }
 
         private void AddTimerCallback(string identifier, TimeSpan interval, Action callback)
