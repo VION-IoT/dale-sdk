@@ -127,6 +127,30 @@ $exampleProjects = @(
     }
 )
 
+# First-party logic-block libraries under libraries/. Their Vion.Dale.* package references and (for
+# the packable main project) their own <Version> both track the SDK release — kept loosely in lockstep
+# with the SDK and the examples.
+$libraryProjects = @(
+    @{
+        Path              = "libraries\Vion.Diagnostics\Vion.Diagnostics\Vion.Diagnostics.csproj"
+        PackageReferences = @("Vion.Dale.Sdk")
+    },
+    @{
+        Path              = "libraries\Vion.Diagnostics\Vion.Diagnostics.DevHost\Vion.Diagnostics.DevHost.csproj"
+        PackageReferences = @("Vion.Dale.DevHost.Web")
+    },
+    @{
+        Path              = "libraries\Vion.Diagnostics\Vion.Diagnostics.Test\Vion.Diagnostics.Test.csproj"
+        PackageReferences = @("Vion.Dale.Sdk.TestKit")
+    }
+)
+
+# Library main projects whose <Version> tracks the SDK release (packed by `dale upload`). Only the
+# main project per library carries a <Version>; DevHost / Test do not pack.
+$libraryMainProjectsWithVersion = @(
+    "libraries\Vion.Diagnostics\Vion.Diagnostics\Vion.Diagnostics.csproj"
+)
+
 function Set-ProjectVersion
 {
     param(
@@ -251,6 +275,23 @@ foreach ($example in $exampleProjects)
     }
 }
 
+Write-Host "`nUpdating library project package references (not their <Version>)..." -ForegroundColor Yellow
+foreach ($library in $libraryProjects)
+{
+    if (Test-Path $library.Path)
+    {
+        Write-Host "Processing $( Split-Path $library.Path -Leaf )..." -ForegroundColor Gray
+        foreach ($packageId in $library.PackageReferences)
+        {
+            [void](Update-PackageReference -projectPath $library.Path -packageId $packageId -version $Version)
+        }
+    }
+    else
+    {
+        Write-Warning "Library project not found: $( $library.Path )"
+    }
+}
+
 Write-Host "`nUpdating example main project versions..." -ForegroundColor Yellow
 foreach ($projectPath in $exampleMainProjectsWithVersion)
 {
@@ -261,6 +302,19 @@ foreach ($projectPath in $exampleMainProjectsWithVersion)
     else
     {
         Write-Warning "Example main project not found: $projectPath"
+    }
+}
+
+Write-Host "`nUpdating library main project versions..." -ForegroundColor Yellow
+foreach ($projectPath in $libraryMainProjectsWithVersion)
+{
+    if (Test-Path $projectPath)
+    {
+        Set-ProjectVersion -projectPath $projectPath -version $Version
+    }
+    else
+    {
+        Write-Warning "Library main project not found: $projectPath"
     }
 }
 

@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netstandard2.1</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+
+        <!-- Logic-block library metadata. Packed + uploaded via `dale upload` on its own
+             per-library-tag lane (Vion.Diagnostics/vX.Y.Z), not published to nuget.org. -->
+        <PackageId>Vion.Diagnostics</PackageId>
+        <!-- Tracks the SDK release version (loosely in lockstep with the SDK + examples);
+             bumped by scripts/set-version.ps1. -->
+        <Version>0.7.0</Version>
+        <Authors>Vion-IoT</Authors>
+        <Company>Vion-IoT</Company>
+        <Description>VION runtime diagnostics logic block (RFC 0005 Sink 2): a dashboard-native per-actor vitals table + runtime-health rollup, read from the SDK's IRuntimeDiagnostics.</Description>
+        <IsPackable>false</IsPackable>
+
+        <!-- debug information from the source generator -->
+        <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+        <CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)Generated</CompilerGeneratedFilesOutputPath>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Vion.Dale.Sdk" Version="0.7.0"/>
+        <!-- shim to be able to use readonly record structs in netstandard2.1 -->
+        <PackageReference Include="IsExternalInit" Version="1.0.3">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <!-- shim to be able to use required members in netstandard2.1 -->
+        <PackageReference Include="RequiredMemberAttribute" Version="1.0.0">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+    </ItemGroup>
+
+</Project>

@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.0.31903.59
+# Visual Studio Version 18
+VisualStudioVersion = 18.6.11819.183 stable
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "scripts", "scripts", "{D9FC5E25-9732-482E-B680-4BE5FCE5DA5A}"
 	ProjectSection(SolutionItems) = preProject
@@ -14,12 +14,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{12D5C68C-9
 	ProjectSection(SolutionItems) = preProject
 		docs\snapshots\cli-help-snapshot.txt = docs\snapshots\cli-help-snapshot.txt
 		docs\snapshots\publicapi-manifest.json = docs\snapshots\publicapi-manifest.json
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "vion-iot-library", "vion-iot-library", "{F7BAFA36-2C5E-4218-A248-33E2BB275AAA}"
-	ProjectSection(SolutionItems) = preProject
-		templates\vion-iot-library\README.md = templates\vion-iot-library\README.md
-		templates\vion-iot-library\VionIotLibraryTemplate.sln = templates\vion-iot-library\VionIotLibraryTemplate.sln
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vion.Dale.Cli.Test", "Vion.Dale.Cli.Test\Vion.Dale.Cli.Test.csproj", "{45123E57-2B9B-4751-AA91-F0804F1D4FD5}"
@@ -81,6 +75,10 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "templates", "templates", "{808186BE-9BD0-DD1D-D574-36EEAD1E7F8F}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "vion-iot-library", "vion-iot-library", "{51FDC193-B050-6CC8-F301-7ACEE0694D8C}"
+	ProjectSection(SolutionItems) = preProject
+		templates\vion-iot-library\README.md = templates\vion-iot-library\README.md
+		templates\vion-iot-library\VionIotLibraryTemplate.sln = templates\vion-iot-library\VionIotLibraryTemplate.sln
+	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "examples", "examples", "{B36A84DF-456D-A817-6EDD-3EC3E7F6E11F}"
 EndProject
@@ -145,6 +143,16 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vion.Dale.DevHost.Test", "Vion.Dale.DevHost.Test\Vion.Dale.DevHost.Test.csproj", "{C94A9654-807D-4A9A-944A-F80C8E633301}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vion.Examples.PingPong.IntegrationTest", "examples\Vion.Examples.PingPong\Vion.Examples.PingPong.IntegrationTest\Vion.Examples.PingPong.IntegrationTest.csproj", "{4C7A255F-BFE0-4C69-9FA9-457D8D9D515D}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "libraries", "libraries", "{F2E35B3E-9711-EDEC-6202-DB40BDEED14A}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Vion.Diagnostics", "Vion.Diagnostics", "{D6EFB975-535E-2291-5238-BDA974900001}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vion.Diagnostics", "libraries\Vion.Diagnostics\Vion.Diagnostics\Vion.Diagnostics.csproj", "{FEF76150-95CA-4AA2-9FA5-6C6D22B92680}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vion.Diagnostics.Test", "libraries\Vion.Diagnostics\Vion.Diagnostics.Test\Vion.Diagnostics.Test.csproj", "{CB66E4A8-E7F3-485A-A77A-99B85BC839BE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vion.Diagnostics.DevHost", "libraries\Vion.Diagnostics\Vion.Diagnostics.DevHost\Vion.Diagnostics.DevHost.csproj", "{BE770D47-D496-4BEC-BAE4-4749A9FBB24C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -792,6 +800,42 @@ Global
 		{4C7A255F-BFE0-4C69-9FA9-457D8D9D515D}.Release|x64.Build.0 = Release|Any CPU
 		{4C7A255F-BFE0-4C69-9FA9-457D8D9D515D}.Release|x86.ActiveCfg = Release|Any CPU
 		{4C7A255F-BFE0-4C69-9FA9-457D8D9D515D}.Release|x86.Build.0 = Release|Any CPU
+		{FEF76150-95CA-4AA2-9FA5-6C6D22B92680}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FEF76150-95CA-4AA2-9FA5-6C6D22B92680}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FEF76150-95CA-4AA2-9FA5-6C6D22B92680}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{FEF76150-95CA-4AA2-9FA5-6C6D22B92680}.Debug|x64.Build.0 = Debug|Any CPU
+		{FEF76150-95CA-4AA2-9FA5-6C6D22B92680}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{FEF76150-95CA-4AA2-9FA5-6C6D22B92680}.Debug|x86.Build.0 = Debug|Any CPU
+		{FEF76150-95CA-4AA2-9FA5-6C6D22B92680}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FEF76150-95CA-4AA2-9FA5-6C6D22B92680}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FEF76150-95CA-4AA2-9FA5-6C6D22B92680}.Release|x64.ActiveCfg = Release|Any CPU
+		{FEF76150-95CA-4AA2-9FA5-6C6D22B92680}.Release|x64.Build.0 = Release|Any CPU
+		{FEF76150-95CA-4AA2-9FA5-6C6D22B92680}.Release|x86.ActiveCfg = Release|Any CPU
+		{FEF76150-95CA-4AA2-9FA5-6C6D22B92680}.Release|x86.Build.0 = Release|Any CPU
+		{CB66E4A8-E7F3-485A-A77A-99B85BC839BE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CB66E4A8-E7F3-485A-A77A-99B85BC839BE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CB66E4A8-E7F3-485A-A77A-99B85BC839BE}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{CB66E4A8-E7F3-485A-A77A-99B85BC839BE}.Debug|x64.Build.0 = Debug|Any CPU
+		{CB66E4A8-E7F3-485A-A77A-99B85BC839BE}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{CB66E4A8-E7F3-485A-A77A-99B85BC839BE}.Debug|x86.Build.0 = Debug|Any CPU
+		{CB66E4A8-E7F3-485A-A77A-99B85BC839BE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CB66E4A8-E7F3-485A-A77A-99B85BC839BE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CB66E4A8-E7F3-485A-A77A-99B85BC839BE}.Release|x64.ActiveCfg = Release|Any CPU
+		{CB66E4A8-E7F3-485A-A77A-99B85BC839BE}.Release|x64.Build.0 = Release|Any CPU
+		{CB66E4A8-E7F3-485A-A77A-99B85BC839BE}.Release|x86.ActiveCfg = Release|Any CPU
+		{CB66E4A8-E7F3-485A-A77A-99B85BC839BE}.Release|x86.Build.0 = Release|Any CPU
+		{BE770D47-D496-4BEC-BAE4-4749A9FBB24C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BE770D47-D496-4BEC-BAE4-4749A9FBB24C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BE770D47-D496-4BEC-BAE4-4749A9FBB24C}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{BE770D47-D496-4BEC-BAE4-4749A9FBB24C}.Debug|x64.Build.0 = Debug|Any CPU
+		{BE770D47-D496-4BEC-BAE4-4749A9FBB24C}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{BE770D47-D496-4BEC-BAE4-4749A9FBB24C}.Debug|x86.Build.0 = Debug|Any CPU
+		{BE770D47-D496-4BEC-BAE4-4749A9FBB24C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BE770D47-D496-4BEC-BAE4-4749A9FBB24C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BE770D47-D496-4BEC-BAE4-4749A9FBB24C}.Release|x64.ActiveCfg = Release|Any CPU
+		{BE770D47-D496-4BEC-BAE4-4749A9FBB24C}.Release|x64.Build.0 = Release|Any CPU
+		{BE770D47-D496-4BEC-BAE4-4749A9FBB24C}.Release|x86.ActiveCfg = Release|Any CPU
+		{BE770D47-D496-4BEC-BAE4-4749A9FBB24C}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -824,5 +868,12 @@ Global
 		{999A3A9D-7D55-4537-BAA1-56727B856082} = {2ADFD8DA-B552-4CF7-0CAA-FA40707D6687}
 		{D63F60BB-C807-4054-9101-A017A6C9A587} = {2ADFD8DA-B552-4CF7-0CAA-FA40707D6687}
 		{4C7A255F-BFE0-4C69-9FA9-457D8D9D515D} = {C16C772E-C5FA-321A-55C0-52BBA310CC9E}
+		{D6EFB975-535E-2291-5238-BDA974900001} = {F2E35B3E-9711-EDEC-6202-DB40BDEED14A}
+		{FEF76150-95CA-4AA2-9FA5-6C6D22B92680} = {D6EFB975-535E-2291-5238-BDA974900001}
+		{CB66E4A8-E7F3-485A-A77A-99B85BC839BE} = {D6EFB975-535E-2291-5238-BDA974900001}
+		{BE770D47-D496-4BEC-BAE4-4749A9FBB24C} = {D6EFB975-535E-2291-5238-BDA974900001}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {7A2E39A5-0BE2-4F45-B8D3-E4E366913D90}
 	EndGlobalSection
 EndGlobal
