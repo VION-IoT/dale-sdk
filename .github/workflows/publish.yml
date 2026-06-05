@@ -1,6 +1,9 @@
 name: Pack & Publish
 # Two jobs:
-#   - publish: delegates pack/build/push to VION-IoT/shared-workflows
+#   - publish: delegates the build/test/style gate (gate: true) + pack/push to
+#     VION-IoT/shared-workflows (publish-nuget.yml). The gate runs on every PR/main/tag
+#     this workflow triggers on, reusing the pack build — see the Code Style section in
+#     CLAUDE.md and VION-IoT/shared-workflows actions/dotnet-gate.
 #   - drift-and-docs: dale-sdk specific — snapshot regen, drift detection,
 #     auto-commit on PRs and on main, push API reference to documentation
 #     on main
@@ -37,6 +40,15 @@ jobs:
     uses: VION-IoT/shared-workflows/.github/workflows/publish-nuget.yml@v1
     with:
       solution: Vion.Dale.Sdk.sln
+      # Build + test + ReSharper cleanupcode style gate before packing, in the pack job
+      # (one build). Runs on every PR/main/tag this workflow triggers on. Requires the
+      # cleanup setup in this repo (.config/dotnet-tools.json, scripts/cleanup-code.ps1,
+      # Vion.Dale.Sdk.sln.DotSettings). See VION-IoT/shared-workflows dotnet-gate.
+      gate: true
+      # Exclude the PingPong example's network integration test from the gate — it needs
+      # live socket/timing and is for manual/local runs, not a CI quality gate. All other
+      # (unit) tests run.
+      test-filter: 'FullyQualifiedName!~IntegrationTest'
     permissions:
       contents: read
     secrets: inherit

@@ -92,9 +92,23 @@ Env vars: `DALE_CLIENT_ID`, `DALE_CLIENT_SECRET`, `DALE_INTEGRATOR_ID` (all user
 
 - C# with `ImplicitUsings: false` (all usings explicit).
 - `Nullable: enabled`.
-- Format with `jb cleanupcode Vion.Dale.Sdk.sln --profile="Built-in: Reformat Code"` (JetBrains CLI).
+- Code cleanup: **ReSharper `cleanupcode`** with the `Custom: Full Cleanup (excl. optimize usings)` profile (JetBrains CLI) — see the cleanup note below. Do NOT use the `Built-in: Reformat Code` profile.
 - Allman brace style throughout.
 - Targets: `netstandard2.1` for SDK runtime + I/O / protocol contracts + Http (cross-platform plugin compatibility), `netstandard2.0` for source generator, `net10.0` for TestKits / CLI / DevHost / ProtoActor / Plugin / LogicBlockParser / tests.
+
+Code style is **ReSharper cleanupcode** with the `Custom: Full Cleanup (excl. optimize usings)`
+profile in `Vion.Dale.Sdk.sln.DotSettings` — the same profile ReSharper/Rider apply on save. The
+single source of truth is **`scripts/cleanup-code.ps1`**: it restores the pinned `jb` tool
+(`.config/dotnet-tools.json`) and runs the exact cleanup. CI runs the same script with `-Verify`
+(fails on drift) via the shared `VION-IoT/shared-workflows` gate: `.github/workflows/publish.yml`
+calls `publish-nuget.yml` with `gate: true`, which runs `scripts/cleanup-code.ps1 -Verify` (the
+`dotnet-gate` composite) before packing — so local and CI can't diverge.
+
+**Before opening a PR: run `pwsh scripts/cleanup-code.ps1` (or the `/cleanup` slash command),
+review `git diff`, and commit any changes** — this keeps the CI style gate from failing the PR.
+**Agents: do this automatically before `gh pr create`.** Do NOT run cleanup with
+`--profile="Built-in: Reformat Code"` — it differs from the DotSettings profile and fights
+cleanup-on-save.
 
 ## Related Repos
 
