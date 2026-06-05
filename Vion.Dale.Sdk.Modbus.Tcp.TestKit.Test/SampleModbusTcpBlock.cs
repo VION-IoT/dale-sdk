@@ -35,9 +35,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
                                                1,
                                                this,
                                                values => Power = values[0],
-                                               ex => LastReadError = ex,
-                                               ByteOrder.MsbToLsb,
-                                               WordOrder32.MswToLsw);
+                                               ex => LastReadError = ex);
         }
 
         /// <summary>

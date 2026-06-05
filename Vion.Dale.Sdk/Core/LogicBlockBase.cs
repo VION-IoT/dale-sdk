@@ -57,10 +57,10 @@ namespace Vion.Dale.Sdk.Core
         private bool _runtimeActorsLinked;
 
         // Key: ServiceIdentifier, Value: ServiceIdentifier
-        private Dictionary<ServiceIdentifier, string> _serviceIdentifierLookup = [];
+        private Dictionary<string, ServiceIdentifier> _serviceIdLookup = [];
 
         // Key: ServiceIdentifier, Value: ServiceIdentifier
-        private Dictionary<string, ServiceIdentifier> _serviceIdLookup = [];
+        private Dictionary<ServiceIdentifier, string> _serviceIdentifierLookup = [];
 
         private IActorReference _serviceMeasuringPointHandlerActorRef = null!; // set during initialization
 

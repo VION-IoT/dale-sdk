@@ -18,15 +18,16 @@ namespace Vion.Diagnostics
         // RuntimeHealth couples to these names: if dale renames the classes this silently reads 0.
         // A future hardening is an SDK-exposed well-known-role marker instead of name matching.
         private const string MqttClientRole = "MqttClient";
+
         private const string ServicePropertyHandlerRole = "ServicePropertyHandler";
+
         private const string ServiceMeasuringPointHandlerRole = "ServiceMeasuringPointHandler";
 
-        public static DiagnosticsResult Project(
-            IReadOnlyList<ActorVitals> prior,
-            IReadOnlyList<ActorVitals> current,
-            TimeSpan elapsed,
-            string? filter = null,
-            DiagnosticsThresholds? thresholds = null)
+        public static DiagnosticsResult Project(IReadOnlyList<ActorVitals> prior,
+                                                IReadOnlyList<ActorVitals> current,
+                                                TimeSpan elapsed,
+                                                string? filter = null,
+                                                DiagnosticsThresholds? thresholds = null)
         {
             var priorByName = BuildLookup(prior);
             var t = thresholds ?? DiagnosticsThresholds.Default;
@@ -44,14 +45,13 @@ namespace Vion.Diagnostics
                     continue;
                 }
 
-                logicBlocks.Add(new LogicBlockVitals(
-                    vitals.ActorName,
-                    MessageRatePerSec: RatePerSecond(priorByName, vitals, v => v.MessagesHandled, elapsed),
-                    HandlerDurationMax: vitals.HandlerDurationMax,
-                    MailboxDepth: vitals.MailboxDepth,
-                    Errors: (int)vitals.Errors,
-                    LastActivityUtc: vitals.LastActivityUtc == default ? null : vitals.LastActivityUtc.UtcDateTime,
-                    Health: HealthFor(vitals, priorByName, t)));
+                logicBlocks.Add(new LogicBlockVitals(vitals.ActorName,
+                                                     RatePerSecond(priorByName, vitals, v => v.MessagesHandled, elapsed),
+                                                     vitals.HandlerDurationMax,
+                                                     vitals.MailboxDepth,
+                                                     (int)vitals.Errors,
+                                                     vitals.LastActivityUtc == default ? null : vitals.LastActivityUtc.UtcDateTime,
+                                                     HealthFor(vitals, priorByName, t)));
             }
 
             var rows = logicBlocks.ToImmutable();
@@ -60,10 +60,7 @@ namespace Vion.Diagnostics
             return new DiagnosticsResult(rows, runtime, RollUp(rows, runtime, t));
         }
 
-        private static LogicBlockHealth HealthFor(
-            ActorVitals current,
-            Dictionary<string, ActorVitals> priorByName,
-            DiagnosticsThresholds t)
+        private static LogicBlockHealth HealthFor(ActorVitals current, Dictionary<string, ActorVitals> priorByName, DiagnosticsThresholds t)
         {
             if (current.MailboxDepth >= t.CriticalMailboxDepth || current.HandlerDurationMax >= t.CriticalHandlerDuration)
             {
@@ -79,15 +76,10 @@ namespace Vion.Diagnostics
             return LogicBlockHealth.Ok;
         }
 
-        private static DiagnosticsStatus RollUp(
-            ImmutableArray<LogicBlockVitals> rows,
-            RuntimeHealth runtime,
-            DiagnosticsThresholds t)
+        private static DiagnosticsStatus RollUp(ImmutableArray<LogicBlockVitals> rows, RuntimeHealth runtime, DiagnosticsThresholds t)
         {
-            var critical = runtime.MqttIngressBacklog >= t.CriticalMailboxDepth
-                           || runtime.PublisherBacklog >= t.CriticalMailboxDepth;
-            var warning = runtime.MqttIngressBacklog >= t.WarnMailboxDepth
-                          || runtime.PublisherBacklog >= t.WarnMailboxDepth;
+            var critical = runtime.MqttIngressBacklog >= t.CriticalMailboxDepth || runtime.PublisherBacklog >= t.CriticalMailboxDepth;
+            var warning = runtime.MqttIngressBacklog >= t.WarnMailboxDepth || runtime.PublisherBacklog >= t.WarnMailboxDepth;
 
             foreach (var row in rows)
             {
@@ -101,15 +93,10 @@ namespace Vion.Diagnostics
                 }
             }
 
-            return critical ? DiagnosticsStatus.Overloaded
-                : warning ? DiagnosticsStatus.Degraded
-                : DiagnosticsStatus.Healthy;
+            return critical ? DiagnosticsStatus.Overloaded : warning ? DiagnosticsStatus.Degraded : DiagnosticsStatus.Healthy;
         }
 
-        private static RuntimeHealth ProjectRuntime(
-            Dictionary<string, ActorVitals> priorByName,
-            IReadOnlyList<ActorVitals> current,
-            TimeSpan elapsed)
+        private static RuntimeHealth ProjectRuntime(Dictionary<string, ActorVitals> priorByName, IReadOnlyList<ActorVitals> current, TimeSpan elapsed)
         {
             var mqttIngressBacklog = 0;
             var publisherBacklog = 0;
@@ -149,11 +136,7 @@ namespace Vion.Diagnostics
             return byName;
         }
 
-        private static double RatePerSecond(
-            Dictionary<string, ActorVitals> priorByName,
-            ActorVitals current,
-            Func<ActorVitals, long> counter,
-            TimeSpan elapsed)
+        private static double RatePerSecond(Dictionary<string, ActorVitals> priorByName, ActorVitals current, Func<ActorVitals, long> counter, TimeSpan elapsed)
         {
             if (elapsed.TotalSeconds <= 0 || !priorByName.TryGetValue(current.ActorName, out var prior))
             {

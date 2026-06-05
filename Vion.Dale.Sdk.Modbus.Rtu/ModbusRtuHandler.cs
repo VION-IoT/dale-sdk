@@ -45,9 +45,9 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
 
         private readonly Dictionary<ServiceProviderContractId, string> _setTopics = [];
 
-        private readonly OperationTimeoutException _timeoutException = new();
-
         private readonly TimeProvider _timeProvider;
+
+        private readonly OperationTimeoutException _timeoutException = new();
 
         private bool _checkExpiredRequestsStarted;
 

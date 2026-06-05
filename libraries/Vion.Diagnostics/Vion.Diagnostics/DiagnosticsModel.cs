@@ -32,10 +32,7 @@ namespace Vion.Diagnostics
     ///     property / measuring-point publisher actors (N blocks -> 1). <c>MqttConnected</c> is
     ///     intentionally omitted (edge-gateway-health concern).
     /// </summary>
-    public readonly record struct RuntimeHealth(
-        int MqttIngressBacklog,
-        int PublisherBacklog,
-        double PublishErrorsPerSec);
+    public readonly record struct RuntimeHealth(int MqttIngressBacklog, int PublisherBacklog, double PublishErrorsPerSec);
 
     /// <summary>Per-logic-block health; the <see cref="SeverityAttribute" /> drives the per-row status colour.</summary>
     public enum LogicBlockHealth
@@ -73,22 +70,11 @@ namespace Vion.Diagnostics
     ///     Severity thresholds. Runtime-tunable per gateway (the block exposes them as
     ///     <c>[ServiceProperty]</c>s); the defaults are starting points to be tuned with real data.
     /// </summary>
-    public readonly record struct DiagnosticsThresholds(
-        int WarnMailboxDepth,
-        int CriticalMailboxDepth,
-        TimeSpan WarnHandlerDuration,
-        TimeSpan CriticalHandlerDuration)
+    public readonly record struct DiagnosticsThresholds(int WarnMailboxDepth, int CriticalMailboxDepth, TimeSpan WarnHandlerDuration, TimeSpan CriticalHandlerDuration)
     {
-        public static DiagnosticsThresholds Default { get; } =
-            new(WarnMailboxDepth: 50,
-                CriticalMailboxDepth: 500,
-                WarnHandlerDuration: TimeSpan.FromMilliseconds(100),
-                CriticalHandlerDuration: TimeSpan.FromSeconds(1));
+        public static DiagnosticsThresholds Default { get; } = new(50, 500, TimeSpan.FromMilliseconds(100), TimeSpan.FromSeconds(1));
     }
 
     /// <summary>The full projection the diagnostics block republishes on each tick.</summary>
-    public readonly record struct DiagnosticsResult(
-        ImmutableArray<LogicBlockVitals> LogicBlocks,
-        RuntimeHealth RuntimeHealth,
-        DiagnosticsStatus Status);
+    public readonly record struct DiagnosticsResult(ImmutableArray<LogicBlockVitals> LogicBlocks, RuntimeHealth RuntimeHealth, DiagnosticsStatus Status);
 }

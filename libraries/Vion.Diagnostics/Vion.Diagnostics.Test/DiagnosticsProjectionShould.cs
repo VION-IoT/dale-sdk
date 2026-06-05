@@ -7,56 +7,88 @@ namespace Vion.Diagnostics.Test
 {
     public class DiagnosticsProjectionShould
     {
-        [Fact]
-        public void ProjectALogicBlockActorIntoARow()
+        private static readonly DiagnosticsThresholds T = new(50, 500, TimeSpan.FromMilliseconds(100), TimeSpan.FromSeconds(1));
+
+        private static ActorVitals LogicBlock(string name,
+                                              string type,
+                                              long messages = 0,
+                                              long errors = 0,
+                                              double handlerMaxMs = 0,
+                                              int mailbox = 0)
         {
-            var lastActivity = new DateTimeOffset(2026, 6, 5, 8, 0, 0, TimeSpan.Zero);
-            var snapshot = new List<ActorVitals>
-            {
-                new ActorVitals(
-                    "logicblock_Heater_1",
-                    new ActorIdentity(ActorCategory.LogicBlock, "Heater", "Vion.Examples.Energy"),
-                    MessagesHandled: 100,
-                    Errors: 3,
-                    HandlerDurationMax: TimeSpan.FromMilliseconds(12),
-                    HandlerDurationTotal: TimeSpan.FromMilliseconds(500),
-                    MailboxDepth: 4,
-                    MailboxDepthMax: 9,
-                    TimerCallbackDurationMax: TimeSpan.Zero,
-                    TimerJitterMax: TimeSpan.Zero,
-                    LastActivityUtc: lastActivity),
-            };
+            return new ActorVitals(name,
+                                   new ActorIdentity(ActorCategory.LogicBlock, type, "Lib"),
+                                   messages,
+                                   errors,
+                                   TimeSpan.FromMilliseconds(handlerMaxMs),
+                                   TimeSpan.Zero,
+                                   mailbox,
+                                   mailbox,
+                                   TimeSpan.Zero,
+                                   TimeSpan.Zero,
+                                   DateTimeOffset.UnixEpoch);
+        }
 
-            var result = DiagnosticsProjection.Project(snapshot, snapshot, TimeSpan.FromSeconds(1));
-
-            var row = Assert.Single(result.LogicBlocks);
-            Assert.Equal("logicblock_Heater_1", row.LogicBlockName);
-            Assert.Equal(TimeSpan.FromMilliseconds(12), row.HandlerDurationMax);
-            Assert.Equal(4, row.MailboxDepth);
-            Assert.Equal(3, row.Errors);
-            Assert.Equal(lastActivity.UtcDateTime, row.LastActivityUtc);
+        private static ActorVitals Runtime(string role, long errors = 0, int mailbox = 0)
+        {
+            return new ActorVitals(role,
+                                   new ActorIdentity(ActorCategory.Runtime, role, null),
+                                   0,
+                                   errors,
+                                   TimeSpan.Zero,
+                                   TimeSpan.Zero,
+                                   mailbox,
+                                   mailbox,
+                                   TimeSpan.Zero,
+                                   TimeSpan.Zero,
+                                   DateTimeOffset.UnixEpoch);
         }
 
         [Fact]
-        public void ReportNullLastActivityForANeverActiveBlock()
+        public void ComputeMessageRatePerSecondFromTheDelta()
         {
-            var idle = new ActorVitals(
-                "logicblock_Idle_1",
-                new ActorIdentity(ActorCategory.LogicBlock, "Idle", "Lib"),
-                MessagesHandled: 0,
-                Errors: 0,
-                HandlerDurationMax: TimeSpan.Zero,
-                HandlerDurationTotal: TimeSpan.Zero,
-                MailboxDepth: 0,
-                MailboxDepthMax: 0,
-                TimerCallbackDurationMax: TimeSpan.Zero,
-                TimerJitterMax: TimeSpan.Zero,
-                LastActivityUtc: default);
-            var snapshot = new List<ActorVitals> { idle };
+            var prior = new List<ActorVitals> { LogicBlock("logicblock_Heater_1", "Heater", 90) };
+            var current = new List<ActorVitals> { LogicBlock("logicblock_Heater_1", "Heater", 100) };
+
+            var result = DiagnosticsProjection.Project(prior, current, TimeSpan.FromSeconds(2));
+
+            Assert.Equal(5.0, Assert.Single(result.LogicBlocks).MessageRatePerSec);
+        }
+
+        [Fact]
+        public void ComputePublishErrorsPerSecondFromThePublisherDeltas()
+        {
+            var prior = new List<ActorVitals>
+                        {
+                            Runtime("ServicePropertyHandler", 10),
+                            Runtime("ServiceMeasuringPointHandler"),
+                        };
+            var current = new List<ActorVitals>
+                          {
+                              Runtime("ServicePropertyHandler", 14),
+                              Runtime("ServiceMeasuringPointHandler", 2),
+                          };
+
+            var result = DiagnosticsProjection.Project(prior, current, TimeSpan.FromSeconds(2));
+
+            Assert.Equal(3.0, result.RuntimeHealth.PublishErrorsPerSec);
+        }
+
+        [Fact]
+        public void DeriveRuntimeBacklogsFromTheRuntimeActors()
+        {
+            var snapshot = new List<ActorVitals>
+                           {
+                               Runtime("MqttClient", mailbox: 7),
+                               Runtime("ServicePropertyHandler", mailbox: 3),
+                               Runtime("ServiceMeasuringPointHandler", mailbox: 2),
+                               LogicBlock("logicblock_Heater_1", "Heater", mailbox: 99),
+                           };
 
             var result = DiagnosticsProjection.Project(snapshot, snapshot, TimeSpan.FromSeconds(1));
 
-            Assert.Null(Assert.Single(result.LogicBlocks).LastActivityUtc);
+            Assert.Equal(7, result.RuntimeHealth.MqttIngressBacklog);
+            Assert.Equal(5, result.RuntimeHealth.PublisherBacklog);
         }
 
         [Fact]
@@ -70,85 +102,17 @@ namespace Vion.Diagnostics.Test
         }
 
         [Fact]
-        public void ComputeMessageRatePerSecondFromTheDelta()
-        {
-            var prior = new List<ActorVitals> { LogicBlock("logicblock_Heater_1", "Heater", messages: 90) };
-            var current = new List<ActorVitals> { LogicBlock("logicblock_Heater_1", "Heater", messages: 100) };
-
-            var result = DiagnosticsProjection.Project(prior, current, TimeSpan.FromSeconds(2));
-
-            Assert.Equal(5.0, Assert.Single(result.LogicBlocks).MessageRatePerSec);
-        }
-
-        [Fact]
-        public void ReportZeroRateWhenThereIsNoPriorSample()
-        {
-            var current = new List<ActorVitals> { LogicBlock("logicblock_Heater_1", "Heater", messages: 100) };
-
-            var result = DiagnosticsProjection.Project(new List<ActorVitals>(), current, TimeSpan.FromSeconds(2));
-
-            Assert.Equal(0.0, Assert.Single(result.LogicBlocks).MessageRatePerSec);
-        }
-
-        [Fact]
-        public void ReportZeroRateAfterACounterReset()
-        {
-            var prior = new List<ActorVitals> { LogicBlock("logicblock_Heater_1", "Heater", messages: 100) };
-            var current = new List<ActorVitals> { LogicBlock("logicblock_Heater_1", "Heater", messages: 10) };
-
-            var result = DiagnosticsProjection.Project(prior, current, TimeSpan.FromSeconds(2));
-
-            Assert.Equal(0.0, Assert.Single(result.LogicBlocks).MessageRatePerSec);
-        }
-
-        [Fact]
         public void IncludeOnlyLogicBlocksMatchingTheFilter()
         {
             var snapshot = new List<ActorVitals>
-            {
-                LogicBlock("logicblock_Heater_1", "Heater"),
-                LogicBlock("logicblock_Pump_2", "Pump"),
-            };
+                           {
+                               LogicBlock("logicblock_Heater_1", "Heater"),
+                               LogicBlock("logicblock_Pump_2", "Pump"),
+                           };
 
-            var result = DiagnosticsProjection.Project(snapshot, snapshot, TimeSpan.FromSeconds(1), filter: "Heater");
+            var result = DiagnosticsProjection.Project(snapshot, snapshot, TimeSpan.FromSeconds(1), "Heater");
 
             Assert.Equal("logicblock_Heater_1", Assert.Single(result.LogicBlocks).LogicBlockName);
-        }
-
-        [Fact]
-        public void DeriveRuntimeBacklogsFromTheRuntimeActors()
-        {
-            var snapshot = new List<ActorVitals>
-            {
-                Runtime("MqttClient", mailbox: 7),
-                Runtime("ServicePropertyHandler", mailbox: 3),
-                Runtime("ServiceMeasuringPointHandler", mailbox: 2),
-                LogicBlock("logicblock_Heater_1", "Heater", mailbox: 99),
-            };
-
-            var result = DiagnosticsProjection.Project(snapshot, snapshot, TimeSpan.FromSeconds(1));
-
-            Assert.Equal(7, result.RuntimeHealth.MqttIngressBacklog);
-            Assert.Equal(5, result.RuntimeHealth.PublisherBacklog);
-        }
-
-        [Fact]
-        public void ComputePublishErrorsPerSecondFromThePublisherDeltas()
-        {
-            var prior = new List<ActorVitals>
-            {
-                Runtime("ServicePropertyHandler", errors: 10),
-                Runtime("ServiceMeasuringPointHandler", errors: 0),
-            };
-            var current = new List<ActorVitals>
-            {
-                Runtime("ServicePropertyHandler", errors: 14),
-                Runtime("ServiceMeasuringPointHandler", errors: 2),
-            };
-
-            var result = DiagnosticsProjection.Project(prior, current, TimeSpan.FromSeconds(2));
-
-            Assert.Equal(3.0, result.RuntimeHealth.PublishErrorsPerSec);
         }
 
         [Fact]
@@ -162,11 +126,23 @@ namespace Vion.Diagnostics.Test
         }
 
         [Fact]
-        public void MarkWarningWhenMailboxReachesTheWarnThreshold()
+        public void MarkOkAndHealthyWhenWithinAllThresholds()
         {
-            var snapshot = new List<ActorVitals> { LogicBlock("logicblock_A_1", "A", mailbox: 50) };
+            var snapshot = new List<ActorVitals> { LogicBlock("logicblock_A_1", "A", mailbox: 5, handlerMaxMs: 10) };
 
             var result = DiagnosticsProjection.Project(snapshot, snapshot, TimeSpan.FromSeconds(1), thresholds: T);
+
+            Assert.Equal(LogicBlockHealth.Ok, Assert.Single(result.LogicBlocks).Health);
+            Assert.Equal(DiagnosticsStatus.Healthy, result.Status);
+        }
+
+        [Fact]
+        public void MarkWarningWhenErrorsIncreasedSinceTheLastTick()
+        {
+            var prior = new List<ActorVitals> { LogicBlock("logicblock_A_1", "A", errors: 2) };
+            var current = new List<ActorVitals> { LogicBlock("logicblock_A_1", "A", errors: 5) };
+
+            var result = DiagnosticsProjection.Project(prior, current, TimeSpan.FromSeconds(1), thresholds: T);
 
             Assert.Equal(LogicBlockHealth.Warning, Assert.Single(result.LogicBlocks).Health);
         }
@@ -182,35 +158,90 @@ namespace Vion.Diagnostics.Test
         }
 
         [Fact]
-        public void MarkWarningWhenErrorsIncreasedSinceTheLastTick()
+        public void MarkWarningWhenMailboxReachesTheWarnThreshold()
         {
-            var prior = new List<ActorVitals> { LogicBlock("logicblock_A_1", "A", errors: 2) };
-            var current = new List<ActorVitals> { LogicBlock("logicblock_A_1", "A", errors: 5) };
+            var snapshot = new List<ActorVitals> { LogicBlock("logicblock_A_1", "A", mailbox: 50) };
 
-            var result = DiagnosticsProjection.Project(prior, current, TimeSpan.FromSeconds(1), thresholds: T);
+            var result = DiagnosticsProjection.Project(snapshot, snapshot, TimeSpan.FromSeconds(1), thresholds: T);
 
             Assert.Equal(LogicBlockHealth.Warning, Assert.Single(result.LogicBlocks).Health);
         }
 
         [Fact]
-        public void MarkOkAndHealthyWhenWithinAllThresholds()
+        public void ProjectALogicBlockActorIntoARow()
         {
-            var snapshot = new List<ActorVitals> { LogicBlock("logicblock_A_1", "A", mailbox: 5, handlerMaxMs: 10) };
+            var lastActivity = new DateTimeOffset(2026,
+                                                  6,
+                                                  5,
+                                                  8,
+                                                  0,
+                                                  0,
+                                                  TimeSpan.Zero);
+            var snapshot = new List<ActorVitals>
+                           {
+                               new("logicblock_Heater_1",
+                                   new ActorIdentity(ActorCategory.LogicBlock, "Heater", "Vion.Examples.Energy"),
+                                   100,
+                                   3,
+                                   TimeSpan.FromMilliseconds(12),
+                                   TimeSpan.FromMilliseconds(500),
+                                   4,
+                                   9,
+                                   TimeSpan.Zero,
+                                   TimeSpan.Zero,
+                                   lastActivity),
+                           };
 
-            var result = DiagnosticsProjection.Project(snapshot, snapshot, TimeSpan.FromSeconds(1), thresholds: T);
+            var result = DiagnosticsProjection.Project(snapshot, snapshot, TimeSpan.FromSeconds(1));
 
-            Assert.Equal(LogicBlockHealth.Ok, Assert.Single(result.LogicBlocks).Health);
-            Assert.Equal(DiagnosticsStatus.Healthy, result.Status);
+            var row = Assert.Single(result.LogicBlocks);
+            Assert.Equal("logicblock_Heater_1", row.LogicBlockName);
+            Assert.Equal(TimeSpan.FromMilliseconds(12), row.HandlerDurationMax);
+            Assert.Equal(4, row.MailboxDepth);
+            Assert.Equal(3, row.Errors);
+            Assert.Equal(lastActivity.UtcDateTime, row.LastActivityUtc);
         }
 
         [Fact]
-        public void RollUpStatusToOverloadedWhenAnyLogicBlockIsCritical()
+        public void ReportNullLastActivityForANeverActiveBlock()
         {
-            var snapshot = new List<ActorVitals> { LogicBlock("logicblock_A_1", "A", mailbox: 600), LogicBlock("logicblock_B_2", "B", mailbox: 1) };
+            var idle = new ActorVitals("logicblock_Idle_1",
+                                       new ActorIdentity(ActorCategory.LogicBlock, "Idle", "Lib"),
+                                       0,
+                                       0,
+                                       TimeSpan.Zero,
+                                       TimeSpan.Zero,
+                                       0,
+                                       0,
+                                       TimeSpan.Zero,
+                                       TimeSpan.Zero,
+                                       default);
+            var snapshot = new List<ActorVitals> { idle };
 
-            var result = DiagnosticsProjection.Project(snapshot, snapshot, TimeSpan.FromSeconds(1), thresholds: T);
+            var result = DiagnosticsProjection.Project(snapshot, snapshot, TimeSpan.FromSeconds(1));
 
-            Assert.Equal(DiagnosticsStatus.Overloaded, result.Status);
+            Assert.Null(Assert.Single(result.LogicBlocks).LastActivityUtc);
+        }
+
+        [Fact]
+        public void ReportZeroRateAfterACounterReset()
+        {
+            var prior = new List<ActorVitals> { LogicBlock("logicblock_Heater_1", "Heater", 100) };
+            var current = new List<ActorVitals> { LogicBlock("logicblock_Heater_1", "Heater", 10) };
+
+            var result = DiagnosticsProjection.Project(prior, current, TimeSpan.FromSeconds(2));
+
+            Assert.Equal(0.0, Assert.Single(result.LogicBlocks).MessageRatePerSec);
+        }
+
+        [Fact]
+        public void ReportZeroRateWhenThereIsNoPriorSample()
+        {
+            var current = new List<ActorVitals> { LogicBlock("logicblock_Heater_1", "Heater", 100) };
+
+            var result = DiagnosticsProjection.Project(new List<ActorVitals>(), current, TimeSpan.FromSeconds(2));
+
+            Assert.Equal(0.0, Assert.Single(result.LogicBlocks).MessageRatePerSec);
         }
 
         [Fact]
@@ -223,19 +254,14 @@ namespace Vion.Diagnostics.Test
             Assert.Equal(DiagnosticsStatus.Degraded, result.Status);
         }
 
-        private static readonly DiagnosticsThresholds T =
-            new(WarnMailboxDepth: 50,
-                CriticalMailboxDepth: 500,
-                WarnHandlerDuration: TimeSpan.FromMilliseconds(100),
-                CriticalHandlerDuration: TimeSpan.FromSeconds(1));
+        [Fact]
+        public void RollUpStatusToOverloadedWhenAnyLogicBlockIsCritical()
+        {
+            var snapshot = new List<ActorVitals> { LogicBlock("logicblock_A_1", "A", mailbox: 600), LogicBlock("logicblock_B_2", "B", mailbox: 1) };
 
-        private static ActorVitals LogicBlock(string name, string type, long messages = 0, long errors = 0, double handlerMaxMs = 0, int mailbox = 0) =>
-            new ActorVitals(name, new ActorIdentity(ActorCategory.LogicBlock, type, "Lib"),
-                            messages, errors, TimeSpan.FromMilliseconds(handlerMaxMs), TimeSpan.Zero,
-                            mailbox, mailbox, TimeSpan.Zero, TimeSpan.Zero, DateTimeOffset.UnixEpoch);
+            var result = DiagnosticsProjection.Project(snapshot, snapshot, TimeSpan.FromSeconds(1), thresholds: T);
 
-        private static ActorVitals Runtime(string role, long errors = 0, int mailbox = 0) =>
-            new ActorVitals(role, new ActorIdentity(ActorCategory.Runtime, role, null),
-                            0, errors, TimeSpan.Zero, TimeSpan.Zero, mailbox, mailbox, TimeSpan.Zero, TimeSpan.Zero, DateTimeOffset.UnixEpoch);
+            Assert.Equal(DiagnosticsStatus.Overloaded, result.Status);
+        }
     }
 }
