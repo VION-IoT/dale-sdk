@@ -1,0 +1,50 @@
+# Upload first-party LogicBlock libraries (libraries/) to the Vion Cloud test environment.
+#
+# Mirrors examples.yml, for the libraries/ area: on a main push touching libraries/, test the
+# library and `dale upload` it with the integrator service-account credentials. `--skip-duplicate`
+# makes re-pushing the same (packageId, <Version>) a no-op — so a release is just a <Version> bump
+# in the library csproj. The library <Version> is independent of the SDK (see scripts/set-version.ps1).
+name: Upload Libraries
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'libraries/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        library:
+          - Vion.Diagnostics
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Test
+        run: dotnet test libraries/${{ matrix.library }}/${{ matrix.library }}.sln -c Release
+
+      - name: Install Vion.Dale.Cli
+        run: dotnet tool update -g Vion.Dale.Cli
+
+      - name: Upload library
+        working-directory: libraries/${{ matrix.library }}/${{ matrix.library }}
+        run: |
+          dale upload \
+            --client-id "$DALE_CI_CLIENT_ID" \
+            --client-secret "$DALE_CI_CLIENT_SECRET" \
+            --environment test \
+            --skip-duplicate
+        env:
+          DALE_CI_CLIENT_ID: ${{ secrets.DALE_CI_CLIENT_ID }}
+          DALE_CI_CLIENT_SECRET: ${{ secrets.DALE_CI_CLIENT_SECRET }}

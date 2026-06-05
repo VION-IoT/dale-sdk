@@ -127,6 +127,24 @@ $exampleProjects = @(
     }
 )
 
+# First-party logic-block libraries under libraries/. Unlike examples, a library's own <Version> is
+# independent of the SDK release and is intentionally NOT bumped here (it ships on its own cadence) —
+# only its Vion.Dale.* package references track the SDK.
+$libraryProjects = @(
+    @{
+        Path              = "libraries\Vion.Diagnostics\Vion.Diagnostics\Vion.Diagnostics.csproj"
+        PackageReferences = @("Vion.Dale.Sdk")
+    },
+    @{
+        Path              = "libraries\Vion.Diagnostics\Vion.Diagnostics.DevHost\Vion.Diagnostics.DevHost.csproj"
+        PackageReferences = @("Vion.Dale.DevHost.Web")
+    },
+    @{
+        Path              = "libraries\Vion.Diagnostics\Vion.Diagnostics.Test\Vion.Diagnostics.Test.csproj"
+        PackageReferences = @("Vion.Dale.Sdk.TestKit")
+    }
+)
+
 function Set-ProjectVersion
 {
     param(
@@ -248,6 +266,23 @@ foreach ($example in $exampleProjects)
     else
     {
         Write-Warning "Example project not found: $( $example.Path )"
+    }
+}
+
+Write-Host "`nUpdating library project package references (not their <Version>)..." -ForegroundColor Yellow
+foreach ($library in $libraryProjects)
+{
+    if (Test-Path $library.Path)
+    {
+        Write-Host "Processing $( Split-Path $library.Path -Leaf )..." -ForegroundColor Gray
+        foreach ($packageId in $library.PackageReferences)
+        {
+            [void](Update-PackageReference -projectPath $library.Path -packageId $packageId -version $Version)
+        }
+    }
+    else
+    {
+        Write-Warning "Library project not found: $( $library.Path )"
     }
 }
 
