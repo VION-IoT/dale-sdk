@@ -28,21 +28,21 @@ namespace Vion.Examples.Energy.Services
     {
         None = 0,
 
-        Temperature = 1 << 0, // temperature_2m (°C)
+        Temperature = 1 << 0, // temperature_2m (Â°C)
 
         RelativeHumidity = 1 << 1, // relative_humidity_2m (%)
 
-        DewPoint = 1 << 2, // dew_point_2m (°C)
+        DewPoint = 1 << 2, // dew_point_2m (Â°C)
 
         Precipitation = 1 << 3, // precipitation (mm)
 
         Rain = 1 << 4, // rain (mm)
 
-        ShortwaveRadiation = 1 << 5, // shortwave_radiation (W/m²)
+        ShortwaveRadiation = 1 << 5, // shortwave_radiation (W/mÂ²)
 
         WindSpeed = 1 << 6, // wind_speed_10m (km/h)
 
-        WindDirection = 1 << 7, // wind_direction_10m (°)
+        WindDirection = 1 << 7, // wind_direction_10m (Â°)
 
         CloudCover = 1 << 8, // cloud_cover (%)
 
