@@ -287,6 +287,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
             // serializer (ApplyAnnotations skips Title when schema.title is already set).
             var presentation = GetPresentation("PreferredMode");
             Assert.AreEqual("Bevorzugter Modus", presentation?["displayName"]?.GetValue<string>());
+
             // schema.title stays identity-bearing.
             var schema = GetSchema("PreferredMode");
             Assert.AreEqual("OperatingMode", schema["title"]?.GetValue<string>());

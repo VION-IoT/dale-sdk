@@ -38,7 +38,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         /// <param name="startingAddress">The starting address to read from.</param>
         /// <param name="quantity">The number of discrete inputs to read.</param>
         /// <param name="cancellationToken">A token to cancel the operation.</param>
-        /// <returns>A task representing the asynchronous operation, containing a reference to the reused response buffer with the discrete input data.</returns>
+        /// <returns>
+        ///     A task representing the asynchronous operation, containing a reference to the reused response buffer with the
+        ///     discrete input data.
+        /// </returns>
         /// <remarks>
         ///     WARNING: The returned Memory&lt;byte&gt; references an internal reused buffer.
         ///     The data is only valid until the next Modbus operation on this client instance.
@@ -52,7 +55,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         /// <param name="startingAddress">The starting address to read from.</param>
         /// <param name="quantity">The number of coils to read.</param>
         /// <param name="cancellationToken">A token to cancel the operation.</param>
-        /// <returns>A task representing the asynchronous operation, containing a reference to the reused response buffer with the coil data.</returns>
+        /// <returns>
+        ///     A task representing the asynchronous operation, containing a reference to the reused response buffer with the
+        ///     coil data.
+        /// </returns>
         /// <remarks>
         ///     WARNING: The returned Memory&lt;byte&gt; references an internal reused buffer.
         ///     The data is only valid until the next Modbus operation on this client instance.
@@ -86,7 +92,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         /// <param name="startingAddress">The starting address to read from.</param>
         /// <param name="quantity">The number of registers to read.</param>
         /// <param name="cancellationToken">A token to cancel the operation.</param>
-        /// <returns>A task representing the asynchronous operation, containing a reference to the reused response buffer with the input register data.</returns>
+        /// <returns>
+        ///     A task representing the asynchronous operation, containing a reference to the reused response buffer with the
+        ///     input register data.
+        /// </returns>
         /// <remarks>
         ///     WARNING: The returned Memory&lt;byte&gt; references an internal reused buffer.
         ///     The data is only valid until the next Modbus operation on this client instance.
@@ -100,7 +109,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         /// <param name="startingAddress">The starting address to read from.</param>
         /// <param name="quantity">The number of registers to read.</param>
         /// <param name="cancellationToken">A token to cancel the operation.</param>
-        /// <returns>A task representing the asynchronous operation, containing a reference to the reused response buffer with the holding register data.</returns>
+        /// <returns>
+        ///     A task representing the asynchronous operation, containing a reference to the reused response buffer with the
+        ///     holding register data.
+        /// </returns>
         /// <remarks>
         ///     WARNING: The returned Memory&lt;byte&gt; references an internal reused buffer.
         ///     The data is only valid until the next Modbus operation on this client instance.

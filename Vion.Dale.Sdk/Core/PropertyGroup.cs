@@ -32,7 +32,10 @@ namespace Vion.Dale.Sdk.Core
         /// <summary>Counters, totals, accumulated values. Often rendered prominently for energy / billing-style data.</summary>
         public const string Metric = "metric";
 
-        /// <summary>Troubleshooting and health information — last error, response time, connectivity. Usually a collapsed / secondary section.</summary>
+        /// <summary>
+        ///     Troubleshooting and health information — last error, response time, connectivity. Usually a collapsed /
+        ///     secondary section.
+        /// </summary>
         public const string Diagnostics = "diagnostics";
 
         /// <summary>Active alarm state, fault codes. Rendered with elevated visual treatment (banner / alert list) when active.</summary>

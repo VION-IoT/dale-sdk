@@ -8,6 +8,12 @@ namespace Vion.Dale.DevHost
     public interface IDevHost : IAsyncDisposable
     {
         /// <summary>
+        ///     Headless, scriptable control surface for the running network (CI / tests / agents).
+        ///     Available after <see cref="StartAsync" />. See RFC 0003.
+        /// </summary>
+        IDevHostControl Control { get; }
+
+        /// <summary>
         ///     Starts the development host
         /// </summary>
         Task StartAsync(CancellationToken cancellationToken = default);
@@ -21,11 +27,5 @@ namespace Vion.Dale.DevHost
         ///     Stops the development host
         /// </summary>
         Task StopAsync(CancellationToken cancellationToken = default);
-
-        /// <summary>
-        ///     Headless, scriptable control surface for the running network (CI / tests / agents).
-        ///     Available after <see cref="StartAsync" />. See RFC 0003.
-        /// </summary>
-        IDevHostControl Control { get; }
     }
 }

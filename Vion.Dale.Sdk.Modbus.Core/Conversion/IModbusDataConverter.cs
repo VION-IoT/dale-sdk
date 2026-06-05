@@ -15,7 +15,8 @@ namespace Vion.Dale.Sdk.Modbus.Core.Conversion
         /// <param name="bytesPerCount">The number of bytes per value.</param>
         /// <returns>The number of registers required to hold the specified count of values.</returns>
         /// <exception cref="InvalidCountException">
-        ///     Thrown when <paramref name="count" /> is 0 or when the calculated number of registers exceeds <see cref="ushort.MaxValue" />.
+        ///     Thrown when <paramref name="count" /> is 0 or when the calculated number of registers exceeds
+        ///     <see cref="ushort.MaxValue" />.
         /// </exception>
         ushort ConvertCountToQuantity(uint count, int bytesPerCount);
 
@@ -23,29 +24,40 @@ namespace Vion.Dale.Sdk.Modbus.Core.Conversion
         ///     Swaps bytes according to the specified byte order if it differs from the system's endianness.
         /// </summary>
         /// <param name="bytes">The byte array to swap.</param>
-        /// <param name="byteOrder">The byte order of the data. For reads, this is the order the data is currently in. For writes, this is the target order to convert to.</param>
+        /// <param name="byteOrder">
+        ///     The byte order of the data. For reads, this is the order the data is currently in. For writes,
+        ///     this is the target order to convert to.
+        /// </param>
         /// <exception cref="UnsupportedByteOrderException">
         ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified.
         /// </exception>
         /// <remarks>
         ///     Swapping only occurs when the system's endianness does not match the specified byte order.
-        ///     For example, if <paramref name="byteOrder" /> is <see cref="ByteOrder.MsbToLsb" /> (big-endian) and the system is little-endian, bytes are swapped.
-        ///     If <paramref name="byteOrder" /> is <see cref="ByteOrder.LsbToMsb" /> (little-endian) and the system is little-endian, no swap occurs.
+        ///     For example, if <paramref name="byteOrder" /> is <see cref="ByteOrder.MsbToLsb" /> (big-endian) and the system is
+        ///     little-endian, bytes are swapped.
+        ///     If <paramref name="byteOrder" /> is <see cref="ByteOrder.LsbToMsb" /> (little-endian) and the system is
+        ///     little-endian, no swap occurs.
         /// </remarks>
         void SwapBytes(Memory<byte> bytes, ByteOrder byteOrder);
 
         /// <summary>
-        ///     Swaps 16-bit words within 32-bit values according to the specified word order if it differs from the system's endianness.
+        ///     Swaps 16-bit words within 32-bit values according to the specified word order if it differs from the system's
+        ///     endianness.
         /// </summary>
         /// <param name="bytes">The byte array containing 32-bit values.</param>
-        /// <param name="wordOrder">The word order of the data. For reads, this is the order the data is currently in. For writes, this is the target order to convert to.</param>
+        /// <param name="wordOrder">
+        ///     The word order of the data. For reads, this is the order the data is currently in. For writes,
+        ///     this is the target order to convert to.
+        /// </param>
         /// <exception cref="UnsupportedWordOrder32Exception">
         ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified.
         /// </exception>
         /// <remarks>
         ///     Swapping only occurs when the system's endianness does not match the specified word order.
-        ///     For example, if <paramref name="wordOrder" /> is <see cref="WordOrder32.MswToLsw" /> (big-endian) and the system is little-endian, words are swapped.
-        ///     If <paramref name="wordOrder" /> is <see cref="WordOrder32.LswToMsw" /> (little-endian) and the system is little-endian, no swap occurs.
+        ///     For example, if <paramref name="wordOrder" /> is <see cref="WordOrder32.MswToLsw" /> (big-endian) and the system is
+        ///     little-endian, words are swapped.
+        ///     If <paramref name="wordOrder" /> is <see cref="WordOrder32.LswToMsw" /> (little-endian) and the system is
+        ///     little-endian, no swap occurs.
         /// </remarks>
         void SwapWords(Memory<byte> bytes, WordOrder32 wordOrder);
 
@@ -53,14 +65,19 @@ namespace Vion.Dale.Sdk.Modbus.Core.Conversion
         ///     Swaps 16-bit words within 64-bit values according to the specified word order.
         /// </summary>
         /// <param name="bytes">The byte array containing 64-bit values.</param>
-        /// <param name="wordOrder">The word order of the data. For reads, this is the order the data is currently in. For writes, this is the target order to convert to.</param>
+        /// <param name="wordOrder">
+        ///     The word order of the data. For reads, this is the order the data is currently in. For writes,
+        ///     this is the target order to convert to.
+        /// </param>
         /// <exception cref="UnsupportedWordOrder64Exception">
         ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified.
         /// </exception>
         /// <remarks>
-        ///     For <see cref="WordOrder64.ABCD" /> and <see cref="WordOrder64.DCBA" />, swapping only occurs when the system's endianness
+        ///     For <see cref="WordOrder64.ABCD" /> and <see cref="WordOrder64.DCBA" />, swapping only occurs when the system's
+        ///     endianness
         ///     does not match the specified word order (same behavior as 32-bit word swapping).
-        ///     For mid-endian orders (<see cref="WordOrder64.CDAB" /> and <see cref="WordOrder64.BADC" />), swapping always occurs,
+        ///     For mid-endian orders (<see cref="WordOrder64.CDAB" /> and <see cref="WordOrder64.BADC" />), swapping always
+        ///     occurs,
         ///     with the swap operation depending on the system's endianness to produce the correct result.
         /// </remarks>
         void SwapWords(Memory<byte> bytes, WordOrder64 wordOrder);

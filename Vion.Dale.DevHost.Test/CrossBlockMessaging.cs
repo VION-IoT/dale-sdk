@@ -11,9 +11,7 @@ namespace Vion.Dale.DevHost.Test
     ///     PingPong example's shape; the generator produces the ISource / ISink interfaces, the
     ///     GetLinkedSinks helper, and SendRequest / HandleRequest / HandleResponse.
     /// </summary>
-    [LogicBlockContract(BetweenInterface = "ISource",
-                        AndInterface = "ISink",
-                        Direction = ContractDirection.Bidirectional)]
+    [LogicBlockContract(BetweenInterface = "ISource", AndInterface = "ISink", Direction = ContractDirection.Bidirectional)]
     public static class PollLink
     {
         [RequestResponse(From = "ISource", To = "ISink", ResponseType = typeof(Ack))]

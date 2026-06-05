@@ -16,25 +16,16 @@ namespace Vion.Dale.DevHost.Test
         [TestMethod]
         public async Task DeliverPollFromSourceToSink_ObservableViaStateAndTap()
         {
-            var config = DevConfigurationBuilder.Create()
-                                                .AddLogicBlock<SourceBlock>("source")
-                                                .AddLogicBlock<SinkBlock>("sink")
-                                                .AutoConnect()
-                                                .Build();
+            var config = DevConfigurationBuilder.Create().AddLogicBlock<SourceBlock>("source").AddLogicBlock<SinkBlock>("sink").AutoConnect().Build();
 
-            await using var host = DevHostBuilder.Create()
-                                                 .WithDi<CrossBlockDependencyInjection>()
-                                                 .WithConfiguration(config)
-                                                 .Build();
+            await using var host = DevHostBuilder.Create().WithDi<CrossBlockDependencyInjection>().WithConfiguration(config).Build();
             await host.StartAsync();
 
             // The source sends one Poll to the sink in Starting(); the sink increments ReceivedPolls when it
             // handles it. That interaction can complete during StartAsync (before a WaitForAsync waiter is even
             // registered), so we poll the cached value — WaitForAsync observes only *future* events and is the
             // right tool for ongoing/periodic changes (see the counter test), not a one-shot startup interaction.
-            var polls = await PollUntilAsync(() => host.Control.GetProperty("sink", "ReceivedPolls"),
-                                             v => v is not null && Convert.ToInt32(v) >= 1,
-                                             timeout: TimeSpan.FromSeconds(15));
+            var polls = await PollUntilAsync(() => host.Control.GetProperty("sink", "ReceivedPolls"), v => v is not null && Convert.ToInt32(v) >= 1, TimeSpan.FromSeconds(15));
 
             Assert.IsNotNull(polls, "The sink should have received and handled the poll from the source.");
             Assert.AreEqual(1, Convert.ToInt32(polls));
@@ -43,8 +34,8 @@ namespace Vion.Dale.DevHost.Test
             // the diagnostic that would reveal a missing/stubbed poll ("the sink received nothing").
             var sinkMessages = host.Control.RecordedMessages("sink");
             Assert.IsNotEmpty(sinkMessages, "The tap should have captured messages received by the sink.");
-            Assert.IsTrue(sinkMessages.Any(m => m.MessageType.Contains("FunctionInterface", StringComparison.OrdinalIgnoreCase)
-                                                || (m.Message.ToString() ?? "").Contains("Poll", StringComparison.OrdinalIgnoreCase)),
+            Assert.IsTrue(sinkMessages.Any(m => m.MessageType.Contains("FunctionInterface", StringComparison.OrdinalIgnoreCase) ||
+                                                (m.Message.ToString() ?? "").Contains("Poll", StringComparison.OrdinalIgnoreCase)),
                           "The tap should show the cross-block Poll request arriving at the sink.");
         }
 

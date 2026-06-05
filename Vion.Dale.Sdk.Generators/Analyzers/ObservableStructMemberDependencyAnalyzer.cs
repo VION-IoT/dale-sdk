@@ -103,10 +103,11 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                     continue;
                 }
 
-                context.ReportDiagnostic(Diagnostic.Create(
-                    DaleDiagnostics.DALE031_ObservableStructMemberDependencyNotTracked,
-                    memberAccess.GetLocation(),
-                    property.Name, structProperty.Name, memberSymbol.Name));
+                context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE031_ObservableStructMemberDependencyNotTracked,
+                                                           memberAccess.GetLocation(),
+                                                           property.Name,
+                                                           structProperty.Name,
+                                                           memberSymbol.Name));
             }
         }
 
@@ -137,8 +138,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         // `Bands` (implicit this) or `this.Bands`.
         private static bool IsThisRelative(ExpressionSyntax instance)
         {
-            return instance is IdentifierNameSyntax
-                   || (instance is MemberAccessExpressionSyntax ma && ma.Expression is ThisExpressionSyntax);
+            return instance is IdentifierNameSyntax || (instance is MemberAccessExpressionSyntax ma && ma.Expression is ThisExpressionSyntax);
         }
 
         // True when the node sits inside a nameof(...) operator, whose argument is evaluated at compile time

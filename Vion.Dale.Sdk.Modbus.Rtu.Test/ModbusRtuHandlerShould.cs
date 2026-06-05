@@ -2,6 +2,10 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Google.FlatBuffers;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Time.Testing;
+using Moq;
 using Vion.Contracts.Constants;
 using Vion.Contracts.FlatBuffers.Hw.Modbus;
 using Vion.Dale.Sdk.Abstractions;
@@ -9,10 +13,6 @@ using Vion.Dale.Sdk.Messages;
 using Vion.Dale.Sdk.Modbus.Core.Exceptions;
 using Vion.Dale.Sdk.Mqtt;
 using Vion.Dale.Sdk.Utils;
-using Google.FlatBuffers;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Time.Testing;
-using Moq;
 
 namespace Vion.Dale.Sdk.Modbus.Rtu.Test
 {
@@ -80,13 +80,13 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
 
         private readonly Mock<IActorContext> _actorContextMock = new();
 
-        private readonly FakeTimeProvider _timeProvider = new(Now);
-
         private readonly Mock<ILogger<ModbusRtuHandler>> _loggerMock = new();
 
         private readonly Mock<IActorReference> _logicBlockActorRefMock = new();
 
         private readonly Mock<IActorReference> _mqttClientActorRefMock = new();
+
+        private readonly FakeTimeProvider _timeProvider = new(Now);
 
         private TimeSpan? _scheduledExpirationDelay;
 
@@ -122,8 +122,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
 
             // Assert
             _actorContextMock.Verify(actorContext => actorContext.SendTo(_mqttClientActorRefMock.Object,
-                                                                        It.Is<object>(message => message is PublishMqttMessage),
-                                                                        It.IsAny<Dictionary<string, string>?>()),
+                                                                         It.Is<object>(message => message is PublishMqttMessage),
+                                                                         It.IsAny<Dictionary<string, string>?>()),
                                      Times.Once);
         }
 
@@ -137,9 +137,9 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
 
             // Assert
             _actorContextMock.Verify(actorContext => actorContext.SendTo(_mqttClientActorRefMock.Object,
-                                                                        It.Is<object>(message => ((PublishMqttMessage)message).Topic == GetRequestTopic &&
-                                                                                                 ((PublishMqttMessage)message).ResponseTopic == GetResponseTopic),
-                                                                        It.IsAny<Dictionary<string, string>?>()),
+                                                                         It.Is<object>(message => ((PublishMqttMessage)message).Topic == GetRequestTopic &&
+                                                                                                  ((PublishMqttMessage)message).ResponseTopic == GetResponseTopic),
+                                                                         It.IsAny<Dictionary<string, string>?>()),
                                      Times.Once);
         }
 
@@ -153,9 +153,9 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
 
             // Assert
             _actorContextMock.Verify(actorContext => actorContext.SendTo(_mqttClientActorRefMock.Object,
-                                                                        It.Is<object>(message => ((PublishMqttMessage)message).Topic == SetRequestTopic &&
-                                                                                                 ((PublishMqttMessage)message).ResponseTopic == SetResponseTopic),
-                                                                        It.IsAny<Dictionary<string, string>?>()),
+                                                                         It.Is<object>(message => ((PublishMqttMessage)message).Topic == SetRequestTopic &&
+                                                                                                  ((PublishMqttMessage)message).ResponseTopic == SetResponseTopic),
+                                                                         It.IsAny<Dictionary<string, string>?>()),
                                      Times.Once);
         }
 
@@ -555,8 +555,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
 
             // Assert
             _actorContextMock.Verify(actorContext => actorContext.SendTo(_mqttClientActorRefMock.Object,
-                                                                        It.Is<object>(message => message is PublishMqttMessage),
-                                                                        It.IsAny<Dictionary<string, string>?>()),
+                                                                         It.Is<object>(message => message is PublishMqttMessage),
+                                                                         It.IsAny<Dictionary<string, string>?>()),
                                      Times.Once);
         }
 
@@ -572,8 +572,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
 
             // Assert
             _actorContextMock.Verify(actorContext => actorContext.SendTo(_mqttClientActorRefMock.Object,
-                                                                        It.Is<object>(message => ((PublishMqttMessage)message).Topic == GetRequestTopic),
-                                                                        It.IsAny<Dictionary<string, string>?>()),
+                                                                         It.Is<object>(message => ((PublishMqttMessage)message).Topic == GetRequestTopic),
+                                                                         It.IsAny<Dictionary<string, string>?>()),
                                      Times.Once);
         }
 
@@ -670,8 +670,10 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         {
             object? capturedMessage = null;
             _actorContextMock.Verify(actorContext => actorContext.SendTo(_logicBlockActorRefMock.Object,
-                                                                        It.Is<object>(message => CaptureAndMatch(message, ref capturedMessage, m => m is ContractMessage<ReadModbusRtuResponse>)),
-                                                                        It.IsAny<Dictionary<string, string>?>()),
+                                                                         It.Is<object>(message => CaptureAndMatch(message,
+                                                                                                                  ref capturedMessage,
+                                                                                                                  m => m is ContractMessage<ReadModbusRtuResponse>)),
+                                                                         It.IsAny<Dictionary<string, string>?>()),
                                      Times.AtLeastOnce);
             var response = ((ContractMessage<ReadModbusRtuResponse>)capturedMessage!).Data;
             response.Callback(response.Data, response.Exception);
@@ -681,8 +683,10 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         {
             object? capturedMessage = null;
             _actorContextMock.Verify(actorContext => actorContext.SendTo(_logicBlockActorRefMock.Object,
-                                                                        It.Is<object>(message => CaptureAndMatch(message, ref capturedMessage, m => m is ContractMessage<WriteModbusRtuResponse>)),
-                                                                        It.IsAny<Dictionary<string, string>?>()),
+                                                                         It.Is<object>(message => CaptureAndMatch(message,
+                                                                                                                  ref capturedMessage,
+                                                                                                                  m => m is ContractMessage<WriteModbusRtuResponse>)),
+                                                                         It.IsAny<Dictionary<string, string>?>()),
                                      Times.AtLeastOnce);
             var response = ((ContractMessage<WriteModbusRtuResponse>)capturedMessage!).Data;
             response.Callback(response.Exception);
@@ -723,11 +727,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
 
         private static MqttMessageReceived CreateMqttMessage(string topic, byte[] payload, Guid correlationId)
         {
-            return new MqttMessageReceived(topic,
-                                           new ReadOnlySequence<byte>(payload),
-                                           correlationId == Guid.Empty ? null : correlationId.ToByteArray(),
-                                           null,
-                                           []);
+            return new MqttMessageReceived(topic, new ReadOnlySequence<byte>(payload), correlationId == Guid.Empty ? null : correlationId.ToByteArray(), null, []);
         }
     }
 }

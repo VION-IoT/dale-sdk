@@ -1,5 +1,5 @@
-using Vion.Dale.Sdk.TestKit;
 using Moq;
+using Vion.Dale.Sdk.TestKit;
 
 namespace Vion.Dale.Sdk.AnalogIo.TestKit.Test
 {

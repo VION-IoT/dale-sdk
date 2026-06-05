@@ -1,7 +1,6 @@
 using System;
-using Vion.Dale.Sdk.Core;
-using Vion.Dale.Sdk.Utils;
 using Microsoft.Extensions.Logging;
+using Vion.Dale.Sdk.Core;
 using Vion.Examples.Energy.Contracts;
 using Vion.Examples.Energy.Utils;
 
@@ -11,9 +10,9 @@ namespace Vion.Examples.Energy.LogicBlocks
     [LogicBlockInterfaceBinding(typeof(IObservableElectricityConsumer), Multiplicity = LinkMultiplicity.ExactlyOne)]
     public class HouseSimulation : LogicBlockBase, IObservableElectricityConsumer
     {
-        private readonly TimeProvider _timeProvider;
-
         private readonly ILogger _logger;
+
+        private readonly TimeProvider _timeProvider;
 
         private DateTime? _lastUpdateTime;
 

@@ -1,6 +1,6 @@
 using System;
-using Vion.Dale.Sdk.TestKit;
 using Microsoft.Extensions.Time.Testing;
+using Vion.Dale.Sdk.TestKit;
 using Vion.Examples.Energy.Contracts;
 using Vion.Examples.Energy.LogicBlocks;
 using Xunit;
@@ -9,15 +9,22 @@ namespace Vion.Examples.Energy.Test
 {
     public class BatterySimulationShould
     {
-        private readonly FakeTimeProvider _timeProvider = new(new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero));
-        private readonly BatterySimulation _sut;
-
         public BatterySimulationShould()
         {
             _sut = new BatterySimulation(_timeProvider, LogicBlockTestHelper.CreateLoggerMock().Object);
             _sut.Capacity = 100; // 100 kWh
             _sut.InitializeForTest();
         }
+
+        private readonly FakeTimeProvider _timeProvider = new(new DateTimeOffset(2026,
+                                                                                 1,
+                                                                                 1,
+                                                                                 12,
+                                                                                 0,
+                                                                                 0,
+                                                                                 TimeSpan.Zero));
+
+        private readonly BatterySimulation _sut;
 
         private void AdvanceTime(TimeSpan offset)
         {
@@ -50,16 +57,26 @@ namespace Vion.Examples.Energy.Test
             _sut.OnTimer();
         }
 
-        // --- HandleRequest ---
+        [Fact]
+        public void HandleCommand_ClampDischargingToZeroWhenEmpty()
+        {
+            WarmUp();
+
+            _sut.HandleCommand(new ControllableElectricityBufferContract.Command(5.0, 5.0));
+
+            Assert.Equal(5.0, _sut.ActivePowerCharging); // can charge
+            Assert.Equal(0.0, _sut.ActivePowerDischarging); // can't discharge empty battery
+        }
 
         [Fact]
-        public void HandleRequest_ReturnCurrentValues()
+        public void HandleCommand_ClampToMaximumPower()
         {
-            var response = _sut.HandleRequest(new ControllableElectricityBufferContract.DataRequest());
+            ChargeTo(50.0);
 
-            Assert.Equal(0.0, response.ActivePowerCharging);
-            Assert.Equal(0.0, response.ActivePowerDischarging);
-            Assert.Equal(0.0, response.StateOfCharge);
+            _sut.HandleCommand(new ControllableElectricityBufferContract.Command(99.0, 99.0));
+
+            Assert.Equal(_sut.MaximumActivePowerCharging, _sut.ActivePowerCharging);
+            Assert.Equal(_sut.MaximumActivePowerDischarging, _sut.ActivePowerDischarging);
         }
 
         // --- HandleCommand ---
@@ -75,26 +92,72 @@ namespace Vion.Examples.Energy.Test
             Assert.Equal(3.0, _sut.ActivePowerDischarging);
         }
 
+        // --- HandleRequest ---
+
         [Fact]
-        public void HandleCommand_ClampToMaximumPower()
+        public void HandleRequest_ReturnCurrentValues()
         {
-            ChargeTo(50.0);
+            var response = _sut.HandleRequest(new ControllableElectricityBufferContract.DataRequest());
 
-            _sut.HandleCommand(new ControllableElectricityBufferContract.Command(99.0, 99.0));
-
-            Assert.Equal(_sut.MaximumActivePowerCharging, _sut.ActivePowerCharging);
-            Assert.Equal(_sut.MaximumActivePowerDischarging, _sut.ActivePowerDischarging);
+            Assert.Equal(0.0, response.ActivePowerCharging);
+            Assert.Equal(0.0, response.ActivePowerDischarging);
+            Assert.Equal(0.0, response.StateOfCharge);
         }
 
         [Fact]
-        public void HandleCommand_ClampDischargingToZeroWhenEmpty()
+        public void OnTimer_ClampStateOfChargeAt0Percent()
+        {
+            ChargeTo(10.0);
+
+            _sut.HandleCommand(new ControllableElectricityBufferContract.Command(0.0, 10.0));
+            AdvanceTime(TimeSpan.FromHours(10)); // discharge far beyond capacity
+            _sut.OnTimer();
+
+            Assert.Equal(0.0, _sut.StateOfCharge);
+        }
+
+        // --- OnTimer: SoC clamping ---
+
+        [Fact]
+        public void OnTimer_ClampStateOfChargeAt100Percent()
+        {
+            _sut.Capacity = 10; // small battery
+            WarmUp();
+
+            _sut.HandleCommand(new ControllableElectricityBufferContract.Command(10.0, 0.0));
+            AdvanceTime(TimeSpan.FromHours(2)); // 20 kWh into 10 kWh battery
+            _sut.OnTimer();
+
+            Assert.Equal(100.0, _sut.StateOfCharge);
+        }
+
+        // --- OnTimer: power limits based on SoC ---
+
+        [Fact]
+        public void OnTimer_DisableChargingWhenFull()
+        {
+            _sut.Capacity = 10;
+            WarmUp();
+
+            _sut.HandleCommand(new ControllableElectricityBufferContract.Command(10.0, 0.0));
+            AdvanceTime(TimeSpan.FromHours(2));
+            _sut.OnTimer();
+
+            Assert.Equal(100.0, _sut.StateOfCharge);
+            Assert.Equal(0.0, _sut.CurrentMaximumActivePowerCharging);
+            Assert.Equal(_sut.MaximumActivePowerDischarging, _sut.CurrentMaximumActivePowerDischarging);
+        }
+
+        [Fact]
+        public void OnTimer_DisableDischargingWhenEmpty()
         {
             WarmUp();
 
-            _sut.HandleCommand(new ControllableElectricityBufferContract.Command(5.0, 5.0));
+            // SoC is 0 (default), after WarmUp it stays 0
 
-            Assert.Equal(5.0, _sut.ActivePowerCharging); // can charge
-            Assert.Equal(0.0, _sut.ActivePowerDischarging); // can't discharge empty battery
+            Assert.Equal(0.0, _sut.StateOfCharge);
+            Assert.Equal(_sut.MaximumActivePowerCharging, _sut.CurrentMaximumActivePowerCharging);
+            Assert.Equal(0.0, _sut.CurrentMaximumActivePowerDischarging);
         }
 
         // --- OnTimer: energy integration ---
@@ -123,61 +186,6 @@ namespace Vion.Examples.Energy.Test
 
             // 10 kWh into 100 kWh battery → 10%
             Assert.Equal(10.0, _sut.StateOfCharge, 1);
-        }
-
-        // --- OnTimer: SoC clamping ---
-
-        [Fact]
-        public void OnTimer_ClampStateOfChargeAt100Percent()
-        {
-            _sut.Capacity = 10; // small battery
-            WarmUp();
-
-            _sut.HandleCommand(new ControllableElectricityBufferContract.Command(10.0, 0.0));
-            AdvanceTime(TimeSpan.FromHours(2)); // 20 kWh into 10 kWh battery
-            _sut.OnTimer();
-
-            Assert.Equal(100.0, _sut.StateOfCharge);
-        }
-
-        [Fact]
-        public void OnTimer_ClampStateOfChargeAt0Percent()
-        {
-            ChargeTo(10.0);
-
-            _sut.HandleCommand(new ControllableElectricityBufferContract.Command(0.0, 10.0));
-            AdvanceTime(TimeSpan.FromHours(10)); // discharge far beyond capacity
-            _sut.OnTimer();
-
-            Assert.Equal(0.0, _sut.StateOfCharge);
-        }
-
-        // --- OnTimer: power limits based on SoC ---
-
-        [Fact]
-        public void OnTimer_DisableChargingWhenFull()
-        {
-            _sut.Capacity = 10;
-            WarmUp();
-
-            _sut.HandleCommand(new ControllableElectricityBufferContract.Command(10.0, 0.0));
-            AdvanceTime(TimeSpan.FromHours(2));
-            _sut.OnTimer();
-
-            Assert.Equal(100.0, _sut.StateOfCharge);
-            Assert.Equal(0.0, _sut.CurrentMaximumActivePowerCharging);
-            Assert.Equal(_sut.MaximumActivePowerDischarging, _sut.CurrentMaximumActivePowerDischarging);
-        }
-
-        [Fact]
-        public void OnTimer_DisableDischargingWhenEmpty()
-        {
-            WarmUp();
-            // SoC is 0 (default), after WarmUp it stays 0
-
-            Assert.Equal(0.0, _sut.StateOfCharge);
-            Assert.Equal(_sut.MaximumActivePowerCharging, _sut.CurrentMaximumActivePowerCharging);
-            Assert.Equal(0.0, _sut.CurrentMaximumActivePowerDischarging);
         }
     }
 }

@@ -22,7 +22,8 @@ namespace Vion.Dale.Cli.Commands.Add
             setterOption.AcceptOnlyFromAmong("public", "private");
             var defaultNameOption = new Option<string?>("--default-name") { Description = "Title for [ServiceProperty] (defaults to the property name)" };
             var persistentOption = new Option<bool>("--persistent") { Description = "Add [Persistent] attribute" };
-            var groupOption = new Option<string?>("--group") { Description = "[Presentation] group: a PropertyGroup name (Status, Configuration, Metric, Diagnostics, Identity, Alarm) or an arbitrary raw key" };
+            var groupOption = new Option<string?>("--group")
+                              { Description = "[Presentation] group: a PropertyGroup name (Status, Configuration, Metric, Diagnostics, Identity, Alarm) or an arbitrary raw key" };
             var importanceOption = new Option<string?>("--importance") { Description = "[Presentation] importance: Primary, Secondary, Normal, or Hidden" };
             importanceOption.AcceptOnlyFromAmong(PresentationSnippet.Importances);
             var decimalsOption = new Option<int?>("--decimals") { Description = "[Presentation] numeric display precision" };
@@ -73,7 +74,15 @@ namespace Vion.Dale.Cli.Commands.Add
                                   }
 
                                   // Build the snippet
-                                  var snippet = BuildPropertySnippet(name!, type!, setter!, defaultName, persistent, group, importance, decimals, format);
+                                  var snippet = BuildPropertySnippet(name!,
+                                                                     type!,
+                                                                     setter!,
+                                                                     defaultName,
+                                                                     persistent,
+                                                                     group,
+                                                                     importance,
+                                                                     decimals,
+                                                                     format);
 
                                   // Insert into class
                                   if (!SourceInserter.InsertIntoClass(target.FilePath, target.ClassName, snippet))
@@ -101,8 +110,15 @@ namespace Vion.Dale.Cli.Commands.Add
             return command;
         }
 
-        internal static string BuildPropertySnippet(string name, string type, string setter, string? defaultName, bool persistent,
-                                                    string? group, string? importance, int? decimals, string? format)
+        internal static string BuildPropertySnippet(string name,
+                                                    string type,
+                                                    string setter,
+                                                    string? defaultName,
+                                                    bool persistent,
+                                                    string? group,
+                                                    string? importance,
+                                                    int? decimals,
+                                                    string? format)
         {
             var lines = new List<string>();
 

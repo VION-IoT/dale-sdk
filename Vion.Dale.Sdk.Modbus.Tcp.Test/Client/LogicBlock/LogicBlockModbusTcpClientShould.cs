@@ -2,13 +2,13 @@
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Moq;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Modbus.Core.Conversion;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.Request;
-using Microsoft.Extensions.Logging;
-using Moq;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
 {
@@ -19,7 +19,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
 
         private const ushort StartingAddress = 42;
 
-        private const TextEncoding TextEncoding = Modbus.Core.Conversion.TextEncoding.Utf8;
+        private const TextEncoding TextEncoding = Core.Conversion.TextEncoding.Utf8;
 
         private const int UnitIdentifier = 1;
 
@@ -27,11 +27,11 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
 
         private const uint Count = 3;
 
-        private const ByteOrder ByteOrder = Modbus.Core.Conversion.ByteOrder.LsbToMsb;
+        private const ByteOrder ByteOrder = Core.Conversion.ByteOrder.LsbToMsb;
 
-        private const WordOrder32 WordOrder32 = Modbus.Core.Conversion.WordOrder32.LswToMsw;
+        private const WordOrder32 WordOrder32 = Core.Conversion.WordOrder32.LswToMsw;
 
-        private const WordOrder64 WordOrder64 = Modbus.Core.Conversion.WordOrder64.BADC;
+        private const WordOrder64 WordOrder64 = Core.Conversion.WordOrder64.BADC;
 
         private readonly Mock<IModbusTcpClientWrapper> _clientWrapperMock = new();
 

@@ -1,6 +1,6 @@
-﻿using Vion.Dale.Sdk.Core;
+﻿using Microsoft.Extensions.Logging;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.DigitalIo.Input;
-using Microsoft.Extensions.Logging;
 using Vion.Examples.ToggleLight.Contracts;
 
 namespace Vion.Examples.ToggleLight.LogicBlocks

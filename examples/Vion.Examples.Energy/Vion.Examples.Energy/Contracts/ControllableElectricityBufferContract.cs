@@ -4,10 +4,10 @@ using Vion.Dale.Sdk.Core;
 namespace Vion.Examples.Energy.Contracts
 {
     [LogicBlockContract(BetweenInterface = "IControllableElectricityBuffer",
-              AndInterface = "IControllableElectricityBufferManager",
-              BetweenDefaultName = "Speicher",
-              AndDefaultName = "Energiemanager",
-              Direction = ContractDirection.AndToBetween)]
+                        AndInterface = "IControllableElectricityBufferManager",
+                        BetweenDefaultName = "Speicher",
+                        AndDefaultName = "Energiemanager",
+                        Direction = ContractDirection.AndToBetween)]
     public static class ControllableElectricityBufferContract
     {
         [RequestResponse(From = "IControllableElectricityBufferManager", To = "IControllableElectricityBuffer", ResponseType = typeof(DataResponse))]

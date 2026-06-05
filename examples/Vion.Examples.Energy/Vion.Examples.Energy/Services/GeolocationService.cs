@@ -1,9 +1,9 @@
-using Microsoft.Extensions.Logging;
 using System;
 using System.Globalization;
 using System.Linq;
 using System.Text.Json.Serialization;
 using System.Web;
+using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Http;
 

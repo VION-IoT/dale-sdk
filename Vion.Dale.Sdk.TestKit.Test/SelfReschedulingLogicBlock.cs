@@ -18,19 +18,20 @@ namespace Vion.Dale.Sdk.TestKit.Test
         // background drain thread, even if the buggy multi-pass loop is hot.
         private volatile bool _stopRescheduling;
 
-        public SelfReschedulingLogicBlock(ILogger logger) : base(logger)
-        {
-        }
-
         public bool StopRescheduling
         {
             get => _stopRescheduling;
+
             set => _stopRescheduling = value;
         }
 
         // Only the background thread mutates TickCount during the flush; the test thread reads
         // it only after Task.Wait, which provides the necessary memory barrier.
         public int TickCount { get; private set; }
+
+        public SelfReschedulingLogicBlock(ILogger logger) : base(logger)
+        {
+        }
 
         protected override void Ready()
         {

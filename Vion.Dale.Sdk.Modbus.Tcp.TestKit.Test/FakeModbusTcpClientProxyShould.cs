@@ -26,7 +26,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
             // assert the decoded value lands on the [ServiceProperty]. Catches byte/word-order bugs
             // because real ModbusDataConverter does the conversion against fake bytes.
             using var harness = new FakeModbusTcpHarness();
-            harness.Proxy.SetHoldingRegisters(unitId: 1, startingAddress: 40000, registerBytes: new byte[] { 0x12, 0x34, 0x56, 0x78 });
+            harness.Proxy.SetHoldingRegisters(1, 40000, new byte[] { 0x12, 0x34, 0x56, 0x78 });
 
             var sut = CreateBlock(harness);
             var ctx = sut.CreateTestContext().Build();
@@ -44,7 +44,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
             // Pattern: assert the SUT issued the read it was supposed to (address + count), independent
             // of the decoded value. Useful for "did the SUT poll the right register block?" checks.
             using var harness = new FakeModbusTcpHarness();
-            harness.Proxy.SetHoldingRegisters(unitId: 1, startingAddress: 40000, registerBytes: new byte[] { 0, 0, 0, 0 });
+            harness.Proxy.SetHoldingRegisters(1, 40000, new byte[] { 0, 0, 0, 0 });
 
             var sut = CreateBlock(harness);
             var ctx = sut.CreateTestContext().Build();
@@ -73,14 +73,15 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
             var sut = CreateBlock(harness);
             var ctx = sut.CreateTestContext().Build();
 
-            sut.WriteActivePowerLimit(value: 0x12345678u, wordOrder: WordOrder32.MswToLsw);
+            sut.WriteActivePowerLimit(0x12345678u, WordOrder32.MswToLsw);
             ctx.FlushPendingActions();
 
             var write = harness.Proxy.WriteHistory.Single();
             Assert.AreEqual(WriteEventKind.MultipleRegisters, write.Kind);
             Assert.AreEqual(1, write.UnitId);
             Assert.AreEqual((ushort)40378, write.Address);
-            CollectionAssert.AreEqual(new byte[] { 0x12, 0x34, 0x56, 0x78 }, write.Bytes,
+            CollectionAssert.AreEqual(new byte[] { 0x12, 0x34, 0x56, 0x78 },
+                                      write.Bytes,
                                       "MswToLsw + MsbToLsb: high word (0x1234) at addr+0, low word (0x5678) at addr+1; bytes MSB-first per register.");
         }
 
@@ -93,12 +94,11 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
             var sut = CreateBlock(harness);
             var ctx = sut.CreateTestContext().Build();
 
-            sut.WriteActivePowerLimit(value: 0x12345678u, wordOrder: WordOrder32.LswToMsw);
+            sut.WriteActivePowerLimit(0x12345678u, WordOrder32.LswToMsw);
             ctx.FlushPendingActions();
 
             var write = harness.Proxy.WriteHistory.Single();
-            CollectionAssert.AreEqual(new byte[] { 0x56, 0x78, 0x12, 0x34 }, write.Bytes,
-                                      "LswToMsw: low word (0x5678) at addr+0, high word (0x1234) at addr+1.");
+            CollectionAssert.AreEqual(new byte[] { 0x56, 0x78, 0x12, 0x34 }, write.Bytes, "LswToMsw: low word (0x5678) at addr+0, high word (0x1234) at addr+1.");
         }
 
         // --- Pipelining: synchronous queue handles back-to-back ops ---
@@ -109,13 +109,13 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
             // Pattern: prove the synchronous queue doesn't drop or reorder pipelined operations.
             // Read, then write, then read again — all three land in history in the expected order.
             using var harness = new FakeModbusTcpHarness();
-            harness.Proxy.SetHoldingRegisters(unitId: 1, startingAddress: 40000, registerBytes: new byte[] { 0x00, 0x01, 0x00, 0x02 });
+            harness.Proxy.SetHoldingRegisters(1, 40000, new byte[] { 0x00, 0x01, 0x00, 0x02 });
 
             var sut = CreateBlock(harness);
             var ctx = sut.CreateTestContext().Build();
 
             sut.ReadPowerOnce();
-            sut.WriteActivePowerLimit(value: 500);
+            sut.WriteActivePowerLimit(500);
             sut.ReadPowerOnce();
             ctx.FlushPendingActions();
 
@@ -132,7 +132,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
             // reporting IllegalDataAddress on a register the firmware doesn't expose). The SUT's
             // errorCallback should receive a ModbusException carrying the code.
             using var harness = new FakeModbusTcpHarness();
-            harness.Proxy.EnqueueReadModbusException(unitId: 1, startingAddress: 40000, ModbusExceptionCode.IllegalDataAddress);
+            harness.Proxy.EnqueueReadModbusException(1, 40000, ModbusExceptionCode.IllegalDataAddress);
 
             var sut = CreateBlock(harness);
             var ctx = sut.CreateTestContext().Build();
@@ -151,8 +151,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
             // Pattern: fault is one-shot. First read fails, the queue is drained, the second read
             // succeeds against the in-memory store. Models a device-glitch → retry-succeeds scenario.
             using var harness = new FakeModbusTcpHarness();
-            harness.Proxy.SetHoldingRegisters(unitId: 1, startingAddress: 40000, registerBytes: new byte[] { 0x00, 0x00, 0x00, 0x2A });
-            harness.Proxy.EnqueueReadModbusException(unitId: 1, startingAddress: 40000, ModbusExceptionCode.ServerDeviceBusy);
+            harness.Proxy.SetHoldingRegisters(1, 40000, new byte[] { 0x00, 0x00, 0x00, 0x2A });
+            harness.Proxy.EnqueueReadModbusException(1, 40000, ModbusExceptionCode.ServerDeviceBusy);
 
             var sut = CreateBlock(harness);
             var ctx = sut.CreateTestContext().Build();
@@ -172,9 +172,9 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
             // Pattern: tests can queue multiple faults to model "fail, fail, recover" sequences
             // without explicit teardown between SUT calls.
             using var harness = new FakeModbusTcpHarness();
-            harness.Proxy.SetHoldingRegisters(unitId: 1, startingAddress: 40000, registerBytes: new byte[] { 0x00, 0x00, 0x00, 0x07 });
-            harness.Proxy.EnqueueReadModbusException(unitId: 1, startingAddress: 40000, ModbusExceptionCode.ServerDeviceBusy);
-            harness.Proxy.EnqueueReadModbusException(unitId: 1, startingAddress: 40000, ModbusExceptionCode.GatewayTargetDeviceFailedToRespond);
+            harness.Proxy.SetHoldingRegisters(1, 40000, new byte[] { 0x00, 0x00, 0x00, 0x07 });
+            harness.Proxy.EnqueueReadModbusException(1, 40000, ModbusExceptionCode.ServerDeviceBusy);
+            harness.Proxy.EnqueueReadModbusException(1, 40000, ModbusExceptionCode.GatewayTargetDeviceFailedToRespond);
 
             var sut = CreateBlock(harness);
             var ctx = sut.CreateTestContext().Build();
@@ -200,12 +200,12 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
             // — a different bug class from "the SUT didn't issue the write at all"). In-memory store
             // is left unchanged: the device rejected the write, so its registers are untouched.
             using var harness = new FakeModbusTcpHarness();
-            harness.Proxy.EnqueueWriteModbusException(unitId: 1, address: 40378, ModbusExceptionCode.IllegalDataValue);
+            harness.Proxy.EnqueueWriteModbusException(1, 40378, ModbusExceptionCode.IllegalDataValue);
 
             var sut = CreateBlock(harness);
             var ctx = sut.CreateTestContext().Build();
 
-            sut.WriteActivePowerLimit(value: 0xDEADBEEFu);
+            sut.WriteActivePowerLimit(0xDEADBEEFu);
             ctx.FlushPendingActions();
 
             Assert.IsInstanceOfType<ModbusException>(sut.LastReadError);
@@ -223,7 +223,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
             // operation timeout elapses; the fake surfaces the same exception immediately
             // because a synchronous test queue can't actually wait for a wall-clock timeout.
             using var harness = new FakeModbusTcpHarness();
-            harness.Proxy.EnqueueReadTimeout(unitId: 1, startingAddress: 40000);
+            harness.Proxy.EnqueueReadTimeout(1, 40000);
 
             var sut = CreateBlock(harness);
             var ctx = sut.CreateTestContext().Build();
@@ -241,8 +241,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
             // Pattern: device hung for one tick, then came back. Drive-flush-assert twice — first
             // produces the timeout, second succeeds with the in-memory value.
             using var harness = new FakeModbusTcpHarness();
-            harness.Proxy.SetHoldingRegisters(unitId: 1, startingAddress: 40000, registerBytes: new byte[] { 0x00, 0x00, 0x00, 0x63 });
-            harness.Proxy.EnqueueReadTimeout(unitId: 1, startingAddress: 40000);
+            harness.Proxy.SetHoldingRegisters(1, 40000, new byte[] { 0x00, 0x00, 0x00, 0x63 });
+            harness.Proxy.EnqueueReadTimeout(1, 40000);
 
             var sut = CreateBlock(harness);
             var ctx = sut.CreateTestContext().Build();
@@ -265,7 +265,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
             // the connect / disconnect calls so tests can assert reconnect behaviour after an
             // IpAddress property change (planned for fault-injection commits).
             using var harness = new FakeModbusTcpHarness();
-            harness.Proxy.SetHoldingRegisters(unitId: 1, startingAddress: 40000, registerBytes: new byte[] { 0, 0, 0, 0 });
+            harness.Proxy.SetHoldingRegisters(1, 40000, new byte[] { 0, 0, 0, 0 });
 
             var sut = CreateBlock(harness);
             var ctx = sut.CreateTestContext().Build();
@@ -313,7 +313,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
             // ConnectAsync(newIp). ConnectionHistory reveals the whole sequence: Connect(old),
             // Disconnect, Connect(new).
             using var harness = new FakeModbusTcpHarness();
-            harness.Proxy.SetHoldingRegisters(unitId: 1, startingAddress: 40000, registerBytes: new byte[] { 0, 0, 0, 0 });
+            harness.Proxy.SetHoldingRegisters(1, 40000, new byte[] { 0, 0, 0, 0 });
 
             var sut = CreateBlock(harness);
             var ctx = sut.CreateTestContext().Build();
@@ -345,24 +345,24 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
             // extension methods. Cleaner for tests that only care about "did X happen" rather than
             // "what does the full history look like". Sugar over harness.Proxy.{Read|Write|Connection}History.
             using var harness = new FakeModbusTcpHarness();
-            harness.Proxy.SetHoldingRegisters(unitId: 1, startingAddress: 40000, registerBytes: new byte[] { 0x12, 0x34, 0x56, 0x78 });
+            harness.Proxy.SetHoldingRegisters(1, 40000, new byte[] { 0x12, 0x34, 0x56, 0x78 });
 
             var sut = CreateBlock(harness);
             var ctx = sut.CreateTestContext().Build();
 
             sut.ReadPowerOnce();
-            sut.WriteActivePowerLimit(value: 0x12345678u);
+            sut.WriteActivePowerLimit(0x12345678u);
             ctx.FlushPendingActions();
 
             // Read assertion: at addr 40000, 2 registers (one UInt32), via HoldingRegisters function.
-            harness.Proxy.VerifyReadSent(unitId: 1, startingAddress: 40000, quantity: 2, kind: ReadEventKind.HoldingRegisters);
+            harness.Proxy.VerifyReadSent(1, 40000, 2, ReadEventKind.HoldingRegisters);
 
             // Write assertion: at addr 40378, with exact wire bytes — the byte-level regression net
             // expressed as a single line. MswToLsw default → high word 0x1234 at addr+0, low 0x5678 at addr+1.
-            harness.Proxy.VerifyWriteSent(unitId: 1, address: 40378, expectedBytes: new byte[] { 0x12, 0x34, 0x56, 0x78 });
+            harness.Proxy.VerifyWriteSent(1, 40378, new byte[] { 0x12, 0x34, 0x56, 0x78 });
 
             // Connection assertion: the SUT's ctor set 127.0.0.1, the lazy connect targets that.
-            harness.Proxy.VerifyConnectAttempted(ipAddress: "127.0.0.1", port: 502);
+            harness.Proxy.VerifyConnectAttempted("127.0.0.1", 502);
         }
 
         [TestMethod]
@@ -371,7 +371,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
             // Pattern: the customer's IP-change reconnect scenario, expressed via Verify*. Reads as
             // a story: connect to old, disconnect once, connect to new.
             using var harness = new FakeModbusTcpHarness();
-            harness.Proxy.SetHoldingRegisters(unitId: 1, startingAddress: 40000, registerBytes: new byte[] { 0, 0, 0, 0 });
+            harness.Proxy.SetHoldingRegisters(1, 40000, new byte[] { 0, 0, 0, 0 });
 
             var sut = CreateBlock(harness);
             var ctx = sut.CreateTestContext().Build();
@@ -383,9 +383,9 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
             sut.ReadPowerOnce();
             ctx.FlushPendingActions();
 
-            harness.Proxy.VerifyConnectAttempted(ipAddress: "127.0.0.1");
+            harness.Proxy.VerifyConnectAttempted("127.0.0.1");
             harness.Proxy.VerifyDisconnectCalled();
-            harness.Proxy.VerifyConnectAttempted(ipAddress: "192.168.1.99");
+            harness.Proxy.VerifyConnectAttempted("192.168.1.99");
         }
 
         private static SampleModbusTcpBlock CreateBlock(FakeModbusTcpHarness harness)

@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Moq;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.Request;
-using Microsoft.Extensions.Logging;
-using Moq;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
 {

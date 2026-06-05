@@ -1,8 +1,8 @@
 ﻿using System.Linq;
+using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.DigitalIo.Input;
 using Vion.Dale.Sdk.Utils;
-using Microsoft.Extensions.Logging;
 using Vion.Examples.PingPong.Contracts;
 using Vion.Examples.PingPong.ServiceInterfaces;
 

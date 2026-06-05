@@ -47,14 +47,9 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                 return;
             }
 
-            var reason = !isBool
-                             ? $"type '{property.Type.ToDisplayString()}' is not bool"
-                             : "the property is read-only";
+            var reason = !isBool ? $"type '{property.Type.ToDisplayString()}' is not bool" : "the property is read-only";
 
-            context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE023_TriggerHintRequiresBool,
-                                                       property.Locations.FirstOrDefault(),
-                                                       property.Name,
-                                                       reason));
+            context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE023_TriggerHintRequiresBool, property.Locations.FirstOrDefault(), property.Name, reason));
         }
     }
 }

@@ -1,6 +1,6 @@
 using System;
-using Vion.Dale.Sdk.TestKit;
 using Microsoft.Extensions.Time.Testing;
+using Vion.Dale.Sdk.TestKit;
 using Vion.Examples.Energy.Contracts;
 using Vion.Examples.Energy.LogicBlocks;
 using Xunit;
@@ -9,20 +9,53 @@ namespace Vion.Examples.Energy.Test
 {
     public class HouseSimulationShould
     {
-        // Anchor at midnight so individual tests can SetUtcNow to any time-of-day on this date
-        // without violating FakeTimeProvider's monotonic-clock invariant.
-        private readonly FakeTimeProvider _timeProvider = new(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
-        private readonly HouseSimulation _sut;
-
         public HouseSimulationShould()
         {
             _sut = new HouseSimulation(_timeProvider, LogicBlockTestHelper.CreateLoggerMock().Object);
             _sut.InitializeForTest();
         }
 
+        // Anchor at midnight so individual tests can SetUtcNow to any time-of-day on this date
+        // without violating FakeTimeProvider's monotonic-clock invariant.
+        private readonly FakeTimeProvider _timeProvider = new(new DateTimeOffset(2026,
+                                                                                 1,
+                                                                                 1,
+                                                                                 0,
+                                                                                 0,
+                                                                                 0,
+                                                                                 TimeSpan.Zero));
+
+        private readonly HouseSimulation _sut;
+
         private void AdvanceTime(TimeSpan offset)
         {
             _timeProvider.Advance(offset);
+        }
+
+        // --- Configuration ---
+
+        [Fact]
+        public void BaseConsumption_AffectsPowerCalculation()
+        {
+            _sut.BaseConsumption = 1.0;
+            _sut.MorningPeakConsumption = 0;
+            _sut.EveningCookingPeakConsumption = 0;
+            _sut.EventingHeatingPeakConsumption = 0;
+
+            // Use a time far from any peak (3 AM local)
+            _timeProvider.SetUtcNow(new DateTimeOffset(2026,
+                                                       1,
+                                                       1,
+                                                       2,
+                                                       0,
+                                                       0,
+                                                       TimeSpan.Zero));
+            _sut.OnTimer();
+            AdvanceTime(TimeSpan.FromSeconds(5));
+            _sut.OnTimer();
+
+            // With no peaks and 3 AM, power should be very close to base consumption
+            Assert.Equal(1.0, _sut.ActivePowerConsuming, 2);
         }
 
         // --- HandleRequest ---
@@ -50,45 +83,35 @@ namespace Vion.Examples.Energy.Test
         }
 
         [Fact]
-        public void OnTimer_MorningPeakHigherThanNight()
-        {
-            // Set time to 3 AM (low consumption, Europe/Zurich = UTC+1)
-            _timeProvider.SetUtcNow(new DateTimeOffset(2026, 1, 1, 2, 0, 0, TimeSpan.Zero)); // 3 AM local
-            _sut.OnTimer();
-            AdvanceTime(TimeSpan.FromSeconds(5));
-            _sut.OnTimer();
-            var nightPower = _sut.ActivePowerConsuming;
-
-            // Set time to 7 AM local (morning peak, Europe/Zurich = UTC+1)
-            _timeProvider.SetUtcNow(new DateTimeOffset(2026, 1, 1, 6, 0, 0, TimeSpan.Zero)); // 7 AM local
-            _sut.OnTimer();
-            AdvanceTime(TimeSpan.FromSeconds(5));
-            _sut.OnTimer();
-            var morningPower = _sut.ActivePowerConsuming;
-
-            Assert.True(morningPower > nightPower,
-                $"Morning power ({morningPower:F3} kW) should exceed night power ({nightPower:F3} kW)");
-        }
-
-        [Fact]
         public void OnTimer_EveningPeakHigherThanNight()
         {
             // Set time to 3 AM
-            _timeProvider.SetUtcNow(new DateTimeOffset(2026, 1, 1, 2, 0, 0, TimeSpan.Zero));
+            _timeProvider.SetUtcNow(new DateTimeOffset(2026,
+                                                       1,
+                                                       1,
+                                                       2,
+                                                       0,
+                                                       0,
+                                                       TimeSpan.Zero));
             _sut.OnTimer();
             AdvanceTime(TimeSpan.FromSeconds(5));
             _sut.OnTimer();
             var nightPower = _sut.ActivePowerConsuming;
 
             // Set time to 6 PM local (evening cooking peak, UTC+1)
-            _timeProvider.SetUtcNow(new DateTimeOffset(2026, 1, 1, 17, 0, 0, TimeSpan.Zero));
+            _timeProvider.SetUtcNow(new DateTimeOffset(2026,
+                                                       1,
+                                                       1,
+                                                       17,
+                                                       0,
+                                                       0,
+                                                       TimeSpan.Zero));
             _sut.OnTimer();
             AdvanceTime(TimeSpan.FromSeconds(5));
             _sut.OnTimer();
             var eveningPower = _sut.ActivePowerConsuming;
 
-            Assert.True(eveningPower > nightPower,
-                $"Evening power ({eveningPower:F3} kW) should exceed night power ({nightPower:F3} kW)");
+            Assert.True(eveningPower > nightPower, $"Evening power ({eveningPower:F3} kW) should exceed night power ({nightPower:F3} kW)");
         }
 
         // --- OnTimer: energy integration ---
@@ -104,24 +127,36 @@ namespace Vion.Examples.Energy.Test
             Assert.True(_sut.EnergyConsumedTotal > 0);
         }
 
-        // --- Configuration ---
-
         [Fact]
-        public void BaseConsumption_AffectsPowerCalculation()
+        public void OnTimer_MorningPeakHigherThanNight()
         {
-            _sut.BaseConsumption = 1.0;
-            _sut.MorningPeakConsumption = 0;
-            _sut.EveningCookingPeakConsumption = 0;
-            _sut.EventingHeatingPeakConsumption = 0;
-
-            // Use a time far from any peak (3 AM local)
-            _timeProvider.SetUtcNow(new DateTimeOffset(2026, 1, 1, 2, 0, 0, TimeSpan.Zero));
+            // Set time to 3 AM (low consumption, Europe/Zurich = UTC+1)
+            _timeProvider.SetUtcNow(new DateTimeOffset(2026,
+                                                       1,
+                                                       1,
+                                                       2,
+                                                       0,
+                                                       0,
+                                                       TimeSpan.Zero)); // 3 AM local
             _sut.OnTimer();
             AdvanceTime(TimeSpan.FromSeconds(5));
             _sut.OnTimer();
+            var nightPower = _sut.ActivePowerConsuming;
 
-            // With no peaks and 3 AM, power should be very close to base consumption
-            Assert.Equal(1.0, _sut.ActivePowerConsuming, 2);
+            // Set time to 7 AM local (morning peak, Europe/Zurich = UTC+1)
+            _timeProvider.SetUtcNow(new DateTimeOffset(2026,
+                                                       1,
+                                                       1,
+                                                       6,
+                                                       0,
+                                                       0,
+                                                       TimeSpan.Zero)); // 7 AM local
+            _sut.OnTimer();
+            AdvanceTime(TimeSpan.FromSeconds(5));
+            _sut.OnTimer();
+            var morningPower = _sut.ActivePowerConsuming;
+
+            Assert.True(morningPower > nightPower, $"Morning power ({morningPower:F3} kW) should exceed night power ({nightPower:F3} kW)");
         }
     }
 }

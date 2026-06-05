@@ -33,7 +33,7 @@ namespace Vion.Examples.Presentation.DevHost
                                           eventArgs.Cancel = true;
                                           cts.Cancel();
                                       };
-            return DevHostWebRunner.RunAsync(host, port: 5000, cancellationToken: cts.Token);
+            return DevHostWebRunner.RunAsync(host, 5000, cts.Token);
         }
     }
 }

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Net.Mime;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -37,7 +38,7 @@ namespace Vion.Dale.Sdk.Http
             stream.Position = 0;
 
             var httpContent = new StreamContent(stream);
-            httpContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(MediaTypeNames.Application.Json);
+            httpContent.Headers.ContentType = new MediaTypeHeaderValue(MediaTypeNames.Application.Json);
 
             return httpContent;
         }

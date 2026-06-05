@@ -22,7 +22,8 @@ namespace Vion.Dale.Cli.Commands.Add
             var persistentOption = new Option<bool>("--persistent") { Description = "Add [Persistent] attribute (measuring points are not persistent by default)" };
             var kindOption = new Option<string?>("--kind") { Description = "MeasuringPointKind on [ServiceMeasuringPoint]: Measurement, Total, or TotalIncreasing" };
             kindOption.AcceptOnlyFromAmong("Measurement", "Total", "TotalIncreasing");
-            var groupOption = new Option<string?>("--group") { Description = "[Presentation] group: a PropertyGroup name (Status, Configuration, Metric, Diagnostics, Identity, Alarm) or an arbitrary raw key" };
+            var groupOption = new Option<string?>("--group")
+                              { Description = "[Presentation] group: a PropertyGroup name (Status, Configuration, Metric, Diagnostics, Identity, Alarm) or an arbitrary raw key" };
             var importanceOption = new Option<string?>("--importance") { Description = "[Presentation] importance: Primary, Secondary, Normal, or Hidden" };
             importanceOption.AcceptOnlyFromAmong(PresentationSnippet.Importances);
             var decimalsOption = new Option<int?>("--decimals") { Description = "[Presentation] numeric display precision" };
@@ -72,7 +73,15 @@ namespace Vion.Dale.Cli.Commands.Add
                                       return 1;
                                   }
 
-                                  var snippet = BuildMeasuringPointSnippet(name!, type!, defaultName, persistent, kind, group, importance, decimals, format);
+                                  var snippet = BuildMeasuringPointSnippet(name!,
+                                                                           type!,
+                                                                           defaultName,
+                                                                           persistent,
+                                                                           kind,
+                                                                           group,
+                                                                           importance,
+                                                                           decimals,
+                                                                           format);
 
                                   if (!SourceInserter.InsertIntoClass(target.FilePath, target.ClassName, snippet))
                                   {
@@ -97,8 +106,15 @@ namespace Vion.Dale.Cli.Commands.Add
             return command;
         }
 
-        internal static string BuildMeasuringPointSnippet(string name, string type, string? defaultName, bool persistent,
-                                                          string? kind, string? group, string? importance, int? decimals, string? format)
+        internal static string BuildMeasuringPointSnippet(string name,
+                                                          string type,
+                                                          string? defaultName,
+                                                          bool persistent,
+                                                          string? kind,
+                                                          string? group,
+                                                          string? importance,
+                                                          int? decimals,
+                                                          string? format)
         {
             var lines = new List<string>();
 

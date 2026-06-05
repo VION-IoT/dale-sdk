@@ -12,7 +12,7 @@ namespace Vion.Dale.Sdk.Core
     ///     service-provider adapter).
     /// </summary>
     [PublicApi]
-    [AttributeUsage(AttributeTargets.Property, AllowMultiple = false)]
+    [AttributeUsage(AttributeTargets.Property)]
     public class ServiceProviderContractBindingAttribute : Attribute
     {
         public string? Identifier { get; init; }

@@ -268,7 +268,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
     public class ConnectionTimeoutException : Exception
     {
         /// <summary>
-        ///     Initializes a new instance of the <see cref="ConnectionTimeoutException" /> class with the specified timeout duration.
+        ///     Initializes a new instance of the <see cref="ConnectionTimeoutException" /> class with the specified timeout
+        ///     duration.
         /// </summary>
         /// <param name="seconds">The connection timeout limit in seconds that was exceeded.</param>
         public ConnectionTimeoutException(double seconds) : base($"The connection could not be established within {seconds} seconds.")

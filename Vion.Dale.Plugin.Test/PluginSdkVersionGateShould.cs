@@ -1,10 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Reflection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
-using Vion.Dale.Plugin;
+using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.Plugin.Test
 {
@@ -17,6 +15,7 @@ namespace Vion.Dale.Plugin.Test
     public class PluginSdkVersionGateShould
     {
         private const string PackageId = "Acme.Sample.Plugin";
+
         private const string SdkAssemblyName = "Vion.Dale.Sdk";
 
         [TestMethod]
@@ -26,8 +25,7 @@ namespace Vion.Dale.Plugin.Test
             var plugin = new Version(2, 0, 0);
             var logger = new RecordingLogger();
 
-            var ex = Assert.ThrowsExactly<PluginSdkVersionMismatchException>(() =>
-                PluginLoadContext.EnsureSdkMajorCompatible(PackageId, SdkAssemblyName, host, plugin, logger));
+            var ex = Assert.ThrowsExactly<PluginSdkVersionMismatchException>(() => PluginLoadContext.EnsureSdkMajorCompatible(PackageId, SdkAssemblyName, host, plugin, logger));
 
             // Message must name the package id, BOTH versions, and the rebuild guidance.
             StringAssert.Contains(ex.Message, PackageId);
@@ -48,15 +46,12 @@ namespace Vion.Dale.Plugin.Test
             // does NOT throw (the existing LogDefaultContextLoad path owns the warning).
             var logger = new RecordingLogger();
 
-            PluginLoadContext.EnsureSdkMajorCompatible(PackageId, SdkAssemblyName,
-                new Version(1, 4, 0), new Version(1, 2, 0), logger);
+            PluginLoadContext.EnsureSdkMajorCompatible(PackageId, SdkAssemblyName, new Version(1, 4, 0), new Version(1, 2, 0), logger);
 
             // host older than plugin within same major — also no throw.
-            PluginLoadContext.EnsureSdkMajorCompatible(PackageId, SdkAssemblyName,
-                new Version(1, 2, 0), new Version(1, 9, 7), logger);
+            PluginLoadContext.EnsureSdkMajorCompatible(PackageId, SdkAssemblyName, new Version(1, 2, 0), new Version(1, 9, 7), logger);
 
-            Assert.IsFalse(logger.LoggedAtLeastOneError,
-                "Same-major minor/patch skew must NOT raise an error in the seam (warn-and-continue is preserved).");
+            Assert.IsFalse(logger.LoggedAtLeastOneError, "Same-major minor/patch skew must NOT raise an error in the seam (warn-and-continue is preserved).");
         }
 
         /// <summary>
@@ -76,8 +71,7 @@ namespace Vion.Dale.Plugin.Test
             // Must NOT throw: 0.5.0 vs 0.4.3 share major 0.
             PluginLoadContext.EnsureSdkMajorCompatible(PackageId, SdkAssemblyName, host, plugin, logger);
 
-            Assert.IsFalse(logger.LoggedAtLeastOneError,
-                "0.x is pre-1.0 and the major gate is intentionally dormant; 0.4.3→0.5.0 stays a warning.");
+            Assert.IsFalse(logger.LoggedAtLeastOneError, "0.x is pre-1.0 and the major gate is intentionally dormant; 0.4.3→0.5.0 stays a warning.");
         }
 
         [TestMethod]
@@ -105,10 +99,9 @@ namespace Vion.Dale.Plugin.Test
             Assert.IsNotNull(version, "Expected to read a referenced Vion.Dale.Sdk version from the plugin assembly.");
 
             // Sanity-check it matches the SDK actually loaded in this test process.
-            var loadedSdkVersion = typeof(Vion.Dale.Sdk.Core.LogicBlockBase).Assembly.GetName().Version;
+            var loadedSdkVersion = typeof(LogicBlockBase).Assembly.GetName().Version;
             Assert.IsNotNull(loadedSdkVersion);
-            Assert.AreEqual(loadedSdkVersion!.Major, version!.Major,
-                "Referenced SDK major should match the SDK loaded in this process.");
+            Assert.AreEqual(loadedSdkVersion!.Major, version!.Major, "Referenced SDK major should match the SDK loaded in this process.");
         }
 
         [TestMethod]
@@ -179,8 +172,7 @@ namespace Vion.Dale.Plugin.Test
                 Directory.Delete(tempDir, true);
             }
 
-            Assert.IsFalse(logger.LoggedAtLeastOneError,
-                "Missing-path guard and matching-major/null-continue paths must not raise an error.");
+            Assert.IsFalse(logger.LoggedAtLeastOneError, "Missing-path guard and matching-major/null-continue paths must not raise an error.");
         }
 
         /// <summary>
@@ -191,17 +183,23 @@ namespace Vion.Dale.Plugin.Test
         {
             private readonly List<LogLevel> _levels = new();
 
-            public bool LoggedAtLeastOneError => _levels.Contains(LogLevel.Error) || _levels.Contains(LogLevel.Critical);
+            public bool LoggedAtLeastOneError
+            {
+                get => _levels.Contains(LogLevel.Error) || _levels.Contains(LogLevel.Critical);
+            }
 
-            public IDisposable BeginScope<TState>(TState state) where TState : notnull => NullScope.Instance;
+            public IDisposable BeginScope<TState>(TState state)
+                where TState : notnull
+            {
+                return NullScope.Instance;
+            }
 
-            public bool IsEnabled(LogLevel logLevel) => true;
+            public bool IsEnabled(LogLevel logLevel)
+            {
+                return true;
+            }
 
-            public void Log<TState>(LogLevel logLevel,
-                                     EventId eventId,
-                                     TState state,
-                                     Exception? exception,
-                                     Func<TState, Exception?, string> formatter)
+            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
             {
                 _levels.Add(logLevel);
             }

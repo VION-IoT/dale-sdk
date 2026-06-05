@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Proto;
 using Vion.Dale.ProtoActor.Extensions;
 using Vion.Dale.Sdk.Abstractions;
-using Proto;
 
 namespace Vion.Dale.ProtoActor
 {

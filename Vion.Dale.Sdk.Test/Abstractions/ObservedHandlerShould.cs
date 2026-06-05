@@ -16,7 +16,10 @@ namespace Vion.Dale.Sdk.Test.Abstractions
             var observer = new Mock<IActorMessageObserver>();
             var message = new object();
 
-            await ObservedHandler.RunAsync(observer.Object, "a", message, clock,
+            await ObservedHandler.RunAsync(observer.Object,
+                                           "a",
+                                           message,
+                                           clock,
                                            () =>
                                            {
                                                clock.Advance(TimeSpan.FromMilliseconds(7));
@@ -35,8 +38,7 @@ namespace Vion.Dale.Sdk.Test.Abstractions
 
             try
             {
-                await ObservedHandler.RunAsync(observer.Object, "a", message, new FakeTimeProvider(),
-                                               () => Task.FromException(new InvalidOperationException("boom")));
+                await ObservedHandler.RunAsync(observer.Object, "a", message, new FakeTimeProvider(), () => Task.FromException(new InvalidOperationException("boom")));
             }
             catch (Exception ex)
             {
@@ -52,7 +54,10 @@ namespace Vion.Dale.Sdk.Test.Abstractions
         {
             var ran = false;
 
-            await ObservedHandler.RunAsync(observer: null, "a", new object(), new FakeTimeProvider(),
+            await ObservedHandler.RunAsync(null,
+                                           "a",
+                                           new object(),
+                                           new FakeTimeProvider(),
                                            () =>
                                            {
                                                ran = true;
@@ -70,7 +75,10 @@ namespace Vion.Dale.Sdk.Test.Abstractions
                     .Throws(new InvalidOperationException("observer boom"));
             var ran = false;
 
-            await ObservedHandler.RunAsync(observer.Object, "a", new object(), new FakeTimeProvider(),
+            await ObservedHandler.RunAsync(observer.Object,
+                                           "a",
+                                           new object(),
+                                           new FakeTimeProvider(),
                                            () =>
                                            {
                                                ran = true;

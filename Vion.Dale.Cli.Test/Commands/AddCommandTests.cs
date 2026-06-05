@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Vion.Dale.Cli.Commands.Add;
@@ -10,7 +11,15 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void BuildPropertySnippet_PrivateSetter_Default()
         {
-            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Temperature", "double", "private", null, false, null, null, null, null);
+            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Temperature",
+                                                                         "double",
+                                                                         "private",
+                                                                         null,
+                                                                         false,
+                                                                         null,
+                                                                         null,
+                                                                         null,
+                                                                         null);
 
             Assert.IsTrue(snippet.Contains("[ServiceProperty(Title = \"Temperature\")]"));
             Assert.IsTrue(snippet.Contains("public double Temperature { get; private set; }"));
@@ -19,7 +28,15 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void BuildPropertySnippet_PublicSetter()
         {
-            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Mode", "string", "public", null, false, null, null, null, null);
+            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Mode",
+                                                                         "string",
+                                                                         "public",
+                                                                         null,
+                                                                         false,
+                                                                         null,
+                                                                         null,
+                                                                         null,
+                                                                         null);
 
             Assert.IsTrue(snippet.Contains("public string Mode { get; set; }"));
         }
@@ -27,7 +44,15 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void BuildPropertySnippet_CustomDefaultName()
         {
-            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Temp", "double", "private", "Temperature", false, null, null, null, null);
+            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Temp",
+                                                                         "double",
+                                                                         "private",
+                                                                         "Temperature",
+                                                                         false,
+                                                                         null,
+                                                                         null,
+                                                                         null,
+                                                                         null);
 
             Assert.IsTrue(snippet.Contains("[ServiceProperty(Title = \"Temperature\")]"));
         }
@@ -35,7 +60,15 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void BuildPropertySnippet_WithPersistent()
         {
-            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Mode", "string", "private", null, true, null, null, null, null);
+            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Mode",
+                                                                         "string",
+                                                                         "private",
+                                                                         null,
+                                                                         true,
+                                                                         null,
+                                                                         null,
+                                                                         null,
+                                                                         null);
 
             Assert.IsTrue(snippet.Contains("[ServiceProperty(Title = \"Mode\")]"));
             Assert.IsTrue(snippet.Contains("[Persistent]"));
@@ -44,7 +77,15 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void BuildPropertySnippet_NoPresentationFlags_OmitsPresentationAttribute()
         {
-            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Mode", "string", "private", null, false, null, null, null, null);
+            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Mode",
+                                                                         "string",
+                                                                         "private",
+                                                                         null,
+                                                                         false,
+                                                                         null,
+                                                                         null,
+                                                                         null,
+                                                                         null);
 
             Assert.IsFalse(snippet.Contains("[Presentation"));
         }
@@ -52,7 +93,15 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void BuildPropertySnippet_GroupKnownName_EmitsConstantReference()
         {
-            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Mode", "string", "private", null, false, "Status", null, null, null);
+            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Mode",
+                                                                         "string",
+                                                                         "private",
+                                                                         null,
+                                                                         false,
+                                                                         "Status",
+                                                                         null,
+                                                                         null,
+                                                                         null);
 
             Assert.IsTrue(snippet.Contains("[Presentation(Group = PropertyGroup.Status)]"));
         }
@@ -60,7 +109,15 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void BuildPropertySnippet_GroupRawString_EmitsStringLiteral()
         {
-            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Mode", "string", "private", null, false, "Custom", null, null, null);
+            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Mode",
+                                                                         "string",
+                                                                         "private",
+                                                                         null,
+                                                                         false,
+                                                                         "Custom",
+                                                                         null,
+                                                                         null,
+                                                                         null);
 
             Assert.IsTrue(snippet.Contains("[Presentation(Group = \"Custom\")]"));
         }
@@ -68,7 +125,15 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void BuildPropertySnippet_Importance_EmitsEnumReference()
         {
-            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Mode", "string", "private", null, false, null, "Primary", null, null);
+            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Mode",
+                                                                         "string",
+                                                                         "private",
+                                                                         null,
+                                                                         false,
+                                                                         null,
+                                                                         "Primary",
+                                                                         null,
+                                                                         null);
 
             Assert.IsTrue(snippet.Contains("[Presentation(Importance = Importance.Primary)]"));
         }
@@ -76,7 +141,15 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void BuildPropertySnippet_Decimals_EmitsIntLiteral()
         {
-            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Mode", "double", "private", null, false, null, null, 2, null);
+            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Mode",
+                                                                         "double",
+                                                                         "private",
+                                                                         null,
+                                                                         false,
+                                                                         null,
+                                                                         null,
+                                                                         2,
+                                                                         null);
 
             Assert.IsTrue(snippet.Contains("[Presentation(Decimals = 2)]"));
         }
@@ -84,7 +157,15 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void BuildPropertySnippet_Format_EmitsStringLiteral()
         {
-            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Mode", "string", "private", null, false, null, null, null, "X");
+            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Mode",
+                                                                         "string",
+                                                                         "private",
+                                                                         null,
+                                                                         false,
+                                                                         null,
+                                                                         null,
+                                                                         null,
+                                                                         "X");
 
             Assert.IsTrue(snippet.Contains("[Presentation(Format = \"X\")]"));
         }
@@ -92,24 +173,38 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void BuildPropertySnippet_AllPresentationFlags_StableOrder()
         {
-            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Mode", "double", "private", null, false, "Metric", "Secondary", 1, "iso");
+            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Mode",
+                                                                         "double",
+                                                                         "private",
+                                                                         null,
+                                                                         false,
+                                                                         "Metric",
+                                                                         "Secondary",
+                                                                         1,
+                                                                         "iso");
 
-            Assert.IsTrue(
-                snippet.Contains("[Presentation(Group = PropertyGroup.Metric, Importance = Importance.Secondary, Decimals = 1, Format = \"iso\")]"),
-                $"Unexpected presentation attribute. Snippet was:\n{snippet}");
+            Assert.IsTrue(snippet.Contains("[Presentation(Group = PropertyGroup.Metric, Importance = Importance.Secondary, Decimals = 1, Format = \"iso\")]"),
+                          $"Unexpected presentation attribute. Snippet was:\n{snippet}");
         }
 
         [TestMethod]
         public void BuildPropertySnippet_PresentationAfterServicePropertyBeforeDeclaration()
         {
-            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Mode", "string", "private", null, false, "Status", null, null, null);
+            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Mode",
+                                                                         "string",
+                                                                         "private",
+                                                                         null,
+                                                                         false,
+                                                                         "Status",
+                                                                         null,
+                                                                         null,
+                                                                         null);
 
-            var spIndex = snippet.IndexOf("[ServiceProperty(", System.StringComparison.Ordinal);
-            var presIndex = snippet.IndexOf("[Presentation(", System.StringComparison.Ordinal);
-            var declIndex = snippet.IndexOf("public string Mode", System.StringComparison.Ordinal);
+            var spIndex = snippet.IndexOf("[ServiceProperty(", StringComparison.Ordinal);
+            var presIndex = snippet.IndexOf("[Presentation(", StringComparison.Ordinal);
+            var declIndex = snippet.IndexOf("public string Mode", StringComparison.Ordinal);
 
-            Assert.IsTrue(spIndex >= 0 && presIndex > spIndex && declIndex > presIndex,
-                          $"Expected [ServiceProperty] then [Presentation] then declaration. Snippet:\n{snippet}");
+            Assert.IsTrue(spIndex >= 0 && presIndex > spIndex && declIndex > presIndex, $"Expected [ServiceProperty] then [Presentation] then declaration. Snippet:\n{snippet}");
         }
 
         [TestMethod]
@@ -132,7 +227,15 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void BuildMeasuringPointSnippet_Default()
         {
-            var snippet = AddMeasuringPointCommand.BuildMeasuringPointSnippet("Temperature", "double", null, false, null, null, null, null, null);
+            var snippet = AddMeasuringPointCommand.BuildMeasuringPointSnippet("Temperature",
+                                                                              "double",
+                                                                              null,
+                                                                              false,
+                                                                              null,
+                                                                              null,
+                                                                              null,
+                                                                              null,
+                                                                              null);
 
             Assert.IsTrue(snippet.Contains("[ServiceMeasuringPoint(Title = \"Temperature\")]"));
             Assert.IsTrue(snippet.Contains("public double Temperature { get; private set; }"));
@@ -142,7 +245,15 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void BuildMeasuringPointSnippet_CustomDefaultName()
         {
-            var snippet = AddMeasuringPointCommand.BuildMeasuringPointSnippet("Temp", "double", "Temperature Sensor", false, null, null, null, null, null);
+            var snippet = AddMeasuringPointCommand.BuildMeasuringPointSnippet("Temp",
+                                                                              "double",
+                                                                              "Temperature Sensor",
+                                                                              false,
+                                                                              null,
+                                                                              null,
+                                                                              null,
+                                                                              null,
+                                                                              null);
 
             Assert.IsTrue(snippet.Contains("[ServiceMeasuringPoint(Title = \"Temperature Sensor\")]"));
             Assert.IsTrue(snippet.Contains("public double Temp { get; private set; }"));
@@ -151,7 +262,15 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void BuildMeasuringPointSnippet_WithPersistent()
         {
-            var snippet = AddMeasuringPointCommand.BuildMeasuringPointSnippet("TotalCount", "int", null, true, null, null, null, null, null);
+            var snippet = AddMeasuringPointCommand.BuildMeasuringPointSnippet("TotalCount",
+                                                                              "int",
+                                                                              null,
+                                                                              true,
+                                                                              null,
+                                                                              null,
+                                                                              null,
+                                                                              null,
+                                                                              null);
 
             Assert.IsTrue(snippet.Contains("[ServiceMeasuringPoint(Title = \"TotalCount\")]"));
             Assert.IsTrue(snippet.Contains("[Persistent]"));
@@ -161,7 +280,15 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void BuildMeasuringPointSnippet_AlwaysPrivateSet()
         {
-            var snippet = AddMeasuringPointCommand.BuildMeasuringPointSnippet("Value", "bool", null, false, null, null, null, null, null);
+            var snippet = AddMeasuringPointCommand.BuildMeasuringPointSnippet("Value",
+                                                                              "bool",
+                                                                              null,
+                                                                              false,
+                                                                              null,
+                                                                              null,
+                                                                              null,
+                                                                              null,
+                                                                              null);
 
             // Measuring points always have private set — no public setter option
             Assert.IsTrue(snippet.Contains("private set;"));
@@ -171,7 +298,15 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void BuildMeasuringPointSnippet_NoKind_ServiceMeasuringPointUnchanged()
         {
-            var snippet = AddMeasuringPointCommand.BuildMeasuringPointSnippet("Energy", "double", null, false, null, null, null, null, null);
+            var snippet = AddMeasuringPointCommand.BuildMeasuringPointSnippet("Energy",
+                                                                              "double",
+                                                                              null,
+                                                                              false,
+                                                                              null,
+                                                                              null,
+                                                                              null,
+                                                                              null,
+                                                                              null);
 
             Assert.IsTrue(snippet.Contains("[ServiceMeasuringPoint(Title = \"Energy\")]"));
             Assert.IsFalse(snippet.Contains("Kind ="));
@@ -180,17 +315,31 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void BuildMeasuringPointSnippet_Kind_EmittedInsideServiceMeasuringPoint()
         {
-            var snippet = AddMeasuringPointCommand.BuildMeasuringPointSnippet("Energy", "double", null, false, "Total", null, null, null, null);
+            var snippet = AddMeasuringPointCommand.BuildMeasuringPointSnippet("Energy",
+                                                                              "double",
+                                                                              null,
+                                                                              false,
+                                                                              "Total",
+                                                                              null,
+                                                                              null,
+                                                                              null,
+                                                                              null);
 
-            Assert.IsTrue(
-                snippet.Contains("[ServiceMeasuringPoint(Title = \"Energy\", Kind = MeasuringPointKind.Total)]"),
-                $"Unexpected attribute. Snippet:\n{snippet}");
+            Assert.IsTrue(snippet.Contains("[ServiceMeasuringPoint(Title = \"Energy\", Kind = MeasuringPointKind.Total)]"), $"Unexpected attribute. Snippet:\n{snippet}");
         }
 
         [TestMethod]
         public void BuildMeasuringPointSnippet_KindAndPresentationFlags_Combined()
         {
-            var snippet = AddMeasuringPointCommand.BuildMeasuringPointSnippet("Energy", "double", null, false, "TotalIncreasing", "Metric", "Secondary", 1, null);
+            var snippet = AddMeasuringPointCommand.BuildMeasuringPointSnippet("Energy",
+                                                                              "double",
+                                                                              null,
+                                                                              false,
+                                                                              "TotalIncreasing",
+                                                                              "Metric",
+                                                                              "Secondary",
+                                                                              1,
+                                                                              null);
 
             Assert.IsTrue(snippet.Contains("[ServiceMeasuringPoint(Title = \"Energy\", Kind = MeasuringPointKind.TotalIncreasing)]"));
             Assert.IsTrue(snippet.Contains("[Presentation(Group = PropertyGroup.Metric, Importance = Importance.Secondary, Decimals = 1)]"));
@@ -199,7 +348,15 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void BuildMeasuringPointSnippet_Group_RawString()
         {
-            var snippet = AddMeasuringPointCommand.BuildMeasuringPointSnippet("Energy", "double", null, false, null, "acme.power", null, null, null);
+            var snippet = AddMeasuringPointCommand.BuildMeasuringPointSnippet("Energy",
+                                                                              "double",
+                                                                              null,
+                                                                              false,
+                                                                              null,
+                                                                              "acme.power",
+                                                                              null,
+                                                                              null,
+                                                                              null);
 
             Assert.IsTrue(snippet.Contains("[Presentation(Group = \"acme.power\")]"));
         }
@@ -218,9 +375,7 @@ namespace Vion.Dale.Cli.Test.Commands
         {
             var content = AddLogicBlockCommand.GenerateLogicBlock("Foo", "My.Ns", "Foo Display", "bar");
 
-            Assert.IsTrue(
-                content.Contains("[LogicBlock(Name = \"Foo Display\", Icon = \"bar\")]"),
-                $"Unexpected content:\n{content}");
+            Assert.IsTrue(content.Contains("[LogicBlock(Name = \"Foo Display\", Icon = \"bar\")]"), $"Unexpected content:\n{content}");
             Assert.IsTrue(content.Contains("public class Foo : LogicBlockBase"));
         }
 
@@ -251,9 +406,7 @@ namespace Vion.Dale.Cli.Test.Commands
             Assert.IsNotNull(option, "Expected a --default-name option on the serviceproperty command.");
             Assert.IsNotNull(option!.Description);
             StringAssert.Contains(option.Description, "Title");
-            Assert.IsFalse(
-                option.Description!.Contains("DefaultName parameter"),
-                "Description still references the obsolete DefaultName attribute member.");
+            Assert.IsFalse(option.Description!.Contains("DefaultName parameter"), "Description still references the obsolete DefaultName attribute member.");
         }
 
         [TestMethod]
@@ -265,9 +418,7 @@ namespace Vion.Dale.Cli.Test.Commands
             Assert.IsNotNull(option, "Expected a --default-name option on the measuringpoint command.");
             Assert.IsNotNull(option!.Description);
             StringAssert.Contains(option.Description, "Title");
-            Assert.IsFalse(
-                option.Description!.Contains("DefaultName parameter"),
-                "Description still references the obsolete DefaultName attribute member.");
+            Assert.IsFalse(option.Description!.Contains("DefaultName parameter"), "Description still references the obsolete DefaultName attribute member.");
         }
 
         // --- FIX 2: emitted-string-literal escaping (prevents Critical codegen regression) ---
@@ -281,21 +432,33 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void BuildPropertySnippet_Format_WithQuoteAndBackslash_EscapedLiteral()
         {
-            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Mode", "string", "private", null, false, null, null, null, "My \"X\\Y\"");
+            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Mode",
+                                                                         "string",
+                                                                         "private",
+                                                                         null,
+                                                                         false,
+                                                                         null,
+                                                                         null,
+                                                                         null,
+                                                                         "My \"X\\Y\"");
 
-            Assert.IsTrue(
-                snippet.Contains("[Presentation(Format = \"My \\\"X\\\\Y\\\"\")]"),
-                $"Unexpected presentation attribute. Snippet:\n{snippet}");
+            Assert.IsTrue(snippet.Contains("[Presentation(Format = \"My \\\"X\\\\Y\\\"\")]"), $"Unexpected presentation attribute. Snippet:\n{snippet}");
         }
 
         [TestMethod]
         public void BuildPropertySnippet_RawGroup_WithQuoteAndBackslash_EscapedLiteral()
         {
-            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Mode", "string", "private", null, false, "My \"X\\Y\"", null, null, null);
+            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Mode",
+                                                                         "string",
+                                                                         "private",
+                                                                         null,
+                                                                         false,
+                                                                         "My \"X\\Y\"",
+                                                                         null,
+                                                                         null,
+                                                                         null);
 
-            Assert.IsTrue(
-                snippet.Contains("[Presentation(Group = \"My \\\"X\\\\Y\\\"\")]"),
-                $"Unexpected presentation attribute. Snippet:\n{snippet}");
+            Assert.IsTrue(snippet.Contains("[Presentation(Group = \"My \\\"X\\\\Y\\\"\")]"), $"Unexpected presentation attribute. Snippet:\n{snippet}");
         }
 
         [TestMethod]
@@ -303,29 +466,39 @@ namespace Vion.Dale.Cli.Test.Commands
         {
             var content = AddLogicBlockCommand.GenerateLogicBlock("Foo", "My.Ns", "My \"X\\Y\"", "ab\\\"cd");
 
-            Assert.IsTrue(
-                content.Contains("[LogicBlock(Name = \"My \\\"X\\\\Y\\\"\", Icon = \"ab\\\\\\\"cd\")]"),
-                $"Unexpected content:\n{content}");
+            Assert.IsTrue(content.Contains("[LogicBlock(Name = \"My \\\"X\\\\Y\\\"\", Icon = \"ab\\\\\\\"cd\")]"), $"Unexpected content:\n{content}");
         }
 
         [TestMethod]
         public void BuildPropertySnippet_Title_WithQuoteAndBackslash_EscapedLiteral()
         {
-            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Mode", "string", "private", "My \"X\\Y\"", false, null, null, null, null);
+            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Mode",
+                                                                         "string",
+                                                                         "private",
+                                                                         "My \"X\\Y\"",
+                                                                         false,
+                                                                         null,
+                                                                         null,
+                                                                         null,
+                                                                         null);
 
-            Assert.IsTrue(
-                snippet.Contains("[ServiceProperty(Title = \"My \\\"X\\\\Y\\\"\")]"),
-                $"Unexpected attribute. Snippet:\n{snippet}");
+            Assert.IsTrue(snippet.Contains("[ServiceProperty(Title = \"My \\\"X\\\\Y\\\"\")]"), $"Unexpected attribute. Snippet:\n{snippet}");
         }
 
         [TestMethod]
         public void BuildMeasuringPointSnippet_Title_WithQuoteAndBackslash_EscapedLiteral()
         {
-            var snippet = AddMeasuringPointCommand.BuildMeasuringPointSnippet("Mp", "double", "My \"X\\Y\"", false, null, null, null, null, null);
+            var snippet = AddMeasuringPointCommand.BuildMeasuringPointSnippet("Mp",
+                                                                              "double",
+                                                                              "My \"X\\Y\"",
+                                                                              false,
+                                                                              null,
+                                                                              null,
+                                                                              null,
+                                                                              null,
+                                                                              null);
 
-            Assert.IsTrue(
-                snippet.Contains("[ServiceMeasuringPoint(Title = \"My \\\"X\\\\Y\\\"\")]"),
-                $"Unexpected attribute. Snippet:\n{snippet}");
+            Assert.IsTrue(snippet.Contains("[ServiceMeasuringPoint(Title = \"My \\\"X\\\\Y\\\"\")]"), $"Unexpected attribute. Snippet:\n{snippet}");
         }
 
         // --- FIX 3: KnownGroups drift guard (change-detector test) ---
@@ -333,11 +506,10 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void PresentationSnippet_KnownGroups_PinnedToPropertyGroupConstantNames()
         {
-            CollectionAssert.AreEquivalent(
-                new[] { "Status", "Configuration", "Metric", "Diagnostics", "Identity", "Alarm" },
-                PresentationSnippet.KnownGroups,
-                "KnownGroups drifted from Vion.Dale.Sdk.Core.PropertyGroup constant names. " +
-                "Keep them in lockstep (CLI has no SDK ref). 'None' is intentionally excluded.");
+            CollectionAssert.AreEquivalent(new[] { "Status", "Configuration", "Metric", "Diagnostics", "Identity", "Alarm" },
+                                           PresentationSnippet.KnownGroups,
+                                           "KnownGroups drifted from Vion.Dale.Sdk.Core.PropertyGroup constant names. " +
+                                           "Keep them in lockstep (CLI has no SDK ref). 'None' is intentionally excluded.");
         }
 
         // --- FIX 4: empty/whitespace input must not emit empty literals ---
@@ -345,7 +517,15 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void BuildPropertySnippet_EmptyGroup_OmitsPresentationAttribute()
         {
-            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Mode", "string", "private", null, false, "", null, null, null);
+            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Mode",
+                                                                         "string",
+                                                                         "private",
+                                                                         null,
+                                                                         false,
+                                                                         "",
+                                                                         null,
+                                                                         null,
+                                                                         null);
 
             Assert.IsFalse(snippet.Contains("[Presentation"), $"Expected no [Presentation]. Snippet:\n{snippet}");
         }
@@ -353,7 +533,15 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void BuildPropertySnippet_WhitespaceFormat_OmitsPresentationAttribute()
         {
-            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Mode", "string", "private", null, false, null, null, null, "   ");
+            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Mode",
+                                                                         "string",
+                                                                         "private",
+                                                                         null,
+                                                                         false,
+                                                                         null,
+                                                                         null,
+                                                                         null,
+                                                                         "   ");
 
             Assert.IsFalse(snippet.Contains("[Presentation"), $"Expected no [Presentation]. Snippet:\n{snippet}");
         }
@@ -372,16 +560,23 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void BuildPropertySnippet_ServicePropertyPresentationPersistent_StableOrder()
         {
-            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Mode", "string", "private", null, true, "Status", null, null, null);
+            var snippet = AddServicePropertyCommand.BuildPropertySnippet("Mode",
+                                                                         "string",
+                                                                         "private",
+                                                                         null,
+                                                                         true,
+                                                                         "Status",
+                                                                         null,
+                                                                         null,
+                                                                         null);
 
-            var spIndex = snippet.IndexOf("[ServiceProperty(", System.StringComparison.Ordinal);
-            var presIndex = snippet.IndexOf("[Presentation(", System.StringComparison.Ordinal);
-            var persIndex = snippet.IndexOf("[Persistent]", System.StringComparison.Ordinal);
-            var declIndex = snippet.IndexOf("public string Mode", System.StringComparison.Ordinal);
+            var spIndex = snippet.IndexOf("[ServiceProperty(", StringComparison.Ordinal);
+            var presIndex = snippet.IndexOf("[Presentation(", StringComparison.Ordinal);
+            var persIndex = snippet.IndexOf("[Persistent]", StringComparison.Ordinal);
+            var declIndex = snippet.IndexOf("public string Mode", StringComparison.Ordinal);
 
-            Assert.IsTrue(
-                spIndex >= 0 && presIndex > spIndex && persIndex > presIndex && declIndex > persIndex,
-                $"Expected [ServiceProperty] then [Presentation] then [Persistent] then declaration. Snippet:\n{snippet}");
+            Assert.IsTrue(spIndex >= 0 && presIndex > spIndex && persIndex > presIndex && declIndex > persIndex,
+                          $"Expected [ServiceProperty] then [Presentation] then [Persistent] then declaration. Snippet:\n{snippet}");
         }
     }
 }

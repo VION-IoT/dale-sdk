@@ -29,8 +29,6 @@ namespace Vion.Dale.Sdk.Introspection
             var logicBlockAnnotations = GetLogicBlockAnnotations(logicBlock.GetType());
             var naturalPositions = BuildNaturalPositionMap(logicBlock.GetType());
 
-
-
             return new LogicBlockIntrospectionResult
                    {
                        TypeFullName = logicBlock.GetType().FullName!,
@@ -59,6 +57,7 @@ namespace Vion.Dale.Sdk.Introspection
                 chain.Add(t);
                 t = t.BaseType;
             }
+
             chain.Reverse(); // base-first now
 
             var map = new Dictionary<(Type, string), int>();
@@ -75,6 +74,7 @@ namespace Vion.Dale.Sdk.Introspection
                     }
                 }
             }
+
             return map;
         }
 
@@ -324,10 +324,7 @@ namespace Vion.Dale.Sdk.Introspection
                 foreach (var binding in bindingMap.Values)
                 {
                     var prop = binding.RootSourcePropertyInfo;
-                    var natural = prop.DeclaringType is { } declaringType
-                                  && naturalPositions.TryGetValue((declaringType, prop.Name), out var pos)
-                                      ? pos
-                                      : int.MaxValue;
+                    var natural = prop.DeclaringType is { } declaringType && naturalPositions.TryGetValue((declaringType, prop.Name), out var pos) ? pos : int.MaxValue;
                     flat.Add((binding, serviceInterfaceType, natural));
                 }
             }

@@ -1,12 +1,12 @@
-﻿using Vion.Dale.Sdk.Abstractions;
+﻿using System;
+using Microsoft.Extensions.Logging;
+using Vion.Contracts.FlatBuffers.Hw.Modbus;
+using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Configuration.Contract;
 using Vion.Dale.Sdk.Messages;
 using Vion.Dale.Sdk.Modbus.Core.Conversion;
 using Vion.Dale.Sdk.Modbus.Core.Validation;
 using Vion.Dale.Sdk.Utils;
-using Microsoft.Extensions.Logging;
-using Vion.Contracts.FlatBuffers.Hw.Modbus;
-using System;
 
 namespace Vion.Dale.Sdk.Modbus.Rtu
 {

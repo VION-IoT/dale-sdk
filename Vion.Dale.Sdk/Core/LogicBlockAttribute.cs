@@ -6,7 +6,7 @@ namespace Vion.Dale.Sdk.Core
     ///     Block-level display metadata for a LogicBlock class.
     /// </summary>
     [PublicApi]
-    [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
+    [AttributeUsage(AttributeTargets.Class)]
     public class LogicBlockAttribute : Attribute
     {
         /// <summary>Human-readable name. Falls back to the C# class name.</summary>

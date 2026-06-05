@@ -7,7 +7,8 @@ namespace Vion.Dale.Sdk.Diagnostics
     public enum ActorCategory
     {
         LogicBlock,
-        Runtime
+
+        Runtime,
     }
 
     /// <summary>
@@ -29,7 +30,7 @@ namespace Vion.Dale.Sdk.Diagnostics
                 return new ActorIdentity(ActorCategory.LogicBlock, receiverType.Name, receiverType.Assembly.GetName().Name);
             }
 
-            return new ActorIdentity(ActorCategory.Runtime, receiverType.Name, Library: null);
+            return new ActorIdentity(ActorCategory.Runtime, receiverType.Name, null);
         }
     }
 }

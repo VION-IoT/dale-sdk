@@ -3,10 +3,10 @@
 namespace Vion.Examples.ToggleLight.Contracts
 {
     [LogicBlockContract(BetweenInterface = "IToggler",
-              AndInterface = "IToggleable",
-              BetweenDefaultName = "Signalgeber",
-              AndDefaultName = "Signalempfänger",
-              Direction = ContractDirection.BetweenToAnd)]
+                        AndInterface = "IToggleable",
+                        BetweenDefaultName = "Signalgeber",
+                        AndDefaultName = "Signalempfänger",
+                        Direction = ContractDirection.BetweenToAnd)]
     public static class Toggling
     {
         [StateUpdate(From = "IToggler", To = "IToggleable")]

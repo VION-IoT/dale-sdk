@@ -1,6 +1,7 @@
-using System.Collections.Generic;
+using System;
 using System.Collections.Immutable;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Vion.Dale.Sdk.Persistence;
@@ -28,7 +29,7 @@ namespace Vion.Dale.Sdk.Test.Persistence
         private static readonly JsonSerializerOptions DiskOptions = new()
                                                                     {
                                                                         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                                                                        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() },
+                                                                        Converters = { new JsonStringEnumConverter() },
                                                                     };
 
         [TestMethod]
@@ -64,9 +65,7 @@ namespace Vion.Dale.Sdk.Test.Persistence
             var (block, persistentData) = SetUp();
 
             persistentData.Apply([
-                new PersistentDataEntry("RichTypesLogicBlock.Setpoints",
-                                        typeof(ImmutableArray<double>).FullName!,
-                                        ToJsonElement(new[] { 1.1, 2.2, 3.3 })),
+                new PersistentDataEntry("RichTypesLogicBlock.Setpoints", typeof(ImmutableArray<double>).FullName!, ToJsonElement(new[] { 1.1, 2.2, 3.3 })),
             ]);
 
             CollectionAssert.AreEqual(new[] { 1.1, 2.2, 3.3 }, block.Setpoints);
@@ -78,9 +77,7 @@ namespace Vion.Dale.Sdk.Test.Persistence
             var (block, persistentData) = SetUp();
 
             persistentData.Apply([
-                new PersistentDataEntry("RichTypesLogicBlock.PreferredLocation",
-                                        typeof(Coordinates?).FullName!,
-                                        ToJsonElement(new Coordinates(47.3, 8.5))),
+                new PersistentDataEntry("RichTypesLogicBlock.PreferredLocation", typeof(Coordinates?).FullName!, ToJsonElement(new Coordinates(47.3, 8.5))),
             ]);
 
             Assert.IsNotNull(block.PreferredLocation);
@@ -94,9 +91,7 @@ namespace Vion.Dale.Sdk.Test.Persistence
             var (block, persistentData) = SetUp();
 
             persistentData.Apply([
-                new PersistentDataEntry("RichTypesLogicBlock.PreferredLocation",
-                                        typeof(Coordinates?).FullName!,
-                                        ToJsonElement<Coordinates?>(null)),
+                new PersistentDataEntry("RichTypesLogicBlock.PreferredLocation", typeof(Coordinates?).FullName!, ToJsonElement<Coordinates?>(null)),
             ]);
 
             Assert.IsNull(block.PreferredLocation);
@@ -108,14 +103,28 @@ namespace Vion.Dale.Sdk.Test.Persistence
             var (block, persistentData) = SetUp();
             var schedule = new[]
                            {
-                               new ScheduledSetpoint(new System.DateTime(2026, 5, 4, 0, 0, 0, System.DateTimeKind.Utc), 5.0, 230.0),
-                               new ScheduledSetpoint(new System.DateTime(2026, 5, 5, 0, 0, 0, System.DateTimeKind.Utc), 6.0, 231.0),
+                               new ScheduledSetpoint(new DateTime(2026,
+                                                                  5,
+                                                                  4,
+                                                                  0,
+                                                                  0,
+                                                                  0,
+                                                                  DateTimeKind.Utc),
+                                                     5.0,
+                                                     230.0),
+                               new ScheduledSetpoint(new DateTime(2026,
+                                                                  5,
+                                                                  5,
+                                                                  0,
+                                                                  0,
+                                                                  0,
+                                                                  DateTimeKind.Utc),
+                                                     6.0,
+                                                     231.0),
                            };
 
             persistentData.Apply([
-                new PersistentDataEntry("RichTypesLogicBlock.Schedule",
-                                        typeof(ImmutableArray<ScheduledSetpoint>).FullName!,
-                                        ToJsonElement(schedule)),
+                new PersistentDataEntry("RichTypesLogicBlock.Schedule", typeof(ImmutableArray<ScheduledSetpoint>).FullName!, ToJsonElement(schedule)),
             ]);
 
             Assert.HasCount(2, block.Schedule);
@@ -131,9 +140,7 @@ namespace Vion.Dale.Sdk.Test.Persistence
             var (block, persistentData) = SetUp();
 
             persistentData.Apply([
-                new PersistentDataEntry("RichTypesLogicBlock.PreferredMode",
-                                        typeof(OperatingMode?).FullName!,
-                                        ToJsonElement(OperatingMode.Manual)),
+                new PersistentDataEntry("RichTypesLogicBlock.PreferredMode", typeof(OperatingMode?).FullName!, ToJsonElement(OperatingMode.Manual)),
             ]);
 
             Assert.AreEqual(OperatingMode.Manual, block.PreferredMode);
@@ -157,11 +164,12 @@ namespace Vion.Dale.Sdk.Test.Persistence
         public void TolerateNullValueOnNullableProperty()
         {
             var (block, persistentData) = SetUp();
+
             // First set a non-null so the null assignment is observable as a change.
             block.Target = 5.0;
 
             persistentData.Apply([
-                new PersistentDataEntry("RichTypesLogicBlock.Target", typeof(double?).FullName!, Value: null!),
+                new PersistentDataEntry("RichTypesLogicBlock.Target", typeof(double?).FullName!, null!),
             ]);
 
             Assert.IsNull(block.Target);
@@ -175,9 +183,7 @@ namespace Vion.Dale.Sdk.Test.Persistence
             // Should not throw — the implementation logs a warning and moves on so
             // a stale persistence file from an older logic-block schema doesn't fail boot.
             persistentData.Apply([
-                new PersistentDataEntry("RichTypesLogicBlock.PropertyThatNoLongerExists",
-                                        typeof(int).FullName!,
-                                        ToJsonElement(42)),
+                new PersistentDataEntry("RichTypesLogicBlock.PropertyThatNoLongerExists", typeof(int).FullName!, ToJsonElement(42)),
             ]);
 
             // No assertion needed; success = no exception thrown.

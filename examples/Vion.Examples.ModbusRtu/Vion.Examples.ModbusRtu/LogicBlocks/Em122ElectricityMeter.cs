@@ -1,7 +1,7 @@
 using System;
+using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Modbus.Rtu;
-using Microsoft.Extensions.Logging;
 
 namespace Vion.Examples.ModbusRtu.LogicBlocks
 {

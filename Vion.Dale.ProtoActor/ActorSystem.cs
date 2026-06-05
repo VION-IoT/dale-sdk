@@ -4,13 +4,13 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using Vion.Dale.ProtoActor.Extensions;
-using Vion.Dale.Sdk.Abstractions;
-using Vion.Dale.Sdk.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Proto;
 using Proto.Mailbox;
+using Vion.Dale.ProtoActor.Extensions;
+using Vion.Dale.Sdk.Abstractions;
+using Vion.Dale.Sdk.Diagnostics;
 
 namespace Vion.Dale.ProtoActor
 {
@@ -20,12 +20,12 @@ namespace Vion.Dale.ProtoActor
 
         private readonly ILogger<ActorSystem> _logger;
 
-        private readonly IServiceProvider _serviceProvider;
-
         // Optional, opt-in message observers (DevHost's tap — RFC 0003 — and the vitals collector — RFC 0005),
         // combined into the single middleware slot. Null when none is registered, so a host that registers no
         // observer keeps the original behaviour.
         private readonly IActorMessageObserver? _messageObserver;
+
+        private readonly IServiceProvider _serviceProvider;
 
         // Drives handler-duration measurement in the middleware: the real clock in production, a
         // FakeTimeProvider under test. Defaults to the system clock when none is registered.
@@ -217,19 +217,6 @@ namespace Vion.Dale.ProtoActor
             return pid.ToActorReference();
         }
 
-        // RFC 0005: register the actor's identity and attach mailbox-depth statistics when the vitals core
-        // is present. No-op otherwise, so spawn behaviour is unchanged for hosts without diagnostics.
-        private Props WithVitals(Props props, Type receiverType, string name)
-        {
-            if (_vitalsCollector == null)
-            {
-                return props;
-            }
-
-            _vitalsCollector.Register(name, ActorIdentity.For(receiverType, name));
-            return props.WithMailbox(() => UnboundedMailbox.Create(new VitalsMailboxStatistics(name, _vitalsCollector)));
-        }
-
         /// <inheritdoc />
         public Task StopActorsAndWaitAsync(List<IActorReference> actorsToStop, TimeSpan timeout)
         {
@@ -317,6 +304,19 @@ namespace Vion.Dale.ProtoActor
         public IActorReference LookupByName(string name)
         {
             return new ActorReference(PidUtils.FromName(name));
+        }
+
+        // RFC 0005: register the actor's identity and attach mailbox-depth statistics when the vitals core
+        // is present. No-op otherwise, so spawn behaviour is unchanged for hosts without diagnostics.
+        private Props WithVitals(Props props, Type receiverType, string name)
+        {
+            if (_vitalsCollector == null)
+            {
+                return props;
+            }
+
+            _vitalsCollector.Register(name, ActorIdentity.For(receiverType, name));
+            return props.WithMailbox(() => UnboundedMailbox.Create(new VitalsMailboxStatistics(name, _vitalsCollector)));
         }
     }
 }

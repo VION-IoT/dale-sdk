@@ -21,14 +21,29 @@ namespace Vion.Dale.Sdk.Abstractions
             }
             catch (Exception exception)
             {
-                Notify(observer, actorName, message, timeProvider, startTimestamp, exception);
+                Notify(observer,
+                       actorName,
+                       message,
+                       timeProvider,
+                       startTimestamp,
+                       exception);
                 throw;
             }
 
-            Notify(observer, actorName, message, timeProvider, startTimestamp, exception: null);
+            Notify(observer,
+                   actorName,
+                   message,
+                   timeProvider,
+                   startTimestamp,
+                   null);
         }
 
-        private static void Notify(IActorMessageObserver? observer, string actorName, object? message, TimeProvider timeProvider, long startTimestamp, Exception? exception)
+        private static void Notify(IActorMessageObserver? observer,
+                                   string actorName,
+                                   object? message,
+                                   TimeProvider timeProvider,
+                                   long startTimestamp,
+                                   Exception? exception)
         {
             if (observer == null || message == null)
             {

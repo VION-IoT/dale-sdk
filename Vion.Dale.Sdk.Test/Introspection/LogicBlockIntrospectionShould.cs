@@ -27,10 +27,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
         public readonly record struct TestCommand(string Data);
     }
 
-    [LogicBlockInterfaceBinding(typeof(ITestProvider),
-                                DefaultName = "Quelle",
-                                Multiplicity = LinkMultiplicity.ZeroOrOne,
-                                Tags = new[] { "provider-tag" })]
+    [LogicBlockInterfaceBinding(typeof(ITestProvider), DefaultName = "Quelle", Multiplicity = LinkMultiplicity.ZeroOrOne, Tags = new[] { "provider-tag" })]
     public class BetweenSideTestBlock : LogicBlockBase, ITestProvider
     {
         public BetweenSideTestBlock() : base(new Mock<ILogger>().Object)
@@ -141,10 +138,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
     public class ContractTestLogicBlock : LogicBlockBase
     {
-        [ServiceProviderContractBinding(Identifier = "Button",
-                                        DefaultName = "Taster",
-                                        Multiplicity = LinkMultiplicity.ZeroOrOne,
-                                        Tags = new[] { "input", "sensor" })]
+        [ServiceProviderContractBinding(Identifier = "Button", DefaultName = "Taster", Multiplicity = LinkMultiplicity.ZeroOrOne, Tags = new[] { "input", "sensor" })]
         public IDigitalInput Button { get; set; } = null!;
 
         [ServiceProviderContractBinding(Identifier = "LED")]
@@ -440,8 +434,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
             // Frozen forward-contract shape: the consumer-side link multiplicity rides
             // the loose Annotations dict, keyed by LogicBlockWiringConventions and
             // valued with the shared token string (not a boxed enum, not x-).
-            Assert.AreEqual(LogicBlockWiringConventions.ZeroOrOne,
-                            iface.Annotations[LogicBlockWiringConventions.MultiplicityAnnotationKey]);
+            Assert.AreEqual(LogicBlockWiringConventions.ZeroOrOne, iface.Annotations[LogicBlockWiringConventions.MultiplicityAnnotationKey]);
 
             // The deleted Cardinality/Sharing/CreationType keys must no longer be emitted.
             Assert.IsFalse(iface.Annotations.ContainsKey("Cardinality"));
@@ -511,8 +504,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
             // Button: IDigitalInput bound with consumer-side Multiplicity = ZeroOrOne.
             // Inputs default provider-side Consumers to ZeroOrMore → no Consumers key.
             var button = result.Contracts.First(c => c.Identifier == "Button");
-            Assert.AreEqual(LogicBlockWiringConventions.ZeroOrOne,
-                            button.Annotations[LogicBlockWiringConventions.MultiplicityAnnotationKey]);
+            Assert.AreEqual(LogicBlockWiringConventions.ZeroOrOne, button.Annotations[LogicBlockWiringConventions.MultiplicityAnnotationKey]);
             Assert.IsFalse(button.Annotations.ContainsKey(LogicBlockWiringConventions.ConsumersAnnotationKey));
             Assert.IsFalse(button.Annotations.ContainsKey("Cardinality"));
             Assert.IsFalse(button.Annotations.ContainsKey("Sharing"));
@@ -522,8 +514,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
             // (single-writer) is injected from [ServiceProviderContractType].
             var led = result.Contracts.First(c => c.Identifier == "LED");
             Assert.IsFalse(led.Annotations.ContainsKey(LogicBlockWiringConventions.MultiplicityAnnotationKey));
-            Assert.AreEqual(LogicBlockWiringConventions.ZeroOrOne,
-                            led.Annotations[LogicBlockWiringConventions.ConsumersAnnotationKey]);
+            Assert.AreEqual(LogicBlockWiringConventions.ZeroOrOne, led.Annotations[LogicBlockWiringConventions.ConsumersAnnotationKey]);
 
             // Temperature: IAnalogInput, all-default (consumer + provider ZeroOrMore)
             // → neither key present; the unconstrained default is omitted.

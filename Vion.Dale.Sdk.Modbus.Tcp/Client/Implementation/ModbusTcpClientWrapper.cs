@@ -2,10 +2,10 @@
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Modbus.Core.Conversion;
 using Vion.Dale.Sdk.Modbus.Core.Exceptions;
 using Vion.Dale.Sdk.Modbus.Core.Validation;
-using Microsoft.Extensions.Logging;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
 {

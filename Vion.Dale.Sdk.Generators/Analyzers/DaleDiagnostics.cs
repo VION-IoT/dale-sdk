@@ -227,22 +227,22 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         ///     break the codec round-trip.
         /// </summary>
         public static readonly DiagnosticDescriptor DALE022_WriteOnlyTypeRestriction = new("DALE022",
-                                                                                            "[ServiceProperty(WriteOnly)] only supported on string / string?",
-                                                                                            "Property '{0}' sets WriteOnly = true but type '{1}' is not string. WriteOnly is restricted to string / string? in v1.",
-                                                                                            Category,
-                                                                                            DiagnosticSeverity.Error,
-                                                                                            true);
+                                                                                           "[ServiceProperty(WriteOnly)] only supported on string / string?",
+                                                                                           "Property '{0}' sets WriteOnly = true but type '{1}' is not string. WriteOnly is restricted to string / string? in v1.",
+                                                                                           Category,
+                                                                                           DiagnosticSeverity.Error,
+                                                                                           true);
 
         /// <summary>
         ///     [Presentation(UiHint = UiHints.Trigger)] requires a writable bool property.
         ///     The trigger renderer commits <c>true</c> on click; non-bool types break the contract.
         /// </summary>
         public static readonly DiagnosticDescriptor DALE023_TriggerHintRequiresBool = new("DALE023",
-                                                                                           "[Presentation(UiHint = \"trigger\")] requires a writable bool property",
-                                                                                           "Property '{0}' uses UiHint \"trigger\" but {1}. Triggers require a writable bool property; the dashboard commits 'true' on click.",
-                                                                                           Category,
-                                                                                           DiagnosticSeverity.Error,
-                                                                                           true);
+                                                                                          "[Presentation(UiHint = \"trigger\")] requires a writable bool property",
+                                                                                          "Property '{0}' uses UiHint \"trigger\" but {1}. Triggers require a writable bool property; the dashboard commits 'true' on click.",
+                                                                                          Category,
+                                                                                          DiagnosticSeverity.Error,
+                                                                                          true);
 
         /// <summary>
         ///     [Presentation(StatusIndicator = true)] requires an enum (or nullable-enum) property.
@@ -250,11 +250,11 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         ///     Replaces the retired DALE006 (which targeted the now-deleted [StatusIndicator]).
         /// </summary>
         public static readonly DiagnosticDescriptor DALE024_StatusIndicatorRequiresEnum = new("DALE024",
-                                                                                               "[Presentation(StatusIndicator = true)] requires an enum property",
-                                                                                               "Property '{0}' sets StatusIndicator = true but type '{1}' is not an enum. Status mappings will be ignored.",
-                                                                                               Category,
-                                                                                               DiagnosticSeverity.Warning,
-                                                                                               true);
+                                                                                              "[Presentation(StatusIndicator = true)] requires an enum property",
+                                                                                              "Property '{0}' sets StatusIndicator = true but type '{1}' is not an enum. Status mappings will be ignored.",
+                                                                                              Category,
+                                                                                              DiagnosticSeverity.Warning,
+                                                                                              true);
 
         /// <summary>
         ///     Two or more attributes deriving from the same platform base attribute appear on a
@@ -264,11 +264,11 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         ///     allowed and drive the cross-fill rule.
         /// </summary>
         public static readonly DiagnosticDescriptor DALE019_MultipleAttributesFromSameBase = new("DALE019",
-                                                                                                  "Multiple attributes derive from the same platform base attribute",
-                                                                                                  "Property '{0}' has multiple attributes deriving from '{1}': {2}. Pick one — preset-attribute inheritance does not support stacking.",
-                                                                                                  Category,
-                                                                                                  DiagnosticSeverity.Error,
-                                                                                                  true);
+                                                                                                 "Multiple attributes derive from the same platform base attribute",
+                                                                                                 "Property '{0}' has multiple attributes deriving from '{1}': {2}. Pick one — preset-attribute inheritance does not support stacking.",
+                                                                                                 Category,
+                                                                                                 DiagnosticSeverity.Error,
+                                                                                                 true);
 
         /// <summary>
         ///     The same property name is declared in two or more implemented interfaces with
@@ -277,11 +277,11 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         ///     class or align the interface declarations.
         /// </summary>
         public static readonly DiagnosticDescriptor DALE020_MultiInterfaceConflict = new("DALE020",
-                                                                                          "Multi-interface attribute conflict",
-                                                                                          "Class '{0}' implements multiple interfaces declaring property '{1}' with conflicting Unit values ({2}). Override with an explicit attribute on the class or align the interface declarations.",
-                                                                                          Category,
-                                                                                          DiagnosticSeverity.Error,
-                                                                                          true);
+                                                                                         "Multi-interface attribute conflict",
+                                                                                         "Class '{0}' implements multiple interfaces declaring property '{1}' with conflicting Unit values ({2}). Override with an explicit attribute on the class or align the interface declarations.",
+                                                                                         Category,
+                                                                                         DiagnosticSeverity.Error,
+                                                                                         true);
 
         /// <summary>
         ///     A property declares both <c>[ServiceProperty]</c> and <c>[ServiceMeasuringPoint]</c>
@@ -290,11 +290,11 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         ///     field — pick one attribute to carry the value.
         /// </summary>
         public static readonly DiagnosticDescriptor DALE025_CrossFillConflict = new("DALE025",
-                                                                                     "[ServiceProperty] / [ServiceMeasuringPoint] cross-fill conflict",
-                                                                                     "Property '{0}' has [ServiceProperty({1} = {2})] and [ServiceMeasuringPoint({1} = {3})] with conflicting values. Pick one and let the cross-fill rule do its job.",
-                                                                                     Category,
-                                                                                     DiagnosticSeverity.Warning,
-                                                                                     true);
+                                                                                    "[ServiceProperty] / [ServiceMeasuringPoint] cross-fill conflict",
+                                                                                    "Property '{0}' has [ServiceProperty({1} = {2})] and [ServiceMeasuringPoint({1} = {3})] with conflicting values. Pick one and let the cross-fill rule do its job.",
+                                                                                    Category,
+                                                                                    DiagnosticSeverity.Warning,
+                                                                                    true);
 
         /// <summary>
         ///     A literal string passed as <c>[Presentation(Group = "...")]</c> doesn't match any
@@ -303,11 +303,11 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         ///     <c>#pragma warning disable</c> for one-off custom keys without a constant.
         /// </summary>
         public static readonly DiagnosticDescriptor DALE026_LiteralGroupKey = new("DALE026",
-                                                                                   "Literal Group key doesn't match any PropertyGroup constant",
-                                                                                   "Literal Group key \"{0}\" doesn't match any constant in a PropertyGroup-named static class. Recommended: use a constant. Suppress this warning if the literal is intentional.",
-                                                                                   Category,
-                                                                                   DiagnosticSeverity.Warning,
-                                                                                   true);
+                                                                                  "Literal Group key doesn't match any PropertyGroup constant",
+                                                                                  "Literal Group key \"{0}\" doesn't match any constant in a PropertyGroup-named static class. Recommended: use a constant. Suppress this warning if the literal is intentional.",
+                                                                                  Category,
+                                                                                  DiagnosticSeverity.Warning,
+                                                                                  true);
 
         /// <summary>
         ///     A property on a <c>LogicBlockBase</c> subclass has a custom setter body that uses
@@ -319,11 +319,11 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         ///     instead until the upstream aspect is fixed.
         /// </summary>
         public static readonly DiagnosticDescriptor DALE029_MetalamaFieldKeywordSetter = new("DALE029",
-                                                                                              "Setter body using 'field' keyword is silently dropped by Metalama [Observable]",
-                                                                                              "Property '{0}' has a custom setter body that uses the C# 13 'field' keyword. Metalama's [Observable] aspect (auto-applied to LogicBlockBase subclasses) silently drops the body at runtime, so side effects (forwarded writes, state-update emits, logging) never run. Use an explicit private backing field instead.",
-                                                                                              Category,
-                                                                                              DiagnosticSeverity.Warning,
-                                                                                              true);
+                                                                                             "Setter body using 'field' keyword is silently dropped by Metalama [Observable]",
+                                                                                             "Property '{0}' has a custom setter body that uses the C# 13 'field' keyword. Metalama's [Observable] aspect (auto-applied to LogicBlockBase subclasses) silently drops the body at runtime, so side effects (forwarded writes, state-update emits, logging) never run. Use an explicit private backing field instead.",
+                                                                                             Category,
+                                                                                             DiagnosticSeverity.Warning,
+                                                                                             true);
 
         /// <summary>
         ///     <c>[ServiceProperty(ReadOnly = true, WriteOnly = true)]</c> is incoherent: <c>ReadOnly</c>
@@ -332,11 +332,11 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         ///     pick one.
         /// </summary>
         public static readonly DiagnosticDescriptor DALE030_ReadOnlyAndWriteOnlyMutuallyExclusive = new("DALE030",
-                                                                                                         "[ServiceProperty(ReadOnly, WriteOnly)] are mutually exclusive",
-                                                                                                         "Property '{0}' sets both ReadOnly = true and WriteOnly = true on [ServiceProperty]. These flags hide opposite directions of the value flow — ReadOnly blocks cloud writes; WriteOnly redacts the publish-state value. Pick one.",
-                                                                                                         Category,
-                                                                                                         DiagnosticSeverity.Error,
-                                                                                                         true);
+                                                                                                        "[ServiceProperty(ReadOnly, WriteOnly)] are mutually exclusive",
+                                                                                                        "Property '{0}' sets both ReadOnly = true and WriteOnly = true on [ServiceProperty]. These flags hide opposite directions of the value flow — ReadOnly blocks cloud writes; WriteOnly redacts the publish-state value. Pick one.",
+                                                                                                        Category,
+                                                                                                        DiagnosticSeverity.Error,
+                                                                                                        true);
 
         /// <summary>
         ///     A computed observable property (an explicit/expression-bodied getter carrying [ServiceProperty]
@@ -360,11 +360,11 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         ///     types the format hint is silently ignored.
         /// </summary>
         public static readonly DiagnosticDescriptor DALE027_FormatOnNonTemporal = new("DALE027",
-                                                                                       "[Presentation(Format)] only applies to DateTime / TimeSpan properties",
-                                                                                       "Property '{0}' sets Presentation.Format but type '{1}' is not DateTime or TimeSpan. The format hint will be ignored.",
-                                                                                       Category,
-                                                                                       DiagnosticSeverity.Warning,
-                                                                                       true);
+                                                                                      "[Presentation(Format)] only applies to DateTime / TimeSpan properties",
+                                                                                      "Property '{0}' sets Presentation.Format but type '{1}' is not DateTime or TimeSpan. The format hint will be ignored.",
+                                                                                      Category,
+                                                                                      DiagnosticSeverity.Warning,
+                                                                                      true);
 
         /// <summary>
         ///     The sentinel <c>Formats.Relative</c> requires a <c>DateTime</c> property; the
@@ -372,10 +372,10 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         ///     mismatched property type the renderer falls back to the default formatter.
         /// </summary>
         public static readonly DiagnosticDescriptor DALE028_FormatSentinelTypeMismatch = new("DALE028",
-                                                                                              "Format sentinel doesn't match property type",
-                                                                                              "Property '{0}' uses Format = \"{1}\" which requires {2}, but the property type is '{3}'. The renderer will fall back to the default formatter.",
-                                                                                              Category,
-                                                                                              DiagnosticSeverity.Warning,
-                                                                                              true);
+                                                                                             "Format sentinel doesn't match property type",
+                                                                                             "Property '{0}' uses Format = \"{1}\" which requires {2}, but the property type is '{3}'. The renderer will fall back to the default formatter.",
+                                                                                             Category,
+                                                                                             DiagnosticSeverity.Warning,
+                                                                                             true);
     }
 }

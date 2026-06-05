@@ -1,7 +1,7 @@
-﻿using Vion.Dale.Sdk.DigitalIo.TestKit;
+﻿using Moq;
+using Vion.Dale.Sdk.DigitalIo.TestKit;
 using Vion.Dale.Sdk.TestKit;
 using Vion.Dale.Sdk.Utils;
-using Moq;
 using Vion.Examples.ToggleLight.Contracts;
 using Vion.Examples.ToggleLight.LogicBlocks;
 using Xunit;

@@ -18,12 +18,13 @@ namespace Vion.Dale.Sdk.Diagnostics
     {
         private static readonly TimeSpan DefaultWindow = TimeSpan.FromMinutes(1);
 
-        private readonly TimeProvider _timeProvider;
-        private readonly TimeSpan _window;
-        private readonly ConcurrentDictionary<string, ActorState> _actors = new ConcurrentDictionary<string, ActorState>();
+        private readonly ConcurrentDictionary<string, ActorState> _actors = new();
 
-        public RuntimeVitals(TimeProvider timeProvider)
-            : this(timeProvider, DefaultWindow)
+        private readonly TimeProvider _timeProvider;
+
+        private readonly TimeSpan _window;
+
+        public RuntimeVitals(TimeProvider timeProvider) : this(timeProvider, DefaultWindow)
         {
         }
 
@@ -86,17 +87,26 @@ namespace Vion.Dale.Sdk.Diagnostics
         private sealed class ActorState
         {
             private readonly WindowedMax<TimeSpan> _handlerDurationMax;
-            private readonly WindowedMax<TimeSpan> _timerCallbackDurationMax;
-            private readonly WindowedMax<TimeSpan> _timerJitterMax;
+
             private readonly WindowedMax<int> _mailboxDepthMax;
 
-            private long _messagesHandled;
+            private readonly WindowedMax<TimeSpan> _timerCallbackDurationMax;
+
+            private readonly WindowedMax<TimeSpan> _timerJitterMax;
+
             private long _errors;
-            private long _messagesPosted;
-            private long _messagesReceived;
+
             private TimeSpan _handlerDurationTotal;
-            private DateTimeOffset _lastActivityUtc;
+
             private ActorIdentity? _identity;
+
+            private DateTimeOffset _lastActivityUtc;
+
+            private long _messagesHandled;
+
+            private long _messagesPosted;
+
+            private long _messagesReceived;
 
             public ActorState(TimeProvider timeProvider, TimeSpan window)
             {
@@ -147,18 +157,17 @@ namespace Vion.Dale.Sdk.Diagnostics
             public ActorVitals ToSnapshot(string actorName)
             {
                 var mailboxDepth = (int)Math.Max(0L, Interlocked.Read(ref _messagesPosted) - Interlocked.Read(ref _messagesReceived));
-                return new ActorVitals(
-                    actorName,
-                    _identity,
-                    _messagesHandled,
-                    _errors,
-                    _handlerDurationMax.Read(),
-                    _handlerDurationTotal,
-                    mailboxDepth,
-                    _mailboxDepthMax.Read(),
-                    _timerCallbackDurationMax.Read(),
-                    _timerJitterMax.Read(),
-                    _lastActivityUtc);
+                return new ActorVitals(actorName,
+                                       _identity,
+                                       _messagesHandled,
+                                       _errors,
+                                       _handlerDurationMax.Read(),
+                                       _handlerDurationTotal,
+                                       mailboxDepth,
+                                       _mailboxDepthMax.Read(),
+                                       _timerCallbackDurationMax.Read(),
+                                       _timerJitterMax.Read(),
+                                       _lastActivityUtc);
             }
         }
     }

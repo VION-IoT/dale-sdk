@@ -6,9 +6,9 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
     [TestClass]
     public class IModbusRtuExtensionsShould
     {
-        private SampleLogicBlock _sut = null!;
-
         private LogicBlockTestContext<SampleLogicBlock> _context = null!;
+
+        private SampleLogicBlock _sut = null!;
 
         [TestInitialize]
         public void Initialize()
@@ -105,7 +105,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
             _sut.ReadVoltages();
 
             // Act / Assert
-            Assert.Throws<InvalidOperationException>(() => _sut.Modbus.SimulateReadResponse(_context, new byte[] { 0, 0 }, startingAddress: 999));
+            Assert.Throws<InvalidOperationException>(() => _sut.Modbus.SimulateReadResponse(_context, new byte[] { 0, 0 }, 999));
         }
 
         [TestMethod]
@@ -122,7 +122,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
             _sut.WriteSetpoint(42);
 
             // Act / Assert
-            Assert.Throws<InvalidOperationException>(() => _sut.Modbus.SimulateWriteResponse(_context, address: 999));
+            Assert.Throws<InvalidOperationException>(() => _sut.Modbus.SimulateWriteResponse(_context, 999));
         }
     }
 }

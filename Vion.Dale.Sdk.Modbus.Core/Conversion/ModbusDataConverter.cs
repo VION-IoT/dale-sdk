@@ -6,7 +6,8 @@ using Vion.Dale.Sdk.Modbus.Core.Exceptions;
 namespace Vion.Dale.Sdk.Modbus.Core.Conversion
 {
     /// <summary>
-    ///     Provides methods for converting between Modbus register byte representations and .NET types, handling byte/word ordering, text encoding, and bit-level operations.
+    ///     Provides methods for converting between Modbus register byte representations and .NET types, handling byte/word
+    ///     ordering, text encoding, and bit-level operations.
     /// </summary>
     public class ModbusDataConverter : IModbusDataConverter
     {

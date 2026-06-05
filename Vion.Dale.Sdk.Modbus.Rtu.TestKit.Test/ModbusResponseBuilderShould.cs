@@ -77,7 +77,16 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
             // Expected layout per Modbus coil packing (LSB first):
             // bits 0..7 → byte 0: 1,0,1,0,0,0,0,1 → 0b10000101 = 0x85
             // bits 8,9  → byte 1: 1,1              → 0b00000011 = 0x03
-            var bytes = ModbusResponseBuilder.FromBools(true, false, true, false, false, false, false, true, true, true);
+            var bytes = ModbusResponseBuilder.FromBools(true,
+                                                        false,
+                                                        true,
+                                                        false,
+                                                        false,
+                                                        false,
+                                                        false,
+                                                        true,
+                                                        true,
+                                                        true);
 
             // Assert
             CollectionAssert.AreEqual(new byte[] { 0x85, 0x03 }, bytes);

@@ -1,5 +1,5 @@
-using Vion.Dale.Sdk.Core;
 using Microsoft.Extensions.DependencyInjection;
+using Vion.Dale.Sdk.Core;
 using Vion.Examples.ModbusRtu.LogicBlocks;
 
 namespace Vion.Examples.ModbusRtu

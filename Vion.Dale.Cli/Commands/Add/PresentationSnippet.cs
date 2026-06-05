@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace Vion.Dale.Cli.Commands.Add
@@ -9,6 +10,7 @@ namespace Vion.Dale.Cli.Commands.Add
     internal static class PresentationSnippet
     {
         /// <summary>Well-known <see cref="Vion.Dale.Sdk.Core.PropertyGroup" /> constant names.</summary>
+
         // SYNC: keep in lockstep with Vion.Dale.Sdk.Core.PropertyGroup constant names (CLI has no SDK ref)
         internal static readonly string[] KnownGroups =
         {
@@ -25,7 +27,9 @@ namespace Vion.Dale.Cli.Commands.Add
         ///     string literal (<c>"..."</c>): backslashes and double quotes.
         /// </summary>
         internal static string EscapeCsString(string value)
-            => value.Replace("\\", "\\\\").Replace("\"", "\\\"");
+        {
+            return value.Replace("\\", "\\\\").Replace("\"", "\\\"");
+        }
 
         /// <summary>
         ///     Builds a single <c>[Presentation(...)]</c> attribute line, or <c>null</c> when
@@ -72,7 +76,7 @@ namespace Vion.Dale.Cli.Commands.Add
         {
             foreach (var known in KnownGroups)
             {
-                if (string.Equals(known, group, System.StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(known, group, StringComparison.OrdinalIgnoreCase))
                 {
                     return $"PropertyGroup.{known}";
                 }

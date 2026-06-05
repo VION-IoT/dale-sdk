@@ -1,7 +1,7 @@
 using System;
+using Microsoft.Extensions.Time.Testing;
 using Vion.Dale.Sdk.TestKit;
 using Vion.Dale.Sdk.Utils;
-using Microsoft.Extensions.Time.Testing;
 using Vion.Examples.Energy.Contracts;
 using Vion.Examples.Energy.LogicBlocks;
 using Xunit;
@@ -13,6 +13,7 @@ namespace Vion.Examples.Energy.Test
         public EnergyManagerSimulationShould()
         {
             _sut = new EnergyManagerSimulation(_timeProvider, LogicBlockTestHelper.CreateLoggerMock().Object);
+
             // EnergyManagerSimulation is multi-sender; bind the same FakeTimeProvider to the test
             // context so SendToSelfAfter deadlines stay in sync with the block's UtcNow reads.
             _testContext = _sut.CreateTestContext()
@@ -33,7 +34,13 @@ namespace Vion.Examples.Energy.Test
 
         private static readonly InterfaceId BatteryId = new("battery-block", "IControllableElectricityBuffer");
 
-        private readonly FakeTimeProvider _timeProvider = new(new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero));
+        private readonly FakeTimeProvider _timeProvider = new(new DateTimeOffset(2026,
+                                                                                 1,
+                                                                                 1,
+                                                                                 12,
+                                                                                 0,
+                                                                                 0,
+                                                                                 TimeSpan.Zero));
 
         private readonly EnergyManagerSimulation _sut;
 

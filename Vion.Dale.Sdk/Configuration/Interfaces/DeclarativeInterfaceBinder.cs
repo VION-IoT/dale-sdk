@@ -32,11 +32,7 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
             // Process each implemented interface
             foreach (var implementedLogicInterface in implementedLogicInterfaces)
             {
-                BindLogicInterface(logicBlock,
-                                   implementedLogicInterface,
-                                   interfaceAttributes,
-                                   interfaceFactory,
-                                   null);
+                BindLogicInterface(logicBlock, implementedLogicInterface, interfaceAttributes, interfaceFactory, null);
             }
         }
 
@@ -74,11 +70,7 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
                     // This ensures unique identifiers even with single interface implementation
                     var defaultIdentifier = $"{property.Name}_{implementedLogicInterface.Name}";
 
-                    BindLogicInterface(propertyValue,
-                                       implementedLogicInterface,
-                                       interfaceAttributes,
-                                       interfaceFactory,
-                                       defaultIdentifier);
+                    BindLogicInterface(propertyValue, implementedLogicInterface, interfaceAttributes, interfaceFactory, defaultIdentifier);
                 }
             }
         }

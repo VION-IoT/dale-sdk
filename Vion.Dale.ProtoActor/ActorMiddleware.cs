@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Linq;
-using Vion.Dale.Sdk.Abstractions;
-using Vion.Dale.Sdk.Mqtt;
 using Microsoft.Extensions.Logging;
 using Proto;
+using Vion.Dale.Sdk.Abstractions;
+using Vion.Dale.Sdk.Mqtt;
 
 namespace Vion.Dale.ProtoActor
 {

@@ -7,14 +7,12 @@ namespace Vion.Dale.Sdk.Core
     ///     (when the LB implements the interface directly) OR a property (when the property's
     ///     value implements the interface, e.g. an inner ChargingPoint instance). Both cases
     ///     are "metadata for an existing interface relationship".
-    ///
     ///     AllowMultiple = true to handle properties whose type implements multiple interfaces
     ///     (each <see cref="LogicBlockInterfaceBindingAttribute" /> targets one interface via
     ///     <see cref="ForInterface" />).
     /// </summary>
     [PublicApi]
-    [AttributeUsage(AttributeTargets.Property | AttributeTargets.Class,
-                    AllowMultiple = true, Inherited = true)]
+    [AttributeUsage(AttributeTargets.Property | AttributeTargets.Class, AllowMultiple = true)]
     public class LogicBlockInterfaceBindingAttribute : Attribute
     {
         /// <summary>The interface this binding metadata applies to.</summary>

@@ -34,22 +34,26 @@ namespace Vion.Dale.Sdk.Modbus.Core.Exceptions
         ServerDeviceFailure = 0x04,
 
         /// <summary>
-        ///     Specialized use in conjunction with programming commands. The server has accepted the request and is processing it, but a long duration of time will be required to do so.
+        ///     Specialized use in conjunction with programming commands. The server has accepted the request and is processing it,
+        ///     but a long duration of time will be required to do so.
         /// </summary>
         Acknowledge = 0x05,
 
         /// <summary>
-        ///     Specialized use in conjunction with programming commands. The engaged in processing a long–duration program command.
+        ///     Specialized use in conjunction with programming commands. The engaged in processing a long–duration program
+        ///     command.
         /// </summary>
         ServerDeviceBusy = 0x06,
 
         /// <summary>
-        ///     Specialized use in conjunction with function codes 20 and 21 and reference type 6, to indicate that the extended file area failed to pass a consistency check.
+        ///     Specialized use in conjunction with function codes 20 and 21 and reference type 6, to indicate that the extended
+        ///     file area failed to pass a consistency check.
         /// </summary>
         MemoryParityError = 0x8,
 
         /// <summary>
-        ///     Specialized use in conjunction with gateways, indicates that the gateway was unable to allocate an internal communication path from the input port to the output port for
+        ///     Specialized use in conjunction with gateways, indicates that the gateway was unable to allocate an internal
+        ///     communication path from the input port to the output port for
         ///     processing the request.
         /// </summary>
         GatewayPathUnavailable = 0x0A,

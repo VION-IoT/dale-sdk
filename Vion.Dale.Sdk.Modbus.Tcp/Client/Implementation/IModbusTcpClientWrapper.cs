@@ -15,11 +15,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
     ///         All read and write operations automatically establish a connection if not already connected.
     ///     </para>
     ///     <para>
-    ///         Read, write, and disconnect operations are not thread-safe. Concurrent calls to these methods will lead to data corruption or unexpected behavior.
+    ///         Read, write, and disconnect operations are not thread-safe. Concurrent calls to these methods will lead to data
+    ///         corruption or unexpected behavior.
     ///     </para>
     ///     <para>
-    ///         Property setters (<see cref="IpAddress" />, <see cref="Port" />, <see cref="ConnectionTimeout" />) can be called concurrently with other operations.
-    ///         Changes take effect on the next connection attempt (for <see cref="ConnectionTimeout" />) or the next read/write operation (for <see cref="IpAddress" /> and
+    ///         Property setters (<see cref="IpAddress" />, <see cref="Port" />, <see cref="ConnectionTimeout" />) can be
+    ///         called concurrently with other operations.
+    ///         Changes take effect on the next connection attempt (for <see cref="ConnectionTimeout" />) or the next
+    ///         read/write operation (for <see cref="IpAddress" /> and
     ///         <see cref="Port" />).
     ///     </para>
     /// </remarks>
@@ -39,7 +42,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         ///     Gets or sets the port number used to connect to the Modbus TCP server.
         /// </summary>
         /// <remarks>
-        ///     Changes to this property do not trigger an immediate reconnect. The new port will be used when the next read or write operation is executed.
+        ///     Changes to this property do not trigger an immediate reconnect. The new port will be used when the next read or
+        ///     write operation is executed.
         /// </remarks>
         int Port { get; set; }
 
@@ -47,7 +51,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         ///     Gets or sets the IP address of the Modbus TCP server.
         /// </summary>
         /// <remarks>
-        ///     Changes to this property do not trigger an immediate reconnect. The new IP address will be used when the next read or write operation is executed.
+        ///     Changes to this property do not trigger an immediate reconnect. The new IP address will be used when the next read
+        ///     or write operation is executed.
         /// </remarks>
         IPAddress? IpAddress { get; set; }
 
@@ -77,7 +82,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         /// <param name="quantity">The number of discrete inputs to read.</param>
         /// <param name="operationTimeout">The maximum time allowed for the Modbus operation before it is canceled.</param>
         /// <param name="cancellationToken">A token to cancel the operation.</param>
-        /// <returns>A task that represents the asynchronous operation. The task result contains an array of boolean values representing the discrete input states.</returns>
+        /// <returns>
+        ///     A task that represents the asynchronous operation. The task result contains an array of boolean values
+        ///     representing the discrete input states.
+        /// </returns>
         /// <exception cref="InvalidUnitIdentifierException">
         ///     Thrown when <paramref name="unitIdentifier" /> is less than 0 or greater than 255.
         /// </exception>
@@ -97,8 +105,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         ///     Thrown when the Modbus device returns an error response.
         /// </exception>
         /// <exception cref="InvalidBitQuantityException">
-        ///     Thrown when the server's response contains fewer bits than the requested <paramref name="quantity" /> (indicating a protocol violation or malformed response).
-        ///     For example, if the quantity is 17, the server should return 3 bytes (24 bits), with the last 7 bits being padding and ignored.
+        ///     Thrown when the server's response contains fewer bits than the requested <paramref name="quantity" /> (indicating a
+        ///     protocol violation or malformed response).
+        ///     For example, if the quantity is 17, the server should return 3 bytes (24 bits), with the last 7 bits being padding
+        ///     and ignored.
         ///     If only 2 bytes (16 bits) are returned, this exception is thrown.
         /// </exception>
         Task<bool[]> ReadDiscreteInputsAsync(int unitIdentifier, ushort startingAddress, ushort quantity, TimeSpan operationTimeout, CancellationToken cancellationToken);
@@ -115,7 +125,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         /// <param name="quantity">The number of coils to read.</param>
         /// <param name="operationTimeout">The maximum time allowed for the Modbus operation before it is canceled.</param>
         /// <param name="cancellationToken">A token to cancel the operation.</param>
-        /// <returns>A task that represents the asynchronous operation. The task result contains an array of boolean values representing the coil states.</returns>
+        /// <returns>
+        ///     A task that represents the asynchronous operation. The task result contains an array of boolean values
+        ///     representing the coil states.
+        /// </returns>
         /// <exception cref="InvalidUnitIdentifierException">
         ///     Thrown when <paramref name="unitIdentifier" /> is less than 0 or greater than 255.
         /// </exception>
@@ -135,8 +148,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         ///     Thrown when the Modbus device returns an error response.
         /// </exception>
         /// <exception cref="InvalidBitQuantityException">
-        ///     Thrown when the server's response contains fewer bits than the requested <paramref name="quantity" /> (indicating a protocol violation or malformed response).
-        ///     For example, if the quantity is 17, the server should return 3 bytes (24 bits), with the last 7 bits being padding and ignored.
+        ///     Thrown when the server's response contains fewer bits than the requested <paramref name="quantity" /> (indicating a
+        ///     protocol violation or malformed response).
+        ///     For example, if the quantity is 17, the server should return 3 bytes (24 bits), with the last 7 bits being padding
+        ///     and ignored.
         ///     If only 2 bytes (16 bits) are returned, this exception is thrown.
         /// </exception>
         Task<bool[]> ReadCoilsAsync(int unitIdentifier, ushort startingAddress, ushort quantity, TimeSpan operationTimeout, CancellationToken cancellationToken);
@@ -211,7 +226,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         /// <param name="quantity">The number of registers to read.</param>
         /// <param name="operationTimeout">The maximum time allowed for the Modbus operation before it is canceled.</param>
         /// <param name="cancellationToken">A token to cancel the operation.</param>
-        /// <returns>A task that represents the asynchronous operation. The task result contains a byte array with the raw register data.</returns>
+        /// <returns>
+        ///     A task that represents the asynchronous operation. The task result contains a byte array with the raw register
+        ///     data.
+        /// </returns>
         /// <exception cref="InvalidUnitIdentifierException">
         ///     Thrown when <paramref name="unitIdentifier" /> is less than 0 or greater than 255.
         /// </exception>
@@ -241,12 +259,16 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         /// <param name="byteOrder">The byte order the data is received in.</param>
         /// <param name="operationTimeout">The maximum time allowed for the Modbus operation before it is canceled.</param>
         /// <param name="cancellationToken">A token to cancel the operation.</param>
-        /// <returns>A task that represents the asynchronous operation. The task result contains an array of signed 16-bit integers.</returns>
+        /// <returns>
+        ///     A task that represents the asynchronous operation. The task result contains an array of signed 16-bit
+        ///     integers.
+        /// </returns>
         /// <exception cref="InvalidUnitIdentifierException">
         ///     Thrown when <paramref name="unitIdentifier" /> is less than 0 or greater than 255.
         /// </exception>
         /// <exception cref="UnsupportedByteOrderException">
-        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="IpAddressNotSetException">
         ///     Thrown when the IP address has not been set.
@@ -282,12 +304,16 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         /// <param name="byteOrder">The byte order the data is received in.</param>
         /// <param name="operationTimeout">The maximum time allowed for the Modbus operation before it is canceled.</param>
         /// <param name="cancellationToken">A token to cancel the operation.</param>
-        /// <returns>A task that represents the asynchronous operation. The task result contains an array of unsigned 16-bit integers.</returns>
+        /// <returns>
+        ///     A task that represents the asynchronous operation. The task result contains an array of unsigned 16-bit
+        ///     integers.
+        /// </returns>
         /// <exception cref="InvalidUnitIdentifierException">
         ///     Thrown when <paramref name="unitIdentifier" /> is less than 0 or greater than 255.
         /// </exception>
         /// <exception cref="UnsupportedByteOrderException">
-        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="IpAddressNotSetException">
         ///     Thrown when the IP address has not been set.
@@ -324,18 +350,24 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         /// <param name="wordOrder">The word order the data is received in.</param>
         /// <param name="operationTimeout">The maximum time allowed for the Modbus operation before it is canceled.</param>
         /// <param name="cancellationToken">A token to cancel the operation.</param>
-        /// <returns>A task that represents the asynchronous operation. The task result contains an array of signed 32-bit integers.</returns>
+        /// <returns>
+        ///     A task that represents the asynchronous operation. The task result contains an array of signed 32-bit
+        ///     integers.
+        /// </returns>
         /// <exception cref="InvalidUnitIdentifierException">
         ///     Thrown when <paramref name="unitIdentifier" /> is less than 0 or greater than 255.
         /// </exception>
         /// <exception cref="InvalidCountException">
-        ///     Thrown when <paramref name="count" /> is 0 or when the calculated number of registers exceeds <see cref="ushort.MaxValue" />.
+        ///     Thrown when <paramref name="count" /> is 0 or when the calculated number of registers exceeds
+        ///     <see cref="ushort.MaxValue" />.
         /// </exception>
         /// <exception cref="UnsupportedByteOrderException">
-        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="UnsupportedWordOrder32Exception">
-        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="IpAddressNotSetException">
         ///     Thrown when the IP address has not been set.
@@ -373,18 +405,24 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         /// <param name="wordOrder">The word order the data is received in.</param>
         /// <param name="operationTimeout">The maximum time allowed for the Modbus operation before it is canceled.</param>
         /// <param name="cancellationToken">A token to cancel the operation.</param>
-        /// <returns>A task that represents the asynchronous operation. The task result contains an array of unsigned 32-bit integers.</returns>
+        /// <returns>
+        ///     A task that represents the asynchronous operation. The task result contains an array of unsigned 32-bit
+        ///     integers.
+        /// </returns>
         /// <exception cref="InvalidUnitIdentifierException">
         ///     Thrown when <paramref name="unitIdentifier" /> is less than 0 or greater than 255.
         /// </exception>
         /// <exception cref="InvalidCountException">
-        ///     Thrown when <paramref name="count" /> is 0 or when the calculated number of registers exceeds <see cref="ushort.MaxValue" />.
+        ///     Thrown when <paramref name="count" /> is 0 or when the calculated number of registers exceeds
+        ///     <see cref="ushort.MaxValue" />.
         /// </exception>
         /// <exception cref="UnsupportedByteOrderException">
-        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="UnsupportedWordOrder32Exception">
-        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="IpAddressNotSetException">
         ///     Thrown when the IP address has not been set.
@@ -422,18 +460,24 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         /// <param name="wordOrder">The word order the data is received in.</param>
         /// <param name="operationTimeout">The maximum time allowed for the Modbus operation before it is canceled.</param>
         /// <param name="cancellationToken">A token to cancel the operation.</param>
-        /// <returns>A task that represents the asynchronous operation. The task result contains an array of 32-bit floating-point numbers.</returns>
+        /// <returns>
+        ///     A task that represents the asynchronous operation. The task result contains an array of 32-bit floating-point
+        ///     numbers.
+        /// </returns>
         /// <exception cref="InvalidUnitIdentifierException">
         ///     Thrown when <paramref name="unitIdentifier" /> is less than 0 or greater than 255.
         /// </exception>
         /// <exception cref="InvalidCountException">
-        ///     Thrown when <paramref name="count" /> is 0 or when the calculated number of registers exceeds <see cref="ushort.MaxValue" />.
+        ///     Thrown when <paramref name="count" /> is 0 or when the calculated number of registers exceeds
+        ///     <see cref="ushort.MaxValue" />.
         /// </exception>
         /// <exception cref="UnsupportedByteOrderException">
-        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="UnsupportedWordOrder32Exception">
-        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="IpAddressNotSetException">
         ///     Thrown when the IP address has not been set.
@@ -471,18 +515,24 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         /// <param name="wordOrder">The word order the data is received in.</param>
         /// <param name="operationTimeout">The maximum time allowed for the Modbus operation before it is canceled.</param>
         /// <param name="cancellationToken">A token to cancel the operation.</param>
-        /// <returns>A task that represents the asynchronous operation. The task result contains an array of signed 64-bit integers.</returns>
+        /// <returns>
+        ///     A task that represents the asynchronous operation. The task result contains an array of signed 64-bit
+        ///     integers.
+        /// </returns>
         /// <exception cref="InvalidUnitIdentifierException">
         ///     Thrown when <paramref name="unitIdentifier" /> is less than 0 or greater than 255.
         /// </exception>
         /// <exception cref="InvalidCountException">
-        ///     Thrown when <paramref name="count" /> is 0 or when the calculated number of registers exceeds <see cref="ushort.MaxValue" />.
+        ///     Thrown when <paramref name="count" /> is 0 or when the calculated number of registers exceeds
+        ///     <see cref="ushort.MaxValue" />.
         /// </exception>
         /// <exception cref="UnsupportedByteOrderException">
-        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="UnsupportedWordOrder64Exception">
-        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="IpAddressNotSetException">
         ///     Thrown when the IP address has not been set.
@@ -520,18 +570,24 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         /// <param name="wordOrder">The word order the data is received in.</param>
         /// <param name="operationTimeout">The maximum time allowed for the Modbus operation before it is canceled.</param>
         /// <param name="cancellationToken">A token to cancel the operation.</param>
-        /// <returns>A task that represents the asynchronous operation. The task result contains an array of unsigned 64-bit integers.</returns>
+        /// <returns>
+        ///     A task that represents the asynchronous operation. The task result contains an array of unsigned 64-bit
+        ///     integers.
+        /// </returns>
         /// <exception cref="InvalidUnitIdentifierException">
         ///     Thrown when <paramref name="unitIdentifier" /> is less than 0 or greater than 255.
         /// </exception>
         /// <exception cref="InvalidCountException">
-        ///     Thrown when <paramref name="count" /> is 0 or when the calculated number of registers exceeds <see cref="ushort.MaxValue" />.
+        ///     Thrown when <paramref name="count" /> is 0 or when the calculated number of registers exceeds
+        ///     <see cref="ushort.MaxValue" />.
         /// </exception>
         /// <exception cref="UnsupportedByteOrderException">
-        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="UnsupportedWordOrder64Exception">
-        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="IpAddressNotSetException">
         ///     Thrown when the IP address has not been set.
@@ -569,18 +625,24 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         /// <param name="wordOrder">The word order the data is received in.</param>
         /// <param name="operationTimeout">The maximum time allowed for the Modbus operation before it is canceled.</param>
         /// <param name="cancellationToken">A token to cancel the operation.</param>
-        /// <returns>A task that represents the asynchronous operation. The task result contains an array of 64-bit floating-point numbers.</returns>
+        /// <returns>
+        ///     A task that represents the asynchronous operation. The task result contains an array of 64-bit floating-point
+        ///     numbers.
+        /// </returns>
         /// <exception cref="InvalidUnitIdentifierException">
         ///     Thrown when <paramref name="unitIdentifier" /> is less than 0 or greater than 255.
         /// </exception>
         /// <exception cref="InvalidCountException">
-        ///     Thrown when <paramref name="count" /> is 0 or when the calculated number of registers exceeds <see cref="ushort.MaxValue" />.
+        ///     Thrown when <paramref name="count" /> is 0 or when the calculated number of registers exceeds
+        ///     <see cref="ushort.MaxValue" />.
         /// </exception>
         /// <exception cref="UnsupportedByteOrderException">
-        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="UnsupportedWordOrder64Exception">
-        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="IpAddressNotSetException">
         ///     Thrown when the IP address has not been set.
@@ -622,7 +684,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         ///     Thrown when <paramref name="unitIdentifier" /> is less than 0 or greater than 255.
         /// </exception>
         /// <exception cref="UnsupportedTextEncodingException">
-        ///     Thrown when an unsupported <paramref name="textEncoding" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="textEncoding" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="IpAddressNotSetException">
         ///     Thrown when the IP address has not been set.
@@ -658,7 +721,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         /// <param name="quantity">The number of registers to read.</param>
         /// <param name="operationTimeout">The maximum time allowed for the Modbus operation before it is canceled.</param>
         /// <param name="cancellationToken">A token to cancel the operation.</param>
-        /// <returns>A task that represents the asynchronous operation. The task result contains a byte array with the raw register data.</returns>
+        /// <returns>
+        ///     A task that represents the asynchronous operation. The task result contains a byte array with the raw register
+        ///     data.
+        /// </returns>
         /// <exception cref="InvalidUnitIdentifierException">
         ///     Thrown when <paramref name="unitIdentifier" /> is less than 0 or greater than 255.
         /// </exception>
@@ -688,12 +754,16 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         /// <param name="byteOrder">The byte order the data is received in.</param>
         /// <param name="operationTimeout">The maximum time allowed for the Modbus operation before it is canceled.</param>
         /// <param name="cancellationToken">A token to cancel the operation.</param>
-        /// <returns>A task that represents the asynchronous operation. The task result contains an array of signed 16-bit integers.</returns>
+        /// <returns>
+        ///     A task that represents the asynchronous operation. The task result contains an array of signed 16-bit
+        ///     integers.
+        /// </returns>
         /// <exception cref="InvalidUnitIdentifierException">
         ///     Thrown when <paramref name="unitIdentifier" /> is less than 0 or greater than 255.
         /// </exception>
         /// <exception cref="UnsupportedByteOrderException">
-        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="IpAddressNotSetException">
         ///     Thrown when the IP address has not been set.
@@ -729,12 +799,16 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         /// <param name="byteOrder">The byte order the data is received in.</param>
         /// <param name="operationTimeout">The maximum time allowed for the Modbus operation before it is canceled.</param>
         /// <param name="cancellationToken">A token to cancel the operation.</param>
-        /// <returns>A task that represents the asynchronous operation. The task result contains an array of unsigned 16-bit integers.</returns>
+        /// <returns>
+        ///     A task that represents the asynchronous operation. The task result contains an array of unsigned 16-bit
+        ///     integers.
+        /// </returns>
         /// <exception cref="InvalidUnitIdentifierException">
         ///     Thrown when <paramref name="unitIdentifier" /> is less than 0 or greater than 255.
         /// </exception>
         /// <exception cref="UnsupportedByteOrderException">
-        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="IpAddressNotSetException">
         ///     Thrown when the IP address has not been set.
@@ -771,18 +845,24 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         /// <param name="wordOrder">The word order the data is received in.</param>
         /// <param name="operationTimeout">The maximum time allowed for the Modbus operation before it is canceled.</param>
         /// <param name="cancellationToken">A token to cancel the operation.</param>
-        /// <returns>A task that represents the asynchronous operation. The task result contains an array of signed 32-bit integers.</returns>
+        /// <returns>
+        ///     A task that represents the asynchronous operation. The task result contains an array of signed 32-bit
+        ///     integers.
+        /// </returns>
         /// <exception cref="InvalidUnitIdentifierException">
         ///     Thrown when <paramref name="unitIdentifier" /> is less than 0 or greater than 255.
         /// </exception>
         /// <exception cref="InvalidCountException">
-        ///     Thrown when <paramref name="count" /> is 0 or when the calculated number of registers exceeds <see cref="ushort.MaxValue" />.
+        ///     Thrown when <paramref name="count" /> is 0 or when the calculated number of registers exceeds
+        ///     <see cref="ushort.MaxValue" />.
         /// </exception>
         /// <exception cref="UnsupportedByteOrderException">
-        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="UnsupportedWordOrder32Exception">
-        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="IpAddressNotSetException">
         ///     Thrown when the IP address has not been set.
@@ -820,18 +900,24 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         /// <param name="wordOrder">The word order the data is received in.</param>
         /// <param name="operationTimeout">The maximum time allowed for the Modbus operation before it is canceled.</param>
         /// <param name="cancellationToken">A token to cancel the operation.</param>
-        /// <returns>A task that represents the asynchronous operation. The task result contains an array of unsigned 32-bit integers.</returns>
+        /// <returns>
+        ///     A task that represents the asynchronous operation. The task result contains an array of unsigned 32-bit
+        ///     integers.
+        /// </returns>
         /// <exception cref="InvalidUnitIdentifierException">
         ///     Thrown when <paramref name="unitIdentifier" /> is less than 0 or greater than 255.
         /// </exception>
         /// <exception cref="InvalidCountException">
-        ///     Thrown when <paramref name="count" /> is 0 or when the calculated number of registers exceeds <see cref="ushort.MaxValue" />.
+        ///     Thrown when <paramref name="count" /> is 0 or when the calculated number of registers exceeds
+        ///     <see cref="ushort.MaxValue" />.
         /// </exception>
         /// <exception cref="UnsupportedByteOrderException">
-        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="UnsupportedWordOrder32Exception">
-        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="IpAddressNotSetException">
         ///     Thrown when the IP address has not been set.
@@ -869,18 +955,24 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         /// <param name="wordOrder">The word order the data is received in.</param>
         /// <param name="operationTimeout">The maximum time allowed for the Modbus operation before it is canceled.</param>
         /// <param name="cancellationToken">A token to cancel the operation.</param>
-        /// <returns>A task that represents the asynchronous operation. The task result contains an array of 32-bit floating-point numbers.</returns>
+        /// <returns>
+        ///     A task that represents the asynchronous operation. The task result contains an array of 32-bit floating-point
+        ///     numbers.
+        /// </returns>
         /// <exception cref="InvalidUnitIdentifierException">
         ///     Thrown when <paramref name="unitIdentifier" /> is less than 0 or greater than 255.
         /// </exception>
         /// <exception cref="InvalidCountException">
-        ///     Thrown when <paramref name="count" /> is 0 or when the calculated number of registers exceeds <see cref="ushort.MaxValue" />.
+        ///     Thrown when <paramref name="count" /> is 0 or when the calculated number of registers exceeds
+        ///     <see cref="ushort.MaxValue" />.
         /// </exception>
         /// <exception cref="UnsupportedByteOrderException">
-        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="UnsupportedWordOrder32Exception">
-        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="IpAddressNotSetException">
         ///     Thrown when the IP address has not been set.
@@ -918,18 +1010,24 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         /// <param name="wordOrder">The word order the data is received in.</param>
         /// <param name="operationTimeout">The maximum time allowed for the Modbus operation before it is canceled.</param>
         /// <param name="cancellationToken">A token to cancel the operation.</param>
-        /// <returns>A task that represents the asynchronous operation. The task result contains an array of signed 64-bit integers.</returns>
+        /// <returns>
+        ///     A task that represents the asynchronous operation. The task result contains an array of signed 64-bit
+        ///     integers.
+        /// </returns>
         /// <exception cref="InvalidUnitIdentifierException">
         ///     Thrown when <paramref name="unitIdentifier" /> is less than 0 or greater than 255.
         /// </exception>
         /// <exception cref="InvalidCountException">
-        ///     Thrown when <paramref name="count" /> is 0 or when the calculated number of registers exceeds <see cref="ushort.MaxValue" />.
+        ///     Thrown when <paramref name="count" /> is 0 or when the calculated number of registers exceeds
+        ///     <see cref="ushort.MaxValue" />.
         /// </exception>
         /// <exception cref="UnsupportedByteOrderException">
-        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="UnsupportedWordOrder64Exception">
-        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="IpAddressNotSetException">
         ///     Thrown when the IP address has not been set.
@@ -967,18 +1065,24 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         /// <param name="wordOrder">The word order the data is received in.</param>
         /// <param name="operationTimeout">The maximum time allowed for the Modbus operation before it is canceled.</param>
         /// <param name="cancellationToken">A token to cancel the operation.</param>
-        /// <returns>A task that represents the asynchronous operation. The task result contains an array of unsigned 64-bit integers.</returns>
+        /// <returns>
+        ///     A task that represents the asynchronous operation. The task result contains an array of unsigned 64-bit
+        ///     integers.
+        /// </returns>
         /// <exception cref="InvalidUnitIdentifierException">
         ///     Thrown when <paramref name="unitIdentifier" /> is less than 0 or greater than 255.
         /// </exception>
         /// <exception cref="InvalidCountException">
-        ///     Thrown when <paramref name="count" /> is 0 or when the calculated number of registers exceeds <see cref="ushort.MaxValue" />.
+        ///     Thrown when <paramref name="count" /> is 0 or when the calculated number of registers exceeds
+        ///     <see cref="ushort.MaxValue" />.
         /// </exception>
         /// <exception cref="UnsupportedByteOrderException">
-        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="UnsupportedWordOrder64Exception">
-        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="IpAddressNotSetException">
         ///     Thrown when the IP address has not been set.
@@ -1016,18 +1120,24 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         /// <param name="wordOrder">The word order the data is received in.</param>
         /// <param name="operationTimeout">The maximum time allowed for the Modbus operation before it is canceled.</param>
         /// <param name="cancellationToken">A token to cancel the operation.</param>
-        /// <returns>A task that represents the asynchronous operation. The task result contains an array of 64-bit floating-point numbers.</returns>
+        /// <returns>
+        ///     A task that represents the asynchronous operation. The task result contains an array of 64-bit floating-point
+        ///     numbers.
+        /// </returns>
         /// <exception cref="InvalidUnitIdentifierException">
         ///     Thrown when <paramref name="unitIdentifier" /> is less than 0 or greater than 255.
         /// </exception>
         /// <exception cref="InvalidCountException">
-        ///     Thrown when <paramref name="count" /> is 0 or when the calculated number of registers exceeds <see cref="ushort.MaxValue" />.
+        ///     Thrown when <paramref name="count" /> is 0 or when the calculated number of registers exceeds
+        ///     <see cref="ushort.MaxValue" />.
         /// </exception>
         /// <exception cref="UnsupportedByteOrderException">
-        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="UnsupportedWordOrder64Exception">
-        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="IpAddressNotSetException">
         ///     Thrown when the IP address has not been set.
@@ -1069,7 +1179,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         ///     Thrown when <paramref name="unitIdentifier" /> is less than 0 or greater than 255.
         /// </exception>
         /// <exception cref="UnsupportedTextEncodingException">
-        ///     Thrown when an unsupported <paramref name="textEncoding" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="textEncoding" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="IpAddressNotSetException">
         ///     Thrown when the IP address has not been set.
@@ -1107,7 +1218,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         ///     Thrown when <paramref name="unitIdentifier" /> is less than 0 or greater than 255.
         /// </exception>
         /// <exception cref="UnsupportedByteOrderException">
-        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="IpAddressNotSetException">
         ///     Thrown when the IP address has not been set.
@@ -1145,7 +1257,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         ///     Thrown when <paramref name="unitIdentifier" /> is less than 0 or greater than 255.
         /// </exception>
         /// <exception cref="UnsupportedByteOrderException">
-        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="IpAddressNotSetException">
         ///     Thrown when the IP address has not been set.
@@ -1212,7 +1325,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         ///     Thrown when <paramref name="unitIdentifier" /> is less than 0 or greater than 255.
         /// </exception>
         /// <exception cref="UnsupportedByteOrderException">
-        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="IpAddressNotSetException">
         ///     Thrown when the IP address has not been set.
@@ -1250,7 +1364,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         ///     Thrown when <paramref name="unitIdentifier" /> is less than 0 or greater than 255.
         /// </exception>
         /// <exception cref="UnsupportedByteOrderException">
-        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="IpAddressNotSetException">
         ///     Thrown when the IP address has not been set.
@@ -1289,10 +1404,12 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         ///     Thrown when <paramref name="unitIdentifier" /> is less than 0 or greater than 255.
         /// </exception>
         /// <exception cref="UnsupportedByteOrderException">
-        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="UnsupportedWordOrder32Exception">
-        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="IpAddressNotSetException">
         ///     Thrown when the IP address has not been set.
@@ -1332,10 +1449,12 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         ///     Thrown when <paramref name="unitIdentifier" /> is less than 0 or greater than 255.
         /// </exception>
         /// <exception cref="UnsupportedByteOrderException">
-        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="UnsupportedWordOrder32Exception">
-        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="IpAddressNotSetException">
         ///     Thrown when the IP address has not been set.
@@ -1375,10 +1494,12 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         ///     Thrown when <paramref name="unitIdentifier" /> is less than 0 or greater than 255.
         /// </exception>
         /// <exception cref="UnsupportedByteOrderException">
-        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="UnsupportedWordOrder32Exception">
-        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="IpAddressNotSetException">
         ///     Thrown when the IP address has not been set.
@@ -1418,10 +1539,12 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         ///     Thrown when <paramref name="unitIdentifier" /> is less than 0 or greater than 255.
         /// </exception>
         /// <exception cref="UnsupportedByteOrderException">
-        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="UnsupportedWordOrder64Exception">
-        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="IpAddressNotSetException">
         ///     Thrown when the IP address has not been set.
@@ -1461,10 +1584,12 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         ///     Thrown when <paramref name="unitIdentifier" /> is less than 0 or greater than 255.
         /// </exception>
         /// <exception cref="UnsupportedByteOrderException">
-        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="UnsupportedWordOrder64Exception">
-        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="IpAddressNotSetException">
         ///     Thrown when the IP address has not been set.
@@ -1504,10 +1629,12 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         ///     Thrown when <paramref name="unitIdentifier" /> is less than 0 or greater than 255.
         /// </exception>
         /// <exception cref="UnsupportedByteOrderException">
-        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="byteOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="UnsupportedWordOrder64Exception">
-        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="wordOrder" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="IpAddressNotSetException">
         ///     Thrown when the IP address has not been set.
@@ -1546,7 +1673,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         ///     Thrown when <paramref name="unitIdentifier" /> is less than 0 or greater than 255.
         /// </exception>
         /// <exception cref="UnsupportedTextEncodingException">
-        ///     Thrown when an unsupported <paramref name="textEncoding" /> value is specified (typically from casting or deserialization).
+        ///     Thrown when an unsupported <paramref name="textEncoding" /> value is specified (typically from casting or
+        ///     deserialization).
         /// </exception>
         /// <exception cref="IpAddressNotSetException">
         ///     Thrown when the IP address has not been set.

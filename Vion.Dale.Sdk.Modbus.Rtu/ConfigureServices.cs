@@ -1,6 +1,6 @@
+using Microsoft.Extensions.DependencyInjection;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Modbus.Core;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Vion.Dale.Sdk.Modbus.Rtu
 {

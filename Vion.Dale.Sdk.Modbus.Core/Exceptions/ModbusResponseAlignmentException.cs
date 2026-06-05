@@ -3,7 +3,8 @@
 namespace Vion.Dale.Sdk.Modbus.Core.Exceptions
 {
     /// <summary>
-    ///     Represents an exception thrown when a Modbus response does not have the correct byte alignment for the requested data type.
+    ///     Represents an exception thrown when a Modbus response does not have the correct byte alignment for the requested
+    ///     data type.
     /// </summary>
     /// <remarks>
     ///     This occurs when the number of bytes received does not match the expected amount for the requested registers.

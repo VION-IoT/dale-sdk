@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Vion.Dale.DevHost;
 using Vion.Dale.DevHost.Web;
-using Microsoft.Extensions.Logging;
 
 namespace VionIotLibraryTemplate.DevHost
 {
@@ -12,10 +12,7 @@ namespace VionIotLibraryTemplate.DevHost
         public static Task Main(string[] args)
         {
             // Build a configuration for testing with fluent API
-            var config = DevConfigurationBuilder.Create()
-                                                .AddLogicBlock<HelloWorld>()
-                                                .AddLogicBlock<SmartLedController>("SmartLed")
-                                                .Build();
+            var config = DevConfigurationBuilder.Create().AddLogicBlock<HelloWorld>().AddLogicBlock<SmartLedController>("SmartLed").Build();
 
             // Create, configure and run the dev host
             var host = DevHostBuilder.Create()
@@ -37,7 +34,7 @@ namespace VionIotLibraryTemplate.DevHost
                                           eventArgs.Cancel = true;
                                           cts.Cancel();
                                       };
-            return DevHostWebRunner.RunAsync(host, port: 5000, cancellationToken: cts.Token);
+            return DevHostWebRunner.RunAsync(host, 5000, cts.Token);
         }
     }
 }

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
 using Microsoft.Extensions.Logging;
 
 namespace Vion.Dale.DevHost.Control
@@ -17,17 +16,45 @@ namespace Vion.Dale.DevHost.Control
     {
         private const int DefaultCapacity = 2000;
 
-        private readonly int _capacity;
-
         private readonly ConcurrentQueue<LogLine> _buffer = new();
 
-        private readonly object _subscribersLock = new();
+        private readonly int _capacity;
 
         private readonly List<Action<LogLine>> _subscribers = new();
+
+        private readonly object _subscribersLock = new();
 
         public DevHostLogSink(int capacity = DefaultCapacity)
         {
             _capacity = capacity;
+        }
+
+        /// <summary>Subscribe to live log lines. Dispose the returned token to unsubscribe.</summary>
+        public IDisposable Subscribe(Action<LogLine> sink)
+        {
+            if (sink is null)
+            {
+                throw new ArgumentNullException(nameof(sink));
+            }
+
+            lock (_subscribersLock)
+            {
+                _subscribers.Add(sink);
+            }
+
+            return new Unsubscriber(this, sink);
+        }
+
+        /// <summary>The most recent up-to-<paramref name="max" /> captured lines (scrollback), oldest first.</summary>
+        public IReadOnlyList<LogLine> Recent(int max)
+        {
+            if (max <= 0)
+            {
+                return Array.Empty<LogLine>();
+            }
+
+            var all = _buffer.ToArray();
+            return all.Length <= max ? all : all[^max..];
         }
 
         internal void Emit(LogLine line)
@@ -60,34 +87,6 @@ namespace Vion.Dale.DevHost.Control
                     // A faulty subscriber must not break logging or other subscribers.
                 }
             }
-        }
-
-        /// <summary>Subscribe to live log lines. Dispose the returned token to unsubscribe.</summary>
-        public IDisposable Subscribe(Action<LogLine> sink)
-        {
-            if (sink is null)
-            {
-                throw new ArgumentNullException(nameof(sink));
-            }
-
-            lock (_subscribersLock)
-            {
-                _subscribers.Add(sink);
-            }
-
-            return new Unsubscriber(this, sink);
-        }
-
-        /// <summary>The most recent up-to-<paramref name="max" /> captured lines (scrollback), oldest first.</summary>
-        public IReadOnlyList<LogLine> Recent(int max)
-        {
-            if (max <= 0)
-            {
-                return Array.Empty<LogLine>();
-            }
-
-            var all = _buffer.ToArray();
-            return all.Length <= max ? all : all[^max..];
         }
 
         private void Unsubscribe(Action<LogLine> sink)
@@ -148,9 +147,9 @@ namespace Vion.Dale.DevHost.Control
 
         private sealed class SinkLogger : ILogger
         {
-            private readonly DevHostLogSink _sink;
-
             private readonly string _category;
+
+            private readonly DevHostLogSink _sink;
 
             public SinkLogger(DevHostLogSink sink, string category)
             {

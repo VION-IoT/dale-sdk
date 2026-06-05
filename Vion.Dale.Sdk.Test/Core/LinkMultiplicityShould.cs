@@ -12,9 +12,7 @@ namespace Vion.Dale.Sdk.Test.Core
         {
             var names = Enum.GetNames(typeof(LinkMultiplicity)).OrderBy(n => n).ToArray();
 
-            CollectionAssert.AreEqual(
-                new[] { "ExactlyOne", "OneOrMore", "ZeroOrMore", "ZeroOrOne" },
-                names);
+            CollectionAssert.AreEqual(new[] { "ExactlyOne", "OneOrMore", "ZeroOrMore", "ZeroOrOne" }, names);
         }
     }
 }

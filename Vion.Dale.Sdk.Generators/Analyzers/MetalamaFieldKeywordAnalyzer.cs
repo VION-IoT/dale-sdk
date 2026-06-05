@@ -1,5 +1,4 @@
 using System.Collections.Immutable;
-using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -34,7 +33,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             var accessor = (AccessorDeclarationSyntax)context.Node;
 
             // Auto-property setter — no body to drop. The aspect handles these correctly.
-            SyntaxNode? body = accessor.Body ?? (SyntaxNode?)accessor.ExpressionBody;
+            var body = accessor.Body ?? (SyntaxNode?)accessor.ExpressionBody;
             if (body is null)
             {
                 return;
@@ -66,9 +65,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                 return;
             }
 
-            context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE029_MetalamaFieldKeywordSetter,
-                                                       propertyDeclaration.Identifier.GetLocation(),
-                                                       propertySymbol.Name));
+            context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE029_MetalamaFieldKeywordSetter, propertyDeclaration.Identifier.GetLocation(), propertySymbol.Name));
         }
 
         private static bool DerivesFromLogicBlockBase(INamedTypeSymbol? type)

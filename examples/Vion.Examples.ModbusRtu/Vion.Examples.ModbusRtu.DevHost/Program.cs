@@ -1,9 +1,9 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Vion.Dale.DevHost;
 using Vion.Dale.DevHost.Web;
-using Microsoft.Extensions.Logging;
 using Vion.Examples.ModbusRtu.LogicBlocks;
 
 namespace Vion.Examples.ModbusRtu.DevHost
@@ -16,7 +16,7 @@ namespace Vion.Examples.ModbusRtu.DevHost
 
             var host = DevHostBuilder.Create()
                                      .WithDi<DependencyInjection>()
-                                     .ConfigureServices(services => new Vion.Dale.Sdk.Modbus.Rtu.DependencyInjection().ConfigureServices(services))
+                                     .ConfigureServices(services => new Dale.Sdk.Modbus.Rtu.DependencyInjection().ConfigureServices(services))
                                      .WithConfiguration(config)
                                      .WithWebUi()
                                      .ConfigureLogging(logging =>
@@ -34,7 +34,7 @@ namespace Vion.Examples.ModbusRtu.DevHost
                                           eventArgs.Cancel = true;
                                           cts.Cancel();
                                       };
-            return DevHostWebRunner.RunAsync(host, port: 5000, cancellationToken: cts.Token);
+            return DevHostWebRunner.RunAsync(host, 5000, cts.Token);
         }
     }
 }

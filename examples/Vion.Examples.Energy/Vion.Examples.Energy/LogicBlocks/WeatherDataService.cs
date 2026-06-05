@@ -1,5 +1,5 @@
-﻿using Vion.Dale.Sdk.Core;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
+using Vion.Dale.Sdk.Core;
 using Vion.Examples.Energy.Contracts;
 using Vion.Examples.Energy.Services;
 

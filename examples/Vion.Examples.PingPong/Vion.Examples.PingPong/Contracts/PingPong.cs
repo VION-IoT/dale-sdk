@@ -3,10 +3,10 @@
 namespace Vion.Examples.PingPong.Contracts
 {
     [LogicBlockContract(BetweenInterface = "IPing",
-              AndInterface = "IPong",
-              BetweenDefaultName = "Ping-Sender",
-              AndDefaultName = "Pong-Empfänger",
-              Direction = ContractDirection.Bidirectional)]
+                        AndInterface = "IPong",
+                        BetweenDefaultName = "Ping-Sender",
+                        AndDefaultName = "Pong-Empfänger",
+                        Direction = ContractDirection.Bidirectional)]
     public static class PingPong
     {
         [RequestResponse(From = "IPing", To = "IPong", ResponseType = typeof(PongResponse))]

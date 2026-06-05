@@ -4,9 +4,11 @@ using System.Linq;
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Vion.Dale.DevHost.Control;
 using Vion.Dale.DevHost.Mocking;
 using Vion.Dale.ProtoActor.Extensions;
 using Vion.Dale.Sdk;
+using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.DevHost
@@ -103,15 +105,16 @@ namespace Vion.Dale.DevHost
             // Headless control surface (RFC 0003): a log sink + ILoggerProvider that captures the
             // DevHost's log output (additive — alongside the console provider, which is unchanged), and
             // the IDevHostControl facade for tests / agents. All additive; the web UI is unaffected.
-            _services.AddSingleton<Control.DevHostLogSink>();
-            _services.AddSingleton<ILoggerProvider>(sp => new Control.DevHostLogSinkProvider(sp.GetRequiredService<Control.DevHostLogSink>()));
-            _services.AddSingleton<Control.DevHostIntrospection>();
+            _services.AddSingleton<DevHostLogSink>();
+            _services.AddSingleton<ILoggerProvider>(sp => new DevHostLogSinkProvider(sp.GetRequiredService<DevHostLogSink>()));
+            _services.AddSingleton<DevHostIntrospection>();
+
             // Message tap: the SAME instance is registered as both the concrete type and the opt-in
             // IActorMessageObserver the ProtoActor middleware looks up (RFC 0003). Registering the observer
             // here — only in DevHost — is what activates the tap; the production runtime registers none.
-            _services.AddSingleton<Control.MessageTap>();
-            _services.AddSingleton<Vion.Dale.Sdk.Abstractions.IActorMessageObserver>(sp => sp.GetRequiredService<Control.MessageTap>());
-            _services.AddSingleton<Control.IDevHostControl, Control.DevHostControl>();
+            _services.AddSingleton<MessageTap>();
+            _services.AddSingleton<IActorMessageObserver>(sp => sp.GetRequiredService<MessageTap>());
+            _services.AddSingleton<IDevHostControl, DevHostControl>();
 
             // Register initializer
             _services.AddSingleton<DevLogicSystemInitializer>();

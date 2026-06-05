@@ -1,7 +1,7 @@
 using System;
+using Moq;
 using Vion.Dale.Sdk.Modbus.Rtu.TestKit;
 using Vion.Dale.Sdk.TestKit;
-using Moq;
 using Vion.Examples.ModbusRtu.LogicBlocks;
 using Xunit;
 

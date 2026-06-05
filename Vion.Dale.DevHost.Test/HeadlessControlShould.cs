@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Vion.Dale.DevHost.Control;
 using Vion.Dale.Sdk.Messages;
@@ -13,21 +14,6 @@ namespace Vion.Dale.DevHost.Test
     [TestClass]
     public class HeadlessControlShould
     {
-        private static DevConfiguration Config()
-        {
-            return DevConfigurationBuilder.Create()
-                                          .AddLogicBlock<CounterBlock>("counter")
-                                          .Build();
-        }
-
-        private static IDevHost BuildHost()
-        {
-            return DevHostBuilder.Create()
-                                 .WithDi<TestDependencyInjection>()
-                                 .WithConfiguration(Config())
-                                 .Build();
-        }
-
         [TestMethod]
         public async Task ListLogicBlocks_AfterStart_ReturnsTheConfiguredBlock()
         {
@@ -49,9 +35,8 @@ namespace Vion.Dale.DevHost.Test
 
             // Register the observer BEFORE triggering the change — WaitForAsync observes only future events.
             // Match the specific target value; the startup state publish also emits Counter (=0).
-            var observe = host.Control.WaitForAsync(
-                e => e is ServicePropertyChanged { Property: "Counter" } sp && Convert.ToInt32(sp.Value) == 42 ? sp.Value : null,
-                timeout: TimeSpan.FromSeconds(15));
+            var observe = host.Control.WaitForAsync(e => e is ServicePropertyChanged { Property: "Counter" } sp && Convert.ToInt32(sp.Value) == 42 ? sp.Value : null,
+                                                    TimeSpan.FromSeconds(15));
 
             await host.Control.SetPropertyAsync("counter", "Counter", 42);
 
@@ -72,11 +57,11 @@ namespace Vion.Dale.DevHost.Test
             await host.StartAsync();
 
             await host.Control.SetPropertyAsync("counter", "Counter", 99);
-            Assert.AreEqual(99, Convert.ToInt32(host.Control.GetProperty("counter", "Counter")),
-                            "int read-after-write must be immediate after the await.");
+            Assert.AreEqual(99, Convert.ToInt32(host.Control.GetProperty("counter", "Counter")), "int read-after-write must be immediate after the await.");
 
             await host.Control.SetPropertyAsync("counter", "ControlInterval", TimeSpan.FromSeconds(60));
-            Assert.AreEqual(TimeSpan.FromSeconds(60), (TimeSpan)host.Control.GetProperty("counter", "ControlInterval")!,
+            Assert.AreEqual(TimeSpan.FromSeconds(60),
+                            (TimeSpan)host.Control.GetProperty("counter", "ControlInterval")!,
                             "TimeSpan read-after-write must be immediate after the await.");
         }
 
@@ -92,8 +77,7 @@ namespace Vion.Dale.DevHost.Test
 
             // The set is awaited until applied + published, and CounterDoubled is computed inside the Counter
             // setter, so it is already in the value cache — GetProperty reads computed measuring points too.
-            Assert.AreEqual(42, Convert.ToInt32(host.Control.GetProperty("counter", "CounterDoubled")),
-                            "CounterDoubled = Counter * 2 must be readable after setting Counter.");
+            Assert.AreEqual(42, Convert.ToInt32(host.Control.GetProperty("counter", "CounterDoubled")), "CounterDoubled = Counter * 2 must be readable after setting Counter.");
         }
 
         [TestMethod]
@@ -113,8 +97,7 @@ namespace Vion.Dale.DevHost.Test
 
             var counter = service.ServiceProperties.Single(p => p.Identifier == "Counter");
             Assert.IsNotNull(counter.Schema, "Each service property must carry its JSON schema.");
-            Assert.IsTrue(service.ServiceMeasuringPoints.Any(m => m.Identifier == "CounterDoubled"),
-                          "The computed measuring point must be described in the configuration.");
+            Assert.IsTrue(service.ServiceMeasuringPoints.Any(m => m.Identifier == "CounterDoubled"), "The computed measuring point must be described in the configuration.");
         }
 
         [TestMethod]
@@ -129,8 +112,7 @@ namespace Vion.Dale.DevHost.Test
             var config = host.Control.GetConfiguration();
 
             Assert.IsNotNull(config);
-            Assert.IsTrue(config.LogicBlocks.Any(b => b.Name == "counter"),
-                          "Configuration must describe the wired blocks even when reached before StartAsync.");
+            Assert.IsTrue(config.LogicBlocks.Any(b => b.Name == "counter"), "Configuration must describe the wired blocks even when reached before StartAsync.");
         }
 
         [TestMethod]
@@ -142,15 +124,17 @@ namespace Vion.Dale.DevHost.Test
             await using var host = BuildHost();
             await host.StartAsync();
 
-            var serviceId = host.Control.GetConfiguration()
-                                .LogicBlocks.Single(b => b.Name == "counter")
-                                .Services.Single(s => s.ServiceProperties.Any(p => p.Identifier == "Counter"))
+            var serviceId = host.Control
+                                .GetConfiguration()
+                                .LogicBlocks
+                                .Single(b => b.Name == "counter")
+                                .Services
+                                .Single(s => s.ServiceProperties.Any(p => p.Identifier == "Counter"))
                                 .Id;
 
-            await host.Control.SetServicePropertyValueAsync(serviceId, "Counter", System.Text.Json.Nodes.JsonValue.Create(99));
+            await host.Control.SetServicePropertyValueAsync(serviceId, "Counter", JsonValue.Create(99));
 
-            Assert.AreEqual(99, Convert.ToInt32(host.Control.GetProperty("counter", "Counter")),
-                            "Setting by service id with a JSON value should decode + apply.");
+            Assert.AreEqual(99, Convert.ToInt32(host.Control.GetProperty("counter", "Counter")), "Setting by service id with a JSON value should decode + apply.");
         }
 
         [TestMethod]
@@ -162,20 +146,21 @@ namespace Vion.Dale.DevHost.Test
             await using var host = BuildHost();
             await host.StartAsync();
 
-            var serviceId = host.Control.GetConfiguration()
-                                .LogicBlocks.Single(b => b.Name == "counter")
-                                .Services.Single(s => s.ServiceProperties.Any(p => p.Identifier == "ControlInterval"))
+            var serviceId = host.Control
+                                .GetConfiguration()
+                                .LogicBlocks
+                                .Single(b => b.Name == "counter")
+                                .Services
+                                .Single(s => s.ServiceProperties.Any(p => p.Identifier == "ControlInterval"))
                                 .Id;
 
             // .NET TimeSpan form — what the web UI submits today.
-            await host.Control.SetServicePropertyValueAsync(serviceId, "ControlInterval", System.Text.Json.Nodes.JsonValue.Create("00:00:05"));
-            Assert.AreEqual(TimeSpan.FromSeconds(5), (TimeSpan)host.Control.GetProperty("counter", "ControlInterval")!,
-                            "The .NET TimeSpan form (00:00:05) must be accepted.");
+            await host.Control.SetServicePropertyValueAsync(serviceId, "ControlInterval", JsonValue.Create("00:00:05"));
+            Assert.AreEqual(TimeSpan.FromSeconds(5), (TimeSpan)host.Control.GetProperty("counter", "ControlInterval")!, "The .NET TimeSpan form (00:00:05) must be accepted.");
 
             // ISO-8601 duration — the codec/MQTT canonical form.
-            await host.Control.SetServicePropertyValueAsync(serviceId, "ControlInterval", System.Text.Json.Nodes.JsonValue.Create("PT10S"));
-            Assert.AreEqual(TimeSpan.FromSeconds(10), (TimeSpan)host.Control.GetProperty("counter", "ControlInterval")!,
-                            "The ISO-8601 duration form (PT10S) must be accepted.");
+            await host.Control.SetServicePropertyValueAsync(serviceId, "ControlInterval", JsonValue.Create("PT10S"));
+            Assert.AreEqual(TimeSpan.FromSeconds(10), (TimeSpan)host.Control.GetProperty("counter", "ControlInterval")!, "The ISO-8601 duration form (PT10S) must be accepted.");
         }
 
         [TestMethod]
@@ -184,9 +169,7 @@ namespace Vion.Dale.DevHost.Test
             await using var host = BuildHost();
             await host.StartAsync();
 
-            var observed = await host.Control.WaitForAsync(
-                e => e is ServicePropertyChanged { Property: "DoesNotExist" } sp ? sp.Value : null,
-                timeout: TimeSpan.FromMilliseconds(200));
+            var observed = await host.Control.WaitForAsync(e => e is ServicePropertyChanged { Property: "DoesNotExist" } sp ? sp.Value : null, TimeSpan.FromMilliseconds(200));
 
             Assert.IsNull(observed);
         }
@@ -207,8 +190,7 @@ namespace Vion.Dale.DevHost.Test
             var received = host.Control.RecordedMessages("counter");
 
             Assert.IsNotEmpty(received, "The tap should have recorded messages the counter block received.");
-            Assert.IsTrue(received.Any(m => m.Message is SetServicePropertyValueRequest),
-                          "The set-property request the block received should have been captured by the tap.");
+            Assert.IsTrue(received.Any(m => m.Message is SetServicePropertyValueRequest), "The set-property request the block received should have been captured by the tap.");
         }
 
         [TestMethod]
@@ -220,9 +202,18 @@ namespace Vion.Dale.DevHost.Test
             var logs = host.Control.RecentLogs();
 
             Assert.IsNotEmpty(logs, "The boot sequence should have produced captured log lines.");
-            Assert.IsTrue(logs.Any(l => l.Message.Contains("logic", StringComparison.OrdinalIgnoreCase)
-                                        || l.Message.Contains("LogicBlock", StringComparison.OrdinalIgnoreCase)),
+            Assert.IsTrue(logs.Any(l => l.Message.Contains("logic", StringComparison.OrdinalIgnoreCase) || l.Message.Contains("LogicBlock", StringComparison.OrdinalIgnoreCase)),
                           "Expected at least one DevHost boot log line to be captured.");
+        }
+
+        private static DevConfiguration Config()
+        {
+            return DevConfigurationBuilder.Create().AddLogicBlock<CounterBlock>("counter").Build();
+        }
+
+        private static IDevHost BuildHost()
+        {
+            return DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(Config()).Build();
         }
     }
 }

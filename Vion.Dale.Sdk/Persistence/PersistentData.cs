@@ -15,6 +15,12 @@ namespace Vion.Dale.Sdk.Persistence
     /// </summary>
     public class PersistentData
     {
+        private static readonly JsonSerializerOptions PersistenceJsonOptions = new()
+                                                                               {
+                                                                                   PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                                                                                   Converters = { new JsonStringEnumConverter() },
+                                                                               };
+
         private readonly List<PersistentDataEntry> _currentSnapshot = [];
 
         private readonly PersistenceMetadata _metadata = new();
@@ -31,7 +37,10 @@ namespace Vion.Dale.Sdk.Persistence
         ///     aborted LogicBlock Configure() (which leaves this uninitialised) cannot make the
         ///     stop/periodic-save paths throw.
         /// </summary>
-        public bool IsInitialized => _logicBlock is not null && _serviceBinder is not null && _logger is not null;
+        public bool IsInitialized
+        {
+            get => _logicBlock is not null && _serviceBinder is not null && _logger is not null;
+        }
 
         /// <summary>
         ///     Initialize persistent data metadata for the LogicBlock
@@ -328,12 +337,6 @@ namespace Vion.Dale.Sdk.Persistence
             var text = JsonSerializer.Serialize(value, PersistenceJsonOptions);
             return JsonSerializer.Deserialize(text, targetType, PersistenceJsonOptions);
         }
-
-        private static readonly JsonSerializerOptions PersistenceJsonOptions = new()
-                                                                               {
-                                                                                   PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                                                                                   Converters = { new JsonStringEnumConverter() },
-                                                                               };
 
         private void CheckInitialized()
         {

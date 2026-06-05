@@ -11,6 +11,7 @@ namespace Vion.Dale.ProtoActor
     public sealed class VitalsMailboxStatistics : IMailboxStatistics
     {
         private readonly string _actorName;
+
         private readonly IActorVitalsCollector _collector;
 
         public VitalsMailboxStatistics(string actorName, IActorVitalsCollector collector)

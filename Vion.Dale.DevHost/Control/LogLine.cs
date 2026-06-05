@@ -11,15 +11,6 @@ namespace Vion.Dale.DevHost.Control
     /// </summary>
     public sealed class LogLine
     {
-        public LogLine(LogLevel level, string category, DateTimeOffset timestamp, string message, string? exception)
-        {
-            Level = level;
-            Category = category;
-            Timestamp = timestamp;
-            Message = message;
-            Exception = exception;
-        }
-
         public LogLevel Level { get; }
 
         public string Category { get; }
@@ -29,6 +20,15 @@ namespace Vion.Dale.DevHost.Control
         public string Message { get; }
 
         public string? Exception { get; }
+
+        public LogLine(LogLevel level, string category, DateTimeOffset timestamp, string message, string? exception)
+        {
+            Level = level;
+            Category = category;
+            Timestamp = timestamp;
+            Message = message;
+            Exception = exception;
+        }
 
         public override string ToString()
         {

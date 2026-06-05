@@ -18,35 +18,29 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
     [PublicApi]
     public sealed class FakeModbusTcpClientProxy : IModbusTcpClientProxy
     {
-        private readonly Dictionary<(int UnitId, ushort Address), byte[]> _holdingRegisters = new();
-
-        private readonly Dictionary<(int UnitId, ushort Address), byte[]> _inputRegisters = new();
-
         private readonly Dictionary<(int UnitId, ushort Address), bool> _coils = new();
-
-        private readonly Dictionary<(int UnitId, ushort Address), bool> _discreteInputs = new();
 
         private readonly List<ConnectionEvent> _connectionHistory = new();
 
-        private readonly List<ReadEvent> _readHistory = new();
+        private readonly Dictionary<(int UnitId, ushort Address), bool> _discreteInputs = new();
 
-        private readonly List<WriteEvent> _writeHistory = new();
+        private readonly Dictionary<(int UnitId, ushort Address), byte[]> _holdingRegisters = new();
 
-        // FIFO queue of pending faults per (op kind, unitId, address). Consumed on the next matching
-        // operation; once empty, the operation falls through to the in-memory store. Stacking multiple
-        // faults supports "fail, fail, recover" sequences without explicit cleanup.
-        private readonly Dictionary<(OperationKind Op, int UnitId, ushort Address), Queue<Exception>> _pendingFaults = new();
+        private readonly Dictionary<(int UnitId, ushort Address), byte[]> _inputRegisters = new();
 
         // FIFO queue of connection failures. Each ConnectAsync attempt dequeues one if available and
         // throws; otherwise the attempt succeeds. Separate from _pendingFaults because connections
         // aren't keyed by unitId/address.
         private readonly Queue<Exception> _pendingConnectFailures = new();
 
-        /// <summary>
-        ///     True after <c>ConnectAsync</c> has been called and before <c>Disconnect</c>.
-        ///     The real wrapper calls <c>ConnectAsync</c> lazily on the first operation if disconnected.
-        /// </summary>
-        public bool IsConnected { get; private set; }
+        // FIFO queue of pending faults per (op kind, unitId, address). Consumed on the next matching
+        // operation; once empty, the operation falls through to the in-memory store. Stacking multiple
+        // faults supports "fail, fail, recover" sequences without explicit cleanup.
+        private readonly Dictionary<(OperationKind Op, int UnitId, ushort Address), Queue<Exception>> _pendingFaults = new();
+
+        private readonly List<ReadEvent> _readHistory = new();
+
+        private readonly List<WriteEvent> _writeHistory = new();
 
         /// <summary>Ordered log of every <c>ConnectAsync</c> / <c>Disconnect</c> the fake observed.</summary>
         public IReadOnlyList<ConnectionEvent> ConnectionHistory
@@ -65,6 +59,12 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
         {
             get => _writeHistory;
         }
+
+        /// <summary>
+        ///     True after <c>ConnectAsync</c> has been called and before <c>Disconnect</c>.
+        ///     The real wrapper calls <c>ConnectAsync</c> lazily on the first operation if disconnected.
+        /// </summary>
+        public bool IsConnected { get; private set; }
 
         #region Pre-population helpers
 
@@ -301,6 +301,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
         Task IModbusTcpClientProxy.WriteMultipleRegistersAsync(byte unitIdentifier, ushort startingAddress, byte[] values, CancellationToken cancellationToken)
         {
             EnsureRegisterByteAlignment(values, nameof(values));
+
             // Defensive copy — the SDK reuses internal buffers in production; tests must not alias them.
             var snapshot = new byte[values.Length];
             Buffer.BlockCopy(values, 0, snapshot, 0, values.Length);
@@ -362,6 +363,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
                     bytes[i * 2] = data[0];
                     bytes[i * 2 + 1] = data[1];
                 }
+
                 // Not pre-populated → leaves zero, which matches what an uninitialised real register would return.
             }
 
@@ -431,7 +433,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
     [PublicApi]
     public sealed record ReadEvent(ReadEventKind Kind, int UnitId, ushort Address, ushort Quantity);
 
-    /// <summary>A single write operation observed by the fake proxy. <c>Bytes</c> is the raw wire-format payload (MSB-first per register).</summary>
+    /// <summary>
+    ///     A single write operation observed by the fake proxy. <c>Bytes</c> is the raw wire-format payload (MSB-first
+    ///     per register).
+    /// </summary>
     [PublicApi]
     public sealed record WriteEvent(WriteEventKind Kind, int UnitId, ushort Address, byte[] Bytes);
 }

@@ -25,19 +25,19 @@ namespace Vion.Dale.DevHost.Control
     {
         private readonly DevConfiguration _configuration;
 
-        private readonly IServiceProvider _serviceProvider;
-
-        private readonly ILogger<DevHostIntrospection> _logger;
-
-        private readonly Dictionary<string, LogicBlockIntrospectionResult> _results = new();
-
-        // blockId → (propertyOrMeasuringPointName → serviceConfigId)
-        private readonly Dictionary<string, Dictionary<string, string>> _propertyToServiceId = new();
-
         // Guards introspection: it now runs once in DevHost.StartAsync, but the accessors below also call
         // EnsureIntrospected defensively, and the web server can serve concurrent requests, so the one-time
         // population must be thread-safe.
         private readonly object _gate = new();
+
+        private readonly ILogger<DevHostIntrospection> _logger;
+
+        // blockId → (propertyOrMeasuringPointName → serviceConfigId)
+        private readonly Dictionary<string, Dictionary<string, string>> _propertyToServiceId = new();
+
+        private readonly Dictionary<string, LogicBlockIntrospectionResult> _results = new();
+
+        private readonly IServiceProvider _serviceProvider;
 
         private volatile bool _done;
 
@@ -65,51 +65,6 @@ namespace Vion.Dale.DevHost.Control
 
                 Introspect();
                 _done = true;
-            }
-        }
-
-        private void Introspect()
-        {
-            foreach (var block in _configuration.LogicBlocks)
-            {
-                if (_serviceProvider.GetService(block.LogicBlockType) is not LogicBlockBase instance)
-                {
-                    _logger.LogWarning("Could not instantiate {Type} for introspection; skipping its control metadata.", block.LogicBlockType.Name);
-                    continue;
-                }
-
-                var result = LogicBlockIntrospection.IntrospectLogicBlock(instance, _serviceProvider);
-                _results[block.Id] = result;
-
-                if (block.Services.Count == 0)
-                {
-                    foreach (var service in result.Services)
-                    {
-                        block.Services.Add(new DevServiceConfig { Id = Guid.NewGuid().ToString(), Identifier = service.Identifier });
-                    }
-                }
-
-                var map = new Dictionary<string, string>();
-                foreach (var service in result.Services)
-                {
-                    var serviceConfig = block.Services.FirstOrDefault(s => s.Identifier == service.Identifier);
-                    if (serviceConfig is null)
-                    {
-                        continue;
-                    }
-
-                    foreach (var property in service.Properties)
-                    {
-                        map[property.Identifier] = serviceConfig.Id;
-                    }
-
-                    foreach (var measuringPoint in service.MeasuringPoints)
-                    {
-                        map[measuringPoint.Identifier] = serviceConfig.Id;
-                    }
-                }
-
-                _propertyToServiceId[block.Id] = map;
             }
         }
 
@@ -188,17 +143,64 @@ namespace Vion.Dale.DevHost.Control
                                                                                                       {
                                                                                                           Identifier = svc.Identifier,
                                                                                                           Contracts = svc.Contracts
-                                                                                                                         .Select(c => new ConfigurationOutput.ServiceProviderContract
-                                                                                                                                      {
-                                                                                                                                          Identifier = c.Identifier,
-                                                                                                                                          ContractType = c.ContractType,
-                                                                                                                                      })
-                                                                                                                         .ToList(),
+                                                                                                              .Select(c =>
+                                                                                                                          new ConfigurationOutput.
+                                                                                                                          ServiceProviderContract
+                                                                                                                          {
+                                                                                                                              Identifier = c.Identifier,
+                                                                                                                              ContractType = c.ContractType,
+                                                                                                                          })
+                                                                                                              .ToList(),
                                                                                                       })
                                                                                        .ToList(),
                                                                       })
                                                         .ToList(),
                    };
+        }
+
+        private void Introspect()
+        {
+            foreach (var block in _configuration.LogicBlocks)
+            {
+                if (_serviceProvider.GetService(block.LogicBlockType) is not LogicBlockBase instance)
+                {
+                    _logger.LogWarning("Could not instantiate {Type} for introspection; skipping its control metadata.", block.LogicBlockType.Name);
+                    continue;
+                }
+
+                var result = LogicBlockIntrospection.IntrospectLogicBlock(instance, _serviceProvider);
+                _results[block.Id] = result;
+
+                if (block.Services.Count == 0)
+                {
+                    foreach (var service in result.Services)
+                    {
+                        block.Services.Add(new DevServiceConfig { Id = Guid.NewGuid().ToString(), Identifier = service.Identifier });
+                    }
+                }
+
+                var map = new Dictionary<string, string>();
+                foreach (var service in result.Services)
+                {
+                    var serviceConfig = block.Services.FirstOrDefault(s => s.Identifier == service.Identifier);
+                    if (serviceConfig is null)
+                    {
+                        continue;
+                    }
+
+                    foreach (var property in service.Properties)
+                    {
+                        map[property.Identifier] = serviceConfig.Id;
+                    }
+
+                    foreach (var measuringPoint in service.MeasuringPoints)
+                    {
+                        map[measuringPoint.Identifier] = serviceConfig.Id;
+                    }
+                }
+
+                _propertyToServiceId[block.Id] = map;
+            }
         }
 
         private ConfigurationOutput.LogicBlock BuildLogicBlock(DevLogicBlockConfig lb)
@@ -212,7 +214,8 @@ namespace Vion.Dale.DevHost.Control
                        Annotations = meta.Annotations,
                        Services = lb.Services.Select(s => BuildService(meta, s)).ToList(),
                        Interfaces = meta.Interfaces
-                                        .Select(i => new ConfigurationOutput.LogicBlockInterface { Identifier = i.Identifier, Annotations = i.Annotations })
+                                        .Select(i => new ConfigurationOutput.LogicBlockInterface
+                                                     { Identifier = i.Identifier, Annotations = i.Annotations })
                                         .ToList(),
                        Contracts = meta.Contracts
                                        .Select(c => new ConfigurationOutput.LogicBlockContract

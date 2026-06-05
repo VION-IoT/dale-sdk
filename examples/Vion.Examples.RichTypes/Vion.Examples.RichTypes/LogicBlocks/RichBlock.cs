@@ -15,7 +15,8 @@ namespace Vion.Examples.RichTypes.LogicBlocks
     ///     Used by Vion.Examples.RichTypes.DevHost to visually inspect the emitted introspection JSON
     ///     and exercise the schema / presentation / runtime three-doc shape.
     /// </summary>
-    [LogicBlock(Name = "Rich Types Demo", Icon = "device-line",
+    [LogicBlock(Name = "Rich Types Demo",
+                Icon = "device-line",
                 Groups = new[]
                          {
                              PropertyGroup.Alarm,
@@ -41,8 +42,7 @@ namespace Vion.Examples.RichTypes.LogicBlocks
         ///     show a human label.
         /// </summary>
         [ServiceMeasuringPoint(Description = "Active alarm state with per-member severity colouring.")]
-        [Presentation(DisplayName = "Aktueller Alarm", Group = PropertyGroup.Alarm,
-                      StatusIndicator = true, Importance = Importance.Primary)]
+        [Presentation(DisplayName = "Aktueller Alarm", Group = PropertyGroup.Alarm, StatusIndicator = true, Importance = Importance.Primary)]
         public AlarmState CurrentAlarm { get; private set; }
 
         /// <summary>
@@ -62,8 +62,7 @@ namespace Vion.Examples.RichTypes.LogicBlocks
         ///     come from the [StructField] attributes on the record-struct constructor parameters.
         /// </summary>
         [ServiceMeasuringPoint(Description = "Live GPS fix as a flat (Lat, Lon) record struct.")]
-        [Presentation(DisplayName = "Aktuelle Position", Group = PropertyGroup.Status,
-                      Importance = Importance.Primary)]
+        [Presentation(DisplayName = "Aktuelle Position", Group = PropertyGroup.Status, Importance = Importance.Primary)]
         public Coordinates CurrentLocation { get; private set; }
 
         /// <summary>
@@ -71,8 +70,7 @@ namespace Vion.Examples.RichTypes.LogicBlocks
         ///     ("3 Sekunden", "vor einer Minute") via <see cref="Formats.Relative" />.
         /// </summary>
         [ServiceMeasuringPoint(Description = "Wall-clock time of the last successful sample.")]
-        [Presentation(DisplayName = "Zuletzt aktualisiert", Group = PropertyGroup.Status,
-                      Format = Formats.Relative, Order = 20)]
+        [Presentation(DisplayName = "Zuletzt aktualisiert", Group = PropertyGroup.Status, Format = Formats.Relative, Order = 20)]
         public DateTime LastSampleAt { get; private set; } = DateTime.UtcNow;
 
         // ── Metric ────────────────────────────────────────────────────────────────
@@ -81,10 +79,8 @@ namespace Vion.Examples.RichTypes.LogicBlocks
         ///     Numeric array rendered as an inline sparkline. <see cref="PresentationAttribute.Decimals" />
         ///     applies to the optional tooltip / hover value, not the visual line.
         /// </summary>
-        [ServiceMeasuringPoint(Unit = "A",
-                               Description = "Last 16 current samples — visualised as a sparkline rather than a numeric list.")]
-        [Presentation(DisplayName = "Strom-Histogramm", Group = PropertyGroup.Metric,
-                      UiHint = UiHints.Sparkline, Importance = Importance.Primary)]
+        [ServiceMeasuringPoint(Unit = "A", Description = "Last 16 current samples — visualised as a sparkline rather than a numeric list.")]
+        [Presentation(DisplayName = "Strom-Histogramm", Group = PropertyGroup.Metric, UiHint = UiHints.Sparkline, Importance = Importance.Primary)]
         public ImmutableArray<double> HistogramBuckets { get; private set; } = ImmutableArray<double>.Empty;
 
         /// <summary>
@@ -92,16 +88,14 @@ namespace Vion.Examples.RichTypes.LogicBlocks
         ///     odometer-style time-series semantics (never resets — diffs across two samples are
         ///     guaranteed non-negative).
         /// </summary>
-        [ServiceMeasuringPoint(Description = "Lifetime sample count — never resets.",
-                               Kind = MeasuringPointKind.TotalIncreasing)]
+        [ServiceMeasuringPoint(Description = "Lifetime sample count — never resets.", Kind = MeasuringPointKind.TotalIncreasing)]
         [Presentation(Group = PropertyGroup.Metric, Order = 10)]
         public long LongCounter { get; private set; }
 
         /// <summary>
         ///     Total with periodic reset — e.g. counters that roll over daily.
         /// </summary>
-        [ServiceMeasuringPoint(Description = "Tagesweise zurückgesetzter Zähler.",
-                               Kind = MeasuringPointKind.Total)]
+        [ServiceMeasuringPoint(Description = "Tagesweise zurückgesetzter Zähler.", Kind = MeasuringPointKind.Total)]
         [Presentation(Group = PropertyGroup.Metric, Order = 20)]
         public uint UIntCounter { get; private set; }
 
@@ -121,8 +115,7 @@ namespace Vion.Examples.RichTypes.LogicBlocks
         ///     drives the input tooltips.
         /// </summary>
         [ServiceProperty(Description = "Operator-supplied target setpoint applied on the next control cycle.")]
-        [Presentation(DisplayName = "Geplanter Sollwert", Group = PropertyGroup.Configuration,
-                      Order = 10, Importance = Importance.Primary)]
+        [Presentation(DisplayName = "Geplanter Sollwert", Group = PropertyGroup.Configuration, Order = 10, Importance = Importance.Primary)]
         public ScheduledSetpoint? PreferredSetpoint { get; set; }
 
         /// <summary>
@@ -134,10 +127,8 @@ namespace Vion.Examples.RichTypes.LogicBlocks
         [Presentation(DisplayName = "Sollwert-Plan", Group = PropertyGroup.Configuration, Order = 20)]
         public ImmutableArray<ScheduledSetpoint> Schedule { get; set; } = ImmutableArray<ScheduledSetpoint>.Empty;
 
-        [ServiceProperty(Title = "Spannungs-Sollwert", Unit = "V", Minimum = 0, Maximum = 400,
-                         Description = "Statischer Spannungssollwert (Slider, da Min/Max gesetzt sind).")]
-        [Presentation(Group = PropertyGroup.Configuration, Order = 30,
-                      UiHint = UiHints.Slider, Decimals = 1)]
+        [ServiceProperty(Title = "Spannungs-Sollwert", Unit = "V", Minimum = 0, Maximum = 400, Description = "Statischer Spannungssollwert (Slider, da Min/Max gesetzt sind).")]
+        [Presentation(Group = PropertyGroup.Configuration, Order = 30, UiHint = UiHints.Slider, Decimals = 1)]
         public double VoltageSetpoint { get; set; } = 230.0;
 
         /// <summary>
@@ -146,8 +137,7 @@ namespace Vion.Examples.RichTypes.LogicBlocks
         ///     through the DevHost UI and the codec; the dashboard renders a clock-style (HH:MM:SS) editor over
         ///     the same value.
         /// </summary>
-        [ServiceProperty(Title = "Abtastintervall",
-                         Description = "Gewünschtes Abtastintervall (Duration; ISO-8601 PT… auf dem Draht).")]
+        [ServiceProperty(Title = "Abtastintervall", Description = "Gewünschtes Abtastintervall (Duration; ISO-8601 PT… auf dem Draht).")]
         [Presentation(Group = PropertyGroup.Configuration, Order = 35)]
         public TimeSpan SampleInterval { get; set; } = TimeSpan.FromSeconds(2);
 
@@ -155,8 +145,7 @@ namespace Vion.Examples.RichTypes.LogicBlocks
         [Presentation(Group = PropertyGroup.Configuration, Order = 40)]
         public string DeviceName { get; set; } = "demo";
 
-        [ServiceProperty(Title = "Bevorzugte Position",
-                         Description = "Manuelle Override-Position; bei Null wird CurrentLocation verwendet.")]
+        [ServiceProperty(Title = "Bevorzugte Position", Description = "Manuelle Override-Position; bei Null wird CurrentLocation verwendet.")]
         [Presentation(DisplayName = "Bevorzugte Position", Group = PropertyGroup.Configuration, Order = 50)]
         public Coordinates? PreferredLocation { get; set; }
 
@@ -182,8 +171,7 @@ namespace Vion.Examples.RichTypes.LogicBlocks
         ///     Nullable-element array — demonstrates how schemas with optional members render
         ///     in tabular form (null cells appear as em-dash placeholders).
         /// </summary>
-        [ServiceProperty(Title = "Messreihe mit Lücken", Unit = "kW",
-                         Description = "Numerische Messreihe mit fehlenden Werten (null als Platzhalter).")]
+        [ServiceProperty(Title = "Messreihe mit Lücken", Unit = "kW", Description = "Numerische Messreihe mit fehlenden Werten (null als Platzhalter).")]
         [Presentation(Group = PropertyGroup.Diagnostics, Order = 10)]
         public ImmutableArray<double?> SamplesWithGaps { get; set; } = ImmutableArray<double?>.Empty;
 
@@ -244,7 +232,7 @@ namespace Vion.Examples.RichTypes.LogicBlocks
 
             for (var i = 0; i < 16; i++)
             {
-                samples[i] = 10.0 + Math.Sin((t + i * 0.4)) * 5.0;
+                samples[i] = 10.0 + Math.Sin(t + i * 0.4) * 5.0;
             }
 
             HistogramBuckets = samples.ToImmutableArray();
@@ -254,7 +242,7 @@ namespace Vion.Examples.RichTypes.LogicBlocks
             UIntCounter = (uint)(_tickCount % 86_400); // resets daily-ish
 
             // Cycle alarm state every ~20 ticks and roll the history buffer every tick
-            var nextAlarm = (AlarmState)((_tickCount / 10) % 3);
+            var nextAlarm = (AlarmState)(_tickCount / 10 % 3);
             CurrentAlarm = nextAlarm;
             _historyBuffer[_historyHead] = nextAlarm;
             _historyHead = (_historyHead + 1) % _historyBuffer.Length;
@@ -280,11 +268,9 @@ namespace Vion.Examples.RichTypes.LogicBlocks
     ///     (label, unit, range, tooltip).
     /// </summary>
     public readonly record struct Coordinates(
-        [StructField(Unit = "deg", Minimum = -90, Maximum = 90,
-                     Description = "Latitude in WGS-84 decimal degrees.")]
+        [StructField(Unit = "deg", Minimum = -90, Maximum = 90, Description = "Latitude in WGS-84 decimal degrees.")]
         double Lat,
-        [StructField(Unit = "deg", Minimum = -180, Maximum = 180,
-                     Description = "Longitude in WGS-84 decimal degrees.")]
+        [StructField(Unit = "deg", Minimum = -180, Maximum = 180, Description = "Longitude in WGS-84 decimal degrees.")]
         double Lon);
 
     /// <summary>

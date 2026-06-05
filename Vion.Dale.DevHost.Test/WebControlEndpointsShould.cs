@@ -21,30 +21,6 @@ namespace Vion.Dale.DevHost.Test
     [TestClass]
     public class WebControlEndpointsShould
     {
-        private static int FreePort()
-        {
-            // OS-assigned free port — avoids fixed-port collisions when this runs alongside the rest of the
-            // solution's test assemblies in parallel.
-            var listener = new TcpListener(IPAddress.Loopback, 0);
-            listener.Start();
-            var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-            listener.Stop();
-            return port;
-        }
-
-        private static IDevHost BuildWebHost(int port)
-        {
-            var config = DevConfigurationBuilder.Create()
-                                                .AddLogicBlock<CounterBlock>("counter")
-                                                .Build();
-
-            return DevHostBuilder.Create()
-                                 .WithDi<TestDependencyInjection>()
-                                 .WithConfiguration(config)
-                                 .WithWebUi(port)
-                                 .Build();
-        }
-
         [TestMethod]
         public async Task ServeExistingConfigurationRoute_AndNewControlRoutes()
         {
@@ -172,20 +148,19 @@ namespace Vion.Dale.DevHost.Test
             await using var host = BuildWebHost(port);
             await host.StartAsync();
 
-            var connection = new HubConnectionBuilder()
-                             .WithUrl($"http://localhost:{port}/hub")
-                             .Build();
+            var connection = new HubConnectionBuilder().WithUrl($"http://localhost:{port}/hub").Build();
 
             var primed = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
-            connection.On<JsonElement>("PropertyValueChanged", payload =>
-                                                               {
-                                                                   // Any PropertyValueChanged for Counter confirms the
-                                                                   // prime-on-connect broadcast reached this client.
-                                                                   if (payload.TryGetProperty("propertyIdentifier", out var pid) && pid.GetString() == "Counter")
-                                                                   {
-                                                                       primed.TrySetResult(pid.GetString());
-                                                                   }
-                                                               });
+            connection.On<JsonElement>("PropertyValueChanged",
+                                       payload =>
+                                       {
+                                           // Any PropertyValueChanged for Counter confirms the
+                                           // prime-on-connect broadcast reached this client.
+                                           if (payload.TryGetProperty("propertyIdentifier", out var pid) && pid.GetString() == "Counter")
+                                           {
+                                               primed.TrySetResult(pid.GetString());
+                                           }
+                                       });
 
             try
             {
@@ -225,6 +200,24 @@ namespace Vion.Dale.DevHost.Test
 
             StringAssert.Contains(captured.ToString(), "\"ready\":true", "Headless mode should print a JSON readiness line.");
             StringAssert.Contains(captured.ToString(), $"\"port\":{port}", "Readiness line should include the port.");
+        }
+
+        private static int FreePort()
+        {
+            // OS-assigned free port — avoids fixed-port collisions when this runs alongside the rest of the
+            // solution's test assemblies in parallel.
+            var listener = new TcpListener(IPAddress.Loopback, 0);
+            listener.Start();
+            var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+            listener.Stop();
+            return port;
+        }
+
+        private static IDevHost BuildWebHost(int port)
+        {
+            var config = DevConfigurationBuilder.Create().AddLogicBlock<CounterBlock>("counter").Build();
+
+            return DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithWebUi(port).Build();
         }
     }
 }

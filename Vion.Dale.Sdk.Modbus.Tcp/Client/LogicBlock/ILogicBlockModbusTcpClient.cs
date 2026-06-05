@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Threading;
 using Vion.Dale.Sdk.Abstractions;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Modbus.Core.Conversion;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation;
-using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.Request;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
@@ -13,7 +13,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         The TCP connection is established lazily when the first read or write operation is executed and is maintained for subsequent operations.
+    ///         The TCP connection is established lazily when the first read or write operation is executed and is maintained
+    ///         for subsequent operations.
     ///     </para>
     ///     <para>
     ///         The client uses a default port of 502 (standard Modbus TCP port) and a connection timeout of 3 seconds.
@@ -21,33 +22,42 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
     ///         The IP address must be set using <see cref="IpAddress" /> before any read or write operations can be performed.
     ///     </para>
     ///     <para>
-    ///         All read and write operations are enqueued to an internal request queue and processed sequentially one at a time.
-    ///         This sequential processing is required because the underlying Modbus TCP client library does not support concurrent operations on a single TCP connection.
-    ///         The logic block itself is not blocked while operations are dequeued or executing - all operations are non-blocking with results delivered via callbacks.
+    ///         All read and write operations are enqueued to an internal request queue and processed sequentially one at a
+    ///         time.
+    ///         This sequential processing is required because the underlying Modbus TCP client library does not support
+    ///         concurrent operations on a single TCP connection.
+    ///         The logic block itself is not blocked while operations are dequeued or executing - all operations are
+    ///         non-blocking with results delivered via callbacks.
     ///     </para>
     ///     <para>
     ///         The request queue is created the first time the client is enabled via <see cref="IsEnabled" />.
-    ///         Queue settings (<see cref="QueueCapacity" /> and <see cref="QueueOverflowPolicy" />) must be configured before enabling the client for the first time.
+    ///         Queue settings (<see cref="QueueCapacity" /> and <see cref="QueueOverflowPolicy" />) must be configured before
+    ///         enabling the client for the first time.
     ///         Once the queue is created, these settings cannot be changed.
     ///     </para>
     ///     <para>
-    ///         The client should be disposed when no longer needed to properly close the underlying TCP connection and release associated resources.
+    ///         The client should be disposed when no longer needed to properly close the underlying TCP connection and release
+    ///         associated resources.
     ///         When the client is disposed, the internal request queue is closed and no new requests will be accepted.
     ///         Any read or write operations invoked after disposal will be rejected.
     ///         If an error callback is specified, it will be invoked with a <see cref="RequestDroppedException" />.
     ///         All enqueued requests and any currently executing request are canceled.
-    ///         If an error callback is specified for these operations, it will be invoked with an <see cref="OperationCanceledException" />.
+    ///         If an error callback is specified for these operations, it will be invoked with an
+    ///         <see cref="OperationCanceledException" />.
     ///     </para>
     ///     <para>
-    ///         For scenarios requiring concurrent operations, additional client instances can be created via <see cref="ILogicBlockModbusTcpClientFactory.Create" />.
-    ///         Each client instance maintains its own TCP connection and request queue, enabling parallel communication with the same or different Modbus servers.
+    ///         For scenarios requiring concurrent operations, additional client instances can be created via
+    ///         <see cref="ILogicBlockModbusTcpClientFactory.Create" />.
+    ///         Each client instance maintains its own TCP connection and request queue, enabling parallel communication with
+    ///         the same or different Modbus servers.
     ///     </para>
     ///     <para>
     ///         The client is initially disabled (<see cref="IsEnabled" /> is <c>false</c>).
     ///         When disabled, all read and write operations are skipped.
     ///     </para>
     ///     <para>
-    ///         For common exceptions that may be passed to error callbacks, see the documentation for <see cref="IModbusTcpClientWrapper" />.
+    ///         For common exceptions that may be passed to error callbacks, see the documentation for
+    ///         <see cref="IModbusTcpClientWrapper" />.
     ///     </para>
     /// </remarks>
     [PublicApi]
@@ -68,16 +78,22 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         ///     <list type="bullet">
         ///         <item>
         ///             <description>
-        ///                 Temporarily disabling Modbus communication without requiring conditional logic in the logic block to prevent operation invocations.
+        ///                 Temporarily disabling Modbus communication without requiring conditional logic in the logic block to
+        ///                 prevent operation invocations.
         ///             </description>
         ///         </item>
         ///         <item>
         ///             <description>
-        ///                 Preventing operations from executing with incomplete configuration. For example, initially the IP address will not be set.
-        ///                 Without the client being disabled, any read or write operations would attempt to execute and fail due to missing configuration, flooding error logs.
-        ///                 Similarly, when updating multiple configuration settings (such as both IP address and port), disabling the client first,
-        ///                 updating all settings, then re-enabling it ensures operations only execute with the complete updated configuration.
-        ///                 Disabling the client does not affect requests that have already been enqueued - those will continue to execute.
+        ///                 Preventing operations from executing with incomplete configuration. For example, initially the IP
+        ///                 address will not be set.
+        ///                 Without the client being disabled, any read or write operations would attempt to execute and fail due
+        ///                 to missing configuration, flooding error logs.
+        ///                 Similarly, when updating multiple configuration settings (such as both IP address and port), disabling
+        ///                 the client first,
+        ///                 updating all settings, then re-enabling it ensures operations only execute with the complete updated
+        ///                 configuration.
+        ///                 Disabling the client does not affect requests that have already been enqueued - those will continue to
+        ///                 execute.
         ///             </description>
         ///         </item>
         ///     </list>
@@ -103,7 +119,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         int QueueCapacity { get; set; }
 
         /// <summary>
-        ///     Gets or sets the policy for handling new requests when the queue is full. Default is <see cref="QueueOverflowPolicy.DropOldest" />.
+        ///     Gets or sets the policy for handling new requests when the queue is full. Default is
+        ///     <see cref="QueueOverflowPolicy.DropOldest" />.
         /// </summary>
         /// <remarks>
         ///     <para>
@@ -112,7 +129,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         ///     </para>
         ///     <para>
         ///         When the queue is full, a request will be dropped based on the policy.
-        ///         If an error callback is specified for the dropped request, it will be invoked with a <see cref="RequestDroppedException" />.
+        ///         If an error callback is specified for the dropped request, it will be invoked with a
+        ///         <see cref="RequestDroppedException" />.
         ///     </para>
         /// </remarks>
         QueueOverflowPolicy QueueOverflowPolicy { get; set; }
@@ -145,7 +163,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         ///     Thrown when the port number is outside the valid range (0-65535).
         /// </exception>
         /// <remarks>
-        ///     Changes to this property do not trigger an immediate reconnect. The new port will be used when the next read or write operation is executed.
+        ///     Changes to this property do not trigger an immediate reconnect. The new port will be used when the next read or
+        ///     write operation is executed.
         /// </remarks>
         int Port { get; set; }
 
@@ -156,7 +175,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         ///     Thrown when the IP address is null, empty, consists only of whitespace, or is not a valid IP address.
         /// </exception>
         /// <remarks>
-        ///     Changes to this property do not trigger an immediate reconnect. The new IP address will be used when the next read or write operation is executed.
+        ///     Changes to this property do not trigger an immediate reconnect. The new IP address will be used when the next read
+        ///     or write operation is executed.
         /// </remarks>
         string? IpAddress { get; set; }
 
@@ -165,7 +185,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// </summary>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">
         ///     The callback invoked when the operation succeeds.
@@ -200,8 +221,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         ///         This timeout is used when <c>operationTimeout</c> is not specified in individual operations.
         ///     </para>
         ///     <para>
-        ///         The timeout measures only the network communication with the Modbus server: from when the request is sent to when the complete response is received.
-        ///         It does not include time spent waiting in the queue, establishing a connection, parameter validation, or data conversion.
+        ///         The timeout measures only the network communication with the Modbus server: from when the request is sent to
+        ///         when the complete response is received.
+        ///         It does not include time spent waiting in the queue, establishing a connection, parameter validation, or data
+        ///         conversion.
         ///     </para>
         ///     <para>
         ///         Changing this property does not affect operations already queued for execution. The new timeout
@@ -220,12 +243,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="quantity">The number of discrete inputs to read.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
-        ///     For common exceptions that may be passed to this callback, see <see cref="IModbusTcpClientWrapper.ReadDiscreteInputsAsync" />.
+        ///     For common exceptions that may be passed to this callback, see
+        ///     <see cref="IModbusTcpClientWrapper.ReadDiscreteInputsAsync" />.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="operationTimeout">
@@ -253,12 +278,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="quantity">The number of coils to read.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
-        ///     For common exceptions that may be passed to this callback, see <see cref="IModbusTcpClientWrapper.ReadCoilsAsync" />.
+        ///     For common exceptions that may be passed to this callback, see
+        ///     <see cref="IModbusTcpClientWrapper.ReadCoilsAsync" />.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="operationTimeout">
@@ -282,12 +309,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="value">The value to write to the coil.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
-        ///     For common exceptions that may be passed to this callback, see <see cref="IModbusTcpClientWrapper.WriteSingleCoilAsync" />.
+        ///     For common exceptions that may be passed to this callback, see
+        ///     <see cref="IModbusTcpClientWrapper.WriteSingleCoilAsync" />.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="operationTimeout">
@@ -311,12 +340,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="values">The values to write to the coils.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
-        ///     For common exceptions that may be passed to this callback, see <see cref="IModbusTcpClientWrapper.WriteMultipleCoilsAsync" />.
+        ///     For common exceptions that may be passed to this callback, see
+        ///     <see cref="IModbusTcpClientWrapper.WriteMultipleCoilsAsync" />.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="operationTimeout">
@@ -344,12 +375,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="quantity">The number of registers to read.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
-        ///     For common exceptions that may be passed to this callback, see <see cref="IModbusTcpClientWrapper.ReadInputRegistersRawAsync" />.
+        ///     For common exceptions that may be passed to this callback, see
+        ///     <see cref="IModbusTcpClientWrapper.ReadInputRegistersRawAsync" />.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="operationTimeout">
@@ -359,8 +392,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// </param>
         /// <remarks>
         ///     This method is useful for debugging to inspect raw bytes received from the device,
-        ///     or when the data format is not covered by the typed methods (e.g., custom data structures or non-standard encodings).
-        ///     For standard data types, prefer the typed methods like <see cref="ReadInputRegistersAsShort" />, <see cref="ReadInputRegistersAsInt" />, etc.
+        ///     or when the data format is not covered by the typed methods (e.g., custom data structures or non-standard
+        ///     encodings).
+        ///     For standard data types, prefer the typed methods like <see cref="ReadInputRegistersAsShort" />,
+        ///     <see cref="ReadInputRegistersAsInt" />, etc.
         /// </remarks>
         void ReadInputRegistersRaw(int unitIdentifier,
                                    ushort startingAddress,
@@ -378,12 +413,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="quantity">The number of registers to read.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
-        ///     For common exceptions that may be passed to this callback, see <see cref="IModbusTcpClientWrapper.ReadInputRegistersAsShortAsync" />.
+        ///     For common exceptions that may be passed to this callback, see
+        ///     <see cref="IModbusTcpClientWrapper.ReadInputRegistersAsShortAsync" />.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="byteOrder">The byte order the data is received in. Default is <see cref="ByteOrder.MsbToLsb" />.</param>
@@ -409,12 +446,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="quantity">The number of registers to read.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
-        ///     For common exceptions that may be passed to this callback, see <see cref="IModbusTcpClientWrapper.ReadInputRegistersAsUShortAsync" />.
+        ///     For common exceptions that may be passed to this callback, see
+        ///     <see cref="IModbusTcpClientWrapper.ReadInputRegistersAsUShortAsync" />.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="byteOrder">The byte order the data is received in. Default is <see cref="ByteOrder.MsbToLsb" />.</param>
@@ -440,12 +479,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="count">The number of 32-bit integers to read.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
-        ///     For common exceptions that may be passed to this callback, see <see cref="IModbusTcpClientWrapper.ReadInputRegistersAsIntAsync" />.
+        ///     For common exceptions that may be passed to this callback, see
+        ///     <see cref="IModbusTcpClientWrapper.ReadInputRegistersAsIntAsync" />.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="byteOrder">The byte order the data is received in. Default is <see cref="ByteOrder.MsbToLsb" />.</param>
@@ -473,12 +514,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="count">The number of 32-bit integers to read.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
-        ///     For common exceptions that may be passed to this callback, see <see cref="IModbusTcpClientWrapper.ReadInputRegistersAsUIntAsync" />.
+        ///     For common exceptions that may be passed to this callback, see
+        ///     <see cref="IModbusTcpClientWrapper.ReadInputRegistersAsUIntAsync" />.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="byteOrder">The byte order the data is received in. Default is <see cref="ByteOrder.MsbToLsb" />.</param>
@@ -506,12 +549,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="count">The number of 32-bit floating-point numbers to read.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
-        ///     For common exceptions that may be passed to this callback, see <see cref="IModbusTcpClientWrapper.ReadInputRegistersAsFloatAsync" />.
+        ///     For common exceptions that may be passed to this callback, see
+        ///     <see cref="IModbusTcpClientWrapper.ReadInputRegistersAsFloatAsync" />.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="byteOrder">The byte order the data is received in. Default is <see cref="ByteOrder.MsbToLsb" />.</param>
@@ -539,12 +584,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="count">The number of 64-bit integers to read.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
-        ///     For common exceptions that may be passed to this callback, see <see cref="IModbusTcpClientWrapper.ReadInputRegistersAsLongAsync" />.
+        ///     For common exceptions that may be passed to this callback, see
+        ///     <see cref="IModbusTcpClientWrapper.ReadInputRegistersAsLongAsync" />.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="byteOrder">The byte order the data is received in. Default is <see cref="ByteOrder.MsbToLsb" />.</param>
@@ -572,12 +619,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="count">The number of 64-bit integers to read.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
-        ///     For common exceptions that may be passed to this callback, see <see cref="IModbusTcpClientWrapper.ReadInputRegistersAsULongAsync" />.
+        ///     For common exceptions that may be passed to this callback, see
+        ///     <see cref="IModbusTcpClientWrapper.ReadInputRegistersAsULongAsync" />.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="byteOrder">The byte order the data is received in. Default is <see cref="ByteOrder.MsbToLsb" />.</param>
@@ -605,12 +654,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="count">The number of 64-bit floating-point numbers to read.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
-        ///     For common exceptions that may be passed to this callback, see <see cref="IModbusTcpClientWrapper.ReadInputRegistersAsDoubleAsync" />.
+        ///     For common exceptions that may be passed to this callback, see
+        ///     <see cref="IModbusTcpClientWrapper.ReadInputRegistersAsDoubleAsync" />.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="byteOrder">The byte order the data is received in. Default is <see cref="ByteOrder.MsbToLsb" />.</param>
@@ -638,15 +689,20 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="quantity">The number of registers to read.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
-        ///     For common exceptions that may be passed to this callback, see <see cref="IModbusTcpClientWrapper.ReadInputRegistersAsStringAsync" />.
+        ///     For common exceptions that may be passed to this callback, see
+        ///     <see cref="IModbusTcpClientWrapper.ReadInputRegistersAsStringAsync" />.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
-        /// <param name="textEncoding">The text encoding to use for decoding the string. Default is <see cref="TextEncoding.Ascii" />.</param>
+        /// <param name="textEncoding">
+        ///     The text encoding to use for decoding the string. Default is
+        ///     <see cref="TextEncoding.Ascii" />.
+        /// </param>
         /// <param name="operationTimeout">
         ///     The maximum time allowed for the Modbus operation before it is canceled.
         ///     If <c>null</c>, <see cref="DefaultOperationTimeout" /> is used.
@@ -668,7 +724,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         ///         </item>
         ///         <item>
         ///             <description>
-        ///                 <b>UTF-16:</b> Only endianness matters (big-endian vs little-endian), not individual byte or word ordering.
+        ///                 <b>UTF-16:</b> Only endianness matters (big-endian vs little-endian), not individual byte or word
+        ///                 ordering.
         ///                 The encoding type specified via <paramref name="textEncoding" /> handles this.
         ///             </description>
         ///         </item>
@@ -680,7 +737,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         ///         </item>
         ///     </list>
         ///     <para>
-        ///         If a device uses non-standard byte/word ordering for strings, use <see cref="ReadInputRegistersRaw" /> to read the data and manually reorder before decoding.
+        ///         If a device uses non-standard byte/word ordering for strings, use <see cref="ReadInputRegistersRaw" /> to read
+        ///         the data and manually reorder before decoding.
         ///     </para>
         /// </remarks>
         void ReadInputRegistersAsString(int unitIdentifier,
@@ -704,12 +762,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="quantity">The number of registers to read.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
-        ///     For common exceptions that may be passed to this callback, see <see cref="IModbusTcpClientWrapper.ReadHoldingRegistersRawAsync" />.
+        ///     For common exceptions that may be passed to this callback, see
+        ///     <see cref="IModbusTcpClientWrapper.ReadHoldingRegistersRawAsync" />.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="operationTimeout">
@@ -719,8 +779,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// </param>
         /// <remarks>
         ///     This method is useful for debugging to inspect raw bytes received from the device,
-        ///     or when the data format is not covered by the typed methods (e.g., custom data structures or non-standard encodings).
-        ///     For standard data types, prefer the typed methods like <see cref="ReadHoldingRegistersAsShort" />, <see cref="ReadHoldingRegistersAsInt" />, etc.
+        ///     or when the data format is not covered by the typed methods (e.g., custom data structures or non-standard
+        ///     encodings).
+        ///     For standard data types, prefer the typed methods like <see cref="ReadHoldingRegistersAsShort" />,
+        ///     <see cref="ReadHoldingRegistersAsInt" />, etc.
         /// </remarks>
         void ReadHoldingRegistersRaw(int unitIdentifier,
                                      ushort startingAddress,
@@ -738,12 +800,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="quantity">The number of registers to read.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
-        ///     For common exceptions that may be passed to this callback, see <see cref="IModbusTcpClientWrapper.ReadHoldingRegistersAsShortAsync" />.
+        ///     For common exceptions that may be passed to this callback, see
+        ///     <see cref="IModbusTcpClientWrapper.ReadHoldingRegistersAsShortAsync" />.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="byteOrder">The byte order the data is received in. Default is <see cref="ByteOrder.MsbToLsb" />.</param>
@@ -769,12 +833,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="quantity">The number of registers to read.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
-        ///     For common exceptions that may be passed to this callback, see <see cref="IModbusTcpClientWrapper.ReadHoldingRegistersAsUShortAsync" />.
+        ///     For common exceptions that may be passed to this callback, see
+        ///     <see cref="IModbusTcpClientWrapper.ReadHoldingRegistersAsUShortAsync" />.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="byteOrder">The byte order the data is received in. Default is <see cref="ByteOrder.MsbToLsb" />.</param>
@@ -800,12 +866,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="count">The number of 32-bit integers to read.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
-        ///     For common exceptions that may be passed to this callback, see <see cref="IModbusTcpClientWrapper.ReadHoldingRegistersAsIntAsync" />.
+        ///     For common exceptions that may be passed to this callback, see
+        ///     <see cref="IModbusTcpClientWrapper.ReadHoldingRegistersAsIntAsync" />.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="byteOrder">The byte order the data is received in. Default is <see cref="ByteOrder.MsbToLsb" />.</param>
@@ -833,12 +901,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="count">The number of 32-bit integers to read.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
-        ///     For common exceptions that may be passed to this callback, see <see cref="IModbusTcpClientWrapper.ReadHoldingRegistersAsUIntAsync" />.
+        ///     For common exceptions that may be passed to this callback, see
+        ///     <see cref="IModbusTcpClientWrapper.ReadHoldingRegistersAsUIntAsync" />.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="byteOrder">The byte order the data is received in. Default is <see cref="ByteOrder.MsbToLsb" />.</param>
@@ -866,12 +936,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="count">The number of 32-bit floating-point numbers to read.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
-        ///     For common exceptions that may be passed to this callback, see <see cref="IModbusTcpClientWrapper.ReadHoldingRegistersAsFloatAsync" />.
+        ///     For common exceptions that may be passed to this callback, see
+        ///     <see cref="IModbusTcpClientWrapper.ReadHoldingRegistersAsFloatAsync" />.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="byteOrder">The byte order the data is received in. Default is <see cref="ByteOrder.MsbToLsb" />.</param>
@@ -899,12 +971,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="count">The number of 64-bit integers to read.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
-        ///     For common exceptions that may be passed to this callback, see <see cref="IModbusTcpClientWrapper.ReadHoldingRegistersAsLongAsync" />.
+        ///     For common exceptions that may be passed to this callback, see
+        ///     <see cref="IModbusTcpClientWrapper.ReadHoldingRegistersAsLongAsync" />.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="byteOrder">The byte order the data is received in. Default is <see cref="ByteOrder.MsbToLsb" />.</param>
@@ -932,12 +1006,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="count">The number of 64-bit integers to read.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
-        ///     For common exceptions that may be passed to this callback, see <see cref="IModbusTcpClientWrapper.ReadHoldingRegistersAsULongAsync" />.
+        ///     For common exceptions that may be passed to this callback, see
+        ///     <see cref="IModbusTcpClientWrapper.ReadHoldingRegistersAsULongAsync" />.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="byteOrder">The byte order the data is received in. Default is <see cref="ByteOrder.MsbToLsb" />.</param>
@@ -965,12 +1041,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="count">The number of 64-bit floating-point numbers to read.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
-        ///     For common exceptions that may be passed to this callback, see <see cref="IModbusTcpClientWrapper.ReadHoldingRegistersAsDoubleAsync" />.
+        ///     For common exceptions that may be passed to this callback, see
+        ///     <see cref="IModbusTcpClientWrapper.ReadHoldingRegistersAsDoubleAsync" />.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="byteOrder">The byte order the data is received in. Default is <see cref="ByteOrder.MsbToLsb" />.</param>
@@ -998,15 +1076,20 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="quantity">The number of registers to read.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
-        ///     For common exceptions that may be passed to this callback, see <see cref="IModbusTcpClientWrapper.ReadHoldingRegistersAsStringAsync" />.
+        ///     For common exceptions that may be passed to this callback, see
+        ///     <see cref="IModbusTcpClientWrapper.ReadHoldingRegistersAsStringAsync" />.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
-        /// <param name="textEncoding">The text encoding to use for decoding the string. Default is <see cref="TextEncoding.Ascii" />.</param>
+        /// <param name="textEncoding">
+        ///     The text encoding to use for decoding the string. Default is
+        ///     <see cref="TextEncoding.Ascii" />.
+        /// </param>
         /// <param name="operationTimeout">
         ///     The maximum time allowed for the Modbus operation before it is canceled.
         ///     If <c>null</c>, <see cref="DefaultOperationTimeout" /> is used.
@@ -1028,7 +1111,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         ///         </item>
         ///         <item>
         ///             <description>
-        ///                 <b>UTF-16:</b> Only endianness matters (big-endian vs little-endian), not individual byte or word ordering.
+        ///                 <b>UTF-16:</b> Only endianness matters (big-endian vs little-endian), not individual byte or word
+        ///                 ordering.
         ///                 The encoding type specified via <paramref name="textEncoding" /> handles this.
         ///             </description>
         ///         </item>
@@ -1040,7 +1124,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         ///         </item>
         ///     </list>
         ///     <para>
-        ///         If a device uses non-standard byte/word ordering for strings, use <see cref="ReadHoldingRegistersRaw" /> to read the data and manually reorder before decoding.
+        ///         If a device uses non-standard byte/word ordering for strings, use <see cref="ReadHoldingRegistersRaw" /> to
+        ///         read the data and manually reorder before decoding.
         ///     </para>
         /// </remarks>
         void ReadHoldingRegistersAsString(int unitIdentifier,
@@ -1060,13 +1145,16 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="value">The value to write to the register.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
         ///     For common exceptions that may be passed to this callback, see
-        ///     <see cref="IModbusTcpClientWrapper.WriteSingleHoldingRegisterAsync(int, ushort, short, ByteOrder, TimeSpan, CancellationToken)" />.
+        ///     <see
+        ///         cref="IModbusTcpClientWrapper.WriteSingleHoldingRegisterAsync(int, ushort, short, ByteOrder, TimeSpan, CancellationToken)" />
+        ///     .
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="byteOrder">The byte order to write the data in. Default is <see cref="ByteOrder.MsbToLsb" />.</param>
@@ -1092,13 +1180,16 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="value">The value to write to the register.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
         ///     For common exceptions that may be passed to this callback, see
-        ///     <see cref="IModbusTcpClientWrapper.WriteSingleHoldingRegisterAsync(int, ushort, ushort, ByteOrder, TimeSpan, CancellationToken)" />.
+        ///     <see
+        ///         cref="IModbusTcpClientWrapper.WriteSingleHoldingRegisterAsync(int, ushort, ushort, ByteOrder, TimeSpan, CancellationToken)" />
+        ///     .
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="byteOrder">The byte order to write the data in. Default is <see cref="ByteOrder.MsbToLsb" />.</param>
@@ -1124,12 +1215,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="values">The raw byte values to write to the registers.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
-        ///     For common exceptions that may be passed to this callback, see <see cref="IModbusTcpClientWrapper.WriteMultipleHoldingRegistersRawAsync" />.
+        ///     For common exceptions that may be passed to this callback, see
+        ///     <see cref="IModbusTcpClientWrapper.WriteMultipleHoldingRegistersRawAsync" />.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="operationTimeout">
@@ -1138,8 +1231,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         ///     See <see cref="DefaultOperationTimeout" /> for details on what the timeout covers.
         /// </param>
         /// <remarks>
-        ///     This method is useful when the data format is not covered by the typed methods (e.g., custom data structures or non-standard encodings).
-        ///     For standard data types, prefer the typed methods like <see cref="WriteMultipleHoldingRegistersAsShort" />, <see cref="WriteMultipleHoldingRegistersAsInt" />, etc.
+        ///     This method is useful when the data format is not covered by the typed methods (e.g., custom data structures or
+        ///     non-standard encodings).
+        ///     For standard data types, prefer the typed methods like <see cref="WriteMultipleHoldingRegistersAsShort" />,
+        ///     <see cref="WriteMultipleHoldingRegistersAsInt" />, etc.
         /// </remarks>
         void WriteMultipleHoldingRegistersRaw(int unitIdentifier,
                                               ushort startingAddress,
@@ -1157,12 +1252,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="values">The values to write to the registers.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
-        ///     For common exceptions that may be passed to this callback, see <see cref="IModbusTcpClientWrapper.WriteMultipleHoldingRegistersAsShortAsync" />.
+        ///     For common exceptions that may be passed to this callback, see
+        ///     <see cref="IModbusTcpClientWrapper.WriteMultipleHoldingRegistersAsShortAsync" />.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="byteOrder">The byte order to write the data in. Default is <see cref="ByteOrder.MsbToLsb" />.</param>
@@ -1188,12 +1285,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="values">The values to write to the registers.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
-        ///     For common exceptions that may be passed to this callback, see <see cref="IModbusTcpClientWrapper.WriteMultipleHoldingRegistersAsUShortAsync" />.
+        ///     For common exceptions that may be passed to this callback, see
+        ///     <see cref="IModbusTcpClientWrapper.WriteMultipleHoldingRegistersAsUShortAsync" />.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="byteOrder">The byte order to write the data in. Default is <see cref="ByteOrder.MsbToLsb" />.</param>
@@ -1219,12 +1318,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="values">The values to write to the registers.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
-        ///     For common exceptions that may be passed to this callback, see <see cref="IModbusTcpClientWrapper.WriteMultipleHoldingRegistersAsIntAsync" />.
+        ///     For common exceptions that may be passed to this callback, see
+        ///     <see cref="IModbusTcpClientWrapper.WriteMultipleHoldingRegistersAsIntAsync" />.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="byteOrder">The byte order to write the data in. Default is <see cref="ByteOrder.MsbToLsb" />.</param>
@@ -1252,12 +1353,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="values">The values to write to the registers.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
-        ///     For common exceptions that may be passed to this callback, see <see cref="IModbusTcpClientWrapper.WriteMultipleHoldingRegistersAsUIntAsync" />.
+        ///     For common exceptions that may be passed to this callback, see
+        ///     <see cref="IModbusTcpClientWrapper.WriteMultipleHoldingRegistersAsUIntAsync" />.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="byteOrder">The byte order to write the data in. Default is <see cref="ByteOrder.MsbToLsb" />.</param>
@@ -1285,12 +1388,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="values">The values to write to the registers.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
-        ///     For common exceptions that may be passed to this callback, see <see cref="IModbusTcpClientWrapper.WriteMultipleHoldingRegistersAsFloatAsync" />.
+        ///     For common exceptions that may be passed to this callback, see
+        ///     <see cref="IModbusTcpClientWrapper.WriteMultipleHoldingRegistersAsFloatAsync" />.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="byteOrder">The byte order to write the data in. Default is <see cref="ByteOrder.MsbToLsb" />.</param>
@@ -1318,12 +1423,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="values">The values to write to the registers.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
-        ///     For common exceptions that may be passed to this callback, see <see cref="IModbusTcpClientWrapper.WriteMultipleHoldingRegistersAsLongAsync" />.
+        ///     For common exceptions that may be passed to this callback, see
+        ///     <see cref="IModbusTcpClientWrapper.WriteMultipleHoldingRegistersAsLongAsync" />.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="byteOrder">The byte order to write the data in. Default is <see cref="ByteOrder.MsbToLsb" />.</param>
@@ -1351,12 +1458,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="values">The values to write to the registers.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
-        ///     For common exceptions that may be passed to this callback, see <see cref="IModbusTcpClientWrapper.WriteMultipleHoldingRegistersAsULongAsync" />.
+        ///     For common exceptions that may be passed to this callback, see
+        ///     <see cref="IModbusTcpClientWrapper.WriteMultipleHoldingRegistersAsULongAsync" />.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="byteOrder">The byte order to write the data in. Default is <see cref="ByteOrder.MsbToLsb" />.</param>
@@ -1384,12 +1493,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="values">The values to write to the registers.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
-        ///     For common exceptions that may be passed to this callback, see <see cref="IModbusTcpClientWrapper.WriteMultipleHoldingRegistersAsDoubleAsync" />.
+        ///     For common exceptions that may be passed to this callback, see
+        ///     <see cref="IModbusTcpClientWrapper.WriteMultipleHoldingRegistersAsDoubleAsync" />.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="byteOrder">The byte order to write the data in. Default is <see cref="ByteOrder.MsbToLsb" />.</param>
@@ -1417,15 +1528,20 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <param name="value">The string value to write to the registers.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
         /// <param name="errorCallback">
         ///     The callback invoked when the operation fails.
-        ///     For common exceptions that may be passed to this callback, see <see cref="IModbusTcpClientWrapper.WriteMultipleHoldingRegistersAsStringAsync" />.
+        ///     For common exceptions that may be passed to this callback, see
+        ///     <see cref="IModbusTcpClientWrapper.WriteMultipleHoldingRegistersAsStringAsync" />.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
-        /// <param name="textEncoding">The text encoding to use for encoding the string. Default is <see cref="TextEncoding.Ascii" />.</param>
+        /// <param name="textEncoding">
+        ///     The text encoding to use for encoding the string. Default is
+        ///     <see cref="TextEncoding.Ascii" />.
+        /// </param>
         /// <param name="operationTimeout">
         ///     The maximum time allowed for the Modbus operation before it is canceled.
         ///     If <c>null</c>, <see cref="DefaultOperationTimeout" /> is used.
@@ -1451,7 +1567,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         ///         </item>
         ///         <item>
         ///             <description>
-        ///                 <b>UTF-16:</b> Only endianness matters (big-endian vs little-endian), not individual byte or word ordering.
+        ///                 <b>UTF-16:</b> Only endianness matters (big-endian vs little-endian), not individual byte or word
+        ///                 ordering.
         ///                 The encoding type specified via <paramref name="textEncoding" /> handles this.
         ///             </description>
         ///         </item>

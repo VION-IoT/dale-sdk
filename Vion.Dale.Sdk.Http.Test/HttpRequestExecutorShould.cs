@@ -5,10 +5,10 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
-using Vion.Dale.Sdk.Abstractions;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Moq.Protected;
+using Vion.Dale.Sdk.Abstractions;
 using JsonSerializer = System.Text.Json.JsonSerializer;
 
 namespace Vion.Dale.Sdk.Http.Test

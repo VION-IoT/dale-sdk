@@ -13,9 +13,12 @@ namespace Vion.Dale.Sdk.Diagnostics
         where T : struct, IComparable<T>
     {
         private readonly TimeProvider _timeProvider;
+
         private readonly TimeSpan _window;
-        private long _windowStart;
+
         private T _current;
+
+        private long _windowStart;
 
         public WindowedMax(TimeProvider timeProvider, TimeSpan window)
         {

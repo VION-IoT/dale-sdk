@@ -1,8 +1,7 @@
 using System;
+using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.AnalogIo.Output;
 using Vion.Dale.Sdk.Core;
-using Vion.Dale.Sdk.Utils;
-using Microsoft.Extensions.Logging;
 using Vion.Examples.Energy.Contracts;
 using Vion.Examples.Energy.Services;
 using Vion.Examples.Energy.Utils;
@@ -13,13 +12,13 @@ namespace Vion.Examples.Energy.LogicBlocks
     [LogicBlockInterfaceBinding(typeof(IObservableElectricitySupplier), Multiplicity = LinkMultiplicity.ExactlyOne)]
     public class PhotovoltaicsSimulation : LogicBlockBase, IObservableElectricitySupplier
     {
-        private readonly TimeProvider _timeProvider;
-
         private readonly IGeolocationService _geolocationService;
 
         private readonly ILogger _logger;
 
         private readonly IMeteoService _meteoService;
+
+        private readonly TimeProvider _timeProvider;
 
         private DateTime? _lastUpdateTime;
 
@@ -92,8 +91,7 @@ namespace Vion.Examples.Energy.LogicBlocks
         [Presentation(Group = PropertyGroup.Metric, Importance = Importance.Secondary)]
         public double EnergySuppliedTotal { get; private set; }
 
-        public PhotovoltaicsSimulation(TimeProvider timeProvider, IMeteoService meteoService, IGeolocationService geolocationService, ILogger logger) :
-            base(logger)
+        public PhotovoltaicsSimulation(TimeProvider timeProvider, IMeteoService meteoService, IGeolocationService geolocationService, ILogger logger) : base(logger)
         {
             _timeProvider = timeProvider;
             _meteoService = meteoService;

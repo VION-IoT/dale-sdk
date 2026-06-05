@@ -422,7 +422,13 @@ namespace Vion.Dale.Sdk.TestKit.Test
         {
             // Block ctor takes TimeProvider, so the test owns a FakeTimeProvider and binds the
             // same instance to the context via WithTimeProvider. AdvanceTime moves both sides.
-            var clock = new FakeTimeProvider(new DateTimeOffset(2026, 6, 1, 12, 0, 0, TimeSpan.Zero));
+            var clock = new FakeTimeProvider(new DateTimeOffset(2026,
+                                                                6,
+                                                                1,
+                                                                12,
+                                                                0,
+                                                                0,
+                                                                TimeSpan.Zero));
             var block = new TimeAwareLogicBlock(clock, LogicBlockTestHelper.CreateLoggerMock().Object);
             var testContext = block.CreateTestContext().WithTimeProvider(clock).Build();
 
@@ -446,8 +452,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
             testContext.FlushPendingActions();
 
             Assert.AreEqual(99.0, block.Power, "FlushPendingActions must ignore deadlines and run all queued actions.");
-            Assert.AreEqual(testContext.VirtualNow, testContext.VirtualNow,
-                            "FlushPendingActions must not advance the virtual clock.");
+            Assert.AreEqual(testContext.VirtualNow, testContext.VirtualNow, "FlushPendingActions must not advance the virtual clock.");
         }
 
         // --- WithLogicInterfaceMapping ambiguity guard ---
@@ -521,8 +526,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
             block.StopRescheduling = true;
             flushTask.Wait(TimeSpan.FromSeconds(5));
 
-            Assert.IsTrue(completed,
-                          "FlushPendingActions must not unboundedly drain when an action re-schedules itself via InvokeSynchronizedAfter.");
+            Assert.IsTrue(completed, "FlushPendingActions must not unboundedly drain when an action re-schedules itself via InvokeSynchronizedAfter.");
             Assert.AreEqual(1, block.TickCount, "OnTick should fire exactly once per FlushPendingActions call.");
         }
     }

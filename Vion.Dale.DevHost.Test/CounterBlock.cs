@@ -19,6 +19,7 @@ namespace Vion.Dale.DevHost.Test
             set
             {
                 _counter = value;
+
                 // A computed read-only metric — lets tests assert a "calculation" via a measuring point.
                 CounterDoubled = value * 2;
             }

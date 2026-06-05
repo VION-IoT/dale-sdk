@@ -1,6 +1,6 @@
 using System;
-using Vion.Dale.Sdk.Core;
 using Microsoft.Extensions.Logging;
+using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.Sdk.TestKit.Test
 {

@@ -18,9 +18,9 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
     [PublicApi]
     public sealed class SynchronousRequestQueue : IRequestQueue
     {
-        private readonly IRequestFactory _requestFactory;
-
         private readonly ILogger _logger;
+
+        private readonly IRequestFactory _requestFactory;
 
         public SynchronousRequestQueue(IRequestFactory requestFactory, ILogger? logger = null)
         {
@@ -46,7 +46,12 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
                                Action<Exception>? errorCallback)
             where T : unmanaged
         {
-            var request = _requestFactory.Create(requestName, dispatcher, operation, successCallback, errorCallback, _logger);
+            var request = _requestFactory.Create(requestName,
+                                                 dispatcher,
+                                                 operation,
+                                                 successCallback,
+                                                 errorCallback,
+                                                 _logger);
             ExecuteSynchronously(request);
         }
 
@@ -56,17 +61,23 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
                                Action<T> successCallback,
                                Action<Exception>? errorCallback)
         {
-            var request = _requestFactory.Create(requestName, dispatcher, operation, successCallback, errorCallback, _logger);
+            var request = _requestFactory.Create(requestName,
+                                                 dispatcher,
+                                                 operation,
+                                                 successCallback,
+                                                 errorCallback,
+                                                 _logger);
             ExecuteSynchronously(request);
         }
 
-        public void Enqueue(string requestName,
-                            IActorDispatcher dispatcher,
-                            Func<CancellationToken, Task> operation,
-                            Action? successCallback,
-                            Action<Exception>? errorCallback)
+        public void Enqueue(string requestName, IActorDispatcher dispatcher, Func<CancellationToken, Task> operation, Action? successCallback, Action<Exception>? errorCallback)
         {
-            var request = _requestFactory.Create(requestName, dispatcher, operation, successCallback, errorCallback, _logger);
+            var request = _requestFactory.Create(requestName,
+                                                 dispatcher,
+                                                 operation,
+                                                 successCallback,
+                                                 errorCallback,
+                                                 _logger);
             ExecuteSynchronously(request);
         }
 

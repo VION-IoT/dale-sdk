@@ -24,7 +24,8 @@ public class MyBlock
     [ServiceMeasuringPoint] public double Total => {|#0:Plan.OffGrid|} + Plan.Load;
 }";
             var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE031_ObservableStructMemberDependencyNotTracked)
-                                           .WithLocation(0).WithArguments("Total", "Plan", "OffGrid");
+                                           .WithLocation(0)
+                                           .WithArguments("Total", "Plan", "OffGrid");
             await AnalyzerTestBase.VerifyAnalyzerAsync<ObservableStructMemberDependencyAnalyzer>(source, expected);
         }
 
@@ -46,8 +47,7 @@ public class MyBlock
         get { return {|#0:Plan.Load|}; }
     }
 }";
-            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE031_ObservableStructMemberDependencyNotTracked)
-                                           .WithLocation(0).WithArguments("Total", "Plan", "Load");
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE031_ObservableStructMemberDependencyNotTracked).WithLocation(0).WithArguments("Total", "Plan", "Load");
             await AnalyzerTestBase.VerifyAnalyzerAsync<ObservableStructMemberDependencyAnalyzer>(source, expected);
         }
 
@@ -68,7 +68,8 @@ public class MyBlock
     [ServiceMeasuringPoint] public int CurrentHour => {|#0:When.Hour|};
 }";
             var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE031_ObservableStructMemberDependencyNotTracked)
-                                           .WithLocation(0).WithArguments("CurrentHour", "When", "Hour");
+                                           .WithLocation(0)
+                                           .WithArguments("CurrentHour", "When", "Hour");
             await AnalyzerTestBase.VerifyAnalyzerAsync<ObservableStructMemberDependencyAnalyzer>(source, expected);
         }
 

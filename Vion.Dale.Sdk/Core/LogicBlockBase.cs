@@ -35,6 +35,18 @@ namespace Vion.Dale.Sdk.Core
 
         private readonly ServiceBinder _serviceBinder = new();
 
+        private readonly Dictionary<string, (TimeSpan interval, Action callback)> _timerCallbacks = [];
+
+        // RFC 0005 watchdog: raw per-[Timer] callback duration + scheduler jitter, reported to the vitals
+        // core when one is registered. Absent in bare hosts and the TestKit, where measurement is skipped.
+        private readonly Dictionary<string, long> _timerLastTickTimestamp = [];
+
+        private IActorContext _actorContext = null!;
+
+        private bool _initializeDeferred;
+
+        private IActorReference _persistenceManagerActorRef = null!; // set during initialization
+
         // Tracks whether LinkRuntimeActors has been processed (i.e. _servicePropertyHandlerActorRef
         // and friends are populated). Used to defer SendBindLogicBlockServices + Ready when
         // InitializeLogicBlock is processed first — which it currently is in
@@ -43,20 +55,6 @@ namespace Vion.Dale.Sdk.Core
         // _servicePropertyHandlerActorRef and the ServicePropertyHandler never learns the
         // bindings, causing every subsequent property/set to be silently dropped.
         private bool _runtimeActorsLinked;
-        private bool _initializeDeferred;
-
-        private readonly Dictionary<string, (TimeSpan interval, Action callback)> _timerCallbacks = [];
-
-        // RFC 0005 watchdog: raw per-[Timer] callback duration + scheduler jitter, reported to the vitals
-        // core when one is registered. Absent in bare hosts and the TestKit, where measurement is skipped.
-        private readonly Dictionary<string, long> _timerLastTickTimestamp = [];
-        private IActorVitalsCollector? _vitalsCollector;
-        private TimeProvider _timeProvider = TimeProvider.System;
-        private string? _vitalsActorName;
-
-        private IActorContext _actorContext = null!;
-
-        private IActorReference _persistenceManagerActorRef = null!; // set during initialization
 
         // Key: ServiceIdentifier, Value: ServiceIdentifier
         private Dictionary<ServiceIdentifier, string> _serviceIdentifierLookup = [];
@@ -69,6 +67,12 @@ namespace Vion.Dale.Sdk.Core
         private IActorReference _servicePropertyHandlerActorRef = null!; // set during initialization
 
         private bool _started;
+
+        private TimeProvider _timeProvider = TimeProvider.System;
+
+        private string? _vitalsActorName;
+
+        private IActorVitalsCollector? _vitalsCollector;
 
         protected string Id { get; private set; } = null!;
 
@@ -251,9 +255,7 @@ namespace Vion.Dale.Sdk.Core
                     // initialised and GetCurrentSnapshot() would throw, so the response is never
                     // sent and shutdown hangs until timeout. Always respond — with an empty
                     // snapshot when uninitialised — so the runtime's wait is always satisfied.
-                    var snapshot = _persistentData.IsInitialized
-                        ? _persistentData.GetCurrentSnapshot()
-                        : new List<PersistentDataEntry>();
+                    var snapshot = _persistentData.IsInitialized ? _persistentData.GetCurrentSnapshot() : new List<PersistentDataEntry>();
                     actorContext.RespondToSender(new GetPersistentDataSnapshotResponse(Id, snapshot));
                     break;
 
@@ -291,18 +293,6 @@ namespace Vion.Dale.Sdk.Core
             }
 
             return Task.CompletedTask;
-        }
-
-        /// <summary>
-        ///     Binds this logic block's interfaces, contracts, services and timers from their declarative attributes.
-        ///     Internal infrastructure invoked by the runtime; not an extension point.
-        /// </summary>
-        internal void Configure(ILogicBlockConfigurationBuilder configurationBuilder)
-        {
-            DeclarativeInterfaceBinder.BindInterfacesFromAttributes(this, configurationBuilder.Interfaces);
-            DeclarativeContractBinder.BindContractsFromAttributes(this, configurationBuilder.Contracts);
-            DeclarativeServiceBinder.BindServicesFromAttributes(this, (ServiceBinder)configurationBuilder.Services);
-            DeclarativeTimerBinder.BindTimersFromAttributes(this, configurationBuilder.Timers);
         }
 
         /// <summary>
@@ -425,6 +415,18 @@ namespace Vion.Dale.Sdk.Core
         /// <seealso cref="Starting" />
         protected virtual void Stopping()
         {
+        }
+
+        /// <summary>
+        ///     Binds this logic block's interfaces, contracts, services and timers from their declarative attributes.
+        ///     Internal infrastructure invoked by the runtime; not an extension point.
+        /// </summary>
+        internal void Configure(ILogicBlockConfigurationBuilder configurationBuilder)
+        {
+            DeclarativeInterfaceBinder.BindInterfacesFromAttributes(this, configurationBuilder.Interfaces);
+            DeclarativeContractBinder.BindContractsFromAttributes(this, configurationBuilder.Contracts);
+            DeclarativeServiceBinder.BindServicesFromAttributes(this, (ServiceBinder)configurationBuilder.Services);
+            DeclarativeTimerBinder.BindTimersFromAttributes(this, configurationBuilder.Timers);
         }
 
         private void HandleGetServicePropertyValueRequest(IActorContext actorContext, GetServicePropertyValueRequest m)

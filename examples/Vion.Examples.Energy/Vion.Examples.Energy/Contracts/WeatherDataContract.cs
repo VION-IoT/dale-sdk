@@ -3,10 +3,10 @@
 namespace Vion.Examples.Energy.Contracts
 {
     [LogicBlockContract(BetweenInterface = "IWeatherDataProvider",
-              AndInterface = "IWeatherDataConsumer",
-              BetweenDefaultName = "Wetterdatenquelle",
-              AndDefaultName = "Wetterdatenempfänger",
-              Direction = ContractDirection.None)]
+                        AndInterface = "IWeatherDataConsumer",
+                        BetweenDefaultName = "Wetterdatenquelle",
+                        AndDefaultName = "Wetterdatenempfänger",
+                        Direction = ContractDirection.None)]
     public static class WeatherDataContract
     {
         [StateUpdate(From = "IWeatherDataProvider", To = "IWeatherDataConsumer")]

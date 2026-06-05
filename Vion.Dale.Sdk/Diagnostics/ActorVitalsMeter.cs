@@ -25,36 +25,33 @@ namespace Vion.Dale.Sdk.Diagnostics
 
             _meter.CreateObservableCounter("vion.actor.messages_handled",
                                            () => Counts(diagnostics, v => v.MessagesHandled),
-                                           unit: "{message}",
-                                           description: "Messages handled per actor since start.");
-            _meter.CreateObservableCounter("vion.actor.errors",
-                                           () => Counts(diagnostics, v => v.Errors),
-                                           unit: "{error}",
-                                           description: "Handler exceptions per actor since start.");
+                                           "{message}",
+                                           "Messages handled per actor since start.");
+            _meter.CreateObservableCounter("vion.actor.errors", () => Counts(diagnostics, v => v.Errors), "{error}", "Handler exceptions per actor since start.");
             _meter.CreateObservableCounter("vion.actor.handler_duration",
                                            () => Seconds(diagnostics, v => v.HandlerDurationTotal),
-                                           unit: "s",
-                                           description: "Cumulative handler time per actor (Prometheus appends _total); rate() is the busy fraction, and dividing by messages_handled gives the mean handler duration.");
+                                           "s",
+                                           "Cumulative handler time per actor (Prometheus appends _total); rate() is the busy fraction, and dividing by messages_handled gives the mean handler duration.");
             _meter.CreateObservableGauge("vion.actor.handler_duration_max",
                                          () => Seconds(diagnostics, v => v.HandlerDurationMax),
-                                         unit: "s",
-                                         description: "Max handler duration per actor over the recent window.");
+                                         "s",
+                                         "Max handler duration per actor over the recent window.");
             _meter.CreateObservableGauge("vion.actor.mailbox_depth",
-                                         () => Counts(diagnostics, v => (long)v.MailboxDepth),
-                                         unit: "{message}",
-                                         description: "Current mailbox depth (posted minus received) per actor.");
+                                         () => Counts(diagnostics, v => v.MailboxDepth),
+                                         "{message}",
+                                         "Current mailbox depth (posted minus received) per actor.");
             _meter.CreateObservableGauge("vion.actor.mailbox_depth_max",
-                                         () => Counts(diagnostics, v => (long)v.MailboxDepthMax),
-                                         unit: "{message}",
-                                         description: "Peak mailbox depth per actor over the recent window.");
+                                         () => Counts(diagnostics, v => v.MailboxDepthMax),
+                                         "{message}",
+                                         "Peak mailbox depth per actor over the recent window.");
             _meter.CreateObservableGauge("vion.actor.timer_callback_duration_max",
                                          () => Seconds(diagnostics, v => v.TimerCallbackDurationMax),
-                                         unit: "s",
-                                         description: "Max [Timer] callback duration per actor over the recent window.");
+                                         "s",
+                                         "Max [Timer] callback duration per actor over the recent window.");
             _meter.CreateObservableGauge("vion.actor.timer_jitter_max",
                                          () => Seconds(diagnostics, v => v.TimerJitterMax),
-                                         unit: "s",
-                                         description: "Max [Timer] scheduler jitter per actor over the recent window.");
+                                         "s",
+                                         "Max [Timer] scheduler jitter per actor over the recent window.");
         }
 
         public void Dispose()
@@ -78,28 +75,28 @@ namespace Vion.Dale.Sdk.Diagnostics
             if (identity == null)
             {
                 return new[]
-                {
-                    new KeyValuePair<string, object?>("actor.kind", "unknown"),
-                    new KeyValuePair<string, object?>("actor.id", vitals.ActorName),
-                };
+                       {
+                           new KeyValuePair<string, object?>("actor.kind", "unknown"),
+                           new KeyValuePair<string, object?>("actor.id", vitals.ActorName),
+                       };
             }
 
             if (identity.Category == ActorCategory.LogicBlock)
             {
                 return new[]
-                {
-                    new KeyValuePair<string, object?>("actor.kind", "logic-block"),
-                    new KeyValuePair<string, object?>("logicblock.type", identity.Type),
-                    new KeyValuePair<string, object?>("logicblock.id", vitals.ActorName),
-                    new KeyValuePair<string, object?>("library", identity.Library ?? string.Empty),
-                };
+                       {
+                           new KeyValuePair<string, object?>("actor.kind", "logic-block"),
+                           new KeyValuePair<string, object?>("logicblock.type", identity.Type),
+                           new KeyValuePair<string, object?>("logicblock.id", vitals.ActorName),
+                           new KeyValuePair<string, object?>("library", identity.Library ?? string.Empty),
+                       };
             }
 
             return new[]
-            {
-                new KeyValuePair<string, object?>("actor.kind", "runtime"),
-                new KeyValuePair<string, object?>("role", identity.Type),
-            };
+                   {
+                       new KeyValuePair<string, object?>("actor.kind", "runtime"),
+                       new KeyValuePair<string, object?>("role", identity.Type),
+                   };
         }
     }
 }

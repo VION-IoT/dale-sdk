@@ -18,7 +18,8 @@ namespace Vion.Dale.Sdk.Http
         /// <typeparam name="TResponse">The type to deserialize the JSON response into.</typeparam>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="url">The URL to send the GET request to.</param>
         /// <param name="successCallback">Callback invoked with the deserialized response on success.</param>
@@ -38,13 +39,15 @@ namespace Vion.Dale.Sdk.Http
             where TResponse : notnull;
 
         /// <summary>
-        ///     Performs a non-blocking HTTP POST request with a JSON body and passes the deserialized JSON response to the callback.
+        ///     Performs a non-blocking HTTP POST request with a JSON body and passes the deserialized JSON response to the
+        ///     callback.
         /// </summary>
         /// <typeparam name="TRequest">The type to serialize as the JSON request body.</typeparam>
         /// <typeparam name="TResponse">The type to deserialize the JSON response into.</typeparam>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="url">The URL to send the POST request to.</param>
         /// <param name="body">The object to serialize as the JSON request body.</param>
@@ -67,12 +70,14 @@ namespace Vion.Dale.Sdk.Http
             where TResponse : notnull;
 
         /// <summary>
-        ///     Performs a non-blocking HTTP POST request with a JSON body. The callback is invoked on success without a response body.
+        ///     Performs a non-blocking HTTP POST request with a JSON body. The callback is invoked on success without a response
+        ///     body.
         /// </summary>
         /// <typeparam name="TRequest">The type to serialize as the JSON request body.</typeparam>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="url">The URL to send the POST request to.</param>
         /// <param name="body">The object to serialize as the JSON request body.</param>
@@ -94,13 +99,15 @@ namespace Vion.Dale.Sdk.Http
             where TRequest : notnull;
 
         /// <summary>
-        ///     Performs a non-blocking HTTP PUT request with a JSON body and passes the deserialized JSON response to the callback.
+        ///     Performs a non-blocking HTTP PUT request with a JSON body and passes the deserialized JSON response to the
+        ///     callback.
         /// </summary>
         /// <typeparam name="TRequest">The type to serialize as the JSON request body.</typeparam>
         /// <typeparam name="TResponse">The type to deserialize the JSON response into.</typeparam>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="url">The URL to send the PUT request to.</param>
@@ -123,12 +130,14 @@ namespace Vion.Dale.Sdk.Http
             where TResponse : notnull;
 
         /// <summary>
-        ///     Performs a non-blocking HTTP PUT request with a JSON body. The callback is invoked on success without a response body.
+        ///     Performs a non-blocking HTTP PUT request with a JSON body. The callback is invoked on success without a response
+        ///     body.
         /// </summary>
         /// <typeparam name="TRequest">The type to serialize as the JSON request body.</typeparam>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="url">The URL to send the PUT request to.</param>
         /// <param name="body">The object to serialize as the JSON request body.</param>
@@ -155,7 +164,8 @@ namespace Vion.Dale.Sdk.Http
         /// <typeparam name="TResponse">The type to deserialize the JSON response into.</typeparam>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="url">The URL to send the DELETE request to.</param>
         /// <param name="successCallback">Callback invoked with the deserialized response on success.</param>
@@ -179,7 +189,8 @@ namespace Vion.Dale.Sdk.Http
         /// </summary>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="url">The URL to send the DELETE request to.</param>
         /// <param name="successCallback">Callback invoked when the request succeeds.</param>
@@ -202,7 +213,8 @@ namespace Vion.Dale.Sdk.Http
         /// </summary>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="request">The <see cref="HttpRequestMessage" /> to send.</param>
         /// <param name="successCallback">Callback invoked with the <see cref="HttpResponseMessage" /> on success.</param>

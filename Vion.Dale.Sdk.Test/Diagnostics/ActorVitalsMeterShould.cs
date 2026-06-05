@@ -15,7 +15,7 @@ namespace Vion.Dale.Sdk.Test.Diagnostics
         {
             var vitals = new RuntimeVitals(new FakeTimeProvider());
             vitals.Register("logicblock_Heater_1", new ActorIdentity(ActorCategory.LogicBlock, "Heater", "Vion.Examples.Energy"));
-            vitals.OnHandled("logicblock_Heater_1", new object(), TimeSpan.FromMilliseconds(2), exception: null);
+            vitals.OnHandled("logicblock_Heater_1", new object(), TimeSpan.FromMilliseconds(2), null);
             vitals.OnHandled("logicblock_Heater_1", new object(), TimeSpan.FromMilliseconds(2), new InvalidOperationException());
 
             using var meter = new ActorVitalsMeter(vitals);
@@ -32,7 +32,7 @@ namespace Vion.Dale.Sdk.Test.Diagnostics
         public void EmitMailboxDepthGaugeTaggedForARuntimeActor()
         {
             var vitals = new RuntimeVitals(new FakeTimeProvider());
-            vitals.Register("MqttClient", new ActorIdentity(ActorCategory.Runtime, "MqttClient", Library: null));
+            vitals.Register("MqttClient", new ActorIdentity(ActorCategory.Runtime, "MqttClient", null));
             vitals.OnMessagePosted("MqttClient");
             vitals.OnMessagePosted("MqttClient");
 
@@ -49,7 +49,7 @@ namespace Vion.Dale.Sdk.Test.Diagnostics
         {
             var vitals = new RuntimeVitals(new FakeTimeProvider());
             vitals.Register("logicblock_Heater_1", new ActorIdentity(ActorCategory.LogicBlock, "Heater", "Lib"));
-            vitals.OnHandled("logicblock_Heater_1", new object(), TimeSpan.FromMilliseconds(12), exception: null);
+            vitals.OnHandled("logicblock_Heater_1", new object(), TimeSpan.FromMilliseconds(12), null);
 
             using var meter = new ActorVitalsMeter(vitals);
             var measurement = Collect<double>("vion.actor.handler_duration_max").Single();
@@ -62,8 +62,8 @@ namespace Vion.Dale.Sdk.Test.Diagnostics
         {
             var vitals = new RuntimeVitals(new FakeTimeProvider());
             vitals.Register("logicblock_Heater_1", new ActorIdentity(ActorCategory.LogicBlock, "Heater", "Lib"));
-            vitals.OnHandled("logicblock_Heater_1", new object(), TimeSpan.FromMilliseconds(200), exception: null);
-            vitals.OnHandled("logicblock_Heater_1", new object(), TimeSpan.FromMilliseconds(300), exception: null);
+            vitals.OnHandled("logicblock_Heater_1", new object(), TimeSpan.FromMilliseconds(200), null);
+            vitals.OnHandled("logicblock_Heater_1", new object(), TimeSpan.FromMilliseconds(300), null);
 
             using var meter = new ActorVitalsMeter(vitals);
             var measurement = Collect<double>("vion.actor.handler_duration").Single();
@@ -75,7 +75,7 @@ namespace Vion.Dale.Sdk.Test.Diagnostics
         public void EmitPeakMailboxDepthGauge()
         {
             var vitals = new RuntimeVitals(new FakeTimeProvider());
-            vitals.Register("MqttClient", new ActorIdentity(ActorCategory.Runtime, "MqttClient", Library: null));
+            vitals.Register("MqttClient", new ActorIdentity(ActorCategory.Runtime, "MqttClient", null));
             vitals.OnMessagePosted("MqttClient");
             vitals.OnMessagePosted("MqttClient");
             vitals.OnMessagePosted("MqttClient");
@@ -93,12 +93,12 @@ namespace Vion.Dale.Sdk.Test.Diagnostics
             var results = new List<(T, KeyValuePair<string, object?>[])>();
             using var listener = new MeterListener();
             listener.InstrumentPublished = (instrument, l) =>
-            {
-                if (instrument.Meter.Name == ActorVitalsMeter.MeterName && instrument.Name == instrumentName)
-                {
-                    l.EnableMeasurementEvents(instrument);
-                }
-            };
+                                           {
+                                               if (instrument.Meter.Name == ActorVitalsMeter.MeterName && instrument.Name == instrumentName)
+                                               {
+                                                   l.EnableMeasurementEvents(instrument);
+                                               }
+                                           };
             listener.SetMeasurementEventCallback<T>((instrument, value, tags, state) => results.Add((value, tags.ToArray())));
             listener.Start();
             listener.RecordObservableInstruments();

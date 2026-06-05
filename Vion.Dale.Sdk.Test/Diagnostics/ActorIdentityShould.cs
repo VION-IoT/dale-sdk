@@ -1,4 +1,3 @@
-using System;
 using Vion.Dale.Sdk.Diagnostics;
 
 namespace Vion.Dale.Sdk.Test.Diagnostics
@@ -6,10 +5,6 @@ namespace Vion.Dale.Sdk.Test.Diagnostics
     [TestClass]
     public class ActorIdentityShould
     {
-        private sealed class SampleBlock
-        {
-        }
-
         [TestMethod]
         public void ClassifyAnActorWithTheLogicBlockPrefixAsALogicBlock()
         {
@@ -28,6 +23,10 @@ namespace Vion.Dale.Sdk.Test.Diagnostics
             Assert.AreEqual(ActorCategory.Runtime, identity.Category);
             Assert.AreEqual(nameof(SampleBlock), identity.Type);
             Assert.IsNull(identity.Library);
+        }
+
+        private sealed class SampleBlock
+        {
         }
     }
 }

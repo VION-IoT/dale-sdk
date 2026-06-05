@@ -1,8 +1,8 @@
-﻿using Vion.Dale.Sdk.DigitalIo.TestKit;
+﻿using Microsoft.Extensions.Logging;
+using Moq;
+using Vion.Dale.Sdk.DigitalIo.TestKit;
 using Vion.Dale.Sdk.TestKit;
 using Vion.Dale.Sdk.Utils;
-using Microsoft.Extensions.Logging;
-using Moq;
 using Vion.Examples.PingPong.Contracts;
 using Vion.Examples.PingPong.LogicBlocks;
 using Xunit;

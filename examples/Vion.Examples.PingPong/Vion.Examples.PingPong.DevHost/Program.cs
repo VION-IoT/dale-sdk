@@ -1,9 +1,9 @@
-﻿using Vion.Dale.DevHost;
-using Vion.Dale.DevHost.Web;
-using Microsoft.Extensions.Logging;
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Vion.Dale.DevHost;
+using Vion.Dale.DevHost.Web;
 using Vion.Examples.PingPong.LogicBlocks;
 
 namespace Vion.Examples.PingPong.DevHost
@@ -35,7 +35,7 @@ namespace Vion.Examples.PingPong.DevHost
                                           eventArgs.Cancel = true;
                                           cts.Cancel();
                                       };
-            return DevHostWebRunner.RunAsync(host, port: 5000, cancellationToken: cts.Token);
+            return DevHostWebRunner.RunAsync(host, 5000, cts.Token);
         }
     }
 }

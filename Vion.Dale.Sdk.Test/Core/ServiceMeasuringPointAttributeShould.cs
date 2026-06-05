@@ -40,15 +40,15 @@ namespace Vion.Dale.Sdk.Test.Core
             // The SDK-Core enum is a mirror of the canonical wire enum in Vion.Contracts.TypeRef.
             // PropertyMetadataBuilder casts SDK->contracts by integer value, so the member
             // name->value maps must stay byte-identical or the x-kind wire token drifts.
-            var sdkNames = Enum.GetNames<Vion.Dale.Sdk.Core.MeasuringPointKind>();
-            var contractNames = Enum.GetNames<Vion.Contracts.TypeRef.MeasuringPointKind>();
+            var sdkNames = Enum.GetNames<MeasuringPointKind>();
+            var contractNames = Enum.GetNames<Contracts.TypeRef.MeasuringPointKind>();
 
             CollectionAssert.AreEquivalent(contractNames, sdkNames);
 
             foreach (var name in contractNames)
             {
-                var sdkValue = (int)Enum.Parse<Vion.Dale.Sdk.Core.MeasuringPointKind>(name);
-                var contractValue = (int)Enum.Parse<Vion.Contracts.TypeRef.MeasuringPointKind>(name);
+                var sdkValue = (int)Enum.Parse<MeasuringPointKind>(name);
+                var contractValue = (int)Enum.Parse<Contracts.TypeRef.MeasuringPointKind>(name);
                 Assert.AreEqual(contractValue, sdkValue, $"Value drift for member '{name}'");
             }
         }
@@ -58,7 +58,7 @@ namespace Vion.Dale.Sdk.Test.Core
         {
             var kindProperty = typeof(ServiceMeasuringPointAttribute).GetProperty("Kind");
             Assert.IsNotNull(kindProperty);
-            Assert.AreEqual(typeof(Vion.Dale.Sdk.Core.MeasuringPointKind), kindProperty!.PropertyType);
+            Assert.AreEqual(typeof(MeasuringPointKind), kindProperty!.PropertyType);
         }
     }
 }

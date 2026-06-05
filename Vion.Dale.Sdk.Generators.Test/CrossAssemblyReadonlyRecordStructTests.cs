@@ -4,9 +4,9 @@ using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Testing;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
 using Vion.Dale.Sdk.Generators.Analyzers;
-using Vion.Dale.Sdk.Generators.Test.Helpers;
 
 namespace Vion.Dale.Sdk.Generators.Test
 {
@@ -63,8 +63,7 @@ public class C { public Coords P { get; set; } }
             Assert.IsTrue(coords.IsReadOnly, "Coords should report IsReadOnly across assemblies");
             Assert.IsFalse(coords.IsRecord,
                            "Sanity check — Roslyn currently reports IsRecord=false for record structs " +
-                           "from metadata. If this becomes true, the Deconstruct fallback in AnalyzerHelper " +
-                           "is redundant; the analyzer still works either way.");
+                           "from metadata. If this becomes true, the Deconstruct fallback in AnalyzerHelper " + "is redundant; the analyzer still works either way.");
             Assert.IsTrue(coords.GetMembers("Deconstruct").OfType<IMethodSymbol>().Any(),
                           "Positional record structs emit Deconstruct; this is the structural marker the analyzer falls back to.");
         }
@@ -154,7 +153,7 @@ public class MyBlock
         ///     metadata reference, expecting no diagnostics.
         /// </summary>
         private static async Task VerifyAnalyzerWithReferenceAsync<TAnalyzer>(string source, MetadataReference additionalReference)
-            where TAnalyzer : Microsoft.CodeAnalysis.Diagnostics.DiagnosticAnalyzer, new()
+            where TAnalyzer : DiagnosticAnalyzer, new()
         {
             var stubsPath = Path.Combine(Path.GetDirectoryName(typeof(CrossAssemblyReadonlyRecordStructTests).Assembly.Location)!,
                                          "..",

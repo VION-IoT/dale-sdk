@@ -40,14 +40,11 @@ namespace Vion.Dale.Sdk.Test.Core
         {
             private int _withBackingField;
 
-            public FieldKeywordRepro() : base(new Mock<ILogger>().Object)
-            {
-            }
-
             [ServiceProperty]
             public int WithBackingField
             {
                 get => _withBackingField;
+
                 set
                 {
                     _withBackingField = value;
@@ -59,6 +56,7 @@ namespace Vion.Dale.Sdk.Test.Core
             public int WithFieldKeyword
             {
                 get;
+
                 set
                 {
                     field = value;
@@ -67,6 +65,10 @@ namespace Vion.Dale.Sdk.Test.Core
             }
 
             public int SideEffectMarker { get; private set; }
+
+            public FieldKeywordRepro() : base(new Mock<ILogger>().Object)
+            {
+            }
 
             protected override void Ready()
             {

@@ -6,6 +6,35 @@ namespace Vion.Dale.Sdk.Test.Core
     [TestClass]
     public class AttributeInheritanceShould
     {
+        [TestMethod]
+        public void DerivedServicePropertyAttributeIsFoundByBaseType()
+        {
+            var prop = typeof(Subject).GetProperty(nameof(Subject.TestProperty))!;
+            var attr = prop.GetCustomAttribute<ServicePropertyAttribute>();
+            Assert.IsNotNull(attr);
+            Assert.AreEqual("kW", attr.Unit);
+            Assert.AreEqual(0.0, attr.Minimum);
+        }
+
+        [TestMethod]
+        public void DerivedServiceMeasuringPointAttributeIsFoundByBaseType()
+        {
+            var prop = typeof(Subject).GetProperty(nameof(Subject.TestMeasuringPoint))!;
+            var attr = prop.GetCustomAttribute<ServiceMeasuringPointAttribute>();
+            Assert.IsNotNull(attr);
+            Assert.AreEqual("kW", attr.Unit);
+            Assert.AreEqual(0.0, attr.Minimum);
+        }
+
+        [TestMethod]
+        public void DerivedStructFieldAttributeIsFoundByBaseType()
+        {
+            var prop = typeof(Subject).GetProperty(nameof(Subject.TestStructFieldProperty))!;
+            var attr = prop.GetCustomAttribute<StructFieldAttribute>();
+            Assert.IsNotNull(attr);
+            Assert.AreEqual("V", attr.Unit);
+        }
+
         public class TestKilowatts : ServicePropertyAttribute
         {
             public TestKilowatts()
@@ -42,35 +71,6 @@ namespace Vion.Dale.Sdk.Test.Core
 
             [TestStructField]
             public double TestStructFieldProperty { get; set; }
-        }
-
-        [TestMethod]
-        public void DerivedServicePropertyAttributeIsFoundByBaseType()
-        {
-            var prop = typeof(Subject).GetProperty(nameof(Subject.TestProperty))!;
-            var attr = prop.GetCustomAttribute<ServicePropertyAttribute>();
-            Assert.IsNotNull(attr);
-            Assert.AreEqual("kW", attr.Unit);
-            Assert.AreEqual(0.0, attr.Minimum);
-        }
-
-        [TestMethod]
-        public void DerivedServiceMeasuringPointAttributeIsFoundByBaseType()
-        {
-            var prop = typeof(Subject).GetProperty(nameof(Subject.TestMeasuringPoint))!;
-            var attr = prop.GetCustomAttribute<ServiceMeasuringPointAttribute>();
-            Assert.IsNotNull(attr);
-            Assert.AreEqual("kW", attr.Unit);
-            Assert.AreEqual(0.0, attr.Minimum);
-        }
-
-        [TestMethod]
-        public void DerivedStructFieldAttributeIsFoundByBaseType()
-        {
-            var prop = typeof(Subject).GetProperty(nameof(Subject.TestStructFieldProperty))!;
-            var attr = prop.GetCustomAttribute<StructFieldAttribute>();
-            Assert.IsNotNull(attr);
-            Assert.AreEqual("V", attr.Unit);
         }
     }
 }

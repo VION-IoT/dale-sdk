@@ -21,16 +21,9 @@ namespace Vion.Examples.PingPong.IntegrationTest
     {
         private static IDevHost BuildHost()
         {
-            var config = DevConfigurationBuilder.Create()
-                                                .AddLogicBlock<Ping>()
-                                                .AddLogicBlock<Pong>()
-                                                .AutoConnect()
-                                                .Build();
+            var config = DevConfigurationBuilder.Create().AddLogicBlock<Ping>().AddLogicBlock<Pong>().AutoConnect().Build();
 
-            return DevHostBuilder.Create()
-                                 .WithDi<DependencyInjection>()
-                                 .WithConfiguration(config)
-                                 .Build();
+            return DevHostBuilder.Create().WithDi<DependencyInjection>().WithConfiguration(config).Build();
         }
 
         [Fact]
@@ -45,11 +38,9 @@ namespace Vion.Examples.PingPong.IntegrationTest
 
             // The loop is live: Pong reports throughput once its per-second timer ticks. If Ping → Pong
             // messaging were broken, this would never arrive — exactly the wiring bug a single-block test misses.
-            var pongs = await control.WaitForAsync(
-                e => e is ServiceMeasuringPointChanged { MeasuringPoint: "PongsPerSecond" } mp && Convert.ToInt32(mp.Value) > 0
-                         ? (object)mp.Value!
-                         : null,
-                timeout: TimeSpan.FromSeconds(15));
+            var pongs = await control.WaitForAsync(e => e is ServiceMeasuringPointChanged { MeasuringPoint: "PongsPerSecond" } mp && Convert.ToInt32(mp.Value) > 0 ?
+                                                            (object)mp.Value! : null,
+                                                   TimeSpan.FromSeconds(15));
             Assert.NotNull(pongs);
 
             // The message tap captured the inter-actor traffic Pong received — the multi-block analogue of
@@ -58,9 +49,8 @@ namespace Vion.Examples.PingPong.IntegrationTest
 
             // Drive a writable knob and observe the effect: pausing Ping is a [ServiceProperty].
             await control.SetPropertyAsync("Ping", "Pause", true);
-            var paused = await control.WaitForAsync(
-                e => e is ServicePropertyChanged { Property: "Pause" } sp && Equals(sp.Value, true) ? (object)true : null,
-                timeout: TimeSpan.FromSeconds(15));
+            var paused = await control.WaitForAsync(e => e is ServicePropertyChanged { Property: "Pause" } sp && Equals(sp.Value, true) ? (object)true : null,
+                                                    TimeSpan.FromSeconds(15));
             Assert.NotNull(paused);
             Assert.Equal(true, control.GetProperty("Ping", "Pause"));
         }

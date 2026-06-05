@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Vion.Dale.Sdk.Abstractions;
@@ -23,6 +22,109 @@ namespace Vion.Dale.Sdk.Test.Core
     [TestClass]
     public sealed class LogicBlockShutdownGuardShould
     {
+        [TestMethod]
+        public void NotThrowAndStillAckStopWhenPersistentDataUninitialised()
+        {
+            var block = new FailingConfigureLogicBlock();
+            var context = new RecordingActorContext();
+
+            // InitializeLogicBlock drives the internal Configure() (the declarative binders).
+            // The throwing getter aborts it, so PersistentData is left uninitialised — the exact
+            // state the production bug occurs in.
+            var initialize = new InitializeLogicBlock("lb-1",
+                                                      "FailingConfigureLogicBlock",
+                                                      new Dictionary<string, ServiceIdentifier>(),
+                                                      new Dictionary<string, LogicBlockContractId>(),
+                                                      new Mock<IServiceProvider>().Object);
+
+            // Pre-condition only: initialization must abort (Configure()'s reflection-invoked
+            // getter throws) so PersistentData is left uninitialised. We don't pin the wrapper
+            // exception type — the binder currently surfaces a TargetInvocationException from
+            // PropertyInfo.GetValue, but the behaviour under test is the SUBSEQUENT stop
+            // (no-throw + StopLogicBlockResponse), not how init fails. Any throw here satisfies
+            // the precondition.
+            Assert.Throws<Exception>(() => block.HandleMessageAsync(initialize, context).GetAwaiter().GetResult(),
+                                     "Pre-condition: initialization must abort so PersistentData is left uninitialised.");
+
+            context.Responses.Clear();
+
+            // The actor still receives StopLogicBlockRequest during shutdown. Before the guard
+            // this threw "PersistentData not initialized" and never sent StopLogicBlockResponse,
+            // so the runtime waited out the full shutdown timeout.
+            block.HandleMessageAsync(new StopLogicBlockRequest(), context).GetAwaiter().GetResult();
+
+            Assert.IsTrue(context.Responses.Any(r => r is StopLogicBlockResponse),
+                          "StopLogicBlockRequest must send StopLogicBlockResponse even when PersistentData was never initialised.");
+        }
+
+        [TestMethod]
+        public void NotThrowAndStillRespondToSnapshotRequestWhenPersistentDataUninitialised()
+        {
+            var block = new FailingConfigureLogicBlock();
+            var context = new RecordingActorContext();
+
+            // Same precondition as the StopLogicBlockRequest test: the throwing getter aborts
+            // the internal Configure() so PersistentData is left uninitialised.
+            var initialize = new InitializeLogicBlock("lb-snap",
+                                                      "FailingConfigureLogicBlock",
+                                                      new Dictionary<string, ServiceIdentifier>(),
+                                                      new Dictionary<string, LogicBlockContractId>(),
+                                                      new Mock<IServiceProvider>().Object);
+
+            Assert.Throws<Exception>(() => block.HandleMessageAsync(initialize, context).GetAwaiter().GetResult(),
+                                     "Pre-condition: initialization must abort so PersistentData is left uninitialised.");
+
+            context.Responses.Clear();
+
+            // The runtime sends GetPersistentDataSnapshotRequest right after StopLogicBlockRequest
+            // during teardown, awaiting an acknowledgement. Before the guard this threw
+            // "PersistentData not initialized" and never sent GetPersistentDataSnapshotResponse,
+            // so the runtime waited out the full shutdown timeout — one message later than the
+            // StopLogicBlockRequest hang.
+            block.HandleMessageAsync(new GetPersistentDataSnapshotRequest(), context).GetAwaiter().GetResult();
+
+            var snapshotResponse = context.Responses.OfType<GetPersistentDataSnapshotResponse>().Single();
+            Assert.IsNotNull(snapshotResponse.PersistentDataValues,
+                             "GetPersistentDataSnapshotRequest must respond with a (non-null) snapshot even when PersistentData was never initialised.");
+            Assert.IsEmpty(snapshotResponse.PersistentDataValues, "An uninitialised PersistentData has no entries, so the snapshot must be empty.");
+        }
+
+        [TestMethod]
+        public void StillSnapshotAndAckStopOnTheNormallyInitialisedPath()
+        {
+            var block = new HealthyLogicBlock();
+            var context = new RecordingActorContext();
+
+            // Configure() succeeds for this block, so InitializeLogicBlock runs through to
+            // _persistentData.Initialize() — the normal (initialised) state.
+            var initialize = new InitializeLogicBlock("lb-healthy",
+                                                      "HealthyLogicBlock",
+                                                      new Dictionary<string, ServiceIdentifier>(),
+                                                      new Dictionary<string, LogicBlockContractId>(),
+                                                      new Mock<IServiceProvider>().Object);
+
+            block.HandleMessageAsync(initialize, context).GetAwaiter().GetResult();
+
+            block.HandleMessageAsync(new StopLogicBlockRequest(), context).GetAwaiter().GetResult();
+
+            // (a) The stop must still be acked on the initialised path.
+            Assert.IsTrue(context.Responses.Any(r => r is StopLogicBlockResponse), "StopLogicBlockRequest must send StopLogicBlockResponse on the normal initialised path.");
+
+            // (b) The guard must NOT skip the snapshot on the initialised path. We observe the
+            // snapshot via GetPersistentDataSnapshotRequest, which the handler answers with
+            // GetPersistentDataSnapshotResponse(Id, _persistentData.GetCurrentSnapshot()).
+            // On the uninitialised path GetCurrentSnapshot() would itself throw, so a returned
+            // snapshot that contains the discovered [ServiceProperty] entry proves
+            // CreateSnapshot() ran during StopLogicBlockRequest and the guard left normal
+            // shutdown persistence intact.
+            context.Responses.Clear();
+            block.HandleMessageAsync(new GetPersistentDataSnapshotRequest(), context).GetAwaiter().GetResult();
+
+            var snapshotResponse = context.Responses.OfType<GetPersistentDataSnapshotResponse>().Single();
+            Assert.IsNotEmpty(snapshotResponse.PersistentDataValues,
+                              "Stop on the initialised path must still take a persistent-data snapshot (the discovered [ServiceProperty] must be captured).");
+        }
+
         /// <summary>
         ///     A nested service whose presence (a [ServiceProperty] member) makes
         ///     DeclarativeServiceBinder.BindPropertyBasedServices invoke the owning property's
@@ -43,11 +145,14 @@ namespace Vion.Dale.Sdk.Test.Core
         /// </summary>
         private sealed class FailingConfigureLogicBlock : LogicBlockBase
         {
+            public ThrowingInnerService Inner
+            {
+                get => throw new InvalidOperationException("Simulated Configure() failure: property getter threw during declarative binding.");
+            }
+
             public FailingConfigureLogicBlock() : base(new Mock<ILogger>().Object)
             {
             }
-
-            public ThrowingInnerService Inner => throw new InvalidOperationException("Simulated Configure() failure: property getter threw during declarative binding.");
 
             protected override void Ready()
             {
@@ -66,7 +171,10 @@ namespace Vion.Dale.Sdk.Test.Core
         {
             public List<object> Responses { get; } = [];
 
-            public IReadOnlyDictionary<string, string>? Headers => null;
+            public IReadOnlyDictionary<string, string>? Headers
+            {
+                get => null;
+            }
 
             public void SendTo(IActorReference target, object message, Dictionary<string, string>? headers = null)
             {
@@ -103,12 +211,12 @@ namespace Vion.Dale.Sdk.Test.Core
         /// </summary>
         private sealed class HealthyLogicBlock : LogicBlockBase
         {
+            [ServiceProperty]
+            public int Counter { get; set; }
+
             public HealthyLogicBlock() : base(new Mock<ILogger>().Object)
             {
             }
-
-            [ServiceProperty]
-            public int Counter { get; set; }
 
             protected override void Ready()
             {
@@ -117,121 +225,6 @@ namespace Vion.Dale.Sdk.Test.Core
             protected override void Starting()
             {
             }
-        }
-
-        [TestMethod]
-        public void NotThrowAndStillAckStopWhenPersistentDataUninitialised()
-        {
-            var block = new FailingConfigureLogicBlock();
-            var context = new RecordingActorContext();
-
-            // InitializeLogicBlock drives the internal Configure() (the declarative binders).
-            // The throwing getter aborts it, so PersistentData is left uninitialised — the exact
-            // state the production bug occurs in.
-            var initialize = new InitializeLogicBlock(
-                "lb-1",
-                "FailingConfigureLogicBlock",
-                new Dictionary<string, ServiceIdentifier>(),
-                new Dictionary<string, LogicBlockContractId>(),
-                new Mock<IServiceProvider>().Object);
-
-            // Pre-condition only: initialization must abort (Configure()'s reflection-invoked
-            // getter throws) so PersistentData is left uninitialised. We don't pin the wrapper
-            // exception type — the binder currently surfaces a TargetInvocationException from
-            // PropertyInfo.GetValue, but the behaviour under test is the SUBSEQUENT stop
-            // (no-throw + StopLogicBlockResponse), not how init fails. Any throw here satisfies
-            // the precondition.
-            Assert.Throws<Exception>(
-                () => block.HandleMessageAsync(initialize, context).GetAwaiter().GetResult(),
-                "Pre-condition: initialization must abort so PersistentData is left uninitialised.");
-
-            context.Responses.Clear();
-
-            // The actor still receives StopLogicBlockRequest during shutdown. Before the guard
-            // this threw "PersistentData not initialized" and never sent StopLogicBlockResponse,
-            // so the runtime waited out the full shutdown timeout.
-            block.HandleMessageAsync(new StopLogicBlockRequest(), context).GetAwaiter().GetResult();
-
-            Assert.IsTrue(
-                context.Responses.Any(r => r is StopLogicBlockResponse),
-                "StopLogicBlockRequest must send StopLogicBlockResponse even when PersistentData was never initialised.");
-        }
-
-        [TestMethod]
-        public void NotThrowAndStillRespondToSnapshotRequestWhenPersistentDataUninitialised()
-        {
-            var block = new FailingConfigureLogicBlock();
-            var context = new RecordingActorContext();
-
-            // Same precondition as the StopLogicBlockRequest test: the throwing getter aborts
-            // the internal Configure() so PersistentData is left uninitialised.
-            var initialize = new InitializeLogicBlock(
-                "lb-snap",
-                "FailingConfigureLogicBlock",
-                new Dictionary<string, ServiceIdentifier>(),
-                new Dictionary<string, LogicBlockContractId>(),
-                new Mock<IServiceProvider>().Object);
-
-            Assert.Throws<Exception>(
-                () => block.HandleMessageAsync(initialize, context).GetAwaiter().GetResult(),
-                "Pre-condition: initialization must abort so PersistentData is left uninitialised.");
-
-            context.Responses.Clear();
-
-            // The runtime sends GetPersistentDataSnapshotRequest right after StopLogicBlockRequest
-            // during teardown, awaiting an acknowledgement. Before the guard this threw
-            // "PersistentData not initialized" and never sent GetPersistentDataSnapshotResponse,
-            // so the runtime waited out the full shutdown timeout — one message later than the
-            // StopLogicBlockRequest hang.
-            block.HandleMessageAsync(new GetPersistentDataSnapshotRequest(), context).GetAwaiter().GetResult();
-
-            var snapshotResponse = context.Responses.OfType<GetPersistentDataSnapshotResponse>().Single();
-            Assert.IsNotNull(
-                snapshotResponse.PersistentDataValues,
-                "GetPersistentDataSnapshotRequest must respond with a (non-null) snapshot even when PersistentData was never initialised.");
-            Assert.IsEmpty(
-                snapshotResponse.PersistentDataValues,
-                "An uninitialised PersistentData has no entries, so the snapshot must be empty.");
-        }
-
-        [TestMethod]
-        public void StillSnapshotAndAckStopOnTheNormallyInitialisedPath()
-        {
-            var block = new HealthyLogicBlock();
-            var context = new RecordingActorContext();
-
-            // Configure() succeeds for this block, so InitializeLogicBlock runs through to
-            // _persistentData.Initialize() — the normal (initialised) state.
-            var initialize = new InitializeLogicBlock(
-                "lb-healthy",
-                "HealthyLogicBlock",
-                new Dictionary<string, ServiceIdentifier>(),
-                new Dictionary<string, LogicBlockContractId>(),
-                new Mock<IServiceProvider>().Object);
-
-            block.HandleMessageAsync(initialize, context).GetAwaiter().GetResult();
-
-            block.HandleMessageAsync(new StopLogicBlockRequest(), context).GetAwaiter().GetResult();
-
-            // (a) The stop must still be acked on the initialised path.
-            Assert.IsTrue(
-                context.Responses.Any(r => r is StopLogicBlockResponse),
-                "StopLogicBlockRequest must send StopLogicBlockResponse on the normal initialised path.");
-
-            // (b) The guard must NOT skip the snapshot on the initialised path. We observe the
-            // snapshot via GetPersistentDataSnapshotRequest, which the handler answers with
-            // GetPersistentDataSnapshotResponse(Id, _persistentData.GetCurrentSnapshot()).
-            // On the uninitialised path GetCurrentSnapshot() would itself throw, so a returned
-            // snapshot that contains the discovered [ServiceProperty] entry proves
-            // CreateSnapshot() ran during StopLogicBlockRequest and the guard left normal
-            // shutdown persistence intact.
-            context.Responses.Clear();
-            block.HandleMessageAsync(new GetPersistentDataSnapshotRequest(), context).GetAwaiter().GetResult();
-
-            var snapshotResponse = context.Responses.OfType<GetPersistentDataSnapshotResponse>().Single();
-            Assert.IsNotEmpty(
-                snapshotResponse.PersistentDataValues,
-                "Stop on the initialised path must still take a persistent-data snapshot (the discovered [ServiceProperty] must be captured).");
         }
     }
 }

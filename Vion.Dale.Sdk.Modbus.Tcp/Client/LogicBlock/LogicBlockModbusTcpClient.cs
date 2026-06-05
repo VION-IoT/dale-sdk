@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Net;
+using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Modbus.Core.Conversion;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.Request;
-using Microsoft.Extensions.Logging;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
 {

@@ -5,10 +5,6 @@ namespace Vion.Dale.Sdk.Test.Core
     [TestClass]
     public class LogicBlockInterfaceBindingShould
     {
-        private interface ISample
-        {
-        }
-
         [TestMethod]
         public void DefaultMultiplicityToZeroOrMore()
         {
@@ -26,6 +22,10 @@ namespace Vion.Dale.Sdk.Test.Core
                        };
 
             Assert.AreEqual(LinkMultiplicity.ExactlyOne, attr.Multiplicity);
+        }
+
+        private interface ISample
+        {
         }
     }
 }

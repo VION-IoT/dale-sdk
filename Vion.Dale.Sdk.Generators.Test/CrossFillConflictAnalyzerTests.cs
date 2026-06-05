@@ -65,9 +65,7 @@ public class MyBlock
     [ServiceMeasuringPoint(Unit = ""W"")]
     public double {|#0:Power|} { get; set; }
 }";
-            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE025_CrossFillConflict)
-                                           .WithLocation(0)
-                                           .WithArguments("Power", "Unit", "\"kW\"", "\"W\"");
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE025_CrossFillConflict).WithLocation(0).WithArguments("Power", "Unit", "\"kW\"", "\"W\"");
             await AnalyzerTestBase.VerifyAnalyzerAsync<CrossFillConflictAnalyzer>(source, expected);
         }
 

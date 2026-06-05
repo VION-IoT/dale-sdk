@@ -1,6 +1,6 @@
-﻿using Vion.Dale.Sdk.Abstractions;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Proto.DependencyInjection;
+using Vion.Dale.Sdk.Abstractions;
 
 namespace Vion.Dale.ProtoActor.Extensions
 {

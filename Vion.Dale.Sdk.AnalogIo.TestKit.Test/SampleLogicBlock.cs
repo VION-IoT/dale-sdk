@@ -1,7 +1,7 @@
+using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.AnalogIo.Input;
 using Vion.Dale.Sdk.AnalogIo.Output;
 using Vion.Dale.Sdk.Core;
-using Microsoft.Extensions.Logging;
 
 namespace Vion.Dale.Sdk.AnalogIo.TestKit.Test
 {

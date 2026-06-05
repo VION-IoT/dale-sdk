@@ -1,10 +1,10 @@
 using System;
-using Vion.Dale.Sdk.Abstractions;
-using Vion.Dale.Sdk.Messages;
-using Vion.Dale.Sdk.Utils;
 using Microsoft.Extensions.Logging;
 using Vion.Contracts.FlatBuffers.Hw.Di;
 using Vion.Contracts.Mqtt;
+using Vion.Dale.Sdk.Abstractions;
+using Vion.Dale.Sdk.Messages;
+using Vion.Dale.Sdk.Utils;
 
 namespace Vion.Dale.Sdk.DigitalIo.Input
 {

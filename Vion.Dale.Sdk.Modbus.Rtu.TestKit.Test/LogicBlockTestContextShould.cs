@@ -1,14 +1,14 @@
-using Vion.Dale.Sdk.TestKit;
 using Moq;
+using Vion.Dale.Sdk.TestKit;
 
 namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
 {
     [TestClass]
     public class LogicBlockTestContextShould
     {
-        private SampleLogicBlock _sut = null!;
-
         private LogicBlockTestContext<SampleLogicBlock> _context = null!;
+
+        private SampleLogicBlock _sut = null!;
 
         [TestInitialize]
         public void Initialize()
@@ -25,7 +25,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
             _sut.ReadVoltages();
 
             // Assert
-            _context.VerifyModbusReadSent(_sut.Modbus, SampleLogicBlock.VoltagesAddress, quantity: 6);
+            _context.VerifyModbusReadSent(_sut.Modbus, SampleLogicBlock.VoltagesAddress, 6);
         }
 
         [TestMethod]

@@ -6,22 +6,6 @@ namespace Vion.Dale.Sdk.Test.Core
     [TestClass]
     public class PresentationAttributeShould
     {
-        public class Subject
-        {
-            [Presentation(
-                DisplayName = "Wirkleistung",
-                Group = PropertyGroup.Status,
-                Order = -1,
-                Importance = Importance.Primary,
-                StatusIndicator = false,
-                Decimals = 1,
-                UiHint = UiHints.Sparkline)]
-            public double WithAllFields { get; set; }
-
-            [Presentation]
-            public double Defaulted { get; set; }
-        }
-
         [TestMethod]
         public void CarryAllFields()
         {
@@ -117,6 +101,21 @@ namespace Vion.Dale.Sdk.Test.Core
         {
             var attr = new PresentationAttribute();
             Assert.IsNull(attr.Format);
+        }
+
+        public class Subject
+        {
+            [Presentation(DisplayName = "Wirkleistung",
+                          Group = PropertyGroup.Status,
+                          Order = -1,
+                          Importance = Importance.Primary,
+                          StatusIndicator = false,
+                          Decimals = 1,
+                          UiHint = UiHints.Sparkline)]
+            public double WithAllFields { get; set; }
+
+            [Presentation]
+            public double Defaulted { get; set; }
         }
     }
 }

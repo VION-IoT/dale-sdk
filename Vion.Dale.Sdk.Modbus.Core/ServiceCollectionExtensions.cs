@@ -1,6 +1,6 @@
-﻿using Vion.Dale.Sdk.Modbus.Core.Conversion;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Vion.Dale.Sdk.Modbus.Core.Conversion;
 using Vion.Dale.Sdk.Modbus.Core.Validation;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Vion.Dale.Sdk.Modbus.Core
 {

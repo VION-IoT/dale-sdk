@@ -1,6 +1,6 @@
+using Moq;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.TestKit;
-using Moq;
 
 namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit
 {

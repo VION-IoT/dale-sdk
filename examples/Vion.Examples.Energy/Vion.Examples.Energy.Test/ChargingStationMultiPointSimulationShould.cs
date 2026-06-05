@@ -1,6 +1,6 @@
 using System;
-using Vion.Dale.Sdk.TestKit;
 using Microsoft.Extensions.Time.Testing;
+using Vion.Dale.Sdk.TestKit;
 using Vion.Examples.Energy.Contracts;
 using Vion.Examples.Energy.LogicBlocks;
 using Xunit;
@@ -9,30 +9,25 @@ namespace Vion.Examples.Energy.Test
 {
     public class ChargingStationMultiPointSimulationShould
     {
-        private readonly FakeTimeProvider _timeProvider = new(new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero));
-        private readonly ChargingStationMultiPointSimulation _sut;
-
         public ChargingStationMultiPointSimulationShould()
         {
             _sut = new ChargingStationMultiPointSimulation(_timeProvider, LogicBlockTestHelper.CreateLoggerMock().Object);
             _sut.InitializeForTest();
         }
 
+        private readonly FakeTimeProvider _timeProvider = new(new DateTimeOffset(2026,
+                                                                                 1,
+                                                                                 1,
+                                                                                 12,
+                                                                                 0,
+                                                                                 0,
+                                                                                 TimeSpan.Zero));
+
+        private readonly ChargingStationMultiPointSimulation _sut;
+
         private void AdvanceTime(TimeSpan offset)
         {
             _timeProvider.Advance(offset);
-        }
-
-        // --- ChargingPoint independence ---
-
-        [Fact]
-        public void ChargingPoints_AreIndependent()
-        {
-            _sut.ChargingPoint1.EnableCharging = true;
-            _sut.ChargingPoint2.EnableCharging = false;
-
-            Assert.Equal(_sut.ChargingPoint1.MaximumActivePower, _sut.ChargingPoint1.RequestedActivePower);
-            Assert.Equal(0.0, _sut.ChargingPoint2.RequestedActivePower);
         }
 
         // --- HandleCommand per point ---
@@ -59,22 +54,16 @@ namespace Vion.Examples.Energy.Test
             Assert.Equal(0.0, response2.ActivePowerConsuming);
         }
 
-        // --- OnTimer delegates to both points ---
+        // --- ChargingPoint independence ---
 
         [Fact]
-        public void OnTimer_UpdateBothChargingPoints()
+        public void ChargingPoints_AreIndependent()
         {
             _sut.ChargingPoint1.EnableCharging = true;
-            _sut.ChargingPoint1.HandleCommand(new ControllableElectricityConsumerContract.Command(5.0));
-            _sut.ChargingPoint2.EnableCharging = true;
-            _sut.ChargingPoint2.HandleCommand(new ControllableElectricityConsumerContract.Command(8.0));
+            _sut.ChargingPoint2.EnableCharging = false;
 
-            _sut.OnTimer(); // first tick
-            AdvanceTime(TimeSpan.FromSeconds(5));
-            _sut.OnTimer(); // second tick computes power
-
-            Assert.Equal(5.0, _sut.ChargingPoint1.ActivePowerConsuming);
-            Assert.Equal(8.0, _sut.ChargingPoint2.ActivePowerConsuming);
+            Assert.Equal(_sut.ChargingPoint1.MaximumActivePower, _sut.ChargingPoint1.RequestedActivePower);
+            Assert.Equal(0.0, _sut.ChargingPoint2.RequestedActivePower);
         }
 
         [Fact]
@@ -95,6 +84,24 @@ namespace Vion.Examples.Energy.Test
 
             Assert.Equal(10.0, _sut.ChargingPoint1.EnergyConsumedTotal - energyBefore, 1);
             Assert.Equal(0.0, _sut.ChargingPoint2.ActivePowerConsuming);
+        }
+
+        // --- OnTimer delegates to both points ---
+
+        [Fact]
+        public void OnTimer_UpdateBothChargingPoints()
+        {
+            _sut.ChargingPoint1.EnableCharging = true;
+            _sut.ChargingPoint1.HandleCommand(new ControllableElectricityConsumerContract.Command(5.0));
+            _sut.ChargingPoint2.EnableCharging = true;
+            _sut.ChargingPoint2.HandleCommand(new ControllableElectricityConsumerContract.Command(8.0));
+
+            _sut.OnTimer(); // first tick
+            AdvanceTime(TimeSpan.FromSeconds(5));
+            _sut.OnTimer(); // second tick computes power
+
+            Assert.Equal(5.0, _sut.ChargingPoint1.ActivePowerConsuming);
+            Assert.Equal(8.0, _sut.ChargingPoint2.ActivePowerConsuming);
         }
     }
 }

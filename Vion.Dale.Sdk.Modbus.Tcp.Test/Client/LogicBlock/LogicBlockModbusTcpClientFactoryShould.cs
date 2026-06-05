@@ -1,6 +1,6 @@
 ﻿using System;
-using Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock;
 using Moq;
+using Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
 {

@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Utils;
-using Microsoft.Extensions.Logging;
 using Vion.Examples.Energy.Contracts;
 using Vion.Examples.Energy.Utils;
 
@@ -42,8 +42,6 @@ namespace Vion.Examples.Energy.LogicBlocks
 
         private readonly Dictionary<InterfaceId, ControllableElectricityConsumerContract.StateUpdate> _controllableElectricityConsumersState = [];
 
-        private readonly TimeProvider _timeProvider;
-
         private readonly Dictionary<InterfaceId, double> _gridEffectData = [];
 
         private readonly ILogger _logger;
@@ -53,6 +51,8 @@ namespace Vion.Examples.Energy.LogicBlocks
         private readonly Dictionary<InterfaceId, ObservableElectricitySupplierContract.DataResponse> _observableElectricitySuppliersData = [];
 
         private readonly Dictionary<InterfaceId, ObservableElectricitySupplierContract.StateUpdate> _observableElectricitySuppliersState = [];
+
+        private readonly TimeProvider _timeProvider;
 
         private DateTime? _lastDataRequestDataTime;
 

@@ -29,9 +29,12 @@ namespace Vion.Examples.Presentation.LogicBlocks
                          })]
     public class PresentationDemo : LogicBlockBase
     {
+        private readonly DateTime _startedAt = DateTime.UtcNow;
+
+        private int _tickCount;
+
         // ── Identity group ────────────────────────────────────────────────────────
-        [ServiceProperty(Title = "Modell",
-                         Description = "Manufacturer's model identifier; immutable after commissioning.")]
+        [ServiceProperty(Title = "Modell", Description = "Manufacturer's model identifier; immutable after commissioning.")]
         [Presentation(Group = PropertyGroup.Identity)]
         public string Model { get; set; } = "VDP-1000";
 
@@ -45,13 +48,11 @@ namespace Vion.Examples.Presentation.LogicBlocks
         public string FirmwareVersion { get; set; } = "1.4.2";
 
         // ── Alarm group (two status indicators — demonstrates multi-status support) ──
-        [ServiceProperty(Title = "Anlagenzustand",
-                         Description = "High-level operating state; drives the section banner colour.")]
+        [ServiceProperty(Title = "Anlagenzustand", Description = "High-level operating state; drives the section banner colour.")]
         [Presentation(Group = PropertyGroup.Alarm, StatusIndicator = true, Importance = Importance.Primary)]
         public PlantState Plant { get; private set; } = PlantState.Running;
 
-        [ServiceProperty(Title = "Kommunikation",
-                         Description = "Link health between gateway and cloud.")]
+        [ServiceProperty(Title = "Kommunikation", Description = "Link health between gateway and cloud.")]
         [Presentation(Group = PropertyGroup.Alarm, StatusIndicator = true)]
         public LinkState Link { get; private set; } = LinkState.Connected;
 
@@ -106,11 +107,13 @@ namespace Vion.Examples.Presentation.LogicBlocks
         // a plain { get; set; } would latch at true after the first click. Forbidden with
         // [Persistent] (no state to persist).
         [ServiceProperty(Title = "Kalibrierung starten",
-                         Description = "Trigger workaround pattern: the getter returns false, the setter runs the action. Each click increments the CalibrationsTriggered counter in Diagnostics.")]
+                         Description =
+                             "Trigger workaround pattern: the getter returns false, the setter runs the action. Each click increments the CalibrationsTriggered counter in Diagnostics.")]
         [Presentation(Group = PropertyGroup.Configuration, UiHint = UiHints.Trigger)]
         public bool StartCalibration
         {
             get => false;
+
             set
             {
                 if (value)
@@ -132,8 +135,7 @@ namespace Vion.Examples.Presentation.LogicBlocks
         // No [Presentation(Group = ...)] → falls into the "Ungrouped" section, which the UI
         // renders after all platform-default groups (last in PLATFORM_DEFAULT_GROUP_ORDER).
         // Also exercises UiHint = "multiline" for a free-form text input.
-        [ServiceProperty(Title = "Hinweise",
-                         Description = "Free-form operator notes. No group → renders in the Ungrouped section.")]
+        [ServiceProperty(Title = "Hinweise", Description = "Free-form operator notes. No group → renders in the Ungrouped section.")]
         [Presentation(UiHint = UiHints.Multiline)]
         public string Notes { get; set; } = "";
 
@@ -158,32 +160,27 @@ namespace Vion.Examples.Presentation.LogicBlocks
 
         // Relative date — auto-updating "3 minutes ago". Sentinel value short-circuits the
         // token interpreter.
-        [ServiceMeasuringPoint(Title = "Letzte Probe",
-                               Description = "Timestamp of the last sample taken. Rendered as auto-updating relative time.")]
+        [ServiceMeasuringPoint(Title = "Letzte Probe", Description = "Timestamp of the last sample taken. Rendered as auto-updating relative time.")]
         [Presentation(Group = PropertyGroup.Diagnostics, Format = Formats.Relative)]
         public DateTime LastSampleAt { get; private set; } = DateTime.UtcNow.AddMinutes(-3);
 
         // Absolute date — explicit ISO with millis. Use when "when exactly" matters.
-        [ServiceMeasuringPoint(Title = "Boot-Zeit",
-                               Description = "When this LB instance started. Rendered with millisecond precision.")]
+        [ServiceMeasuringPoint(Title = "Boot-Zeit", Description = "When this LB instance started. Rendered with millisecond precision.")]
         [Presentation(Group = PropertyGroup.Diagnostics, Format = Formats.IsoMillis)]
         public DateTime BootedAt { get; private set; } = DateTime.UtcNow;
 
         // Locale-aware long format — readable in the user's locale.
-        [ServiceProperty(Title = "Geplanter Start",
-                         Description = "Operator-set future timestamp. Rendered locale-aware.")]
+        [ServiceProperty(Title = "Geplanter Start", Description = "Operator-set future timestamp. Rendered locale-aware.")]
         [Presentation(Group = PropertyGroup.Configuration, Format = Formats.LocaleLong)]
         public DateTime ScheduledAt { get; set; } = DateTime.UtcNow.AddHours(2);
 
         // Clock-style duration — typical for response times / SLA windows.
-        [ServiceMeasuringPoint(Title = "Mittlere Antwortzeit",
-                               Description = "Average response time as HH:mm:ss.SSS for sub-second visibility.")]
+        [ServiceMeasuringPoint(Title = "Mittlere Antwortzeit", Description = "Average response time as HH:mm:ss.SSS for sub-second visibility.")]
         [Presentation(Group = PropertyGroup.Diagnostics, Format = Formats.ClockMillis)]
         public TimeSpan AvgResponseTime { get; private set; } = TimeSpan.FromMilliseconds(123);
 
         // Humanized duration — sentinel; rough natural-language output.
-        [ServiceMeasuringPoint(Title = "Betriebszeit",
-                               Description = "How long this LB has been running. Rendered as a humanized phrase.")]
+        [ServiceMeasuringPoint(Title = "Betriebszeit", Description = "How long this LB has been running. Rendered as a humanized phrase.")]
         [Presentation(Group = PropertyGroup.Diagnostics, Importance = Importance.Secondary, Format = Formats.Humanize)]
         public TimeSpan Uptime { get; private set; } = TimeSpan.FromHours(3.5);
 
@@ -191,10 +188,6 @@ namespace Vion.Examples.Presentation.LogicBlocks
         [ServiceMeasuringPoint(Title = "Lastprofil")]
         [Presentation(Group = PropertyGroup.Metric, UiHint = UiHints.Sparkline)]
         public ImmutableArray<double> RecentLoad { get; private set; } = ImmutableArray.Create(10.0, 11.5, 9.8, 12.1);
-
-        private readonly DateTime _startedAt = DateTime.UtcNow;
-
-        private int _tickCount;
 
         public PresentationDemo(ILogger logger) : base(logger)
         {

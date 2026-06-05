@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Vion.Dale.Sdk.Abstractions;
 using Microsoft.Extensions.Logging;
+using Vion.Dale.Sdk.Abstractions;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
 {

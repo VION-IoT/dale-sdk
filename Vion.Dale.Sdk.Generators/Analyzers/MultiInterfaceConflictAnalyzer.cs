@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -48,8 +49,8 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             {
                 foreach (var member in iface.GetMembers().OfType<IPropertySymbol>())
                 {
-                    var spOrMp = AnalyzerHelper.GetAttribute(member, AnalyzerHelper.ServicePropertyAttribute)
-                              ?? AnalyzerHelper.GetAttribute(member, AnalyzerHelper.ServiceMeasuringPointAttribute);
+                    var spOrMp = AnalyzerHelper.GetAttribute(member, AnalyzerHelper.ServicePropertyAttribute) ??
+                                 AnalyzerHelper.GetAttribute(member, AnalyzerHelper.ServiceMeasuringPointAttribute);
                     if (spOrMp == null)
                     {
                         continue;
@@ -95,21 +96,17 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                     continue;
                 }
 
-                var unitList = string.Join(", ", units.OrderBy(u => u, System.StringComparer.Ordinal).Select(u => "\"" + u + "\""));
+                var unitList = string.Join(", ", units.OrderBy(u => u, StringComparer.Ordinal).Select(u => "\"" + u + "\""));
                 var location = classProp?.Locations.FirstOrDefault() ?? type.Locations.FirstOrDefault();
 
-                context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE020_MultiInterfaceConflict,
-                                                           location,
-                                                           type.Name,
-                                                           kvp.Key,
-                                                           unitList));
+                context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE020_MultiInterfaceConflict, location, type.Name, kvp.Key, unitList));
             }
         }
 
         private static string? GetUnit(IPropertySymbol property)
         {
-            var attr = AnalyzerHelper.GetAttribute(property, AnalyzerHelper.ServicePropertyAttribute)
-                    ?? AnalyzerHelper.GetAttribute(property, AnalyzerHelper.ServiceMeasuringPointAttribute);
+            var attr = AnalyzerHelper.GetAttribute(property, AnalyzerHelper.ServicePropertyAttribute) ??
+                       AnalyzerHelper.GetAttribute(property, AnalyzerHelper.ServiceMeasuringPointAttribute);
             if (attr == null)
             {
                 return null;
@@ -131,8 +128,8 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
 
         private static bool HasExplicitOverride(IPropertySymbol classProp)
         {
-            return AnalyzerHelper.HasAttribute(classProp, AnalyzerHelper.ServicePropertyAttribute)
-                || AnalyzerHelper.HasAttribute(classProp, AnalyzerHelper.ServiceMeasuringPointAttribute);
+            return AnalyzerHelper.HasAttribute(classProp, AnalyzerHelper.ServicePropertyAttribute) ||
+                   AnalyzerHelper.HasAttribute(classProp, AnalyzerHelper.ServiceMeasuringPointAttribute);
         }
     }
 }

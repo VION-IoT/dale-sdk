@@ -1,5 +1,4 @@
 ﻿using System;
-using Vion.Dale.Sdk.Utils;
 using Microsoft.Extensions.Logging;
 using Vion.Contracts.FlatBuffers.Hw.Modbus;
 
@@ -10,9 +9,9 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
     /// </summary>
     internal partial class ModbusRtuRequestFactory : IModbusRtuRequestFactory
     {
-        private readonly TimeProvider _timeProvider;
-
         private readonly ILogger<ModbusRtuRequestFactory> _logger;
+
+        private readonly TimeProvider _timeProvider;
 
         /// <summary>
         ///     Initializes a new instance of the <see cref="ModbusRtuRequestFactory" /> class.

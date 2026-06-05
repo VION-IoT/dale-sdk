@@ -21,18 +21,22 @@ namespace Vion.Dale.Sdk.Modbus.Core.Conversion
         DCBA = 1,
 
         /// <summary>
-        ///     Mid-big-endian word order, big endian because when CD and AB are swapped it results in ABCD which is big-endian (A is the most significant word).
+        ///     Mid-big-endian word order, big endian because when CD and AB are swapped it results in ABCD which is big-endian (A
+        ///     is the most significant word).
         /// </summary>
         /// <remarks>
-        ///     This is uncommon but can occur in devices that don't natively support 64-bit values and where the words are not correctly stored in big or little-endian order.
+        ///     This is uncommon but can occur in devices that don't natively support 64-bit values and where the words are not
+        ///     correctly stored in big or little-endian order.
         /// </remarks>
         CDAB = 2,
 
         /// <summary>
-        ///     Mid-little-endian word order, little endian because when BA and DC are swapped it results in DCBA which is little-endian (D is the least significant word).
+        ///     Mid-little-endian word order, little endian because when BA and DC are swapped it results in DCBA which is
+        ///     little-endian (D is the least significant word).
         /// </summary>
         /// <remarks>
-        ///     This is uncommon but can occur in devices that don't natively support 64-bit values and where the words are not correctly stored in big or little-endian order.
+        ///     This is uncommon but can occur in devices that don't natively support 64-bit values and where the words are not
+        ///     correctly stored in big or little-endian order.
         /// </remarks>
         BADC = 3,
     }

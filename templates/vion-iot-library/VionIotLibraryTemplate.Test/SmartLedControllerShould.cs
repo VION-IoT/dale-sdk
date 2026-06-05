@@ -1,6 +1,6 @@
-﻿using Vion.Dale.Sdk.DigitalIo.TestKit;
+﻿using Moq;
+using Vion.Dale.Sdk.DigitalIo.TestKit;
 using Vion.Dale.Sdk.TestKit;
-using Moq;
 using Xunit;
 
 namespace VionIotLibraryTemplate.Test

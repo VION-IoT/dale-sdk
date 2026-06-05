@@ -1,8 +1,8 @@
 ﻿using System;
+using Moq;
 using Vion.Dale.Sdk.AnalogIo.Output;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.TestKit;
-using Moq;
 
 namespace Vion.Dale.Sdk.AnalogIo.TestKit
 {

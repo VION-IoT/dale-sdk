@@ -32,7 +32,13 @@ namespace Vion.Dale.Sdk.TestKit
     {
         // 2026-01-01 UTC matches the anchor that existing consumer tests already use; chosen
         // here so the default flows through to blocks that read TimeProvider on construction.
-        private static readonly DateTimeOffset DefaultAnchor = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        private static readonly DateTimeOffset DefaultAnchor = new(2026,
+                                                                   1,
+                                                                   1,
+                                                                   0,
+                                                                   0,
+                                                                   0,
+                                                                   TimeSpan.Zero);
 
         // (Deadline, Action) tuples — deadlines come from the FakeTimeProvider's UtcNow at the
         // moment InvokeSynchronizedAfter was called, plus the requested delay. AdvanceTime
@@ -45,15 +51,28 @@ namespace Vion.Dale.Sdk.TestKit
 
         private readonly List<(IActorReference Target, object Message, Dictionary<string, string>? Headers)> _sentMessages = [];
 
-        // Not readonly: the LogicBlockTestContextBuilder.WithTimeProvider hook swaps this for an
-        // externally-owned FakeTimeProvider so tests can construct their block with the same
-        // instance they then bind to the test context.
-        private FakeTimeProvider _timeProvider;
-
         // Reentrancy guard so an action fired by AdvanceTime/FlushPendingActions cannot recursively
         // re-enter dispatch — the semantics of nested time-advancement are surprising enough to
         // forbid by default.
         private bool _dispatching;
+
+        // Not readonly: the LogicBlockTestContextBuilder.WithTimeProvider hook swaps this for an
+        // externally-owned FakeTimeProvider so tests can construct their block with the same
+        // instance they then bind to the test context.
+
+        /// <summary>
+        ///     The virtual clock backing this test context. Inject as <see cref="System.TimeProvider" />
+        ///     into your logic block to make its <c>UtcNow</c> reads deterministic.
+        /// </summary>
+        public FakeTimeProvider TimeProvider { get; private set; }
+
+        /// <summary>
+        ///     Current virtual time. Shorthand for <c>TimeProvider.GetUtcNow().UtcDateTime</c>.
+        /// </summary>
+        public DateTime VirtualNow
+        {
+            get => TimeProvider.GetUtcNow().UtcDateTime;
+        }
 
         public LogicBlockTestContext() : this(DefaultAnchor)
         {
@@ -61,34 +80,7 @@ namespace Vion.Dale.Sdk.TestKit
 
         public LogicBlockTestContext(DateTimeOffset virtualNowAnchor)
         {
-            _timeProvider = new FakeTimeProvider(virtualNowAnchor);
-        }
-
-        /// <summary>
-        ///     The virtual clock backing this test context. Inject as <see cref="System.TimeProvider" />
-        ///     into your logic block to make its <c>UtcNow</c> reads deterministic.
-        /// </summary>
-        public FakeTimeProvider TimeProvider
-        {
-            get => _timeProvider;
-        }
-
-        /// <summary>
-        ///     Internal swap point used by <c>LogicBlockTestContextBuilder.WithTimeProvider</c> so
-        ///     the same FakeTimeProvider can be passed to the block's constructor and then bound to
-        ///     the test context, instead of the two clocks drifting independently.
-        /// </summary>
-        internal void SetTimeProvider(FakeTimeProvider timeProvider)
-        {
-            _timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
-        }
-
-        /// <summary>
-        ///     Current virtual time. Shorthand for <c>TimeProvider.GetUtcNow().UtcDateTime</c>.
-        /// </summary>
-        public DateTime VirtualNow
-        {
-            get => _timeProvider.GetUtcNow().UtcDateTime;
+            TimeProvider = new FakeTimeProvider(virtualNowAnchor);
         }
 
         /// <summary>
@@ -213,11 +205,11 @@ namespace Vion.Dale.Sdk.TestKit
 
             if (_dispatching)
             {
-                throw new InvalidOperationException(
-                    "AdvanceTime cannot be called recursively from within a fired action. Schedule follow-up work via InvokeSynchronizedAfter and let the outer AdvanceTime cascade.");
+                throw new
+                    InvalidOperationException("AdvanceTime cannot be called recursively from within a fired action. Schedule follow-up work via InvokeSynchronizedAfter and let the outer AdvanceTime cascade.");
             }
 
-            var target = _timeProvider.GetUtcNow() + delta;
+            var target = TimeProvider.GetUtcNow() + delta;
             _dispatching = true;
             try
             {
@@ -245,14 +237,14 @@ namespace Vion.Dale.Sdk.TestKit
 
                     var (deadline, action) = _pendingActions[nextIndex];
                     _pendingActions.RemoveAt(nextIndex);
-                    _timeProvider.SetUtcNow(deadline);
+                    TimeProvider.SetUtcNow(deadline);
                     action();
                 }
 
                 // Land the clock at the requested target, regardless of where the last dispatched
                 // action set it. Without this, AdvanceTime(10s) on an empty queue would be a no-op
                 // and the clock would lag the caller's intent.
-                _timeProvider.SetUtcNow(target);
+                TimeProvider.SetUtcNow(target);
             }
             finally
             {
@@ -281,8 +273,7 @@ namespace Vion.Dale.Sdk.TestKit
         {
             if (_dispatching)
             {
-                throw new InvalidOperationException(
-                    "FlushPendingActions cannot be called recursively from within a fired action.");
+                throw new InvalidOperationException("FlushPendingActions cannot be called recursively from within a fired action.");
             }
 
             var snapshot = _pendingActions.ToList();
@@ -299,6 +290,16 @@ namespace Vion.Dale.Sdk.TestKit
             {
                 _dispatching = false;
             }
+        }
+
+        /// <summary>
+        ///     Internal swap point used by <c>LogicBlockTestContextBuilder.WithTimeProvider</c> so
+        ///     the same FakeTimeProvider can be passed to the block's constructor and then bound to
+        ///     the test context, instead of the two clocks drifting independently.
+        /// </summary>
+        internal void SetTimeProvider(FakeTimeProvider timeProvider)
+        {
+            TimeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
         }
 
         private void VerifySendFunctionInterfaceMessage<TMessage>(string messageKind, InterfaceId? to, Action<TMessage>? assertMessage, Times? times)
@@ -369,7 +370,7 @@ namespace Vion.Dale.Sdk.TestKit
             // TestKit (whereas InvokeSynchronizedAfter(action, TimeSpan.Zero) would work).
             if (message is InvokeActionMessage actionMessage)
             {
-                _pendingActions.Add((_timeProvider.GetUtcNow(), actionMessage.Action));
+                _pendingActions.Add((TimeProvider.GetUtcNow(), actionMessage.Action));
             }
         }
 
@@ -379,7 +380,7 @@ namespace Vion.Dale.Sdk.TestKit
 
             if (message is InvokeActionMessage actionMessage)
             {
-                _pendingActions.Add((_timeProvider.GetUtcNow() + delay, actionMessage.Action));
+                _pendingActions.Add((TimeProvider.GetUtcNow() + delay, actionMessage.Action));
             }
         }
 

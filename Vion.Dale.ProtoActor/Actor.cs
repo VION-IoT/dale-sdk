@@ -1,7 +1,7 @@
 ﻿using System.Threading.Tasks;
-using Vion.Dale.Sdk.Abstractions;
 using Proto;
 using Proto.Mailbox;
+using Vion.Dale.Sdk.Abstractions;
 
 namespace Vion.Dale.ProtoActor
 {

@@ -4,10 +4,10 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Vion.Dale.Sdk.Abstractions;
-using Vion.Dale.Sdk.Modbus.Tcp.Client.Request;
 using Microsoft.Extensions.Logging;
 using Moq;
+using Vion.Dale.Sdk.Abstractions;
+using Vion.Dale.Sdk.Modbus.Tcp.Client.Request;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
 {

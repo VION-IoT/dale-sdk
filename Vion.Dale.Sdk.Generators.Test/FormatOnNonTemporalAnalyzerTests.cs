@@ -72,9 +72,7 @@ public class MyBlock
 {
     [Presentation(Format = ""LLLL"")] public string {|#0:Notes|} { get; set; } = """";
 }";
-            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE027_FormatOnNonTemporal)
-                                           .WithLocation(0)
-                                           .WithArguments("Notes", "string");
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE027_FormatOnNonTemporal).WithLocation(0).WithArguments("Notes", "string");
             await AnalyzerTestBase.VerifyAnalyzerAsync<FormatOnNonTemporalAnalyzer>(source, expected);
         }
     }

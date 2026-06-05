@@ -1,5 +1,5 @@
-﻿using Vion.Dale.Sdk.Core;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Vion.Dale.Sdk.Core;
 
 namespace VionIotLibraryTemplate
 {

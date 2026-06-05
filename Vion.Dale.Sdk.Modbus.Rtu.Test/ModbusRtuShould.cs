@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using Microsoft.Extensions.Logging;
+using Moq;
 using Vion.Contracts.FlatBuffers.Hw.Modbus;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Messages;
@@ -7,8 +9,6 @@ using Vion.Dale.Sdk.Modbus.Core.Conversion;
 using Vion.Dale.Sdk.Modbus.Core.Exceptions;
 using Vion.Dale.Sdk.Modbus.Core.Validation;
 using Vion.Dale.Sdk.Utils;
-using Microsoft.Extensions.Logging;
-using Moq;
 
 namespace Vion.Dale.Sdk.Modbus.Rtu.Test
 {
@@ -29,11 +29,11 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
 
         private const int BytesPer64BitValue = 8;
 
-        private const ByteOrder ByteOrder = Vion.Dale.Sdk.Modbus.Core.Conversion.ByteOrder.LsbToMsb;
+        private const ByteOrder ByteOrder = Core.Conversion.ByteOrder.LsbToMsb;
 
-        private const WordOrder32 WordOrder32 = Vion.Dale.Sdk.Modbus.Core.Conversion.WordOrder32.LswToMsw;
+        private const WordOrder32 WordOrder32 = Core.Conversion.WordOrder32.LswToMsw;
 
-        private const WordOrder64 WordOrder64 = Vion.Dale.Sdk.Modbus.Core.Conversion.WordOrder64.BADC;
+        private const WordOrder64 WordOrder64 = Core.Conversion.WordOrder64.BADC;
 
         private const string ContractIdentifier = "rtu0";
 

@@ -73,41 +73,6 @@ namespace Vion.Dale.Sdk.TestKit
         }
 
         /// <summary>
-        ///     When <paramref name="targetType" /> is a class that implements more than one
-        ///     <c>[LogicInterface]</c>-decorated contract interface, the existing
-        ///     IsAssignableFrom+FirstOrDefault resolution in <see cref="SetLinkedInterfaces" />
-        ///     cannot tell which contract the caller meant. Two such mappings stack onto the same
-        ///     dictionary key, get routed to the first matching sender, and the second contract's
-        ///     sender silently receives zero mappings. Catch the ambiguity at registration time so
-        ///     the bug surfaces at the call site instead of as a missing verification later.
-        /// </summary>
-        private static void GuardAgainstAmbiguousMappingTarget(Type targetType)
-        {
-            // Interface TInterface (the explicit-generic form) is always unambiguous — it IS the
-            // contract interface the caller meant. Only a concrete class can carry the ambiguity.
-            if (targetType.IsInterface)
-            {
-                return;
-            }
-
-            var contractInterfaces = targetType.GetInterfaces()
-                                               .Where(i => i.GetCustomAttribute<LogicInterfaceAttribute>() != null)
-                                               .ToList();
-            if (contractInterfaces.Count <= 1)
-            {
-                return;
-            }
-
-            var candidates = string.Join(", ", contractInterfaces.Select(i => i.Name));
-            var firstCandidate = contractInterfaces[0].Name;
-            throw new InvalidOperationException(
-                $"WithLogicInterfaceMapping cannot infer which sender interface to map for class " +
-                $"'{targetType.Name}' because it implements {contractInterfaces.Count} contract interfaces ({candidates}). " +
-                $"Without an explicit generic argument the second mapping would silently land on the wrong sender. " +
-                $"Pass the contract interface explicitly, e.g. WithLogicInterfaceMapping<{firstCandidate}>(lb => lb, mappedInstance).");
-        }
-
-        /// <summary>
         ///     Adds a mapping to another logic block using the logic block's own implementation of the interface.
         /// </summary>
         public LogicBlockTestContextBuilder<TLogicBlock> WithLogicInterfaceMapping<TInterface>(InterfaceId mappedInstance)
@@ -192,6 +157,38 @@ namespace Vion.Dale.Sdk.TestKit
         }
 
         /// <summary>
+        ///     When <paramref name="targetType" /> is a class that implements more than one
+        ///     <c>[LogicInterface]</c>-decorated contract interface, the existing
+        ///     IsAssignableFrom+FirstOrDefault resolution in <see cref="SetLinkedInterfaces" />
+        ///     cannot tell which contract the caller meant. Two such mappings stack onto the same
+        ///     dictionary key, get routed to the first matching sender, and the second contract's
+        ///     sender silently receives zero mappings. Catch the ambiguity at registration time so
+        ///     the bug surfaces at the call site instead of as a missing verification later.
+        /// </summary>
+        private static void GuardAgainstAmbiguousMappingTarget(Type targetType)
+        {
+            // Interface TInterface (the explicit-generic form) is always unambiguous — it IS the
+            // contract interface the caller meant. Only a concrete class can carry the ambiguity.
+            if (targetType.IsInterface)
+            {
+                return;
+            }
+
+            var contractInterfaces = targetType.GetInterfaces().Where(i => i.GetCustomAttribute<LogicInterfaceAttribute>() != null).ToList();
+            if (contractInterfaces.Count <= 1)
+            {
+                return;
+            }
+
+            var candidates = string.Join(", ", contractInterfaces.Select(i => i.Name));
+            var firstCandidate = contractInterfaces[0].Name;
+            throw new InvalidOperationException($"WithLogicInterfaceMapping cannot infer which sender interface to map for class " +
+                                                $"'{targetType.Name}' because it implements {contractInterfaces.Count} contract interfaces ({candidates}). " +
+                                                $"Without an explicit generic argument the second mapping would silently land on the wrong sender. " +
+                                                $"Pass the contract interface explicitly, e.g. WithLogicInterfaceMapping<{firstCandidate}>(lb => lb, mappedInstance).");
+        }
+
+        /// <summary>
         ///     Sends the InitializeLogicBlock message to the logic block to initialize it.
         ///     Auto-discovers service identifiers from [Service] attributes so that service property
         ///     and measuring point changes are routed correctly when the block is started.
@@ -229,6 +226,7 @@ namespace Vion.Dale.Sdk.TestKit
             var services = new ServiceCollection();
             services.AddSingleton<ILoggerFactory>(NullLoggerFactory.Instance);
             services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
+
             // Inject the test context's virtual clock so logic blocks that depend on TimeProvider
             // see the same UtcNow that AdvanceTime advances. Tests can still override by adding a
             // different registration via WithServices, in which case the last registration wins.
@@ -307,18 +305,17 @@ namespace Vion.Dale.Sdk.TestKit
             var type = typeof(TLogicBlock);
             var lookup = new Dictionary<string, ServiceIdentifier>
                          {
-                             [type.Name] = new ServiceIdentifier(type.Name),
+                             [type.Name] = new(type.Name),
                          };
 
             // Property-level services: any property whose value is itself a service-bearing object.
             foreach (var prop in type.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
             {
                 var propertyType = prop.PropertyType;
-                var implementsServiceInterface = propertyType.GetInterfaces()
-                                                              .Any(i => i.GetCustomAttribute<ServiceInterfaceAttribute>() != null);
+                var implementsServiceInterface = propertyType.GetInterfaces().Any(i => i.GetCustomAttribute<ServiceInterfaceAttribute>() != null);
                 var hasServiceMembers = propertyType.GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                                                    .Any(p => p.GetCustomAttribute<ServicePropertyAttribute>() != null
-                                                           || p.GetCustomAttribute<ServiceMeasuringPointAttribute>() != null);
+                                                    .Any(p => p.GetCustomAttribute<ServicePropertyAttribute>() != null ||
+                                                              p.GetCustomAttribute<ServiceMeasuringPointAttribute>() != null);
 
                 if (!implementsServiceInterface && !hasServiceMembers)
                 {

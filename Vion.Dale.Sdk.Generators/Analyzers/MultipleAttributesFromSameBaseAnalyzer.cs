@@ -66,14 +66,9 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
 
                 foreach (var attr in matches)
                 {
-                    var location = attr.ApplicationSyntaxReference?.GetSyntax(context.CancellationToken).GetLocation()
-                                ?? property.Locations.FirstOrDefault();
+                    var location = attr.ApplicationSyntaxReference?.GetSyntax(context.CancellationToken).GetLocation() ?? property.Locations.FirstOrDefault();
 
-                    context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE019_MultipleAttributesFromSameBase,
-                                                               location,
-                                                               property.Name,
-                                                               baseShortName,
-                                                               names));
+                    context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE019_MultipleAttributesFromSameBase, location, property.Name, baseShortName, names));
                 }
             }
         }

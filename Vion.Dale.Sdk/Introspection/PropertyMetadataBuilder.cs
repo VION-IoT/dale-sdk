@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using System.Reflection;
 using Vion.Contracts.TypeRef;
 using Vion.Dale.Sdk.Core;
+using MeasuringPointKind = Vion.Contracts.TypeRef.MeasuringPointKind;
 
 namespace Vion.Dale.Sdk.Introspection
 {
@@ -103,8 +104,10 @@ namespace Vion.Dale.Sdk.Introspection
             return merged.IsEmpty ? Presentation.None : merged;
         }
 
-        private static bool HasPublicSetter(PropertyInfo property) =>
-            property.SetMethod is not null && property.SetMethod.IsPublic;
+        private static bool HasPublicSetter(PropertyInfo property)
+        {
+            return property.SetMethod is not null && property.SetMethod.IsPublic;
+        }
 
         /// <summary>
         ///     Returns true when the property's wire schema carries an identity-bearing
@@ -114,19 +117,19 @@ namespace Vion.Dale.Sdk.Introspection
         ///     would be silently dropped by the serializer because identity-set <c>schema.title</c>
         ///     wins on the wire.
         /// </summary>
-        private static bool HasIdentityBearingTitle(TypeRef typeRef) => typeRef switch
+        private static bool HasIdentityBearingTitle(TypeRef typeRef)
         {
-            EnumTypeRef => true,
-            StructTypeRef => true,
-            NullableTypeRef n => HasIdentityBearingTitle(n.Inner),
-            ArrayTypeRef a => HasIdentityBearingTitle(a.Items),
-            _ => false,
-        };
+            return typeRef switch
+            {
+                EnumTypeRef => true,
+                StructTypeRef => true,
+                NullableTypeRef n => HasIdentityBearingTitle(n.Inner),
+                ArrayTypeRef a => HasIdentityBearingTitle(a.Items),
+                _ => false,
+            };
+        }
 
-        private static TypeAnnotations ExtractTypeAnnotations(ServicePropertyAttribute? sp,
-                                                              ServiceMeasuringPointAttribute? mp,
-                                                              bool hasPublicSetter,
-                                                              bool hasIdentityTitle)
+        private static TypeAnnotations ExtractTypeAnnotations(ServicePropertyAttribute? sp, ServiceMeasuringPointAttribute? mp, bool hasPublicSetter, bool hasIdentityTitle)
         {
             // Cross-fill: missing field on one side inherits from the other when both
             // [ServiceProperty] and [ServiceMeasuringPoint] are applied to the same property.
@@ -134,7 +137,7 @@ namespace Vion.Dale.Sdk.Introspection
             // Title: for enum/struct-typed properties (incl. nullable/array of), schema.title is
             // identity-bearing (the CLR type name). The property-level Title goes to
             // Presentation.DisplayName instead — see ExtractPresentation below.
-            var title = hasIdentityTitle ? null : (sp?.Title ?? mp?.Title);
+            var title = hasIdentityTitle ? null : sp?.Title ?? mp?.Title;
             var description = sp?.Description ?? mp?.Description;
             var unit = sp?.Unit ?? mp?.Unit;
 
@@ -166,9 +169,7 @@ namespace Vion.Dale.Sdk.Introspection
             //     exposes a value the gateway publishes but the cloud cannot SetPropertyValue back to)
             //   - [ServiceProperty(ReadOnly = true)] explicitly opts in — needed when a cross-assembly helper
             //     requires the public setter but the cloud must not write the value.
-            var readOnly = (mp is not null && sp is null)
-                           || !hasPublicSetter
-                           || (sp?.ReadOnly ?? false);
+            var readOnly = (mp is not null && sp is null) || !hasPublicSetter || (sp?.ReadOnly ?? false);
 
             // WriteOnly comes only from [ServiceProperty]; restricted to string / string? properties in v1
             // (DALE022 analyzer enforces).
@@ -177,8 +178,7 @@ namespace Vion.Dale.Sdk.Introspection
             // Kind comes only from [ServiceMeasuringPoint]; null when the property isn't a measuring point.
             // The attribute now carries the SDK-Core mirror enum; cast to the canonical wire enum
             // at this boundary. Member values are identical, so the cast is total.
-            Vion.Contracts.TypeRef.MeasuringPointKind? kind =
-                mp is not null ? (Vion.Contracts.TypeRef.MeasuringPointKind)(int)mp.Kind : null;
+            MeasuringPointKind? kind = mp is not null ? (MeasuringPointKind)(int)mp.Kind : null;
 
             return new TypeAnnotations
                    {
@@ -193,10 +193,7 @@ namespace Vion.Dale.Sdk.Introspection
                    };
         }
 
-        private static Presentation ExtractPresentation(PropertyInfo property,
-                                                       ServicePropertyAttribute? sp,
-                                                       ServiceMeasuringPointAttribute? mp,
-                                                       bool hasIdentityTitle)
+        private static Presentation ExtractPresentation(PropertyInfo property, ServicePropertyAttribute? sp, ServiceMeasuringPointAttribute? mp, bool hasIdentityTitle)
         {
             var presentationAttr = property.GetCustomAttribute<PresentationAttribute>();
 
@@ -205,8 +202,7 @@ namespace Vion.Dale.Sdk.Introspection
             // [ServiceMeasuringPoint(Title=...)] — schema.title for those types carries the
             // CLR identity (e.g. "AlarmState"), not the property's display label, so without
             // this fallback the property-level Title would be silently lost.
-            var displayName = presentationAttr?.DisplayName
-                           ?? (hasIdentityTitle ? (sp?.Title ?? mp?.Title) : null);
+            var displayName = presentationAttr?.DisplayName ?? (hasIdentityTitle ? sp?.Title ?? mp?.Title : null);
 
             var statusMappings = ExtractStatusMappings(property, presentationAttr?.StatusIndicator ?? false);
             var enumLabels = ExtractEnumLabels(property);
@@ -215,29 +211,23 @@ namespace Vion.Dale.Sdk.Introspection
             // so dashboards can detect status-indicator properties by an explicit hint rather
             // than inferring from StatusMappings presence (which is fragile — an enum can be a
             // status indicator without per-member severity tagging).
-            var uiHint = presentationAttr?.UiHint
-                      ?? (presentationAttr?.StatusIndicator == true ? UiHints.StatusIndicator : null);
+            var uiHint = presentationAttr?.UiHint ?? (presentationAttr?.StatusIndicator == true ? UiHints.StatusIndicator : null);
 
             // int.MinValue is the "unset" sentinel for the attribute (attribute-parameter types
             // can't be nullable). Map back to null on the wire.
-            int? order = presentationAttr is not null && presentationAttr.Order != int.MinValue
-                             ? presentationAttr.Order
-                             : null;
-            int? decimals = presentationAttr is not null && presentationAttr.Decimals != int.MinValue
-                                ? presentationAttr.Decimals
-                                : null;
+            int? order = presentationAttr is not null && presentationAttr.Order != int.MinValue ? presentationAttr.Order : null;
+            int? decimals = presentationAttr is not null && presentationAttr.Decimals != int.MinValue ? presentationAttr.Decimals : null;
 
             // Emit Importance only when explicitly non-default. Treats Importance.Normal as the
             // implicit baseline that doesn't need to traverse the wire — keeps the json clean.
-            string? importance = presentationAttr is not null && presentationAttr.Importance != Importance.Normal
-                                     ? presentationAttr.Importance.ToString()
-                                     : null;
+            var importance = presentationAttr is not null && presentationAttr.Importance != Importance.Normal ? presentationAttr.Importance.ToString() : null;
 
             var presentation = new Presentation
                                {
                                    DisplayName = displayName,
                                    Group = presentationAttr?.Group,
                                    Order = order,
+
                                    // Category dropped — categories fold into Group (which is the same
                                    // dashboard-side concept). Field on the codec record kept for codec
                                    // compatibility but always null from this builder.

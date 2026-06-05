@@ -42,9 +42,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                 return;
             }
 
-            context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE030_ReadOnlyAndWriteOnlyMutuallyExclusive,
-                                                       property.Locations.FirstOrDefault(),
-                                                       property.Name));
+            context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE030_ReadOnlyAndWriteOnlyMutuallyExclusive, property.Locations.FirstOrDefault(), property.Name));
         }
     }
 }

@@ -12,11 +12,7 @@ namespace Vion.Dale.Sdk.Test.Core
         [ServiceProviderContractBinding(Identifier = "Button")]
         public ITestDigitalOutput Button { get; set; } = null!;
 
-        [ServiceProviderContractBinding(
-            Identifier = "LED",
-            DefaultName = "Status-LED",
-            Multiplicity = LinkMultiplicity.ZeroOrOne,
-            Tags = new[] { "output", "indicator" })]
+        [ServiceProviderContractBinding(Identifier = "LED", DefaultName = "Status-LED", Multiplicity = LinkMultiplicity.ZeroOrOne, Tags = new[] { "output", "indicator" })]
         public ITestDigitalOutput Led { get; set; } = null!;
 
         [ServiceProviderContractBinding]
@@ -29,8 +25,7 @@ namespace Vion.Dale.Sdk.Test.Core
         [TestMethod]
         public void CarryIdentifier()
         {
-            var attr = typeof(TestLb).GetProperty(nameof(TestLb.Button))!
-                .GetCustomAttribute<ServiceProviderContractBindingAttribute>();
+            var attr = typeof(TestLb).GetProperty(nameof(TestLb.Button))!.GetCustomAttribute<ServiceProviderContractBindingAttribute>();
             Assert.IsNotNull(attr);
             Assert.AreEqual("Button", attr.Identifier);
         }
@@ -38,8 +33,7 @@ namespace Vion.Dale.Sdk.Test.Core
         [TestMethod]
         public void CarryAllNamedArguments()
         {
-            var attr = typeof(TestLb).GetProperty(nameof(TestLb.Led))!
-                .GetCustomAttribute<ServiceProviderContractBindingAttribute>()!;
+            var attr = typeof(TestLb).GetProperty(nameof(TestLb.Led))!.GetCustomAttribute<ServiceProviderContractBindingAttribute>()!;
             Assert.AreEqual("LED", attr.Identifier);
             Assert.AreEqual("Status-LED", attr.DefaultName);
             Assert.AreEqual(LinkMultiplicity.ZeroOrOne, attr.Multiplicity);
@@ -49,8 +43,7 @@ namespace Vion.Dale.Sdk.Test.Core
         [TestMethod]
         public void DefaultMultiplicityToZeroOrMore()
         {
-            var attr = typeof(TestLb).GetProperty(nameof(TestLb.Defaulted))!
-                .GetCustomAttribute<ServiceProviderContractBindingAttribute>()!;
+            var attr = typeof(TestLb).GetProperty(nameof(TestLb.Defaulted))!.GetCustomAttribute<ServiceProviderContractBindingAttribute>()!;
             Assert.AreEqual(LinkMultiplicity.ZeroOrMore, attr.Multiplicity);
             Assert.HasCount(0, attr.Tags);
         }

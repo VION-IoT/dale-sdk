@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Vion.Dale.DevHost;
 using Vion.Dale.DevHost.Web;
-using Microsoft.Extensions.Logging;
 using Vion.Examples.Energy.LogicBlocks;
 
 namespace Vion.Examples.Energy.DevHost
@@ -48,7 +48,7 @@ namespace Vion.Examples.Energy.DevHost
                                           eventArgs.Cancel = true;
                                           cts.Cancel();
                                       };
-            return DevHostWebRunner.RunAsync(host, port: 5000, cancellationToken: cts.Token);
+            return DevHostWebRunner.RunAsync(host, 5000, cts.Token);
         }
     }
 }

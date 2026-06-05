@@ -1,9 +1,8 @@
+using System;
+using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.DigitalIo.Input;
 using Vion.Dale.Sdk.DigitalIo.Output;
-using Vion.Dale.Sdk.Utils;
-using Microsoft.Extensions.Logging;
-using System;
 using Vion.Examples.Energy.Contracts;
 using Vion.Examples.Energy.Utils;
 
@@ -12,9 +11,9 @@ namespace Vion.Examples.Energy.LogicBlocks
     [LogicBlock(Name = "Ladestation Multi-Point Simulation", Icon = "charging-pile-2-line")]
     public class ChargingStationMultiPointSimulation : LogicBlockBase
     {
-        private readonly TimeProvider _timeProvider;
-
         private readonly ILogger _logger;
+
+        private readonly TimeProvider _timeProvider;
 
         [ServiceProviderContractBinding(DefaultName = "Externe Sperre", Multiplicity = LinkMultiplicity.ZeroOrOne)]
         public IDigitalInput ExternallyLockedInput { get; private set; }
@@ -73,9 +72,9 @@ namespace Vion.Examples.Energy.LogicBlocks
 
         public class ChargingPoint : IControllableElectricityConsumer
         {
-            private readonly TimeProvider _timeProvider;
-
             private readonly ILogger _logger;
+
+            private readonly TimeProvider _timeProvider;
 
             private bool _enableCharging;
 

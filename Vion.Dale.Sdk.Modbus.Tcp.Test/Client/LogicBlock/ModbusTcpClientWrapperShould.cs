@@ -5,12 +5,12 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Moq;
 using Vion.Dale.Sdk.Modbus.Core.Conversion;
 using Vion.Dale.Sdk.Modbus.Core.Exceptions;
 using Vion.Dale.Sdk.Modbus.Core.Validation;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation;
-using Microsoft.Extensions.Logging;
-using Moq;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
 {
@@ -24,11 +24,11 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
 
         private const int UnitIdentifier = 42;
 
-        private const ByteOrder ByteOrder = Vion.Dale.Sdk.Modbus.Core.Conversion.ByteOrder.LsbToMsb;
+        private const ByteOrder ByteOrder = Core.Conversion.ByteOrder.LsbToMsb;
 
-        private const WordOrder32 WordOrder32 = Vion.Dale.Sdk.Modbus.Core.Conversion.WordOrder32.LswToMsw;
+        private const WordOrder32 WordOrder32 = Core.Conversion.WordOrder32.LswToMsw;
 
-        private const WordOrder64 WordOrder64 = Vion.Dale.Sdk.Modbus.Core.Conversion.WordOrder64.BADC;
+        private const WordOrder64 WordOrder64 = Core.Conversion.WordOrder64.BADC;
 
         private const uint Count = 3;
 

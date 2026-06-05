@@ -161,26 +161,6 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         }
 
         /// <summary>
-        ///     True if <paramref name="type" /> carries a synthesized <c>Deconstruct</c> method
-        ///     — auto-emitted for every positional record (class and struct) and never for plain
-        ///     structs (even C# 12+ structs with primary constructors) or system types like
-        ///     <c>decimal</c>. Used as a fallback when <see cref="INamedTypeSymbol.IsRecord" />
-        ///     reports <c>false</c> for record structs loaded from metadata.
-        /// </summary>
-        private static bool HasRecordStructMarker(INamedTypeSymbol type)
-        {
-            foreach (var member in type.GetMembers("Deconstruct"))
-            {
-                if (member is IMethodSymbol)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        /// <summary>
         ///     Returns true when every parameter of the primary positional constructor of
         ///     <paramref name="structType" /> is a primitive, enum, string, TimeSpan, or nullable
         ///     of the same. Nested structs and arrays are not allowed — per spec §5.2 structs are flat.
@@ -228,6 +208,26 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             }
 
             return default;
+        }
+
+        /// <summary>
+        ///     True if <paramref name="type" /> carries a synthesized <c>Deconstruct</c> method
+        ///     — auto-emitted for every positional record (class and struct) and never for plain
+        ///     structs (even C# 12+ structs with primary constructors) or system types like
+        ///     <c>decimal</c>. Used as a fallback when <see cref="INamedTypeSymbol.IsRecord" />
+        ///     reports <c>false</c> for record structs loaded from metadata.
+        /// </summary>
+        private static bool HasRecordStructMarker(INamedTypeSymbol type)
+        {
+            foreach (var member in type.GetMembers("Deconstruct"))
+            {
+                if (member is IMethodSymbol)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

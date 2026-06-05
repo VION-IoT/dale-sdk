@@ -1,8 +1,7 @@
-using Vion.Dale.Sdk.Core;
-using Vion.Dale.Sdk.Utils;
-using Microsoft.Extensions.Logging;
 using System;
+using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.AnalogIo.Output;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.DigitalIo.Output;
 using Vion.Examples.Energy.Contracts;
 using Vion.Examples.Energy.Utils;
@@ -13,9 +12,9 @@ namespace Vion.Examples.Energy.LogicBlocks
     [LogicBlockInterfaceBinding(typeof(IControllableElectricityBuffer), Multiplicity = LinkMultiplicity.ExactlyOne)]
     public class BatterySimulation : LogicBlockBase, IControllableElectricityBuffer
     {
-        private readonly TimeProvider _timeProvider;
-
         private readonly ILogger _logger;
+
+        private readonly TimeProvider _timeProvider;
 
         private DateTime? _lastUpdateTime;
 

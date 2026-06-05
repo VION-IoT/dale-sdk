@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading.Tasks;
-using Vion.Dale.Sdk.Abstractions;
 using Microsoft.Extensions.Logging;
 using Moq;
+using Vion.Dale.Sdk.Abstractions;
 
 namespace Vion.Dale.Sdk.Http.Test
 {

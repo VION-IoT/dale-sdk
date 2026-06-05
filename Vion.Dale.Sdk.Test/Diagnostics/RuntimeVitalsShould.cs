@@ -16,7 +16,7 @@ namespace Vion.Dale.Sdk.Test.Diagnostics
             var now = clock.GetUtcNow();
             var vitals = new RuntimeVitals(clock);
 
-            vitals.OnHandled("logicblock_Foo_1", new object(), TimeSpan.FromMilliseconds(5), exception: null);
+            vitals.OnHandled("logicblock_Foo_1", new object(), TimeSpan.FromMilliseconds(5), null);
 
             var snapshot = vitals.Snapshot();
 
@@ -32,9 +32,9 @@ namespace Vion.Dale.Sdk.Test.Diagnostics
         {
             var vitals = new RuntimeVitals(new FakeTimeProvider());
 
-            vitals.OnHandled("a", new object(), TimeSpan.FromMilliseconds(5), exception: null);
-            vitals.OnHandled("a", new object(), TimeSpan.FromMilliseconds(12), exception: null);
-            vitals.OnHandled("a", new object(), TimeSpan.FromMilliseconds(7), exception: null);
+            vitals.OnHandled("a", new object(), TimeSpan.FromMilliseconds(5), null);
+            vitals.OnHandled("a", new object(), TimeSpan.FromMilliseconds(12), null);
+            vitals.OnHandled("a", new object(), TimeSpan.FromMilliseconds(7), null);
 
             var actor = vitals.Snapshot().Single();
 
@@ -60,9 +60,9 @@ namespace Vion.Dale.Sdk.Test.Diagnostics
         {
             var vitals = new RuntimeVitals(new FakeTimeProvider());
 
-            vitals.OnHandled("a", new object(), TimeSpan.FromMilliseconds(1), exception: null);
-            vitals.OnHandled("b", new object(), TimeSpan.FromMilliseconds(1), exception: null);
-            vitals.OnHandled("b", new object(), TimeSpan.FromMilliseconds(1), exception: null);
+            vitals.OnHandled("a", new object(), TimeSpan.FromMilliseconds(1), null);
+            vitals.OnHandled("b", new object(), TimeSpan.FromMilliseconds(1), null);
+            vitals.OnHandled("b", new object(), TimeSpan.FromMilliseconds(1), null);
 
             var snapshot = vitals.Snapshot();
 
@@ -76,7 +76,7 @@ namespace Vion.Dale.Sdk.Test.Diagnostics
         {
             IActorMessageObserver observer = new RuntimeVitals(new FakeTimeProvider());
 
-            observer.OnHandled("a", new object(), TimeSpan.FromMilliseconds(2), exception: null);
+            observer.OnHandled("a", new object(), TimeSpan.FromMilliseconds(2), null);
 
             Assert.AreEqual(1L, ((RuntimeVitals)observer).Snapshot().Single().MessagesHandled);
         }
@@ -88,7 +88,7 @@ namespace Vion.Dale.Sdk.Test.Diagnostics
             var identity = new ActorIdentity(ActorCategory.LogicBlock, "Heater", "Vion.Examples.Energy");
 
             vitals.Register("logicblock_Heater_1", identity);
-            vitals.OnHandled("logicblock_Heater_1", new object(), TimeSpan.FromMilliseconds(1), exception: null);
+            vitals.OnHandled("logicblock_Heater_1", new object(), TimeSpan.FromMilliseconds(1), null);
 
             Assert.AreEqual(identity, vitals.Snapshot().Single().Identity);
         }
@@ -98,7 +98,7 @@ namespace Vion.Dale.Sdk.Test.Diagnostics
         {
             var vitals = new RuntimeVitals(new FakeTimeProvider());
 
-            vitals.OnHandled("x", new object(), TimeSpan.Zero, exception: null);
+            vitals.OnHandled("x", new object(), TimeSpan.Zero, null);
 
             Assert.IsNull(vitals.Snapshot().Single().Identity);
         }
@@ -159,9 +159,9 @@ namespace Vion.Dale.Sdk.Test.Diagnostics
             var window = TimeSpan.FromSeconds(10);
             var vitals = new RuntimeVitals(clock, window);
 
-            vitals.OnHandled("a", new object(), TimeSpan.FromMilliseconds(50), exception: null);
+            vitals.OnHandled("a", new object(), TimeSpan.FromMilliseconds(50), null);
             clock.Advance(window + TimeSpan.FromSeconds(1));
-            vitals.OnHandled("a", new object(), TimeSpan.FromMilliseconds(4), exception: null);
+            vitals.OnHandled("a", new object(), TimeSpan.FromMilliseconds(4), null);
 
             Assert.AreEqual(TimeSpan.FromMilliseconds(4), vitals.Snapshot().Single().HandlerDurationMax);
         }
@@ -173,9 +173,9 @@ namespace Vion.Dale.Sdk.Test.Diagnostics
             var window = TimeSpan.FromSeconds(10);
             var vitals = new RuntimeVitals(clock, window);
 
-            vitals.OnHandled("a", new object(), TimeSpan.FromMilliseconds(5), exception: null);
+            vitals.OnHandled("a", new object(), TimeSpan.FromMilliseconds(5), null);
             clock.Advance(window + TimeSpan.FromSeconds(1));
-            vitals.OnHandled("a", new object(), TimeSpan.FromMilliseconds(12), exception: null);
+            vitals.OnHandled("a", new object(), TimeSpan.FromMilliseconds(12), null);
 
             Assert.AreEqual(TimeSpan.FromMilliseconds(17), vitals.Snapshot().Single().HandlerDurationTotal);
         }

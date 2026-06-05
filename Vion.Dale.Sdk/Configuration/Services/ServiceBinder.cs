@@ -20,24 +20,6 @@ namespace Vion.Dale.Sdk.Configuration.Services
         // serviceIdentifier → list of relations
         private readonly Dictionary<string, List<ServiceRelationInfo>> _serviceRelations = [];
 
-        /// <summary>
-        ///     Used by the declarative service binder to declare a service and start binding properties
-        /// </summary>
-        internal ServiceBuilder CreateService(string serviceIdentifier)
-        {
-            if (!_serviceProperties.ContainsKey(serviceIdentifier))
-            {
-                _serviceProperties[serviceIdentifier] = new Dictionary<Type, Dictionary<string, ServiceBinding>>();
-            }
-
-            if (!_serviceMeasuringPoints.ContainsKey(serviceIdentifier))
-            {
-                _serviceMeasuringPoints[serviceIdentifier] = new Dictionary<Type, Dictionary<string, ServiceBinding>>();
-            }
-
-            return new ServiceBuilder(this, serviceIdentifier);
-        }
-
         ServiceBuilder IServiceFactory.CreateService(string serviceIdentifier)
         {
             return CreateService(serviceIdentifier);
@@ -70,45 +52,6 @@ namespace Vion.Dale.Sdk.Configuration.Services
             }
 
             throw new InvalidOperationException($"Property {propertyIdentifier} not found or not writable in {serviceIdentifier}.");
-        }
-
-        /// <summary>
-        ///     Strict enum-type discipline for the binder's set path. The CLR's compiled-expression
-        ///     setter does <c>unbox.any TEnum</c> on a boxed primitive whose underlying type matches
-        ///     the enum (e.g. <c>int</c> for an enum with underlying <c>System.Int32</c>), silently
-        ///     coercing it to the enum value. Pre-rich-types this masked real bugs: a wire payload
-        ///     carrying a raw integer for an enum property would land as a "valid" enum value.
-        ///     Post rich-types the codec produces the typed enum value at the JSON/FB → CLR boundary,
-        ///     so any boxed primitive reaching this binder for an enum-typed target is now a bug
-        ///     somewhere upstream. Reject loudly instead of silently coercing.
-        /// </summary>
-        private static void EnsureEnumTypeMatchesTarget(ServiceBinding binding, object? value, string serviceIdentifier, string propertyIdentifier)
-        {
-            var targetType = binding.TargetPropertyType;
-            var enumType = Nullable.GetUnderlyingType(targetType) ?? targetType;
-            if (!enumType.IsEnum)
-            {
-                return;
-            }
-
-            // null is valid only for nullable enum targets.
-            if (value is null)
-            {
-                if (Nullable.GetUnderlyingType(targetType) is null)
-                {
-                    throw new ArgumentException(
-                        $"Cannot set property '{propertyIdentifier}' on service '{serviceIdentifier}': target type '{targetType}' is a non-nullable enum but value was null.");
-                }
-
-                return;
-            }
-
-            if (value.GetType() != enumType)
-            {
-                throw new ArgumentException(
-                    $"Cannot set property '{propertyIdentifier}' on service '{serviceIdentifier}': target type '{targetType}' is an enum but value type was '{value.GetType()}'. " +
-                    $"Pass the typed enum value (or its name string via the codec), not its underlying integer.");
-            }
         }
 
         /// <summary>
@@ -290,6 +233,24 @@ namespace Vion.Dale.Sdk.Configuration.Services
             }
         }
 
+        /// <summary>
+        ///     Used by the declarative service binder to declare a service and start binding properties
+        /// </summary>
+        internal ServiceBuilder CreateService(string serviceIdentifier)
+        {
+            if (!_serviceProperties.ContainsKey(serviceIdentifier))
+            {
+                _serviceProperties[serviceIdentifier] = new Dictionary<Type, Dictionary<string, ServiceBinding>>();
+            }
+
+            if (!_serviceMeasuringPoints.ContainsKey(serviceIdentifier))
+            {
+                _serviceMeasuringPoints[serviceIdentifier] = new Dictionary<Type, Dictionary<string, ServiceBinding>>();
+            }
+
+            return new ServiceBuilder(this, serviceIdentifier);
+        }
+
         internal void RegisterServicePropertyBinding(string serviceIdentifier, Type? interfaceType, string propertyIdentifier, ServiceBinding binding)
         {
             var interfaceTypeKey = interfaceType ?? ExtraPropsKey;
@@ -355,6 +316,45 @@ namespace Vion.Dale.Sdk.Configuration.Services
             }
 
             _serviceRelations[serviceIdentifier].Add(relationInfo);
+        }
+
+        /// <summary>
+        ///     Strict enum-type discipline for the binder's set path. The CLR's compiled-expression
+        ///     setter does <c>unbox.any TEnum</c> on a boxed primitive whose underlying type matches
+        ///     the enum (e.g. <c>int</c> for an enum with underlying <c>System.Int32</c>), silently
+        ///     coercing it to the enum value. Pre-rich-types this masked real bugs: a wire payload
+        ///     carrying a raw integer for an enum property would land as a "valid" enum value.
+        ///     Post rich-types the codec produces the typed enum value at the JSON/FB → CLR boundary,
+        ///     so any boxed primitive reaching this binder for an enum-typed target is now a bug
+        ///     somewhere upstream. Reject loudly instead of silently coercing.
+        /// </summary>
+        private static void EnsureEnumTypeMatchesTarget(ServiceBinding binding, object? value, string serviceIdentifier, string propertyIdentifier)
+        {
+            var targetType = binding.TargetPropertyType;
+            var enumType = Nullable.GetUnderlyingType(targetType) ?? targetType;
+            if (!enumType.IsEnum)
+            {
+                return;
+            }
+
+            // null is valid only for nullable enum targets.
+            if (value is null)
+            {
+                if (Nullable.GetUnderlyingType(targetType) is null)
+                {
+                    throw new
+                        ArgumentException($"Cannot set property '{propertyIdentifier}' on service '{serviceIdentifier}': target type '{targetType}' is a non-nullable enum but value was null.");
+                }
+
+                return;
+            }
+
+            if (value.GetType() != enumType)
+            {
+                throw new
+                    ArgumentException($"Cannot set property '{propertyIdentifier}' on service '{serviceIdentifier}': target type '{targetType}' is an enum but value type was '{value.GetType()}'. " +
+                                      $"Pass the typed enum value (or its name string via the codec), not its underlying integer.");
+            }
         }
 
         private class ExtraPropertiesSentinel

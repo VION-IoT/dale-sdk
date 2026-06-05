@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Vion.Dale.Sdk.Abstractions;
 using Microsoft.Extensions.Logging;
+using Vion.Dale.Sdk.Abstractions;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
 {
@@ -18,7 +18,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
         /// <param name="requestName">The name of the request for logging and diagnostics purposes.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="operation">The asynchronous operation to execute.</param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
@@ -42,7 +43,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
         /// <param name="requestName">The name of the request for logging and diagnostics purposes.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="operation">The asynchronous operation to execute.</param>
         /// <param name="successCallback">The callback invoked when the operation succeeds.</param>
@@ -64,7 +66,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
         /// <param name="requestName">The name of the request for logging and diagnostics purposes.</param>
         /// <param name="dispatcher">
         ///     The dispatcher that will invoke the callbacks.
-        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic block).
+        ///     Pass the logic block that should handle the callbacks (typically <c>this</c> when calling from within a logic
+        ///     block).
         /// </param>
         /// <param name="operation">The asynchronous operation to execute.</param>
         /// <param name="successCallback">

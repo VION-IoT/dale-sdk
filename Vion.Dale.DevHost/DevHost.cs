@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Vion.Dale.DevHost.Control;
+using Vion.Dale.Sdk.Abstractions;
 
 namespace Vion.Dale.DevHost
 {
@@ -33,7 +34,10 @@ namespace Vion.Dale.DevHost
         }
 
         /// <inheritdoc />
-        public IDevHostControl Control => _serviceProvider.GetRequiredService<IDevHostControl>();
+        public IDevHostControl Control
+        {
+            get => _serviceProvider.GetRequiredService<IDevHostControl>();
+        }
 
         public async Task StartAsync(CancellationToken cancellationToken = default)
         {
@@ -161,7 +165,7 @@ namespace Vion.Dale.DevHost
             // accumulated actor systems contend for the thread pool and intermittently stall operations.
             try
             {
-                var actorSystem = _serviceProvider.GetService<Vion.Dale.Sdk.Abstractions.IActorSystem>();
+                var actorSystem = _serviceProvider.GetService<IActorSystem>();
                 if (actorSystem is not null)
                 {
                     await actorSystem.ShutdownAsync();

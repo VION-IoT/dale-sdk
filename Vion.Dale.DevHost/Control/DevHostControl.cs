@@ -1,18 +1,21 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml;
 using Vion.Contracts.Codec;
 using Vion.Contracts.TypeRef;
 using Vion.Dale.DevHost.Mocking;
 using Vion.Dale.Sdk.Abstractions;
-using Vion.Dale.Sdk.DigitalIo.Input;
-using Vion.Dale.Sdk.DigitalIo.Output;
 using Vion.Dale.Sdk.AnalogIo.Input;
 using Vion.Dale.Sdk.AnalogIo.Output;
+using Vion.Dale.Sdk.DigitalIo.Input;
+using Vion.Dale.Sdk.DigitalIo.Output;
 using Vion.Dale.Sdk.Messages;
 using Vion.Dale.Sdk.Utils;
 
@@ -21,27 +24,27 @@ namespace Vion.Dale.DevHost.Control
     /// <inheritdoc />
     internal sealed class DevHostControl : IDevHostControl, IDisposable
     {
+        private readonly IActorSystem _actorSystem;
+
         private readonly DevConfiguration _configuration;
 
         private readonly DevHostEvents _events;
 
-        private readonly DevHostLogSink _logSink;
-
-        private readonly DevHostIntrospection _introspection;
-
-        private readonly IActorSystem _actorSystem;
-
-        private readonly MessageTap _messageTap;
-
         // Event-stream fan-out + pending WaitForAsync waiters share one lock — both touched from actor threads.
         private readonly object _gate = new();
 
-        private readonly List<Action<DevHostEvent>> _subscribers = new();
+        private readonly DevHostIntrospection _introspection;
 
-        private readonly List<Func<DevHostEvent, bool>> _waiters = new();
+        private readonly DevHostLogSink _logSink;
+
+        private readonly MessageTap _messageTap;
+
+        private readonly List<Action<DevHostEvent>> _subscribers = new();
 
         // Last-known value per (serviceConfigId, memberName) — fed by the change events, read by GetProperty.
         private readonly ConcurrentDictionary<(string ServiceId, string Member), object?> _values = new();
+
+        private readonly List<Func<DevHostEvent, bool>> _waiters = new();
 
         // service-id (GUID carried on the events) → logic block name. Built lazily: in a headless boot the
         // config's Services aren't populated until DevHostIntrospection runs, which may be after construction.
@@ -71,9 +74,7 @@ namespace Vion.Dale.DevHost.Control
 
         public IReadOnlyList<LogicBlockInfo> ListLogicBlocks()
         {
-            return _configuration.LogicBlocks
-                                 .Select(b => new LogicBlockInfo(b.Id, b.Name, b.LogicBlockType.Name, b.Services.Select(s => s.Id).ToList()))
-                                 .ToList();
+            return _configuration.LogicBlocks.Select(b => new LogicBlockInfo(b.Id, b.Name, b.LogicBlockType.Name, b.Services.Select(s => s.Id).ToList())).ToList();
         }
 
         public ConfigurationOutput GetConfiguration()
@@ -111,13 +112,11 @@ namespace Vion.Dale.DevHost.Control
 
         public Task SetPropertyAsync(string logicBlockIdOrName, string propertyName, object value)
         {
-            var logicBlock = ResolveLogicBlock(logicBlockIdOrName)
-                             ?? throw new InvalidOperationException($"Unknown logic block '{logicBlockIdOrName}'.");
+            var logicBlock = ResolveLogicBlock(logicBlockIdOrName) ?? throw new InvalidOperationException($"Unknown logic block '{logicBlockIdOrName}'.");
 
             if (!_introspection.TryGetServiceId(logicBlock.Id, propertyName, out var serviceId))
             {
-                throw new InvalidOperationException(
-                    $"Logic block '{logicBlock.Name}' has no service property or measuring point named '{propertyName}'.");
+                throw new InvalidOperationException($"Logic block '{logicBlock.Name}' has no service property or measuring point named '{propertyName}'.");
             }
 
             return SetServicePropertyValueAsync(serviceId, propertyName, value);
@@ -125,8 +124,8 @@ namespace Vion.Dale.DevHost.Control
 
         public async Task SetServicePropertyValueAsync(string serviceId, string propertyName, object value)
         {
-            var logicBlock = _configuration.LogicBlocks.FirstOrDefault(lb => lb.Services.Any(s => s.Id == serviceId))
-                             ?? throw new InvalidOperationException($"Unknown service id '{serviceId}'.");
+            var logicBlock = _configuration.LogicBlocks.FirstOrDefault(lb => lb.Services.Any(s => s.Id == serviceId)) ??
+                             throw new InvalidOperationException($"Unknown service id '{serviceId}'.");
 
             // Decode JSON values (the HTTP path delivers JsonElement) into the precise CLR type the block
             // expects; CLR values from in-process callers pass through unchanged.
@@ -141,11 +140,11 @@ namespace Vion.Dale.DevHost.Control
             // one. Register the waiter BEFORE sending: WaitForAsync only observes events raised after the call.
             // A set that doesn't change the value raises no event, so the wait falls back to its timeout rather
             // than hanging (GetProperty already returns the correct, unchanged value in that case).
-            var applied = WaitForAsync(
-                e => e is ServicePropertyChanged sp && sp.ServiceId == serviceId && sp.Property == propertyName ? (object)sp : null,
-                timeout: TimeSpan.FromSeconds(5));
+            var applied = WaitForAsync(e => e is ServicePropertyChanged sp && sp.ServiceId == serviceId && sp.Property == propertyName ? (object)sp : null,
+                                       TimeSpan.FromSeconds(5));
 
-            _actorSystem.SendTo(handler, new MockSetServicePropertyValue(logicBlockActor, new SetServicePropertyValueRequest(new ServiceIdentifier(serviceId), propertyName, typedValue!)));
+            _actorSystem.SendTo(handler,
+                                new MockSetServicePropertyValue(logicBlockActor, new SetServicePropertyValueRequest(new ServiceIdentifier(serviceId), propertyName, typedValue!)));
 
             await applied.ConfigureAwait(false);
         }
@@ -172,69 +171,6 @@ namespace Vion.Dale.DevHost.Control
             _actorSystem.SendTo(_actorSystem.LookupByName(nameof(AnalogOutputHandler)), new MockPublishAllStatesMessage());
             _actorSystem.SendTo(_actorSystem.LookupByName(nameof(MockServicePropertyHandler)), new MockPublishAllStatesMessage());
             _actorSystem.SendTo(_actorSystem.LookupByName(nameof(MockServiceMeasuringPointHandler)), new MockPublishAllStatesMessage());
-        }
-
-        // JSON → typed CLR for the HTTP set path (moved here when IDevHostStateProvider was collapsed into the
-        // control surface). Re-parses the property's JSON Schema into a TypeRef and delegates to the same
-        // PropertyValueCodec the runtime uses. CLR values pass through untouched.
-        private object? NormalizeValue(string serviceId, string propertyName, object value)
-        {
-            var isJson = value is System.Text.Json.JsonElement || value is JsonNode;
-            if (!isJson)
-            {
-                return value;
-            }
-
-            if (!_introspection.TryGetPropertyConversion(serviceId, propertyName, out var schema, out var clrType) || schema is null || clrType is null)
-            {
-                // No schema/type available — hand the raw value through rather than fail.
-                return value;
-            }
-
-            var typeRef = TypeSchemaSerialization.FromJsonSchema(schema).Type;
-            // The codec reads JsonElement-backed nodes. The HTTP path already produces those (JsonElement →
-            // re-parsed). An in-process JsonNode may instead be CLR-backed (e.g. JsonValue.Create(99)), which the
-            // codec can't read — round-trip it through its JSON string so any JsonNode input honours the contract.
-            JsonNode? json = value switch
-            {
-                System.Text.Json.JsonElement je when je.ValueKind == System.Text.Json.JsonValueKind.Null => null,
-                System.Text.Json.JsonElement je => JsonNode.Parse(je.GetRawText()),
-                JsonNode node => JsonNode.Parse(node.ToJsonString()),
-                _ => null,
-            };
-
-            // Duration is the one primitive whose wire form is ambiguous: the codec parses ISO-8601 ("PT5S")
-            // only (XmlConvert.ToTimeSpan), but the web UI and .NET callers submit the .NET ToString form
-            // ("00:00:05"). Accept both here, otherwise every TimeSpan property is unwritable from the UI
-            // (FormatException → HTTP 500). The UI's read side is already tolerant of both forms.
-            var underlyingClr = Nullable.GetUnderlyingType(clrType) ?? clrType;
-            if (underlyingClr == typeof(TimeSpan) && json is JsonValue durationValue && durationValue.TryGetValue<string>(out var durationText) && TryParseDuration(durationText, out var duration))
-            {
-                return duration;
-            }
-
-            return PropertyValueCodec.JsonToClr(json, typeRef, clrType);
-        }
-
-        // Parse a Duration from either the ISO-8601 form ("PT5S", the codec/MQTT canonical) or the .NET
-        // TimeSpan ToString form ("00:00:05", what the web UI renders and submits).
-        private static bool TryParseDuration(string text, out TimeSpan value)
-        {
-            try
-            {
-                value = System.Xml.XmlConvert.ToTimeSpan(text);
-                return true;
-            }
-            catch (FormatException)
-            {
-                return TimeSpan.TryParse(text, System.Globalization.CultureInfo.InvariantCulture, out value);
-            }
-        }
-
-        private DevLogicBlockConfig? ResolveLogicBlock(string logicBlockIdOrName)
-        {
-            return _configuration.LogicBlocks.FirstOrDefault(b => b.Name == logicBlockIdOrName)
-                   ?? _configuration.LogicBlocks.FirstOrDefault(b => b.Id == logicBlockIdOrName);
         }
 
         public IDisposable Subscribe(Action<DevHostEvent> sink)
@@ -336,6 +272,70 @@ namespace Vion.Dale.DevHost.Control
             _events.DigitalOutputChanged -= OnDigitalOutput;
             _events.AnalogInputChanged -= OnAnalogInput;
             _events.AnalogOutputChanged -= OnAnalogOutput;
+        }
+
+        // JSON → typed CLR for the HTTP set path (moved here when IDevHostStateProvider was collapsed into the
+        // control surface). Re-parses the property's JSON Schema into a TypeRef and delegates to the same
+        // PropertyValueCodec the runtime uses. CLR values pass through untouched.
+        private object? NormalizeValue(string serviceId, string propertyName, object value)
+        {
+            var isJson = value is JsonElement || value is JsonNode;
+            if (!isJson)
+            {
+                return value;
+            }
+
+            if (!_introspection.TryGetPropertyConversion(serviceId, propertyName, out var schema, out var clrType) || schema is null || clrType is null)
+            {
+                // No schema/type available — hand the raw value through rather than fail.
+                return value;
+            }
+
+            var typeRef = TypeSchemaSerialization.FromJsonSchema(schema).Type;
+
+            // The codec reads JsonElement-backed nodes. The HTTP path already produces those (JsonElement →
+            // re-parsed). An in-process JsonNode may instead be CLR-backed (e.g. JsonValue.Create(99)), which the
+            // codec can't read — round-trip it through its JSON string so any JsonNode input honours the contract.
+            var json = value switch
+            {
+                JsonElement je when je.ValueKind == JsonValueKind.Null => null,
+                JsonElement je => JsonNode.Parse(je.GetRawText()),
+                JsonNode node => JsonNode.Parse(node.ToJsonString()),
+                _ => null,
+            };
+
+            // Duration is the one primitive whose wire form is ambiguous: the codec parses ISO-8601 ("PT5S")
+            // only (XmlConvert.ToTimeSpan), but the web UI and .NET callers submit the .NET ToString form
+            // ("00:00:05"). Accept both here, otherwise every TimeSpan property is unwritable from the UI
+            // (FormatException → HTTP 500). The UI's read side is already tolerant of both forms.
+            var underlyingClr = Nullable.GetUnderlyingType(clrType) ?? clrType;
+            if (underlyingClr == typeof(TimeSpan) && json is JsonValue durationValue && durationValue.TryGetValue<string>(out var durationText) &&
+                TryParseDuration(durationText, out var duration))
+            {
+                return duration;
+            }
+
+            return PropertyValueCodec.JsonToClr(json, typeRef, clrType);
+        }
+
+        // Parse a Duration from either the ISO-8601 form ("PT5S", the codec/MQTT canonical) or the .NET
+        // TimeSpan ToString form ("00:00:05", what the web UI renders and submits).
+        private static bool TryParseDuration(string text, out TimeSpan value)
+        {
+            try
+            {
+                value = XmlConvert.ToTimeSpan(text);
+                return true;
+            }
+            catch (FormatException)
+            {
+                return TimeSpan.TryParse(text, CultureInfo.InvariantCulture, out value);
+            }
+        }
+
+        private DevLogicBlockConfig? ResolveLogicBlock(string logicBlockIdOrName)
+        {
+            return _configuration.LogicBlocks.FirstOrDefault(b => b.Name == logicBlockIdOrName) ?? _configuration.LogicBlocks.FirstOrDefault(b => b.Id == logicBlockIdOrName);
         }
 
         private string LogicBlockNameFor(string serviceId)

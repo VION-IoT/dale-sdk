@@ -21,18 +21,15 @@ namespace Vion.Dale.DevHost.Web.Services
     {
         private readonly WebHostConfiguration _config;
 
+        private readonly IDevHostControl _control;
+
         private readonly DevConfiguration _devConfiguration;
 
         private readonly DevHostEvents _devHostEvents;
 
-        private readonly IDevHostControl _control;
-
         private WebApplication? _app;
 
-        public WebHostService(WebHostConfiguration config,
-                              DevConfiguration devConfiguration,
-                              DevHostEvents devHostEvents,
-                              IDevHostControl control)
+        public WebHostService(WebHostConfiguration config, DevConfiguration devConfiguration, DevHostEvents devHostEvents, IDevHostControl control)
         {
             _config = config;
             _devConfiguration = devConfiguration;

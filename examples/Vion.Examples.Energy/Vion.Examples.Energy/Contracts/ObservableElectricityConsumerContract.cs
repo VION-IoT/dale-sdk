@@ -4,10 +4,10 @@ using Vion.Dale.Sdk.Core;
 namespace Vion.Examples.Energy.Contracts
 {
     [LogicBlockContract(BetweenInterface = "IObservableElectricityConsumer",
-              AndInterface = "IObservableElectricityConsumerManager",
-              BetweenDefaultName = "Verbraucher",
-              AndDefaultName = "Energiemanager",
-              Direction = ContractDirection.AndToBetween)]
+                        AndInterface = "IObservableElectricityConsumerManager",
+                        BetweenDefaultName = "Verbraucher",
+                        AndDefaultName = "Energiemanager",
+                        Direction = ContractDirection.AndToBetween)]
     public static class ObservableElectricityConsumerContract
     {
         [RequestResponse(From = "IObservableElectricityConsumerManager", To = "IObservableElectricityConsumer", ResponseType = typeof(DataResponse))]

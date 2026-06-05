@@ -25,6 +25,16 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             context.RegisterSymbolAction(AnalyzeProperty, SymbolKind.Property);
         }
 
+        internal static bool IsTemporalType(ITypeSymbol type)
+        {
+            if (type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nt)
+            {
+                return IsTemporalType(nt.TypeArguments[0]);
+            }
+
+            return type.SpecialType == SpecialType.System_DateTime || type.ToDisplayString() == "System.TimeSpan";
+        }
+
         private static void AnalyzeProperty(SymbolAnalysisContext context)
         {
             var property = (IPropertySymbol)context.Symbol;
@@ -62,17 +72,6 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             }
 
             return false;
-        }
-
-        internal static bool IsTemporalType(ITypeSymbol type)
-        {
-            if (type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nt)
-            {
-                return IsTemporalType(nt.TypeArguments[0]);
-            }
-
-            return type.SpecialType == SpecialType.System_DateTime
-                || type.ToDisplayString() == "System.TimeSpan";
         }
     }
 }

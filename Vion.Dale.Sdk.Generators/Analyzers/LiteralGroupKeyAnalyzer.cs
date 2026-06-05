@@ -31,8 +31,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             context.RegisterCompilationStartAction(start =>
                                                    {
                                                        var allowed = CollectPropertyGroupConstants(start.Compilation);
-                                                       start.RegisterSyntaxNodeAction(ctx => AnalyzeAttribute(ctx, allowed),
-                                                                                      SyntaxKind.Attribute);
+                                                       start.RegisterSyntaxNodeAction(ctx => AnalyzeAttribute(ctx, allowed), SyntaxKind.Attribute);
                                                    });
         }
 
@@ -49,8 +48,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
 
                 foreach (var member in type.GetMembers())
                 {
-                    if (member is IFieldSymbol { IsConst: true, Type.SpecialType: SpecialType.System_String } field
-                        && field.ConstantValue is string s)
+                    if (member is IFieldSymbol { IsConst: true, Type.SpecialType: SpecialType.System_String } field && field.ConstantValue is string s)
                     {
                         allowed.Add(s);
                     }
@@ -88,8 +86,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                     continue;
                 }
 
-                if (arg.Expression is not LiteralExpressionSyntax literal
-                    || !literal.IsKind(SyntaxKind.StringLiteralExpression))
+                if (arg.Expression is not LiteralExpressionSyntax literal || !literal.IsKind(SyntaxKind.StringLiteralExpression))
                 {
                     // Constant reference (PropertyGroup.Status) — accept.
                     continue;
@@ -101,9 +98,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                     continue;
                 }
 
-                context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE026_LiteralGroupKey,
-                                                           literal.GetLocation(),
-                                                           value));
+                context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE026_LiteralGroupKey, literal.GetLocation(), value));
             }
         }
     }

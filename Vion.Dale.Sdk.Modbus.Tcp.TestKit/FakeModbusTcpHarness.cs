@@ -28,6 +28,12 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
     {
         private readonly ServiceProvider _serviceProvider;
 
+        /// <summary>The fake proxy — pre-populate registers, inject faults, inspect histories.</summary>
+        public FakeModbusTcpClientProxy Proxy { get; }
+
+        /// <summary>The fully wired client to inject into the SUT.</summary>
+        public ILogicBlockModbusTcpClient Client { get; }
+
         public FakeModbusTcpHarness() : this(new FakeModbusTcpClientProxy())
         {
         }
@@ -52,12 +58,6 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
             _serviceProvider = services.BuildServiceProvider();
             Client = _serviceProvider.GetRequiredService<ILogicBlockModbusTcpClient>();
         }
-
-        /// <summary>The fake proxy — pre-populate registers, inject faults, inspect histories.</summary>
-        public FakeModbusTcpClientProxy Proxy { get; }
-
-        /// <summary>The fully wired client to inject into the SUT.</summary>
-        public ILogicBlockModbusTcpClient Client { get; }
 
         public void Dispose()
         {

@@ -1,6 +1,6 @@
-﻿using Vion.Dale.Sdk.Core;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Http;
-using Microsoft.Extensions.DependencyInjection;
 using Vion.Examples.Energy.LogicBlocks;
 using Vion.Examples.Energy.Services;
 

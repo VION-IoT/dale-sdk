@@ -37,11 +37,11 @@ namespace Vion.Dale.Sdk.Generators.Test.Helpers
             // Pin LanguageVersion so tests can exercise newer C# features (e.g. C# 13 'field'
             // contextual keyword) regardless of what the test framework's default would pick.
             test.SolutionTransforms.Add((solution, projectId) =>
-            {
-                var project = solution.GetProject(projectId)!;
-                var parseOptions = (CSharpParseOptions)project.ParseOptions!;
-                return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.Latest));
-            });
+                                        {
+                                            var project = solution.GetProject(projectId)!;
+                                            var parseOptions = (CSharpParseOptions)project.ParseOptions!;
+                                            return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.Latest));
+                                        });
 
             test.ExpectedDiagnostics.AddRange(expected);
             await test.RunAsync();

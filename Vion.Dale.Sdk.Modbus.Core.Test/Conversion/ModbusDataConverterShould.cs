@@ -1,7 +1,7 @@
 ﻿using System;
+using Moq;
 using Vion.Dale.Sdk.Modbus.Core.Conversion;
 using Vion.Dale.Sdk.Modbus.Core.Exceptions;
-using Moq;
 
 // ReSharper disable UseUtf8StringLiteral - Testing conversion from raw byte array (as received from Modbus) rather than UTF-8 string literal
 

@@ -1,7 +1,7 @@
-﻿using Vion.Dale.Sdk.Core;
+﻿using Moq;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.DigitalIo.Output;
 using Vion.Dale.Sdk.TestKit;
-using Moq;
 
 namespace Vion.Dale.Sdk.DigitalIo.TestKit
 {

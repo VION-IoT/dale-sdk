@@ -14,6 +14,12 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
     {
         private readonly ILogicBlockModbusTcpClient _client;
 
+        [ServiceProperty]
+        public uint Power { get; private set; }
+
+        // Plain property (not a ServiceProperty — Exception isn't in the supported type set).
+        public Exception? LastReadError { get; private set; }
+
         public SampleModbusTcpBlock(ILogicBlockModbusTcpClient client, ILogger logger) : base(logger)
         {
             _client = client;
@@ -21,23 +27,17 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
             _client.IsEnabled = true;
         }
 
-        [ServiceProperty]
-        public uint Power { get; private set; }
-
-        // Plain property (not a ServiceProperty — Exception isn't in the supported type set).
-        public Exception? LastReadError { get; private set; }
-
         /// <summary>Issues a 1×UInt32 holding-register read at address 40000, unit 1, using MswToLsw word order.</summary>
         public void ReadPowerOnce()
         {
-            _client.ReadHoldingRegistersAsUInt(unitIdentifier: 1,
-                                               startingAddress: 40000,
-                                               count: 1,
-                                               dispatcher: this,
-                                               successCallback: values => Power = values[0],
-                                               errorCallback: ex => LastReadError = ex,
-                                               byteOrder: ByteOrder.MsbToLsb,
-                                               wordOrder: WordOrder32.MswToLsw);
+            _client.ReadHoldingRegistersAsUInt(1,
+                                               40000,
+                                               1,
+                                               this,
+                                               values => Power = values[0],
+                                               ex => LastReadError = ex,
+                                               ByteOrder.MsbToLsb,
+                                               WordOrder32.MswToLsw);
         }
 
         /// <summary>
@@ -47,14 +47,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
         /// </summary>
         public void WriteActivePowerLimit(uint value, WordOrder32 wordOrder = WordOrder32.MswToLsw)
         {
-            _client.WriteMultipleHoldingRegistersAsUInt(unitIdentifier: 1,
-                                                        startingAddress: 40378,
-                                                        values: new[] { value },
-                                                        dispatcher: this,
-                                                        successCallback: null,
-                                                        errorCallback: ex => LastReadError = ex,
-                                                        byteOrder: ByteOrder.MsbToLsb,
-                                                        wordOrder: wordOrder);
+            _client.WriteMultipleHoldingRegistersAsUInt(1,
+                                                        40378,
+                                                        new[] { value },
+                                                        this,
+                                                        null,
+                                                        ex => LastReadError = ex,
+                                                        ByteOrder.MsbToLsb,
+                                                        wordOrder);
         }
 
         protected override void Ready()

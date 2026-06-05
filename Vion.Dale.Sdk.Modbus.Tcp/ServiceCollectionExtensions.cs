@@ -1,9 +1,9 @@
-﻿using Vion.Dale.Sdk.Core;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Modbus.Core;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.Request;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp
 {

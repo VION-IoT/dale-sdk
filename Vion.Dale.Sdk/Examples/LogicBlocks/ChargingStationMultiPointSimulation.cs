@@ -35,9 +35,9 @@ namespace Vion.Dale.Sdk.Examples.LogicBlocks
     [LogicBlock(Name = "Ladestation Simulation", Icon = "ev-station")]
     public class ChargingStationMultiPointSimulation : LogicBlockBase, IChargingStationService, IPing, IToggleable
     {
-        private readonly TimeProvider _timeProvider;
-
         private readonly ILogger _logger;
+
+        private readonly TimeProvider _timeProvider;
 
         //[Service("DefaultChargingPoint")]
         //[LogicBlockInterfaceBinding(typeof(IPing), Identifier = "Ping1", DefaultName = "DefaultChargingPoint")]

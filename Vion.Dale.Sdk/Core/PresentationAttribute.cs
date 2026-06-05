@@ -8,8 +8,7 @@ namespace Vion.Dale.Sdk.Core
     ///     preset inheritance — integrators subclass to ship their own domain vocabulary.
     /// </summary>
     [PublicApi]
-    [AttributeUsage(AttributeTargets.Property | AttributeTargets.Method,
-                    AllowMultiple = false, Inherited = true)]
+    [AttributeUsage(AttributeTargets.Property | AttributeTargets.Method)]
     public class PresentationAttribute : Attribute
     {
         // ── Naming ──
@@ -93,16 +92,16 @@ namespace Vion.Dale.Sdk.Core
         ///     <para />
         ///     Two reserved sentinel values short-circuit the token interpreter:
         ///     <list type="bullet">
-        ///       <item><c>"relative"</c> → auto-updating "3 minutes ago"-style date display</item>
-        ///       <item><c>"humanize"</c> → humanized duration like "3 hours"</item>
+        ///         <item><c>"relative"</c> → auto-updating "3 minutes ago"-style date display</item>
+        ///         <item><c>"humanize"</c> → humanized duration like "3 hours"</item>
         ///     </list>
         ///     Common tokens (see <see cref="Formats" /> for shortcuts):
         ///     <list type="bullet">
-        ///       <item><c>"LLLL"</c> → "Wednesday, May 13, 2026 2:32 PM" (locale full + weekday)</item>
-        ///       <item><c>"LLL"</c> → "May 13, 2026 2:32 PM" (locale long)</item>
-        ///       <item><c>"YYYY-MM-DD HH:mm:ss"</c> → "2026-05-13 14:32:05"</item>
-        ///       <item><c>"YYYY-MM-DD HH:mm:ss.SSS"</c> → with millisecond precision</item>
-        ///       <item><c>"HH:mm:ss"</c> → "01:23:45" (typical for durations)</item>
+        ///         <item><c>"LLLL"</c> → "Wednesday, May 13, 2026 2:32 PM" (locale full + weekday)</item>
+        ///         <item><c>"LLL"</c> → "May 13, 2026 2:32 PM" (locale long)</item>
+        ///         <item><c>"YYYY-MM-DD HH:mm:ss"</c> → "2026-05-13 14:32:05"</item>
+        ///         <item><c>"YYYY-MM-DD HH:mm:ss.SSS"</c> → with millisecond precision</item>
+        ///         <item><c>"HH:mm:ss"</c> → "01:23:45" (typical for durations)</item>
         ///     </list>
         ///     Token reference: <see href="https://momentjs.com/docs/#/displaying/format/" />.
         /// </summary>

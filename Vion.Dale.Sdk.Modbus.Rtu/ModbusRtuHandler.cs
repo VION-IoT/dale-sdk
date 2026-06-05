@@ -1,15 +1,15 @@
 using System;
 using System.Collections.Generic;
-using Vion.Dale.Sdk.Abstractions;
-using Vion.Dale.Sdk.Messages;
-using Vion.Dale.Sdk.Modbus.Core.Exceptions;
-using Vion.Dale.Sdk.Mqtt;
-using Vion.Dale.Sdk.Utils;
 using Google.FlatBuffers;
 using Microsoft.Extensions.Logging;
 using Vion.Contracts.Constants;
 using Vion.Contracts.FlatBuffers.Hw.Modbus;
 using Vion.Contracts.Mqtt;
+using Vion.Dale.Sdk.Abstractions;
+using Vion.Dale.Sdk.Messages;
+using Vion.Dale.Sdk.Modbus.Core.Exceptions;
+using Vion.Dale.Sdk.Mqtt;
+using Vion.Dale.Sdk.Utils;
 
 namespace Vion.Dale.Sdk.Modbus.Rtu
 {
@@ -26,8 +26,6 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
         private readonly Dictionary<LogicBlockContractId, IActorReference> _actorReferences = [];
 
         private readonly TimeSpan _checkExpiredRequestsDelay = TimeSpan.FromSeconds(1);
-
-        private readonly TimeProvider _timeProvider;
 
         private readonly Dictionary<ServiceProviderContractId, string> _getResponseTopics = [];
 
@@ -48,6 +46,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
         private readonly Dictionary<ServiceProviderContractId, string> _setTopics = [];
 
         private readonly OperationTimeoutException _timeoutException = new();
+
+        private readonly TimeProvider _timeProvider;
 
         private bool _checkExpiredRequestsStarted;
 

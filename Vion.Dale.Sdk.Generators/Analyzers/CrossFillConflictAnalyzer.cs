@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
@@ -71,8 +72,8 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                                                                property.Locations.FirstOrDefault(),
                                                                property.Name,
                                                                field,
-                                                               sp.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                                                               mp.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+                                                               sp.Value.ToString(CultureInfo.InvariantCulture),
+                                                               mp.Value.ToString(CultureInfo.InvariantCulture)));
                 }
             }
         }

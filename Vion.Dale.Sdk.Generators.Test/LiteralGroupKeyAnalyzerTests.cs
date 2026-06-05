@@ -44,9 +44,7 @@ public class MyBlock
 {
     [Presentation(Group = {|#0:""acme.powertrain""|})] public int Counter { get; set; }
 }";
-            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE026_LiteralGroupKey)
-                                           .WithLocation(0)
-                                           .WithArguments("acme.powertrain");
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE026_LiteralGroupKey).WithLocation(0).WithArguments("acme.powertrain");
             await AnalyzerTestBase.VerifyAnalyzerAsync<LiteralGroupKeyAnalyzer>(source, expected);
         }
 

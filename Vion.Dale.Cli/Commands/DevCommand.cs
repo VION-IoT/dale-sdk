@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.CommandLine;
 using System.IO;
@@ -14,7 +15,8 @@ namespace Vion.Dale.Cli.Commands
 
             var headlessOption = new Option<bool>("--headless")
                                  {
-                                     Description = "Run without opening a browser. Serves the control API and prints a JSON readiness line on stdout — for tools, CI, and agents.",
+                                     Description =
+                                         "Run without opening a browser. Serves the control API and prints a JSON readiness line on stdout — for tools, CI, and agents.",
                                  };
             command.Options.Add(headlessOption);
 
@@ -29,7 +31,7 @@ namespace Vion.Dale.Cli.Commands
                                   // the CLI's no-SDK-dependency rule (mirrors DevHostWebRunner.NoBrowserEnvVar).
                                   if (headless)
                                   {
-                                      System.Environment.SetEnvironmentVariable("DALE_DEVHOST_NO_BROWSER", "1");
+                                      Environment.SetEnvironmentVariable("DALE_DEVHOST_NO_BROWSER", "1");
                                   }
 
                                   // Strategy: find the DevHost .csproj by searching for {Name}.DevHost.csproj

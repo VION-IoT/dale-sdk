@@ -1,6 +1,6 @@
 using System;
-using Vion.Dale.Sdk.Core;
 using Microsoft.Extensions.Logging;
+using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
 {
@@ -29,11 +29,6 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
         {
         }
 
-        protected override void Ready()
-        {
-            Modbus.IsEnabled = true;
-        }
-
         public void ReadVoltages()
         {
             Modbus.ReadInputRegistersAsFloat(UnitId, VoltagesAddress, 3, values => LastVoltages = values, error => LastError = error);
@@ -47,6 +42,11 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
         public void WriteSetpoint(short value)
         {
             Modbus.WriteSingleHoldingRegister(UnitId, SetpointAddress, value, () => WriteSuccessCount++, error => LastError = error);
+        }
+
+        protected override void Ready()
+        {
+            Modbus.IsEnabled = true;
         }
     }
 }

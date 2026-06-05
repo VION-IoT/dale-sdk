@@ -1,14 +1,14 @@
 using System;
 using System.Collections.Generic;
-using Vion.Dale.Sdk.Abstractions;
-using Vion.Dale.Sdk.Messages;
-using Vion.Dale.Sdk.Mqtt;
-using Vion.Dale.Sdk.Utils;
 using Google.FlatBuffers;
 using Microsoft.Extensions.Logging;
 using Vion.Contracts.Constants;
 using Vion.Contracts.FlatBuffers.Hw.Do;
 using Vion.Contracts.Mqtt;
+using Vion.Dale.Sdk.Abstractions;
+using Vion.Dale.Sdk.Messages;
+using Vion.Dale.Sdk.Mqtt;
+using Vion.Dale.Sdk.Utils;
 
 namespace Vion.Dale.Sdk.DigitalIo.Output
 {

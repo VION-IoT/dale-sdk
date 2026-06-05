@@ -1,6 +1,6 @@
 using System;
-using Vion.Dale.Sdk.TestKit;
 using Microsoft.Extensions.Time.Testing;
+using Vion.Dale.Sdk.TestKit;
 using Vion.Examples.Energy.Contracts;
 using Vion.Examples.Energy.LogicBlocks;
 using Xunit;
@@ -9,28 +9,25 @@ namespace Vion.Examples.Energy.Test
 {
     public class ChargingStationSimulationShould
     {
-        private readonly FakeTimeProvider _timeProvider = new(new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero));
-        private readonly ChargingStationSimulation _sut;
-
         public ChargingStationSimulationShould()
         {
             _sut = new ChargingStationSimulation(_timeProvider, LogicBlockTestHelper.CreateLoggerMock().Object);
             _sut.InitializeForTest();
         }
 
+        private readonly FakeTimeProvider _timeProvider = new(new DateTimeOffset(2026,
+                                                                                 1,
+                                                                                 1,
+                                                                                 12,
+                                                                                 0,
+                                                                                 0,
+                                                                                 TimeSpan.Zero));
+
+        private readonly ChargingStationSimulation _sut;
+
         private void AdvanceTime(TimeSpan offset)
         {
             _timeProvider.Advance(offset);
-        }
-
-        // --- EnableCharging / RequestedActivePower ---
-
-        [Fact]
-        public void EnableCharging_True_RequestMaximumPower()
-        {
-            _sut.EnableCharging = true;
-
-            Assert.Equal(_sut.MaximumActivePower, _sut.RequestedActivePower);
         }
 
         [Fact]
@@ -42,13 +39,14 @@ namespace Vion.Examples.Energy.Test
             Assert.Equal(0.0, _sut.RequestedActivePower);
         }
 
+        // --- EnableCharging / RequestedActivePower ---
+
         [Fact]
-        public void MaximumActivePower_Changed_UpdateRequestedPower()
+        public void EnableCharging_True_RequestMaximumPower()
         {
             _sut.EnableCharging = true;
-            _sut.MaximumActivePower = 22.0;
 
-            Assert.Equal(22.0, _sut.RequestedActivePower);
+            Assert.Equal(_sut.MaximumActivePower, _sut.RequestedActivePower);
         }
 
         // --- HandleCommand ---
@@ -70,6 +68,15 @@ namespace Vion.Examples.Energy.Test
 
             Assert.Equal(0.0, response.ActivePowerConsuming);
             Assert.Equal(0.0, response.EnergyConsumedTotal);
+        }
+
+        [Fact]
+        public void MaximumActivePower_Changed_UpdateRequestedPower()
+        {
+            _sut.EnableCharging = true;
+            _sut.MaximumActivePower = 22.0;
+
+            Assert.Equal(22.0, _sut.RequestedActivePower);
         }
 
         // --- OnTimer ---
