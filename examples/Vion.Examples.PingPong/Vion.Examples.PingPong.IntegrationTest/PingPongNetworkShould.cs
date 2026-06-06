@@ -17,6 +17,7 @@ namespace Vion.Examples.PingPong.IntegrationTest
     ///         Here the whole network runs with real message passing, so the loop only turns if the wiring holds.
     ///     </para>
     /// </summary>
+    [Trait("kind", "headless-integration")]
     public class PingPongNetworkShould
     {
         private static IDevHost BuildHost()
@@ -47,11 +48,11 @@ namespace Vion.Examples.PingPong.IntegrationTest
             // TestKit's Verify*, and the highest-yield diagnostic for a "request never sent" bug.
             Assert.NotEmpty(control.RecordedMessages("Pong"));
 
-            // Drive a writable knob and observe the effect: pausing Ping is a [ServiceProperty].
+            // Drive a writable knob and read it back: pausing Ping is a [ServiceProperty]. SetPropertyAsync
+            // awaits the apply+publish, so the read-after-write is immediate — don't WaitForAsync for the change
+            // we just made (its event already fired before any observer could register; WaitForAsync is for a
+            // genuine *future* downstream change, like PongsPerSecond above).
             await control.SetPropertyAsync("Ping", "Pause", true);
-            var paused = await control.WaitForAsync(e => e is ServicePropertyChanged { Property: "Pause" } sp && Equals(sp.Value, true) ? (object)true : null,
-                                                    TimeSpan.FromSeconds(15));
-            Assert.NotNull(paused);
             Assert.Equal(true, control.GetProperty("Ping", "Pause"));
         }
     }
