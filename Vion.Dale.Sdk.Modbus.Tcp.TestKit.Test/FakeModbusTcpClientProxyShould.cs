@@ -73,7 +73,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
             var sut = CreateBlock(harness);
             var ctx = sut.CreateTestContext().Build();
 
-            sut.WriteActivePowerLimit(0x12345678u, WordOrder32.MswToLsw);
+            sut.WriteActivePowerLimit(0x12345678u);
             ctx.FlushPendingActions();
 
             var write = harness.Proxy.WriteHistory.Single();

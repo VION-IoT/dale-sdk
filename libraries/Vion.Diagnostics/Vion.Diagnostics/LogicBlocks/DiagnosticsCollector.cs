@@ -14,23 +14,16 @@ namespace Vion.Diagnostics.LogicBlocks
     ///     into a per-logic-block table + a runtime-health rollup + a status pill, and republishes on
     ///     Plane B. One array-valued property per gateway (one retained message) — no Mimir cardinality cost.
     /// </summary>
-    [LogicBlock(Name = "Runtime Diagnostics",
-                Icon = "pulse-line",
-                Groups = new[] { PropertyGroup.Status, PropertyGroup.Diagnostics, PropertyGroup.Configuration })]
+    [LogicBlock(Name = "Runtime Diagnostics", Icon = "pulse-line", Groups = new[] { PropertyGroup.Status, PropertyGroup.Diagnostics, PropertyGroup.Configuration })]
     public class DiagnosticsCollector : LogicBlockBase
     {
         private readonly IRuntimeDiagnostics _diagnostics;
+
         private readonly TimeProvider _timeProvider;
 
-        private IReadOnlyList<ActorVitals> _priorSnapshot = Array.Empty<ActorVitals>();
         private long _lastTimestamp;
 
-        public DiagnosticsCollector(IRuntimeDiagnostics diagnostics, TimeProvider timeProvider, ILogger logger)
-            : base(logger)
-        {
-            _diagnostics = diagnostics;
-            _timeProvider = timeProvider;
-        }
+        private IReadOnlyList<ActorVitals> _priorSnapshot = Array.Empty<ActorVitals>();
 
         // ── Status ────────────────────────────────────────────────────────────────
         [ServiceProperty(Description = "Overall runtime-diagnostics status across all matched logic blocks.")]
@@ -75,6 +68,12 @@ namespace Vion.Diagnostics.LogicBlocks
         [Presentation(Group = PropertyGroup.Configuration)]
         public TimeSpan CriticalHandlerDuration { get; set; } = TimeSpan.FromSeconds(1);
 
+        public DiagnosticsCollector(IRuntimeDiagnostics diagnostics, TimeProvider timeProvider, ILogger logger) : base(logger)
+        {
+            _diagnostics = diagnostics;
+            _timeProvider = timeProvider;
+        }
+
         /// <summary>Samples + republishes once a minute (RFC 0005: Plane B cadence, not per-change).</summary>
         [Timer(60)]
         public void Collect()
@@ -85,12 +84,7 @@ namespace Vion.Diagnostics.LogicBlocks
 
             var current = _diagnostics.Snapshot();
             var thresholds = new DiagnosticsThresholds(WarnMailboxDepth, CriticalMailboxDepth, WarnHandlerDuration, CriticalHandlerDuration);
-            var result = DiagnosticsProjection.Project(
-                _priorSnapshot,
-                current,
-                elapsed,
-                string.IsNullOrWhiteSpace(Filter) ? null : Filter,
-                thresholds);
+            var result = DiagnosticsProjection.Project(_priorSnapshot, current, elapsed, string.IsNullOrWhiteSpace(Filter) ? null : Filter, thresholds);
             _priorSnapshot = current;
 
             LogicBlocks = result.LogicBlocks;

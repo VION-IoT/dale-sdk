@@ -15,9 +15,9 @@ namespace Vion.Dale.Sdk.Http.Test
 
         private readonly Mock<IActorDispatcher> _actorDispatcherMock = new();
 
-        private readonly Action _callbackWithoutResponse = () => { };
-
         private readonly Action<TestObject> _callbackWithResponse = _ => { };
+
+        private readonly Action _callbackWithoutResponse = () => { };
 
         private readonly Action<Exception> _errorCallback = _ => { };
 

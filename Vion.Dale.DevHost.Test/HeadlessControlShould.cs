@@ -73,10 +73,19 @@ namespace Vion.Dale.DevHost.Test
             await using var host = BuildHost();
             await host.StartAsync();
 
+            // CounterDoubled is a *downstream* change: SetPropertyAsync awaits the Counter property apply+publish,
+            // but the measuring point is recomputed + published just after that, so an immediate GetProperty can
+            // race it (and read 0). Register the observer before the set — WaitForAsync only sees future events —
+            // and wait for the measuring-point publish, the same pattern as SetProperty_IsObservableViaWaitFor_AndReadBack.
+            var doubled = host.Control.WaitForAsync(e => e is ServiceMeasuringPointChanged { MeasuringPoint: "CounterDoubled" } mp && Convert.ToInt32(mp.Value) == 42 ? mp.Value :
+                                                             null,
+                                                    TimeSpan.FromSeconds(15));
+
             await host.Control.SetPropertyAsync("counter", "Counter", 21);
 
-            // The set is awaited until applied + published, and CounterDoubled is computed inside the Counter
-            // setter, so it is already in the value cache — GetProperty reads computed measuring points too.
+            Assert.IsNotNull(await doubled, "CounterDoubled = Counter * 2 should have been published after setting Counter.");
+
+            // GetProperty reads computed measuring points too; the value cache is updated before the publish above.
             Assert.AreEqual(42, Convert.ToInt32(host.Control.GetProperty("counter", "CounterDoubled")), "CounterDoubled = Counter * 2 must be readable after setting Counter.");
         }
 

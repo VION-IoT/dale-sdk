@@ -21,6 +21,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
 
         private const string VoidRequestName = "VoidRequest";
 
+        private readonly TimeSpan TestTimeout = TimeSpan.FromSeconds(5);
+
         private readonly Func<CancellationToken, Task<int[]>> _arrayRequestOperation = _ => Task.FromResult(Array.Empty<int>());
 
         private readonly Action<int[]> _arraySuccessCallback = _ => { };
@@ -42,8 +44,6 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         private readonly Func<CancellationToken, Task> _voidRequestOperation = _ => Task.CompletedTask;
 
         private readonly Action _voidSuccessCallback = () => { };
-
-        private readonly TimeSpan TestTimeout = TimeSpan.FromSeconds(5);
 
         private CancellationTokenSource? _inflightRequestCts;
 
