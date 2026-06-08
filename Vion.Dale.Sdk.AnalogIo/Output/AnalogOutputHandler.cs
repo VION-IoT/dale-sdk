@@ -69,7 +69,7 @@ namespace Vion.Dale.Sdk.AnalogIo.Output
             {
                 var topic = GetOrAddAoSetTopic(serviceProviderContractId);
                 var responseTopic = GetOrAddAoResponseTopic(serviceProviderContractId);
-                var correlationId = Publish(topic, payload, nameof(SetAoPayload), responseTopic: responseTopic);
+                var correlationId = Publish(topic, payload, nameof(SetAoPayload), MessageMimeTypes.FlatBuffer, responseTopic: responseTopic);
                 LogPublishingAoRequest(setAnalogOutputMessage.Data.Value, correlationId, topic);
             }
         }
