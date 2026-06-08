@@ -79,16 +79,20 @@ jobs:
           name: nupkg
           path: ./artifacts
 
-      # The api-reference generator script reads bin/Release/**/*.xml that
-      # only exist after a build. The publish job above ran a build but in
-      # a different runner — those outputs aren't reachable here. Rebuild
-      # so the script has the XML doc files it needs.
+      # The CLI-snapshot step below installs the packed Vion.Dale.Cli — keep the private feed.
       - uses: VION-IoT/shared-workflows/actions/setup-nuget-private-feed@v1
         with:
           pat: ${{ secrets.AZURE_DEVOPS_PAT }}
 
-      - name: Build (for api-reference XML docs)
-        run: dotnet build Vion.Dale.Sdk.sln -c Release -p:Version=${{ steps.version.outputs.version }}
+      # The api-reference generator reads each project's bin/Release/**/*.xml doc file. Those
+      # already ship inside the .nupkgs downloaded above (lib/<tfm>/<Assembly>.xml), so stage
+      # them into that layout instead of rebuilding the whole solution on this runner — the
+      # publish job already built it. The generator parses source + XML only (never loads the
+      # assemblies), so no compile is needed here. Verified byte-identical to a rebuild.
+      - name: Stage XML docs from packages (skip rebuild)
+        if: steps.version.outputs.is_release == 'false'
+        shell: pwsh
+        run: ./scripts/stage-xml-docs.ps1 -PackagesDir ./artifacts
 
       - name: Generate API reference and manifest
         if: steps.version.outputs.is_release == 'false'
