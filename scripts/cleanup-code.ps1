@@ -59,13 +59,17 @@ try {
         exit 1
     }
 
-    git diff --quiet
-    $isClean = ($LASTEXITCODE -eq 0)
+    # Restore-generated NuGet lock files aren't a code-style signal: `dotnet build` can
+    # rewrite them (environment-dependent, not enforced via locked-mode here) and cleanupcode
+    # never touches them. Consider drift on everything except lock files. (dale/dale-sdk have
+    # none.) Filtering in PowerShell avoids git pathspec/glob quoting quirks under pwsh.
+    $drift = @(git diff --name-only | Where-Object { $_ -and ($_ -notmatch '(^|/)packages\.lock\.json$') })
+    $isClean = ($drift.Count -eq 0)
 
     if ($Verify) {
         if (-not $isClean) {
             Write-Host "::error::Code style drift. Run 'pwsh scripts/cleanup-code.ps1' (or /cleanup) and commit the result."
-            git diff --stat
+            git diff --stat -- $drift
             exit 1
         }
         Write-Host 'Code style: clean.'
@@ -73,7 +77,7 @@ try {
     else {
         if (-not $isClean) {
             Write-Host "cleanupcode applied changes - review with 'git diff' and commit:"
-            git diff --stat
+            git diff --stat -- $drift
         }
         else {
             Write-Host 'Already clean - nothing to do.'
