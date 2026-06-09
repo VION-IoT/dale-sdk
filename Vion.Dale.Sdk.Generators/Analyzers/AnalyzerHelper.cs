@@ -129,6 +129,28 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         }
 
         /// <summary>
+        ///     True when <paramref name="type" /> renders as a single scalar value on a dashboard tile:
+        ///     a numeric / bool primitive, string, enum, DateTime, or TimeSpan. Composite supported types
+        ///     (flat record struct, ImmutableArray&lt;T&gt;) are not scalar. Unwrap Nullable&lt;T&gt; first.
+        /// </summary>
+        internal static bool IsScalarTileType(ITypeSymbol type)
+        {
+            if (type.TypeKind == TypeKind.Enum)
+            {
+                return true;
+            }
+
+            if (type.SpecialType is SpecialType.System_Boolean or SpecialType.System_Byte or SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_Int32
+                or SpecialType.System_UInt32 or SpecialType.System_Int64 or SpecialType.System_Single or SpecialType.System_Double or SpecialType.System_DateTime
+                or SpecialType.System_String)
+            {
+                return true;
+            }
+
+            return type.ToDisplayString() == "System.TimeSpan";
+        }
+
+        /// <summary>
         ///     Returns true when <paramref name="namedType" /> is a flat readonly record struct:
         ///     <c>IsValueType == true</c>, <c>IsReadOnly == true</c>, record-struct-shaped, and every
         ///     primary-constructor parameter is a primitive, enum, string, TimeSpan, or nullable of

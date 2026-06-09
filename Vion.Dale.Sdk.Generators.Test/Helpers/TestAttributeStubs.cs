@@ -46,6 +46,17 @@ namespace Vion.Dale.Sdk.Core
         public bool ReadOnly { get; init; }
     }
 
+    public enum Importance
+    {
+        Normal,
+
+        Primary,
+
+        Secondary,
+
+        Hidden,
+    }
+
     [AttributeUsage(AttributeTargets.Property | AttributeTargets.Method)]
     public class PresentationAttribute : Attribute
     {
@@ -54,6 +65,8 @@ namespace Vion.Dale.Sdk.Core
         public string? Group { get; init; }
 
         public int Order { get; init; } = int.MinValue;
+
+        public Importance Importance { get; init; } = Importance.Normal;
 
         public bool StatusIndicator { get; init; }
 
