@@ -6,6 +6,10 @@
         <IsRoslynAnalyzer>true</IsRoslynAnalyzer>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <PackageScribanIncludeSource>true</PackageScribanIncludeSource>
+        <!--Scriban 7.1.0+ source-embedding references nullable + trimming/AOT attributes that netstandard2.0
+            lacks (scriban/scriban#672). Per Scriban's source-embedding docs, PolySharp supplies them; this flag
+            adds the runtime-supported (trimming/AOT) set on top of PolySharp's default language-support set.-->
+        <PolySharpIncludeRuntimeSupportedAttributes>true</PolySharpIncludeRuntimeSupportedAttributes>
         <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
         <ImplicitUsings>false</ImplicitUsings>
         <Nullable>enable</Nullable>
@@ -20,18 +24,18 @@
     </ItemGroup>
 
     <ItemGroup>
-        <!--IsExternalInit shim no longer needed — Scriban 7.0.0 source embedding provides it-->
-        <!--shim to be able to use required members in netstandard2.1-->
-        <PackageReference Include="RequiredMemberAttribute" Version="1.0.0">
-            <PrivateAssets>all</PrivateAssets>
-            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-        </PackageReference>
-        <!--be careful with the versions of these packages, they must match the versions used by the Scriban package: see https://github.com/scriban/scriban/blob/master/src/Scriban/Scriban.props-->
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" Version="5.0.0"/>
+        <!--Scriban source embedding, per https://github.com/scriban/scriban/blob/master/site/docs/getting-started.md#source-embedding
+            On netstandard2.0 the embedded source needs the PolySharp-generated polyfills (PolySharpIncludeRuntimeSupportedAttributes
+            above) plus these two runtime deps. PolySharp also supplies the 'required' members polyfill (it replaced the
+            RequiredMemberAttribute package). 7.0.0+ defines SCRIBAN_NO_SYSTEM_TEXT_JSON for source-embedded builds.-->
         <PackageReference Include="Microsoft.CSharp" Version="4.7.0"/>
-        <!--source embedding as described here:https://github.com/scriban/scriban?tab=readme-ov-file#source-embedding-->
-        <!--7.0.0+ defines SCRIBAN_NO_SYSTEM_TEXT_JSON for source-embedded builds, resolving the STJ analyzer conflict-->
-        <PackageReference Include="Scriban" IncludeAssets="Build" Version="7.0.3"/>
+        <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.6.3"/>
+        <PackageReference Include="PolySharp" Version="1.15.0">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="Scriban" IncludeAssets="Build" Version="7.2.4"/>
     </ItemGroup>
     <ItemGroup>
         <EmbeddedResource Include="Templates\LogicClassTemplate.scriban"/>
