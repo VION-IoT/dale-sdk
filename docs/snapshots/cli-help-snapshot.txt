@@ -129,6 +129,7 @@ Usage:
   Vion.Dale.Cli pack [options]
 
 Options:
+  --version <version>        Override the package version (drives the produced .nupkg, e.g. from a tag/CI)
   -?, -h, --help             Show help and usage information
   -o, --output <json|table>  Output format [default: table]
   --project <project>        Path to .csproj file
@@ -149,6 +150,7 @@ Options:
   -e, --environment <environment>  Target environment (overrides stored config)
   --integrator-id <integrator-id>  Integrator ID (overrides stored config)
   --skip-duplicate                 Treat 409 Conflict (version already exists) as success
+  --version <version>              Override the package version (drives the produced .nupkg, e.g. from a tag/CI)
   -?, -h, --help                   Show help and usage information
   -o, --output <json|table>        Output format [default: table]
   --project <project>              Path to .csproj file

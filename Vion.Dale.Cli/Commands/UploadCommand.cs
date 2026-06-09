@@ -1,11 +1,13 @@
 using System;
 using System.CommandLine;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 using Spectre.Console;
 using Vion.Dale.Cli.Auth;
 using Vion.Dale.Cli.Helpers;
@@ -26,6 +28,7 @@ namespace Vion.Dale.Cli.Commands
             var environmentOption = new Option<string?>("--environment", "-e") { Description = "Target environment (overrides stored config)" };
             var integratorIdOption = new Option<Guid?>("--integrator-id") { Description = "Integrator ID (overrides stored config)" };
             var skipDuplicateOption = new Option<bool>("--skip-duplicate") { Description = "Treat 409 Conflict (version already exists) as success" };
+            var versionOption = new Option<string?>("--version") { Description = "Override the package version (drives the produced .nupkg, e.g. from a tag/CI)" };
 
             command.Options.Add(clientIdOption);
             command.Options.Add(clientSecretOption);
@@ -33,6 +36,7 @@ namespace Vion.Dale.Cli.Commands
             command.Options.Add(environmentOption);
             command.Options.Add(integratorIdOption);
             command.Options.Add(skipDuplicateOption);
+            command.Options.Add(versionOption);
 
             command.SetAction(async (parseResult, cancellationToken) =>
                               {
@@ -44,6 +48,9 @@ namespace Vion.Dale.Cli.Commands
                                   {
                                       return 1;
                                   }
+
+                                  var versionOverride = parseResult.GetValue(versionOption);
+                                  var requestedVersion = versionOverride ?? project.Version;
 
                                   // 2. Resolve cloud context
                                   CommandContext ctx;
@@ -64,13 +71,12 @@ namespace Vion.Dale.Cli.Commands
                                   var skipDuplicate = parseResult.GetValue(skipDuplicateOption);
                                   string? responseBody = null;
                                   string? nupkgPath = null;
+                                  string? effectiveVersion = null;
 
                                   if (DaleConsole.JsonMode)
                                   {
                                       // JSON mode: no progress bar, just run
-                                      var packResult = await DotnetRunner.RunCaptureAsync("pack",
-                                                                                          new[] { project.CsprojPath, "-c", "Release", "-p:IsPackable=true" },
-                                                                                          project.ProjectDirectory);
+                                      var packResult = await DotnetRunner.RunCaptureAsync("pack", BuildPackArgs(project, versionOverride), project.ProjectDirectory);
                                       if (packResult.ExitCode != 0)
                                       {
                                           DaleConsole.Error("Pack failed.");
@@ -83,6 +89,8 @@ namespace Vion.Dale.Cli.Commands
                                           DaleConsole.Error("Could not find packed .nupkg file.");
                                           return 1;
                                       }
+
+                                      effectiveVersion = ReadNupkgVersion(nupkgPath) ?? requestedVersion;
 
                                       try
                                       {
@@ -97,7 +105,7 @@ namespace Vion.Dale.Cli.Commands
                                               DaleConsole.WriteJsonResult(new
                                                                           {
                                                                               status = "skipped", reason = "version_exists", packageId = project.PackageId,
-                                                                              version = project.Version,
+                                                                              version = effectiveVersion,
                                                                           });
                                               return 0;
                                           }
@@ -124,13 +132,9 @@ namespace Vion.Dale.Cli.Commands
                                                    .StartAsync(async progressCtx =>
                                                                {
                                                                    // Stage 1: Pack
-                                                                   var packTask = progressCtx.AddTask($"Packing {project.ProjectName} v{project.Version ?? "??"}", maxValue: 1);
+                                                                   var packTask = progressCtx.AddTask($"Packing {project.ProjectName} v{requestedVersion ?? "??"}", maxValue: 1);
                                                                    var packResult = await DotnetRunner.RunCaptureAsync("pack",
-                                                                                                                       new[]
-                                                                                                                       {
-                                                                                                                           project.CsprojPath, "-c", "Release",
-                                                                                                                           "-p:IsPackable=true",
-                                                                                                                       },
+                                                                                                                       BuildPackArgs(project, versionOverride),
                                                                                                                        project.ProjectDirectory);
                                                                    if (packResult.ExitCode != 0)
                                                                    {
@@ -178,13 +182,15 @@ namespace Vion.Dale.Cli.Commands
                                       return 1;
                                   }
 
+                                  effectiveVersion = (nupkgPath != null ? ReadNupkgVersion(nupkgPath) : null) ?? requestedVersion;
+
                                   if (versionAlreadyExists)
                                   {
-                                      DaleConsole.Info($"{project.ProjectName} v{project.Version ?? "??"} already exists, skipping.");
+                                      DaleConsole.Info($"{project.ProjectName} v{effectiveVersion ?? "??"} already exists, skipping.");
                                       return 0;
                                   }
 
-                                  DaleConsole.Success("Uploaded", $"{project.ProjectName} v{project.Version ?? "??"}");
+                                  DaleConsole.Success("Uploaded", $"{project.ProjectName} v{effectiveVersion ?? "??"}");
                                   return 0;
                               });
 
@@ -227,6 +233,43 @@ namespace Vion.Dale.Cli.Commands
             }
 
             return null;
+        }
+
+        /// <summary>
+        ///     Build the <c>dotnet pack</c> arguments, optionally injecting an explicit package version
+        ///     (<c>-p:Version=</c>) so the produced .nupkg version can be driven by a tag / CI instead of the csproj.
+        /// </summary>
+        internal static string[] BuildPackArgs(DaleProject project, string? version)
+        {
+            var args = new[] { project.CsprojPath, "-c", "Release", "-p:IsPackable=true" };
+            return string.IsNullOrWhiteSpace(version) ? args : args.Append($"-p:Version={version}").ToArray();
+        }
+
+        /// <summary>
+        ///     Read the effective package version back from a produced .nupkg by reading its bundled .nuspec.
+        ///     This is authoritative — it reflects what was actually packed, not the (possibly stale) csproj value.
+        ///     Returns null if the file is missing, not a valid package, or carries no version.
+        /// </summary>
+        internal static string? ReadNupkgVersion(string nupkgPath)
+        {
+            try
+            {
+                using var archive = ZipFile.OpenRead(nupkgPath);
+                var nuspec = archive.Entries.FirstOrDefault(e => e.FullName.EndsWith(".nuspec", StringComparison.OrdinalIgnoreCase));
+                if (nuspec == null)
+                {
+                    return null;
+                }
+
+                using var stream = nuspec.Open();
+                var doc = XDocument.Load(stream);
+                var ns = doc.Root?.Name.Namespace ?? XNamespace.None;
+                return doc.Descendants(ns + "version").FirstOrDefault()?.Value;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         /// <summary>
