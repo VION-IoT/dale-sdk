@@ -23,7 +23,7 @@ namespace Vion.Dale.Sdk.Test.Core
         }
 
         [TestMethod]
-        [Ignore("Documents the Metalama [Observable] + C# 13 'field' keyword bug. Verified still broken in Metalama.Patterns.Observability 2026.0.21 and 2026.0.23. DALE029 analyzer guards against the antipattern in user code; re-enable this test after a future Metalama upgrade to verify the upstream fix.")]
+        [Ignore("Documents the Metalama [Observable] + C# 13 'field' keyword bug. Verified still broken in Metalama.Patterns.Observability 2026.0.21, 2026.0.23, and 2026.1.17. DALE029 analyzer guards against the antipattern in user code; re-enable this test after a future Metalama upgrade to verify the upstream fix.")]
         public void FieldKeywordSetter_RunsSideEffects()
         {
             // Currently failing: SideEffectMarker stays at 0 because the [Observable] aspect's
