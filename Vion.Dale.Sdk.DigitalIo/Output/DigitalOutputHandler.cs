@@ -69,7 +69,7 @@ namespace Vion.Dale.Sdk.DigitalIo.Output
             {
                 var topic = GetOrAddDoSetTopic(serviceProviderContractId);
                 var responseTopic = GetOrAddDoResponseTopic(serviceProviderContractId);
-                var correlationId = Publish(topic, payload, nameof(SetDoPayload), responseTopic: responseTopic);
+                var correlationId = Publish(topic, payload, nameof(SetDoPayload), MessageMimeTypes.FlatBuffer, responseTopic: responseTopic);
                 LogPublishingDoRequest(setDigitalOutputMessage.Data.Value, correlationId, topic);
             }
         }
