@@ -114,7 +114,7 @@ namespace Vion.Dale.Cli.Helpers
         ///     Parse a .sln file and find projects that reference Vion.Dale.Sdk.
         ///     Returns relative paths to .csproj files.
         /// </summary>
-        private static List<string> FindDaleProjectsInSolution(string slnPath)
+        internal static List<string> FindDaleProjectsInSolution(string slnPath)
         {
             var results = new List<string>();
             var slnDir = Path.GetDirectoryName(slnPath) ?? ".";
@@ -129,23 +129,13 @@ namespace Vion.Dale.Cli.Helpers
                     var relativePath = match.Groups[1].Value.Replace('\\', Path.DirectorySeparatorChar);
                     var absolutePath = Path.GetFullPath(Path.Combine(slnDir, relativePath));
 
-                    if (!File.Exists(absolutePath))
+                    // Reuse the single source of truth: a project is a Dale project iff it references
+                    // Vion.Dale.Sdk (PackageReference or ProjectReference). ParseCsproj handles a missing
+                    // file, attribute order, casing, and parse errors by returning null — so TestKit /
+                    // DevHost projects (which reference Vion.Dale.Sdk.* but not the core SDK) are excluded.
+                    if (ProjectDiscovery.FindProject(absolutePath) != null)
                     {
-                        continue;
-                    }
-
-                    // Check if this project has a PackageReference to Vion.Dale.Sdk (the core SDK, not TestKit etc.)
-                    try
-                    {
-                        var csprojContent = File.ReadAllText(absolutePath);
-                        if (Regex.IsMatch(csprojContent, @"PackageReference\s+Include\s*=\s*""Dale\.Sdk"""))
-                        {
-                            results.Add(relativePath);
-                        }
-                    }
-                    catch
-                    {
-                        // Skip unreadable files
+                        results.Add(relativePath);
                     }
                 }
             }
