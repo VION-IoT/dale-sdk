@@ -377,5 +377,20 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                                                                                              Category,
                                                                                              DiagnosticSeverity.Warning,
                                                                                              true);
+
+        /// <summary>
+        ///     <c>[Presentation(Importance = Primary | Secondary)]</c> on a property whose type is composite
+        ///     (a flat record struct or <c>ImmutableArray&lt;T&gt;</c>). The auto-generated LogicBlock dashboard
+        ///     tile renders Primary/Secondary metrics as a single scalar value via number/list/battery widgets —
+        ///     a struct value stringifies to <c>"[object Object]"</c> and an array to a raw comma blob. Scalars
+        ///     (numeric / bool / string / enum / DateTime / TimeSpan) render fine. Use <c>Importance.Normal</c>
+        ///     (detail view only) for composite values, or surface a scalar member as its own tile property.
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE032_ImportanceRequiresScalarType = new("DALE032",
+                                                                                               "[Presentation(Importance = Primary/Secondary)] requires a scalar property type",
+                                                                                               "Property '{0}' has [Presentation(Importance = {1})] but type '{2}' is a composite (struct or array) type. Dashboard tiles render Primary/Secondary metrics as a single scalar value — structs show as '[object Object]', arrays as a raw blob. Use Importance.Normal for detail views, or surface a scalar member as its own tile property.",
+                                                                                               Category,
+                                                                                               DiagnosticSeverity.Warning,
+                                                                                               true);
     }
 }
