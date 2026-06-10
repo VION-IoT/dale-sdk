@@ -176,7 +176,7 @@ namespace Vion.Dale.Sdk.Core
     }
 
     // Minimal LogicBlockBase stub — sufficient for analyzers that key off derivation from
-    // Vion.Dale.Sdk.Core.LogicBlockBase (e.g. MetalamaFieldKeywordAnalyzer).
+    // Vion.Dale.Sdk.Core.LogicBlockBase.
     public abstract class LogicBlockBase
     {
     }
