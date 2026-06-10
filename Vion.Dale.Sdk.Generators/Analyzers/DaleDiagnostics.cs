@@ -309,21 +309,9 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                                                                                   DiagnosticSeverity.Warning,
                                                                                   true);
 
-        /// <summary>
-        ///     A property on a <c>LogicBlockBase</c> subclass has a custom setter body that uses
-        ///     the C# 13 <c>field</c> keyword. Metalama's <c>[Observable]</c> aspect (auto-applied
-        ///     by <c>MetalamaTransitiveFabric</c> to every <c>LogicBlockBase</c> subclass) rewrites
-        ///     setters without understanding the synthesized field-keyword backing, and the
-        ///     user-written body is silently dropped at runtime — side effects (forwarded writes,
-        ///     state-update emits, logging) never run. Use an explicit private backing field
-        ///     instead until the upstream aspect is fixed.
-        /// </summary>
-        public static readonly DiagnosticDescriptor DALE029_MetalamaFieldKeywordSetter = new("DALE029",
-                                                                                             "Setter body using 'field' keyword is silently dropped by Metalama [Observable]",
-                                                                                             "Property '{0}' has a custom setter body that uses the C# 13 'field' keyword. Metalama's [Observable] aspect (auto-applied to LogicBlockBase subclasses) silently drops the body at runtime, so side effects (forwarded writes, state-update emits, logging) never run. Use an explicit private backing field instead.",
-                                                                                             Category,
-                                                                                             DiagnosticSeverity.Warning,
-                                                                                             true);
+        // DALE029 retired: the Metalama [Observable] field-keyword setter-body drop it guarded
+        // (metalama/Metalama#1644) was fixed upstream in Metalama.Patterns.Observability 2026.1.18.
+        // MetalamaFieldKeywordReproShould is the regression guard. ID not reused.
 
         /// <summary>
         ///     <c>[ServiceProperty(ReadOnly = true, WriteOnly = true)]</c> is incoherent: <c>ReadOnly</c>
