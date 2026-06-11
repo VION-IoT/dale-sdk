@@ -159,20 +159,17 @@ namespace Vion.Dale.Sdk.Modbus.Core.Server
         }
 
         /// <inheritdoc />
-        public string ReadAsString(ushort startingAddress, ushort quantity, TextEncoding textEncoding, ByteOrder byteOrder = ByteOrder.MsbToLsb)
+        public string ReadAsString(ushort startingAddress, ushort quantity, TextEncoding textEncoding = TextEncoding.Ascii)
         {
-            var bytes = ReadRaw(startingAddress, quantity);
-            _dataConverter.SwapBytes(bytes, byteOrder);
-
-            return _dataConverter.ConvertBytesToString(bytes, textEncoding);
+            // Encoded string bytes are already in natural (= wire) order — no swap, matching the client's
+            // string methods. SwapBytes is a host-memory<->wire transform and must not be applied here.
+            return _dataConverter.ConvertBytesToString(ReadRaw(startingAddress, quantity), textEncoding);
         }
 
         /// <inheritdoc />
-        public void WriteAsString(ushort startingAddress, string value, TextEncoding textEncoding, ByteOrder byteOrder = ByteOrder.MsbToLsb)
+        public void WriteAsString(ushort startingAddress, string value, TextEncoding textEncoding = TextEncoding.Ascii)
         {
-            var bytes = _dataConverter.ConvertStringToBytes(value, textEncoding);
-            _dataConverter.SwapBytes(bytes, byteOrder);
-            WriteRaw(startingAddress, bytes);
+            WriteRaw(startingAddress, _dataConverter.ConvertStringToBytes(value, textEncoding));
         }
 
         private Action<Memory<byte>> Swap32(ByteOrder byteOrder, WordOrder32 wordOrder)

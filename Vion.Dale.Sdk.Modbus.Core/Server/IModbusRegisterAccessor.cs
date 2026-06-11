@@ -239,8 +239,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Server
         /// </summary>
         /// <param name="startingAddress">The register address to start reading from.</param>
         /// <param name="quantity">The number of registers (16 bit per register) to read.</param>
-        /// <param name="textEncoding">The text encoding of the stored data.</param>
-        /// <param name="byteOrder">The byte order the data is stored in. Default is <see cref="ByteOrder.MsbToLsb" />.</param>
+        /// <param name="textEncoding">The text encoding of the stored data. Default is <see cref="TextEncoding.Ascii" />.</param>
         /// <returns>The decoded string, including any padding characters stored on the wire.</returns>
         /// <exception cref="InvalidServerAddressException">
         ///     Thrown when the range lies outside the declared extent of the area.
@@ -248,15 +247,19 @@ namespace Vion.Dale.Sdk.Modbus.Core.Server
         /// <exception cref="UnsupportedTextEncodingException">
         ///     Thrown when an unsupported <paramref name="textEncoding" /> value is specified.
         /// </exception>
-        string ReadAsString(ushort startingAddress, ushort quantity, TextEncoding textEncoding, ByteOrder byteOrder = ByteOrder.MsbToLsb);
+        /// <remarks>
+        ///     String bytes are read in their natural sequential order, matching the client's string methods.
+        ///     There are deliberately no byte or word order parameters — for devices that store strings in a
+        ///     non-standard byte layout, use <see cref="ReadRaw" /> and reorder the bytes as needed.
+        /// </remarks>
+        string ReadAsString(ushort startingAddress, ushort quantity, TextEncoding textEncoding = TextEncoding.Ascii);
 
         /// <summary>
         ///     Writes a string to consecutive registers.
         /// </summary>
         /// <param name="startingAddress">The register address to start writing at.</param>
         /// <param name="value">The string to write.</param>
-        /// <param name="textEncoding">The text encoding to store the data in.</param>
-        /// <param name="byteOrder">The byte order to store the data in. Default is <see cref="ByteOrder.MsbToLsb" />.</param>
+        /// <param name="textEncoding">The text encoding to store the data in. Default is <see cref="TextEncoding.Ascii" />.</param>
         /// <exception cref="InvalidServerAddressException">
         ///     Thrown when the range lies outside the declared extent of the area.
         /// </exception>
@@ -264,9 +267,16 @@ namespace Vion.Dale.Sdk.Modbus.Core.Server
         ///     Thrown when an unsupported <paramref name="textEncoding" /> value is specified.
         /// </exception>
         /// <remarks>
-        ///     If the encoded byte sequence has an odd length, a null byte (0x00) is appended to align it to
-        ///     Modbus register boundaries (2 bytes per register).
+        ///     <para>
+        ///         If the encoded byte sequence has an odd length, a null byte (0x00) is appended to align it to
+        ///         Modbus register boundaries (2 bytes per register).
+        ///     </para>
+        ///     <para>
+        ///         String bytes are written in their natural sequential order, matching the client's string
+        ///         methods. There are deliberately no byte or word order parameters — for devices that expect a
+        ///         non-standard byte layout, encode the string manually and use <see cref="WriteRaw" />.
+        ///     </para>
         /// </remarks>
-        void WriteAsString(ushort startingAddress, string value, TextEncoding textEncoding, ByteOrder byteOrder = ByteOrder.MsbToLsb);
+        void WriteAsString(ushort startingAddress, string value, TextEncoding textEncoding = TextEncoding.Ascii);
     }
 }

@@ -28,8 +28,11 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
         /// <summary>The fake proxy — inspect or pre-populate the register buffers, shape diagnostics.</summary>
         public FakeModbusTcpServerProxy Proxy { get; }
 
-        /// <summary>The fully wired server to inject into the SUT (or hand out via a stubbed factory).</summary>
+        /// <summary>The fully wired server to inject into the SUT (or hand out via <see cref="ServerFactory" />).</summary>
         public ILogicBlockModbusTcpServer Server { get; }
+
+        /// <summary>A factory handing out <see cref="Server" /> — for blocks that are factory-injected.</summary>
+        public ILogicBlockModbusTcpServerFactory ServerFactory { get; }
 
         /// <summary>The test-side master view driving the wire side of the server.</summary>
         public FakeModbusTcpServerClient Client { get; }
@@ -61,6 +64,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
 
             _serviceProvider = services.BuildServiceProvider();
             Server = _serviceProvider.GetRequiredService<ILogicBlockModbusTcpServer>();
+            ServerFactory = new FixedServerFactory(Server);
             Client = new FakeModbusTcpServerClient(Proxy);
         }
 
@@ -69,6 +73,21 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
         {
             Server.Dispose();
             _serviceProvider.Dispose();
+        }
+
+        private sealed class FixedServerFactory : ILogicBlockModbusTcpServerFactory
+        {
+            private readonly ILogicBlockModbusTcpServer _server;
+
+            public FixedServerFactory(ILogicBlockModbusTcpServer server)
+            {
+                _server = server;
+            }
+
+            public ILogicBlockModbusTcpServer Create()
+            {
+                return _server;
+            }
         }
     }
 }

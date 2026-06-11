@@ -34,6 +34,12 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
         /// </summary>
         public ModbusServerAreaExtents Extents { get; private set; }
 
+        /// <summary>
+        ///     The clock stamping <see cref="LastClientWriteAt" /> on simulated client writes.
+        ///     Default is <see cref="TimeProvider.System" />; assign a <c>FakeTimeProvider</c> for deterministic tests.
+        /// </summary>
+        public TimeProvider TimeProvider { get; set; } = TimeProvider.System;
+
         /// <inheritdoc />
         public bool IsListening { get; private set; }
 
@@ -44,7 +50,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
 
         /// <summary>
         ///     The last-client-write timestamp reported to the server. Set automatically by the simulate-client
-        ///     write methods; settable so tests can shape diagnostics directly.
+        ///     write methods (via <see cref="TimeProvider" />); settable so tests can shape diagnostics directly.
         /// </summary>
         public DateTimeOffset? LastClientWriteAt { get; set; }
 
@@ -105,6 +111,12 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
         /// </exception>
         public void SimulateClientWriteHoldingRegisters(ushort startingAddress, byte[] registerBytes)
         {
+            if (registerBytes.Length % 2 != 0)
+            {
+                // Impossible on the real wire: FC16 payloads are always 2 bytes per register.
+                throw new ArgumentException("Register data must be a multiple of 2 bytes (one register is 2 bytes).", nameof(registerBytes));
+            }
+
             EnsureListening();
             ValidateRange(ModbusServerArea.HoldingRegisters, startingAddress, (uint)(registerBytes.Length / 2));
             lock (Lock)
@@ -112,7 +124,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
                 registerBytes.CopyTo(_holdingRegisters.AsSpan(startingAddress * 2));
             }
 
-            LastClientWriteAt = DateTimeOffset.UtcNow;
+            LastClientWriteAt = TimeProvider.GetUtcNow();
         }
 
         /// <summary>
@@ -140,7 +152,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
                 }
             }
 
-            LastClientWriteAt = DateTimeOffset.UtcNow;
+            LastClientWriteAt = TimeProvider.GetUtcNow();
         }
 
         /// <summary>

@@ -56,7 +56,16 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
         ///         Configuration properties can only be changed while disabled. Setting the same value again is a
         ///         no-op.
         ///     </para>
+        ///     <para>
+        ///         Must not be set from inside a <see cref="Sync(Action{IModbusServerSnapshot})" /> callback —
+        ///         stopping the listener joins request-handler threads that may be waiting for the server lock
+        ///         the callback holds. Doing so throws <see cref="InvalidOperationException" />; react to
+        ///         client-written commands after the callback returns.
+        ///     </para>
         /// </remarks>
+        /// <exception cref="InvalidOperationException">
+        ///     Thrown when set from inside a <see cref="Sync(Action{IModbusServerSnapshot})" /> callback.
+        /// </exception>
         bool IsEnabled { get; set; }
 
         /// <summary>
@@ -163,6 +172,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
         ///     All buffer access for one cycle should happen in a single call, making read-modify-publish patterns
         ///     (e.g. echoing a client-written heartbeat into a feedback register) atomic with respect to client
         ///     requests. Also works while the server is disabled (e.g. to seed default values before enabling).
+        ///     Do not set <see cref="IsEnabled" /> or call <see cref="IDisposable.Dispose" /> from inside the
+        ///     callback — both throw <see cref="InvalidOperationException" /> there (see <see cref="IsEnabled" />).
         /// </remarks>
         void Sync(Action<IModbusServerSnapshot> access);
 

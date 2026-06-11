@@ -119,5 +119,21 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
             _harness.Server.IsEnabled = false;
             Assert.IsFalse(_harness.Proxy.IsListening);
         }
+
+        [TestMethod]
+        public void HandOutTheServerThroughTheFactory()
+        {
+            Assert.AreSame(_harness.Server, _harness.ServerFactory.Create());
+        }
+
+        [TestMethod]
+        public void RejectOddLengthRawHoldingRegisterWrites()
+        {
+            // Impossible on the real wire (FC16 payloads are 2 bytes per register) — the fake must not
+            // silently accept state a real master could never produce.
+            _harness.Server.IsEnabled = true;
+
+            Assert.ThrowsExactly<ArgumentException>(() => _harness.Client.WriteMultipleHoldingRegistersRaw(0, new byte[3]));
+        }
     }
 }

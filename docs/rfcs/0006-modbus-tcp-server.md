@@ -40,6 +40,35 @@ block is deferred to the post-release reference bump, since examples reference *
 package versions. The consumer migration (`VgtModbusTransport`) is a follow-up in
 logic-block-libraries once a release ships these packages.
 
+A post-implementation adversarial review (multi-lens, findings independently verified — one by
+live repro) hardened five spots before merge:
+
+- **Deadlock guard.** Setting `IsEnabled` or calling `Dispose` from *inside* a `Sync` callback
+  now throws `InvalidOperationException`: stopping the listener joins FluentModbus request-handler
+  tasks that may themselves be waiting for the server lock the callback holds — a permanent
+  actor-thread deadlock, reproduced live during review. React to client-written commands after
+  the callback returns (the canonical pattern anyway).
+- **String accessors aligned with the client and de-trapped.** `ReadAsString`/`WriteAsString`
+  lost their `byteOrder` parameter and gained the client's `TextEncoding.Ascii` default — string
+  bytes go onto the wire in natural sequential order, exactly like the client's string methods
+  (the dropped swap was a host-endianness transform that inverted semantics on little-endian
+  hosts; non-standard layouts go through `ReadRaw`/`WriteRaw`, per the client's documented
+  rationale). Wire-byte tests now pin the layout so a swap bug can't cancel out in a round-trip.
+- **`LastClientWriteAt` hardened threefold:** stored as volatile UTC ticks (the
+  `Nullable<DateTimeOffset>` auto-property could tear across the request-thread/actor-thread
+  boundary); `AlwaysRaiseChangedEvent` enabled (FC5/FC6 writes that don't change the stored value
+  raise no event otherwise — a master cyclically re-asserting an unchanged setpoint must still
+  count as alive); and stamped via the DI-injected `TimeProvider` per the SDK's virtual-time
+  convention (`AddDaleModbusTcpSdk` now `TryAdd`s `TimeProvider.System`; the TestKit fake exposes
+  a settable `TimeProvider`).
+- **`Stop()` zombie-handler sweep.** FluentModbus disposes request handlers without holding the
+  server lock, so a handler accepted in the stop window could survive and keep serving its
+  master; the proxy now re-stops while `ConnectionCount > 0` (bounded) and logs teardown races at
+  Warning instead of Debug.
+- **TestKit fidelity:** the fake rejects odd-length raw holding-register writes (un-wire-able on
+  FC16, and Core's `WriteRaw` already rejects them), and the harness gained the `ServerFactory`
+  member the usage example below relies on.
+
 ## Motivation
 
 `Vion.Dale.Sdk.Modbus.Tcp` wraps the **client** role only (`ILogicBlockModbusTcpClient` + factory, request queue, the `Vion.Dale.Sdk.Modbus.Core` data converter): a logic block polls/commands external hardware. The first block that needed the **server** role has now shipped in the reference consumer ([logic-block-libraries](../../../logic-block-libraries)): `trading-source-vgt` serves a Modbus-TCP register map that an external trading center connects to as client (`Ecocoach.EnergyManagement/LogicBlocks/TradingSourceVgt/VgtModbusTransport.cs`).

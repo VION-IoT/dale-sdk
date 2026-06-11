@@ -17,6 +17,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
 
         private readonly IModbusTcpServerProxy _proxy;
 
+        private bool _inSyncCallback;
+
         private IPAddress _parsedListenAddress = IPAddress.Any;
 
         public LogicBlockModbusTcpServer(IModbusTcpServerProxy proxy, IModbusDataConverter dataConverter, ILogger<LogicBlockModbusTcpServer> logger)
@@ -33,6 +35,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
 
             set
             {
+                EnsureNotInSyncCallback(nameof(IsEnabled));
                 if (field == value)
                 {
                     return;
@@ -161,7 +164,15 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
         {
             lock (_proxy.Lock)
             {
-                access(CreateSnapshot());
+                _inSyncCallback = true;
+                try
+                {
+                    access(CreateSnapshot());
+                }
+                finally
+                {
+                    _inSyncCallback = false;
+                }
             }
         }
 
@@ -170,12 +181,21 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
         {
             lock (_proxy.Lock)
             {
-                return access(CreateSnapshot());
+                _inSyncCallback = true;
+                try
+                {
+                    return access(CreateSnapshot());
+                }
+                finally
+                {
+                    _inSyncCallback = false;
+                }
             }
         }
 
         public void Dispose()
         {
+            EnsureNotInSyncCallback(nameof(Dispose));
             _proxy.Dispose();
         }
 
@@ -196,6 +216,18 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
             {
                 throw new
                     InvalidOperationException($"{propertyName} can only be changed while the server is disabled. Disable the server, update the configuration, then re-enable it.");
+            }
+        }
+
+        private void EnsureNotInSyncCallback(string memberName)
+        {
+            // Stopping the listener joins the request-handler tasks, which may themselves be waiting for the
+            // server lock the Sync callback holds — calling this from inside the callback would deadlock the
+            // actor thread permanently. Fail fast instead; react to commands after the callback returns.
+            if (_inSyncCallback)
+            {
+                throw new
+                    InvalidOperationException($"{memberName} must not be called from inside a Sync callback — the server lock is held there. React to client-written commands after the callback returns.");
             }
         }
 

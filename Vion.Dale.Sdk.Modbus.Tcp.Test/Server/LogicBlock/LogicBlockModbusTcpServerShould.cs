@@ -218,6 +218,46 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server.LogicBlock
             Assert.AreEqual(1, _proxy.DisposeCalls);
         }
 
+        [TestMethod]
+        public void RejectDisablingFromInsideASyncCallback()
+        {
+            // Stopping the listener joins request-handler threads that may be waiting for the server lock the
+            // callback holds — allowing this would deadlock the actor thread permanently.
+            _sut.IsEnabled = true;
+
+            _sut.Sync(_ => Assert.ThrowsExactly<InvalidOperationException>(() => _sut.IsEnabled = false));
+
+            Assert.IsTrue(_sut.IsEnabled);
+            Assert.AreEqual(0, _proxy.StopCalls);
+        }
+
+        [TestMethod]
+        public void RejectEnablingFromInsideASyncCallback()
+        {
+            _sut.Sync(_ => Assert.ThrowsExactly<InvalidOperationException>(() => _sut.IsEnabled = true));
+
+            Assert.AreEqual(0, _proxy.StartCalls);
+        }
+
+        [TestMethod]
+        public void RejectDisposingFromInsideASyncCallback()
+        {
+            _sut.Sync(_ => Assert.ThrowsExactly<InvalidOperationException>(() => _sut.Dispose()));
+
+            Assert.AreEqual(0, _proxy.DisposeCalls);
+        }
+
+        [TestMethod]
+        public void AllowDisablingAfterTheSyncCallbackReturns()
+        {
+            _sut.IsEnabled = true;
+
+            _sut.Sync(_ => { });
+            _sut.IsEnabled = false;
+
+            Assert.AreEqual(1, _proxy.StopCalls);
+        }
+
         private sealed class StubModbusTcpServerProxy : IModbusTcpServerProxy
         {
             public byte[] Coils { get; } = new byte[65536 / 8];

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Reflection;
+using System.Threading;
 using FluentModbus;
 using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Modbus.Core.Server;
@@ -27,13 +28,21 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.Implementation
 
         private readonly ModbusTcpServer _server;
 
+        private readonly TimeProvider _timeProvider;
+
         private bool _disposed;
 
         private ModbusServerAreaExtents _extents;
 
-        public ModbusTcpServerProxy(ILogger<ModbusTcpServerProxy> logger)
+        // UTC ticks of the most recent client write; 0 = never. A long with Volatile semantics instead of a
+        // DateTimeOffset? field because the writers are FluentModbus request threads while the reader is the
+        // block's actor thread — multi-word struct copies can tear, an aligned long cannot.
+        private long _lastClientWriteAtUtcTicks;
+
+        public ModbusTcpServerProxy(ILogger<ModbusTcpServerProxy> logger, TimeProvider timeProvider)
         {
             _logger = logger;
+            _timeProvider = timeProvider;
 
             // Registering exactly unit 0 and nothing else puts FluentModbus into its single-zero-unit mode,
             // whose request filter accepts every incoming unit identifier and echoes it in the response — the
@@ -59,7 +68,15 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.Implementation
         }
 
         /// <inheritdoc />
-        public DateTimeOffset? LastClientWriteAt { get; private set; }
+        public DateTimeOffset? LastClientWriteAt
+        {
+            get
+            {
+                var utcTicks = Volatile.Read(ref _lastClientWriteAtUtcTicks);
+
+                return utcTicks == 0 ? null : new DateTimeOffset(utcTicks, TimeSpan.Zero);
+            }
+        }
 
         /// <inheritdoc />
         public object Lock
@@ -75,7 +92,11 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.Implementation
 
             // Change notifications stay inside the SDK: they only feed the LastClientWriteAt timestamp and are
             // never surfaced to consumer code (FluentModbus raises them on its background request threads).
+            // AlwaysRaiseChangedEvent is required because single-value writes (FC5/FC6) that do not change the
+            // stored value would otherwise raise no event — a master cyclically re-writing an unchanged setpoint
+            // must still count as alive for comm surveillance.
             _server.EnableRaisingEvents = true;
+            _server.AlwaysRaiseChangedEvent = true;
             _server.RegistersChanged -= OnClientWrite;
             _server.RegistersChanged += OnClientWrite;
             _server.CoilsChanged -= OnClientWriteCoils;
@@ -89,14 +110,15 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.Implementation
         /// <inheritdoc />
         public void Stop()
         {
-            try
+            TryStopServer();
+
+            // FluentModbus disposes its request handlers without holding the server lock, so a handler accepted
+            // (or skipped after a mid-iteration exception) in the stop window can survive the first Stop and keep
+            // serving its master. A second Stop disposes the stragglers; give the accept path a brief moment.
+            for (var attempt = 0; attempt < 3 && _server.ConnectionCount > 0; attempt++)
             {
-                _server.Stop();
-            }
-            catch (Exception exception)
-            {
-                // FluentModbus can throw from a benign client-handler teardown race on Stop()/Dispose().
-                LogTeardownRace(exception);
+                Thread.Sleep(10);
+                TryStopServer();
             }
 
             IsListening = false;
@@ -193,14 +215,27 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.Implementation
             }
         }
 
+        private void TryStopServer()
+        {
+            try
+            {
+                _server.Stop();
+            }
+            catch (Exception exception)
+            {
+                // FluentModbus can throw from a benign client-handler teardown race on Stop()/Dispose().
+                LogTeardownRace(exception);
+            }
+        }
+
         private void OnClientWrite(object? sender, RegistersChangedEventArgs e)
         {
-            LastClientWriteAt = DateTimeOffset.UtcNow;
+            Volatile.Write(ref _lastClientWriteAtUtcTicks, _timeProvider.GetUtcNow().UtcTicks);
         }
 
         private void OnClientWriteCoils(object? sender, CoilsChangedEventArgs e)
         {
-            LastClientWriteAt = DateTimeOffset.UtcNow;
+            Volatile.Write(ref _lastClientWriteAtUtcTicks, _timeProvider.GetUtcNow().UtcTicks);
         }
 
         [LoggerMessage(Level = LogLevel.Information, Message = "Modbus TCP server listening on {ListenAddress}:{Port}")]
@@ -209,7 +244,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.Implementation
         [LoggerMessage(Level = LogLevel.Information, Message = "Modbus TCP server stopped")]
         partial void LogStopped();
 
-        [LoggerMessage(Level = LogLevel.Debug, Message = "Swallowed a benign Modbus TCP server teardown race")]
+        [LoggerMessage(Level = LogLevel.Warning, Message = "Swallowed a Modbus TCP server teardown race — verifying no request handler survived")]
         partial void LogTeardownRace(Exception exception);
 
         [LoggerMessage(Level = LogLevel.Warning,

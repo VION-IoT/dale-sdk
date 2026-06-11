@@ -32,7 +32,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
         public void Initialize()
         {
             var dataConverter = new ServiceCollection().AddDaleModbusCoreSdk().BuildServiceProvider().GetRequiredService<IModbusDataConverter>();
-            _sut = new LogicBlockModbusTcpServer(new ModbusTcpServerProxy(NullLogger<ModbusTcpServerProxy>.Instance),
+            _sut = new LogicBlockModbusTcpServer(new ModbusTcpServerProxy(NullLogger<ModbusTcpServerProxy>.Instance, TimeProvider.System),
                                                  dataConverter,
                                                  NullLogger<LogicBlockModbusTcpServer>.Instance);
             _port = GetFreePort();
@@ -158,15 +158,29 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
             var before = DateTimeOffset.UtcNow;
             _client.WriteSingleRegister(1, 0, new byte[] { 0x00, 0x01 });
 
+            var first = WaitForLastClientWriteAt(null);
+            Assert.IsNotNull(first);
+            Assert.IsTrue(first >= before.AddSeconds(-1));
+
+            // A master re-writing an UNCHANGED value must still count as alive (FC6 raises no change event
+            // unless AlwaysRaiseChangedEvent is set — the comm-surveillance contract depends on it).
+            _client.WriteSingleRegister(1, 0, new byte[] { 0x00, 0x01 });
+
+            var second = WaitForLastClientWriteAt(first);
+            Assert.IsNotNull(second);
+            Assert.IsTrue(second > first);
+        }
+
+        private DateTimeOffset? WaitForLastClientWriteAt(DateTimeOffset? after)
+        {
             // The change notification fires on the server's request thread — poll briefly.
             var stopwatch = Stopwatch.StartNew();
-            while (_sut.LastClientWriteAt == null && stopwatch.ElapsedMilliseconds < 1000)
+            while ((_sut.LastClientWriteAt == null || _sut.LastClientWriteAt <= after) && stopwatch.ElapsedMilliseconds < 1000)
             {
                 Thread.Sleep(10);
             }
 
-            Assert.IsNotNull(_sut.LastClientWriteAt);
-            Assert.IsTrue(_sut.LastClientWriteAt >= before.AddSeconds(-1));
+            return _sut.LastClientWriteAt;
         }
 
         private void Connect()

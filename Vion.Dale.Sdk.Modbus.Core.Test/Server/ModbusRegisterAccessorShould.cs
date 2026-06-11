@@ -106,9 +106,28 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Server
         [TestMethod]
         public void RoundTripStringsPaddedToRegisterBoundary()
         {
-            _sut.WriteAsString(0, "VGT", TextEncoding.Ascii);
+            _sut.WriteAsString(0, "VGT");
 
-            Assert.AreEqual("VGT\0", _sut.ReadAsString(0, 2, TextEncoding.Ascii));
+            Assert.AreEqual("VGT\0", _sut.ReadAsString(0, 2));
+        }
+
+        [TestMethod]
+        public void WriteStringsInNaturalWireOrder()
+        {
+            // Wire-byte assertion independent of ReadAsString, so an inverted byte swap cannot cancel out:
+            // string bytes go onto the wire in natural sequential order, exactly like the client's string methods.
+            _sut.WriteAsString(0, "VGT");
+
+            CollectionAssert.AreEqual(new[] { (byte)'V', (byte)'G', (byte)'T', (byte)0 }, new[] { _buffer[0], _buffer[1], _buffer[2], _buffer[3] });
+        }
+
+        [TestMethod]
+        public void ReadStringsInNaturalWireOrder()
+        {
+            _buffer[0] = (byte)'A';
+            _buffer[1] = (byte)'B';
+
+            Assert.AreEqual("AB", _sut.ReadAsString(0, 1));
         }
 
         [TestMethod]
