@@ -49,6 +49,7 @@ namespace Vion.Dale.DevHost.Test
         public void ConfigureServices(IServiceCollection serviceCollection)
         {
             serviceCollection.AddTransient<CounterBlock>();
+            serviceCollection.AddTransient<MultiPointBlock>();
         }
     }
 }

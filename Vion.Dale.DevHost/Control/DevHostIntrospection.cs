@@ -86,6 +86,13 @@ namespace Vion.Dale.DevHost.Control
         /// <summary>
         ///     Resolve the JSON Schema and CLR type for a property addressed by service-config id — used to
         ///     decode a JSON set-value (HTTP path) into the precise typed value the block expects.
+        ///     <para>
+        ///         The property may live on the block type itself (the block's own service) or on a
+        ///         service-bound member object (e.g. an interface-bound "charging point" of a multi-point
+        ///         block) whose member name equals the service identifier. Resolving only against the block
+        ///         type would leave nested-service values as undecoded <c>JsonElement</c>s, which the service
+        ///         binder then fails to cast — the "writes to multi-point properties silently do nothing" bug.
+        ///     </para>
         /// </summary>
         public bool TryGetPropertyConversion(string serviceId, string propertyName, out JsonNode? schema, out Type? clrType)
         {
@@ -108,7 +115,15 @@ namespace Vion.Dale.DevHost.Control
             }
 
             schema = propertyInfo.Schema;
-            clrType = block.LogicBlockType.GetProperty(propertyName)?.PropertyType;
+
+            var hostType = block.LogicBlockType;
+            var serviceMember = block.LogicBlockType.GetProperty(serviceConfig.Identifier);
+            if (serviceMember is not null && serviceMember.PropertyType.GetProperty(propertyName) is not null)
+            {
+                hostType = serviceMember.PropertyType;
+            }
+
+            clrType = hostType.GetProperty(propertyName)?.PropertyType;
             return clrType is not null;
         }
 
