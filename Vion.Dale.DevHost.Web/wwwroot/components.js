@@ -814,7 +814,7 @@ export const Rail = {
 // ── watch panel (pinned tiles, drive above observe) ─────────────────────────────
 
 const WatchTile = {
-    components: { ValueCell, NumberControl, TextControl, EnumSelect, BoolToggle, TriggerButton, SecretControl },
+    components: { ValueCell, NumberControl, TextControl, EnumSelect, BoolToggle, TriggerButton, SecretControl, StructViewer },
     props: ['entry'],
     setup(props) {
         // Resolve the name-path pin against the current topology; null → tombstone.
@@ -855,7 +855,14 @@ const WatchTile = {
             return `${d > 0 ? '+' : ''}${formatValue(d, decimals)} since baseline`;
         });
         const unpin = () => togglePin(props.entry);
-        return { resolved, controlKind, changed, delta, unpin };
+        const isStruct = computed(() => {
+            const r = resolved.value;
+            if (!r) return false;
+            const t = effectiveType(r.item.schema || {});
+            return t === 'object' || t === 'array';
+        });
+        const viewerOpen = ref(false);
+        return { resolved, controlKind, changed, delta, unpin, isStruct, viewerOpen };
     },
     template: `
         <div class="watch-tile">
@@ -863,10 +870,13 @@ const WatchTile = {
                 <div class="tile-head">
                     <span class="mono tile-name">{{ entry.item }}</span>
                     <span v-if="changed" class="changed-dot" title="changed since baseline"></span>
+                    <button v-if="isStruct" type="button" class="tile-view" :class="{ open: viewerOpen }"
+                            :title="viewerOpen ? 'collapse' : 'expand'" @click="viewerOpen = !viewerOpen">▸</button>
                     <button type="button" class="tile-unpin" title="unpin" @click="unpin">✕</button>
                 </div>
                 <div class="tile-block">{{ entry.block }}</div>
-                <div class="tile-body">
+                <StructViewer v-if="viewerOpen" :service="resolved.service" :item="resolved.item"/>
+                <div v-if="!viewerOpen" class="tile-body">
                     <TriggerButton v-if="controlKind === 'trigger'" :service="resolved.service" :item="resolved.item"/>
                     <SecretControl v-else-if="controlKind === 'secret'" :service="resolved.service" :item="resolved.item"/>
                     <EnumSelect v-else-if="controlKind === 'enum'" :service="resolved.service" :item="resolved.item"/>

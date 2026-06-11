@@ -704,7 +704,9 @@ button { cursor: pointer; font-family: inherit; }
     position: sticky;
     top: 45px;
     flex-shrink: 0;
-    width: 250px;
+    /* Wide screens: the space right of the watch panel is dead otherwise — grow into it (up to
+       540px) so expanded diagnostic tables get room. 1350px ≈ rail + content max-width + padding. */
+    width: clamp(250px, calc(100vw - 1350px), 540px);
     max-height: calc(100vh - 45px);
     overflow-y: auto;
     border-left: 1px solid var(--border);
@@ -762,6 +764,19 @@ button { cursor: pointer; font-family: inherit; }
     padding: 0 2px;
 }
 .tile-unpin:hover { color: var(--text); }
+.tile-view {
+    background: none;
+    border: none;
+    color: var(--text-faint);
+    font-size: 10px;
+    cursor: pointer;
+    padding: 0 2px;
+    transition: transform 0.15s;
+}
+.tile-view:hover { color: var(--text); }
+.tile-view.open { transform: rotate(90deg); color: var(--accent); }
+
+.watch-tile .struct-viewer { padding: 4px 0 0; background: none; }
 .tile-block { font-size: 10.5px; color: var(--text-faint); margin: 1px 0 5px; }
 .tile-body { display: flex; align-items: center; }
 .tile-body .value-chip { max-width: 100%; }
