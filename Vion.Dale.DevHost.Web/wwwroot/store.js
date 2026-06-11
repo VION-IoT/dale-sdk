@@ -21,9 +21,19 @@ export const store = reactive({
     selectedBlockId: null,
     // Bumped every 30 s so "relative" temporal cells re-render without a server push.
     relativeTick: 0,
+    // Live filter query (topbar input, '/' shortcut). Matching policy: format.js matchesFilter.
+    filter: '',
+    // Pinned watch entries: { block, service, item } NAME paths (block name, service identifier,
+    // item identifier — never per-run GUIDs). Persisted; unresolvable pins render as tombstones.
+    pins: [],
+    // Baseline diff: { values: snapshot } set by the topbar button / 'b'. Changed-since-baseline
+    // drives amber dots, rail counters, and watch-tile deltas.
+    baseline: null,
+    baselineSeconds: 0,
 });
 
 const COLLAPSE_STORAGE_KEY = 'dale.devhost.collapsed';
+const PINS_STORAGE_KEY = 'dale.devhost.pins';
 
 export function valueKey(serviceId, identifier) {
     return `${serviceId}/${identifier}`;
@@ -59,6 +69,81 @@ function loadCollapseState() {
     } catch (err) {
         console.warn('Could not load collapse state', err);
     }
+}
+
+// ── Pins (watch panel) ──────────────────────────────────────────────────────────
+
+export function pinKey(entry) {
+    return `${entry.block}/${entry.service}/${entry.item}`;
+}
+
+export function isPinned(entry) {
+    const key = pinKey(entry);
+    return store.pins.some(p => pinKey(p) === key);
+}
+
+export function togglePin(entry) {
+    const key = pinKey(entry);
+    const idx = store.pins.findIndex(p => pinKey(p) === key);
+    if (idx >= 0) store.pins.splice(idx, 1);
+    else store.pins.push({ block: entry.block, service: entry.service, item: entry.item });
+    try {
+        localStorage.setItem(PINS_STORAGE_KEY, JSON.stringify(store.pins));
+    } catch (err) {
+        console.warn('Could not persist pins', err);
+    }
+}
+
+function loadPins() {
+    try {
+        const raw = localStorage.getItem(PINS_STORAGE_KEY);
+        if (raw) store.pins.push(...JSON.parse(raw));
+    } catch (err) {
+        console.warn('Could not load pins', err);
+    }
+}
+
+// ── Baseline diff ───────────────────────────────────────────────────────────────
+
+let baselineTimer = null;
+
+export function setBaseline() {
+    store.baseline = { values: JSON.parse(JSON.stringify(store.values)) };
+    store.baselineSeconds = 0;
+    clearInterval(baselineTimer);
+    baselineTimer = setInterval(() => { store.baselineSeconds++; }, 1000);
+}
+
+export function clearBaseline() {
+    store.baseline = null;
+    store.baselineSeconds = 0;
+    clearInterval(baselineTimer);
+    baselineTimer = null;
+}
+
+export function changedSinceBaseline(key) {
+    if (!store.baseline) return false;
+    return JSON.stringify(store.values[key]) !== JSON.stringify(store.baseline.values[key]);
+}
+
+// Numeric delta vs the baseline, or null when either side isn't a number.
+export function baselineDelta(key) {
+    if (!store.baseline) return null;
+    const now = store.values[key];
+    const then = store.baseline.values[key];
+    return typeof now === 'number' && typeof then === 'number' ? now - then : null;
+}
+
+// Changed-since-baseline count for a block (rail counters).
+export function changedCountForBlock(lb) {
+    if (!store.baseline) return 0;
+    let n = 0;
+    (lb.services || []).forEach(service => {
+        [...(service.serviceProperties || []), ...(service.serviceMeasuringPoints || [])].forEach(item => {
+            if (changedSinceBaseline(valueKey(service.id, item.identifier))) n++;
+        });
+    });
+    return n;
 }
 
 // ── Errors ──────────────────────────────────────────────────────────────────────
@@ -143,6 +228,7 @@ function queueHal(kind, spId, svcId, contractId, value) {
 
 export async function initStore() {
     loadCollapseState();
+    loadPins();
     setInterval(() => { store.relativeTick++; }, 30_000);
     try {
         const response = await fetch('/api/configuration');

@@ -188,6 +188,39 @@ export function sampleJson(schema) {
     return null;
 }
 
+// ── Filter policy ───────────────────────────────────────────────────────────────
+// Whitespace-separated tokens, all must match (AND). Token forms:
+//   >N / <N      numeric comparison against the live value
+//   name:text    name (identifier / display name / title) substring AND value substring
+//   text         substring across identifier, display names, and the formatted live value
+export function parseFilter(query) {
+    return (query || '').trim().toLowerCase().split(/\s+/).filter(Boolean);
+}
+
+export function matchesFilter(tokens, item, live) {
+    if (!tokens.length) return true;
+    const names = [
+        item.identifier,
+        (item.presentation && item.presentation.displayName) || '',
+        (item.schema && item.schema.title) || '',
+    ].join(' ').toLowerCase();
+    const valueText = live === undefined ? '' : String(formatValue(live)).toLowerCase();
+    return tokens.every(tok => {
+        if (tok[0] === '>' || tok[0] === '<') {
+            const n = parseFloat(tok.slice(1));
+            if (Number.isNaN(n) || typeof live !== 'number') return false;
+            return tok[0] === '>' ? live > n : live < n;
+        }
+        const colon = tok.indexOf(':');
+        if (colon > 0) {
+            const name = tok.slice(0, colon);
+            const val = tok.slice(colon + 1);
+            return names.includes(name) && (val === '' || valueText.includes(val));
+        }
+        return names.includes(tok) || valueText.includes(tok);
+    });
+}
+
 // Platform default group order + labels (well-known keys; integrator keys render verbatim).
 export const PLATFORM_DEFAULT_GROUP_ORDER = ['alarm', 'status', 'metric', 'configuration', 'diagnostics', 'identity', ''];
 

@@ -4,16 +4,25 @@
 // updates never clobber an edit (the R0 guarantee, expressed the Vue way: the live value only
 // flows into the control while it is not dirty).
 
-import { computed, ref, watch } from './vue.esm-browser.prod.js';
+import { computed, onMounted, onUnmounted, ref, watch } from './vue.esm-browser.prod.js';
 import {
     cssGroupKey, defaultOpen, describeType, effectiveType, enumDisplay, enumMembers, formatTemporal,
-    formatValue, GROUP_LABELS, groupItems, isNullable, isWritable, orderedGroupKeys,
-    resolveDisplayName, resolveUnit, sampleJson, severityFor,
+    formatValue, GROUP_LABELS, groupItems, isNullable, isWritable, matchesFilter, orderedGroupKeys,
+    parseFilter, resolveDisplayName, resolveUnit, sampleJson, severityFor,
 } from './format.js';
 import {
-    buildSharedContractLookup, collapseKey, connectionsForLb, halKey, setAnalogInput,
-    setDigitalInput, setProperty, showError, store, toggleCollapsed, valueKey,
+    baselineDelta, buildSharedContractLookup, changedCountForBlock, changedSinceBaseline,
+    clearBaseline, collapseKey, connectionsForLb, halKey, isPinned, setAnalogInput,
+    setBaseline, setDigitalInput, setProperty, showError, store, toggleCollapsed, togglePin,
+    valueKey,
 } from './store.js';
+
+// Filter tokens, shared by every component that narrows to matches.
+const filterTokens = computed(() => parseFilter(store.filter));
+
+function itemMatches(service, item) {
+    return matchesFilter(filterTokens.value, item, store.values[valueKey(service.id, item.identifier)]);
+}
 
 // ── shared helpers ──────────────────────────────────────────────────────────────
 
@@ -323,8 +332,12 @@ export const DocsRow = {
 
 export const ItemRow = {
     components: { ValueCell, NumberControl, TextControl, EnumSelect, BoolToggle, TriggerButton, SecretControl, JsonEditor, DocsRow },
-    props: ['service', 'item'],
+    props: ['lb', 'service', 'item'],
     setup(props) {
+        const pinEntry = { block: props.lb.name, service: props.service.identifier, item: props.item.identifier };
+        const pinned = computed(() => isPinned(pinEntry));
+        const togglePinRow = () => togglePin(pinEntry);
+        const changed = computed(() => changedSinceBaseline(valueKey(props.service.id, props.item.identifier)));
         const schema = props.item.schema || {};
         const presentation = props.item.presentation || {};
         const isProperty = props.item._kind === 'property';
@@ -352,15 +365,18 @@ export const ItemRow = {
         const showStructEdit = computed(() => writable && isStruct);
         const docsOpen = ref(false);
         const editorOpen = ref(false);
-        return { controlKind, docsOpen, editorOpen, writable, isStruct, isStatus, hidden, unit, writeOnly, showStructEdit };
+        return { controlKind, docsOpen, editorOpen, writable, isStruct, isStatus, hidden, unit, writeOnly, showStructEdit, pinned, togglePinRow, changed };
     },
     template: `
         <div class="item" :class="{ 'hidden-importance': hidden }">
             <div class="item-row">
                 <button type="button" class="docs-toggle" :class="{ open: docsOpen }" title="docs &amp; schema"
                         @click="docsOpen = !docsOpen">▸</button>
+                <button type="button" class="pin-toggle" :class="{ pinned }"
+                        :title="pinned ? 'unpin from watch' : 'pin to watch'" @click="togglePinRow">◆</button>
                 <span class="item-name mono">{{ item.identifier }}</span>
                 <code v-if="unit" class="unit-chip">{{ unit }}</code>
+                <span v-if="changed" class="changed-dot" title="changed since baseline"></span>
                 <span class="item-spacer"></span>
                 <template v-if="controlKind">
                     <ValueCell v-if="isStatus" :service="service" :item="item"/>
@@ -390,25 +406,33 @@ export const GroupSection = {
     props: ['lb', 'service', 'groupKey', 'items'],
     setup(props) {
         const key = collapseKey(props.lb.name, props.service.identifier, props.groupKey);
+        const filterActive = computed(() => filterTokens.value.length > 0);
+        const visible = computed(() => filterActive.value
+            ? props.items.filter(it => itemMatches(props.service, it))
+            : props.items);
+        // An active filter overrides collapse state: groups with matches force open, groups
+        // without matches disappear entirely (the count in the topbar reports the hidden total).
         const collapsed = computed(() => {
+            if (filterActive.value) return false;
             const explicit = store.collapsed[key];
             if (explicit !== undefined) return explicit;
             return !defaultOpen(props.groupKey, props.items.length);
         });
-        const toggle = () => toggleCollapsed(key, collapsed.value);
+        const toggle = () => { if (!filterActive.value) toggleCollapsed(key, collapsed.value); };
         const label = GROUP_LABELS[props.groupKey] !== undefined ? GROUP_LABELS[props.groupKey] : props.groupKey;
         const css = cssGroupKey(props.groupKey);
-        return { collapsed, toggle, label, css };
+        const countText = computed(() => filterActive.value ? `${visible.value.length} of ${props.items.length}` : `${props.items.length}`);
+        return { collapsed, toggle, label, css, visible, filterActive, countText };
     },
     template: `
-        <div class="group-section" :class="css">
+        <div v-if="visible.length" class="group-section" :class="css">
             <button type="button" class="group-header" @click="toggle">
                 <span class="chevron" :class="{ open: !collapsed }">▸</span>
                 <code class="group-key">{{ label }}</code>
-                <span class="group-count">{{ items.length }}</span>
+                <span class="group-count">{{ countText }}</span>
             </button>
             <div v-if="!collapsed" class="group-items">
-                <ItemRow v-for="it in items" :key="it.identifier" :service="service" :item="it"/>
+                <ItemRow v-for="it in visible" :key="it.identifier" :lb="lb" :service="service" :item="it"/>
             </div>
         </div>
     `,
@@ -510,10 +534,17 @@ export const BlockCard = {
         });
         const icon = props.lb.annotations && props.lb.annotations.Icon;
         const multiService = (props.lb.services || []).length > 1;
-        return { services, totals, icon, multiService };
+        // With an active filter, a block with zero matches disappears (the rail still lists it).
+        const visibleCard = computed(() => {
+            if (!filterTokens.value.length) return true;
+            return (props.lb.services || []).some(service =>
+                [...(service.serviceProperties || []), ...(service.serviceMeasuringPoints || [])]
+                    .some(item => itemMatches(service, item)));
+        });
+        return { services, totals, icon, multiService, visibleCard };
     },
     template: `
-        <section class="block-card" :id="'block-' + lb.id">
+        <section v-if="visibleCard" class="block-card" :id="'block-' + lb.id">
             <div class="block-header">
                 <h2>{{ lb.name }}</h2>
                 <code v-if="icon" class="icon-chip" title="Remixicon name">{{ icon }}</code>
@@ -541,7 +572,8 @@ export const Rail = {
             const el = document.getElementById('block-' + lb.id);
             if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
         };
-        return { blocks, count, select, store };
+        const changedCount = lb => changedCountForBlock(lb);
+        return { blocks, count, select, store, changedCount };
     },
     template: `
         <nav class="rail">
@@ -549,14 +581,123 @@ export const Rail = {
                     :class="{ active: store.selectedBlockId === lb.id }" @click="select(lb)">
                 <span class="rail-dot"></span>
                 <span class="rail-name">{{ lb.name }}</span>
-                <span class="rail-count">{{ count(lb) }}</span>
+                <span v-if="store.baseline && changedCount(lb)" class="rail-changed"
+                      title="changed since baseline">{{ changedCount(lb) }}</span>
+                <span v-else class="rail-count">{{ count(lb) }}</span>
             </button>
         </nav>
     `,
 };
 
+// ── watch panel (pinned tiles, drive above observe) ─────────────────────────────
+
+const WatchTile = {
+    components: { ValueCell, NumberControl, TextControl, EnumSelect, BoolToggle, TriggerButton, SecretControl },
+    props: ['entry'],
+    setup(props) {
+        // Resolve the name-path pin against the current topology; null → tombstone.
+        const resolved = computed(() => {
+            const lb = (store.config && store.config.logicBlocks || []).find(b => b.name === props.entry.block);
+            const service = lb && (lb.services || []).find(s => s.identifier === props.entry.service);
+            if (!service) return null;
+            const prop = (service.serviceProperties || []).find(p => p.identifier === props.entry.item);
+            const mp = !prop && (service.serviceMeasuringPoints || []).find(p => p.identifier === props.entry.item);
+            if (!prop && !mp) return null;
+            return { lb, service, item: { ...(prop || mp), _kind: prop ? 'property' : 'measuringPoint' } };
+        });
+        const controlKind = computed(() => {
+            const r = resolved.value;
+            if (!r) return null;
+            const schema = r.item.schema || {};
+            const presentation = r.item.presentation || {};
+            if (r.item._kind !== 'property' || !isWritable(r.item)) return null;
+            if (presentation.uiHint === 'trigger') return 'trigger';
+            if (schema.writeOnly === true) return 'secret';
+            const t = effectiveType(schema);
+            if (t === 'object' || t === 'array') return null;
+            if (enumMembers(schema)) return 'enum';
+            if (t === 'boolean') return 'bool';
+            if (t === 'integer' || t === 'number') return 'number';
+            return 'text';
+        });
+        const changed = computed(() => {
+            const r = resolved.value;
+            return r ? changedSinceBaseline(valueKey(r.service.id, r.item.identifier)) : false;
+        });
+        const delta = computed(() => {
+            const r = resolved.value;
+            if (!r) return null;
+            const d = baselineDelta(valueKey(r.service.id, r.item.identifier));
+            if (d === null || d === 0) return null;
+            const decimals = (r.item.presentation || {}).decimals ?? null;
+            return `${d > 0 ? '+' : ''}${formatValue(d, decimals)} since baseline`;
+        });
+        const unpin = () => togglePin(props.entry);
+        return { resolved, controlKind, changed, delta, unpin };
+    },
+    template: `
+        <div class="watch-tile">
+            <template v-if="resolved">
+                <div class="tile-head">
+                    <span class="mono tile-name">{{ entry.item }}</span>
+                    <span v-if="changed" class="changed-dot" title="changed since baseline"></span>
+                    <button type="button" class="tile-unpin" title="unpin" @click="unpin">✕</button>
+                </div>
+                <div class="tile-block">{{ entry.block }}</div>
+                <div class="tile-body">
+                    <TriggerButton v-if="controlKind === 'trigger'" :service="resolved.service" :item="resolved.item"/>
+                    <SecretControl v-else-if="controlKind === 'secret'" :service="resolved.service" :item="resolved.item"/>
+                    <EnumSelect v-else-if="controlKind === 'enum'" :service="resolved.service" :item="resolved.item"/>
+                    <BoolToggle v-else-if="controlKind === 'bool'" :service="resolved.service" :item="resolved.item"/>
+                    <NumberControl v-else-if="controlKind === 'number'" :service="resolved.service" :item="resolved.item"/>
+                    <TextControl v-else-if="controlKind === 'text'" :service="resolved.service" :item="resolved.item"/>
+                    <ValueCell v-else :service="resolved.service" :item="resolved.item"/>
+                </div>
+                <div v-if="delta" class="tile-delta">{{ delta }}</div>
+            </template>
+            <template v-else>
+                <div class="tile-head">
+                    <span class="mono tile-name tombstone" :title="'not present in this topology: ' + entry.block + '/' + entry.service + '/' + entry.item">{{ entry.item }}</span>
+                    <button type="button" class="tile-unpin" title="unpin" @click="unpin">✕</button>
+                </div>
+                <div class="tile-block">{{ entry.block }} — not in this topology</div>
+            </template>
+        </div>
+    `,
+};
+
+export const WatchPanel = {
+    components: { WatchTile },
+    setup() {
+        const resolveKind = entry => {
+            const lb = (store.config && store.config.logicBlocks || []).find(b => b.name === entry.block);
+            const service = lb && (lb.services || []).find(s => s.identifier === entry.service);
+            const prop = service && (service.serviceProperties || []).find(p => p.identifier === entry.item);
+            return prop && isWritable(prop) ? 'drive' : 'observe';
+        };
+        const drive = computed(() => store.pins.filter(p => resolveKind(p) === 'drive'));
+        const observe = computed(() => store.pins.filter(p => resolveKind(p) !== 'drive'));
+        const empty = computed(() => store.pins.length === 0);
+        return { store, drive, observe, empty };
+    },
+    template: `
+        <aside class="watch" :class="{ empty }">
+            <template v-if="empty">
+                <span class="watch-hint">pin to watch · ◆</span>
+            </template>
+            <template v-else>
+                <div class="watch-header">watch · {{ store.pins.length }}</div>
+                <div v-if="drive.length" class="watch-section">drive</div>
+                <WatchTile v-for="p in drive" :key="p.block + '/' + p.service + '/' + p.item" :entry="p"/>
+                <div v-if="observe.length" class="watch-section">observe</div>
+                <WatchTile v-for="p in observe" :key="p.block + '/' + p.service + '/' + p.item" :entry="p"/>
+            </template>
+        </aside>
+    `,
+};
+
 export const App = {
-    components: { Rail, BlockCard },
+    components: { Rail, BlockCard, WatchPanel },
     setup() {
         const blocks = computed(() => (store.config && store.config.logicBlocks) || []);
         const sharedLookup = computed(() => buildSharedContractLookup());
@@ -573,7 +714,50 @@ export const App = {
             document.documentElement.dataset.theme = theme.value;
             try { localStorage.setItem('dale.devhost.theme', theme.value); } catch { /* private mode */ }
         };
-        return { store, blocks, sharedLookup, totals, theme, toggleTheme };
+
+        // Filter match count ("3 of 25") — same policy the group sections apply.
+        const matches = computed(() => {
+            if (!filterTokens.value.length) return null;
+            let matched = 0;
+            blocks.value.forEach(lb => (lb.services || []).forEach(service => {
+                [...(service.serviceProperties || []), ...(service.serviceMeasuringPoints || [])].forEach(item => {
+                    if (itemMatches(service, item)) matched++;
+                });
+            }));
+            return { matched, total: totals.value.props };
+        });
+
+        const changedTotal = computed(() => blocks.value.reduce((n, lb) => n + changedCountForBlock(lb), 0));
+        const baselineClock = computed(() => {
+            const s = store.baselineSeconds;
+            return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+        });
+
+        // Keyboard: '/' focuses the filter, 'b' (re)sets the baseline, Escape clears the filter.
+        const filterEl = ref(null);
+        const onKeydown = e => {
+            const t = e.target;
+            const editing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT');
+            if (e.key === 'Escape' && t === filterEl.value) {
+                store.filter = '';
+                filterEl.value.blur();
+                return;
+            }
+            if (editing) return;
+            if (e.key === '/') {
+                e.preventDefault();
+                filterEl.value && filterEl.value.focus();
+            } else if (e.key === 'b') {
+                setBaseline();
+            }
+        };
+        onMounted(() => window.addEventListener('keydown', onKeydown));
+        onUnmounted(() => window.removeEventListener('keydown', onKeydown));
+
+        return {
+            store, blocks, sharedLookup, totals, theme, toggleTheme, matches, changedTotal,
+            baselineClock, filterEl, setBaseline, clearBaseline,
+        };
     },
     template: `
         <div class="app">
@@ -581,6 +765,20 @@ export const App = {
                 <span class="brand">DALE DevHost</span>
                 <code v-if="store.topologyName" class="topology-chip">{{ store.topologyName }}</code>
                 <span class="counts">{{ totals.blocks }} blocks · {{ totals.props }} properties</span>
+                <span class="filter-wrap">
+                    <input ref="filterEl" type="text" class="filter-input" :value="store.filter"
+                           placeholder="filter · name:value · >50"
+                           @input="store.filter = $event.target.value">
+                    <span v-if="matches" class="filter-count">{{ matches.matched }} of {{ matches.total }}</span>
+                    <kbd v-else>/</kbd>
+                </span>
+                <button v-if="!store.baseline" type="button" class="theme-toggle" title="snapshot a baseline — changed values light up (b)"
+                        @click="setBaseline">⚑ baseline</button>
+                <span v-else class="baseline-chip">
+                    <span>⚑ {{ baselineClock }} · {{ changedTotal }} changed</span>
+                    <button type="button" title="re-snapshot (b)" @click="setBaseline">↺</button>
+                    <button type="button" title="clear baseline" @click="clearBaseline">✕</button>
+                </span>
                 <span class="conn" :class="store.connected ? 'connected' : 'disconnected'">
                     <span class="conn-dot"></span>{{ store.connected ? 'live' : 'disconnected' }}
                 </span>
@@ -594,6 +792,7 @@ export const App = {
                 <main class="content">
                     <BlockCard v-for="lb in blocks" :key="lb.id" :lb="lb" :sharedLookup="sharedLookup"/>
                 </main>
+                <WatchPanel/>
             </div>
         </div>
     `,
