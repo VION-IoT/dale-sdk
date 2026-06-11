@@ -39,6 +39,8 @@ namespace Vion.Dale.DevHost.Control
 
         private readonly MessageTap _messageTap;
 
+        private readonly DevHostRunControl _runControl;
+
         private readonly List<Action<DevHostEvent>> _subscribers = new();
 
         // Last-known value per (serviceConfigId, memberName) — fed by the change events, read by GetProperty.
@@ -55,7 +57,8 @@ namespace Vion.Dale.DevHost.Control
                               DevHostLogSink logSink,
                               DevHostIntrospection introspection,
                               IActorSystem actorSystem,
-                              MessageTap messageTap)
+                              MessageTap messageTap,
+                              DevHostRunControl runControl)
         {
             _configuration = configuration;
             _events = events;
@@ -63,6 +66,7 @@ namespace Vion.Dale.DevHost.Control
             _introspection = introspection;
             _actorSystem = actorSystem;
             _messageTap = messageTap;
+            _runControl = runControl;
 
             _events.ServicePropertyChanged += OnServiceProperty;
             _events.ServiceMeasuringPointChanged += OnMeasuringPoint;
@@ -70,6 +74,42 @@ namespace Vion.Dale.DevHost.Control
             _events.DigitalOutputChanged += OnDigitalOutput;
             _events.AnalogInputChanged += OnAnalogInput;
             _events.AnalogOutputChanged += OnAnalogOutput;
+        }
+
+        /// <inheritdoc />
+        public bool IsPaused
+        {
+            get => _runControl.IsPaused;
+        }
+
+        /// <inheritdoc />
+        public bool CanReset
+        {
+            get => _runControl.CanReset;
+        }
+
+        /// <inheritdoc />
+        public void Pause()
+        {
+            _runControl.Pause();
+        }
+
+        /// <inheritdoc />
+        public void Resume()
+        {
+            _runControl.Resume();
+        }
+
+        /// <inheritdoc />
+        public bool TryRequestReset()
+        {
+            return _runControl.TryRequestReset();
+        }
+
+        /// <inheritdoc />
+        public IDisposable OnResetRequested(Action handler)
+        {
+            return _runControl.OnResetRequested(handler);
         }
 
         public IReadOnlyList<LogicBlockInfo> ListLogicBlocks()

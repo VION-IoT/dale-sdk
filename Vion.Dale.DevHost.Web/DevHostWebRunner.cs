@@ -53,6 +53,68 @@ namespace Vion.Dale.DevHost.Web
             await host.StopAsync(CancellationToken.None);
         }
 
+        /// <summary>
+        ///     Supervised variant: builds the host from <paramref name="hostFactory" /> and recycles it —
+        ///     dispose, rebuild, restart on the same port — whenever the UI/API requests a reset
+        ///     (<c>POST /api/control/reset</c> → <see cref="Control.IDevHostControl.TryRequestReset" />).
+        ///     This kills the kill-and-`dale dev` loop: a code-independent fresh start without leaving the
+        ///     browser. Runs until <paramref name="cancellationToken" /> is cancelled.
+        /// </summary>
+        /// <param name="hostFactory">
+        ///     Builds a fresh host per generation (the same builder chain a <c>Program.cs</c> runs once
+        ///     today). Each generation gets a fresh service provider, actor system, and service ids.
+        /// </param>
+        /// <param name="port">The port the web UI / API is served on.</param>
+        /// <param name="cancellationToken">Cancelled to shut down (typically wired to Ctrl+C).</param>
+        public static async Task RunAsync(Func<IDevHost> hostFactory, int port = 5000, CancellationToken cancellationToken = default)
+        {
+            var headless = Environment.GetEnvironmentVariable(NoBrowserEnvVar) == "1";
+            var generation = 0;
+
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                generation++;
+                await using var host = hostFactory();
+
+                var resetRequested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                using var resetSubscription = host.Control.OnResetRequested(() => resetRequested.TrySetResult());
+
+                await host.StartAsync(cancellationToken);
+
+                if (headless)
+                {
+                    Console.WriteLine($"{{\"ready\":true,\"port\":{port},\"generation\":{generation}}}");
+                }
+                else if (generation == 1)
+                {
+                    // Open the browser once; on recycle the page reconnects by itself.
+                    OpenBrowser($"http://localhost:{port}");
+                }
+
+                try
+                {
+                    await Task.WhenAny(resetRequested.Task, Task.Delay(Timeout.Infinite, cancellationToken));
+                }
+                catch (OperationCanceledException)
+                {
+                    // Expected on Ctrl+C / cancellation.
+                }
+
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    await host.StopAsync(CancellationToken.None);
+                    return;
+                }
+
+                Console.WriteLine($"Reset requested — recycling host (generation {generation + 1})...");
+
+                // `await using` disposes the old host at the end of this iteration; the brief delay lets
+                // Kestrel finish releasing the port before the next generation rebinds it.
+                await host.StopAsync(CancellationToken.None);
+                await Task.Delay(TimeSpan.FromMilliseconds(250), CancellationToken.None);
+            }
+        }
+
         private static void OpenBrowser(string url)
         {
             Console.WriteLine($"Opening browser at {url}...");

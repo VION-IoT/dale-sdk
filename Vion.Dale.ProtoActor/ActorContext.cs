@@ -11,9 +11,12 @@ namespace Vion.Dale.ProtoActor
     {
         private readonly Func<IContext> _context;
 
-        public ActorContext(Func<IContext> context)
+        private readonly IDelayedSendGate? _delayedSendGate;
+
+        public ActorContext(Func<IContext> context, IDelayedSendGate? delayedSendGate = null)
         {
             _context = context;
+            _delayedSendGate = delayedSendGate;
         }
 
         public IReadOnlyDictionary<string, string> Headers
@@ -35,6 +38,15 @@ namespace Vion.Dale.ProtoActor
 
         public void SendToSelfAfter(object message, TimeSpan delay)
         {
+            // Opt-in pause gate (DevHost): when registered AND holding, the schedule is queued and replayed
+            // on resume — with the original delay, so a paused 5 s timer fires 5 s after resume. Production
+            // registers no gate → unchanged. The replay re-enters this method, so a still-paused gate simply
+            // re-holds.
+            if (_delayedSendGate is not null && _delayedSendGate.TryHold(() => SendToSelfAfter(message, delay)))
+            {
+                return;
+            }
+
             _context().ReenterAfter(Task.Delay(delay), _ => SendToSelf(message));
         }
 

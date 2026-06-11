@@ -32,6 +32,11 @@ export const store = reactive({
     baselineSeconds: 0,
     // Ctrl+K command palette (jump / pin).
     paletteOpen: false,
+    // Run control: paused (timer/delayed fires held), canReset (supervisor attached).
+    paused: false,
+    canReset: false,
+    // Top-level view: 'explorer' (default) or 'topology' (read-only setup panel).
+    view: 'explorer',
 });
 
 const COLLAPSE_STORAGE_KEY = 'dale.devhost.collapsed';
@@ -198,6 +203,94 @@ export async function setAnalogInput(spId, svcId, contractId, value) {
     }
 }
 
+// ── Run control (pause / resume / reset) ────────────────────────────────────────
+
+async function fetchControlStatus() {
+    try {
+        const response = await fetch('/api/control/status');
+        if (!response.ok) return;
+        const status = await response.json();
+        store.paused = !!status.paused;
+        store.canReset = !!status.canReset;
+    } catch (err) {
+        console.warn('Could not fetch control status', err);
+    }
+}
+
+export async function pauseHost() {
+    try {
+        const response = await fetch('/api/control/pause', { method: 'POST' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        store.paused = true;
+    } catch (err) {
+        showError(`Failed to pause: ${err.message ?? err}`);
+    }
+}
+
+export async function resumeHost() {
+    try {
+        const response = await fetch('/api/control/resume', { method: 'POST' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        store.paused = false;
+    } catch (err) {
+        showError(`Failed to resume: ${err.message ?? err}`);
+    }
+}
+
+// Request a host recycle (dispose → rebuild → restart, same port). The server drops the SignalR
+// connection while recycling; the onreconnected/onclose handlers rebuild the client state — no
+// manual re-init here, so there is exactly one recovery path.
+export async function resetHost() {
+    try {
+        const response = await fetch('/api/control/reset', { method: 'POST' });
+        if (response.status === 409) {
+            const body = await response.json();
+            showError(body.error || 'Host is not supervised — reset unavailable.');
+            return;
+        }
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        store.connected = false;
+    } catch (err) {
+        showError(`Failed to reset: ${err.message ?? err}`);
+    }
+}
+
+// After a host recycle EVERYTHING server-side is new — service ids, values, control state. The
+// rendered config is stale the moment the connection blips, so both reconnect paths rebuild the
+// whole client state; only the dead-connection path additionally creates a fresh hub connection.
+let reinitInFlight = false;
+
+async function reinitClientState() {
+    if (reinitInFlight) return false;
+    reinitInFlight = true;
+    try {
+        for (let attempt = 0; attempt < 60; attempt++) {
+            try {
+                const response = await fetch('/api/configuration');
+                if (response.ok) {
+                    store.config = await response.json();
+                    store.topologyName = store.config.topologyName || null;
+                    Object.keys(store.values).forEach(k => delete store.values[k]);
+                    Object.keys(store.hal).forEach(k => delete store.hal[k]);
+                    clearBaseline();
+                    await primeInitialValues();
+                    await fetchControlStatus();
+                    return true;
+                }
+            } catch {
+                // Host still recycling — keep polling.
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+
+        showError('Host did not come back after reset — restart it manually.');
+        return false;
+    } finally {
+        reinitInFlight = false;
+    }
+}
+
 // ── Coalesced SignalR apply ─────────────────────────────────────────────────────
 
 const pendingValues = new Map();
@@ -252,6 +345,7 @@ export async function initStore() {
     // camelCased while identifiers are PascalCase — lookup is case-insensitive. Null entries are
     // skipped: the cache can't distinguish "published null" from "never produced".
     await primeInitialValues();
+    await fetchControlStatus();
     await connectHub();
 }
 
@@ -279,15 +373,40 @@ async function primeInitialValues() {
     }));
 }
 
+let hubConnection = null;
+
 async function connectHub() {
+    if (hubConnection) {
+        try {
+            await hubConnection.stop();
+        } catch {
+            // Already dead — that's why we're reconnecting.
+        }
+    }
+
     const connection = new window.signalR.HubConnectionBuilder()
         .withUrl('/hub')
         .withAutomaticReconnect()
         .build();
+    hubConnection = connection;
 
     connection.onreconnecting(() => { store.connected = false; });
-    connection.onreconnected(() => { store.connected = true; });
-    connection.onclose(() => { store.connected = false; });
+    // The connection survived (auto-reconnect) — but the host may have been RECYCLED meanwhile
+    // (reset): every service id changed and the rendered config is stale. Rebuild the client
+    // state; the existing connection stays.
+    connection.onreconnected(() => {
+        store.connected = true;
+        reinitClientState();
+    });
+    // The connection is dead (auto-reconnect exhausted — e.g. a slow recycle): rebuild the client
+    // state AND a fresh hub connection.
+    connection.onclose(async () => {
+        store.connected = false;
+        if (connection !== hubConnection) return;
+        if (await reinitClientState()) {
+            await connectHub();
+        }
+    });
 
     connection.on('PropertyValueChanged', d => queueValue(d.serviceIdentifier, d.propertyIdentifier, d.value));
     connection.on('MeasuringPointValueChanged', d => queueValue(d.serviceIdentifier, d.measuringPointIdentifier, d.value));

@@ -10,9 +10,12 @@ namespace Vion.Dale.ProtoActor
     {
         private readonly TActorReceiver _actorReceiver;
 
-        public Actor(TActorReceiver actorReceiver)
+        private readonly IDelayedSendGate? _delayedSendGate;
+
+        public Actor(TActorReceiver actorReceiver, IDelayedSendGate? delayedSendGate = null)
         {
             _actorReceiver = actorReceiver;
+            _delayedSendGate = delayedSendGate;
         }
 
         /// <inheritdoc />
@@ -25,7 +28,7 @@ namespace Vion.Dale.ProtoActor
                     break;
 
                 default:
-                    await _actorReceiver.HandleMessageAsync(context.Message, new ActorContext(() => context));
+                    await _actorReceiver.HandleMessageAsync(context.Message, new ActorContext(() => context, _delayedSendGate));
                     break;
             }
         }

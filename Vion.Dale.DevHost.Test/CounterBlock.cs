@@ -50,6 +50,7 @@ namespace Vion.Dale.DevHost.Test
         {
             serviceCollection.AddTransient<CounterBlock>();
             serviceCollection.AddTransient<MultiPointBlock>();
+            serviceCollection.AddTransient<TickerBlock>();
         }
     }
 }

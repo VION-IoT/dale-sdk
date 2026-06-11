@@ -114,6 +114,11 @@ namespace Vion.Dale.DevHost
             // here — only in DevHost — is what activates the tap; the production runtime registers none.
             _services.AddSingleton<MessageTap>();
             _services.AddSingleton<IActorMessageObserver>(sp => sp.GetRequiredService<MessageTap>());
+
+            // Run control: pause gate + reset signal. Same opt-in pattern as the tap — registering the
+            // IDelayedSendGate here (only in DevHost) is what enables pause; production registers none.
+            _services.AddSingleton<DevHostRunControl>();
+            _services.AddSingleton<IDelayedSendGate>(sp => sp.GetRequiredService<DevHostRunControl>());
             _services.AddSingleton<IDevHostControl, DevHostControl>();
 
             // Register initializer

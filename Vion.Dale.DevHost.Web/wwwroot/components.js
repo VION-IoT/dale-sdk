@@ -12,9 +12,9 @@ import {
 } from './format.js';
 import {
     baselineDelta, buildSharedContractLookup, changedCountForBlock, changedSinceBaseline,
-    clearBaseline, collapseKey, connectionsForLb, halKey, isPinned, setAnalogInput,
-    setBaseline, setDigitalInput, setProperty, showError, store, toggleCollapsed, togglePin,
-    valueKey,
+    clearBaseline, collapseKey, connectionsForLb, halKey, isPinned, pauseHost, resetHost,
+    resumeHost, setAnalogInput, setBaseline, setDigitalInput, setProperty, showError, store,
+    toggleCollapsed, togglePin, valueKey,
 } from './store.js';
 
 // Filter tokens, shared by every component that narrows to matches.
@@ -820,6 +820,75 @@ export const WatchPanel = {
     `,
 };
 
+// ── topology panel: the read-only setup view — what runs, how it is wired, where IO lands ──────
+
+export const TopologyPanel = {
+    setup() {
+        const blocks = computed(() => (store.config && store.config.logicBlocks) || []);
+        const links = computed(() => (store.config && store.config.interfaceMappings) || []);
+        const providers = computed(() => (store.config && store.config.serviceProviders) || []);
+        const counts = lb => {
+            let writable = 0, total = 0;
+            (lb.services || []).forEach(s => {
+                (s.serviceProperties || []).forEach(p => { total++; if (isWritable(p)) writable++; });
+                total += (s.serviceMeasuringPoints || []).length;
+            });
+            return `${total} properties · ${writable} writable`;
+        };
+        const contractRows = lb => {
+            const infoMap = {};
+            (lb.contracts || []).forEach(c => { infoMap[c.identifier] = c; });
+            return (lb.contractMappings || []).map(cm => {
+                const info = infoMap[cm.contractIdentifier];
+                const type = info ? info.matchingContractType : '?';
+                return {
+                    id: cm.contractIdentifier,
+                    short: type === 'DigitalInput' ? 'DI' : type === 'DigitalOutput' ? 'DO' : type === 'AnalogInput' ? 'AI' : 'AO',
+                    endpoint: `${cm.mappedServiceProviderIdentifier} / ${cm.mappedServiceIdentifier} / ${cm.mappedContractIdentifier}`,
+                };
+            });
+        };
+        return { store, blocks, links, providers, counts, contractRows };
+    },
+    template: `
+        <div class="topology-panel">
+            <section class="block-card">
+                <div class="block-header">
+                    <h2>topology</h2>
+                    <code v-if="store.topologyName" class="topology-chip">{{ store.topologyName }}</code>
+                    <span class="item-spacer"></span>
+                    <span class="block-counts">{{ blocks.length }} blocks · {{ links.length }} links · {{ providers.length }} mock providers</span>
+                </div>
+                <h3 class="topo-section">blocks</h3>
+                <div v-for="lb in blocks" :key="lb.id" class="topo-row">
+                    <span class="mono topo-name">{{ lb.name }}</span>
+                    <code v-if="lb.annotations?.Icon" class="icon-chip">{{ lb.annotations.Icon }}</code>
+                    <span class="item-spacer"></span>
+                    <span class="topo-meta">{{ counts(lb) }}</span>
+                </div>
+                <h3 class="topo-section">links</h3>
+                <div v-for="(m, i) in links" :key="i" class="topo-row">
+                    <span class="mono topo-name">{{ m.sourceLogicBlockName }}</span>
+                    <span class="topo-arrow">→</span>
+                    <span class="mono topo-name">{{ m.targetLogicBlockName }}</span>
+                    <span class="item-spacer"></span>
+                    <span class="topo-meta mono">{{ m.sourceInterfaceIdentifier }} ↔ {{ m.targetInterfaceIdentifier }}</span>
+                </div>
+                <div v-if="!links.length" class="topo-meta">no inter-block links</div>
+                <h3 class="topo-section">hardware contracts (mocked)</h3>
+                <template v-for="lb in blocks" :key="'c' + lb.id">
+                    <div v-for="c in contractRows(lb)" :key="lb.id + c.id" class="topo-row">
+                        <span class="contract-type-badge" :class="c.short.toLowerCase()">{{ c.short }}</span>
+                        <span class="mono topo-name">{{ lb.name }}.{{ c.id }}</span>
+                        <span class="item-spacer"></span>
+                        <span class="topo-meta mono">{{ c.endpoint }}</span>
+                    </div>
+                </template>
+            </section>
+        </div>
+    `,
+};
+
 // ── Ctrl+K palette: type to find any property, Enter jumps to it, Ctrl+Enter pins it ───────────
 
 export const Palette = {
@@ -906,7 +975,7 @@ export const Palette = {
 };
 
 export const App = {
-    components: { Rail, BlockCard, WatchPanel, Palette },
+    components: { Rail, BlockCard, WatchPanel, Palette, TopologyPanel },
     setup() {
         const blocks = computed(() => (store.config && store.config.logicBlocks) || []);
         const sharedLookup = computed(() => buildSharedContractLookup());
@@ -968,9 +1037,14 @@ export const App = {
         onMounted(() => window.addEventListener('keydown', onKeydown));
         onUnmounted(() => window.removeEventListener('keydown', onKeydown));
 
+        const toggleView = () => { store.view = store.view === 'explorer' ? 'topology' : 'explorer'; };
+        const confirmReset = () => {
+            resetHost();
+        };
         return {
             store, blocks, sharedLookup, totals, theme, toggleTheme, matches, changedTotal,
-            baselineClock, filterEl, setBaseline, clearBaseline,
+            baselineClock, filterEl, setBaseline, clearBaseline, pauseHost, resumeHost,
+            confirmReset, toggleView,
         };
     },
     template: `
@@ -993,6 +1067,19 @@ export const App = {
                     <button type="button" title="re-snapshot (b)" @click="setBaseline">↺</button>
                     <button type="button" title="clear baseline" @click="clearBaseline">✕</button>
                 </span>
+                <button v-if="!store.paused" type="button" class="theme-toggle"
+                        title="pause time-driven activity — timers hold, writes still work"
+                        @click="pauseHost">⏸ pause</button>
+                <span v-else class="paused-chip">
+                    <span>⏸ paused</span>
+                    <button type="button" title="resume — held timers replay" @click="resumeHost">▶</button>
+                </span>
+                <button type="button" class="theme-toggle" :disabled="!store.canReset"
+                        :title="store.canReset ? 'recycle the host — fresh start without leaving the browser' : 'reset needs a supervised host (DevHostWebRunner.RunAsync with a host factory)'"
+                        @click="confirmReset">↻ reset</button>
+                <button type="button" class="theme-toggle" :class="{ 'view-active': store.view === 'topology' }"
+                        :title="store.view === 'topology' ? 'back to the explorer' : 'topology — blocks, links, mocked IO'"
+                        @click="toggleView">⛁ topology</button>
                 <span class="conn" :class="store.connected ? 'connected' : 'disconnected'">
                     <span class="conn-dot"></span>{{ store.connected ? 'live' : 'disconnected' }}
                 </span>
@@ -1001,6 +1088,11 @@ export const App = {
             </header>
             <div v-if="store.error" class="error-toast">{{ store.error }}</div>
             <div v-if="store.loading" class="loading">Loading configuration…</div>
+            <div v-else-if="store.view === 'topology'" class="layout">
+                <main class="content">
+                    <TopologyPanel/>
+                </main>
+            </div>
             <div v-else class="layout">
                 <Rail/>
                 <main class="content">

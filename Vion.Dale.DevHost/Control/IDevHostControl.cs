@@ -15,6 +15,12 @@ namespace Vion.Dale.DevHost.Control
     /// </summary>
     public interface IDevHostControl
     {
+        /// <summary>True while time-driven activity is paused (see <see cref="Pause" />).</summary>
+        bool IsPaused { get; }
+
+        /// <summary>True when a supervisor capable of recycling the host is attached (see <see cref="TryRequestReset" />).</summary>
+        bool CanReset { get; }
+
         /// <summary>The logic blocks in the wired network, with their ids, names, type, and service identifiers.</summary>
         IReadOnlyList<LogicBlockInfo> ListLogicBlocks();
 
@@ -95,6 +101,28 @@ namespace Vion.Dale.DevHost.Control
 
         /// <summary>The most recent captured log lines (bounded scrollback), oldest first.</summary>
         IReadOnlyList<LogLine> RecentLogs(int max = 500);
+
+        /// <summary>
+        ///     Pause time-driven activity: NEW <c>[Timer]</c> ticks and <c>InvokeSynchronizedAfter</c>
+        ///     callbacks are held in a queue (already-scheduled fires still deliver, so each timer may tick
+        ///     at most once more). Message processing — property sets, contract messages — continues: the
+        ///     world stands still but remains pokeable. Wall-clock keeps running; blocks computing from the
+        ///     current time observe the gap.
+        /// </summary>
+        void Pause();
+
+        /// <summary>Resume: replay every held schedule, in order, with its original delay — self-rescheduling chains survive.</summary>
+        void Resume();
+
+        /// <summary>
+        ///     Ask the supervisor to recycle the host (dispose → rebuild → restart; the kill-and-`dale dev`
+        ///     loop without the kill). Returns false when the host was started without a factory
+        ///     (<c>DevHostWebRunner.RunAsync(hostFactory, …)</c>) — nothing can rebuild it.
+        /// </summary>
+        bool TryRequestReset();
+
+        /// <summary>Supervisor hook: attach the reset handler. Dispose the token to detach.</summary>
+        IDisposable OnResetRequested(Action handler);
     }
 
     /// <summary>Topology entry for <see cref="IDevHostControl.ListLogicBlocks" />.</summary>

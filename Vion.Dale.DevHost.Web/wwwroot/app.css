@@ -117,6 +117,46 @@ body {
     padding: 0 2px;
 }
 
+.paused-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 11px;
+    font-weight: var(--vion-font-weight-emphasized);
+    background: var(--vion-warning-bg-def-primary);
+    color: var(--vion-warning-fg-def-primary);
+    border: 1px solid var(--vion-warning-brd-def-primary);
+    padding: 2px 9px;
+    border-radius: 999px;
+}
+.paused-chip button { background: none; border: none; color: inherit; font-size: 11px; padding: 0 2px; }
+
+.theme-toggle:disabled { opacity: 0.4; cursor: not-allowed; }
+.theme-toggle.view-active { color: var(--accent); border-color: var(--accent); }
+
+/* ── topology panel ──────────────────────────────────────────────────────── */
+
+.topo-section {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin: 14px 0 4px;
+}
+
+.topo-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 2px;
+    min-height: 28px;
+    border-top: 1px solid var(--border);
+}
+
+.topo-name { font-size: 12.5px; color: var(--text); }
+.topo-arrow { color: var(--accent); font-weight: var(--vion-font-weight-emphasized); }
+.topo-meta { font-size: 11px; color: var(--text-faint); }
+
 .error-toast {
     position: fixed;
     top: 52px;
