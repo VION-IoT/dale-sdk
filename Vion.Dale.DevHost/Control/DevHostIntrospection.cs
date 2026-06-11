@@ -122,6 +122,7 @@ namespace Vion.Dale.DevHost.Control
 
             return new ConfigurationOutput
                    {
+                       TopologyName = _configuration.TopologyName,
                        LogicBlocks = _configuration.LogicBlocks.Select(BuildLogicBlock).ToList(),
                        InterfaceMappings = _configuration.InterfaceMappings
                                                          .Select(im => new ConfigurationOutput.InterfaceMapping

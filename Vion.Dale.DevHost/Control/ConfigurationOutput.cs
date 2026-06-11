@@ -11,6 +11,13 @@ namespace Vion.Dale.DevHost.Control
     /// </summary>
     public class ConfigurationOutput
     {
+        /// <summary>
+        ///     The name of the wired topology (the consumer's preset), when the configuration declared one via
+        ///     <c>DevConfigurationBuilder.WithTopologyName</c>. Lets the UI header and agents identify which
+        ///     preset is running; scenario files compare against it (RFC 0006).
+        /// </summary>
+        public string? TopologyName { get; set; }
+
         public required List<LogicBlock> LogicBlocks { get; set; }
 
         public required List<ServiceProvider> ServiceProviders { get; set; }

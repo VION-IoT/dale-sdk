@@ -21,6 +21,13 @@ namespace Vion.Dale.DevHost
 
     public class DevConfiguration
     {
+        /// <summary>
+        ///     Optional name identifying this wired topology (the consumer's preset, e.g.
+        ///     "EnergyManagerClosedLoop"). Surfaced via <c>ConfigurationOutput.TopologyName</c> so the web UI
+        ///     and agents can tell which preset is running; scenario files reference it (RFC 0006).
+        /// </summary>
+        public string? TopologyName { get; set; }
+
         public List<DevLogicBlockConfig> LogicBlocks { get; set; } = [];
 
         public List<DevServiceProviderConfig> ServiceProviders { get; set; } = [];

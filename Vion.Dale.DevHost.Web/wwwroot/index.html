@@ -4,14 +4,15 @@
     <meta charset="UTF-8">
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <title>DALE DevHost Web UI</title>
-    <script src="https://cdn.jsdelivr.net/npm/@microsoft/signalr@8.0.0/dist/browser/signalr.min.js"></script>
-    <!-- day.js for Presentation.Format token interpretation. Moment-compatible token vocabulary;
-    small (~2 KB gzipped). Plugins below enable the sentinels: relativeTime for "relative",
-    duration for "humanize" + clock-style durations, localizedFormat for L/LL/LLL/LLLL/LT/LTS. -->
-    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.13/dayjs.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.13/plugin/relativeTime.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.13/plugin/duration.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.13/plugin/localizedFormat.js"></script>
+    <!-- Vendored, pinned runtime deps (see THIRD-PARTY-NOTICES.txt) — the UI must work offline,
+    so nothing loads from a CDN. signalr 8.0.0; day.js 1.11.13 for Presentation.Format token
+    interpretation (moment-compatible vocabulary). Plugins enable the sentinels: relativeTime for
+    "relative", duration for "humanize" + clock-style durations, localizedFormat for L/LL/LLL/LT/LTS. -->
+    <script src="signalr.min.js"></script>
+    <script src="dayjs.min.js"></script>
+    <script src="dayjs.relativeTime.min.js"></script>
+    <script src="dayjs.duration.min.js"></script>
+    <script src="dayjs.localizedFormat.min.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -41,6 +42,12 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
+        }
+
+        .topology {
+            font-size: 13px;
+            color: #9999cc;
+            margin-bottom: 10px;
         }
 
         .status {
@@ -857,6 +864,7 @@
 <body>
 <div class="container">
     <h1>DALE DevHost Web UI</h1>
+    <div class="topology" id="topology-line" style="display: none;">topology <code id="topology-name"></code></div>
     <div class="status disconnected" id="connection-status">Connecting to SignalR...</div>
 
     <div id="error-container"></div>
@@ -878,9 +886,12 @@
         if (window.dayjs_plugin_localizedFormat) dayjs.extend(window.dayjs_plugin_localizedFormat);
     }
 
-    // Initialize
+    // Initialize. Order matters: prime values from the REST snapshot BEFORE the SignalR connect, so
+    // the page shows current state immediately instead of '-' placeholders until the connect burst
+    // (PublishAllStates) arrives. The burst still repaints the same values harmlessly afterwards.
     document.addEventListener('DOMContentLoaded', async () => {
         await loadConfiguration();
+        await primeInitialValues();
         await connectToHub();
     });
 
@@ -955,6 +966,14 @@
             config = await response.json();
             console.log('Configuration loaded:', config);
 
+            // Topology preset name (DevConfigurationBuilder.WithTopologyName) — shown in the header
+            // and the tab title so a developer juggling several hosts can tell them apart.
+            if (config.topologyName) {
+                document.getElementById('topology-name').textContent = config.topologyName;
+                document.getElementById('topology-line').style.display = 'block';
+                document.title = `DALE DevHost — ${config.topologyName}`;
+            }
+
             document.getElementById('loading').style.display = 'none';
             document.getElementById('content').style.display = 'block';
 
@@ -964,6 +983,43 @@
             showError('Failed to load configuration: ' + err);
             document.getElementById('loading').innerHTML = 'Failed to load configuration';
         }
+    }
+
+    // Prime all property/measuring-point cells (and their controls) from the REST state snapshot
+    // (GET /api/state/{block}, RFC 0003) so current values render without waiting for SignalR.
+    // The state dictionary is keyed by member name but camelCased by the wire serializer
+    // (DictionaryKeyPolicy), while introspection identifiers are the C# PascalCase names — so the
+    // lookup is case-insensitive. Null entries are skipped: the cache can't distinguish "published
+    // null" from "never produced", and painting ∅ for never-produced values would lie.
+    async function primeInitialValues() {
+        if (!config || !config.logicBlocks) return;
+        await Promise.all(config.logicBlocks.map(async lb => {
+            try {
+                const response = await fetch(`/api/state/${encodeURIComponent(lb.id)}`);
+                if (!response.ok) return;
+                const state = await response.json();
+                const byLowerKey = {};
+                Object.keys(state).forEach(k => { byLowerKey[k.toLowerCase()] = state[k]; });
+                const lookup = id => byLowerKey[id.toLowerCase()];
+
+                (lb.services || []).forEach(service => {
+                    (service.serviceProperties || []).forEach(p => {
+                        const value = lookup(p.identifier);
+                        if (value !== null && value !== undefined) {
+                            updatePropertyValue(service.id, p.identifier, value);
+                        }
+                    });
+                    (service.serviceMeasuringPoints || []).forEach(mp => {
+                        const value = lookup(mp.identifier);
+                        if (value !== null && value !== undefined) {
+                            updateMeasuringPointValue(service.id, mp.identifier, value);
+                        }
+                    });
+                });
+            } catch (err) {
+                console.warn(`Failed to prime state for ${lb.name}:`, err);
+            }
+        }));
     }
 
     // Build shared-contract lookup: SP endpoint key -> list of LB IDs that map to it
@@ -1359,12 +1415,31 @@
             pill.textContent = '—';
             const mapping = (item.presentation && item.presentation.statusMappings) || {};
             pill.setAttribute('data-status-mappings', JSON.stringify(mapping));
+            const pillEnumLabels = item.presentation && item.presentation.enumLabels;
+            if (pillEnumLabels && enumMembers(item.schema)) {
+                pill.setAttribute('data-enum-labels', JSON.stringify(pillEnumLabels));
+            }
             return pill;
         }
         const span = document.createElement('span');
         span.className = 'value-display';
         span.id = elemId;
         span.textContent = '-';
+        // Presentation metadata the painter honours without re-walking the introspection JSON:
+        // decimals (fixed decimal places), x-unit (inline suffix for numerics), enumLabels.
+        const decimals = item.presentation && item.presentation.decimals;
+        if (decimals !== undefined && decimals !== null) {
+            span.setAttribute('data-decimals', String(decimals));
+        }
+        const itemType = effectiveType(item.schema);
+        const unit = resolveUnit(item.schema);
+        if (unit && (itemType === 'number' || itemType === 'integer')) {
+            span.setAttribute('data-unit', unit);
+        }
+        const valueEnumLabels = item.presentation && item.presentation.enumLabels;
+        if (valueEnumLabels && enumMembers(item.schema)) {
+            span.setAttribute('data-enum-labels', JSON.stringify(valueEnumLabels));
+        }
         // Tag temporal cells with schema.format + presentation.format so paintValueElement can
         // route through dayjs without re-walking the introspection JSON on every update.
         const schemaFormat = item.schema && item.schema.format;
@@ -1546,8 +1621,9 @@
                     <span class="contract-type-badge ${typeBadgeClass}">${typeBadgeLabel}</span>
                     <label>${cm.contractIdentifier}${sharedHtml}</label>
                     <input type="number" id="ai-${uid}" value="0" step="0.1"
-                           onblur="setAnalogInput('${spId}', '${svcId}', '${cId}', this.value)"
-                           onkeypress="if(event.key==='Enter') setAnalogInput('${spId}', '${svcId}', '${cId}', this.value)">
+                           oninput="this.dataset.dirty='1'"
+                           onblur="delete this.dataset.dirty; setAnalogInput('${spId}', '${svcId}', '${cId}', this.value)"
+                           onkeypress="if(event.key==='Enter') { delete this.dataset.dirty; setAnalogInput('${spId}', '${svcId}', '${cId}', this.value); }">
                     <span class="value-display" id="ai-value-${uid}">0.0</span>
                 `;
             } else if (contractType === 'AnalogOutput') {
@@ -1626,6 +1702,24 @@
         return (schema && schema['x-unit']) || null;
     }
 
+    // Resolve the display label for an enum member from presentation.enumLabels ([EnumLabel]).
+    // Case-tolerant lookup: wire dictionary keys may be camelCased by the serializer while schema
+    // enum members keep their C# PascalCase names.
+    function enumLabelFor(enumLabels, memberName) {
+        if (!enumLabels || memberName === null || memberName === undefined) return null;
+        if (Object.prototype.hasOwnProperty.call(enumLabels, memberName)) return enumLabels[memberName];
+        const lower = String(memberName).toLowerCase();
+        const key = Object.keys(enumLabels).find(k => k.toLowerCase() === lower);
+        return key !== undefined ? enumLabels[key] : null;
+    }
+
+    // Dev-tool enum display: "Label (Name)" when a label exists and differs — the wire member name
+    // must stay visible (tests and IDevHostControl address by name) — plain member name otherwise.
+    function enumDisplay(enumLabels, memberName) {
+        const label = enumLabelFor(enumLabels, memberName);
+        return label && label !== memberName ? `${label} (${memberName})` : String(memberName);
+    }
+
     // True if a service property is writable. The schema's readOnly flag overrides; otherwise it's writable.
     function isWritable(propInfo) {
         return !(propInfo.schema && propInfo.schema.readOnly === true);
@@ -1661,23 +1755,30 @@
         return null;
     }
 
-    // Parse a JSON-textarea string and POST as the property value. Surfaces parse errors inline rather than silently sending garbage.
-    function setServicePropertyFromJsonText(serviceIdentifier, propertyIdentifier, text) {
+    // Parse the JSON textarea and POST as the property value. Surfaces parse errors inline rather than
+    // silently sending garbage. On a successful commit the dirty flag clears, so later live updates may
+    // re-sync the textarea again (see isUserEditing).
+    function setServicePropertyFromJsonText(serviceIdentifier, propertyIdentifier, inputId) {
+        const ta = document.getElementById(inputId);
+        if (!ta) return;
         let parsed;
         try {
-            parsed = JSON.parse(text);
+            parsed = JSON.parse(ta.value);
         } catch (err) {
             showError(`Invalid JSON for ${propertyIdentifier}: ${err.message}`);
             return;
         }
+        delete ta.dataset.dirty;
         setServiceProperty(serviceIdentifier, propertyIdentifier, parsed);
     }
 
     // Used by the struct/array editor's "Use as template" button to seed the textarea with the example JSON.
+    // The fill counts as an uncommitted edit — mark dirty so a live update doesn't wipe the template.
     function fillTextareaFromTemplate(inputId, template) {
         const ta = document.getElementById(inputId);
         if (ta) {
             ta.value = template;
+            ta.dataset.dirty = '1';
             ta.focus();
         }
     }
@@ -1702,9 +1803,12 @@
             : '';
 
         if (members) {
-            // Enum (possibly nullable). Members are name strings on the wire.
+            // Enum (possibly nullable). Members are name strings on the wire. presentation.enumLabels
+            // ([EnumLabel]) supplies display labels; the dev tool shows "Label (Name)" so the wire name
+            // stays visible. The option VALUE is always the raw member name.
+            const enumLabels = (prop.presentation && prop.presentation.enumLabels) || null;
             const optionsHtml = (nullable ? '<option value="__NULL__">— null —</option>' : '')
-                + members.map(name => `<option value="${name}">${name}</option>`).join('');
+                + members.map(name => `<option value="${name}">${escapeForHtml(enumDisplay(enumLabels, name))}</option>`).join('');
             return `<select id="${inputId}" onchange="setServiceProperty('${serviceIdentifier}', '${prop.identifier}', this.value === '__NULL__' ? null : this.value)">${optionsHtml}</select>`;
         }
 
@@ -1715,7 +1819,7 @@
             const sampleJsonStr = JSON.stringify(sample, null, 2);
             const sampleEscaped = escapeForHtmlAttr(sampleJsonStr);
             const schemaJsonStr = JSON.stringify(schema, null, 2);
-            const setExpr = `setServicePropertyFromJsonText('${serviceIdentifier}', '${prop.identifier}', document.getElementById('${inputId}').value)`;
+            const setExpr = `setServicePropertyFromJsonText('${serviceIdentifier}', '${prop.identifier}', '${inputId}')`;
             const fillExpr = `fillTextareaFromTemplate('${inputId}', this.dataset.template)`;
             return `<div style="display:flex;flex-direction:column;gap:4px;min-width:280px;max-width:460px">
                 <details style="font-size:11px;opacity:0.85"><summary style="cursor:pointer;user-select:none">example &amp; schema</summary>
@@ -1727,7 +1831,7 @@
                         <pre style="margin:4px 0 0;padding:6px;background:rgba(255,255,255,0.03);border-radius:4px;font-family:monospace;font-size:10px;overflow:auto;max-height:200px">${escapeForHtml(schemaJsonStr)}</pre>
                     </details>
                 </details>
-                <textarea id="${inputId}" rows="3" spellcheck="false" placeholder="(paste / type JSON)" style="font-family:monospace;font-size:12px"></textarea>
+                <textarea id="${inputId}" rows="3" spellcheck="false" placeholder="(paste / type JSON)" style="font-family:monospace;font-size:12px" oninput="this.dataset.dirty='1'"></textarea>
                 <div><button type="button" onclick="${setExpr}">Set JSON</button>${clearBtn}</div>
             </div>`;
         }
@@ -1736,26 +1840,36 @@
             return `<input type="checkbox" id="${inputId}" onchange="setServiceProperty('${serviceIdentifier}', '${prop.identifier}', this.checked)">`;
         }
 
+        // schema minimum/maximum bounds become native input constraints + a hover hint.
+        const boundsAttrs = (schema.minimum !== undefined ? ` min="${schema.minimum}"` : '')
+            + (schema.maximum !== undefined ? ` max="${schema.maximum}"` : '')
+            + (schema.minimum !== undefined || schema.maximum !== undefined
+                ? ` title="${schema.minimum ?? '−∞'} – ${schema.maximum ?? '∞'}"`
+                : '');
+        // Mark uncommitted edits so incoming SignalR updates never clobber them (see isUserEditing);
+        // the commit handlers clear the flag so later echoes re-sync the control.
+        const markDirty = `oninput="this.dataset.dirty='1'"`;
+
         if (t === 'integer') {
-            const onCommit = `setServiceProperty('${serviceIdentifier}', '${prop.identifier}', this.value === '' ? null : parseInt(this.value))`;
-            return `<input type="number" step="1" id="${inputId}" placeholder="${nullable ? '(null)' : ''}" onblur="${onCommit}" onkeypress="if(event.key==='Enter') { ${onCommit}; this.blur(); }">${clearBtn}`;
+            const onCommit = `delete this.dataset.dirty; setServiceProperty('${serviceIdentifier}', '${prop.identifier}', this.value === '' ? null : parseInt(this.value))`;
+            return `<input type="number" step="1"${boundsAttrs} id="${inputId}" placeholder="${nullable ? '(null)' : ''}" ${markDirty} onblur="${onCommit}" onkeypress="if(event.key==='Enter') { ${onCommit}; this.blur(); }">${clearBtn}`;
         }
 
         if (t === 'number') {
-            const onCommit = `setServiceProperty('${serviceIdentifier}', '${prop.identifier}', this.value === '' ? null : parseFloat(this.value))`;
-            return `<input type="number" step="any" id="${inputId}" placeholder="${nullable ? '(null)' : ''}" onblur="${onCommit}" onkeypress="if(event.key==='Enter') { ${onCommit}; this.blur(); }">${clearBtn}`;
+            const onCommit = `delete this.dataset.dirty; setServiceProperty('${serviceIdentifier}', '${prop.identifier}', this.value === '' ? null : parseFloat(this.value))`;
+            return `<input type="number" step="any"${boundsAttrs} id="${inputId}" placeholder="${nullable ? '(null)' : ''}" ${markDirty} onblur="${onCommit}" onkeypress="if(event.key==='Enter') { ${onCommit}; this.blur(); }">${clearBtn}`;
         }
 
         // string (or anything else): text input — or textarea for multiline / json hints.
         const sendNull = nullable ? 'true' : 'false';
-        const onCommit = `setServiceProperty('${serviceIdentifier}', '${prop.identifier}', this.value === '' && ${sendNull} ? null : this.value)`;
+        const onCommit = `delete this.dataset.dirty; setServiceProperty('${serviceIdentifier}', '${prop.identifier}', this.value === '' && ${sendNull} ? null : this.value)`;
         const uiHint = prop.presentation && prop.presentation.uiHint;
         if (uiHint === 'multiline' || uiHint === 'json') {
             // Textarea — commits on blur (not Enter, since newlines are part of the value).
             const fontFamily = uiHint === 'json' ? 'JetBrains Mono, monospace' : 'inherit';
-            return `<textarea id="${inputId}" rows="3" spellcheck="${uiHint === 'json' ? 'false' : 'true'}" placeholder="${nullable ? '(empty = null)' : 'Enter value'}" style="font-family:${fontFamily};min-width:240px;resize:vertical" onblur="${onCommit}"></textarea>${clearBtn}`;
+            return `<textarea id="${inputId}" rows="3" spellcheck="${uiHint === 'json' ? 'false' : 'true'}" placeholder="${nullable ? '(empty = null)' : 'Enter value'}" style="font-family:${fontFamily};min-width:240px;resize:vertical" ${markDirty} onblur="${onCommit}"></textarea>${clearBtn}`;
         }
-        return `<input type="text" id="${inputId}" placeholder="${nullable ? '(empty = null)' : 'Enter value'}" onblur="${onCommit}" onkeypress="if(event.key==='Enter') { ${onCommit}; this.blur(); }">${clearBtn}`;
+        return `<input type="text" id="${inputId}" placeholder="${nullable ? '(empty = null)' : 'Enter value'}" ${markDirty} onblur="${onCommit}" onkeypress="if(event.key==='Enter') { ${onCommit}; this.blur(); }">${clearBtn}`;
     }
 
     // API calls
@@ -1805,6 +1919,14 @@
         }
     }
 
+    // True while the user is actively editing an element — focused, or carrying uncommitted edits
+    // (data-dirty, set by input events / template fills, cleared on commit). Incoming SignalR
+    // updates must never clobber such an element (R0 edit-clobber fix): the live value cell still
+    // repaints, only the input keeps the user's draft.
+    function isUserEditing(el) {
+        return el === document.activeElement || el.dataset.dirty === '1';
+    }
+
     // Update UI from SignalR events
     function updatePropertyValue(serviceIdentifier, propertyId, value) {
         const elem = document.getElementById(`prop-value-${serviceIdentifier}-${propertyId}`);
@@ -1814,6 +1936,9 @@
 
         const input = document.getElementById(`prop-input-${serviceIdentifier}-${propertyId}`);
         if (!input) {
+            return;
+        }
+        if (isUserEditing(input)) {
             return;
         }
         // Different input kinds need different value-assignment shapes. Textareas hold JSON for struct/array;
@@ -1853,7 +1978,13 @@
                 console.warn('Bad status-mappings JSON', err);
             }
             elem.className = `severity-pill ${severity}`;
-            elem.textContent = value === null || value === undefined ? '—' : String(value);
+            let pillLabels = null;
+            try {
+                pillLabels = JSON.parse(elem.getAttribute('data-enum-labels') || 'null');
+            } catch (err) {
+                console.warn('Bad enum-labels JSON', err);
+            }
+            elem.textContent = value === null || value === undefined ? '—' : enumDisplay(pillLabels, String(value));
         } else if (elem.classList.contains('secret-display')) {
             if (value === '***') {
                 elem.textContent = '••••••• (set, hidden)';
@@ -1878,7 +2009,23 @@
             }
             elem.textContent = formatTemporal(value, schemaFormat, presentationFormat);
         } else {
-            elem.textContent = formatValue(value);
+            const decimals = elem.hasAttribute('data-decimals') ? parseInt(elem.getAttribute('data-decimals'), 10) : null;
+            let enumLabels = null;
+            try {
+                enumLabels = JSON.parse(elem.getAttribute('data-enum-labels') || 'null');
+            } catch (err) {
+                console.warn('Bad enum-labels JSON', err);
+            }
+            if (enumLabels && typeof value === 'string') {
+                elem.textContent = enumDisplay(enumLabels, value);
+            } else {
+                let text = formatValue(value, decimals);
+                const unit = elem.getAttribute('data-unit');
+                if (unit && typeof value === 'number') {
+                    text += ` ${unit}`;
+                }
+                elem.textContent = text;
+            }
         }
         elem.classList.add('updated');
         setTimeout(() => elem.classList.remove('updated'), 500);
@@ -1994,7 +2141,7 @@
         const uid = contractUid(spId, svcId, contractId);
         const input = document.getElementById(`ai-${uid}`);
         const display = document.getElementById(`ai-value-${uid}`);
-        if (input) input.value = value;
+        if (input && !isUserEditing(input)) input.value = value;
         if (display) {
             display.textContent = formatValue(value);
             display.classList.add('updated');
@@ -2013,17 +2160,22 @@
     }
 
     // Format value for display in the Value column.
-    // Numbers: max 3 decimal places. Null/undefined: human placeholder. Objects/arrays: JSON-stringified
-    // (using a number-formatting replacer so nested floats also round to 3 decimals).
-    function formatValue(value) {
+    // Numbers: presentation.decimals when authored (fixed places), else max 3 decimal places.
+    // Null/undefined: human placeholder. Objects/arrays: JSON-stringified (using a number-formatting
+    // replacer so nested floats round consistently).
+    function formatValue(value, decimals = null) {
+        const dp = decimals !== null && Number.isFinite(decimals) ? decimals : null;
         if (value === null || value === undefined) {
             return '∅';
         }
         if (typeof value === 'number') {
+            if (dp !== null) {
+                return value.toFixed(dp);
+            }
             return Number.isInteger(value) ? value.toString() : value.toFixed(3);
         }
         if (typeof value === 'object') {
-            return JSON.stringify(value, (key, v) => typeof v === 'number' && !Number.isInteger(v) ? Number(v.toFixed(3)) : v);
+            return JSON.stringify(value, (key, v) => typeof v === 'number' && !Number.isInteger(v) ? Number(v.toFixed(dp ?? 3)) : v);
         }
         return value;
     }
