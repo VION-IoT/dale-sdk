@@ -197,13 +197,24 @@ export function parseFilter(query) {
     return (query || '').trim().toLowerCase().split(/\s+/).filter(Boolean);
 }
 
+// True when every character of needle appears in order in haystack ("soc" ~ "stateofcharge").
+function isSubsequence(haystack, needle) {
+    let i = 0;
+    for (const ch of haystack) {
+        if (ch === needle[i]) i++;
+        if (i === needle.length) return true;
+    }
+    return needle.length === 0;
+}
+
 export function matchesFilter(tokens, item, live) {
     if (!tokens.length) return true;
+    const identifier = item.identifier.toLowerCase();
     const names = [
         item.identifier,
         (item.presentation && item.presentation.displayName) || '',
         (item.schema && item.schema.title) || '',
-    ].join(' ').toLowerCase();
+    ].join(' ').toLowerCase();
     const valueText = live === undefined ? '' : String(formatValue(live)).toLowerCase();
     return tokens.every(tok => {
         if (tok[0] === '>' || tok[0] === '<') {
@@ -217,7 +228,9 @@ export function matchesFilter(tokens, item, live) {
             const val = tok.slice(colon + 1);
             return names.includes(name) && (val === '' || valueText.includes(val));
         }
-        return names.includes(tok) || valueText.includes(tok);
+        // Substring across names + formatted value; fuzzy subsequence on the identifier only
+        // ("soc" finds StateOfCharge without flooding matches through titles and values).
+        return names.includes(tok) || valueText.includes(tok) || isSubsequence(identifier, tok);
     });
 }
 

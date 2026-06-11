@@ -472,6 +472,110 @@ button { cursor: pointer; font-family: inherit; }
 .json-actions { display: flex; align-items: center; gap: 8px; }
 .draft-hint { font-size: 11px; color: var(--vion-warning-fg-def-tertiary); }
 
+.editor-tabs { display: flex; align-items: center; gap: 8px; }
+.editor-tabs button {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-dim);
+    font-size: 12px;
+    padding: 2px 4px 4px;
+}
+.editor-tabs button.active { color: var(--text); border-bottom-color: var(--accent); }
+
+.field-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; min-height: 28px; }
+.field-name { font-size: 12px; color: var(--text); }
+.field-bounds { font-size: 10.5px; color: var(--text-faint); }
+.field-row input[type="number"] { width: 110px; }
+.field-row input[type="text"] { width: 190px; }
+.field-null { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; color: var(--text-faint); }
+.field-null input { accent-color: var(--accent); }
+.payload-preview {
+    flex: 1;
+    font-size: 10.5px;
+    color: var(--text-faint);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 420px;
+}
+
+/* ── command palette ─────────────────────────────────────────────────────── */
+
+.palette-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 12vh;
+}
+
+.palette {
+    width: 560px;
+    max-width: calc(100vw - 40px);
+    background: var(--bg-card);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--vion-border-radius-lg);
+    overflow: hidden;
+}
+
+.palette-input {
+    width: 100%;
+    background: var(--bg-card);
+    border: none;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
+    color: var(--text);
+    padding: 11px 14px;
+    font-size: 14px;
+    font-family: inherit;
+}
+.palette-input:focus { outline: none; }
+
+.palette-results { max-height: 46vh; overflow-y: auto; }
+
+.palette-row {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 6px 14px;
+    cursor: pointer;
+}
+.palette-row.selected { background: var(--bg-raised); }
+.palette-name { font-size: 12.5px; color: var(--text); }
+.palette-where { font-size: 11px; color: var(--text-faint); }
+.palette-pinned { color: var(--accent); font-size: 10px; }
+.palette-value {
+    font-size: 11px;
+    color: var(--text-dim);
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.palette-empty { padding: 14px; font-size: 12px; color: var(--text-faint); }
+.palette-hint {
+    padding: 7px 14px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-faint);
+}
+.palette-hint kbd {
+    font-family: var(--mono);
+    font-size: 10px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--vion-border-radius-xs);
+    padding: 0 4px;
+}
+
+.jump-flash > .item-row {
+    background: var(--vion-warning-bg-def-primary);
+    transition: background 1.2s ease-out;
+}
+
 /* ── docs row ────────────────────────────────────────────────────────────── */
 
 .docs-row { padding: 6px 10px 10px 32px; background: var(--bg-raised); font-size: 12px; }

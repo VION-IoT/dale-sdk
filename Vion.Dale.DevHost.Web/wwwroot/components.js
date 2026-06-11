@@ -4,7 +4,7 @@
 // updates never clobber an edit (the R0 guarantee, expressed the Vue way: the live value only
 // flows into the control while it is not dirty).
 
-import { computed, onMounted, onUnmounted, ref, watch } from './vue.esm-browser.prod.js';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from './vue.esm-browser.prod.js';
 import {
     cssGroupKey, defaultOpen, describeType, effectiveType, enumDisplay, enumMembers, formatTemporal,
     formatValue, GROUP_LABELS, groupItems, isNullable, isWritable, matchesFilter, orderedGroupKeys,
@@ -246,24 +246,106 @@ export const SecretControl = {
     `,
 };
 
-// Struct / array editor: raw-JSON textarea with a sample template and the full schema on demand.
-// The dirty flag protects a half-typed draft from incoming live updates (textareas never sync
-// while dirty); a successful Set clears it.
+// Struct / array editor with two tabs (mockup 03): a schema-generated FIELD FORM for flat
+// structs (per-[StructField] units, bounds, descriptions; read-modify-write primed from the
+// last published value) and the raw-JSON textarea (always available; the only mode for arrays
+// and non-flat shapes). The dirty flag protects half-typed drafts from incoming live updates;
+// a successful Set clears it. Structs are replaced as a whole on write.
 export const JsonEditor = {
     props: ['service', 'item'],
     setup(props) {
         const live = useLive(props);
         const schema = props.item.schema || {};
         const nullable = isNullable(schema);
-        const text = ref('');
+
+        // Flat-struct detection: an object whose every field is scalar / enum / string-format.
+        const fieldEntries = computed(() => {
+            if (effectiveType(schema) !== 'object' || !schema.properties) return null;
+            const entries = Object.entries(schema.properties).map(([name, fieldSchema]) => {
+                const t = effectiveType(fieldSchema);
+                return {
+                    name,
+                    schema: fieldSchema,
+                    type: t,
+                    enums: enumMembers(fieldSchema),
+                    nullable: isNullable(fieldSchema),
+                    unit: resolveUnit(fieldSchema),
+                    bounds: fieldSchema.minimum !== undefined || fieldSchema.maximum !== undefined
+                        ? `${fieldSchema.minimum ?? '−∞'} – ${fieldSchema.maximum ?? '∞'}` : null,
+                    description: fieldSchema.description || '',
+                };
+            });
+            return entries.every(f => f.type !== 'object' && f.type !== 'array') ? entries : null;
+        });
+        const formSupported = computed(() => fieldEntries.value !== null);
+        const tab = ref(formSupported.value ? 'form' : 'raw');
+
+        // ── form state: name -> string draft (plus per-field null markers) ─────────
+        const form = ref({});
+        const nulls = ref({});
         const dirty = ref(false);
+        const primeForm = v => {
+            const next = {};
+            const nextNulls = {};
+            (fieldEntries.value || []).forEach(f => {
+                const fv = v && typeof v === 'object' ? v[f.name] : undefined;
+                nextNulls[f.name] = fv === null;
+                next[f.name] = fv === null || fv === undefined ? '' : String(fv);
+            });
+            form.value = next;
+            nulls.value = nextNulls;
+        };
+        const payload = () => {
+            const out = {};
+            (fieldEntries.value || []).forEach(f => {
+                if (f.nullable && nulls.value[f.name]) {
+                    out[f.name] = null;
+                    return;
+                }
+                const raw = form.value[f.name];
+                if (f.type === 'integer') out[f.name] = parseInt(raw, 10);
+                else if (f.type === 'number') out[f.name] = parseFloat(raw);
+                else if (f.type === 'boolean') out[f.name] = raw === 'true';
+                else out[f.name] = raw;
+            });
+            return out;
+        };
+        const preview = computed(() => {
+            void form.value;
+            void nulls.value;
+            try {
+                return JSON.stringify(payload());
+            } catch {
+                return '';
+            }
+        });
+
+        // ── raw state ───────────────────────────────────────────────────────────
+        const text = ref('');
         const seed = v => v === null || v === undefined ? '' : JSON.stringify(v, null, 2);
+
         text.value = seed(live.value);
-        watch(live, v => { if (!dirty.value) text.value = seed(v); });
+        if (formSupported.value) primeForm(live.value ?? sampleJson(schema));
+        watch(live, v => {
+            if (dirty.value) return;
+            text.value = seed(v);
+            if (formSupported.value) primeForm(v ?? sampleJson(schema));
+        });
+
         const sample = JSON.stringify(sampleJson(schema), null, 2);
         const schemaJson = JSON.stringify(schema, null, 2);
         const fillTemplate = () => { text.value = sample; dirty.value = true; };
-        const commit = () => {
+        const commitForm = () => {
+            const value = payload();
+            const bad = Object.entries(value).find(([, v]) => typeof v === 'number' && Number.isNaN(v));
+            if (bad) {
+                showError(`${props.item.identifier}.${bad[0]} is not a number`);
+                return;
+            }
+            dirty.value = false;
+            setProperty(props.service.id, props.item.identifier, value);
+        };
+        const commitRaw = () => {
             let parsed;
             try {
                 parsed = JSON.parse(text.value);
@@ -275,24 +357,66 @@ export const JsonEditor = {
             setProperty(props.service.id, props.item.identifier, parsed);
         };
         const setNull = () => { dirty.value = false; setProperty(props.service.id, props.item.identifier, null); };
-        return { text, dirty, commit, setNull, fillTemplate, nullable, sample, schemaJson };
+        const markDirty = () => { dirty.value = true; };
+        const fieldEditable = f => !(f.nullable && nulls.value[f.name]);
+        const rawDraftHint = computed(() => dirty.value && !formSupported.value);
+        return {
+            tab, formSupported, fieldEntries, form, nulls, dirty, preview, text, sample, schemaJson,
+            fillTemplate, commitForm, commitRaw, setNull, markDirty, nullable, fieldEditable, rawDraftHint,
+        };
     },
     template: `
         <div class="json-editor">
-            <details class="json-help"><summary>example &amp; schema</summary>
-                <div class="json-help-body">
-                    <pre>{{ sample }}</pre>
-                    <button type="button" title="Use as template" @click="fillTemplate">📋</button>
-                </div>
-                <details class="json-help-schema"><summary>full schema</summary><pre>{{ schemaJson }}</pre></details>
-            </details>
-            <textarea rows="4" spellcheck="false" class="mono" :value="text" placeholder="(paste / type JSON)"
-                      @input="dirty = true; text = $event.target.value"></textarea>
-            <div class="json-actions">
-                <button type="button" @click="commit">Set JSON</button>
-                <button v-if="nullable" type="button" class="null-btn" @click="setNull">×∅</button>
+            <div v-if="formSupported" class="editor-tabs">
+                <button type="button" :class="{ active: tab === 'form' }" @click="tab = 'form'">Form</button>
+                <button type="button" :class="{ active: tab === 'raw' }" @click="tab = 'raw'">Raw JSON</button>
                 <span v-if="dirty" class="draft-hint">draft — live updates held</span>
             </div>
+            <template v-if="formSupported && tab === 'form'">
+                <div v-for="f in fieldEntries" :key="f.name" class="field-row" :title="f.description">
+                    <span class="mono field-name">{{ f.name }}</span>
+                    <span v-if="f.bounds" class="field-bounds">{{ f.bounds }}</span>
+                    <span class="item-spacer"></span>
+                    <template v-if="fieldEditable(f)">
+                        <select v-if="f.enums" :value="form[f.name]" @change="markDirty(); form[f.name] = $event.target.value">
+                            <option v-for="m in f.enums" :key="m" :value="m">{{ m }}</option>
+                        </select>
+                        <select v-else-if="f.type === 'boolean'" :value="form[f.name]" @change="markDirty(); form[f.name] = $event.target.value">
+                            <option value="true">true</option>
+                            <option value="false">false</option>
+                        </select>
+                        <input v-else :type="f.type === 'integer' || f.type === 'number' ? 'number' : 'text'"
+                               :step="f.type === 'integer' ? '1' : 'any'"
+                               :min="f.schema.minimum" :max="f.schema.maximum" :value="form[f.name]"
+                               @input="markDirty(); form[f.name] = $event.target.value">
+                    </template>
+                    <span v-if="f.unit" class="unit">{{ f.unit }}</span>
+                    <label v-if="f.nullable" class="field-null">
+                        <input type="checkbox" :checked="nulls[f.name]" @change="markDirty(); nulls[f.name] = $event.target.checked">∅
+                    </label>
+                </div>
+                <div class="json-actions">
+                    <span class="mono payload-preview" :title="preview">{{ preview }}</span>
+                    <button type="button" @click="commitForm">Set value</button>
+                    <button v-if="nullable" type="button" class="null-btn" @click="setNull">×∅</button>
+                </div>
+            </template>
+            <template v-else>
+                <details class="json-help"><summary>example &amp; schema</summary>
+                    <div class="json-help-body">
+                        <pre>{{ sample }}</pre>
+                        <button type="button" title="Use as template" @click="fillTemplate">📋</button>
+                    </div>
+                    <details class="json-help-schema"><summary>full schema</summary><pre>{{ schemaJson }}</pre></details>
+                </details>
+                <textarea rows="4" spellcheck="false" class="mono" :value="text" placeholder="(paste / type JSON)"
+                          @input="markDirty(); text = $event.target.value"></textarea>
+                <div class="json-actions">
+                    <button type="button" @click="commitRaw">Set JSON</button>
+                    <button v-if="nullable" type="button" class="null-btn" @click="setNull">×∅</button>
+                    <span v-if="rawDraftHint" class="draft-hint">draft — live updates held</span>
+                </div>
+            </template>
         </div>
     `,
 };
@@ -368,7 +492,7 @@ export const ItemRow = {
         return { controlKind, docsOpen, editorOpen, writable, isStruct, isStatus, hidden, unit, writeOnly, showStructEdit, pinned, togglePinRow, changed };
     },
     template: `
-        <div class="item" :class="{ 'hidden-importance': hidden }">
+        <div class="item" :class="{ 'hidden-importance': hidden }" :id="'item-' + service.id + '-' + item.identifier">
             <div class="item-row">
                 <button type="button" class="docs-toggle" :class="{ open: docsOpen }" title="docs &amp; schema"
                         @click="docsOpen = !docsOpen">▸</button>
@@ -696,8 +820,93 @@ export const WatchPanel = {
     `,
 };
 
+// ── Ctrl+K palette: type to find any property, Enter jumps to it, Ctrl+Enter pins it ───────────
+
+export const Palette = {
+    setup() {
+        const query = ref('');
+        const selected = ref(0);
+        const inputEl = ref(null);
+        const entries = computed(() => {
+            const tokens = parseFilter(query.value);
+            const q = query.value.trim().toLowerCase();
+            const out = [];
+            ((store.config && store.config.logicBlocks) || []).forEach(lb => (lb.services || []).forEach(service => {
+                [...(service.serviceProperties || []), ...(service.serviceMeasuringPoints || [])].forEach(item => {
+                    if (matchesFilter(tokens, item, store.values[valueKey(service.id, item.identifier)])) {
+                        // Rank: identifier substring < any-name substring < fuzzy-only.
+                        const id = item.identifier.toLowerCase();
+                        const score = q === '' || id.includes(q) ? 0
+                            : `${resolveDisplayName(item)}`.toLowerCase().includes(q) ? 1 : 2;
+                        out.push({ lb, service, item, score, multiService: (lb.services || []).length > 1 });
+                    }
+                });
+            }));
+            out.sort((a, b) => a.score - b.score);
+            return out.slice(0, 40);
+        });
+        watch(query, () => { selected.value = 0; });
+        const close = () => { store.paletteOpen = false; };
+        const jump = entry => {
+            const groupKey = (entry.item.presentation && entry.item.presentation.group) || '';
+            store.collapsed[collapseKey(entry.lb.name, entry.service.identifier, groupKey)] = false;
+            store.filter = '';
+            close();
+            nextTick(() => setTimeout(() => {
+                const el = document.getElementById(`item-${entry.service.id}-${entry.item.identifier}`);
+                if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    el.classList.add('jump-flash');
+                    setTimeout(() => el.classList.remove('jump-flash'), 1600);
+                }
+            }, 50));
+        };
+        const pinEntry = entry => togglePin({ block: entry.lb.name, service: entry.service.identifier, item: entry.item.identifier });
+        const pinnedEntry = entry => isPinned({ block: entry.lb.name, service: entry.service.identifier, item: entry.item.identifier });
+        const onKey = e => {
+            if (e.key === 'ArrowDown') { selected.value = Math.min(selected.value + 1, entries.value.length - 1); e.preventDefault(); }
+            else if (e.key === 'ArrowUp') { selected.value = Math.max(selected.value - 1, 0); e.preventDefault(); }
+            else if (e.key === 'Enter') {
+                const entry = entries.value[selected.value];
+                if (entry) {
+                    if (e.ctrlKey || e.metaKey) pinEntry(entry);
+                    else jump(entry);
+                }
+            } else if (e.key === 'Escape') {
+                close();
+            }
+        };
+        onMounted(() => inputEl.value && inputEl.value.focus());
+        const valuePreview = entry => formatValue(
+            store.values[valueKey(entry.service.id, entry.item.identifier)],
+            (entry.item.presentation || {}).decimals ?? null);
+        return { query, selected, entries, inputEl, onKey, jump, pinEntry, pinnedEntry, close, valuePreview };
+    },
+    template: `
+        <div class="palette-backdrop" @click.self="close">
+            <div class="palette" @keydown="onKey">
+                <input ref="inputEl" type="text" class="palette-input" placeholder="jump to property — name · name:value · >50"
+                       :value="query" @input="query = $event.target.value">
+                <div class="palette-results">
+                    <div v-for="(e, i) in entries" :key="e.service.id + e.item.identifier"
+                         class="palette-row" :class="{ selected: i === selected }"
+                         @click="jump(e)" @mouseenter="selected = i">
+                        <span class="mono palette-name">{{ e.item.identifier }}</span>
+                        <span class="palette-where">{{ e.lb.name }}<template v-if="e.multiService"> · {{ e.service.identifier }}</template><template v-if="e.item.presentation?.group"> · {{ e.item.presentation.group }}</template></span>
+                        <span class="item-spacer"></span>
+                        <span v-if="pinnedEntry(e)" class="palette-pinned">◆</span>
+                        <span class="mono palette-value">{{ valuePreview(e) }}</span>
+                    </div>
+                    <div v-if="!entries.length" class="palette-empty">no matches</div>
+                </div>
+                <div class="palette-hint"><kbd>↵</kbd> jump · <kbd>ctrl ↵</kbd> pin · <kbd>esc</kbd> close</div>
+            </div>
+        </div>
+    `,
+};
+
 export const App = {
-    components: { Rail, BlockCard, WatchPanel },
+    components: { Rail, BlockCard, WatchPanel, Palette },
     setup() {
         const blocks = computed(() => (store.config && store.config.logicBlocks) || []);
         const sharedLookup = computed(() => buildSharedContractLookup());
@@ -741,6 +950,11 @@ export const App = {
             if (e.key === 'Escape' && t === filterEl.value) {
                 store.filter = '';
                 filterEl.value.blur();
+                return;
+            }
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                store.paletteOpen = !store.paletteOpen;
                 return;
             }
             if (editing) return;
@@ -794,6 +1008,7 @@ export const App = {
                 </main>
                 <WatchPanel/>
             </div>
+            <Palette v-if="store.paletteOpen"/>
         </div>
     `,
 };

@@ -30,6 +30,8 @@ export const store = reactive({
     // drives amber dots, rail counters, and watch-tile deltas.
     baseline: null,
     baselineSeconds: 0,
+    // Ctrl+K command palette (jump / pin).
+    paletteOpen: false,
 });
 
 const COLLAPSE_STORAGE_KEY = 'dale.devhost.collapsed';
