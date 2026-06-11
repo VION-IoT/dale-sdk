@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DevHost UI mockup — Explorer, mid-scenario (filter + pins + baseline diff)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3/dist/tabler-icons.min.css">
+<style>
+:root{
+--color-background-primary:#ffffff;--color-background-secondary:#f5f4ef;--color-background-tertiary:#edebe4;
+--color-background-info:#E6F1FB;--color-background-danger:#FCEBEB;--color-background-success:#EAF3DE;--color-background-warning:#FAEEDA;
+--color-text-primary:#1c1c1a;--color-text-secondary:#5f5e5a;--color-text-tertiary:#8c8a84;
+--color-text-info:#0C447C;--color-text-danger:#791F1F;--color-text-success:#27500A;--color-text-warning:#633806;
+--color-border-tertiary:rgba(0,0,0,0.15);--color-border-secondary:rgba(0,0,0,0.3);--color-border-primary:rgba(0,0,0,0.4);
+--font-sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--font-mono:ui-monospace,"Cascadia Code",Consolas,monospace;
+--border-radius-md:8px;--border-radius-lg:12px;
+}
+body{background:#faf9f5;margin:0;padding:24px;font-family:var(--font-sans);}
+main{max-width:720px;margin:0 auto;}
+</style>
+</head>
+<body><main>
+<h2 style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">Mockup of the DevHost Explorer during a manual scenario: active value filter, baseline diff chip showing five changed properties, left rail with per-block change counters, and an expanded watch column with drive controls and observed sparkline tiles.</h2>
+<div style="background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;font-family:var(--font-sans);">
+<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:0.5px solid var(--color-border-tertiary);flex-wrap:wrap;">
+<i class="ti ti-terminal-2" style="font-size:16px;color:#1D9E75;" aria-hidden="true"></i>
+<span style="font-size:13px;font-weight:500;color:var(--color-text-primary);">DevHost</span>
+<span style="font-family:var(--font-mono);font-size:11px;background:#E1F5EE;color:#085041;padding:2px 8px;border-radius:999px;">EnergyManagerClosedLoop</span>
+<div style="flex:1;max-width:225px;display:flex;align-items:center;gap:6px;border:0.5px solid var(--color-border-primary);border-radius:6px;padding:4px 9px;">
+<i class="ti ti-search" style="font-size:13px;color:var(--color-text-secondary);" aria-hidden="true"></i>
+<span style="font-family:var(--font-mono);font-size:12px;color:var(--color-text-primary);">alloc</span>
+<span style="margin-left:auto;font-size:11px;color:var(--color-text-tertiary);">3 of 176</span>
+<i class="ti ti-x" style="font-size:12px;color:var(--color-text-tertiary);" aria-hidden="true"></i>
+</div>
+<span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;background:var(--color-background-warning);color:var(--color-text-warning);padding:3px 9px;border-radius:999px;"><i class="ti ti-flag" style="font-size:13px;" aria-hidden="true"></i>baseline 0:42 · 5 changed</span>
+<span style="font-size:11px;color:var(--color-text-secondary);">reset · b</span>
+</div>
+<div style="display:flex;align-items:stretch;">
+<div style="width:132px;flex-shrink:0;background:var(--color-background-secondary);border-right:0.5px solid var(--color-border-tertiary);padding:6px 0;">
+<div style="display:flex;align-items:center;gap:5px;padding:5px 8px;"><span style="width:6px;height:6px;border-radius:50%;background:#639922;flex-shrink:0;"></span><span style="font-size:11.5px;color:var(--color-text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">EnergyManager</span><span style="margin-left:auto;font-size:11px;font-weight:500;color:var(--color-text-warning);background:var(--color-background-warning);border-radius:999px;padding:0 6px;">2</span></div>
+<div style="display:flex;align-items:center;gap:5px;padding:5px 8px;"><span style="width:6px;height:6px;border-radius:50%;background:#639922;flex-shrink:0;"></span><span style="font-size:11.5px;color:var(--color-text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">RefCtrlBuffer</span><span style="margin-left:auto;font-size:11px;font-weight:500;color:var(--color-text-warning);background:var(--color-background-warning);border-radius:999px;padding:0 6px;">2</span></div>
+<div style="display:flex;align-items:center;gap:5px;padding:5px 8px;"><span style="width:6px;height:6px;border-radius:50%;background:#639922;flex-shrink:0;"></span><span style="font-size:11.5px;color:var(--color-text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">RefCtrlConsumer</span><span style="margin-left:auto;font-size:11px;font-weight:500;color:var(--color-text-warning);background:var(--color-background-warning);border-radius:999px;padding:0 6px;">1</span></div>
+<div style="display:flex;align-items:center;gap:5px;padding:5px 8px;"><span style="width:6px;height:6px;border-radius:50%;background:#639922;flex-shrink:0;"></span><span style="font-size:11.5px;color:var(--color-text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">RefLimSupplier</span><span style="margin-left:auto;font-size:11px;color:var(--color-text-tertiary);">9</span></div>
+<div style="display:flex;align-items:center;gap:5px;padding:5px 8px;"><span style="width:6px;height:6px;border-radius:50%;background:#639922;flex-shrink:0;"></span><span style="font-size:11.5px;color:var(--color-text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">RefGridMeter</span><span style="margin-left:auto;font-size:11px;color:var(--color-text-tertiary);">9</span></div>
+<div style="display:flex;align-items:center;gap:5px;padding:5px 8px;"><span style="width:6px;height:6px;border-radius:50%;background:#888780;flex-shrink:0;"></span><span style="font-size:11.5px;color:var(--color-text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">3 more…</span></div>
+</div>
+<div style="flex:1;min-width:0;padding:10px;">
+<div style="font-size:11px;color:var(--color-text-tertiary);padding:0 2px 6px;">matches across all blocks — non-matching groups collapsed (173 hidden)</div>
+<div style="border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);overflow:hidden;">
+<div style="padding:5px 10px;background:var(--color-background-secondary);font-size:11px;color:var(--color-text-secondary);">RefControllableBuffer <span style="font-family:var(--font-mono);color:var(--color-text-tertiary);">· metric</span></div>
+<div style="display:flex;align-items:center;gap:8px;padding:5px 10px;border-top:0.5px solid var(--color-border-tertiary);">
+<i class="ti ti-pin" style="font-size:13px;color:#1D9E75;" aria-hidden="true"></i>
+<span style="font-family:var(--font-mono);font-size:12px;color:var(--color-text-primary);"><span style="background:var(--color-background-warning);border-radius:2px;">Alloc</span>atedActivePowerKw</span>
+<span style="width:7px;height:7px;border-radius:50%;background:#EF9F27;flex-shrink:0;"></span>
+<span style="margin-left:auto;"><svg width="46" height="14" viewBox="0 0 46 14" aria-hidden="true"><polyline points="0,12 9,12 17,11 24,8 32,4 40,3 46,3" fill="none" stroke="#1D9E75" stroke-width="1.5"/></svg></span>
+<span style="font-family:var(--font-mono);font-size:12px;font-weight:500;color:var(--color-text-primary);">6.4 kW</span>
+</div>
+<div style="padding:5px 10px;background:var(--color-background-secondary);border-top:0.5px solid var(--color-border-tertiary);font-size:11px;color:var(--color-text-secondary);">RefControllableConsumer <span style="font-family:var(--font-mono);color:var(--color-text-tertiary);">· status</span></div>
+<div style="display:flex;align-items:center;gap:8px;padding:5px 10px;border-top:0.5px solid var(--color-border-tertiary);">
+<i class="ti ti-pin" style="font-size:13px;color:#1D9E75;" aria-hidden="true"></i>
+<span style="font-family:var(--font-mono);font-size:12px;color:var(--color-text-primary);"><span style="background:var(--color-background-warning);border-radius:2px;">Alloc</span>atedCurrent</span>
+<span style="width:7px;height:7px;border-radius:50%;background:#EF9F27;flex-shrink:0;"></span>
+<span style="margin-left:auto;"><svg width="46" height="14" viewBox="0 0 46 14" aria-hidden="true"><polyline points="0,3 9,3 17,4 24,7 32,10 40,11 46,11" fill="none" stroke="#1D9E75" stroke-width="1.5"/></svg></span>
+<span style="font-family:var(--font-mono);font-size:12px;font-weight:500;color:var(--color-text-primary);">9.2 A</span>
+</div>
+<div style="padding:5px 10px;background:var(--color-background-secondary);border-top:0.5px solid var(--color-border-tertiary);font-size:11px;color:var(--color-text-secondary);">RefLimitableSupplier <span style="font-family:var(--font-mono);color:var(--color-text-tertiary);">· status</span></div>
+<div style="display:flex;align-items:center;gap:8px;padding:5px 10px;border-top:0.5px solid var(--color-border-tertiary);">
+<i class="ti ti-pin" style="font-size:13px;color:transparent;" aria-hidden="true"></i>
+<span style="font-family:var(--font-mono);font-size:12px;color:var(--color-text-primary);"><span style="background:var(--color-background-warning);border-radius:2px;">Alloc</span>atedLimitKw</span>
+<span style="margin-left:auto;font-family:var(--font-mono);font-size:12px;color:var(--color-text-primary);">30.0 kW</span>
+</div>
+</div>
+<div style="display:flex;align-items:center;gap:6px;margin-top:10px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:6px 10px;">
+<i class="ti ti-command" style="font-size:13px;color:var(--color-text-tertiary);" aria-hidden="true"></i>
+<span style="font-size:11px;color:var(--color-text-tertiary);">Ctrl K also matches German titles and values — try</span>
+<span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-secondary);">alarm:true</span>
+<span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-secondary);">&gt;50</span>
+<span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-secondary);">steuerplan</span>
+</div>
+</div>
+<div style="width:196px;flex-shrink:0;border-left:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary);">
+<div style="display:flex;align-items:center;gap:6px;padding:8px 10px;border-bottom:0.5px solid var(--color-border-tertiary);">
+<i class="ti ti-pin" style="font-size:14px;color:#1D9E75;" aria-hidden="true"></i>
+<span style="font-size:12px;font-weight:500;color:var(--color-text-primary);">watch · 6</span>
+<span style="margin-left:auto;font-size:11px;color:#1D9E75;">save as scenario</span>
+</div>
+<div style="padding:6px 10px 2px;font-size:11px;color:var(--color-text-tertiary);">drive</div>
+<div style="padding:5px 10px;display:flex;align-items:center;gap:6px;">
+<div style="min-width:0;"><div style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">ChargingFromGrid</div><div style="font-size:11px;color:var(--color-text-tertiary);">RefCtrlBuffer</div></div>
+<span style="margin-left:auto;display:inline-block;width:26px;height:14px;border-radius:999px;background:#1D9E75;position:relative;flex-shrink:0;"><span style="position:absolute;right:2px;top:2px;width:10px;height:10px;border-radius:50%;background:#E1F5EE;"></span></span>
+</div>
+<div style="padding:5px 10px;display:flex;align-items:center;gap:6px;">
+<div style="min-width:0;"><div style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">MaxDischargeKw</div><div style="font-size:11px;color:var(--color-text-tertiary);">RefCtrlBuffer</div></div>
+<span style="margin-left:auto;font-family:var(--font-mono);font-size:11px;color:var(--color-text-primary);border:0.5px solid var(--color-border-secondary);border-radius:5px;padding:2px 7px;background:var(--color-background-primary);">8.0</span>
+<span style="font-size:11px;color:var(--color-text-tertiary);">kW</span>
+</div>
+<div style="padding:5px 10px;display:flex;align-items:center;gap:6px;">
+<div style="min-width:0;"><div style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">GridConfig</div><div style="font-size:11px;color:var(--color-text-tertiary);">EnergyManager</div></div>
+<span style="margin-left:auto;font-family:var(--font-mono);font-size:11px;color:#1D9E75;">{ } edit</span>
+</div>
+<div style="padding:8px 10px 2px;font-size:11px;color:var(--color-text-tertiary);border-top:0.5px solid var(--color-border-tertiary);margin-top:4px;">observe</div>
+<div style="padding:5px 10px;">
+<div style="display:flex;align-items:center;gap:5px;"><span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">AllocatedActivePowerKw</span><span style="width:6px;height:6px;border-radius:50%;background:#EF9F27;flex-shrink:0;margin-left:auto;"></span></div>
+<div style="display:flex;align-items:center;gap:6px;"><svg width="70" height="16" viewBox="0 0 70 16" aria-hidden="true"><polyline points="0,13 14,13 26,12 38,8 50,4 62,3 70,3" fill="none" stroke="#1D9E75" stroke-width="1.5"/></svg><span style="margin-left:auto;font-family:var(--font-mono);font-size:12px;font-weight:500;color:var(--color-text-primary);">6.4 kW</span></div>
+<div style="font-size:11px;color:var(--color-text-warning);text-align:right;">+6.4 since baseline</div>
+</div>
+<div style="padding:5px 10px;">
+<div style="display:flex;align-items:center;gap:5px;"><span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">AllocatedCurrent</span><span style="width:6px;height:6px;border-radius:50%;background:#EF9F27;flex-shrink:0;margin-left:auto;"></span></div>
+<div style="display:flex;align-items:center;gap:6px;"><svg width="70" height="16" viewBox="0 0 70 16" aria-hidden="true"><polyline points="0,4 14,4 26,5 38,8 50,11 62,12 70,12" fill="none" stroke="#1D9E75" stroke-width="1.5"/></svg><span style="margin-left:auto;font-family:var(--font-mono);font-size:12px;font-weight:500;color:var(--color-text-primary);">9.2 A</span></div>
+<div style="font-size:11px;color:var(--color-text-warning);text-align:right;">−6.8 since baseline</div>
+</div>
+<div style="padding:5px 10px 10px;">
+<div style="display:flex;align-items:center;gap:5px;"><span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">ComputedGridActivePowerKw</span></div>
+<div style="display:flex;align-items:center;gap:6px;"><svg width="70" height="16" viewBox="0 0 70 16" aria-hidden="true"><polyline points="0,3 14,3 26,4 38,7 50,10 62,11 70,11" fill="none" stroke="#888780" stroke-width="1.5"/></svg><span style="margin-left:auto;font-family:var(--font-mono);font-size:12px;font-weight:500;color:var(--color-text-primary);">24.1 kW</span></div>
+</div>
+</div>
+</div>
+</div>
+</main></body></html>

@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DevHost UI mockup — scenario Player (peak shaving)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3/dist/tabler-icons.min.css">
+<style>
+:root{
+--color-background-primary:#ffffff;--color-background-secondary:#f5f4ef;--color-background-tertiary:#edebe4;
+--color-background-info:#E6F1FB;--color-background-danger:#FCEBEB;--color-background-success:#EAF3DE;--color-background-warning:#FAEEDA;
+--color-text-primary:#1c1c1a;--color-text-secondary:#5f5e5a;--color-text-tertiary:#8c8a84;
+--color-text-info:#0C447C;--color-text-danger:#791F1F;--color-text-success:#27500A;--color-text-warning:#633806;
+--color-border-tertiary:rgba(0,0,0,0.15);--color-border-secondary:rgba(0,0,0,0.3);--color-border-primary:rgba(0,0,0,0.4);
+--font-sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--font-mono:ui-monospace,"Cascadia Code",Consolas,monospace;
+--border-radius-md:8px;--border-radius-lg:12px;
+}
+body{background:#faf9f5;margin:0;padding:24px;font-family:var(--font-sans);}
+main{max-width:720px;margin:0 auto;}
+</style>
+</head>
+<body><main>
+<h2 style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">Mockup of the DevHost scenario Player: header with scenario file and matching topology, left column of setup entries and ordered acknowledged steps, center watch tiles with sparklines, right column human judgment checklist with copy verification report action.</h2>
+<div style="background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;font-family:var(--font-sans);">
+<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:0.5px solid var(--color-border-tertiary);flex-wrap:wrap;">
+<i class="ti ti-player-play" style="font-size:15px;color:#1D9E75;" aria-hidden="true"></i>
+<span style="font-size:13px;font-weight:500;color:var(--color-text-primary);">Peak shaving under import limit</span>
+<span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-tertiary);">scenarios/peak-shaving.scenario.json · 8001e91</span>
+<span style="margin-left:auto;display:inline-flex;align-items:center;gap:5px;font-size:11px;background:var(--color-background-success);color:var(--color-text-success);padding:2px 9px;border-radius:999px;"><i class="ti ti-check" style="font-size:12px;" aria-hidden="true"></i>topology EnergyManagerClosedLoop</span>
+<span style="font-size:11px;color:#1D9E75;">open in Explorer</span>
+</div>
+<div style="display:flex;align-items:stretch;">
+<div style="width:218px;flex-shrink:0;border-right:0.5px solid var(--color-border-tertiary);padding:8px 0;">
+<div style="display:flex;align-items:center;gap:6px;padding:0 12px 6px;">
+<span style="font-size:12px;font-weight:500;color:#E1F5EE;background:#0F6E56;border-radius:6px;padding:4px 12px;">Run all</span>
+<span style="font-size:12px;color:var(--color-text-secondary);border:0.5px solid var(--color-border-secondary);border-radius:6px;padding:4px 12px;">Step</span>
+</div>
+<div style="padding:4px 12px 2px;font-size:11px;color:var(--color-text-tertiary);">setup</div>
+<div style="display:flex;align-items:center;gap:7px;padding:3px 12px;"><i class="ti ti-check" style="font-size:13px;color:#639922;" aria-hidden="true"></i><span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Buffer.Bands ← defaults</span></div>
+<div style="display:flex;align-items:center;gap:7px;padding:3px 12px;"><i class="ti ti-check" style="font-size:13px;color:#639922;" aria-hidden="true"></i><span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Consumer.Mode ← PeakShaving</span></div>
+<div style="padding:8px 12px 2px;font-size:11px;color:var(--color-text-tertiary);">steps</div>
+<div style="padding:4px 12px;border-left:2px solid #639922;margin-left:12px;">
+<div style="display:flex;align-items:center;gap:6px;"><i class="ti ti-check" style="font-size:13px;color:#639922;" aria-hidden="true"></i><span style="font-size:12px;font-weight:500;color:var(--color-text-primary);">1 · Limit grid import</span><span style="margin-left:auto;font-size:11px;color:var(--color-text-tertiary);">120 ms</span></div>
+<div style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-secondary);padding-left:19px;">GridConfig.maxImportA = 25</div>
+</div>
+<div style="padding:4px 12px;border-left:2px solid #639922;margin-left:12px;">
+<div style="display:flex;align-items:center;gap:6px;"><i class="ti ti-check" style="font-size:13px;color:#639922;" aria-hidden="true"></i><span style="font-size:12px;font-weight:500;color:var(--color-text-primary);">2 · Raise demand</span><span style="margin-left:auto;font-size:11px;color:var(--color-text-tertiary);">95 ms</span></div>
+<div style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-secondary);padding-left:19px;">Consumer.RequestedCurrentA = 16</div>
+</div>
+<div style="padding:4px 12px;border-left:2px solid #EF9F27;margin-left:12px;background:var(--color-background-secondary);">
+<div style="display:flex;align-items:center;gap:6px;"><i class="ti ti-loader-2" style="font-size:13px;color:#BA7517;" aria-hidden="true"></i><span style="font-size:12px;font-weight:500;color:var(--color-text-primary);">3 · Buffer takes over</span><span style="margin-left:auto;font-size:11px;color:var(--color-text-warning);">3.2 s…</span></div>
+<div style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-secondary);padding-left:19px;">wait until AllocatedKw &gt; 5</div>
+</div>
+<div style="padding:4px 12px;border-left:2px solid var(--color-border-tertiary);margin-left:12px;">
+<div style="display:flex;align-items:center;gap:6px;"><i class="ti ti-circle" style="font-size:13px;color:var(--color-text-tertiary);" aria-hidden="true"></i><span style="font-size:12px;color:var(--color-text-tertiary);">4 · Clouds roll in</span></div>
+<div style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-tertiary);padding-left:19px;">Supplier.ProductionProfile = 0.2</div>
+</div>
+</div>
+<div style="flex:1;min-width:0;padding:10px;background:var(--color-background-secondary);">
+<div style="font-size:11px;color:var(--color-text-tertiary);padding-bottom:6px;">watch — 4 of 176 properties</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;">
+<div style="background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:8px 10px;">
+<div style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">ComputedGridActivePowerKw</div>
+<div style="font-family:var(--font-mono);font-size:16px;font-weight:500;color:var(--color-text-primary);">24.1 <span style="font-size:11px;font-weight:400;color:var(--color-text-tertiary);">kW</span></div>
+<svg width="100%" height="18" viewBox="0 0 100 18" preserveAspectRatio="none" aria-hidden="true"><line x1="0" y1="5" x2="100" y2="5" stroke="#E24B4A" stroke-width="1" stroke-dasharray="3 3"/><polyline points="0,3 20,3 35,4 55,8 75,12 100,13" fill="none" stroke="#1D9E75" stroke-width="1.5"/></svg>
+<div style="font-size:11px;color:var(--color-text-tertiary);">limit 25</div>
+</div>
+<div style="background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:8px 10px;">
+<div style="display:flex;align-items:center;gap:5px;"><span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">AllocatedActivePowerKw</span><span style="width:6px;height:6px;border-radius:50%;background:#EF9F27;flex-shrink:0;"></span></div>
+<div style="font-family:var(--font-mono);font-size:16px;font-weight:500;color:var(--color-text-primary);">6.4 <span style="font-size:11px;font-weight:400;color:var(--color-text-tertiary);">kW</span></div>
+<svg width="100%" height="18" viewBox="0 0 100 18" preserveAspectRatio="none" aria-hidden="true"><polyline points="0,15 20,15 35,14 55,10 75,5 100,4" fill="none" stroke="#1D9E75" stroke-width="1.5"/></svg>
+<div style="font-size:11px;color:var(--color-text-warning);">+6.4 since start</div>
+</div>
+<div style="background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:8px 10px;">
+<div style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">AllocatedCurrent</div>
+<div style="font-family:var(--font-mono);font-size:16px;font-weight:500;color:var(--color-text-primary);">9.2 <span style="font-size:11px;font-weight:400;color:var(--color-text-tertiary);">A</span></div>
+<svg width="100%" height="18" viewBox="0 0 100 18" preserveAspectRatio="none" aria-hidden="true"><polyline points="0,4 20,4 35,5 55,9 75,13 100,13" fill="none" stroke="#1D9E75" stroke-width="1.5"/></svg>
+</div>
+<div style="background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:8px 10px;">
+<div style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">StateOfChargePercent</div>
+<div style="font-family:var(--font-mono);font-size:16px;font-weight:500;color:var(--color-text-primary);">64 <span style="font-size:11px;font-weight:400;color:var(--color-text-tertiary);">%</span></div>
+<svg width="100%" height="18" viewBox="0 0 100 18" preserveAspectRatio="none" aria-hidden="true"><polyline points="0,6 20,6 35,7 55,8 75,10 100,11" fill="none" stroke="#888780" stroke-width="1.5"/></svg>
+</div>
+</div>
+</div>
+<div style="width:202px;flex-shrink:0;border-left:0.5px solid var(--color-border-tertiary);padding:8px 0;">
+<div style="display:flex;align-items:center;gap:6px;padding:0 12px 6px;">
+<i class="ti ti-checklist" style="font-size:14px;color:var(--color-text-secondary);" aria-hidden="true"></i>
+<span style="font-size:12px;font-weight:500;color:var(--color-text-primary);">verify — your judgment</span>
+</div>
+<div style="display:flex;gap:7px;padding:5px 12px;">
+<i class="ti ti-square-check" style="font-size:15px;color:#639922;flex-shrink:0;" aria-hidden="true"></i>
+<span style="font-size:11.5px;color:var(--color-text-primary);line-height:1.45;">Grid import stays at or below 25 A after step 2 <span style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-tertiary);">AC-EM-23.1</span></span>
+</div>
+<div style="display:flex;gap:7px;padding:5px 12px;">
+<i class="ti ti-square-check" style="font-size:15px;color:#639922;flex-shrink:0;" aria-hidden="true"></i>
+<span style="font-size:11.5px;color:var(--color-text-primary);line-height:1.45;">Buffer ramps within ~5 s, no oscillation <span style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-text-tertiary);">AC-EM-23.2</span></span>
+</div>
+<div style="display:flex;gap:7px;padding:5px 12px;">
+<i class="ti ti-square" style="font-size:15px;color:var(--color-text-tertiary);flex-shrink:0;" aria-hidden="true"></i>
+<span style="font-size:11.5px;color:var(--color-text-secondary);line-height:1.45;">Consumer current recovers after step 4</span>
+</div>
+<div style="padding:8px 12px 4px;font-size:11px;color:var(--color-text-tertiary);">2 of 3 confirmed</div>
+<div style="margin:4px 12px;display:flex;align-items:center;justify-content:center;gap:6px;border:0.5px solid var(--color-border-secondary);border-radius:6px;padding:6px 10px;">
+<i class="ti ti-clipboard-check" style="font-size:14px;color:var(--color-text-secondary);" aria-hidden="true"></i>
+<span style="font-size:12px;color:var(--color-text-primary);">Copy verification report</span>
+</div>
+<div style="padding:4px 12px;font-size:11px;color:var(--color-text-tertiary);line-height:1.5;">includes file hash, step acks and timings — paste into the PR</div>
+</div>
+</div>
+</div>
+</main></body></html>
