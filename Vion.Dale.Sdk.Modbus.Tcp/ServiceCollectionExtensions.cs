@@ -4,6 +4,8 @@ using Vion.Dale.Sdk.Modbus.Core;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.Request;
+using Vion.Dale.Sdk.Modbus.Tcp.Server.Implementation;
+using Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp
 {
@@ -27,6 +29,9 @@ namespace Vion.Dale.Sdk.Modbus.Tcp
             serviceCollection.AddTransient<IRequestQueue, RequestQueue>();
             serviceCollection.AddTransient<IModbusTcpClientWrapper, ModbusTcpClientWrapper>();
             serviceCollection.AddTransient<IModbusTcpClientProxy, ModbusTcpClientProxy>();
+            serviceCollection.AddSingleton<ILogicBlockModbusTcpServerFactory, LogicBlockModbusTcpServerFactory>();
+            serviceCollection.AddTransient<ILogicBlockModbusTcpServer, LogicBlockModbusTcpServer>();
+            serviceCollection.AddTransient<IModbusTcpServerProxy, ModbusTcpServerProxy>();
 
             return serviceCollection;
         }
