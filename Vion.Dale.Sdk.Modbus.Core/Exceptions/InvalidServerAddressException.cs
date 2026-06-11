@@ -17,8 +17,8 @@ namespace Vion.Dale.Sdk.Modbus.Core.Exceptions
         /// <param name="startingAddress">The first address of the attempted access.</param>
         /// <param name="quantity">The number of registers or bits of the attempted access.</param>
         /// <param name="extent">The declared extent of the area (addresses 0 to extent - 1 are served).</param>
-        public InvalidServerAddressException(ModbusServerArea area, ushort startingAddress, uint quantity, ushort extent)
-            : base($"Access to {area} at address {startingAddress} (quantity {quantity}) lies outside the declared extent of {extent}.")
+        public InvalidServerAddressException(ModbusServerArea area, ushort startingAddress, uint quantity, ushort extent) :
+            base($"Access to {area} at address {startingAddress} (quantity {quantity}) lies outside the declared extent of {extent}.")
         {
         }
     }

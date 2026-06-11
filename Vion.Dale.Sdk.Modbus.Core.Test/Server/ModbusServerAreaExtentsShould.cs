@@ -5,7 +5,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Server
     [TestClass]
     public class ModbusServerAreaExtentsShould
     {
-        private static readonly ModbusServerAreaExtents Extents = new(HoldingRegisterCount: 10, InputRegisterCount: 20, CoilCount: 7, DiscreteInputCount: 1);
+        private static readonly ModbusServerAreaExtents Extents = new(10, 20, 7, 1);
 
         [TestMethod]
         [DataRow(ModbusServerArea.HoldingRegisters, (ushort)0, 10u, true)]
@@ -38,7 +38,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Server
         [TestMethod]
         public void CoverOffsetBasedMapsUpTo0X8000()
         {
-            var stStyle = new ModbusServerAreaExtents(HoldingRegisterCount: 0x800A, InputRegisterCount: 0, CoilCount: 0, DiscreteInputCount: 0);
+            var stStyle = new ModbusServerAreaExtents(0x800A, 0, 0, 0);
             Assert.IsTrue(stStyle.Covers(ModbusServerArea.HoldingRegisters, 0x8000, 10));
             Assert.IsFalse(stStyle.Covers(ModbusServerArea.HoldingRegisters, 0x8000, 11));
         }

@@ -88,6 +88,12 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
             return _discreteInputs;
         }
 
+        /// <inheritdoc />
+        public void Dispose()
+        {
+            Stop();
+        }
+
         /// <summary>
         ///     Simulates a connected master writing holding registers (function codes 6/16).
         /// </summary>
@@ -197,12 +203,6 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
             return ReadBits(ModbusServerArea.DiscreteInputs, _discreteInputs, startingAddress, quantity);
         }
 
-        /// <inheritdoc />
-        public void Dispose()
-        {
-            Stop();
-        }
-
         private byte[] ReadRegisters(ModbusServerArea area, byte[] buffer, ushort startingAddress, ushort quantity)
         {
             EnsureListening();
@@ -242,7 +242,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
         {
             if (!Extents.Covers(area, startingAddress, quantity))
             {
-                throw new ModbusException(ModbusExceptionCode.IllegalDataAddress, $"Client access to {area} at address {startingAddress} (quantity {quantity}) lies outside the declared extents.");
+                throw new ModbusException(ModbusExceptionCode.IllegalDataAddress,
+                                          $"Client access to {area} at address {startingAddress} (quantity {quantity}) lies outside the declared extents.");
             }
         }
     }

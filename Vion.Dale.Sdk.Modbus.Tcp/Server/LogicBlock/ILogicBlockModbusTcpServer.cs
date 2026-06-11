@@ -132,6 +132,26 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
         ushort DiscreteInputCount { get; set; }
 
         /// <summary>
+        ///     Gets a value indicating whether the server is currently listening for client connections.
+        /// </summary>
+        bool IsListening { get; }
+
+        /// <summary>
+        ///     Gets the number of currently connected clients.
+        /// </summary>
+        int ConnectionCount { get; }
+
+        /// <summary>
+        ///     Gets the time of the most recent client write to any register area, or <c>null</c> when no client
+        ///     has written yet.
+        /// </summary>
+        /// <remarks>
+        ///     Maintained by the SDK from the underlying server's change notifications — no events are surfaced
+        ///     to the logic block. Useful for communication surveillance (e.g. detecting a silent master).
+        /// </remarks>
+        DateTimeOffset? LastClientWriteAt { get; }
+
+        /// <summary>
         ///     Executes <paramref name="access" /> with a consistent view of all four register areas.
         /// </summary>
         /// <param name="access">
@@ -161,25 +181,5 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
         ///     See <see cref="Sync(Action{IModbusServerSnapshot})" /> for the execution semantics.
         /// </remarks>
         T Sync<T>(Func<IModbusServerSnapshot, T> access);
-
-        /// <summary>
-        ///     Gets a value indicating whether the server is currently listening for client connections.
-        /// </summary>
-        bool IsListening { get; }
-
-        /// <summary>
-        ///     Gets the number of currently connected clients.
-        /// </summary>
-        int ConnectionCount { get; }
-
-        /// <summary>
-        ///     Gets the time of the most recent client write to any register area, or <c>null</c> when no client
-        ///     has written yet.
-        /// </summary>
-        /// <remarks>
-        ///     Maintained by the SDK from the underlying server's change notifications — no events are surfaced
-        ///     to the logic block. Useful for communication surveillance (e.g. detecting a silent master).
-        /// </remarks>
-        DateTimeOffset? LastClientWriteAt { get; }
     }
 }

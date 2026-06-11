@@ -14,7 +14,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Server
         public void Initialize()
         {
             _buffer = new byte[2];
-            _sut = new ModbusBitAccessor(() => _buffer, bitExtent: 10, ModbusServerArea.DiscreteInputs);
+            _sut = new ModbusBitAccessor(() => _buffer, 10, ModbusServerArea.DiscreteInputs);
         }
 
         [TestMethod]

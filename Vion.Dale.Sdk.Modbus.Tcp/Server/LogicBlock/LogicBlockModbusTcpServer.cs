@@ -139,13 +139,22 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
         }
 
         /// <inheritdoc />
-        public bool IsListening => _proxy.IsListening;
+        public bool IsListening
+        {
+            get => _proxy.IsListening;
+        }
 
         /// <inheritdoc />
-        public int ConnectionCount => _proxy.ConnectionCount;
+        public int ConnectionCount
+        {
+            get => _proxy.ConnectionCount;
+        }
 
         /// <inheritdoc />
-        public DateTimeOffset? LastClientWriteAt => _proxy.LastClientWriteAt;
+        public DateTimeOffset? LastClientWriteAt
+        {
+            get => _proxy.LastClientWriteAt;
+        }
 
         /// <inheritdoc />
         public void Sync(Action<IModbusServerSnapshot> access)
@@ -172,7 +181,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
 
         private IModbusServerSnapshot CreateSnapshot()
         {
-            return new ModbusServerSnapshot(new ModbusRegisterAccessor(() => _proxy.GetHoldingRegisterBuffer(), HoldingRegisterCount, ModbusServerArea.HoldingRegisters, _dataConverter),
+            return new ModbusServerSnapshot(new ModbusRegisterAccessor(() => _proxy.GetHoldingRegisterBuffer(),
+                                                                       HoldingRegisterCount,
+                                                                       ModbusServerArea.HoldingRegisters,
+                                                                       _dataConverter),
                                             new ModbusRegisterAccessor(() => _proxy.GetInputRegisterBuffer(), InputRegisterCount, ModbusServerArea.InputRegisters, _dataConverter),
                                             new ModbusBitAccessor(() => _proxy.GetCoilBuffer(), CoilCount, ModbusServerArea.Coils),
                                             new ModbusBitAccessor(() => _proxy.GetDiscreteInputBuffer(), DiscreteInputCount, ModbusServerArea.DiscreteInputs));
@@ -182,7 +194,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
         {
             if (IsEnabled)
             {
-                throw new InvalidOperationException($"{propertyName} can only be changed while the server is disabled. Disable the server, update the configuration, then re-enable it.");
+                throw new
+                    InvalidOperationException($"{propertyName} can only be changed while the server is disabled. Disable the server, update the configuration, then re-enable it.");
             }
         }
 

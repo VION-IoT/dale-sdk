@@ -119,7 +119,7 @@ function findPublicApiNamespaces(csFiles) {
 function findPublicApiTypes(csFiles) {
     const types = new Set();
     const attrRe = /^\s*\[PublicApi\]/;
-    const typeRe = /^\s*(?:public\s+)?(?:abstract\s+)?(?:sealed\s+)?(?:partial\s+)?(?:static\s+)?(class|interface|enum|struct|record\s+struct|record\s+class|record|extension)\s+(\w+)/;
+    const typeRe = /^\s*(?:public\s+)?(?:abstract\s+)?(?:sealed\s+)?(?:static\s+)?(?:readonly\s+)?(?:ref\s+)?(?:partial\s+)?(class|interface|enum|struct|record\s+struct|record\s+class|record|extension)\s+(\w+)/;
     const nsRe = /^\s*namespace\s+([\w.]+)/;
 
     for (const file of csFiles) {

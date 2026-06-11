@@ -1,12 +1,44 @@
 # RFC 0006: Modbus-TCP server support — logic blocks as Modbus slaves
 
-Status: **Draft** — design-only, not implemented. Author: jonas.bertsch. Date: 2026-06-11.
+Status: **Implemented** (v1) on branch `feat/modbus-tcp-server`. Author: jonas.bertsch. Date: 2026-06-11.
 Revised the same day after a cross-repo review (logic-block-libraries as-built, RealtimeSystem
 ST server blocks, FluentModbus 5.3.2 surface verification); the revision resolves the original
 open questions, widens v1 to all four register areas, and aligns the surface 1:1 with the
 client stack's conventions (no-arg factory, property configuration, `IsEnabled` gate,
 `As<Type>` vocabulary, spec-standard byte/word-order defaults). Unit-id matching is dropped
 entirely (spec endpoint behavior) and v1 is scalar-only (array overloads deferred).
+
+## Implementation notes (post-implementation)
+
+The surface shipped as designed (snapshot `Sync`, all four areas, property configuration,
+diagnostics trio, Core-placed accessors, TestKit harness). Four findings are worth recording:
+
+- **FluentModbus's single-zero-unit mode is filter-only — the "native one-liner" claim below was
+  wrong.** `AddUnit(0)` makes the request *filter* accept every unit id, but request *processing*
+  still resolves buffers by the raw incoming id and kills the connection for unregistered units
+  (verified by the real-socket tests, then in source: `Find()` does not normalize). The proxy
+  therefore aliases all 256 unit-id buffer-map entries to unit 0's arrays — shared arrays, one
+  register map, no extra memory — via reflection over the pinned FluentModbus version, with a
+  logged fallback to unit-0-only if an upgrade changes those internals. The
+  `ServeAnyUnitIdentifier` integration test pins the behavior loudly for any future FluentModbus
+  bump.
+- **No server-side wrapper layer.** The client's wrapper exists to add conversion + validation
+  between client and proxy; on the server side both live in the Core accessors, so
+  `LogicBlockModbusTcpServer` sits directly on `IModbusTcpServerProxy`. The TestKit substitution
+  seam (the proxy) is unchanged.
+- **Block-side extent violations throw a dedicated `InvalidServerAddressException`** (Core), the
+  analog of the client's parameter-validation exception family; wire-side violations answer
+  IllegalDataAddress as designed, and the TestKit's client view throws Core's `ModbusException`
+  with that code so tests see the wire behavior.
+- **`scripts/generate-api-reference.cjs` didn't detect `readonly`/`ref` struct declarations** —
+  fixed alongside (the new `ModbusServerAreaExtents` is a readonly record struct); the fix also
+  surfaced the previously untracked `ServiceProviderMqttMessage` into the manifest.
+
+Restartability (`Stop()` → `Start()` cycles with retained buffers) and the validator's
+single-write quantity semantics were confirmed by the integration tests. The `examples/` server
+block is deferred to the post-release reference bump, since examples reference *published*
+package versions. The consumer migration (`VgtModbusTransport`) is a follow-up in
+logic-block-libraries once a release ships these packages.
 
 ## Motivation
 

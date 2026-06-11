@@ -7,7 +7,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server.Implementation
     [TestClass]
     public class ModbusTcpServerProxyShould
     {
-        private static readonly ModbusServerAreaExtents Extents = new(HoldingRegisterCount: 10, InputRegisterCount: 20, CoilCount: 7, DiscreteInputCount: 1);
+        private static readonly ModbusServerAreaExtents Extents = new(10, 20, 7, 1);
 
         [TestMethod]
         [DataRow(ModbusFunctionCode.ReadHoldingRegisters, (ushort)0, (ushort)10, ModbusExceptionCode.OK)]

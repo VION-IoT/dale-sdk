@@ -152,12 +152,12 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server.LogicBlock
             _sut.DiscreteInputCount = 8;
 
             _sut.Sync(snapshot =>
-            {
-                snapshot.HoldingRegisters.WriteAsUShort(0, 0x1234);
-                snapshot.InputRegisters.WriteAsUShort(1, 0xBEEF);
-                snapshot.Coils.Write(0, true);
-                snapshot.DiscreteInputs.Write(3, true);
-            });
+                      {
+                          snapshot.HoldingRegisters.WriteAsUShort(0, 0x1234);
+                          snapshot.InputRegisters.WriteAsUShort(1, 0xBEEF);
+                          snapshot.Coils.Write(0, true);
+                          snapshot.DiscreteInputs.Write(3, true);
+                      });
 
             CollectionAssert.AreEqual(new byte[] { 0x12, 0x34 }, new[] { _proxy.HoldingRegisters[0], _proxy.HoldingRegisters[1] });
             CollectionAssert.AreEqual(new byte[] { 0xBE, 0xEF }, new[] { _proxy.InputRegisters[2], _proxy.InputRegisters[3] });
@@ -222,8 +222,6 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server.LogicBlock
         {
             public byte[] Coils { get; } = new byte[65536 / 8];
 
-            public int ConnectionCount { get; set; }
-
             public byte[] DiscreteInputs { get; } = new byte[65536 / 8];
 
             public int DisposeCalls { get; private set; }
@@ -232,23 +230,25 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server.LogicBlock
 
             public byte[] InputRegisters { get; } = new byte[2 * 65536];
 
-            public bool IsListening { get; set; }
-
-            public DateTimeOffset? LastClientWriteAt { get; set; }
-
             public ModbusServerAreaExtents LastExtents { get; private set; }
 
             public IPAddress? LastListenAddress { get; private set; }
 
             public int LastPort { get; private set; }
 
-            public object Lock { get; } = new();
-
             public int StartCalls { get; private set; }
 
             public int StopCalls { get; private set; }
 
             public Exception? ThrowOnStart { get; set; }
+
+            public int ConnectionCount { get; set; }
+
+            public bool IsListening { get; set; }
+
+            public DateTimeOffset? LastClientWriteAt { get; set; }
+
+            public object Lock { get; } = new();
 
             public void Dispose()
             {

@@ -32,7 +32,9 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
         public void Initialize()
         {
             var dataConverter = new ServiceCollection().AddDaleModbusCoreSdk().BuildServiceProvider().GetRequiredService<IModbusDataConverter>();
-            _sut = new LogicBlockModbusTcpServer(new ModbusTcpServerProxy(NullLogger<ModbusTcpServerProxy>.Instance), dataConverter, NullLogger<LogicBlockModbusTcpServer>.Instance);
+            _sut = new LogicBlockModbusTcpServer(new ModbusTcpServerProxy(NullLogger<ModbusTcpServerProxy>.Instance),
+                                                 dataConverter,
+                                                 NullLogger<LogicBlockModbusTcpServer>.Instance);
             _port = GetFreePort();
             _sut.ListenAddress = "127.0.0.1";
             _sut.Port = _port;
@@ -74,10 +76,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
             Connect();
 
             _sut.Sync(snapshot =>
-            {
-                snapshot.InputRegisters.WriteAsInt(0, -123456, wordOrder: WordOrder32.LswToMsw);
-                snapshot.InputRegisters.WriteAsUShort(2, 0xBEEF);
-            });
+                      {
+                          snapshot.InputRegisters.WriteAsInt(0, -123456, wordOrder: WordOrder32.LswToMsw);
+                          snapshot.InputRegisters.WriteAsUShort(2, 0xBEEF);
+                      });
 
             var wireBytes = _client.ReadInputRegisters(1, 0, 3).ToArray();
 
@@ -93,8 +95,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
 
             _client.WriteSingleRegister(1, 9, new byte[] { 0x00, 0x01 }); // last served address — accepted
 
-            var write = Assert.ThrowsExactly<FluentModbus.ModbusException>(() => _client.WriteSingleRegister(1, 10, new byte[] { 0x00, 0x01 }));
-            var read = Assert.ThrowsExactly<FluentModbus.ModbusException>(() => _client.ReadInputRegisters(1, 20, 1));
+            var write = Assert.ThrowsExactly<ModbusException>(() => _client.WriteSingleRegister(1, 10, new byte[] { 0x00, 0x01 }));
+            var read = Assert.ThrowsExactly<ModbusException>(() => _client.ReadInputRegisters(1, 20, 1));
 
             Assert.AreEqual(ModbusExceptionCode.IllegalDataAddress, write.ExceptionCode);
             Assert.AreEqual(ModbusExceptionCode.IllegalDataAddress, read.ExceptionCode);
@@ -112,14 +114,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
 
             // The block's tick: read commands, echo the heartbeat, publish readiness — one atomic Sync.
             var (heartbeat, setpoint) = _sut.Sync(snapshot =>
-            {
-                var receivedHeartbeat = snapshot.HoldingRegisters.ReadAsUShort(0);
-                var receivedSetpoint = snapshot.HoldingRegisters.ReadAsInt(1, wordOrder: WordOrder32.LswToMsw);
-                snapshot.InputRegisters.WriteAsUShort(0, receivedHeartbeat);
-                snapshot.DiscreteInputs.Write(0, true);
+                                                  {
+                                                      var receivedHeartbeat = snapshot.HoldingRegisters.ReadAsUShort(0);
+                                                      var receivedSetpoint = snapshot.HoldingRegisters.ReadAsInt(1, wordOrder: WordOrder32.LswToMsw);
+                                                      snapshot.InputRegisters.WriteAsUShort(0, receivedHeartbeat);
+                                                      snapshot.DiscreteInputs.Write(0, true);
 
-                return (receivedHeartbeat, receivedSetpoint);
-            });
+                                                      return (receivedHeartbeat, receivedSetpoint);
+                                                  });
 
             Assert.AreEqual((ushort)7, heartbeat);
             Assert.AreEqual(-123456, setpoint);

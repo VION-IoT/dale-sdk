@@ -53,13 +53,19 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.Implementation
         public bool IsListening { get; private set; }
 
         /// <inheritdoc />
-        public int ConnectionCount => _server.ConnectionCount;
+        public int ConnectionCount
+        {
+            get => _server.ConnectionCount;
+        }
 
         /// <inheritdoc />
         public DateTimeOffset? LastClientWriteAt { get; private set; }
 
         /// <inheritdoc />
-        public object Lock => _server.Lock;
+        public object Lock
+        {
+            get => _server.Lock;
+        }
 
         /// <inheritdoc />
         public void Start(IPAddress listenAddress, int port, ModbusServerAreaExtents extents)
@@ -165,9 +171,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.Implementation
             // Single-value writes touch exactly one address but may be reported with quantity 0.
             var effectiveQuantity = Math.Max(quantity, (ushort)1);
 
-            return extents.Covers(area.Value, startingAddress, effectiveQuantity)
-                ? ModbusExceptionCode.OK
-                : ModbusExceptionCode.IllegalDataAddress;
+            return extents.Covers(area.Value, startingAddress, effectiveQuantity) ? ModbusExceptionCode.OK : ModbusExceptionCode.IllegalDataAddress;
         }
 
         private void AliasAllUnitIdentifiersToUnitZero()

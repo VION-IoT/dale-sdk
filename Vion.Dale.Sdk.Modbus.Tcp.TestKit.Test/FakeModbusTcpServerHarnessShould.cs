@@ -37,13 +37,13 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
 
             // The block's tick: read commands, publish telemetry — one atomic Sync.
             _harness.Server.Sync(snapshot =>
-            {
-                Assert.AreEqual((ushort)42, snapshot.HoldingRegisters.ReadAsUShort(1));
-                Assert.IsTrue(snapshot.Coils.Read(2));
+                                 {
+                                     Assert.AreEqual((ushort)42, snapshot.HoldingRegisters.ReadAsUShort(1));
+                                     Assert.IsTrue(snapshot.Coils.Read(2));
 
-                snapshot.InputRegisters.WriteAsInt(0, -123456, wordOrder: WordOrder32.LswToMsw);
-                snapshot.DiscreteInputs.Write(0, true);
-            });
+                                     snapshot.InputRegisters.WriteAsInt(0, -123456, wordOrder: WordOrder32.LswToMsw);
+                                     snapshot.DiscreteInputs.Write(0, true);
+                                 });
 
             // Wire-exact assertions, independent of the SDK converter (declared-twice discipline).
             CollectionAssert.AreEqual(new byte[] { 0x1D, 0xC0, 0xFF, 0xFE }, _harness.Client.ReadInputRegistersRaw(0, 2));

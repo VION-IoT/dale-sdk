@@ -28,7 +28,10 @@ namespace Vion.Dale.Sdk.Modbus.Core.Server
         ///     Initializes a new instance of the <see cref="ModbusRegisterAccessor" /> class.
         /// </summary>
         /// <param name="getBuffer">Provides the live register buffer of the area, in wire order.</param>
-        /// <param name="registerExtent">The declared extent: register addresses 0 to <paramref name="registerExtent" /> - 1 are accessible.</param>
+        /// <param name="registerExtent">
+        ///     The declared extent: register addresses 0 to <paramref name="registerExtent" /> - 1 are
+        ///     accessible.
+        /// </param>
         /// <param name="area">The area this accessor belongs to (used in error messages).</param>
         /// <param name="dataConverter">The converter performing all byte and word order conversion.</param>
         public ModbusRegisterAccessor(ModbusServerBufferAccessor getBuffer, ushort registerExtent, ModbusServerArea area, IModbusDataConverter dataConverter)
@@ -175,19 +178,19 @@ namespace Vion.Dale.Sdk.Modbus.Core.Server
         private Action<Memory<byte>> Swap32(ByteOrder byteOrder, WordOrder32 wordOrder)
         {
             return bytes =>
-            {
-                _dataConverter.SwapBytes(bytes, byteOrder);
-                _dataConverter.SwapWords(bytes, wordOrder);
-            };
+                   {
+                       _dataConverter.SwapBytes(bytes, byteOrder);
+                       _dataConverter.SwapWords(bytes, wordOrder);
+                   };
         }
 
         private Action<Memory<byte>> Swap64(ByteOrder byteOrder, WordOrder64 wordOrder)
         {
             return bytes =>
-            {
-                _dataConverter.SwapBytes(bytes, byteOrder);
-                _dataConverter.SwapWords(bytes, wordOrder);
-            };
+                   {
+                       _dataConverter.SwapBytes(bytes, byteOrder);
+                       _dataConverter.SwapWords(bytes, wordOrder);
+                   };
         }
 
         private T ReadValue<T>(ushort startingAddress, int byteCount, Action<Memory<byte>> swap)

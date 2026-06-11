@@ -16,7 +16,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Server
         public void Initialize()
         {
             _buffer = new byte[40]; // 20 registers
-            _sut = new ModbusRegisterAccessor(() => _buffer, registerExtent: 20, ModbusServerArea.HoldingRegisters, new ModbusDataConverter(new BitConverterProxy()));
+            _sut = new ModbusRegisterAccessor(() => _buffer, 20, ModbusServerArea.HoldingRegisters, new ModbusDataConverter(new BitConverterProxy()));
         }
 
         [TestMethod]
