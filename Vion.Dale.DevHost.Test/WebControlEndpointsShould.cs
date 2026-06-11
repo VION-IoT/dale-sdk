@@ -202,6 +202,8 @@ namespace Vion.Dale.DevHost.Test
                                       "/vue.esm-browser.prod.js",
                                       "/app.js",
                                       "/app.css",
+                                      "/tokens.css",
+                                      "/MonaSans-Variable.ttf",
                                       "/store.js",
                                       "/components.js",
                                       "/format.js",

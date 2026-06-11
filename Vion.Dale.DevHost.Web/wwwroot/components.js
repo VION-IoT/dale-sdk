@@ -567,7 +567,13 @@ export const App = {
             }));
             return { blocks: blocks.value.length, props };
         });
-        return { store, blocks, sharedLookup, totals };
+        const theme = ref(document.documentElement.dataset.theme || 'dark');
+        const toggleTheme = () => {
+            theme.value = theme.value === 'dark' ? 'light' : 'dark';
+            document.documentElement.dataset.theme = theme.value;
+            try { localStorage.setItem('dale.devhost.theme', theme.value); } catch { /* private mode */ }
+        };
+        return { store, blocks, sharedLookup, totals, theme, toggleTheme };
     },
     template: `
         <div class="app">
@@ -578,6 +584,8 @@ export const App = {
                 <span class="conn" :class="store.connected ? 'connected' : 'disconnected'">
                     <span class="conn-dot"></span>{{ store.connected ? 'live' : 'disconnected' }}
                 </span>
+                <button type="button" class="theme-toggle" :title="'switch to ' + (theme === 'dark' ? 'light' : 'dark')"
+                        @click="toggleTheme">{{ theme === 'dark' ? '☾' : '☀' }}</button>
             </header>
             <div v-if="store.error" class="error-toast">{{ store.error }}</div>
             <div v-if="store.loading" class="loading">Loading configuration…</div>

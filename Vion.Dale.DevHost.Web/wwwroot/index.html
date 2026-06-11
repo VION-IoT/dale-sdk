@@ -1,9 +1,13 @@
 <!DOCTYPE html>
-<html lang="en">
+<html data-theme="dark" lang="en">
 <head>
     <meta charset="UTF-8">
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <title>DALE DevHost</title>
+    <!-- Theme before first paint: the dev tool defaults dark; the [data-theme] mechanics are the
+    dashboard's (tokens.css swaps def/inv semantic tokens), so both themes stay brand-compatible. -->
+    <script>document.documentElement.dataset.theme = localStorage.getItem('dale.devhost.theme') || 'dark';</script>
+    <link href="tokens.css" rel="stylesheet">
     <link href="app.css" rel="stylesheet">
     <!-- Vendored, pinned runtime deps (see THIRD-PARTY-NOTICES.txt) — the UI must work offline,
     nothing loads from a CDN. signalr + day.js are classic-script UMD globals; the app itself is
