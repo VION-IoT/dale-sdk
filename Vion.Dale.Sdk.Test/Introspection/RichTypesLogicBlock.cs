@@ -6,7 +6,11 @@ using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.Sdk.Test.Introspection
 {
-    public readonly record struct Coordinates(double Lat, double Lon);
+    public readonly record struct Coordinates(
+        [StructField(Unit = "deg", Minimum = -90, Maximum = 90, Description = "Latitude in WGS-84 decimal degrees.")]
+        double Lat,
+        [StructField(Unit = "deg", Minimum = -180, Maximum = 180, Description = "Longitude in WGS-84 decimal degrees.")]
+        double Lon);
 
     public readonly record struct ScheduledSetpoint(DateTime At, [StructField(Unit = "kW")] double PowerSetpoint, [StructField(Unit = "V")] double VoltageSetpoint);
 
