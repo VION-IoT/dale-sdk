@@ -421,6 +421,100 @@ export const JsonEditor = {
     `,
 };
 
+// ── struct / array read-only viewer ─────────────────────────────────────────────
+// The legible form of the value chip for big diagnostic data: a field grid for structs, a live
+// table for arrays of flat structs (one column per [StructField], units in headers, enum labels
+// in cells), a chip row for scalar/enum arrays. Pure rendering of the live value — updates as the
+// block publishes.
+
+export const StructViewer = {
+    props: ['service', 'item'],
+    setup(props) {
+        const live = useLive(props);
+        const schema = props.item.schema || {};
+        const t = effectiveType(schema);
+        const enumLabels = (props.item.presentation || {}).enumLabels || null;
+
+        const fieldDefs = objectSchema => Object.entries((objectSchema && objectSchema.properties) || {})
+            .map(([name, fieldSchema]) => ({
+                name,
+                unit: resolveUnit(fieldSchema),
+                description: fieldSchema.description || '',
+                enums: enumMembers(fieldSchema) !== null,
+            }));
+
+        // mode: 'object' (field grid), 'table' (array of structs), 'list' (array of scalars)
+        const elementSchema = t === 'array' ? schema.items || {} : null;
+        const mode = t === 'object' ? 'object'
+            : t === 'array' && effectiveType(elementSchema) === 'object' ? 'table' : 'list';
+        const fields = mode === 'object' ? fieldDefs(schema) : mode === 'table' ? fieldDefs(elementSchema) : [];
+
+        // Case-tolerant field access: wire keys are camelCased, schema property keys usually match,
+        // but stay defensive (same policy as priming).
+        const fieldValue = (row, name) => {
+            if (row === null || row === undefined || typeof row !== 'object') return undefined;
+            if (Object.prototype.hasOwnProperty.call(row, name)) return row[name];
+            const lower = name.toLowerCase();
+            const key = Object.keys(row).find(k => k.toLowerCase() === lower);
+            return key !== undefined ? row[key] : undefined;
+        };
+
+        const fmtCell = (value, field) => {
+            if (value === null || value === undefined) return '—';
+            if (field && field.enums && typeof value === 'string') return enumDisplay(null, value);
+            return formatValue(value);
+        };
+
+        const objectRows = computed(() => mode !== 'object' ? [] :
+            fields.map(f => ({ ...f, value: fmtCell(fieldValue(live.value, f.name), f) })));
+        const tableRows = computed(() => mode !== 'table' || !Array.isArray(live.value) ? [] : live.value);
+        const listItems = computed(() => {
+            if (mode !== 'list' || !Array.isArray(live.value)) return [];
+            return live.value.map(v => v === null || v === undefined ? '—'
+                : enumLabels && typeof v === 'string' ? enumDisplay(enumLabels, v) : formatValue(v));
+        });
+
+        const empty = computed(() => live.value === null || live.value === undefined
+            || (Array.isArray(live.value) && live.value.length === 0));
+
+        return { mode, fields, objectRows, tableRows, listItems, empty, fieldValue, fmtCell };
+    },
+    template: `
+        <div class="struct-viewer">
+            <div v-if="empty" class="viewer-empty">∅ — no value published</div>
+            <template v-else-if="mode === 'object'">
+                <div v-for="f in objectRows" :key="f.name" class="viewer-field" :title="f.description">
+                    <span class="mono viewer-name">{{ f.name }}</span>
+                    <span class="item-spacer"></span>
+                    <span class="mono viewer-value">{{ f.value }}</span>
+                    <span v-if="f.unit" class="unit">{{ f.unit }}</span>
+                </div>
+            </template>
+            <div v-else-if="mode === 'table'" class="viewer-table-wrap">
+                <table class="viewer-table">
+                    <thead>
+                        <tr>
+                            <th class="viewer-idx">#</th>
+                            <th v-for="f in fields" :key="f.name" :title="f.description">
+                                {{ f.name }}<span v-if="f.unit" class="unit"> {{ f.unit }}</span>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="(row, i) in tableRows" :key="i">
+                            <td class="viewer-idx">{{ i }}</td>
+                            <td v-for="f in fields" :key="f.name" class="mono">{{ fmtCell(fieldValue(row, f.name), f) }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div v-else class="viewer-list">
+                <span v-for="(v, i) in listItems" :key="i" class="viewer-chip mono">{{ v }}</span>
+            </div>
+        </div>
+    `,
+};
+
 // ── docs expander (everything demoted from the old always-on table) ─────────────
 
 export const DocsRow = {
@@ -455,7 +549,7 @@ export const DocsRow = {
 // ── the dense row ───────────────────────────────────────────────────────────────
 
 export const ItemRow = {
-    components: { ValueCell, NumberControl, TextControl, EnumSelect, BoolToggle, TriggerButton, SecretControl, JsonEditor, DocsRow },
+    components: { ValueCell, NumberControl, TextControl, EnumSelect, BoolToggle, TriggerButton, SecretControl, JsonEditor, DocsRow, StructViewer },
     props: ['lb', 'service', 'item'],
     setup(props) {
         const pinEntry = { block: props.lb.name, service: props.service.identifier, item: props.item.identifier };
@@ -489,7 +583,8 @@ export const ItemRow = {
         const showStructEdit = computed(() => writable && isStruct);
         const docsOpen = ref(false);
         const editorOpen = ref(false);
-        return { controlKind, docsOpen, editorOpen, writable, isStruct, isStatus, hidden, unit, writeOnly, showStructEdit, pinned, togglePinRow, changed };
+        const viewerOpen = ref(false);
+        return { controlKind, docsOpen, editorOpen, viewerOpen, writable, isStruct, isStatus, hidden, unit, writeOnly, showStructEdit, pinned, togglePinRow, changed };
     },
     template: `
         <div class="item" :class="{ 'hidden-importance': hidden }" :id="'item-' + service.id + '-' + item.identifier">
@@ -513,10 +608,13 @@ export const ItemRow = {
                 </template>
                 <template v-else>
                     <ValueCell :service="service" :item="item"/>
+                    <button v-if="isStruct" type="button" class="edit-toggle"
+                            :class="{ open: viewerOpen }" @click="viewerOpen = !viewerOpen">view</button>
                     <button v-if="showStructEdit" type="button" class="edit-toggle"
                             :class="{ open: editorOpen }" @click="editorOpen = !editorOpen">{ } edit</button>
                 </template>
             </div>
+            <StructViewer v-if="viewerOpen" :service="service" :item="item"/>
             <JsonEditor v-if="editorOpen" :service="service" :item="item"/>
             <DocsRow v-if="docsOpen" :service="service" :item="item"/>
         </div>
