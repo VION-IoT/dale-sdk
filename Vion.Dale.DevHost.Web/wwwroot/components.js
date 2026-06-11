@@ -7,8 +7,9 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from './vue.esm-browser.prod.js';
 import {
     cssGroupKey, defaultOpen, describeType, effectiveType, enumDisplay, enumMembers, formatTemporal,
-    formatValue, GROUP_LABELS, groupItems, isNullable, isWritable, matchesFilter, orderedGroupKeys,
-    parseFilter, resolveDisplayName, resolveUnit, sampleJson, severityFor,
+    formatValue, gallerySamples, GROUP_LABELS, groupItems, isNullable, isWritable, matchesFilter,
+    orderedGroupKeys, parseFilter, presentationFacts, resolveDisplayName, resolveUnit, sampleJson,
+    severityFor,
 } from './format.js';
 import {
     baselineDelta, buildSharedContractLookup, changedCountForBlock, changedSinceBaseline,
@@ -71,9 +72,11 @@ function badgeList(item) {
 // ── value rendering ─────────────────────────────────────────────────────────────
 
 export const ValueCell = {
-    props: ['service', 'item'],
+    // `sample`: optional value override (the gallery's synthetic previews) — rendering policy is
+    // identical to live values by construction because it IS the same code path.
+    props: ['service', 'item', 'sample'],
     setup(props) {
-        const live = useLive(props);
+        const live = props.sample === undefined ? useLive(props) : computed(() => props.sample);
         const flashing = useFlash(live);
         const schema = props.item.schema || {};
         const presentation = props.item.presentation || {};
@@ -428,9 +431,11 @@ export const JsonEditor = {
 // block publishes.
 
 export const StructViewer = {
-    props: ['service', 'item'],
+    // `sample`: optional value override (the gallery's synthetic previews), same contract as
+    // ValueCell — without it the viewer renders the live store value.
+    props: ['service', 'item', 'sample'],
     setup(props) {
-        const live = useLive(props);
+        const live = props.sample === undefined ? useLive(props) : computed(() => props.sample);
         const schema = props.item.schema || {};
         const t = effectiveType(schema);
         const enumLabels = (props.item.presentation || {}).enumLabels || null;
@@ -997,6 +1002,111 @@ export const TopologyPanel = {
     `,
 };
 
+// ── presentation gallery: how authored metadata renders, on synthetic sample values ────────────
+// The attribute-payoff lever (R2.5): per block, every property rendered through the SAME display
+// components the explorer uses (ValueCell / StructViewer with a sample override), with values
+// derived purely from introspection metadata — bounds become min·mid·max, every enum member and
+// status mapping appears, temporals show authored formats, nullable shows the ∅ case. Authored
+// presentation chips and "not authored" hints make the payoff (and the gaps) explicit.
+
+const GalleryItem = {
+    components: { ValueCell, StructViewer },
+    props: ['lb', 'service', 'item'],
+    setup(props) {
+        const schema = props.item.schema || {};
+        const t = effectiveType(schema);
+        const isStruct = t === 'object' || t === 'array';
+        const samples = gallerySamples(props.item);
+        const facts = presentationFacts(props.item);
+        const displayName = (props.item.presentation || {}).displayName || null;
+        const typeDisplay = describeType(schema);
+        return { samples, facts, isStruct, displayName, typeDisplay };
+    },
+    template: `
+        <div class="gallery-item">
+            <div class="gallery-head">
+                <span class="item-name mono">{{ item.identifier }}</span>
+                <span v-if="displayName" class="gallery-display">{{ displayName }}</span>
+                <code class="docs-type">{{ typeDisplay }}</code>
+                <span class="item-spacer"></span>
+                <span v-for="f in facts.authored" class="fact-chip">{{ f }}</span>
+            </div>
+            <div v-if="facts.missing.length" class="gallery-missing">not authored: {{ facts.missing.join(' · ') }}</div>
+            <div class="gallery-samples">
+                <template v-if="isStruct">
+                    <StructViewer :service="service" :item="item" :sample="samples[0].value"/>
+                </template>
+                <template v-else>
+                    <span v-for="(s, i) in samples" :key="i" class="gallery-sample">
+                        <span v-if="s.label" class="sample-label">{{ s.label }}</span>
+                        <ValueCell :service="service" :item="item" :sample="s.value"/>
+                    </span>
+                </template>
+            </div>
+        </div>
+    `,
+};
+
+export const GalleryCard = {
+    components: { GalleryItem },
+    props: ['lb'],
+    setup(props) {
+        const services = (props.lb.services || []).map(service => {
+            const itemsByGroup = groupItems(service);
+            const blockGroups = props.lb.annotations && Array.isArray(props.lb.annotations.Groups) ? props.lb.annotations.Groups : [];
+            const groups = orderedGroupKeys(blockGroups, itemsByGroup).map(key => ({
+                key,
+                label: GROUP_LABELS[key] !== undefined ? GROUP_LABELS[key] : key,
+                css: cssGroupKey(key),
+                items: itemsByGroup[key],
+            }));
+            return { service, groups };
+        });
+        // The block-level payoff metric: how many items still have high-value authoring gaps
+        // (the per-shape `missing` policy) — "0 gaps" is the target, not "something authored".
+        let gaps = 0, total = 0;
+        services.forEach(s => s.groups.forEach(g => g.items.forEach(item => {
+            total++;
+            if (presentationFacts(item).missing.length) gaps++;
+        })));
+        const gapSummary = gaps === 0
+            ? `all ${total} fully authored`
+            : `authoring gaps on ${gaps} of ${total}`;
+        // An active filter narrows the same way the explorer does: matchless groups disappear,
+        // and the whole card hides when nothing in it matches.
+        const view = computed(() => services.map(s => ({
+            service: s.service,
+            groups: s.groups
+                .map(g => filterTokens.value.length ? { ...g, items: g.items.filter(it => itemMatches(s.service, it)) } : g)
+                .filter(g => g.items.length),
+        })));
+        const icon = props.lb.annotations && props.lb.annotations.Icon;
+        const multiService = (props.lb.services || []).length > 1;
+        const visibleCard = computed(() => view.value.some(s => s.groups.length));
+        return { view, gapSummary, icon, multiService, visibleCard };
+    },
+    template: `
+        <section v-if="visibleCard" class="block-card gallery-card" :id="'block-' + lb.id">
+            <div class="block-header">
+                <h2>{{ lb.name }}</h2>
+                <code v-if="icon" class="icon-chip" title="Remixicon name">{{ icon }}</code>
+                <span class="item-spacer"></span>
+                <span class="block-counts">{{ gapSummary }}</span>
+            </div>
+            <div v-for="s in view" :key="s.service.id" class="service-section">
+                <h3 v-if="multiService">service: {{ s.service.identifier }}</h3>
+                <div v-for="g in s.groups" :key="g.key" class="group-section" :class="g.css">
+                    <div class="group-header gallery-group-header">
+                        <code class="group-key">{{ g.label }}</code>
+                        <span class="group-count">{{ g.items.length }}</span>
+                    </div>
+                    <GalleryItem v-for="it in g.items" :key="it.identifier" :lb="lb" :service="s.service" :item="it"/>
+                </div>
+            </div>
+        </section>
+    `,
+};
+
 // ── Ctrl+K palette: type to find any property, Enter jumps to it, Ctrl+Enter pins it ───────────
 
 export const Palette = {
@@ -1028,6 +1138,8 @@ export const Palette = {
             const groupKey = (entry.item.presentation && entry.item.presentation.group) || '';
             store.collapsed[collapseKey(entry.lb.name, entry.service.identifier, groupKey)] = false;
             store.filter = '';
+            // Jump targets live in the explorer — leave topology/gallery first.
+            store.view = 'explorer';
             close();
             nextTick(() => setTimeout(() => {
                 const el = document.getElementById(`item-${entry.service.id}-${entry.item.identifier}`);
@@ -1083,7 +1195,7 @@ export const Palette = {
 };
 
 export const App = {
-    components: { Rail, BlockCard, WatchPanel, Palette, TopologyPanel },
+    components: { Rail, BlockCard, WatchPanel, Palette, TopologyPanel, GalleryCard },
     setup() {
         const blocks = computed(() => (store.config && store.config.logicBlocks) || []);
         const sharedLookup = computed(() => buildSharedContractLookup());
@@ -1145,14 +1257,15 @@ export const App = {
         onMounted(() => window.addEventListener('keydown', onKeydown));
         onUnmounted(() => window.removeEventListener('keydown', onKeydown));
 
-        const toggleView = () => { store.view = store.view === 'explorer' ? 'topology' : 'explorer'; };
+        // Three top-level views; each button toggles its view against the explorer default.
+        const setView = v => { store.view = store.view === v ? 'explorer' : v; };
         const confirmReset = () => {
             resetHost();
         };
         return {
             store, blocks, sharedLookup, totals, theme, toggleTheme, matches, changedTotal,
             baselineClock, filterEl, setBaseline, clearBaseline, pauseHost, resumeHost,
-            confirmReset, toggleView,
+            confirmReset, setView,
         };
     },
     template: `
@@ -1187,7 +1300,10 @@ export const App = {
                         @click="confirmReset">↻ reset</button>
                 <button type="button" class="theme-toggle" :class="{ 'view-active': store.view === 'topology' }"
                         :title="store.view === 'topology' ? 'back to the explorer' : 'topology — blocks, links, mocked IO'"
-                        @click="toggleView">⛁ topology</button>
+                        @click="setView('topology')">⛁ topology</button>
+                <button type="button" class="theme-toggle" :class="{ 'view-active': store.view === 'gallery' }"
+                        :title="store.view === 'gallery' ? 'back to the explorer' : 'gallery — how authored presentation renders, on sample values'"
+                        @click="setView('gallery')">▦ gallery</button>
                 <span class="conn" :class="store.connected ? 'connected' : 'disconnected'">
                     <span class="conn-dot"></span>{{ store.connected ? 'live' : 'disconnected' }}
                 </span>
@@ -1199,6 +1315,12 @@ export const App = {
             <div v-else-if="store.view === 'topology'" class="layout">
                 <main class="content">
                     <TopologyPanel/>
+                </main>
+            </div>
+            <div v-else-if="store.view === 'gallery'" class="layout">
+                <Rail/>
+                <main class="content">
+                    <GalleryCard v-for="lb in blocks" :key="lb.id" :lb="lb"/>
                 </main>
             </div>
             <div v-else class="layout">

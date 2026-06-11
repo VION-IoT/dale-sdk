@@ -234,6 +234,145 @@ export function matchesFilter(tokens, item, live) {
     });
 }
 
+// ── Gallery sample policy (R2.5) ────────────────────────────────────────────────
+// Synthetic values for the presentation preview gallery: representative samples derived purely
+// from schema metadata, so authors see how their attributes render without the block publishing
+// anything. The slot picks a point in the value space (bounds become low/mid/high, enums walk
+// their members) so multi-sample strips and array rows show variety instead of three zeroes.
+
+function scalarSample(schema, slot) {
+    const t = effectiveType(schema);
+    const members = enumMembers(schema);
+    if (members && members.length) {
+        const idx = slot === 'low' ? 0 : slot === 'high' ? members.length - 1 : Math.floor((members.length - 1) / 2);
+        return members[idx];
+    }
+    if (t === 'boolean') return slot !== 'low';
+    if (t === 'integer' || t === 'number') {
+        const min = schema.minimum;
+        const max = schema.maximum;
+        let v;
+        if (min !== undefined && max !== undefined) v = slot === 'low' ? min : slot === 'high' ? max : (min + max) / 2;
+        else if (min !== undefined) v = slot === 'low' ? min : min + (slot === 'high' ? 100 : 10);
+        else if (max !== undefined) v = slot === 'high' ? max : max - (slot === 'low' ? 100 : 10);
+        else v = slot === 'low' ? 0 : slot === 'high' ? 1234.5678 : 42.5;
+        return t === 'integer' ? Math.round(v) : v;
+    }
+    if (t === 'string') {
+        if (schema.format === 'date-time') {
+            const now = Date.now();
+            return new Date(slot === 'low' ? now - 3 * 3600000 : now).toISOString();
+        }
+        if (schema.format === 'duration') return slot === 'low' ? 'PT12S' : 'PT1H23M45S';
+        return 'text sample';
+    }
+    return null;
+}
+
+function objectSample(schema, slot) {
+    const out = {};
+    for (const [name, fieldSchema] of Object.entries((schema && schema.properties) || {})) {
+        const t = effectiveType(fieldSchema);
+        if (t === 'object') out[name] = objectSample(fieldSchema, slot);
+        else if (t === 'array') out[name] = [scalarSample(fieldSchema.items || {}, slot)];
+        else out[name] = scalarSample(fieldSchema, slot);
+    }
+    return out;
+}
+
+// Labeled display samples for one item. Scalars get a chip strip (every enum member / status
+// mapping, min·mid·max for bounded numbers, now vs earlier for temporals, the ∅ case when
+// nullable); objects get one representative struct, arrays three varied rows.
+export function gallerySamples(item) {
+    const schema = item.schema || {};
+    const presentation = item.presentation || {};
+    const t = effectiveType(schema);
+    const members = enumMembers(schema);
+    const samples = [];
+
+    if (schema.writeOnly === true) {
+        return [{ label: 'set', value: '***' }, { label: 'cleared', value: null }];
+    }
+    if (t === 'object') {
+        return [{ label: 'sample', value: objectSample(schema, 'mid') }];
+    }
+    if (t === 'array') {
+        const itemSchema = schema.items || {};
+        const make = slot => effectiveType(itemSchema) === 'object' ? objectSample(itemSchema, slot) : scalarSample(itemSchema, slot);
+        const rows = ['low', 'mid', 'high'].map(make);
+        const distinct = effectiveType(itemSchema) === 'object' ? rows : [...new Map(rows.map(v => [JSON.stringify(v), v])).values()];
+        return [{ label: 'sample', value: distinct }];
+    }
+
+    if (members) {
+        members.forEach(m => samples.push({ label: '', value: m }));
+    } else if (presentation.statusMappings) {
+        Object.keys(presentation.statusMappings).forEach(k => samples.push({ label: '', value: k }));
+    } else if (t === 'boolean') {
+        samples.push({ label: '', value: true }, { label: '', value: false });
+    } else if (t === 'integer' || t === 'number') {
+        const bounded = schema.minimum !== undefined && schema.maximum !== undefined;
+        if (bounded) {
+            samples.push({ label: 'min', value: scalarSample(schema, 'low') });
+            samples.push({ label: 'mid', value: scalarSample(schema, 'mid') });
+            samples.push({ label: 'max', value: scalarSample(schema, 'high') });
+        } else {
+            samples.push({ label: '', value: scalarSample(schema, 'low') });
+            samples.push({ label: '', value: scalarSample(schema, 'high') });
+        }
+    } else if (schema.format === 'date-time') {
+        samples.push({ label: 'now', value: scalarSample(schema, 'mid') });
+        samples.push({ label: '3 h ago', value: scalarSample(schema, 'low') });
+    } else if (schema.format === 'duration') {
+        samples.push({ label: '', value: scalarSample(schema, 'high') });
+        samples.push({ label: '', value: scalarSample(schema, 'low') });
+    } else {
+        samples.push({ label: '', value: scalarSample(schema, 'mid') });
+    }
+
+    if (isNullable(schema)) samples.push({ label: 'null', value: null });
+    return samples;
+}
+
+// The attribute-payoff summary for one item: which presentation/schema metadata the author
+// wrote (chips), and the high-value omissions for this item's shape (hints). The missing list
+// is deliberately selective so the block-level gap count discriminates: only metadata whose
+// absence visibly degrades THIS item's value rendering — unit on numerics, labels on enums,
+// format on temporals, bounds on writable numerics. Description and decimals are chips when
+// authored but never gaps: they have sane defaults, and nagging them on every row saturates
+// the metric into noise.
+export function presentationFacts(item) {
+    const schema = item.schema || {};
+    const p = item.presentation || {};
+    const t = effectiveType(schema);
+    const numeric = t === 'integer' || t === 'number';
+    const temporal = schema.format === 'date-time' || schema.format === 'duration';
+    const authored = [];
+    const missing = [];
+
+    if (p.displayName) authored.push(`name “${p.displayName}”`);
+    if (p.group) authored.push(`group ${p.group}`);
+    if (p.importance) authored.push(p.importance.toLowerCase());
+    if (p.uiHint) authored.push(`uiHint ${p.uiHint}`);
+    if (p.order !== undefined && p.order !== null) authored.push(`order ${p.order}`);
+    if (p.decimals !== undefined && p.decimals !== null) authored.push(`${p.decimals} dp`);
+    if (schema['x-unit']) authored.push(`unit ${schema['x-unit']}`);
+    else if (numeric) missing.push('unit');
+    if (schema.minimum !== undefined || schema.maximum !== undefined) authored.push(`bounds ${schema.minimum ?? '−∞'}–${schema.maximum ?? '∞'}`);
+    // Bounds only pay off on inputs (validation, slider ranges) — don't nag read-only metrics.
+    else if (numeric && item._kind === 'property' && isWritable(item)) missing.push('bounds');
+    if (p.format) authored.push(`format ${p.format}`);
+    else if (temporal) missing.push('format');
+    const labelCount = p.enumLabels ? Object.keys(p.enumLabels).length : 0;
+    if (labelCount) authored.push(`${labelCount} enum labels`);
+    else if (enumMembers(schema)) missing.push('enum labels');
+    const mappingCount = p.statusMappings ? Object.keys(p.statusMappings).length : 0;
+    if (mappingCount) authored.push(`${mappingCount} status mappings`);
+    if (schema.description) authored.push('description');
+
+    return { authored, missing };
+}
+
 // Platform default group order + labels (well-known keys; integrator keys render verbatim).
 export const PLATFORM_DEFAULT_GROUP_ORDER = ['alarm', 'status', 'metric', 'configuration', 'diagnostics', 'identity', ''];
 
