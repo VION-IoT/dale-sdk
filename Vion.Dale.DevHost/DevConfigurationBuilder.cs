@@ -24,6 +24,8 @@ namespace Vion.Dale.DevHost
 
         private int _logicBlockCounter;
 
+        private string? _topologyName;
+
         public static DevConfigurationBuilder Create()
         {
             return new DevConfigurationBuilder();
@@ -80,6 +82,17 @@ namespace Vion.Dale.DevHost
         }
 
         /// <summary>
+        ///     Name the topology this configuration represents (e.g. "EnergyManagerClosedLoop"). Surfaced in
+        ///     <c>ConfigurationOutput.TopologyName</c> and the web UI header; scenario files reference it to
+        ///     guard against running against the wrong preset (RFC 0006).
+        /// </summary>
+        public DevConfigurationBuilder WithTopologyName(string topologyName)
+        {
+            _topologyName = topologyName;
+            return this;
+        }
+
+        /// <summary>
         ///     Share one mock service provider endpoint between two contracts
         /// </summary>
         public DevConfigurationBuilder ShareContract(LogicBlockHandle lb1, string contractId1, LogicBlockHandle lb2, string contractId2)
@@ -90,7 +103,7 @@ namespace Vion.Dale.DevHost
 
         public DevConfiguration Build()
         {
-            var config = new DevConfiguration();
+            var config = new DevConfiguration { TopologyName = _topologyName };
 
             // Create logic block configs
             foreach (var handle in _handles)
