@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DevHost UI mockup — struct editor (EnergyManager.GridConfig)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3/dist/tabler-icons.min.css">
+<style>
+:root{
+--color-background-primary:#ffffff;--color-background-secondary:#f5f4ef;--color-background-tertiary:#edebe4;
+--color-background-info:#E6F1FB;--color-background-danger:#FCEBEB;--color-background-success:#EAF3DE;--color-background-warning:#FAEEDA;
+--color-text-primary:#1c1c1a;--color-text-secondary:#5f5e5a;--color-text-tertiary:#8c8a84;
+--color-text-info:#0C447C;--color-text-danger:#791F1F;--color-text-success:#27500A;--color-text-warning:#633806;
+--color-border-tertiary:rgba(0,0,0,0.15);--color-border-secondary:rgba(0,0,0,0.3);--color-border-primary:rgba(0,0,0,0.4);
+--font-sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--font-mono:ui-monospace,"Cascadia Code",Consolas,monospace;
+--border-radius-md:8px;--border-radius-lg:12px;
+}
+body{background:#faf9f5;margin:0;padding:24px;font-family:var(--font-sans);}
+main{max-width:720px;margin:0 auto;}
+</style>
+</head>
+<body><main>
+<h2 style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">Mockup of the struct editor dialog for the writable GridConfig property: form tab with typed fields showing units and min-max bounds, one dirty field, a suppressed live update notice, payload preview, and set-value actions. Field names match the verified GridHeadroomConfigUi struct.</h2>
+<div style="min-height:470px;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;border-radius:var(--border-radius-lg);padding:18px;">
+<div style="width:470px;max-width:100%;background:var(--color-background-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-lg);overflow:hidden;font-family:var(--font-sans);">
+<div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:0.5px solid var(--color-border-tertiary);">
+<span style="font-family:var(--font-mono);font-size:13px;font-weight:500;color:var(--color-text-primary);">GridConfig</span>
+<span style="font-size:11px;color:var(--color-text-tertiary);">EnergyManager · configuration</span>
+<span style="margin-left:auto;font-size:11px;background:var(--color-background-info);color:var(--color-text-info);padding:2px 8px;border-radius:999px;">replaced as a whole</span>
+<i class="ti ti-x" style="font-size:15px;color:var(--color-text-tertiary);" aria-hidden="true"></i>
+</div>
+<div style="display:flex;align-items:center;gap:10px;padding:7px 14px;border-bottom:0.5px solid var(--color-border-tertiary);">
+<span style="font-size:12px;font-weight:500;color:var(--color-text-primary);border-bottom:2px solid #1D9E75;padding-bottom:4px;">Form</span>
+<span style="font-size:12px;color:var(--color-text-tertiary);padding-bottom:4px;">Raw JSON</span>
+<span style="margin-left:auto;font-size:11px;color:var(--color-text-tertiary);">primed from live · 12 s ago</span>
+<span style="font-size:11px;color:#1D9E75;">re-prime</span>
+</div>
+<div style="padding:6px 14px;">
+<div style="display:flex;align-items:center;gap:8px;padding:5px 0;">
+<span style="font-family:var(--font-mono);font-size:12px;color:var(--color-text-primary);flex:1;">maximumImportCurrentA</span>
+<span style="font-size:11px;color:var(--color-text-tertiary);">0 – 1000</span>
+<span style="display:inline-flex;align-items:center;gap:4px;"><span style="font-family:var(--font-mono);font-size:12px;color:var(--color-text-primary);border:1.5px solid #EF9F27;border-radius:5px;padding:3px 8px;width:52px;text-align:right;background:var(--color-background-primary);">25</span><span style="font-size:11px;color:var(--color-text-tertiary);width:18px;">A</span></span>
+<span style="width:7px;height:7px;border-radius:50%;background:#EF9F27;"></span>
+</div>
+<div style="display:flex;align-items:center;gap:8px;padding:5px 0;">
+<span style="font-family:var(--font-mono);font-size:12px;color:var(--color-text-primary);flex:1;">loadManagementReservePercent</span>
+<span style="font-size:11px;color:var(--color-text-tertiary);">0 – 100</span>
+<span style="display:inline-flex;align-items:center;gap:4px;"><span style="font-family:var(--font-mono);font-size:12px;color:var(--color-text-primary);border:0.5px solid var(--color-border-secondary);border-radius:5px;padding:3px 8px;width:52px;text-align:right;">10</span><span style="font-size:11px;color:var(--color-text-tertiary);width:18px;">%</span></span>
+<span style="width:7px;"></span>
+</div>
+<div style="display:flex;align-items:center;gap:8px;padding:5px 0;">
+<span style="font-family:var(--font-mono);font-size:12px;color:var(--color-text-primary);flex:1;">peakShavingLimitKw</span>
+<span style="font-size:11px;color:var(--color-text-tertiary);"></span>
+<span style="display:inline-flex;align-items:center;gap:4px;"><span style="font-family:var(--font-mono);font-size:12px;color:var(--color-text-primary);border:0.5px solid var(--color-border-secondary);border-radius:5px;padding:3px 8px;width:52px;text-align:right;">24.0</span><span style="font-size:11px;color:var(--color-text-tertiary);width:18px;">kW</span></span>
+<span style="width:7px;"></span>
+</div>
+<div style="display:flex;align-items:center;gap:8px;padding:5px 0;">
+<span style="font-family:var(--font-mono);font-size:12px;color:var(--color-text-primary);flex:1;">maxExportPowerKw</span>
+<span style="font-size:11px;color:var(--color-text-tertiary);">nullable</span>
+<span style="display:inline-flex;align-items:center;gap:4px;"><span style="font-family:var(--font-mono);font-size:12px;color:var(--color-text-tertiary);border:0.5px solid var(--color-border-secondary);border-radius:5px;padding:3px 8px;width:52px;text-align:right;">∅</span><span style="font-size:11px;color:var(--color-text-tertiary);width:18px;">kW</span></span>
+<span style="width:7px;"></span>
+</div>
+<div style="display:flex;align-items:center;gap:8px;padding:5px 0;">
+<span style="font-family:var(--font-mono);font-size:12px;color:var(--color-text-primary);flex:1;">peakFilterEnabled</span>
+<span style="margin-left:auto;display:inline-block;width:26px;height:14px;border-radius:999px;background:#1D9E75;position:relative;"><span style="position:absolute;right:2px;top:2px;width:10px;height:10px;border-radius:50%;background:#E1F5EE;"></span></span>
+<span style="width:7px;"></span>
+</div>
+<div style="display:flex;align-items:center;gap:8px;padding:5px 0;">
+<span style="font-family:var(--font-mono);font-size:12px;color:var(--color-text-primary);flex:1;">peakFactor0s</span>
+<span style="font-size:11px;color:var(--color-text-tertiary);"></span>
+<span style="display:inline-flex;align-items:center;gap:4px;"><span style="font-family:var(--font-mono);font-size:12px;color:var(--color-text-primary);border:0.5px solid var(--color-border-secondary);border-radius:5px;padding:3px 8px;width:52px;text-align:right;">1.0</span><span style="font-size:11px;color:var(--color-text-tertiary);width:18px;"></span></span>
+<span style="width:7px;"></span>
+</div>
+<div style="font-size:11px;color:var(--color-text-tertiary);padding:2px 0 6px;">2 more fields… (peakFactor4s, peakFactor10s)</div>
+</div>
+<div style="display:flex;align-items:center;gap:7px;margin:0 14px 8px;padding:6px 10px;background:var(--color-background-info);border-radius:var(--border-radius-md);">
+<i class="ti ti-player-pause" style="font-size:13px;color:var(--color-text-info);" aria-hidden="true"></i>
+<span style="font-size:11px;color:var(--color-text-info);">Live update arrived while editing — your draft is kept.</span>
+<span style="margin-left:auto;font-size:11px;font-weight:500;color:var(--color-text-info);">view incoming</span>
+</div>
+<div style="display:flex;align-items:center;gap:8px;padding:9px 14px;border-top:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary);">
+<span style="font-family:var(--font-mono);font-size:11px;color:var(--color-text-tertiary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;">{ "maximumImportCurrentA": 25, … }</span>
+<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--color-text-secondary);"><i class="ti ti-copy" style="font-size:13px;" aria-hidden="true"></i>C# snippet</span>
+<span style="margin-left:auto;font-size:12px;color:var(--color-text-secondary);padding:5px 12px;">Cancel</span>
+<span style="font-size:12px;font-weight:500;color:#E1F5EE;background:#0F6E56;border-radius:6px;padding:5px 14px;">Set value</span>
+</div>
+</div>
+</div>
+</main></body></html>
