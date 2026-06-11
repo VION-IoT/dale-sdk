@@ -199,6 +199,12 @@ namespace Vion.Dale.DevHost.Test
                                       "/dayjs.relativeTime.min.js",
                                       "/dayjs.duration.min.js",
                                       "/dayjs.localizedFormat.min.js",
+                                      "/vue.esm-browser.prod.js",
+                                      "/app.js",
+                                      "/app.css",
+                                      "/store.js",
+                                      "/components.js",
+                                      "/format.js",
                                       "/THIRD-PARTY-NOTICES.txt",
                                   })
             {
