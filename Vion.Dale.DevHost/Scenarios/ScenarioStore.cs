@@ -32,7 +32,7 @@ namespace Vion.Dale.DevHost.Scenarios
 
         public ScenarioStore(string? directory = null)
         {
-            Directory = Path.GetFullPath(directory ?? Path.Combine(Environment.CurrentDirectory, "scenarios"));
+            Directory = DevDataDirectory.Resolve("scenarios", directory);
         }
 
         /// <summary>

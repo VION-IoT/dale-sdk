@@ -123,7 +123,9 @@ The crucial observation: **every construct the format needs already has a shippe
 
 ## The format (v1)
 
-File name: `<id>.scenario.json`, discovered under `{cwd}/scenarios/` (overridable, `WithScenarios(path)`).
+File name: `<id>.scenario.json`, discovered under `{cwd}/scenarios/` (overridable, `WithScenarios(path)`;
+when `{cwd}/scenarios` does not exist — IDE launches set the working directory to the build output — the
+nearest ancestor's `scenarios/` up to the repository root (`.git`) is used).
 Scratch scenarios that shouldn't ship can simply be `.gitignore`d (e.g. `scenarios/_local/`); committed ones
 are the artifact.
 

@@ -22,7 +22,7 @@ namespace Vion.Dale.DevHost.Topologies
         /// </summary>
         public static DevConfiguration Load(string id, string? topologiesDir = null)
         {
-            var directory = Path.GetFullPath(topologiesDir ?? Path.Combine(Environment.CurrentDirectory, "topologies"));
+            var directory = DevDataDirectory.Resolve("topologies", topologiesDir);
             var path = Path.Combine(directory, id + DevTopologyFile.FileSuffix);
             if (!File.Exists(path))
             {
@@ -124,7 +124,7 @@ namespace Vion.Dale.DevHost.Topologies
 
         public DevTopologyStore(string? directory = null)
         {
-            Directory = Path.GetFullPath(directory ?? Path.Combine(Environment.CurrentDirectory, "topologies"));
+            Directory = DevDataDirectory.Resolve("topologies", directory);
         }
 
         public IReadOnlyList<TopologyListEntry> List()
