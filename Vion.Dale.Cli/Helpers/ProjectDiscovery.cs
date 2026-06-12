@@ -71,7 +71,9 @@ namespace Vion.Dale.Cli.Helpers
         }
 
         /// <summary>
-        ///     Find the nearest .sln file, walking up from startDirectory.
+        ///     Find the nearest solution file (.sln or .slnx), walking up from startDirectory.
+        ///     Prefers .sln over .slnx when both exist in the same directory; ties within one
+        ///     extension resolve alphabetically.
         /// </summary>
         public static string? FindSolution(string? startDirectory = null)
         {
@@ -79,10 +81,10 @@ namespace Vion.Dale.Cli.Helpers
 
             while (dir != null)
             {
-                var slnFiles = Directory.GetFiles(dir, "*.sln");
-                if (slnFiles.Length > 0)
+                var solution = FindSolutionInDirectory(dir, ".sln") ?? FindSolutionInDirectory(dir, ".slnx");
+                if (solution != null)
                 {
-                    return slnFiles[0];
+                    return solution;
                 }
 
                 dir = Directory.GetParent(dir)?.FullName;
@@ -122,6 +124,20 @@ namespace Vion.Dale.Cli.Helpers
             }
 
             return results;
+        }
+
+        /// <summary>
+        ///     Find the alphabetically first file with exactly the given extension. Extensions are
+        ///     compared explicitly instead of via a Directory.GetFiles pattern because "*.sln"-style
+        ///     patterns can also match longer extensions on some platforms (legacy 8.3 short-name
+        ///     quirk), and enumeration order is not guaranteed to be deterministic.
+        /// </summary>
+        private static string? FindSolutionInDirectory(string directory, string extension)
+        {
+            return Directory.GetFiles(directory)
+                            .Where(f => string.Equals(Path.GetExtension(f), extension, StringComparison.OrdinalIgnoreCase))
+                            .OrderBy(Path.GetFileName, StringComparer.Ordinal)
+                            .FirstOrDefault();
         }
 
         private static DaleProject? ParseCsproj(string csprojPath)

@@ -1,6 +1,9 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
 using Vion.Dale.Cli.Output;
 
 namespace Vion.Dale.Cli.Helpers
@@ -58,7 +61,8 @@ namespace Vion.Dale.Cli.Helpers
         }
 
         /// <summary>
-        ///     Find a .sln or .csproj to pass to dotnet build/test. Returns null on failure (error already printed).
+        ///     Find a solution (.sln/.slnx) or .csproj to pass to dotnet build/test. Returns null on failure (error already
+        ///     printed).
         /// </summary>
         public static string? RequireBuildTarget(string? projectPath)
         {
@@ -68,7 +72,7 @@ namespace Vion.Dale.Cli.Helpers
 
             if (target == null)
             {
-                DaleConsole.Error("No .sln or Dale project found. Run from a project directory or use --project.");
+                DaleConsole.Error("No solution (.sln/.slnx) or Dale project found. Run from a project directory or use --project.");
             }
 
             return target;
@@ -111,7 +115,7 @@ namespace Vion.Dale.Cli.Helpers
         }
 
         /// <summary>
-        ///     Parse a .sln file and find projects that reference Vion.Dale.Sdk.
+        ///     Parse a solution file (.sln or .slnx) and find projects that reference Vion.Dale.Sdk.
         ///     Returns relative paths to .csproj files.
         /// </summary>
         internal static List<string> FindDaleProjectsInSolution(string slnPath)
@@ -121,12 +125,9 @@ namespace Vion.Dale.Cli.Helpers
 
             try
             {
-                var slnContent = File.ReadAllText(slnPath);
-                var projectPattern = new Regex(@"Project\("".+""\)\s*=\s*"".+""\s*,\s*""(.+?\.csproj)""", RegexOptions.Compiled);
-
-                foreach (Match match in projectPattern.Matches(slnContent))
+                foreach (var csprojPath in ExtractCsprojPaths(slnPath))
                 {
-                    var relativePath = match.Groups[1].Value.Replace('\\', Path.DirectorySeparatorChar);
+                    var relativePath = csprojPath.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
                     var absolutePath = Path.GetFullPath(Path.Combine(slnDir, relativePath));
 
                     // Reuse the single source of truth: a project is a Dale project iff it references
@@ -145,6 +146,29 @@ namespace Vion.Dale.Cli.Helpers
             }
 
             return results;
+        }
+
+        /// <summary>
+        ///     Extract .csproj paths (as written, relative to the solution directory) from a
+        ///     classic .sln or an XML .slnx solution file.
+        /// </summary>
+        private static IEnumerable<string> ExtractCsprojPaths(string slnPath)
+        {
+            if (string.Equals(Path.GetExtension(slnPath), ".slnx", StringComparison.OrdinalIgnoreCase))
+            {
+                // XML solution format: <Project Path="MyLib/MyLib.csproj" /> entries, optionally
+                // nested inside <Folder> elements.
+                var doc = XDocument.Load(slnPath);
+                return doc.Descendants("Project")
+                          .Select(p => p.Attribute("Path")?.Value)
+                          .Where(p => p != null && p.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
+                          .Select(p => p!)
+                          .ToList();
+            }
+
+            var slnContent = File.ReadAllText(slnPath);
+            var projectPattern = new Regex(@"Project\("".+""\)\s*=\s*"".+""\s*,\s*""(.+?\.csproj)""", RegexOptions.Compiled);
+            return projectPattern.Matches(slnContent).Select(m => m.Groups[1].Value).ToList();
         }
     }
 }
