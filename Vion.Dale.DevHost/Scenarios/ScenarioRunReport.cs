@@ -62,6 +62,7 @@ namespace Vion.Dale.DevHost.Scenarios
                            Label = s.Label,
                            Spec = s.Spec,
                            Target = s.Target,
+                           Argument = s.Argument,
                            Status = s.Status,
                            ElapsedMs = s.ElapsedMs,
                            Detail = s.Detail,
@@ -115,6 +116,13 @@ namespace Vion.Dale.DevHost.Scenarios
 
         /// <summary>What the step addresses — a name path, a contract reference, or a duration.</summary>
         public string Target { get; set; } = string.Empty;
+
+        /// <summary>
+        ///     The step's payload, straight from the file: the JSON value a <c>set</c>/input writes, or a
+        ///     <c>waitUntil</c>'s condition ("&gt; 0 · 30 s timeout") — so reports and the Player show WHAT
+        ///     ran, not just where.
+        /// </summary>
+        public string? Argument { get; set; }
 
         /// <summary>One of <see cref="ScenarioStepStatus" />.</summary>
         public string Status { get; set; } = ScenarioStepStatus.Pending;

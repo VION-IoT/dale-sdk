@@ -44,6 +44,9 @@ export const store = reactive({
     scenarios: null,
     scenarioId: null,
     scenario: null,
+    // The file byte-for-byte as served — the Player's "{ } scenario file" expander shows exactly
+    // what is on disk, not a re-serialization.
+    scenarioRaw: null,
     scenarioError: null,
     run: null,
     // Human judgment ticks, keyed `${runId}/${index}` -> 'ok' | 'notOk'. Local to this browser;
@@ -280,6 +283,9 @@ export async function resetHost() {
         }
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         store.connected = false;
+        // The fresh generation has no run history — reflect "as if not run" immediately instead of
+        // waiting for the reconnect to re-discover it.
+        store.run = null;
     } catch (err) {
         showError(`Failed to reset: ${err.message ?? err}`);
     }
@@ -488,6 +494,7 @@ export async function switchTopology(id) {
         }
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         store.connected = false;
+        store.run = null;
     } catch (err) {
         showError(`Failed to switch topology: ${err.message ?? err}`);
     }
@@ -515,6 +522,7 @@ export async function openScenario(id) {
     store.view = 'player';
     store.scenarioId = id;
     store.scenario = null;
+    store.scenarioRaw = null;
     store.scenarioError = null;
     store.run = null;
     if (location.hash !== `#/scenario/${id}`) location.hash = `#/scenario/${id}`;
@@ -525,6 +533,7 @@ export async function openScenario(id) {
         const text = await response.text();
         if (store.scenarioId !== id) return;
         store.scenario = JSON.parse(text);
+        store.scenarioRaw = text;
     } catch (err) {
         if (store.scenarioId === id) store.scenarioError = `Failed to load scenario '${id}': ${err.message ?? err}`;
         return;
@@ -536,6 +545,7 @@ export async function openScenario(id) {
 export function closeScenario() {
     store.scenarioId = null;
     store.scenario = null;
+    store.scenarioRaw = null;
     store.scenarioError = null;
     store.run = null;
     loadScenarios();

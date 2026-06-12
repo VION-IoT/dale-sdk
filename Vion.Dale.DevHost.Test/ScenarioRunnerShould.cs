@@ -158,6 +158,11 @@ namespace Vion.Dale.DevHost.Test
             Assert.AreEqual(ScenarioStepStatus.Ok, report.Setup[0].Status);
             Assert.IsTrue(report.Steps.All(s => s.Status == ScenarioStepStatus.Ok), Join(report));
             Assert.IsTrue(report.Steps.All(s => s.ElapsedMs is not null), Join(report));
+
+            // The report carries WHAT ran, not just where: set payloads and waitUntil conditions.
+            Assert.AreEqual("21", report.Steps[0].Argument);
+            Assert.AreEqual("> 40 · 10 s timeout", report.Steps[1].Argument);
+            Assert.AreEqual("2", report.Setup[0].Argument);
             Assert.AreEqual("requiresHuman", report.Judge[0].Status);
             Assert.AreEqual("AC-TEST-1", report.Judge[0].Spec);
             Assert.AreEqual(21, host.Control.GetProperty("Counter", "Counter"));

@@ -122,6 +122,33 @@ namespace Vion.Dale.DevHost.Scenarios
             return ApplyAsync(store.LoadFile(id), control, WithFileHash(options, store, id), cancellationToken);
         }
 
+        // Human-readable waitUntil condition for reports ("> 0 · 30 s timeout") — what the step waits
+        // FOR, alongside the target that says where.
+        private static string DescribeCondition(ScenarioStep step)
+        {
+            var condition = step.WaitUntil!;
+            var timeout = step.TimeoutSeconds ?? DefaultWaitUntilTimeoutSeconds;
+            string comparator;
+            if (condition.Above.ValueKind == JsonValueKind.Number)
+            {
+                comparator = $"> {condition.Above.GetRawText()}";
+            }
+            else if (condition.Below.ValueKind == JsonValueKind.Number)
+            {
+                comparator = $"< {condition.Below.GetRawText()}";
+            }
+            else if (condition.EqualTo.ValueKind != JsonValueKind.Undefined)
+            {
+                comparator = $"== {condition.EqualTo.GetRawText()}" + (condition.Tolerance is { } tolerance ? $" ±{tolerance.ToString(CultureInfo.InvariantCulture)}" : "");
+            }
+            else
+            {
+                comparator = $"!= {condition.NotEquals.GetRawText()}";
+            }
+
+            return $"{comparator} · {timeout.ToString(CultureInfo.InvariantCulture)} s timeout";
+        }
+
         private static ScenarioRunOptions WithFileHash(ScenarioRunOptions? options, ScenarioStore store, string id)
         {
             if (options?.FileHash is not null)
@@ -155,6 +182,12 @@ namespace Vion.Dale.DevHost.Scenarios
                                "analogInput" => $"{step.AnalogInput!.Block}.{step.AnalogInput.Contract}",
                                "waitUntil" => step.WaitUntil!.Property ?? string.Empty,
                                _ => $"{step.Wait!.Seconds.ToString(CultureInfo.InvariantCulture)} s",
+                           },
+                           Argument = step.Kind switch
+                           {
+                               "set" or "digitalInput" or "analogInput" => step.Value.ValueKind == JsonValueKind.Undefined ? null : step.Value.GetRawText(),
+                               "waitUntil" => DescribeCondition(step),
+                               _ => null,
                            },
                        };
             }

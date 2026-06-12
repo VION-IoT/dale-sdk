@@ -388,6 +388,16 @@ export function parseNamePath(path) {
 // Step status → glyph for the Player's step list.
 export const STEP_GLYPHS = { pending: '◌', running: '▸', ok: '✓', failed: '✗', skipped: '⊘' };
 
+// Human-readable waitUntil condition — the same "> 0 · 30 s timeout" wording the server puts in
+// run reports, used for pending (pre-run) rows derived from the file.
+export function describeWaitUntil(waitUntil, timeoutSeconds) {
+    const comparator = waitUntil.above !== undefined ? `> ${JSON.stringify(waitUntil.above)}`
+        : waitUntil.below !== undefined ? `< ${JSON.stringify(waitUntil.below)}`
+        : 'equals' in waitUntil ? `== ${JSON.stringify(waitUntil.equals)}${waitUntil.tolerance !== undefined ? ` ±${waitUntil.tolerance}` : ''}`
+        : `!= ${JSON.stringify(waitUntil.notEquals)}`;
+    return `${comparator} · ${timeoutSeconds ?? 20} s timeout`;
+}
+
 // Build the copy-paste verification report (markdown) from the scenario, the run report, and the
 // human's judgment ticks ('ok' | 'notOk' keyed `${runId}/${index}`). What lands in the PR.
 export function buildVerificationReport(scenario, run, judgeTicks) {
@@ -407,10 +417,11 @@ export function buildVerificationReport(scenario, run, judgeTicks) {
         lines.push(`### ${title}`);
         steps.forEach(s => {
             const glyph = STEP_GLYPHS[s.status] || s.status;
+            const argument = s.argument ? ` \`${s.argument}\`` : '';
             const elapsed = s.elapsedMs === null || s.elapsedMs === undefined ? '' : ` (${Math.round(s.elapsedMs)} ms)`;
             const spec = s.spec ? ` — ${s.spec}` : '';
             const detail = s.detail ? ` — ${s.detail}` : '';
-            lines.push(`- ${glyph} ${s.kind} \`${s.target}\`${s.label ? ` — ${s.label}` : ''}${elapsed}${spec}${detail}`);
+            lines.push(`- ${glyph} ${s.kind} \`${s.target}\`${argument}${s.label ? ` — ${s.label}` : ''}${elapsed}${spec}${detail}`);
         });
         lines.push('');
     };

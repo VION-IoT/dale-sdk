@@ -6,10 +6,11 @@
 
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from './vue.esm-browser.prod.js';
 import {
-    buildVerificationReport, cssGroupKey, defaultOpen, describeType, effectiveType, enumDisplay,
-    enumMembers, formatTemporal, formatValue, gallerySamples, GROUP_LABELS, groupItems, isNullable,
-    isWritable, matchesFilter, orderedGroupKeys, parseFilter, parseNamePath, presentationFacts,
-    resolveDisplayName, resolveUnit, sampleJson, severityFor, STEP_GLYPHS,
+    buildVerificationReport, cssGroupKey, defaultOpen, describeType, describeWaitUntil,
+    effectiveType, enumDisplay, enumMembers, formatTemporal, formatValue, gallerySamples,
+    GROUP_LABELS, groupItems, isNullable, isWritable, matchesFilter, orderedGroupKeys, parseFilter,
+    parseNamePath, presentationFacts, resolveDisplayName, resolveUnit, sampleJson, severityFor,
+    STEP_GLYPHS,
 } from './format.js';
 import {
     applyScenario, baselineDelta, buildSharedContractLookup, changedCountForBlock,
@@ -1239,6 +1240,7 @@ const PlayerStep = {
             <span class="step-glyph">{{ glyph }}</span>
             <code class="step-kind">{{ step.kind }}</code>
             <span class="mono step-target">{{ step.target }}</span>
+            <code v-if="step.argument" class="step-arg" :title="step.argument">{{ step.argument }}</code>
             <span v-if="step.label" class="step-label">{{ step.label }}</span>
             <code v-if="step.spec" class="spec-chip">{{ step.spec }}</code>
             <span class="item-spacer"></span>
@@ -1288,6 +1290,8 @@ export const PlayerPanel = {
                     : s.analogInput ? `${s.analogInput.block}.${s.analogInput.contract}`
                     : s.waitUntil ? s.waitUntil.property
                     : s.wait ? `${s.wait.seconds} s` : '?',
+                argument: 'value' in s ? JSON.stringify(s.value)
+                    : s.waitUntil ? describeWaitUntil(s.waitUntil, s.timeoutSeconds) : null,
                 status: 'pending',
             }));
         };
@@ -1364,6 +1368,9 @@ export const PlayerPanel = {
                 </div>
                 <template v-if="scenario">
                     <div v-if="scenario.description" class="docs-description">{{ scenario.description }}</div>
+                    <details class="scenario-file"><summary>{ } scenario file</summary>
+                        <pre class="mono">{{ store.scenarioRaw }}</pre>
+                    </details>
                     <div v-if="mismatch" class="player-interstitial">
                         <span>⚠ {{ mismatchText }}</span>
                         <button type="button" @click="start(true)">run anyway</button>

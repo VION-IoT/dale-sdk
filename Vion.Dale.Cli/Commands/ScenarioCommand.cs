@@ -344,9 +344,10 @@ namespace Vion.Dale.Cli.Commands
                         "skipped" => "⊘",
                         _ => "◌",
                     };
+                    var argument = step["argument"]?.GetValue<string>() is { } a ? $" {a}" : "";
                     var elapsed = step["elapsedMs"]?.GetValue<double>() is { } ms ? $" ({Math.Round(ms)} ms)" : "";
                     var detail = step["detail"]?.GetValue<string>() is { } d ? $" — {d}" : "";
-                    DaleConsole.Info($"  {glyph} {step["kind"]} {step["target"]}{elapsed}{detail}");
+                    DaleConsole.Info($"  {glyph} {step["kind"]} {step["target"]}{argument}{elapsed}{detail}");
                 }
             }
 

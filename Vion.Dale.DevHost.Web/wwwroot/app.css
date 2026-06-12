@@ -767,6 +767,21 @@ button { cursor: pointer; font-family: inherit; }
 .run-status.failed, .run-status.canceled { background: var(--vion-error-bg-def-primary); color: var(--vion-error-fg-def-primary); }
 .run-status.topologyMismatch { background: var(--vion-warning-bg-def-primary); color: var(--vion-warning-fg-def-primary); }
 
+.scenario-file { font-size: 11px; color: var(--text-dim); margin: 4px 0 8px; }
+.scenario-file summary { cursor: pointer; user-select: none; font-family: var(--mono); }
+.scenario-file pre {
+    margin-top: 6px;
+    padding: 8px;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: var(--vion-border-radius-sm);
+    font-size: 11px;
+    color: var(--vion-fg-def-secondary);
+    overflow: auto;
+    max-height: 320px;
+    white-space: pre;
+}
+
 .player-interstitial {
     display: flex;
     align-items: center;
@@ -815,6 +830,19 @@ button { cursor: pointer; font-family: inherit; }
     text-align: center;
 }
 .step-target { color: var(--text); }
+.step-arg {
+    font-family: var(--mono);
+    font-size: 11px;
+    background: var(--bg-raised);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--vion-border-radius-sm);
+    padding: 1px 7px;
+    color: var(--vion-fg-def-secondary);
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 .step-label { color: var(--text-dim); }
 .step-detail {
     font-size: 11px;
