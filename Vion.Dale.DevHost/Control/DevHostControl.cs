@@ -69,6 +69,7 @@ namespace Vion.Dale.DevHost.Control
             _runControl = runControl;
 
             _events.ServicePropertyChanged += OnServiceProperty;
+            _events.ServicePropertyWriteAcknowledged += OnWriteAcknowledged;
             _events.ServiceMeasuringPointChanged += OnMeasuringPoint;
             _events.DigitalInputChanged += OnDigitalInput;
             _events.DigitalOutputChanged += OnDigitalOutput;
@@ -210,13 +211,16 @@ namespace Vion.Dale.DevHost.Control
             var logicBlockActor = _actorSystem.LookupByName(LogicBlockUtils.CreateLogicBlockName(logicBlock.Name, logicBlock.Id));
             var handler = _actorSystem.LookupByName(nameof(MockServicePropertyHandler));
 
-            // The actor applies the set and re-publishes the value asynchronously; the SendTo below is
-            // fire-and-forget. Await that publish so a read-after-write — `await SetPropertyAsync(...)` then
-            // `GetProperty(...)` — reflects the new value instead of racing the actor and returning the stale
-            // one. Register the waiter BEFORE sending: WaitForAsync only observes events raised after the call.
-            // A set that doesn't change the value raises no event, so the wait falls back to its timeout rather
-            // than hanging (GetProperty already returns the correct, unchanged value in that case).
-            var applied = WaitForAsync(e => e is ServicePropertyChanged sp && sp.ServiceId == serviceId && sp.Property == propertyName ? (object)sp : null,
+            // The actor applies the set asynchronously; the SendTo below is fire-and-forget. Await the
+            // write's OWN acknowledgement — the block's SetServicePropertyValueResponse, surfaced as
+            // ServicePropertyWriteAcknowledged — so a read-after-write reflects the new value. The ack is
+            // correlated with this write's round trip: it cannot be satisfied by a stale in-flight publish
+            // (e.g. the block's initial startup state — a change-event-based ack raced exactly that), and
+            // it fires for no-op sets too, which raise no change event. The ack arrives FIFO-after the
+            // change event, so the value cache is current when the await releases. The timeout is the
+            // safety net for writes the block never applied (unknown member, actor-side throw — the
+            // swallowed-exception hollow ack ScenarioRunner's rejected-write detection looks for).
+            var applied = WaitForAsync(e => e is ServicePropertyWriteAcknowledged ack && ack.ServiceId == serviceId && ack.Property == propertyName ? (object)ack : null,
                                        TimeSpan.FromSeconds(5));
 
             _actorSystem.SendTo(handler,
@@ -344,6 +348,7 @@ namespace Vion.Dale.DevHost.Control
         public void Dispose()
         {
             _events.ServicePropertyChanged -= OnServiceProperty;
+            _events.ServicePropertyWriteAcknowledged -= OnWriteAcknowledged;
             _events.ServiceMeasuringPointChanged -= OnMeasuringPoint;
             _events.DigitalInputChanged -= OnDigitalInput;
             _events.DigitalOutputChanged -= OnDigitalOutput;
@@ -444,6 +449,15 @@ namespace Vion.Dale.DevHost.Control
         {
             _values[(e.ServiceIdentifier, e.PropertyIdentifier)] = e.Value;
             Publish(new ServicePropertyChanged(LogicBlockNameFor(e.ServiceIdentifier), e.ServiceIdentifier, e.PropertyIdentifier, e.Value));
+        }
+
+        private void OnWriteAcknowledged(object? sender, ServicePropertyWriteAcknowledgedEventArgs e)
+        {
+            // The applied value as read back from the block — usually a no-op (the change event already
+            // updated the cache, FIFO-ordered before this), but it also covers writes whose value never
+            // publishes a change (no-op sets against a not-yet-published member).
+            _values[(e.ServiceIdentifier, e.PropertyIdentifier)] = e.Value;
+            Publish(new ServicePropertyWriteAcknowledged(LogicBlockNameFor(e.ServiceIdentifier), e.ServiceIdentifier, e.PropertyIdentifier, e.Value));
         }
 
         private void OnMeasuringPoint(object? sender, ServiceMeasuringPointChangedEventArgs e)
