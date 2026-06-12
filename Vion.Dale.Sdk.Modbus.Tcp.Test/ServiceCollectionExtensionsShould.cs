@@ -5,6 +5,8 @@ using Vion.Dale.Sdk.Modbus.Core.Validation;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.Request;
+using Vion.Dale.Sdk.Modbus.Tcp.Server.Implementation;
+using Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp.Test
 {
@@ -30,6 +32,9 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test
             Assert.IsTrue(serviceCollection.Any(sd => sd.ServiceType == typeof(IBitConverterProxy) && sd.Lifetime == ServiceLifetime.Transient));
             Assert.IsTrue(serviceCollection.Any(sd => sd.ServiceType == typeof(IModbusDataConverter) && sd.Lifetime == ServiceLifetime.Transient));
             Assert.IsTrue(serviceCollection.Any(sd => sd.ServiceType == typeof(IModbusValidator) && sd.Lifetime == ServiceLifetime.Transient));
+            Assert.IsTrue(serviceCollection.Any(sd => sd.ServiceType == typeof(ILogicBlockModbusTcpServerFactory) && sd.Lifetime == ServiceLifetime.Singleton));
+            Assert.IsTrue(serviceCollection.Any(sd => sd.ServiceType == typeof(ILogicBlockModbusTcpServer) && sd.Lifetime == ServiceLifetime.Transient));
+            Assert.IsTrue(serviceCollection.Any(sd => sd.ServiceType == typeof(IModbusTcpServerProxy) && sd.Lifetime == ServiceLifetime.Transient));
         }
     }
 }

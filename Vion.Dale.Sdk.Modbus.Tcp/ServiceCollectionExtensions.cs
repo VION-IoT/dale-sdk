@@ -1,9 +1,13 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using System;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Modbus.Core;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.Request;
+using Vion.Dale.Sdk.Modbus.Tcp.Server.Implementation;
+using Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp
 {
@@ -27,6 +31,13 @@ namespace Vion.Dale.Sdk.Modbus.Tcp
             serviceCollection.AddTransient<IRequestQueue, RequestQueue>();
             serviceCollection.AddTransient<IModbusTcpClientWrapper, ModbusTcpClientWrapper>();
             serviceCollection.AddTransient<IModbusTcpClientProxy, ModbusTcpClientProxy>();
+            serviceCollection.AddSingleton<ILogicBlockModbusTcpServerFactory, LogicBlockModbusTcpServerFactory>();
+            serviceCollection.AddTransient<ILogicBlockModbusTcpServer, LogicBlockModbusTcpServer>();
+            serviceCollection.AddTransient<IModbusTcpServerProxy, ModbusTcpServerProxy>();
+
+            // The server proxy timestamps client writes via TimeProvider. The full SDK registers it too
+            // (AddDaleSdk); TryAdd keeps that and any test-supplied FakeTimeProvider authoritative.
+            serviceCollection.TryAddSingleton(TimeProvider.System);
 
             return serviceCollection;
         }
