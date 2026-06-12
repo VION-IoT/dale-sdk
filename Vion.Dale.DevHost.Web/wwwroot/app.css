@@ -761,6 +761,16 @@ button { cursor: pointer; font-family: inherit; }
     padding: 1px 8px;
 }
 
+.stale-chip {
+    font-size: 10.5px;
+    background: var(--vion-warning-bg-def-primary);
+    color: var(--vion-warning-fg-def-primary);
+    border: 1px solid var(--vion-warning-brd-def-primary);
+    border-radius: 999px;
+    padding: 2px 9px;
+    white-space: nowrap;
+}
+
 .run-status { font-size: 11px; font-weight: var(--vion-font-weight-emphasized); border-radius: 999px; padding: 2px 10px; }
 .run-status.running { background: var(--vion-info-bg-def-primary); color: var(--vion-info-fg-def-primary); }
 .run-status.succeeded { background: var(--vion-success-bg-def-primary); color: var(--vion-success-fg-def-primary); }
@@ -839,10 +849,19 @@ button { cursor: pointer; font-family: inherit; }
     padding: 1px 7px;
     color: var(--vion-fg-def-secondary);
     max-width: 260px;
+    min-width: 90px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    cursor: pointer;
 }
+.step-arg.expanded {
+    max-width: 100%;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow: visible;
+}
+.player-step { flex-wrap: wrap; }
 .step-label { color: var(--text-dim); }
 .step-detail {
     font-size: 11px;

@@ -47,6 +47,9 @@ export const store = reactive({
     // The file byte-for-byte as served — the Player's "{ } scenario file" expander shows exactly
     // what is on disk, not a re-serialization.
     scenarioRaw: null,
+    // Git blob hash of scenarioRaw — compared against the run report's fileHash so the Player can
+    // flag "file changed since this run" after an edit + reload.
+    scenarioFileHash: null,
     scenarioError: null,
     run: null,
     // Human judgment ticks, keyed `${runId}/${index}` -> 'ok' | 'notOk'. Local to this browser;
@@ -534,6 +537,7 @@ export async function openScenario(id) {
         if (store.scenarioId !== id) return;
         store.scenario = JSON.parse(text);
         store.scenarioRaw = text;
+        store.scenarioFileHash = await gitBlobHash(text);
     } catch (err) {
         if (store.scenarioId === id) store.scenarioError = `Failed to load scenario '${id}': ${err.message ?? err}`;
         return;
@@ -542,10 +546,29 @@ export async function openScenario(id) {
     if (store.scenarioId === id) pollRun(id);
 }
 
+// Same formula the server uses (sha1 of "blob {len}\0" + bytes) — localhost is a secure context,
+// so crypto.subtle is available. A BOM in the file can skew the client side (fetch strips it);
+// worst case is a spurious "file changed" hint, never a missed one.
+async function gitBlobHash(text) {
+    try {
+        const body = new TextEncoder().encode(text);
+        const header = new TextEncoder().encode(`blob ${body.length}\0`);
+        const buffer = new Uint8Array(header.length + body.length);
+        buffer.set(header);
+        buffer.set(body, header.length);
+        const digest = await crypto.subtle.digest('SHA-1', buffer);
+        return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch (err) {
+        console.warn('Could not hash the scenario file', err);
+        return null;
+    }
+}
+
 export function closeScenario() {
     store.scenarioId = null;
     store.scenario = null;
     store.scenarioRaw = null;
+    store.scenarioFileHash = null;
     store.scenarioError = null;
     store.run = null;
     loadScenarios();

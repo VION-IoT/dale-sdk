@@ -1233,14 +1233,27 @@ const PlayerStep = {
             if (ms === null || ms === undefined) return '';
             return ms >= 1000 ? `${(ms / 1000).toFixed(1)} s` : `${Math.round(ms)} ms`;
         });
-        return { glyph, elapsed };
+        // Big struct/array payloads don't fit the one-line chip — click toggles a pretty-printed
+        // expansion (non-JSON arguments like waitUntil conditions just unwrap).
+        const expanded = ref(false);
+        const argText = computed(() => {
+            if (!expanded.value) return props.step.argument;
+            try {
+                return JSON.stringify(JSON.parse(props.step.argument), null, 2);
+            } catch {
+                return props.step.argument;
+            }
+        });
+        const toggleArg = () => { expanded.value = !expanded.value; };
+        return { glyph, elapsed, expanded, argText, toggleArg };
     },
     template: `
         <div class="player-step" :class="step.status">
             <span class="step-glyph">{{ glyph }}</span>
             <code class="step-kind">{{ step.kind }}</code>
             <span class="mono step-target">{{ step.target }}</span>
-            <code v-if="step.argument" class="step-arg" :title="step.argument">{{ step.argument }}</code>
+            <code v-if="step.argument" class="step-arg" :class="{ expanded }"
+                  :title="expanded ? 'collapse' : 'expand'" @click="toggleArg">{{ argText }}</code>
             <span v-if="step.label" class="step-label">{{ step.label }}</span>
             <code v-if="step.spec" class="spec-chip">{{ step.spec }}</code>
             <span class="item-spacer"></span>
@@ -1301,6 +1314,15 @@ export const PlayerPanel = {
             : ((scenario.value && scenario.value.judge) || []).map(j => ({ text: j.text, spec: j.spec, status: 'requiresHuman' })));
 
         const statusClass = computed(() => run.value ? run.value.status : 'none');
+        // The displayed run report belongs to a specific file version; after an edit + reload the
+        // hashes diverge and the report is evidence about an older file.
+        const staleRun = computed(() => {
+            const r = run.value;
+            if (!r) return false;
+            if (!r.fileHash) return false;
+            if (!store.scenarioFileHash) return false;
+            return r.fileHash !== store.scenarioFileHash;
+        });
         const runLabel = computed(() => running.value ? '⟳ restart' : run.value ? '↻ run again' : '▶ run');
         const heading = computed(() => (scenario.value && scenario.value.title) || store.scenarioId);
         // The structural parse error from discovery, when this file is broken — kept clickable on
@@ -1326,8 +1348,8 @@ export const PlayerPanel = {
 
         return {
             store, entries, directory, scenario, run, running, mismatch, mismatchText, setupSteps,
-            steps, judge, statusClass, runLabel, heading, entryError, start, tick, tickState,
-            copyReport, reload, open: openScenario, close: closeScenario,
+            steps, judge, statusClass, staleRun, runLabel, heading, entryError, start, tick,
+            tickState, copyReport, reload, open: openScenario, close: closeScenario,
         };
     },
     template: `
@@ -1356,6 +1378,7 @@ export const PlayerPanel = {
                     <h2>{{ heading }}</h2>
                     <code class="icon-chip">{{ store.scenarioId }}</code>
                     <span class="item-spacer"></span>
+                    <span v-if="staleRun" class="stale-chip" title="the file on disk no longer matches the file this run executed — the report below is about the older version">file changed since this run</span>
                     <span v-if="run" class="run-status" :class="statusClass">{{ run.status }}</span>
                     <button type="button" class="theme-toggle" title="re-read the file from disk" @click="reload">⟳</button>
                     <button v-if="!mismatch" type="button" class="trigger-button"
