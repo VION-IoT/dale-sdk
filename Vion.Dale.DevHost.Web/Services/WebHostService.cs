@@ -1,13 +1,16 @@
 ﻿using System;
+using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Vion.Dale.DevHost.Control;
+using Vion.Dale.DevHost.Scenarios;
 using Vion.Dale.DevHost.Web.Api.Hubs;
 using Vion.Dale.DevHost.Web.Api.Serialization;
 using Vion.Dale.Sdk.Mqtt;
@@ -86,6 +89,8 @@ namespace Vion.Dale.DevHost.Web.Services
             builder.Services.AddSingleton(_devHostEvents);
             builder.Services.AddSingleton(_control);
             builder.Services.AddSingleton<DevHostEventBroadcaster>();
+            builder.Services.AddSingleton(new ScenarioStore(_devConfiguration.ScenariosPath));
+            builder.Services.AddSingleton<ScenarioRunRegistry>();
 
             _app = builder.Build();
 
@@ -95,6 +100,29 @@ namespace Vion.Dale.DevHost.Web.Services
             // Configure middleware pipeline
             _app.UseRouting();
             _app.UseCors();
+
+            // Origin/Host guard on mutating requests (RFC 0006 security note): the server binds loopback
+            // only, but a hostile page in the developer's own browser can still fire cross-origin POSTs at
+            // http://localhost:{port} — CORS does not prevent cross-origin sends. Reads stay open; mutations
+            // require a loopback Host (DNS-rebinding guard) and, when a browser declares an Origin, a
+            // loopback Origin. Headless local tools (curl, agents) send no Origin and pass.
+            _app.Use(async (context, next) =>
+                     {
+                         var method = context.Request.Method;
+                         var safe = HttpMethods.IsGet(method) || HttpMethods.IsHead(method) || HttpMethods.IsOptions(method);
+                         if (!safe && !IsLocalRequest(context.Request))
+                         {
+                             context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                             await context.Response.WriteAsJsonAsync(new
+                                                                     {
+                                                                         error =
+                                                                             "cross-origin mutation rejected — the DevHost accepts state changes from localhost pages and local headless tools only",
+                                                                     });
+                             return;
+                         }
+
+                         await next(context);
+                     });
 
             // Map endpoints
             _app.MapControllers();
@@ -122,6 +150,15 @@ namespace Vion.Dale.DevHost.Web.Services
 
             Console.WriteLine($"DevHost Web UI running at http://localhost:{_config.Port}");
 
+            // Discovered scenario deep links (RFC 0006) — printed before the runner's readiness line so
+            // both humans and agents see what's stageable on this host.
+            var scenarios = _app.Services.GetRequiredService<ScenarioStore>().List();
+            foreach (var scenario in scenarios)
+            {
+                Console.WriteLine(scenario.Error is null ? $"  scenario {scenario.Id}: http://localhost:{_config.Port}/#/scenario/{scenario.Id}" :
+                                      $"  scenario {scenario.Id}: INVALID — {scenario.Error}");
+            }
+
             return _app.StartAsync(cancellationToken);
         }
 
@@ -129,9 +166,32 @@ namespace Vion.Dale.DevHost.Web.Services
         {
             if (_app != null)
             {
+                // A scenario run must not keep driving a host that is being torn down (reset recycles
+                // the whole generation underneath it).
+                _app.Services.GetRequiredService<ScenarioRunRegistry>().Shutdown();
                 await _app.StopAsync(cancellationToken);
                 await _app.DisposeAsync();
             }
+        }
+
+        // Mutations must target a loopback Host and, when the browser declares one, come from a loopback
+        // Origin. An absent Origin is allowed (headless tools); "null" and non-URL Origins are not.
+        private static bool IsLocalRequest(HttpRequest request)
+        {
+            var host = request.Host.Host;
+            var hostIsLocal = string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase) || host == "127.0.0.1" || host == "[::1]" || host == "::1";
+            if (!hostIsLocal)
+            {
+                return false;
+            }
+
+            var origin = request.Headers.Origin.ToString();
+            if (string.IsNullOrEmpty(origin))
+            {
+                return true;
+            }
+
+            return Uri.TryCreate(origin, UriKind.Absolute, out var originUri) && originUri.IsLoopback;
         }
     }
 }
