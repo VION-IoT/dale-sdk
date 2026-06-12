@@ -1,5 +1,7 @@
 using System;
 using System.Diagnostics;
+using System.IO;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -18,6 +20,14 @@ namespace Vion.Dale.DevHost.Web
         public const string NoBrowserEnvVar = "DALE_DEVHOST_NO_BROWSER";
 
         /// <summary>
+        ///     One-shot export mode (RFC 0006 R4): when set to a file path, the runner boots the host, writes
+        ///     the wired network's <c>ConfigurationOutput</c> JSON to that path (the same shape
+        ///     <c>GET /api/configuration</c> serves — block instance names, service identifiers, schemas,
+        ///     topology name), and exits. <c>dale scenario validate</c> / <c>schema</c> consume the export.
+        /// </summary>
+        public const string ExportConfigEnvVar = "DALE_DEVHOST_EXPORT_CONFIG";
+
+        /// <summary>
         ///     Starts <paramref name="host" />, signals readiness or opens the browser, and runs until
         ///     <paramref name="cancellationToken" /> is cancelled (e.g. Ctrl+C), then stops the host.
         /// </summary>
@@ -29,6 +39,12 @@ namespace Vion.Dale.DevHost.Web
             var headless = Environment.GetEnvironmentVariable(NoBrowserEnvVar) == "1";
 
             await host.StartAsync(cancellationToken);
+
+            if (TryExportConfig(host))
+            {
+                await host.StopAsync(CancellationToken.None);
+                return;
+            }
 
             if (headless)
             {
@@ -81,6 +97,12 @@ namespace Vion.Dale.DevHost.Web
 
                 await host.StartAsync(cancellationToken);
 
+                if (TryExportConfig(host))
+                {
+                    await host.StopAsync(CancellationToken.None);
+                    return;
+                }
+
                 if (headless)
                 {
                     Console.WriteLine($"{{\"ready\":true,\"port\":{port},\"generation\":{generation}}}");
@@ -113,6 +135,28 @@ namespace Vion.Dale.DevHost.Web
                 await host.StopAsync(CancellationToken.None);
                 await Task.Delay(TimeSpan.FromMilliseconds(250), CancellationToken.None);
             }
+        }
+
+        // One-shot export mode: write the wired configuration as JSON (camelCase, the /api/configuration
+        // wire shape) and signal the caller to exit. Boot-dump-exit keeps `dale scenario validate`
+        // CI-friendly — no port, no server lifetime to manage.
+        private static bool TryExportConfig(IDevHost host)
+        {
+            var path = Environment.GetEnvironmentVariable(ExportConfigEnvVar);
+            if (string.IsNullOrEmpty(path))
+            {
+                return false;
+            }
+
+            var options = new JsonSerializerOptions
+                          {
+                              PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                              DictionaryKeyPolicy = JsonNamingPolicy.CamelCase,
+                              WriteIndented = true,
+                          };
+            File.WriteAllText(path, JsonSerializer.Serialize(host.Control.GetConfiguration(), options));
+            Console.WriteLine($"{{\"exported\":\"{path.Replace("\\", "\\\\")}\"}}");
+            return true;
         }
 
         private static void OpenBrowser(string url)

@@ -20,18 +20,32 @@ namespace Vion.Dale.Cli.Commands
                                  };
             command.Options.Add(headlessOption);
 
+            var exportConfigOption = new Option<string?>("--export-config")
+                                     {
+                                         Description =
+                                             "Boot the wired network, write its configuration (block names, services, schemas, topology) as JSON to this file, and exit — the data source for `dale scenario validate` and `dale scenario schema` (RFC 0006).",
+                                     };
+            command.Options.Add(exportConfigOption);
+
             command.SetAction(async (parseResult, cancellationToken) =>
                               {
                                   var projectPath = parseResult.GetValue<string?>("--project");
                                   var headless = parseResult.GetValue(headlessOption);
+                                  var exportConfig = parseResult.GetValue(exportConfigOption);
 
                                   // The DevHost process (consumer-owned Program.cs via DevHostWebRunner) reads this
                                   // env var to skip the browser and emit a readiness line. UseShellExecute=false in
                                   // DotnetRunner means the spawned `dotnet run` inherits it. Name hardcoded to keep
                                   // the CLI's no-SDK-dependency rule (mirrors DevHostWebRunner.NoBrowserEnvVar).
-                                  if (headless)
+                                  if (headless || exportConfig != null)
                                   {
                                       Environment.SetEnvironmentVariable("DALE_DEVHOST_NO_BROWSER", "1");
+                                  }
+
+                                  // One-shot export (boot, dump, exit) — mirrors DevHostWebRunner.ExportConfigEnvVar.
+                                  if (exportConfig != null)
+                                  {
+                                      Environment.SetEnvironmentVariable("DALE_DEVHOST_EXPORT_CONFIG", Path.GetFullPath(exportConfig));
                                   }
 
                                   // Strategy: find the DevHost .csproj by searching for {Name}.DevHost.csproj
