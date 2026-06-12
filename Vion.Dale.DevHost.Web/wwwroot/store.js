@@ -35,8 +35,18 @@ export const store = reactive({
     // Run control: paused (timer/delayed fires held), canReset (supervisor attached).
     paused: false,
     canReset: false,
-    // Top-level view: 'explorer' (default) or 'topology' (read-only setup panel).
+    // Top-level view: 'explorer' (default), 'topology', 'gallery', or 'player' (scenarios, RFC 0006).
     view: 'explorer',
+    // Scenario surface (RFC 0006): the discovery payload, the opened scenario (parsed file), and the
+    // latest run report. Run state lives SERVER-side (F5-safe, agent-visible) — the client only polls.
+    scenarios: null,
+    scenarioId: null,
+    scenario: null,
+    scenarioError: null,
+    run: null,
+    // Human judgment ticks, keyed `${runId}/${index}` -> 'ok' | 'notOk'. Local to this browser;
+    // they enter the copied verification report, not the server.
+    judgeTicks: {},
 });
 
 const COLLAPSE_STORAGE_KEY = 'dale.devhost.collapsed';
@@ -275,6 +285,10 @@ async function reinitClientState() {
                     clearBaseline();
                     await primeInitialValues();
                     await fetchControlStatus();
+                    // A recycled host has fresh (empty) scenario run state — re-discover, and drop a
+                    // stale report from the previous generation.
+                    await loadScenarios();
+                    store.run = null;
                     return true;
                 }
             } catch {
@@ -324,6 +338,7 @@ function queueHal(kind, spId, svcId, contractId, value) {
 export async function initStore() {
     loadCollapseState();
     loadPins();
+    loadJudgeTicks();
     setInterval(() => { store.relativeTick++; }, 30_000);
     try {
         const response = await fetch('/api/configuration');
@@ -346,6 +361,9 @@ export async function initStore() {
     // skipped: the cache can't distinguish "published null" from "never produced".
     await primeInitialValues();
     await fetchControlStatus();
+    await loadScenarios();
+    window.addEventListener('hashchange', applyHash);
+    applyHash();
     await connectHub();
 }
 
@@ -421,6 +439,165 @@ async function connectHub() {
     } catch (err) {
         showError(`Failed to connect to SignalR hub: ${err.message ?? err}`);
         store.connected = false;
+    }
+}
+
+// ── Scenarios / Player (RFC 0006) ───────────────────────────────────────────────
+
+const JUDGE_STORAGE_KEY = 'dale.devhost.judge';
+
+export async function loadScenarios() {
+    try {
+        const response = await fetch('/api/scenarios');
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        store.scenarios = await response.json();
+    } catch (err) {
+        showError(`Failed to list scenarios: ${err.message ?? err}`);
+    }
+}
+
+// Open one scenario in the Player: fetch the file (raw, byte-for-byte what's on disk — re-fetched
+// on every open so IDE edits are picked up) and the latest run, then start polling. Staleness
+// guards after every await: a slow fetch for a scenario the user already left must not clobber
+// the newer one's state or kill its poll chain.
+export async function openScenario(id) {
+    store.view = 'player';
+    store.scenarioId = id;
+    store.scenario = null;
+    store.scenarioError = null;
+    store.run = null;
+    if (location.hash !== `#/scenario/${id}`) location.hash = `#/scenario/${id}`;
+    try {
+        const response = await fetch(`/api/scenarios/${encodeURIComponent(id)}`);
+        if (store.scenarioId !== id) return;
+        if (!response.ok) throw new Error(response.status === 404 ? 'not found' : `HTTP ${response.status}`);
+        const text = await response.text();
+        if (store.scenarioId !== id) return;
+        store.scenario = JSON.parse(text);
+    } catch (err) {
+        if (store.scenarioId === id) store.scenarioError = `Failed to load scenario '${id}': ${err.message ?? err}`;
+        return;
+    }
+    await refreshRun(id);
+    if (store.scenarioId === id) pollRun(id);
+}
+
+export function closeScenario() {
+    store.scenarioId = null;
+    store.scenario = null;
+    store.scenarioError = null;
+    store.run = null;
+    loadScenarios();
+    if (location.hash.startsWith('#/scenario/')) location.hash = '#/scenarios';
+}
+
+async function refreshRun(id) {
+    try {
+        const response = await fetch(`/api/scenarios/${encodeURIComponent(id)}/run`);
+        if (response.status === 404) return;
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const report = await response.json();
+        if (store.scenarioId === id) store.run = report;
+    } catch (err) {
+        console.warn('Could not fetch run status', err);
+    }
+}
+
+let pollTimer = null;
+
+// Poll the latest run while the scenario is open in the Player. Server-side run state makes this
+// F5-safe: reload, re-open, and the poll re-attaches to whatever run is current (runId changes
+// expose restarts). Fast cadence while a run is live; slow idle cadence otherwise, so runs
+// started from another tab or an agent surface here too.
+function pollRun(id) {
+    clearTimeout(pollTimer);
+    const live = store.run && store.run.status === 'running';
+    pollTimer = setTimeout(async () => {
+        if (store.scenarioId !== id || store.view !== 'player') return;
+        await refreshRun(id);
+        if (store.scenarioId === id && store.view === 'player') pollRun(id);
+    }, live ? 400 : 2000);
+}
+
+export async function applyScenario(id, { restart = false, force = false } = {}) {
+    try {
+        const query = [restart ? 'restart=true' : null, force ? 'force=true' : null].filter(Boolean).join('&');
+        const response = await fetch(`/api/scenarios/${encodeURIComponent(id)}/apply${query ? '?' + query : ''}`, { method: 'POST' });
+        if (response.status === 409) {
+            const body = await response.json();
+            showError(body.error || 'A scenario run is already active.');
+            return;
+        }
+        if (!response.ok) {
+            // Surface the structured error body (e.g. the 422 list of format problems), not just the code.
+            let detail = `HTTP ${response.status}`;
+            try {
+                const body = await response.json();
+                detail = [body.error, ...(body.errors || [])].filter(Boolean).join(' · ') || detail;
+            } catch {
+                // No JSON body — keep the status code.
+            }
+            throw new Error(detail);
+        }
+        await refreshRun(id);
+        pollRun(id);
+    } catch (err) {
+        showError(`Failed to start scenario: ${err.message ?? err}`);
+    }
+}
+
+export function judgeKey(runId, index) {
+    return `${runId}/${index}`;
+}
+
+export function setJudgeTick(runId, index, verdict) {
+    const key = judgeKey(runId, index);
+    if (store.judgeTicks[key] === verdict) delete store.judgeTicks[key];
+    else store.judgeTicks[key] = verdict;
+    try {
+        localStorage.setItem(JUDGE_STORAGE_KEY, JSON.stringify(store.judgeTicks));
+    } catch (err) {
+        console.warn('Could not persist judgment ticks', err);
+    }
+}
+
+function loadJudgeTicks() {
+    try {
+        const raw = localStorage.getItem(JUDGE_STORAGE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        // Keys are per-run GUIDs and would grow without bound; the ticks only matter for recent
+        // runs (F5 survival), so reset the slate once it gets silly.
+        if (Object.keys(parsed).length > 500) {
+            localStorage.removeItem(JUDGE_STORAGE_KEY);
+            return;
+        }
+        Object.assign(store.judgeTicks, parsed);
+    } catch (err) {
+        console.warn('Could not load judgment ticks', err);
+    }
+}
+
+// Deep links (RFC 0006): #/scenario/{id} opens the Player on that scenario; #/scenarios opens the
+// list. Applied on boot and on every hash change (back/forward navigation included).
+function applyHash() {
+    const match = /^#\/scenario\/([A-Za-z0-9._-]+)$/.exec(location.hash);
+    if (match) {
+        if (store.scenarioId !== match[1]) {
+            openScenario(match[1]);
+        } else {
+            // Same scenario, e.g. returning from another view — restore the player and its poll chain.
+            store.view = 'player';
+            pollRun(match[1]);
+        }
+        return;
+    }
+    if (location.hash === '#/scenarios') {
+        store.view = 'player';
+        store.scenarioId = null;
+        store.scenario = null;
+        store.run = null;
+        loadScenarios();
     }
 }
 

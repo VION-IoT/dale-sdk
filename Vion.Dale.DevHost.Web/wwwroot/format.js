@@ -373,6 +373,67 @@ export function presentationFacts(item) {
     return { authored, missing };
 }
 
+// ── Scenario / Player policy (RFC 0006) ─────────────────────────────────────────
+
+// Parse a scenario name path: Block.Property or Block.Service.Property → { block, service, property }
+// (service null in the two-segment form). Returns null when the shape is wrong.
+export function parseNamePath(path) {
+    const segments = String(path || '').split('.');
+    if (segments.some(s => !s)) return null;
+    if (segments.length === 2) return { block: segments[0], service: null, property: segments[1] };
+    if (segments.length === 3) return { block: segments[0], service: segments[1], property: segments[2] };
+    return null;
+}
+
+// Step status → glyph for the Player's step list.
+export const STEP_GLYPHS = { pending: '◌', running: '▸', ok: '✓', failed: '✗', skipped: '⊘' };
+
+// Build the copy-paste verification report (markdown) from the scenario, the run report, and the
+// human's judgment ticks ('ok' | 'notOk' keyed `${runId}/${index}`). What lands in the PR.
+export function buildVerificationReport(scenario, run, judgeTicks) {
+    const lines = [];
+    lines.push(`## Scenario verification — \`${run.scenarioId}\``);
+    if (run.title) lines.push(`**${run.title}**`);
+    lines.push('');
+    lines.push(`- topology: \`${run.topology}\` · run \`${run.runId}\` · status **${run.status}**`);
+    if (run.fileHash) lines.push(`- file \`${run.fileHash}\` (git blob hash)`);
+    lines.push(`- started ${run.startedAt}${run.elapsedSeconds ? ` · ${run.elapsedSeconds.toFixed(1)} s` : ''}`);
+    const specs = (scenario && scenario.specs) || [];
+    if (specs.length) lines.push(`- specs: ${specs.join(', ')}`);
+    lines.push('');
+
+    const section = (title, steps) => {
+        if (!steps || !steps.length) return;
+        lines.push(`### ${title}`);
+        steps.forEach(s => {
+            const glyph = STEP_GLYPHS[s.status] || s.status;
+            const elapsed = s.elapsedMs === null || s.elapsedMs === undefined ? '' : ` (${Math.round(s.elapsedMs)} ms)`;
+            const spec = s.spec ? ` — ${s.spec}` : '';
+            const detail = s.detail ? ` — ${s.detail}` : '';
+            lines.push(`- ${glyph} ${s.kind} \`${s.target}\`${s.label ? ` — ${s.label}` : ''}${elapsed}${spec}${detail}`);
+        });
+        lines.push('');
+    };
+    if (run.validationErrors && run.validationErrors.length) {
+        lines.push('### Validation');
+        run.validationErrors.forEach(e => lines.push(`- ✗ ${e}`));
+        lines.push('');
+    }
+    section('Setup', run.setup);
+    section('Steps', run.steps);
+
+    if (run.judge && run.judge.length) {
+        lines.push('### Judgments');
+        run.judge.forEach((j, i) => {
+            const tick = judgeTicks[`${run.runId}/${i}`];
+            const box = tick === 'ok' ? '[x]' : tick === 'notOk' ? '[✗]' : '[ ]';
+            lines.push(`- ${box} ${j.text}${j.spec ? ` — ${j.spec}` : ''}${tick ? '' : ' (not judged)'}`);
+        });
+        lines.push('');
+    }
+    return lines.join('\n');
+}
+
 // Platform default group order + labels (well-known keys; integrator keys render verbatim).
 export const PLATFORM_DEFAULT_GROUP_ORDER = ['alarm', 'status', 'metric', 'configuration', 'diagnostics', 'identity', ''];
 

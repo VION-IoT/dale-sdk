@@ -6,16 +6,17 @@
 
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from './vue.esm-browser.prod.js';
 import {
-    cssGroupKey, defaultOpen, describeType, effectiveType, enumDisplay, enumMembers, formatTemporal,
-    formatValue, gallerySamples, GROUP_LABELS, groupItems, isNullable, isWritable, matchesFilter,
-    orderedGroupKeys, parseFilter, presentationFacts, resolveDisplayName, resolveUnit, sampleJson,
-    severityFor,
+    buildVerificationReport, cssGroupKey, defaultOpen, describeType, effectiveType, enumDisplay,
+    enumMembers, formatTemporal, formatValue, gallerySamples, GROUP_LABELS, groupItems, isNullable,
+    isWritable, matchesFilter, orderedGroupKeys, parseFilter, parseNamePath, presentationFacts,
+    resolveDisplayName, resolveUnit, sampleJson, severityFor, STEP_GLYPHS,
 } from './format.js';
 import {
-    baselineDelta, buildSharedContractLookup, changedCountForBlock, changedSinceBaseline,
-    clearBaseline, collapseKey, connectionsForLb, halKey, isPinned, pauseHost, resetHost,
-    resumeHost, setAnalogInput, setBaseline, setDigitalInput, setProperty, showError, store,
-    toggleCollapsed, togglePin, valueKey,
+    applyScenario, baselineDelta, buildSharedContractLookup, changedCountForBlock,
+    changedSinceBaseline, clearBaseline, closeScenario, collapseKey, connectionsForLb, halKey,
+    isPinned, judgeKey, openScenario, pauseHost, resetHost, resumeHost, setAnalogInput, setBaseline,
+    setDigitalInput, setJudgeTick, setProperty, showError, store, toggleCollapsed, togglePin,
+    valueKey,
 } from './store.js';
 
 // Filter tokens, shared by every component that narrows to matches.
@@ -1107,6 +1108,264 @@ export const GalleryCard = {
     `,
 };
 
+// ── Player (RFC 0006): scenario list, working-set view, run progress, judgments, report ────────
+// The Player renders ONLY a scenario's working set: ordered steps with server-side run state
+// (polled — F5-safe, agent-visible), the watch tiles, and the human-judgment checklist. The web UI
+// triggers and renders runs; it never executes them — the C# ScenarioRunner is the one evaluator.
+
+// Resolve a scenario name path against the live config — the same two/three-segment semantics the
+// server validator applies (two-segment requires a unique carrier among the block's services).
+function resolveNamePath(path) {
+    const parsed = parseNamePath(path);
+    if (!parsed) return null;
+    const lb = ((store.config && store.config.logicBlocks) || []).find(b => b.name === parsed.block);
+    if (!lb) return null;
+    const carries = svc => [...(svc.serviceProperties || []), ...(svc.serviceMeasuringPoints || [])]
+        .some(p => p.identifier === parsed.property);
+    let service = null;
+    if (parsed.service) {
+        service = (lb.services || []).find(s => s.identifier === parsed.service);
+        if (service && !carries(service)) service = null;
+    } else {
+        const carriers = (lb.services || []).filter(carries);
+        if (carriers.length > 1) {
+            // Same rule as the server resolver: never silent last-wins — tell the author how to qualify.
+            return { ambiguous: carriers.map(s => `${parsed.block}.${s.identifier}.${parsed.property}`) };
+        }
+        service = carriers.length === 1 ? carriers[0] : null;
+    }
+    if (!service) return null;
+    const prop = (service.serviceProperties || []).find(p => p.identifier === parsed.property);
+    const mp = !prop && (service.serviceMeasuringPoints || []).find(p => p.identifier === parsed.property);
+    return { lb, service, item: { ...(prop || mp), _kind: prop ? 'property' : 'measuringPoint' } };
+}
+
+const ScenarioWatchTile = {
+    components: { ValueCell, StructViewer },
+    props: ['path'],
+    setup(props) {
+        const resolved = computed(() => {
+            const r = resolveNamePath(props.path);
+            return r && r.item ? r : null;
+        });
+        const ambiguity = computed(() => {
+            const r = resolveNamePath(props.path);
+            return r && r.ambiguous ? `ambiguous — qualify: ${r.ambiguous.join(' or ')}` : 'does not resolve in this topology';
+        });
+        const isStruct = computed(() => {
+            const r = resolved.value;
+            if (!r) return false;
+            const t = effectiveType(r.item.schema || {});
+            return t === 'object' || t === 'array';
+        });
+        const viewerOpen = ref(false);
+        return { resolved, ambiguity, isStruct, viewerOpen };
+    },
+    template: `
+        <div class="watch-tile">
+            <template v-if="resolved">
+                <div class="tile-head">
+                    <span class="mono tile-name">{{ path }}</span>
+                    <button v-if="isStruct" type="button" class="tile-view" :class="{ open: viewerOpen }"
+                            :title="viewerOpen ? 'collapse' : 'expand'" @click="viewerOpen = !viewerOpen">▸</button>
+                </div>
+                <StructViewer v-if="viewerOpen" :service="resolved.service" :item="resolved.item"/>
+                <div v-if="!viewerOpen" class="tile-body">
+                    <ValueCell :service="resolved.service" :item="resolved.item"/>
+                </div>
+            </template>
+            <template v-else>
+                <div class="tile-head">
+                    <span class="mono tile-name tombstone">{{ path }}</span>
+                </div>
+                <div class="tile-block">{{ ambiguity }}</div>
+            </template>
+        </div>
+    `,
+};
+
+const PlayerStep = {
+    props: ['step'],
+    setup(props) {
+        const glyph = computed(() => STEP_GLYPHS[props.step.status] || '◌');
+        const elapsed = computed(() => {
+            const ms = props.step.elapsedMs;
+            if (ms === null || ms === undefined) return '';
+            return ms >= 1000 ? `${(ms / 1000).toFixed(1)} s` : `${Math.round(ms)} ms`;
+        });
+        return { glyph, elapsed };
+    },
+    template: `
+        <div class="player-step" :class="step.status">
+            <span class="step-glyph">{{ glyph }}</span>
+            <code class="step-kind">{{ step.kind }}</code>
+            <span class="mono step-target">{{ step.target }}</span>
+            <span v-if="step.label" class="step-label">{{ step.label }}</span>
+            <code v-if="step.spec" class="spec-chip">{{ step.spec }}</code>
+            <span class="item-spacer"></span>
+            <span v-if="step.detail" class="step-detail" :title="step.detail">{{ step.detail }}</span>
+            <span v-if="elapsed" class="step-elapsed">{{ elapsed }}</span>
+        </div>
+    `,
+};
+
+export const PlayerPanel = {
+    components: { PlayerStep, ScenarioWatchTile },
+    setup() {
+        const entries = computed(() => (store.scenarios && store.scenarios.scenarios) || []);
+        const directory = computed(() => (store.scenarios && store.scenarios.directory) || '');
+        const scenario = computed(() => store.scenario);
+        const run = computed(() => store.run && store.run.scenarioId === store.scenarioId ? store.run : null);
+        const running = computed(() => !!run.value && run.value.status === 'running');
+
+        // Topology guard: the pre-run mismatch warning uses the live host topology; a blocked run
+        // reports it server-side too (status topologyMismatch).
+        const mismatch = computed(() => {
+            if (!scenario.value) return false;
+            return scenario.value.topology !== store.topologyName;
+        });
+        const mismatchText = computed(() => {
+            if (!scenario.value) return '';
+            const host = store.topologyName ? `'${store.topologyName}'` : 'no declared topology';
+            return `this scenario expects topology '${scenario.value.topology}' — the host runs ${host}`;
+        });
+
+        // Before the first run: pending-shaped rows from the file, so the working set is visible
+        // immediately. After: the server report is the truth. Defensive against structurally invalid
+        // files — the list keeps them clickable on purpose (the error panel explains them).
+        const fileSteps = section => {
+            const raw = scenario.value && Array.isArray(scenario.value[section]) ? scenario.value[section] : [];
+            return raw.map((s, i) => ({
+                index: i,
+                kind: s.set !== undefined ? 'set'
+                    : s.digitalInput ? 'digitalInput'
+                    : s.analogInput ? 'analogInput'
+                    : s.waitUntil ? 'waitUntil'
+                    : s.wait ? 'wait' : 'unknown',
+                label: s.label,
+                spec: s.spec,
+                target: s.set !== undefined ? s.set
+                    : s.digitalInput ? `${s.digitalInput.block}.${s.digitalInput.contract}`
+                    : s.analogInput ? `${s.analogInput.block}.${s.analogInput.contract}`
+                    : s.waitUntil ? s.waitUntil.property
+                    : s.wait ? `${s.wait.seconds} s` : '?',
+                status: 'pending',
+            }));
+        };
+        const setupSteps = computed(() => run.value ? run.value.setup : fileSteps('setup'));
+        const steps = computed(() => run.value ? run.value.steps : fileSteps('steps'));
+        const judge = computed(() => run.value ? run.value.judge
+            : ((scenario.value && scenario.value.judge) || []).map(j => ({ text: j.text, spec: j.spec, status: 'requiresHuman' })));
+
+        const statusClass = computed(() => run.value ? run.value.status : 'none');
+        const runLabel = computed(() => running.value ? '⟳ restart' : run.value ? '↻ run again' : '▶ run');
+        const heading = computed(() => (scenario.value && scenario.value.title) || store.scenarioId);
+        // The structural parse error from discovery, when this file is broken — kept clickable on
+        // purpose; the Player explains instead of crashing on a half-shaped working set.
+        const entryError = computed(() => {
+            const entries2 = (store.scenarios && store.scenarios.scenarios) || [];
+            const entry = entries2.find(e => e.id === store.scenarioId);
+            return entry ? entry.error : null;
+        });
+        const start = force => applyScenario(store.scenarioId, { restart: running.value, force });
+        const tick = (index, verdict) => {
+            if (run.value) setJudgeTick(run.value.runId, index, verdict);
+        };
+        const tickState = index => run.value ? store.judgeTicks[judgeKey(run.value.runId, index)] || null : null;
+        const copyReport = async () => {
+            try {
+                await navigator.clipboard.writeText(buildVerificationReport(scenario.value, run.value, store.judgeTicks));
+            } catch (err) {
+                showError(`Could not copy the report: ${err.message ?? err}`);
+            }
+        };
+        const reload = () => openScenario(store.scenarioId);
+
+        return {
+            store, entries, directory, scenario, run, running, mismatch, mismatchText, setupSteps,
+            steps, judge, statusClass, runLabel, heading, entryError, start, tick, tickState,
+            copyReport, reload, open: openScenario, close: closeScenario,
+        };
+    },
+    template: `
+        <div class="player-panel">
+            <section v-if="!store.scenarioId" class="block-card">
+                <div class="block-header">
+                    <h2>scenarios</h2>
+                    <span class="item-spacer"></span>
+                    <span class="block-counts">{{ entries.length }} discovered · {{ directory }}</span>
+                </div>
+                <div v-if="!entries.length" class="player-empty">
+                    No scenario files. Create <code>scenarios/&lt;id&gt;.scenario.json</code> (schema:
+                    <code>/api/scenarios/schema</code>) — a watch-only scenario is the recommended starting point.
+                </div>
+                <button v-for="e in entries" :key="e.id" type="button" class="scenario-row" @click="open(e.id)">
+                    <span class="mono scenario-id">{{ e.id }}</span>
+                    <span v-if="e.title" class="scenario-title">{{ e.title }}</span>
+                    <span class="item-spacer"></span>
+                    <span v-if="e.error" class="scenario-error" :title="e.error">invalid</span>
+                    <code v-else class="topology-chip">{{ e.topology }}</code>
+                </button>
+            </section>
+            <section v-else class="block-card">
+                <div class="block-header">
+                    <button type="button" class="theme-toggle" title="all scenarios" @click="close">←</button>
+                    <h2>{{ heading }}</h2>
+                    <code class="icon-chip">{{ store.scenarioId }}</code>
+                    <span class="item-spacer"></span>
+                    <span v-if="run" class="run-status" :class="statusClass">{{ run.status }}</span>
+                    <button type="button" class="theme-toggle" title="re-read the file from disk" @click="reload">⟳</button>
+                    <button v-if="!mismatch" type="button" class="trigger-button"
+                            :title="running ? 'cancel the active run and start over' : 'run this scenario'"
+                            @click="start(false)">{{ runLabel }}</button>
+                </div>
+                <div v-if="store.scenarioError" class="player-empty">{{ store.scenarioError }}</div>
+                <div v-if="entryError" class="player-validation">
+                    <div class="validation-error">✗ this file fails structural validation: {{ entryError }}</div>
+                </div>
+                <template v-if="scenario">
+                    <div v-if="scenario.description" class="docs-description">{{ scenario.description }}</div>
+                    <div v-if="mismatch" class="player-interstitial">
+                        <span>⚠ {{ mismatchText }}</span>
+                        <button type="button" @click="start(true)">run anyway</button>
+                    </div>
+                    <div v-if="run" class="player-validation">
+                        <div v-for="(e, i) in run.validationErrors" :key="i" class="validation-error">✗ {{ e }}</div>
+                    </div>
+                    <template v-if="setupSteps.length">
+                        <h3 class="topo-section">setup</h3>
+                        <PlayerStep v-for="s in setupSteps" :key="'su' + s.index" :step="s"/>
+                    </template>
+                    <template v-if="steps.length">
+                        <h3 class="topo-section">steps</h3>
+                        <PlayerStep v-for="s in steps" :key="'st' + s.index" :step="s"/>
+                    </template>
+                    <template v-if="scenario.watch">
+                        <h3 class="topo-section">watch</h3>
+                        <div class="player-watch">
+                            <ScenarioWatchTile v-for="w in scenario.watch" :key="w" :path="w"/>
+                        </div>
+                    </template>
+                    <template v-if="judge.length">
+                        <h3 class="topo-section">judge</h3>
+                        <div v-for="(j, i) in judge" :key="i" class="judge-row">
+                            <button type="button" class="judge-btn ok" :class="{ active: tickState(i) === 'ok' }"
+                                    :disabled="!run" title="looks right" @click="tick(i, 'ok')">✓</button>
+                            <button type="button" class="judge-btn notok" :class="{ active: tickState(i) === 'notOk' }"
+                                    :disabled="!run" title="not ok" @click="tick(i, 'notOk')">✗</button>
+                            <span class="judge-text">{{ j.text }}</span>
+                            <code v-if="j.spec" class="spec-chip">{{ j.spec }}</code>
+                        </div>
+                    </template>
+                    <div v-if="run" class="player-actions">
+                        <button type="button" class="theme-toggle" title="markdown for the PR" @click="copyReport">⧉ copy verification report</button>
+                    </div>
+                </template>
+            </section>
+        </div>
+    `,
+};
+
 // ── Ctrl+K palette: type to find any property, Enter jumps to it, Ctrl+Enter pins it ───────────
 
 export const Palette = {
@@ -1195,7 +1454,7 @@ export const Palette = {
 };
 
 export const App = {
-    components: { Rail, BlockCard, WatchPanel, Palette, TopologyPanel, GalleryCard },
+    components: { Rail, BlockCard, WatchPanel, Palette, TopologyPanel, GalleryCard, PlayerPanel },
     setup() {
         const blocks = computed(() => (store.config && store.config.logicBlocks) || []);
         const sharedLookup = computed(() => buildSharedContractLookup());
@@ -1257,15 +1516,25 @@ export const App = {
         onMounted(() => window.addEventListener('keydown', onKeydown));
         onUnmounted(() => window.removeEventListener('keydown', onKeydown));
 
-        // Three top-level views; each button toggles its view against the explorer default.
+        // Four top-level views; each button toggles its view against the explorer default. The player
+        // additionally keeps the deep-link hash (RFC 0006 #/scenario/{id}) in sync.
         const setView = v => { store.view = store.view === v ? 'explorer' : v; };
+        const toggleScenarios = () => {
+            if (store.view === 'player') {
+                store.view = 'explorer';
+                if (location.hash) location.hash = '';
+                return;
+            }
+            store.view = 'player';
+            location.hash = store.scenarioId ? `#/scenario/${store.scenarioId}` : '#/scenarios';
+        };
         const confirmReset = () => {
             resetHost();
         };
         return {
             store, blocks, sharedLookup, totals, theme, toggleTheme, matches, changedTotal,
             baselineClock, filterEl, setBaseline, clearBaseline, pauseHost, resumeHost,
-            confirmReset, setView,
+            confirmReset, setView, toggleScenarios,
         };
     },
     template: `
@@ -1304,6 +1573,9 @@ export const App = {
                 <button type="button" class="theme-toggle" :class="{ 'view-active': store.view === 'gallery' }"
                         :title="store.view === 'gallery' ? 'back to the explorer' : 'gallery — how authored presentation renders, on sample values'"
                         @click="setView('gallery')">▦ gallery</button>
+                <button type="button" class="theme-toggle" :class="{ 'view-active': store.view === 'player' }"
+                        :title="store.view === 'player' ? 'back to the explorer' : 'scenarios — staged verification runs (RFC 0006)'"
+                        @click="toggleScenarios">▶ scenarios</button>
                 <span class="conn" :class="store.connected ? 'connected' : 'disconnected'">
                     <span class="conn-dot"></span>{{ store.connected ? 'live' : 'disconnected' }}
                 </span>
@@ -1321,6 +1593,11 @@ export const App = {
                 <Rail/>
                 <main class="content">
                     <GalleryCard v-for="lb in blocks" :key="lb.id" :lb="lb"/>
+                </main>
+            </div>
+            <div v-else-if="store.view === 'player'" class="layout">
+                <main class="content">
+                    <PlayerPanel/>
                 </main>
             </div>
             <div v-else class="layout">
