@@ -209,7 +209,8 @@ namespace Vion.Dale.Cli.Commands
                                      "commit it as scenarios/.dale/scenario.schema.json and reference it from scenario files via \"$schema\" for editor completion");
             var outputOption = new Option<string?>("--output", "-o")
                                {
-                                   Description = "Write to this file instead of printing (conventionally scenarios/.dale/scenario.schema.json, what the files' \"$schema\" points at).",
+                                   Description =
+                                       "Write to this file instead of printing (conventionally scenarios/.dale/scenario.schema.json, what the files' \"$schema\" points at).",
                                };
             var configOption = new Option<string?>("--config") { Description = "Configuration export to enrich from (default: the running DevHost)." };
             var portOption = PortOption();
