@@ -8,7 +8,12 @@ namespace Vion.Dale.Cli.Commands
     {
         public static Command Create()
         {
-            var command = new Command("build", "Build the project");
+            // Unmatched tokens are collected (not parse errors) so consumers can pass dotnet build
+            // options straight through, e.g. `dale build -c Release`.
+            var command = new Command("build", "Build the project (unrecognized options are forwarded to dotnet build, e.g. -c Release)")
+                          {
+                              TreatUnmatchedTokensAsErrors = false,
+                          };
 
             command.SetAction(async (parseResult, cancellationToken) =>
                               {

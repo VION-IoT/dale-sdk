@@ -33,6 +33,10 @@ namespace Vion.Dale.DevHost.Test
             // Existing route — regression guard for the web path.
             var configResponse = await client.GetAsync("/api/configuration");
             Assert.AreEqual(HttpStatusCode.OK, configResponse.StatusCode, "Existing /api/configuration must still work.");
+            var configBody = await configResponse.Content.ReadAsStringAsync();
+            StringAssert.Contains(configBody,
+                                  "\"topologyName\":\"counter-topology\"",
+                                  "/api/configuration must carry the topology name declared via WithTopologyName (RFC 0006 guard prerequisite).");
 
             // New control routes.
             var blocksResponse = await client.GetAsync("/api/logicblocks");
@@ -177,6 +181,37 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        public async Task ServeVendoredAssets_AndNeverReferenceACdn()
+        {
+            // R0 self-containment: the UI must work offline. The runtime JS dependencies are vendored as
+            // embedded static assets (signalr + dayjs and its plugins), and index.html must not load
+            // anything from a CDN — the regression this test locks out is reintroducing a CDN script tag.
+            var port = FreePort();
+            await using var host = BuildWebHost(port);
+            await host.StartAsync();
+
+            using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
+
+            foreach (var asset in new[]
+                                  {
+                                      "/signalr.min.js",
+                                      "/dayjs.min.js",
+                                      "/dayjs.relativeTime.min.js",
+                                      "/dayjs.duration.min.js",
+                                      "/dayjs.localizedFormat.min.js",
+                                      "/THIRD-PARTY-NOTICES.txt",
+                                  })
+            {
+                var response = await client.GetAsync(asset);
+                Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, $"Vendored asset {asset} must be served from the embedded wwwroot.");
+            }
+
+            var indexHtml = await client.GetStringAsync("/");
+            Assert.IsFalse(indexHtml.Contains("cdn.jsdelivr.net", StringComparison.OrdinalIgnoreCase), "index.html must not reference a CDN — the DevHost UI has to work offline.");
+            Assert.IsFalse(indexHtml.Contains("https://", StringComparison.OrdinalIgnoreCase), "index.html must not load any external resource at runtime.");
+        }
+
+        [TestMethod]
         public async Task DevHostWebRunner_InHeadlessMode_PrintsReadinessAndDoesNotBlock()
         {
             var port = FreePort();
@@ -215,7 +250,7 @@ namespace Vion.Dale.DevHost.Test
 
         private static IDevHost BuildWebHost(int port)
         {
-            var config = DevConfigurationBuilder.Create().AddLogicBlock<CounterBlock>("counter").Build();
+            var config = DevConfigurationBuilder.Create().WithTopologyName("counter-topology").AddLogicBlock<CounterBlock>("counter").Build();
 
             return DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithWebUi(port).Build();
         }

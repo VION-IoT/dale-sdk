@@ -8,7 +8,12 @@ namespace Vion.Dale.Cli.Commands
     {
         public static Command Create()
         {
-            var command = new Command("test", "Run tests");
+            // Unmatched tokens are collected (not parse errors) so consumers can pass dotnet test
+            // options straight through, e.g. `dale test --filter "kind!=headless-integration"`.
+            var command = new Command("test", "Run tests (unrecognized options are forwarded to dotnet test, e.g. --filter)")
+                          {
+                              TreatUnmatchedTokensAsErrors = false,
+                          };
 
             command.SetAction(async (parseResult, cancellationToken) =>
                               {

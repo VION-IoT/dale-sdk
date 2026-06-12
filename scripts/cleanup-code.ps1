@@ -41,6 +41,11 @@ param(
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $solution = 'Vion.Dale.Sdk.sln'
 $cleanupProfile = 'Custom: Full Cleanup (excl. optimize usings)'
+# The DevHost web UI's static assets (hand-written JS/HTML + vendored minified libraries) are not
+# C# style-gate material: the DotSettings profile would reformat them and fight both the vendored
+# files and deliberate hand-formatting. Excluded here — the single source of truth for the gate —
+# so local cleanup and CI agree.
+$excludePaths = 'Vion.Dale.DevHost.Web/wwwroot/**'
 
 Push-Location $repoRoot
 try {
@@ -52,7 +57,7 @@ try {
         if ($LASTEXITCODE -ne 0) { Write-Host 'dotnet build failed.'; exit 1 }
     }
 
-    $output = & dotnet jb cleanupcode --no-build --verbosity=ERROR "--profile=$cleanupProfile" $solution 2>&1
+    $output = & dotnet jb cleanupcode --no-build --verbosity=ERROR "--profile=$cleanupProfile" "--exclude=$excludePaths" $solution 2>&1
     if ($LASTEXITCODE -ne 0) {
         Write-Host 'cleanupcode failed to run:'
         $output
