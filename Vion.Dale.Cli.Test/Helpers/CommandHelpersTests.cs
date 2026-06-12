@@ -46,6 +46,30 @@ namespace Vion.Dale.Cli.Test.Helpers
             Assert.AreEqual("MyLib.csproj", Path.GetFileName(daleProjects[0]));
         }
 
+        [TestMethod]
+        public void FindDaleProjectsInSolution_ParsesSlnxFormat()
+        {
+            // .NET 10 `dotnet new sln` creates .slnx (XML solution format) by default.
+            WriteProject("MyLib", @"<PackageReference Include=""Vion.Dale.Sdk"" Version=""0.7.0"" />");
+            WriteProject("MyLib.Test",
+                         @"<PackageReference Include=""Vion.Dale.Sdk.TestKit"" Version=""0.7.0"" />
+    <ProjectReference Include=""..\MyLib\MyLib.csproj"" />");
+
+            var slnxPath = Path.Combine(_tempDir, "MyApp.slnx");
+            File.WriteAllText(slnxPath,
+                              @"<Solution>
+  <Project Path=""MyLib/MyLib.csproj"" />
+  <Folder Name=""/tests/"">
+    <Project Path=""MyLib.Test/MyLib.Test.csproj"" />
+  </Folder>
+</Solution>");
+
+            var daleProjects = CommandHelpers.FindDaleProjectsInSolution(slnxPath);
+
+            Assert.AreEqual(1, daleProjects.Count, "Only the library references Vion.Dale.Sdk directly.");
+            Assert.AreEqual("MyLib.csproj", Path.GetFileName(daleProjects[0]));
+        }
+
         private void WriteProject(string name, string itemGroupBody)
         {
             var projectDir = Path.Combine(_tempDir, name);
