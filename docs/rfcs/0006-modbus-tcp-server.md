@@ -18,10 +18,14 @@ diagnostics trio, Core-placed accessors, TestKit harness). Four findings are wor
   still resolves buffers by the raw incoming id and kills the connection for unregistered units
   (verified by the real-socket tests, then in source: `Find()` does not normalize). The proxy
   therefore aliases all 256 unit-id buffer-map entries to unit 0's arrays — shared arrays, one
-  register map, no extra memory — via reflection over the pinned FluentModbus version, with a
-  logged fallback to unit-0-only if an upgrade changes those internals. The
-  `ServeAnyUnitIdentifier` integration test pins the behavior loudly for any future FluentModbus
-  bump.
+  register map, no extra memory — via reflection over the pinned FluentModbus version, and
+  **fails fast at construction** if an upgrade changes those internals (review feedback: a
+  warn-and-degrade fallback to unit-0-only would look green in DevHost/TestKit paths while every
+  fielded master breaks in the field). The `ServeAnyUnitIdentifier` integration test additionally
+  pins the served behavior for any future FluentModbus bump. Relatedly, FC23
+  (`ReadWriteMultipleRegisters`) carries independent read and write ranges — FluentModbus invokes
+  the `RequestValidator` once per range (verified in source), so both are validated against the
+  holding extent; the `ValidateBothRangesOfReadWriteMultipleRegisters` integration test pins it.
 - **No server-side wrapper layer.** The client's wrapper exists to add conversion + validation
   between client and proxy; on the server side both live in the Core accessors, so
   `LogicBlockModbusTcpServer` sits directly on `IModbusTcpServerProxy`. The TestKit substitution

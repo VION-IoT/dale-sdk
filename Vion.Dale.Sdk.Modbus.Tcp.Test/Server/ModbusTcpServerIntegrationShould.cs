@@ -130,6 +130,28 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
         }
 
         [TestMethod]
+        public void ValidateBothRangesOfReadWriteMultipleRegisters()
+        {
+            // FC23 carries independent read and write ranges; FluentModbus invokes the RequestValidator once
+            // per range (verified in the 5.3.2 source), so BOTH must pass the declared holding extent. This
+            // test pins that wire behavior so a FluentModbus upgrade cannot silently drop one of the checks.
+            _sut.IsEnabled = true;
+            Connect();
+
+            // Both ranges inside the extent (holding registers 0-9): succeeds, write lands, read echoes.
+            var echoed = _client.ReadWriteMultipleRegisters(1, 2, 1, 2, new byte[] { 0xAB, 0xCD }).ToArray();
+            CollectionAssert.AreEqual(new byte[] { 0xAB, 0xCD }, echoed);
+
+            // Read range out of extent: rejected even though the write range is fine.
+            var readOutOfRange = Assert.ThrowsExactly<ModbusException>(() => _client.ReadWriteMultipleRegisters(1, 10, 1, 0, new byte[] { 0x00, 0x01 }));
+            Assert.AreEqual(ModbusExceptionCode.IllegalDataAddress, readOutOfRange.ExceptionCode);
+
+            // Write range out of extent: rejected even though the read range is fine.
+            var writeOutOfRange = Assert.ThrowsExactly<ModbusException>(() => _client.ReadWriteMultipleRegisters(1, 0, 1, 10, new byte[] { 0x00, 0x01 }));
+            Assert.AreEqual(ModbusExceptionCode.IllegalDataAddress, writeOutOfRange.ExceptionCode);
+        }
+
+        [TestMethod]
         public void SurviveDisableEnableCycles()
         {
             _sut.Sync(snapshot => snapshot.HoldingRegisters.WriteAsUShort(5, 0xCAFE)); // seeded while disabled

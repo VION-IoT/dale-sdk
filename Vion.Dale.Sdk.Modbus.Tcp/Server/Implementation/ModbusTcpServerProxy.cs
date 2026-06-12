@@ -14,8 +14,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.Implementation
     {
         // FluentModbus keeps one buffer set per unit identifier in these private maps. To serve the same
         // register map under every unit identifier (see ctor), entries for ids 1-255 are aliased to unit 0's
-        // buffers. Verified against the pinned FluentModbus version; the real-socket integration tests fail
-        // loudly if an upgrade changes these internals.
+        // buffers. Verified against the pinned FluentModbus version; if an upgrade changes these internals the
+        // constructor fails fast (and the real-socket integration tests fail loudly on the served behavior).
         private static readonly string[] BufferMapFieldNames =
         {
             "_inputRegisterBufferMap",
@@ -203,9 +203,13 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.Implementation
                 var field = typeof(ModbusServer).GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
                 if (field?.GetValue(_server) is not Dictionary<byte, byte[]> bufferMap || !bufferMap.TryGetValue(0, out var unitZeroBuffer))
                 {
-                    LogUnitAliasingUnavailable(fieldName);
-
-                    return;
+                    // Fail fast instead of degrading to a unit-0-only server: a silent degradation would look
+                    // green in DevHost and TestKit paths while every fielded master (which sends its own unit
+                    // identifier) breaks. Refusing to construct turns an unverified FluentModbus upgrade into
+                    // an immediate, visible failure.
+                    throw new NotSupportedException($"FluentModbus internals changed ('{fieldName}' is not the expected per-unit buffer map) — " +
+                                                    "the unit-id-agnostic endpoint cannot be set up, so the Modbus TCP server cannot start. " +
+                                                    "Re-verify the buffer aliasing in ModbusTcpServerProxy against the upgraded FluentModbus version.");
                 }
 
                 for (var unitIdentifier = 1; unitIdentifier <= byte.MaxValue; unitIdentifier++)
@@ -246,9 +250,5 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.Implementation
 
         [LoggerMessage(Level = LogLevel.Warning, Message = "Swallowed a Modbus TCP server teardown race — verifying no request handler survived")]
         partial void LogTeardownRace(Exception exception);
-
-        [LoggerMessage(Level = LogLevel.Warning,
-                       Message = "FluentModbus internals changed ({FieldName} not found) — the server only answers requests with unit identifier 0 instead of any unit identifier")]
-        partial void LogUnitAliasingUnavailable(string fieldName);
     }
 }
