@@ -26,6 +26,8 @@ namespace Vion.Dale.DevHost.Control
 
         private bool _paused;
 
+        private string? _requestedTopology;
+
         private Action? _resetHandler;
 
         /// <summary>True while delayed self-sends are being held.</summary>
@@ -48,6 +50,21 @@ namespace Vion.Dale.DevHost.Control
                 lock (_gate)
                 {
                     return _resetHandler is not null;
+                }
+            }
+        }
+
+        /// <summary>
+        ///     The topology id the latest switch requested, for the supervisor to read when the reset
+        ///     fires — null means recycle into the same topology.
+        /// </summary>
+        public string? RequestedTopology
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _requestedTopology;
                 }
             }
         }
@@ -126,6 +143,27 @@ namespace Vion.Dale.DevHost.Control
 
             handler();
             return true;
+        }
+
+        /// <summary>
+        ///     Request a recycle into a different topology (RFC 0006 R5) — rides the same reset signal;
+        ///     a topology-aware supervisor (<c>DevHostWebRunner.RunAsync(Func&lt;string?, IDevHost&gt;, …)</c>)
+        ///     reads <see cref="RequestedTopology" /> and builds the next generation from it. Returns false
+        ///     when no supervisor is attached.
+        /// </summary>
+        public bool TryRequestTopologySwitch(string topologyId)
+        {
+            lock (_gate)
+            {
+                if (_resetHandler is null)
+                {
+                    return false;
+                }
+
+                _requestedTopology = topologyId;
+            }
+
+            return TryRequestReset();
         }
 
         private sealed class DetachToken : IDisposable

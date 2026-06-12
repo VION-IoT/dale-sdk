@@ -11,6 +11,7 @@ using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Vion.Dale.DevHost.Control;
 using Vion.Dale.DevHost.Scenarios;
+using Vion.Dale.DevHost.Topologies;
 using Vion.Dale.DevHost.Web.Api.Hubs;
 using Vion.Dale.DevHost.Web.Api.Serialization;
 using Vion.Dale.Sdk.Mqtt;
@@ -91,6 +92,7 @@ namespace Vion.Dale.DevHost.Web.Services
             builder.Services.AddSingleton<DevHostEventBroadcaster>();
             builder.Services.AddSingleton(new ScenarioStore(_devConfiguration.ScenariosPath));
             builder.Services.AddSingleton<ScenarioRunRegistry>();
+            builder.Services.AddSingleton(new DevTopologyStore(_devConfiguration.TopologiesPath));
 
             _app = builder.Build();
 

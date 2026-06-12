@@ -30,6 +30,9 @@ namespace Vion.Dale.DevHost.Control
 
             public required string Name { get; set; }
 
+            /// <summary>The block's CLR type full name — what a topology file's <c>typeFullName</c> resolves (RFC 0006 R5).</summary>
+            public string? TypeFullName { get; set; }
+
             /// <summary>
             ///     Block-level annotations from the introspection result — carries the <c>[LogicBlock]</c>
             ///     attribute payload (DefaultName, Icon, Groups[]) and any integrator-defined extras.

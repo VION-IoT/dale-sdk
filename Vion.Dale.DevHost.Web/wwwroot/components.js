@@ -14,9 +14,9 @@ import {
 import {
     applyScenario, baselineDelta, buildSharedContractLookup, changedCountForBlock,
     changedSinceBaseline, clearBaseline, closeScenario, collapseKey, connectionsForLb, halKey,
-    isPinned, judgeKey, openScenario, pauseHost, resetHost, resumeHost, setAnalogInput, setBaseline,
-    setDigitalInput, setJudgeTick, setProperty, showError, store, toggleCollapsed, togglePin,
-    valueKey,
+    isPinned, judgeKey, loadTopologies, openScenario, pauseHost, resetHost, resumeHost,
+    setAnalogInput, setBaseline, setDigitalInput, setJudgeTick, setProperty, showError, store,
+    switchTopology, toggleCollapsed, togglePin, valueKey,
 } from './store.js';
 
 // Filter tokens, shared by every component that narrows to matches.
@@ -941,6 +941,15 @@ export const TopologyPanel = {
         const blocks = computed(() => (store.config && store.config.logicBlocks) || []);
         const links = computed(() => (store.config && store.config.interfaceMappings) || []);
         const providers = computed(() => (store.config && store.config.serviceProviders) || []);
+
+        // Topology files (R5): refreshed on every panel open; switching rides the reset recovery.
+        loadTopologies();
+        const topologyFiles = computed(() => (store.topologies && store.topologies.topologies) || []);
+        const canSwitch = computed(() => !!(store.topologies && store.topologies.canSwitch));
+        // The live config's name leads — the discovery payload can be a generation behind right
+        // after a switch, before reinit re-fetches it.
+        const currentTopology = computed(() => store.topologyName || (store.topologies && store.topologies.current));
+        const doSwitch = id => switchTopology(id);
         const counts = lb => {
             let writable = 0, total = 0;
             (lb.services || []).forEach(s => {
@@ -962,7 +971,7 @@ export const TopologyPanel = {
                 };
             });
         };
-        return { store, blocks, links, providers, counts, contractRows };
+        return { store, blocks, links, providers, counts, contractRows, topologyFiles, canSwitch, currentTopology, doSwitch };
     },
     template: `
         <div class="topology-panel">
@@ -998,6 +1007,20 @@ export const TopologyPanel = {
                         <span class="topo-meta mono">{{ c.endpoint }}</span>
                     </div>
                 </template>
+                <h3 class="topo-section">topology files</h3>
+                <div v-if="!topologyFiles.length" class="topo-meta">
+                    no topology files — export this preset with <code>dale dev --export-topology topologies/&lt;id&gt;.topology.json</code>
+                </div>
+                <div v-for="t in topologyFiles" :key="t.id" class="topo-row">
+                    <span class="mono topo-name">{{ t.id }}</span>
+                    <span v-if="t.error" class="scenario-error" :title="t.error">invalid</span>
+                    <span v-else class="topo-meta">{{ t.blocks }} blocks</span>
+                    <span class="item-spacer"></span>
+                    <code v-if="t.id === currentTopology" class="topology-chip">running</code>
+                    <button v-else type="button" class="theme-toggle" :disabled="!canSwitch"
+                            :title="canSwitch ? 'recycle the host into this topology' : 'switching needs a topology-aware supervisor (DevHostWebRunner.RunAsync with a Func<string?, IDevHost> factory)'"
+                            @click="doSwitch(t.id)">⇄ switch</button>
+                </div>
             </section>
         </div>
     `,

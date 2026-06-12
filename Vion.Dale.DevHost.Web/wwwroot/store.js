@@ -37,6 +37,8 @@ export const store = reactive({
     canReset: false,
     // Top-level view: 'explorer' (default), 'topology', 'gallery', or 'player' (scenarios, RFC 0006).
     view: 'explorer',
+    // Topology files (RFC 0006 R5): the discovery payload for the switcher in the topology panel.
+    topologies: null,
     // Scenario surface (RFC 0006): the discovery payload, the opened scenario (parsed file), and the
     // latest run report. Run state lives SERVER-side (F5-safe, agent-visible) — the client only polls.
     scenarios: null,
@@ -286,8 +288,10 @@ async function reinitClientState() {
                     await primeInitialValues();
                     await fetchControlStatus();
                     // A recycled host has fresh (empty) scenario run state — re-discover, and drop a
-                    // stale report from the previous generation.
+                    // stale report from the previous generation. The topology list's "running" marker
+                    // changes on a switch, so re-fetch that too.
                     await loadScenarios();
+                    await loadTopologies();
                     store.run = null;
                     return true;
                 }
@@ -439,6 +443,35 @@ async function connectHub() {
     } catch (err) {
         showError(`Failed to connect to SignalR hub: ${err.message ?? err}`);
         store.connected = false;
+    }
+}
+
+// ── Topology files (RFC 0006 R5) ────────────────────────────────────────────────
+
+export async function loadTopologies() {
+    try {
+        const response = await fetch('/api/topologies');
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        store.topologies = await response.json();
+    } catch (err) {
+        console.warn('Could not list topologies', err);
+    }
+}
+
+// Switching rides the reset: the server parks the topology id and recycles; the existing
+// reconnect path rebuilds the whole client state against the new generation.
+export async function switchTopology(id) {
+    try {
+        const response = await fetch(`/api/topologies/${encodeURIComponent(id)}/switch`, { method: 'POST' });
+        if (response.status === 409) {
+            const body = await response.json();
+            showError(body.error || 'Topology switching needs a topology-aware supervisor.');
+            return;
+        }
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        store.connected = false;
+    } catch (err) {
+        showError(`Failed to switch topology: ${err.message ?? err}`);
     }
 }
 

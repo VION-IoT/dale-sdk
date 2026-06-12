@@ -27,25 +27,38 @@ namespace Vion.Dale.Cli.Commands
                                      };
             command.Options.Add(exportConfigOption);
 
+            var exportTopologyOption = new Option<string?>("--export-topology")
+                                       {
+                                           Description =
+                                               "Boot the wired network, write it as a *.topology.json dev profile to this file, and exit — the migration path from C# presets to topology files (RFC 0006 R5).",
+                                       };
+            command.Options.Add(exportTopologyOption);
+
             command.SetAction(async (parseResult, cancellationToken) =>
                               {
                                   var projectPath = parseResult.GetValue<string?>("--project");
                                   var headless = parseResult.GetValue(headlessOption);
                                   var exportConfig = parseResult.GetValue(exportConfigOption);
+                                  var exportTopology = parseResult.GetValue(exportTopologyOption);
 
                                   // The DevHost process (consumer-owned Program.cs via DevHostWebRunner) reads this
                                   // env var to skip the browser and emit a readiness line. UseShellExecute=false in
                                   // DotnetRunner means the spawned `dotnet run` inherits it. Name hardcoded to keep
                                   // the CLI's no-SDK-dependency rule (mirrors DevHostWebRunner.NoBrowserEnvVar).
-                                  if (headless || exportConfig != null)
+                                  if (headless || exportConfig != null || exportTopology != null)
                                   {
                                       Environment.SetEnvironmentVariable("DALE_DEVHOST_NO_BROWSER", "1");
                                   }
 
-                                  // One-shot export (boot, dump, exit) — mirrors DevHostWebRunner.ExportConfigEnvVar.
+                                  // One-shot exports (boot, dump, exit) — mirror DevHostWebRunner.Export*EnvVar.
                                   if (exportConfig != null)
                                   {
                                       Environment.SetEnvironmentVariable("DALE_DEVHOST_EXPORT_CONFIG", Path.GetFullPath(exportConfig));
+                                  }
+
+                                  if (exportTopology != null)
+                                  {
+                                      Environment.SetEnvironmentVariable("DALE_DEVHOST_EXPORT_TOPOLOGY", Path.GetFullPath(exportTopology));
                                   }
 
                                   // Strategy: find the DevHost .csproj by searching for {Name}.DevHost.csproj

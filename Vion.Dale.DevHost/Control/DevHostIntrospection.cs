@@ -252,6 +252,7 @@ namespace Vion.Dale.DevHost.Control
                    {
                        Id = lb.Id,
                        Name = lb.Name,
+                       TypeFullName = lb.LogicBlockType.FullName,
                        Annotations = meta.Annotations,
                        Services = lb.Services.Select(s => BuildService(meta, s)).ToList(),
                        Interfaces = meta.Interfaces

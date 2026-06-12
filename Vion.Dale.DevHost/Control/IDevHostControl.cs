@@ -22,6 +22,9 @@ namespace Vion.Dale.DevHost.Control
         /// <summary>True when a supervisor capable of recycling the host is attached (see <see cref="TryRequestReset" />).</summary>
         bool CanReset { get; }
 
+        /// <summary>The topology id the latest switch requested — read by the supervisor when the reset fires.</summary>
+        string? RequestedTopology { get; }
+
         /// <summary>The logic blocks in the wired network, with their ids, names, type, and service identifiers.</summary>
         IReadOnlyList<LogicBlockInfo> ListLogicBlocks();
 
@@ -143,6 +146,14 @@ namespace Vion.Dale.DevHost.Control
 
         /// <summary>Supervisor hook: attach the reset handler. Dispose the token to detach.</summary>
         IDisposable OnResetRequested(Action handler);
+
+        /// <summary>
+        ///     Request a recycle into a different topology (RFC 0006 R5) — rides the reset signal; a
+        ///     topology-aware supervisor (<c>DevHostWebRunner.RunAsync(Func&lt;string?, IDevHost&gt;, …)</c>)
+        ///     builds the next generation from the requested id. Returns false when no supervisor is
+        ///     attached.
+        /// </summary>
+        bool TryRequestTopologySwitch(string topologyId);
     }
 
     /// <summary>Topology entry for <see cref="IDevHostControl.ListLogicBlocks" />.</summary>

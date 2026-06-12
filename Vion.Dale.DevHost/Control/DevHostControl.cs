@@ -112,6 +112,18 @@ namespace Vion.Dale.DevHost.Control
             return _runControl.OnResetRequested(handler);
         }
 
+        /// <inheritdoc />
+        public bool TryRequestTopologySwitch(string topologyId)
+        {
+            return _runControl.TryRequestTopologySwitch(topologyId);
+        }
+
+        /// <inheritdoc />
+        public string? RequestedTopology
+        {
+            get => _runControl.RequestedTopology;
+        }
+
         public IReadOnlyList<LogicBlockInfo> ListLogicBlocks()
         {
             return _configuration.LogicBlocks.Select(b => new LogicBlockInfo(b.Id, b.Name, b.LogicBlockType.Name, b.Services.Select(s => s.Id).ToList())).ToList();
