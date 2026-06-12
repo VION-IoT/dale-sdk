@@ -1,4 +1,4 @@
-# RFC 0006: Modbus-TCP server support — logic blocks as Modbus slaves
+# RFC 0007: Modbus-TCP server support — logic blocks as Modbus slaves
 
 Status: **Implemented** (v1) on branch `feat/modbus-tcp-server`. Author: jonas.bertsch. Date: 2026-06-11.
 Revised the same day after a cross-repo review (logic-block-libraries as-built, RealtimeSystem
