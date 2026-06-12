@@ -133,6 +133,17 @@ namespace Vion.Dale.DevHost.Control
             return _values.TryGetValue((serviceId, propertyName), out var value) ? value : null;
         }
 
+        public object? GetProperty(string logicBlockIdOrName, string serviceIdentifier, string propertyName)
+        {
+            var logicBlock = ResolveLogicBlock(logicBlockIdOrName);
+            if (logicBlock is null || !_introspection.TryGetServiceId(logicBlock.Id, serviceIdentifier, propertyName, out var serviceId))
+            {
+                return null;
+            }
+
+            return _values.TryGetValue((serviceId, propertyName), out var value) ? value : null;
+        }
+
         public IReadOnlyDictionary<string, object?> GetAllProperties(string logicBlockIdOrName)
         {
             var result = new Dictionary<string, object?>();
@@ -150,7 +161,7 @@ namespace Vion.Dale.DevHost.Control
             return result;
         }
 
-        public Task SetPropertyAsync(string logicBlockIdOrName, string propertyName, object value)
+        public Task SetPropertyAsync(string logicBlockIdOrName, string propertyName, object? value)
         {
             var logicBlock = ResolveLogicBlock(logicBlockIdOrName) ?? throw new InvalidOperationException($"Unknown logic block '{logicBlockIdOrName}'.");
 
@@ -162,7 +173,20 @@ namespace Vion.Dale.DevHost.Control
             return SetServicePropertyValueAsync(serviceId, propertyName, value);
         }
 
-        public async Task SetServicePropertyValueAsync(string serviceId, string propertyName, object value)
+        public Task SetPropertyAsync(string logicBlockIdOrName, string serviceIdentifier, string propertyName, object? value)
+        {
+            var logicBlock = ResolveLogicBlock(logicBlockIdOrName) ?? throw new InvalidOperationException($"Unknown logic block '{logicBlockIdOrName}'.");
+
+            if (!_introspection.TryGetServiceId(logicBlock.Id, serviceIdentifier, propertyName, out var serviceId))
+            {
+                throw new
+                    InvalidOperationException($"Logic block '{logicBlock.Name}' has no service '{serviceIdentifier}' with a property or measuring point named '{propertyName}'.");
+            }
+
+            return SetServicePropertyValueAsync(serviceId, propertyName, value);
+        }
+
+        public async Task SetServicePropertyValueAsync(string serviceId, string propertyName, object? value)
         {
             var logicBlock = _configuration.LogicBlocks.FirstOrDefault(lb => lb.Services.Any(s => s.Id == serviceId)) ??
                              throw new InvalidOperationException($"Unknown service id '{serviceId}'.");
@@ -234,7 +258,7 @@ namespace Vion.Dale.DevHost.Control
                              });
         }
 
-        public async Task<T?> WaitForAsync<T>(Func<DevHostEvent, T?> selector, TimeSpan timeout)
+        public async Task<T?> WaitForAsync<T>(Func<DevHostEvent, T?> selector, TimeSpan timeout, CancellationToken cancellationToken = default)
             where T : class
         {
             if (selector is null)
@@ -262,6 +286,7 @@ namespace Vion.Dale.DevHost.Control
             }
 
             using var cts = new CancellationTokenSource(timeout);
+            using var externalCancellation = cancellationToken.CanBeCanceled ? cancellationToken.Register(() => tcs.TrySetResult(null)) : default;
             using (cts.Token.Register(() => tcs.TrySetResult(null)))
             {
                 try
@@ -317,7 +342,7 @@ namespace Vion.Dale.DevHost.Control
         // JSON → typed CLR for the HTTP set path (moved here when IDevHostStateProvider was collapsed into the
         // control surface). Re-parses the property's JSON Schema into a TypeRef and delegates to the same
         // PropertyValueCodec the runtime uses. CLR values pass through untouched.
-        private object? NormalizeValue(string serviceId, string propertyName, object value)
+        private object? NormalizeValue(string serviceId, string propertyName, object? value)
         {
             var isJson = value is JsonElement || value is JsonNode;
             if (!isJson)

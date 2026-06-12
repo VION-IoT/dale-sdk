@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Vion.Dale.DevHost.Control
@@ -39,6 +40,14 @@ namespace Vion.Dale.DevHost.Control
         /// </summary>
         object? GetProperty(string logicBlockIdOrName, string propertyName);
 
+        /// <summary>
+        ///     Read the last-known value of a member qualified by its service identifier — the disambiguating
+        ///     form for multi-service blocks (nested <c>[LogicBlockInterfaceBinding]</c> members), where the
+        ///     flat per-block name map collapses duplicate member names last-service-wins. The service
+        ///     identifier of a nested member equals the binding member name (RFC 0006 revision 5 name paths).
+        /// </summary>
+        object? GetProperty(string logicBlockIdOrName, string serviceIdentifier, string propertyName);
+
         /// <summary>All last-known service-property and measuring-point values for a logic block, keyed by member name.</summary>
         IReadOnlyDictionary<string, object?> GetAllProperties(string logicBlockIdOrName);
 
@@ -49,17 +58,26 @@ namespace Vion.Dale.DevHost.Control
         ///     separate <see cref="WaitForAsync{T}" /> is needed for the property you just set). To observe a
         ///     <em>downstream</em> change instead, register <see cref="WaitForAsync{T}" /> <em>before</em> calling this.
         /// </summary>
-        Task SetPropertyAsync(string logicBlockIdOrName, string propertyName, object value);
+        Task SetPropertyAsync(string logicBlockIdOrName, string propertyName, object? value);
+
+        /// <summary>
+        ///     Write a writable <c>[ServiceProperty]</c> qualified by its service identifier — the
+        ///     disambiguating form for multi-service blocks, mirroring the three-argument
+        ///     <see cref="GetProperty(string, string, string)" /> (RFC 0006 revision 5 name paths). Same ack
+        ///     semantics as <see cref="SetPropertyAsync(string, string, object?)" />.
+        /// </summary>
+        Task SetPropertyAsync(string logicBlockIdOrName, string serviceIdentifier, string propertyName, object? value);
 
         /// <summary>
         ///     Write a service property addressed by its service identifier (the GUID from
         ///     <see cref="GetConfiguration" />), accepting either a CLR value or a JSON value (a
         ///     <c>JsonElement</c> / <c>JsonNode</c> is decoded against the property schema). This is the
-        ///     addressing the web UI uses; in-process callers usually prefer <see cref="SetPropertyAsync" />.
-        ///     Like <see cref="SetPropertyAsync" />, the task completes once the value has been applied and
-        ///     re-published.
+        ///     addressing the web UI uses; in-process callers usually prefer
+        ///     <see cref="SetPropertyAsync(string, string, object?)" />.
+        ///     Like <see cref="SetPropertyAsync(string, string, object?)" />, the task completes once the value
+        ///     has been applied and re-published.
         /// </summary>
-        Task SetServicePropertyValueAsync(string serviceId, string propertyName, object value);
+        Task SetServicePropertyValueAsync(string serviceId, string propertyName, object? value);
 
         /// <summary>Set a mocked digital input value, routed to the linked logic blocks just like the web UI's HAL control.</summary>
         Task SetDigitalInputAsync(string serviceProviderId, string serviceId, string contractId, bool value);
@@ -84,8 +102,10 @@ namespace Vion.Dale.DevHost.Control
         ///     <paramref name="timeout" /> elapses. Returns the selector's value, or <c>null</c> on timeout —
         ///     condition-based waiting, the multi-block runtime's substitute for synchronous time stepping
         ///     (RFC 0003, "the determinism trade-off"). Observes only events that occur after the call.
+        ///     Cancelling <paramref name="cancellationToken" /> also resolves <c>null</c> (and releases the
+        ///     waiter immediately — callers that stop caring early should cancel rather than abandon).
         /// </summary>
-        Task<T?> WaitForAsync<T>(Func<DevHostEvent, T?> selector, TimeSpan timeout)
+        Task<T?> WaitForAsync<T>(Func<DevHostEvent, T?> selector, TimeSpan timeout, CancellationToken cancellationToken = default)
             where T : class;
 
         /// <summary>

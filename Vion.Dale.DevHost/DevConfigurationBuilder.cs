@@ -24,6 +24,8 @@ namespace Vion.Dale.DevHost
 
         private int _logicBlockCounter;
 
+        private string? _scenariosPath;
+
         private string? _topologyName;
 
         public static DevConfigurationBuilder Create()
@@ -93,6 +95,15 @@ namespace Vion.Dale.DevHost
         }
 
         /// <summary>
+        ///     Override the scenario-file directory (RFC 0006). Default: <c>{current directory}/scenarios</c>.
+        /// </summary>
+        public DevConfigurationBuilder WithScenarios(string path)
+        {
+            _scenariosPath = path;
+            return this;
+        }
+
+        /// <summary>
         ///     Share one mock service provider endpoint between two contracts
         /// </summary>
         public DevConfigurationBuilder ShareContract(LogicBlockHandle lb1, string contractId1, LogicBlockHandle lb2, string contractId2)
@@ -103,7 +114,7 @@ namespace Vion.Dale.DevHost
 
         public DevConfiguration Build()
         {
-            var config = new DevConfiguration { TopologyName = _topologyName };
+            var config = new DevConfiguration { TopologyName = _topologyName, ScenariosPath = _scenariosPath };
 
             // Create logic block configs
             foreach (var handle in _handles)
