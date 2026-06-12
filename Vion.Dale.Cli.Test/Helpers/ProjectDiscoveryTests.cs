@@ -200,6 +200,89 @@ public class BlockB : LogicBlockBase { }
         }
 
         [TestMethod]
+        public void FindSolution_FindsSlnxFile()
+        {
+            // .NET 10 `dotnet new sln` creates .slnx (XML solution format) by default.
+            File.WriteAllText(Path.Combine(_tempDir, "MyApp.slnx"), "<Solution />");
+
+            var sln = ProjectDiscovery.FindSolution(_tempDir);
+
+            Assert.IsNotNull(sln);
+            Assert.IsTrue(sln.EndsWith("MyApp.slnx"));
+        }
+
+        [TestMethod]
+        public void FindSolution_PrefersSlnOverSlnxInSameDirectory()
+        {
+            // The .slnx sorts alphabetically before the .sln — preference must come from
+            // the extension, not from file name ordering.
+            File.WriteAllText(Path.Combine(_tempDir, "AAA.slnx"), "<Solution />");
+            File.WriteAllText(Path.Combine(_tempDir, "ZZZ.sln"), "solution content");
+
+            var sln = ProjectDiscovery.FindSolution(_tempDir);
+
+            Assert.IsNotNull(sln);
+            Assert.IsTrue(sln.EndsWith("ZZZ.sln"));
+        }
+
+        [TestMethod]
+        public void FindSolution_NearestDirectoryWinsOverExtensionPreference()
+        {
+            // A .slnx in the starting directory beats a .sln further up the tree.
+            var subDir = Path.Combine(_tempDir, "inner");
+            Directory.CreateDirectory(subDir);
+            File.WriteAllText(Path.Combine(_tempDir, "Outer.sln"), "solution content");
+            File.WriteAllText(Path.Combine(subDir, "Inner.slnx"), "<Solution />");
+
+            var sln = ProjectDiscovery.FindSolution(subDir);
+
+            Assert.IsNotNull(sln);
+            Assert.IsTrue(sln.EndsWith("Inner.slnx"));
+        }
+
+        [TestMethod]
+        public void FindSolution_WalksUpToFindSlnx()
+        {
+            var subDir = Path.Combine(_tempDir, "src", "deep");
+            Directory.CreateDirectory(subDir);
+            File.WriteAllText(Path.Combine(_tempDir, "MyApp.slnx"), "<Solution />");
+
+            var sln = ProjectDiscovery.FindSolution(subDir);
+
+            Assert.IsNotNull(sln);
+            Assert.IsTrue(sln.EndsWith("MyApp.slnx"));
+        }
+
+        [TestMethod]
+        public void FindSolution_MultipleSolutionsOfSameType_ReturnsAlphabeticallyFirst()
+        {
+            File.WriteAllText(Path.Combine(_tempDir, "Zeta.sln"), "solution content");
+            File.WriteAllText(Path.Combine(_tempDir, "Alpha.sln"), "solution content");
+
+            var sln = ProjectDiscovery.FindSolution(_tempDir);
+
+            Assert.IsNotNull(sln);
+            Assert.IsTrue(sln.EndsWith("Alpha.sln"));
+        }
+
+        [TestMethod]
+        public void FindSolution_IgnoresLongerExtensionsStartingWithSln()
+        {
+            // Guards the explicit extension match: "*.sln"-style patterns can match longer
+            // extensions on some platforms (legacy 8.3 short-name quirk). The decoy in the
+            // nearer directory must be skipped in favor of the real solution above it.
+            var subDir = Path.Combine(_tempDir, "inner");
+            Directory.CreateDirectory(subDir);
+            File.WriteAllText(Path.Combine(_tempDir, "Real.sln"), "solution content");
+            File.WriteAllText(Path.Combine(subDir, "Decoy.slnxbak"), "not a solution");
+
+            var sln = ProjectDiscovery.FindSolution(subDir);
+
+            Assert.IsNotNull(sln);
+            Assert.IsTrue(sln.EndsWith("Real.sln"));
+        }
+
+        [TestMethod]
         public void FindProject_PackageIdFallsBackToProjectName()
         {
             var csproj = Path.Combine(_tempDir, "MyLib.csproj");

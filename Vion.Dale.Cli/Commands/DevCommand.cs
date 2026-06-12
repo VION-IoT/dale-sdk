@@ -11,7 +11,12 @@ namespace Vion.Dale.Cli.Commands
     {
         public static Command Create()
         {
-            var command = new Command("dev", "Start the DevHost with web UI");
+            // Unmatched tokens are collected (not parse errors) so scenario args reach the DevHost
+            // app, e.g. `dale dev -- operator-steering` (see BuildRunArguments).
+            var command = new Command("dev", "Start the DevHost with web UI (extra arguments are forwarded to the DevHost app)")
+                          {
+                              TreatUnmatchedTokensAsErrors = false,
+                          };
 
             var headlessOption = new Option<bool>("--headless")
                                  {

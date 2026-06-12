@@ -31,6 +31,18 @@ namespace Vion.Dale.Cli
                 return 0;
             }
 
+            var rootCommand = BuildRootCommand();
+
+            // Configure output mode
+            var parseResult = rootCommand.Parse(args);
+            DaleConsole.JsonMode = parseResult.GetValue<string>("--output") == "json";
+            DaleConsole.VerboseMode = parseResult.GetValue<bool>("--verbose");
+
+            return await parseResult.InvokeAsync();
+        }
+
+        internal static RootCommand BuildRootCommand()
+        {
             var rootCommand = new RootCommand("dale — develop and publish Dale LogicBlock libraries");
 
             var outputOption = new Option<string>("--output", "-o")
@@ -85,12 +97,7 @@ namespace Vion.Dale.Cli
             configCommand.Subcommands.Add(SetEnvironmentCommand.Create());
             rootCommand.Subcommands.Add(configCommand);
 
-            // Configure output mode
-            var parseResult = rootCommand.Parse(args);
-            DaleConsole.JsonMode = parseResult.GetValue<string>("--output") == "json";
-            DaleConsole.VerboseMode = parseResult.GetValue(verboseOption);
-
-            return await parseResult.InvokeAsync();
+            return rootCommand;
         }
     }
 }
