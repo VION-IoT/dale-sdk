@@ -10,6 +10,11 @@
         <IsPackable>true</IsPackable>
     </PropertyGroup>
     <ItemGroup>
+        <!-- The generic scenario-file schema (RFC 0006) ships inside the assembly; 'dale scenario schema'
+             (R4) emits per-project enriched variants from it. -->
+        <EmbeddedResource Include="Scenarios\scenario.schema.json"/>
+    </ItemGroup>
+    <ItemGroup>
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0"/>
         <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.0"/>
         <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0"/>
