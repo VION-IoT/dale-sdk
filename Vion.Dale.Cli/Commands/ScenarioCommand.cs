@@ -205,12 +205,11 @@ namespace Vion.Dale.Cli.Commands
         private static Command CreateSchema()
         {
             var schema = new Command("schema",
-                                     "Write the scenario JSON Schema for editor completion — enriched with this topology's actual name paths when a configuration is available");
-            var outputOption = new Option<string>("--output", "-o")
+                                     "Print the scenario JSON Schema, enriched with this topology's actual name paths when a configuration is available — " +
+                                     "commit it as scenarios/.dale/scenario.schema.json and reference it from scenario files via \"$schema\" for editor completion");
+            var outputOption = new Option<string?>("--output", "-o")
                                {
-                                   Description =
-                                       "Target path (default scenarios/.dale/scenario.schema.json — the conventional $schema reference).",
-                                   DefaultValueFactory = _ => Path.Combine("scenarios", ".dale", "scenario.schema.json"),
+                                   Description = "Write to this file instead of printing (conventionally scenarios/.dale/scenario.schema.json, what the files' \"$schema\" points at).",
                                };
             var configOption = new Option<string?>("--config") { Description = "Configuration export to enrich from (default: the running DevHost)." };
             var portOption = PortOption();
@@ -240,9 +239,19 @@ namespace Vion.Dale.Cli.Commands
                                      ScenarioFileChecks.EnrichSchemaWithNamePaths(document, config);
                                  }
 
-                                 var output = parseResult.GetValue(outputOption)!;
+                                 var json = document.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+
+                                 // No -o: the schema IS the output (pipe or inspect it) — a schema command
+                                 // should show a schema, not write to a magic location.
+                                 var output = parseResult.GetValue(outputOption);
+                                 if (output is null)
+                                 {
+                                     Console.WriteLine(json);
+                                     return 0;
+                                 }
+
                                  Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output))!);
-                                 File.WriteAllText(output, document.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+                                 File.WriteAllText(output, json);
 
                                  if (DaleConsole.JsonMode)
                                  {
@@ -251,6 +260,7 @@ namespace Vion.Dale.Cli.Commands
                                  else
                                  {
                                      DaleConsole.Success("Wrote", output);
+                                     DaleConsole.Info("    Reference it from scenario files for editor completion: \"$schema\": \"./.dale/scenario.schema.json\"");
                                  }
 
                                  return 0;
