@@ -13,8 +13,8 @@ import {
 } from './format.js';
 import {
     applyScenario, baselineDelta, buildSharedContractLookup, changedCountForBlock,
-    changedSinceBaseline, clearBaseline, closeScenario, collapseKey, connectionsForLb, halKey,
-    isPinned, judgeKey, loadTopologies, openScenario, pauseHost, resetHost, resumeHost,
+    changedSinceBaseline, clearBaseline, clearPins, closeScenario, collapseKey, connectionsForLb,
+    halKey, isPinned, judgeKey, loadTopologies, openScenario, pauseHost, resetHost, resumeHost,
     setAnalogInput, setBaseline, setDigitalInput, setJudgeTick, setProperty, showError, store,
     switchTopology, toggleCollapsed, togglePin, valueKey,
 } from './store.js';
@@ -907,16 +907,25 @@ const WatchTile = {
 export const WatchPanel = {
     components: { WatchTile },
     setup() {
-        const resolveKind = entry => {
-            const lb = (store.config && store.config.logicBlocks || []).find(b => b.name === entry.block);
+        // A pin resolves when its name path still exists in the CURRENT topology — switches and
+        // renames turn pins into tombstones, and a switch can orphan many at once.
+        const resolvePin = entry => {
+            const lb = ((store.config && store.config.logicBlocks) || []).find(b => b.name === entry.block);
             const service = lb && (lb.services || []).find(s => s.identifier === entry.service);
-            const prop = service && (service.serviceProperties || []).find(p => p.identifier === entry.item);
-            return prop && isWritable(prop) ? 'drive' : 'observe';
+            if (!service) return null;
+            return [...(service.serviceProperties || []), ...(service.serviceMeasuringPoints || [])]
+                .find(p => p.identifier === entry.item) || null;
         };
-        const drive = computed(() => store.pins.filter(p => resolveKind(p) === 'drive'));
-        const observe = computed(() => store.pins.filter(p => resolveKind(p) !== 'drive'));
+        const drive = computed(() => store.pins.filter(p => {
+            const item = resolvePin(p);
+            return item && isWritable(item);
+        }));
+        const observe = computed(() => store.pins.filter(p => !drive.value.includes(p)));
+        const missing = computed(() => store.pins.filter(p => !resolvePin(p)));
         const empty = computed(() => store.pins.length === 0);
-        return { store, drive, observe, empty };
+        const clearAll = () => clearPins();
+        const pruneMissing = () => clearPins(missing.value);
+        return { store, drive, observe, missing, empty, clearAll, pruneMissing };
     },
     template: `
         <aside class="watch" :class="{ empty }">
@@ -924,7 +933,14 @@ export const WatchPanel = {
                 <span class="watch-hint">pin to watch · ◆</span>
             </template>
             <template v-else>
-                <div class="watch-header">watch · {{ store.pins.length }}</div>
+                <div class="watch-header">
+                    <span>watch · {{ store.pins.length }}</span>
+                    <span class="item-spacer"></span>
+                    <button type="button" class="watch-clear" title="unpin everything" @click="clearAll">✕ clear</button>
+                </div>
+                <button v-if="missing.length" type="button" class="watch-prune"
+                        title="unpin everything the current topology does not resolve"
+                        @click="pruneMissing">remove {{ missing.length }} not in this topology</button>
                 <div v-if="drive.length" class="watch-section">drive</div>
                 <WatchTile v-for="p in drive" :key="p.block + '/' + p.service + '/' + p.item" :entry="p"/>
                 <div v-if="observe.length" class="watch-section">observe</div>

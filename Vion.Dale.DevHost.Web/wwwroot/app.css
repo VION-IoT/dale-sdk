@@ -888,10 +888,35 @@ button { cursor: pointer; font-family: inherit; }
 }
 
 .watch-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     font-size: 12px;
     font-weight: var(--vion-font-weight-emphasized);
     color: var(--text);
     padding: 2px 4px 8px;
+}
+
+.watch-clear {
+    background: none;
+    border: none;
+    color: var(--text-faint);
+    font-size: 10.5px;
+    font-weight: var(--vion-font-weight-normal);
+    cursor: pointer;
+    padding: 0 2px;
+}
+.watch-clear:hover { color: var(--text); }
+
+.watch-prune {
+    width: 100%;
+    margin-bottom: 6px;
+    background: var(--vion-warning-bg-def-primary);
+    color: var(--vion-warning-fg-def-primary);
+    border: 1px solid var(--vion-warning-brd-def-primary);
+    border-radius: var(--vion-border-radius-sm);
+    font-size: 11px;
+    padding: 4px 8px;
 }
 
 .watch-section {

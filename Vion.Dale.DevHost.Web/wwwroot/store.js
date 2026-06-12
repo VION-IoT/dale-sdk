@@ -122,6 +122,24 @@ function loadPins() {
     }
 }
 
+// Remove pins in bulk: all of them (the watch panel's clear), or a given subset (pruning
+// tombstones after a topology switch). Pins are cheap to re-create — no confirmation ceremony.
+export function clearPins(entries = null) {
+    if (entries === null) {
+        store.pins.splice(0, store.pins.length);
+    } else {
+        const keys = new Set(entries.map(pinKey));
+        for (let i = store.pins.length - 1; i >= 0; i--) {
+            if (keys.has(pinKey(store.pins[i]))) store.pins.splice(i, 1);
+        }
+    }
+    try {
+        localStorage.setItem(PINS_STORAGE_KEY, JSON.stringify(store.pins));
+    } catch (err) {
+        console.warn('Could not persist pins', err);
+    }
+}
+
 // ── Baseline diff ───────────────────────────────────────────────────────────────
 
 let baselineTimer = null;
