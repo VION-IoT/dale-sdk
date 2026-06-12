@@ -124,7 +124,15 @@ dotnet run --project Vion.Dale.Cli -- <command>
 # Install as global tool (uninstall first to force update)
 dotnet pack Vion.Dale.Cli -c Release -o ./packages/cli
 dotnet tool uninstall -g Vion.Dale.Cli
-dotnet tool install --global --add-source ./packages/cli Vion.Dale.Cli --ignore-failed-sources
+dotnet tool install --global --add-source ./packages/cli Vion.Dale.Cli --version 0.0.0-local --ignore-failed-sources
+```
+
+**`--version 0.0.0-local` is load-bearing.** Untagged local packs carry the `0.0.0-local` placeholder
+(versions are git-tag-driven); without an explicit version, `dotnet tool install` resolves the highest
+*stable* version across all configured feeds and silently installs an older release from the private
+feed instead of your local build.
+
+```bash
 ```
 
 ## Testing

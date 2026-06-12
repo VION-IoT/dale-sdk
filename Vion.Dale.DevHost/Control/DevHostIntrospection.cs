@@ -32,10 +32,15 @@ namespace Vion.Dale.DevHost.Control
 
         private readonly ILogger<DevHostIntrospection> _logger;
 
-        // blockId → (propertyOrMeasuringPointName → serviceConfigId)
+        // blockId → (propertyOrMeasuringPointName → serviceConfigId). Flat per-block namespace: a
+        // duplicate member name across two services collapses last-service-wins — the service-qualified
+        // map below exists so callers can reach the shadowed service (RFC 0006 revision 5).
         private readonly Dictionary<string, Dictionary<string, string>> _propertyToServiceId = new();
 
         private readonly Dictionary<string, LogicBlockIntrospectionResult> _results = new();
+
+        // blockId → (serviceIdentifier → (memberName → serviceConfigId)) — the non-collapsing map.
+        private readonly Dictionary<string, Dictionary<string, Dictionary<string, string>>> _serviceMemberToServiceId = new();
 
         private readonly IServiceProvider _serviceProvider;
 
@@ -76,6 +81,19 @@ namespace Vion.Dale.DevHost.Control
             return _propertyToServiceId.TryGetValue(blockId, out var map) && map.TryGetValue(propertyName, out serviceId!);
         }
 
+        /// <summary>
+        ///     Resolve a block's property/measuring-point name to the service-config id, qualified by the
+        ///     service identifier — reaches members the flat per-block name map shadows when two services of
+        ///     one block declare the same member name (RFC 0006 revision 5 name paths).
+        /// </summary>
+        public bool TryGetServiceId(string blockId, string serviceIdentifier, string propertyName, out string serviceId)
+        {
+            EnsureIntrospected();
+            serviceId = string.Empty;
+            return _serviceMemberToServiceId.TryGetValue(blockId, out var services) && services.TryGetValue(serviceIdentifier, out var members) &&
+                   members.TryGetValue(propertyName, out serviceId!);
+        }
+
         /// <summary>All property/measuring-point names known for a block.</summary>
         public IReadOnlyCollection<string> PropertyNames(string blockId)
         {
@@ -86,6 +104,13 @@ namespace Vion.Dale.DevHost.Control
         /// <summary>
         ///     Resolve the JSON Schema and CLR type for a property addressed by service-config id — used to
         ///     decode a JSON set-value (HTTP path) into the precise typed value the block expects.
+        ///     <para>
+        ///         The property may live on the block type itself (the block's own service) or on a
+        ///         service-bound member object (e.g. an interface-bound "charging point" of a multi-point
+        ///         block) whose member name equals the service identifier. Resolving only against the block
+        ///         type would leave nested-service values as undecoded <c>JsonElement</c>s, which the service
+        ///         binder then fails to cast — the "writes to multi-point properties silently do nothing" bug.
+        ///     </para>
         /// </summary>
         public bool TryGetPropertyConversion(string serviceId, string propertyName, out JsonNode? schema, out Type? clrType)
         {
@@ -108,7 +133,15 @@ namespace Vion.Dale.DevHost.Control
             }
 
             schema = propertyInfo.Schema;
-            clrType = block.LogicBlockType.GetProperty(propertyName)?.PropertyType;
+
+            var hostType = block.LogicBlockType;
+            var serviceMember = block.LogicBlockType.GetProperty(serviceConfig.Identifier);
+            if (serviceMember is not null && serviceMember.PropertyType.GetProperty(propertyName) is not null)
+            {
+                hostType = serviceMember.PropertyType;
+            }
+
+            clrType = hostType.GetProperty(propertyName)?.PropertyType;
             return clrType is not null;
         }
 
@@ -181,6 +214,7 @@ namespace Vion.Dale.DevHost.Control
                 }
 
                 var map = new Dictionary<string, string>();
+                var serviceMap = new Dictionary<string, Dictionary<string, string>>();
                 foreach (var service in result.Services)
                 {
                     var serviceConfig = block.Services.FirstOrDefault(s => s.Identifier == service.Identifier);
@@ -189,18 +223,24 @@ namespace Vion.Dale.DevHost.Control
                         continue;
                     }
 
+                    var members = new Dictionary<string, string>();
                     foreach (var property in service.Properties)
                     {
                         map[property.Identifier] = serviceConfig.Id;
+                        members[property.Identifier] = serviceConfig.Id;
                     }
 
                     foreach (var measuringPoint in service.MeasuringPoints)
                     {
                         map[measuringPoint.Identifier] = serviceConfig.Id;
+                        members[measuringPoint.Identifier] = serviceConfig.Id;
                     }
+
+                    serviceMap[service.Identifier] = members;
                 }
 
                 _propertyToServiceId[block.Id] = map;
+                _serviceMemberToServiceId[block.Id] = serviceMap;
             }
         }
 
@@ -212,6 +252,7 @@ namespace Vion.Dale.DevHost.Control
                    {
                        Id = lb.Id,
                        Name = lb.Name,
+                       TypeFullName = lb.LogicBlockType.FullName,
                        Annotations = meta.Annotations,
                        Services = lb.Services.Select(s => BuildService(meta, s)).ToList(),
                        Interfaces = meta.Interfaces

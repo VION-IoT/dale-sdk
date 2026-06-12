@@ -71,6 +71,7 @@ namespace Vion.Dale.Cli
             rootCommand.Subcommands.Add(TestCommand.Create());
             rootCommand.Subcommands.Add(DevCommand.Create());
             rootCommand.Subcommands.Add(ListCommand.Create());
+            rootCommand.Subcommands.Add(ScenarioCommand.Create());
 
             var addCommand = new Command("add", "Add elements to a LogicBlock project");
             addCommand.Subcommands.Add(AddLogicBlockCommand.Create());

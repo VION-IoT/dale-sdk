@@ -18,6 +18,10 @@ namespace Vion.Dale.ProtoActor
     {
         private readonly Proto.ActorSystem _actorSystem;
 
+        // Optional, opt-in pause gate for delayed self-sends (DevHost's pause feature). Null when none is
+        // registered, so a host without it keeps the original scheduling behaviour.
+        private readonly IDelayedSendGate? _delayedSendGate;
+
         private readonly ILogger<ActorSystem> _logger;
 
         // Optional, opt-in message observers (DevHost's tap — RFC 0003 — and the vitals collector — RFC 0005),
@@ -40,6 +44,7 @@ namespace Vion.Dale.ProtoActor
             _serviceProvider = serviceProvider;
             _logger = logger;
             _messageObserver = CompositeActorMessageObserver.Combine(serviceProvider.GetServices<IActorMessageObserver>());
+            _delayedSendGate = serviceProvider.GetService<IDelayedSendGate>();
             _timeProvider = serviceProvider.GetService<TimeProvider>() ?? TimeProvider.System;
             _vitalsCollector = serviceProvider.GetService<IActorVitalsCollector>();
             _actorSystem = serviceProvider.GetService<Proto.ActorSystem>() ?? throw new InvalidOperationException("Actor system is not registered in the service provider.");
@@ -189,7 +194,8 @@ namespace Vion.Dale.ProtoActor
                 actorReceiverInstance = ActivatorUtilities.CreateInstance(_serviceProvider, actorReceiverType, loggerArg);
             }
 
-            var genericActor = ActivatorUtilities.CreateInstance(_serviceProvider, actorType, actorReceiverInstance);
+            var genericActor = _delayedSendGate is null ? ActivatorUtilities.CreateInstance(_serviceProvider, actorType, actorReceiverInstance) :
+                                   ActivatorUtilities.CreateInstance(_serviceProvider, actorType, actorReceiverInstance, _delayedSendGate);
             if (genericActor == null)
             {
                 throw new InvalidOperationException($"Actor type {actorType.FullName} is not registered in the service provider.");
@@ -208,7 +214,7 @@ namespace Vion.Dale.ProtoActor
         public IActorReference CreateRootActorFor<TActorReceiver>(Func<TActorReceiver> factory, string name, object? logger)
             where TActorReceiver : IActorReceiver
         {
-            var props = Props.FromProducer(() => new Actor<TActorReceiver>(factory()))
+            var props = Props.FromProducer(() => new Actor<TActorReceiver>(factory(), _delayedSendGate))
                              .WithReceiverMiddleware(ActorMiddleware.ReceiveMiddleware(logger as ILogger ?? _logger, _messageObserver, _timeProvider))
                              .WithSenderMiddleware(ActorMiddleware.SenderMiddleware(logger as ILogger ?? _logger));
             props = WithVitals(props, typeof(TActorReceiver), name);

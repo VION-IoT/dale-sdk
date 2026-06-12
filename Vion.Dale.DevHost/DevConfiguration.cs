@@ -28,6 +28,18 @@ namespace Vion.Dale.DevHost
         /// </summary>
         public string? TopologyName { get; set; }
 
+        /// <summary>
+        ///     Optional override for the scenario-file directory (RFC 0006). Defaults to
+        ///     <c>{current directory}/scenarios</c> when null.
+        /// </summary>
+        public string? ScenariosPath { get; set; }
+
+        /// <summary>
+        ///     Optional override for the topology-file directory (RFC 0006 R5). Defaults to
+        ///     <c>{current directory}/topologies</c> when null.
+        /// </summary>
+        public string? TopologiesPath { get; set; }
+
         public List<DevLogicBlockConfig> LogicBlocks { get; set; } = [];
 
         public List<DevServiceProviderConfig> ServiceProviders { get; set; } = [];

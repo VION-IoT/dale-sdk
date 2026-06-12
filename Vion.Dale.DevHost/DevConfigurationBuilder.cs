@@ -24,6 +24,10 @@ namespace Vion.Dale.DevHost
 
         private int _logicBlockCounter;
 
+        private string? _scenariosPath;
+
+        private string? _topologiesPath;
+
         private string? _topologyName;
 
         public static DevConfigurationBuilder Create()
@@ -48,6 +52,22 @@ namespace Vion.Dale.DevHost
             where TLogicBlock : LogicBlockBase
         {
             handle = CreateHandle<TLogicBlock>(name, id);
+            _handles.Add(handle);
+            return this;
+        }
+
+        /// <summary>
+        ///     Add a LogicBlock instance by runtime <see cref="Type" /> — the topology-file loader's entry
+        ///     (RFC 0006 R5), where types come from JSON rather than generics.
+        /// </summary>
+        public DevConfigurationBuilder AddLogicBlock(Type logicBlockType, out LogicBlockHandle handle, string? name = null, string? id = null)
+        {
+            if (!typeof(LogicBlockBase).IsAssignableFrom(logicBlockType))
+            {
+                throw new ArgumentException($"{logicBlockType.FullName} is not a LogicBlockBase.", nameof(logicBlockType));
+            }
+
+            handle = new LogicBlockHandle(id ?? $"lb_{_logicBlockCounter++}", name ?? logicBlockType.Name, logicBlockType);
             _handles.Add(handle);
             return this;
         }
@@ -93,6 +113,24 @@ namespace Vion.Dale.DevHost
         }
 
         /// <summary>
+        ///     Override the scenario-file directory (RFC 0006). Default: <c>{current directory}/scenarios</c>.
+        /// </summary>
+        public DevConfigurationBuilder WithScenarios(string path)
+        {
+            _scenariosPath = path;
+            return this;
+        }
+
+        /// <summary>
+        ///     Override the topology-file directory (RFC 0006 R5). Default: <c>{current directory}/topologies</c>.
+        /// </summary>
+        public DevConfigurationBuilder WithTopologies(string path)
+        {
+            _topologiesPath = path;
+            return this;
+        }
+
+        /// <summary>
         ///     Share one mock service provider endpoint between two contracts
         /// </summary>
         public DevConfigurationBuilder ShareContract(LogicBlockHandle lb1, string contractId1, LogicBlockHandle lb2, string contractId2)
@@ -103,7 +141,7 @@ namespace Vion.Dale.DevHost
 
         public DevConfiguration Build()
         {
-            var config = new DevConfiguration { TopologyName = _topologyName };
+            var config = new DevConfiguration { TopologyName = _topologyName, ScenariosPath = _scenariosPath, TopologiesPath = _topologiesPath };
 
             // Create logic block configs
             foreach (var handle in _handles)

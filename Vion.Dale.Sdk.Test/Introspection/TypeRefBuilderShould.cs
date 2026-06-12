@@ -170,6 +170,35 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
+        public void EmitsStructFieldAnnotationsForNullableStruct()
+        {
+            // Regression (Vion.Contracts < 0.10.2): the nullable wrapper stripped [StructField]
+            // metadata — LastKnownLocation (Coordinates?) emitted bare field schemas while
+            // Location (Coordinates) carried description/minimum/maximum/x-unit.
+            var schema = GetSchema("LastKnownLocation");
+            var props = schema["properties"] as JsonObject;
+            Assert.IsNotNull(props);
+            Assert.AreEqual("deg", props["lat"]?["x-unit"]?.GetValue<string>());
+            Assert.AreEqual(-90d, props["lat"]?["minimum"]?.GetValue<double>());
+            Assert.AreEqual(90d, props["lat"]?["maximum"]?.GetValue<double>());
+            Assert.AreEqual("Latitude in WGS-84 decimal degrees.", props["lat"]?["description"]?.GetValue<string>());
+            Assert.AreEqual("deg", props["lon"]?["x-unit"]?.GetValue<string>());
+            Assert.AreEqual(-180d, props["lon"]?["minimum"]?.GetValue<double>());
+            Assert.AreEqual(180d, props["lon"]?["maximum"]?.GetValue<double>());
+        }
+
+        [TestMethod]
+        public void EmitsIdenticalFieldSchemasForNullableAndNonNullableStruct()
+        {
+            // A nullable struct property differs from its non-nullable twin only by the
+            // property-level type widening to ["object","null"] — the field subschemas
+            // must be bit-identical.
+            var nonNullable = GetSchema("Location");
+            var nullable = GetSchema("LastKnownLocation");
+            Assert.AreEqual(nonNullable["properties"]!.ToJsonString(), nullable["properties"]!.ToJsonString());
+        }
+
+        [TestMethod]
         public void EmitsArrayOfStructSchemaForRoute()
         {
             var schema = GetSchema("Route");

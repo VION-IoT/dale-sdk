@@ -1,7 +1,10 @@
 using System;
 using System.Diagnostics;
+using System.IO;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Vion.Dale.DevHost.Topologies;
 
 namespace Vion.Dale.DevHost.Web
 {
@@ -18,6 +21,21 @@ namespace Vion.Dale.DevHost.Web
         public const string NoBrowserEnvVar = "DALE_DEVHOST_NO_BROWSER";
 
         /// <summary>
+        ///     One-shot export mode (RFC 0006 R4): when set to a file path, the runner boots the host, writes
+        ///     the wired network's <c>ConfigurationOutput</c> JSON to that path (the same shape
+        ///     <c>GET /api/configuration</c> serves — block instance names, service identifiers, schemas,
+        ///     topology name), and exits. <c>dale scenario validate</c> / <c>schema</c> consume the export.
+        /// </summary>
+        public const string ExportConfigEnvVar = "DALE_DEVHOST_EXPORT_CONFIG";
+
+        /// <summary>
+        ///     One-shot export mode (RFC 0006 R5): boot, write the wired network as a
+        ///     <c>*.topology.json</c> dev profile (instances, interface mappings, contract mappings), exit —
+        ///     the migration path from C# presets to topology files.
+        /// </summary>
+        public const string ExportTopologyEnvVar = "DALE_DEVHOST_EXPORT_TOPOLOGY";
+
+        /// <summary>
         ///     Starts <paramref name="host" />, signals readiness or opens the browser, and runs until
         ///     <paramref name="cancellationToken" /> is cancelled (e.g. Ctrl+C), then stops the host.
         /// </summary>
@@ -29,6 +47,12 @@ namespace Vion.Dale.DevHost.Web
             var headless = Environment.GetEnvironmentVariable(NoBrowserEnvVar) == "1";
 
             await host.StartAsync(cancellationToken);
+
+            if (TryExport(host))
+            {
+                await host.StopAsync(CancellationToken.None);
+                return;
+            }
 
             if (headless)
             {
@@ -51,6 +75,122 @@ namespace Vion.Dale.DevHost.Web
             }
 
             await host.StopAsync(CancellationToken.None);
+        }
+
+        /// <summary>
+        ///     Supervised variant: builds the host from <paramref name="hostFactory" /> and recycles it —
+        ///     dispose, rebuild, restart on the same port — whenever the UI/API requests a reset
+        ///     (<c>POST /api/control/reset</c> → <see cref="Control.IDevHostControl.TryRequestReset" />).
+        ///     This kills the kill-and-`dale dev` loop: a code-independent fresh start without leaving the
+        ///     browser. Runs until <paramref name="cancellationToken" /> is cancelled.
+        /// </summary>
+        /// <param name="hostFactory">
+        ///     Builds a fresh host per generation (the same builder chain a <c>Program.cs</c> runs once
+        ///     today). Each generation gets a fresh service provider, actor system, and service ids.
+        /// </param>
+        /// <param name="port">The port the web UI / API is served on.</param>
+        /// <param name="cancellationToken">Cancelled to shut down (typically wired to Ctrl+C).</param>
+        public static Task RunAsync(Func<IDevHost> hostFactory, int port = 5000, CancellationToken cancellationToken = default)
+        {
+            return RunAsync(_ => hostFactory(), port, cancellationToken);
+        }
+
+        /// <summary>
+        ///     Topology-aware supervised variant (RFC 0006 R5): the factory receives the topology id the UI
+        ///     requested via <c>POST /api/topologies/{id}/switch</c> (null = the default preset, and on a
+        ///     plain reset the previous selection is kept). A typical consumer composes
+        ///     <c>DevTopologyLoader.Load(topologyId)</c> for non-null ids and its C# preset otherwise.
+        /// </summary>
+        public static async Task RunAsync(Func<string?, IDevHost> hostFactory, int port = 5000, CancellationToken cancellationToken = default)
+        {
+            var headless = Environment.GetEnvironmentVariable(NoBrowserEnvVar) == "1";
+            var generation = 0;
+            string? topologyId = null;
+
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                generation++;
+                await using var host = hostFactory(topologyId);
+
+                var resetRequested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                using var resetSubscription = host.Control.OnResetRequested(() => resetRequested.TrySetResult());
+
+                await host.StartAsync(cancellationToken);
+
+                if (TryExport(host))
+                {
+                    await host.StopAsync(CancellationToken.None);
+                    return;
+                }
+
+                if (headless)
+                {
+                    Console.WriteLine($"{{\"ready\":true,\"port\":{port},\"generation\":{generation}}}");
+                }
+                else if (generation == 1)
+                {
+                    // Open the browser once; on recycle the page reconnects by itself.
+                    OpenBrowser($"http://localhost:{port}");
+                }
+
+                try
+                {
+                    await Task.WhenAny(resetRequested.Task, Task.Delay(Timeout.Infinite, cancellationToken));
+                }
+                catch (OperationCanceledException)
+                {
+                    // Expected on Ctrl+C / cancellation.
+                }
+
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    await host.StopAsync(CancellationToken.None);
+                    return;
+                }
+
+                // A topology switch rides the reset signal; a plain reset keeps the current selection.
+                topologyId = host.Control.RequestedTopology ?? topologyId;
+
+                Console.WriteLine($"Reset requested — recycling host (generation {generation + 1})...");
+
+                // `await using` disposes the old host at the end of this iteration; the brief delay lets
+                // Kestrel finish releasing the port before the next generation rebinds it.
+                await host.StopAsync(CancellationToken.None);
+                await Task.Delay(TimeSpan.FromMilliseconds(250), CancellationToken.None);
+            }
+        }
+
+        // One-shot export modes: write the wired configuration (the /api/configuration wire shape) and/or
+        // the topology dev profile, then signal the caller to exit. Boot-dump-exit keeps
+        // `dale scenario validate` and `dale dev --export-topology` CI-friendly — no port, no server
+        // lifetime to manage.
+        private static bool TryExport(IDevHost host)
+        {
+            var exported = false;
+
+            var configPath = Environment.GetEnvironmentVariable(ExportConfigEnvVar);
+            if (!string.IsNullOrEmpty(configPath))
+            {
+                var options = new JsonSerializerOptions
+                              {
+                                  PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                                  DictionaryKeyPolicy = JsonNamingPolicy.CamelCase,
+                                  WriteIndented = true,
+                              };
+                File.WriteAllText(configPath, JsonSerializer.Serialize(host.Control.GetConfiguration(), options));
+                Console.WriteLine($"{{\"exported\":\"{configPath.Replace("\\", "\\\\")}\"}}");
+                exported = true;
+            }
+
+            var topologyPath = Environment.GetEnvironmentVariable(ExportTopologyEnvVar);
+            if (!string.IsNullOrEmpty(topologyPath))
+            {
+                File.WriteAllText(topologyPath, DevTopologyFile.FromConfiguration(host.Control.GetConfiguration()).ToJson());
+                Console.WriteLine($"{{\"exported\":\"{topologyPath.Replace("\\", "\\\\")}\"}}");
+                exported = true;
+            }
+
+            return exported;
         }
 
         private static void OpenBrowser(string url)

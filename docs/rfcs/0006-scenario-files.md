@@ -1,6 +1,6 @@
 # RFC 0006: Scenario files — a portable verification vocabulary for DevHost
 
-Status: **Accepted** (revision 4 — all open questions resolved; ready for implementation, R3/R4/R5).
+Status: **Accepted** (revision 5 — all open questions resolved; ready for implementation, R3/R4/R5).
 Author: jonas.bertsch. Date: 2026-06-11.
 
 Revision 2: example corrected against the real consumer block surfaces (block names, struct fields, enum
@@ -20,6 +20,14 @@ Revision 4: the last three open questions resolved by the maintainer — topolog
 (mock-provider materialization is an R5 loader-design detail, not a format question); topology switching
 sequenced behind the R2 run-control reset, no elevated priority; `ramp` stays a v2 candidate — the
 `set`/`wait` pair encoding is the accepted v1 answer.
+
+Revision 5 (pre-implementation amendment): **name paths gain an optional service segment**
+(`"Block.Service.Property"`) — the flat `Block.Property` form is ambiguous for multi-service blocks
+(nested `[LogicBlockInterfaceBinding]` members), where the per-block name map collapses duplicate
+property names last-service-wins ([DevHostIntrospection.cs:209](../../Vion.Dale.DevHost/Control/DevHostIntrospection.cs#L209));
+resolution rules below. Rides additive service-qualified `IDevHostControl` overloads (R3). The
+topology-name `ConfigurationOutput` field listed as planned in revision 2 has shipped meanwhile
+(`WithTopologyName`, R0–R2) — the capability table is updated accordingly.
 
 One sentence: a tiny, versioned, git-committed JSON vocabulary (`*.scenario.json`) that describes a
 manual-test scenario — setup, ordered stimuli, watch list, human judgments — executed by **one** C#
@@ -74,7 +82,8 @@ traceability").
 | Set a nullable property to null | ✅ through the web path (`SetValueInput<object>` + `JsonValueKind.Null => null`, [DevHostControl.cs:301](../../Vion.Dale.DevHost/Control/DevHostControl.cs#L301)); in-process the `object value` parameter needs the `object?` annotation fix | [DevHostController.cs:54](../../Vion.Dale.DevHost.Web/Api/Controllers/DevHostController.cs#L54) |
 | Topology + full introspection (blocks, services, schemas, wiring) | ✅ `ListLogicBlocks` / `GetConfiguration` | [IDevHostControl.cs:18-26](../../Vion.Dale.DevHost/Control/IDevHostControl.cs#L18) |
 | HTTP projection of the control surface (localhost `/api` + SignalR) | ✅ shared by UI and headless tools | RFC 0003, [DevHostController.cs](../../Vion.Dale.DevHost.Web/Api/Controllers/DevHostController.cs) |
-| A running topology name exposed to clients | ❌ (planned additive `ConfigurationOutput` field — prerequisite for the `topology` guard) | — |
+| A running topology name exposed to clients | ✅ `ConfigurationOutput.TopologyName` (`WithTopologyName`, shipped R0–R2) | [DevConfigurationBuilder.cs](../../Vion.Dale.DevHost/DevConfigurationBuilder.cs) |
+| Service-qualified property reads/writes by identifier (multi-service disambiguation) | ❌ — writes can address by service GUID (`SetServicePropertyValueAsync`), reads collapse to the per-block name map; additive identifier-qualified overloads ship with R3 | [DevHostControl.cs](../../Vion.Dale.DevHost/Control/DevHostControl.cs) |
 | A JSON form of a topology | ✅ in production — `SetLogicConfigurationPayload` (Vion.Contracts, Cloud→Mesh) carries logic-block instances, interface mappings, contract mappings; ❌ in DevHost (presets are C# only) | `vion-contracts/Vion.Contracts/Events/CloudToMesh/SetLogicConfigurationPayload.cs` |
 | A scenario artifact both humans and machines consume | ❌ does not exist — UI sessions are ephemeral, tests are invisible to the UI | — |
 | Scenario discovery / serving / execution endpoints | ❌ | — |
@@ -114,17 +123,38 @@ The crucial observation: **every construct the format needs already has a shippe
 
 ## The format (v1)
 
-File name: `<id>.scenario.json`, discovered under `{cwd}/scenarios/` (overridable, `WithScenarios(path)`).
+File name: `<id>.scenario.json`, discovered under `{cwd}/scenarios/` (overridable, `WithScenarios(path)`;
+when `{cwd}/scenarios` does not exist — IDE launches set the working directory to the build output — the
+nearest ancestor's `scenarios/` up to the repository root (`.git`) is used).
 Scratch scenarios that shouldn't ship can simply be `.gitignore`d (e.g. `scenarios/_local/`); committed ones
 are the artifact.
 
-**Name paths.** Properties are addressed `"BlockName.PropertyIdentifier"` — the logic-block *name* assigned
-in `AddLogicBlock(name:)` plus the C# member identifier, matching
-`IDevHostControl.GetProperty(logicBlockIdOrName, propertyName)`. Never per-run GUIDs. When a preset assigns
-no `name:`, the name defaults to the type name
+**Name paths** (revision 5 grammar). Properties are addressed by a dot-separated path with **two or three
+segments**:
+
+- `"BlockName.PropertyIdentifier"` — the common form. Valid only when the property identifier is
+  **unambiguous within the block** (exactly one of the block's services carries it).
+- `"BlockName.ServiceIdentifier.PropertyIdentifier"` — the qualified form for multi-service blocks. The
+  service identifier of a nested `[LogicBlockInterfaceBinding]` member equals the **binding member name**
+  (e.g. `"ChargingStationMultiPoint.ChargingPoint1.RequestedCurrentA"`).
+
+Resolution is part of up-front validation, against `GetConfiguration()`: a two-segment path whose property
+identifier exists on **more than one** of the block's services is a **validation error** that lists the
+qualified candidate paths (never silent last-wins — the flat per-block name map collapses duplicates
+last-service-wins, [DevHostIntrospection.cs:209](../../Vion.Dale.DevHost/Control/DevHostIntrospection.cs#L209),
+which is exactly the trap the format must not inherit). A three-segment path is always legal, also for
+single-service blocks. Segments are split on `.`; block names, service identifiers, and property identifiers
+containing a literal `.` are not addressable by scenario files (validated at authoring time by
+`dale scenario validate`; C# identifiers cannot contain dots, so only an exotic `AddLogicBlock(name:)` choice
+hits this — don't put dots in block names).
+
+Block *names* are those assigned in `AddLogicBlock(name:)`. Never per-run GUIDs. When a preset assigns no
+`name:`, the name defaults to the type name
 ([DevConfigurationBuilder.cs:35](../../Vion.Dale.DevHost/DevConfigurationBuilder.cs#L35) — `name ??
 typeof(T).Name`); the reference preset does exactly that, so the example below uses type names. Consumers are
-encouraged to assign short stable names — scenario files bind to whatever the topology declares.
+encouraged to assign short stable names — scenario files bind to whatever the topology declares. The runner
+executes through the additive service-qualified `IDevHostControl` members (R3), so the qualified form reaches
+services the flat map shadows.
 
 ```json
 {

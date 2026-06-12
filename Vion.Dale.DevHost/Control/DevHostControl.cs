@@ -39,6 +39,8 @@ namespace Vion.Dale.DevHost.Control
 
         private readonly MessageTap _messageTap;
 
+        private readonly DevHostRunControl _runControl;
+
         private readonly List<Action<DevHostEvent>> _subscribers = new();
 
         // Last-known value per (serviceConfigId, memberName) — fed by the change events, read by GetProperty.
@@ -55,7 +57,8 @@ namespace Vion.Dale.DevHost.Control
                               DevHostLogSink logSink,
                               DevHostIntrospection introspection,
                               IActorSystem actorSystem,
-                              MessageTap messageTap)
+                              MessageTap messageTap,
+                              DevHostRunControl runControl)
         {
             _configuration = configuration;
             _events = events;
@@ -63,6 +66,7 @@ namespace Vion.Dale.DevHost.Control
             _introspection = introspection;
             _actorSystem = actorSystem;
             _messageTap = messageTap;
+            _runControl = runControl;
 
             _events.ServicePropertyChanged += OnServiceProperty;
             _events.ServiceMeasuringPointChanged += OnMeasuringPoint;
@@ -70,6 +74,54 @@ namespace Vion.Dale.DevHost.Control
             _events.DigitalOutputChanged += OnDigitalOutput;
             _events.AnalogInputChanged += OnAnalogInput;
             _events.AnalogOutputChanged += OnAnalogOutput;
+        }
+
+        /// <inheritdoc />
+        public bool IsPaused
+        {
+            get => _runControl.IsPaused;
+        }
+
+        /// <inheritdoc />
+        public bool CanReset
+        {
+            get => _runControl.CanReset;
+        }
+
+        /// <inheritdoc />
+        public void Pause()
+        {
+            _runControl.Pause();
+        }
+
+        /// <inheritdoc />
+        public void Resume()
+        {
+            _runControl.Resume();
+        }
+
+        /// <inheritdoc />
+        public bool TryRequestReset()
+        {
+            return _runControl.TryRequestReset();
+        }
+
+        /// <inheritdoc />
+        public IDisposable OnResetRequested(Action handler)
+        {
+            return _runControl.OnResetRequested(handler);
+        }
+
+        /// <inheritdoc />
+        public bool TryRequestTopologySwitch(string topologyId)
+        {
+            return _runControl.TryRequestTopologySwitch(topologyId);
+        }
+
+        /// <inheritdoc />
+        public string? RequestedTopology
+        {
+            get => _runControl.RequestedTopology;
         }
 
         public IReadOnlyList<LogicBlockInfo> ListLogicBlocks()
@@ -86,6 +138,17 @@ namespace Vion.Dale.DevHost.Control
         {
             var logicBlock = ResolveLogicBlock(logicBlockIdOrName);
             if (logicBlock is null || !_introspection.TryGetServiceId(logicBlock.Id, propertyName, out var serviceId))
+            {
+                return null;
+            }
+
+            return _values.TryGetValue((serviceId, propertyName), out var value) ? value : null;
+        }
+
+        public object? GetProperty(string logicBlockIdOrName, string serviceIdentifier, string propertyName)
+        {
+            var logicBlock = ResolveLogicBlock(logicBlockIdOrName);
+            if (logicBlock is null || !_introspection.TryGetServiceId(logicBlock.Id, serviceIdentifier, propertyName, out var serviceId))
             {
                 return null;
             }
@@ -110,7 +173,7 @@ namespace Vion.Dale.DevHost.Control
             return result;
         }
 
-        public Task SetPropertyAsync(string logicBlockIdOrName, string propertyName, object value)
+        public Task SetPropertyAsync(string logicBlockIdOrName, string propertyName, object? value)
         {
             var logicBlock = ResolveLogicBlock(logicBlockIdOrName) ?? throw new InvalidOperationException($"Unknown logic block '{logicBlockIdOrName}'.");
 
@@ -122,7 +185,20 @@ namespace Vion.Dale.DevHost.Control
             return SetServicePropertyValueAsync(serviceId, propertyName, value);
         }
 
-        public async Task SetServicePropertyValueAsync(string serviceId, string propertyName, object value)
+        public Task SetPropertyAsync(string logicBlockIdOrName, string serviceIdentifier, string propertyName, object? value)
+        {
+            var logicBlock = ResolveLogicBlock(logicBlockIdOrName) ?? throw new InvalidOperationException($"Unknown logic block '{logicBlockIdOrName}'.");
+
+            if (!_introspection.TryGetServiceId(logicBlock.Id, serviceIdentifier, propertyName, out var serviceId))
+            {
+                throw new
+                    InvalidOperationException($"Logic block '{logicBlock.Name}' has no service '{serviceIdentifier}' with a property or measuring point named '{propertyName}'.");
+            }
+
+            return SetServicePropertyValueAsync(serviceId, propertyName, value);
+        }
+
+        public async Task SetServicePropertyValueAsync(string serviceId, string propertyName, object? value)
         {
             var logicBlock = _configuration.LogicBlocks.FirstOrDefault(lb => lb.Services.Any(s => s.Id == serviceId)) ??
                              throw new InvalidOperationException($"Unknown service id '{serviceId}'.");
@@ -194,7 +270,7 @@ namespace Vion.Dale.DevHost.Control
                              });
         }
 
-        public async Task<T?> WaitForAsync<T>(Func<DevHostEvent, T?> selector, TimeSpan timeout)
+        public async Task<T?> WaitForAsync<T>(Func<DevHostEvent, T?> selector, TimeSpan timeout, CancellationToken cancellationToken = default)
             where T : class
         {
             if (selector is null)
@@ -222,6 +298,7 @@ namespace Vion.Dale.DevHost.Control
             }
 
             using var cts = new CancellationTokenSource(timeout);
+            using var externalCancellation = cancellationToken.CanBeCanceled ? cancellationToken.Register(() => tcs.TrySetResult(null)) : default;
             using (cts.Token.Register(() => tcs.TrySetResult(null)))
             {
                 try
@@ -277,7 +354,7 @@ namespace Vion.Dale.DevHost.Control
         // JSON → typed CLR for the HTTP set path (moved here when IDevHostStateProvider was collapsed into the
         // control surface). Re-parses the property's JSON Schema into a TypeRef and delegates to the same
         // PropertyValueCodec the runtime uses. CLR values pass through untouched.
-        private object? NormalizeValue(string serviceId, string propertyName, object value)
+        private object? NormalizeValue(string serviceId, string propertyName, object? value)
         {
             var isJson = value is JsonElement || value is JsonNode;
             if (!isJson)

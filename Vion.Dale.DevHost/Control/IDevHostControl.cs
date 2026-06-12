@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Vion.Dale.DevHost.Control
@@ -15,6 +16,15 @@ namespace Vion.Dale.DevHost.Control
     /// </summary>
     public interface IDevHostControl
     {
+        /// <summary>True while time-driven activity is paused (see <see cref="Pause" />).</summary>
+        bool IsPaused { get; }
+
+        /// <summary>True when a supervisor capable of recycling the host is attached (see <see cref="TryRequestReset" />).</summary>
+        bool CanReset { get; }
+
+        /// <summary>The topology id the latest switch requested — read by the supervisor when the reset fires.</summary>
+        string? RequestedTopology { get; }
+
         /// <summary>The logic blocks in the wired network, with their ids, names, type, and service identifiers.</summary>
         IReadOnlyList<LogicBlockInfo> ListLogicBlocks();
 
@@ -33,6 +43,14 @@ namespace Vion.Dale.DevHost.Control
         /// </summary>
         object? GetProperty(string logicBlockIdOrName, string propertyName);
 
+        /// <summary>
+        ///     Read the last-known value of a member qualified by its service identifier — the disambiguating
+        ///     form for multi-service blocks (nested <c>[LogicBlockInterfaceBinding]</c> members), where the
+        ///     flat per-block name map collapses duplicate member names last-service-wins. The service
+        ///     identifier of a nested member equals the binding member name (RFC 0006 revision 5 name paths).
+        /// </summary>
+        object? GetProperty(string logicBlockIdOrName, string serviceIdentifier, string propertyName);
+
         /// <summary>All last-known service-property and measuring-point values for a logic block, keyed by member name.</summary>
         IReadOnlyDictionary<string, object?> GetAllProperties(string logicBlockIdOrName);
 
@@ -43,17 +61,26 @@ namespace Vion.Dale.DevHost.Control
         ///     separate <see cref="WaitForAsync{T}" /> is needed for the property you just set). To observe a
         ///     <em>downstream</em> change instead, register <see cref="WaitForAsync{T}" /> <em>before</em> calling this.
         /// </summary>
-        Task SetPropertyAsync(string logicBlockIdOrName, string propertyName, object value);
+        Task SetPropertyAsync(string logicBlockIdOrName, string propertyName, object? value);
+
+        /// <summary>
+        ///     Write a writable <c>[ServiceProperty]</c> qualified by its service identifier — the
+        ///     disambiguating form for multi-service blocks, mirroring the three-argument
+        ///     <see cref="GetProperty(string, string, string)" /> (RFC 0006 revision 5 name paths). Same ack
+        ///     semantics as <see cref="SetPropertyAsync(string, string, object?)" />.
+        /// </summary>
+        Task SetPropertyAsync(string logicBlockIdOrName, string serviceIdentifier, string propertyName, object? value);
 
         /// <summary>
         ///     Write a service property addressed by its service identifier (the GUID from
         ///     <see cref="GetConfiguration" />), accepting either a CLR value or a JSON value (a
         ///     <c>JsonElement</c> / <c>JsonNode</c> is decoded against the property schema). This is the
-        ///     addressing the web UI uses; in-process callers usually prefer <see cref="SetPropertyAsync" />.
-        ///     Like <see cref="SetPropertyAsync" />, the task completes once the value has been applied and
-        ///     re-published.
+        ///     addressing the web UI uses; in-process callers usually prefer
+        ///     <see cref="SetPropertyAsync(string, string, object?)" />.
+        ///     Like <see cref="SetPropertyAsync(string, string, object?)" />, the task completes once the value
+        ///     has been applied and re-published.
         /// </summary>
-        Task SetServicePropertyValueAsync(string serviceId, string propertyName, object value);
+        Task SetServicePropertyValueAsync(string serviceId, string propertyName, object? value);
 
         /// <summary>Set a mocked digital input value, routed to the linked logic blocks just like the web UI's HAL control.</summary>
         Task SetDigitalInputAsync(string serviceProviderId, string serviceId, string contractId, bool value);
@@ -78,8 +105,10 @@ namespace Vion.Dale.DevHost.Control
         ///     <paramref name="timeout" /> elapses. Returns the selector's value, or <c>null</c> on timeout —
         ///     condition-based waiting, the multi-block runtime's substitute for synchronous time stepping
         ///     (RFC 0003, "the determinism trade-off"). Observes only events that occur after the call.
+        ///     Cancelling <paramref name="cancellationToken" /> also resolves <c>null</c> (and releases the
+        ///     waiter immediately — callers that stop caring early should cancel rather than abandon).
         /// </summary>
-        Task<T?> WaitForAsync<T>(Func<DevHostEvent, T?> selector, TimeSpan timeout)
+        Task<T?> WaitForAsync<T>(Func<DevHostEvent, T?> selector, TimeSpan timeout, CancellationToken cancellationToken = default)
             where T : class;
 
         /// <summary>
@@ -95,6 +124,36 @@ namespace Vion.Dale.DevHost.Control
 
         /// <summary>The most recent captured log lines (bounded scrollback), oldest first.</summary>
         IReadOnlyList<LogLine> RecentLogs(int max = 500);
+
+        /// <summary>
+        ///     Pause time-driven activity: NEW <c>[Timer]</c> ticks and <c>InvokeSynchronizedAfter</c>
+        ///     callbacks are held in a queue (already-scheduled fires still deliver, so each timer may tick
+        ///     at most once more). Message processing — property sets, contract messages — continues: the
+        ///     world stands still but remains pokeable. Wall-clock keeps running; blocks computing from the
+        ///     current time observe the gap.
+        /// </summary>
+        void Pause();
+
+        /// <summary>Resume: replay every held schedule, in order, with its original delay — self-rescheduling chains survive.</summary>
+        void Resume();
+
+        /// <summary>
+        ///     Ask the supervisor to recycle the host (dispose → rebuild → restart; the kill-and-`dale dev`
+        ///     loop without the kill). Returns false when the host was started without a factory
+        ///     (<c>DevHostWebRunner.RunAsync(hostFactory, …)</c>) — nothing can rebuild it.
+        /// </summary>
+        bool TryRequestReset();
+
+        /// <summary>Supervisor hook: attach the reset handler. Dispose the token to detach.</summary>
+        IDisposable OnResetRequested(Action handler);
+
+        /// <summary>
+        ///     Request a recycle into a different topology (RFC 0006 R5) — rides the reset signal; a
+        ///     topology-aware supervisor (<c>DevHostWebRunner.RunAsync(Func&lt;string?, IDevHost&gt;, …)</c>)
+        ///     builds the next generation from the requested id. Returns false when no supervisor is
+        ///     attached.
+        /// </summary>
+        bool TryRequestTopologySwitch(string topologyId);
     }
 
     /// <summary>Topology entry for <see cref="IDevHostControl.ListLogicBlocks" />.</summary>

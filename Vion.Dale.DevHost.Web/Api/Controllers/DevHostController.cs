@@ -96,6 +96,50 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
             return Ok(lines);
         }
 
+        // --- Run control (pause / resume / reset) ---
+
+        /// <summary>Run-control state: paused? supervisor attached (reset possible)?</summary>
+        [HttpGet("control/status")]
+        public ActionResult GetControlStatus()
+        {
+            return Ok(new { paused = _control.IsPaused, canReset = _control.CanReset });
+        }
+
+        /// <summary>
+        ///     Pause time-driven activity (new timer ticks and delayed callbacks are held; message handling
+        ///     continues — see <see cref="IDevHostControl.Pause" /> for the exact semantics).
+        /// </summary>
+        [HttpPost("control/pause")]
+        public ActionResult Pause()
+        {
+            _control.Pause();
+            return Ok(new { paused = true });
+        }
+
+        /// <summary>Resume: replay held timer ticks / delayed callbacks with their original delays.</summary>
+        [HttpPost("control/resume")]
+        public ActionResult Resume()
+        {
+            _control.Resume();
+            return Ok(new { paused = false });
+        }
+
+        /// <summary>
+        ///     Recycle the host (dispose → rebuild → restart). 202 when a supervisor picked it up; 409 when
+        ///     the host runs unsupervised (started with a built host instead of
+        ///     <c>DevHostWebRunner.RunAsync(hostFactory, …)</c>).
+        /// </summary>
+        [HttpPost("control/reset")]
+        public ActionResult Reset()
+        {
+            if (!_control.TryRequestReset())
+            {
+                return Conflict(new { error = "Host is not supervised — pass a host factory to DevHostWebRunner.RunAsync to enable reset." });
+            }
+
+            return Accepted();
+        }
+
         /// <summary>Inter-block messages captured by the tap, optionally filtered to a logic block (by name or id).</summary>
         [HttpGet("messages")]
         public ActionResult GetMessages([FromQuery] string? logicBlock = null)

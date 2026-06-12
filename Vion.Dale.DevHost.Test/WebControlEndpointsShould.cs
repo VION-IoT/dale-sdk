@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -96,6 +97,63 @@ namespace Vion.Dale.DevHost.Test
             }
 
             Assert.AreEqual(123, value, "The value set via the unified control POST should be observable on the state route.");
+        }
+
+        [TestMethod]
+        public async Task PostSetProperty_OnNestedServiceProperty_DecodesJsonAndApplies()
+        {
+            // Regression for the "multi charging point has no grid effect" bug: properties living on a
+            // service-bound MEMBER object (not the block type) must still decode the HTTP JSON value into
+            // the CLR type. Before the fix, the undecoded JsonElement blew up in the service binder, the
+            // actor swallowed the exception, and the request returned 200 after burning the full 5 s ack
+            // timeout — so this test also asserts the write acks fast.
+            var port = FreePort();
+            var config = DevConfigurationBuilder.Create().AddLogicBlock<MultiPointBlock>("multi").Build();
+            await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithWebUi(port).Build();
+            await host.StartAsync();
+
+            using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
+
+            // The nested service's id — identifier equals the binding member name ("PointA").
+            var configJson = await client.GetStringAsync("/api/configuration");
+            using var configDoc = JsonDocument.Parse(configJson);
+            string? nestedServiceId = null;
+            foreach (var service in configDoc.RootElement.GetProperty("logicBlocks")[0].GetProperty("services").EnumerateArray())
+            {
+                if (service.GetProperty("identifier").GetString() == "PointA")
+                {
+                    nestedServiceId = service.GetProperty("id").GetString();
+                }
+            }
+
+            Assert.IsNotNull(nestedServiceId, "The interface-bound member should surface as its own service.");
+
+            var stopwatch = Stopwatch.StartNew();
+            var setResponse = await client.PostAsJsonAsync($"/api/dale/property/{nestedServiceId}/NestedThreshold", new { value = 42.5 });
+            stopwatch.Stop();
+            Assert.AreEqual(HttpStatusCode.OK, setResponse.StatusCode);
+            Assert.IsTrue(stopwatch.Elapsed < TimeSpan.FromSeconds(4),
+                          $"The write should ack via the value-changed event, not burn the 5 s timeout (took {stopwatch.Elapsed.TotalMilliseconds:F0} ms).");
+
+            double? value = null;
+            for (var i = 0; i < 50 && value != 42.5; i++)
+            {
+                var stateResponse = await client.GetAsync("/api/state/multi/NestedThreshold");
+                Assert.AreEqual(HttpStatusCode.OK, stateResponse.StatusCode);
+                using var stateDoc = JsonDocument.Parse(await stateResponse.Content.ReadAsStringAsync());
+                var v = stateDoc.RootElement.GetProperty("value");
+                if (v.ValueKind == JsonValueKind.Number)
+                {
+                    value = v.GetDouble();
+                }
+
+                if (value != 42.5)
+                {
+                    await Task.Delay(100);
+                }
+            }
+
+            Assert.AreEqual(42.5, value, "The JSON value must decode against the nested member's CLR property and apply.");
         }
 
         [TestMethod]
@@ -199,6 +257,14 @@ namespace Vion.Dale.DevHost.Test
                                       "/dayjs.relativeTime.min.js",
                                       "/dayjs.duration.min.js",
                                       "/dayjs.localizedFormat.min.js",
+                                      "/vue.esm-browser.prod.js",
+                                      "/app.js",
+                                      "/app.css",
+                                      "/tokens.css",
+                                      "/MonaSans-Variable.ttf",
+                                      "/store.js",
+                                      "/components.js",
+                                      "/format.js",
                                       "/THIRD-PARTY-NOTICES.txt",
                                   })
             {
