@@ -44,6 +44,18 @@ namespace Vion.Dale.DevHost.Mocking
                     HandleSetPropertyRequest(actorContext, m);
                     break;
 
+                case SetServicePropertyValueResponse m:
+                    // The block applied the write and replied. It sends its ServicePropertyValueChanged
+                    // DURING the apply and this response AFTER it — same sender, same receiver, so by FIFO
+                    // the changed-message has already been processed when this arrives: the ack signal can
+                    // never overtake the published value. Unlike a change event, a response exists ONLY per
+                    // actual write, so a stale in-flight publish (e.g. the block's initial startup state)
+                    // can never satisfy a pending set's ack — and a no-op write (dedup'd, no change event)
+                    // still acks promptly instead of riding out the timeout.
+                    _logger.LogDebug("Set property applied: {ServiceIdentifier}.{Property}", m.ServiceIdentifier, m.PropertyIdentifier);
+                    _devHostEvents.RaiseServicePropertyWriteAcknowledged(m.ServiceIdentifier.ToString(), m.PropertyIdentifier, m.Value);
+                    break;
+
                 case LinkLogicBlockServiceActors m: // Initialization
                     _logger.LogInformation("Linked {Count} service actors", m.ServiceLogicBlockActorReferences.Count);
                     break;

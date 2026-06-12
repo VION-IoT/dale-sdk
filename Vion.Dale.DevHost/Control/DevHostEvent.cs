@@ -14,6 +14,13 @@ namespace Vion.Dale.DevHost.Control
 
     public sealed record ServicePropertyChanged(string LogicBlockId, string ServiceId, string Property, object? Value) : DevHostEvent;
 
+    /// <summary>
+    ///     A service-property write completed its round trip (applied by the block, value read back).
+    ///     Exists only per actual write — the control surface's ack correlation, immune to stale
+    ///     in-flight publishes; fires for no-op writes too (which raise no <see cref="ServicePropertyChanged" />).
+    /// </summary>
+    public sealed record ServicePropertyWriteAcknowledged(string LogicBlockId, string ServiceId, string Property, object? Value) : DevHostEvent;
+
     public sealed record ServiceMeasuringPointChanged(string LogicBlockId, string ServiceId, string MeasuringPoint, object? Value) : DevHostEvent;
 
     public sealed record DigitalInputChanged(string ServiceProviderId, string ServiceId, string ContractId, bool Value) : DevHostEvent;

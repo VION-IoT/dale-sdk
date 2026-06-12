@@ -56,14 +56,10 @@ namespace Vion.Dale.DevHost.Test
             await using var host = BuildHost();
             await host.StartAsync();
 
-            // Settle the block's INITIAL startup publishes first: the set's ack matches any change event
-            // for the member, so a still-in-flight initial publish (Counter=0) can complete the ack
-            // before the write applies — observed once on a loaded CI runner (ack in 18 ms, read 0).
-            // Once the initial value is cached, no stale event remains and the ack below can only
-            // complete on the genuine apply. The runtime-side hardening of the ack is tracked separately.
-            await WaitForInitialValueAsync(host, "counter", "Counter");
-            await WaitForInitialValueAsync(host, "counter", "ControlInterval");
-
+            // Deliberately written IMMEDIATELY after StartAsync, racing the block's initial startup
+            // publishes: the ack is correlated with the write's own round trip (the block's response),
+            // so a stale in-flight publish can never satisfy it — the regression a change-event-based
+            // ack had (CI caught it: ack in 18 ms, read 0).
             await host.Control.SetPropertyAsync("counter", "Counter", 99);
             Assert.AreEqual(99, Convert.ToInt32(host.Control.GetProperty("counter", "Counter")), "int read-after-write must be immediate after the await.");
 
@@ -71,6 +67,24 @@ namespace Vion.Dale.DevHost.Test
             Assert.AreEqual(TimeSpan.FromSeconds(60),
                             (TimeSpan)host.Control.GetProperty("counter", "ControlInterval")!,
                             "TimeSpan read-after-write must be immediate after the await.");
+        }
+
+        [TestMethod]
+        public async Task SetPropertyAsync_AcksNoOpWritesPromptly()
+        {
+            // A write that doesn't change the value raises no change event ([Observable] dedup); the ack
+            // must come from the write's own round-trip response instead of riding out the 5 s timeout.
+            await using var host = BuildHost();
+            await host.StartAsync();
+
+            await host.Control.SetPropertyAsync("counter", "Counter", 7);
+
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            await host.Control.SetPropertyAsync("counter", "Counter", 7);
+            stopwatch.Stop();
+
+            Assert.IsLessThan(2000, stopwatch.Elapsed.TotalMilliseconds, "a no-op write must ack on its response, not the timeout.");
+            Assert.AreEqual(7, Convert.ToInt32(host.Control.GetProperty("counter", "Counter")));
         }
 
         [TestMethod]
@@ -226,24 +240,6 @@ namespace Vion.Dale.DevHost.Test
         private static DevConfiguration Config()
         {
             return DevConfigurationBuilder.Create().AddLogicBlock<CounterBlock>("counter").Build();
-        }
-
-        // Poll until a member's initial startup publish has landed in the value cache (10 s deadline) —
-        // see the read-after-write test for why writes must not race the initial publishes.
-        private static async Task WaitForInitialValueAsync(IDevHost host, string block, string member)
-        {
-            var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(10);
-            while (DateTimeOffset.UtcNow < deadline)
-            {
-                if (host.Control.GetProperty(block, member) is not null)
-                {
-                    return;
-                }
-
-                await Task.Delay(50);
-            }
-
-            Assert.Fail($"{block}.{member} never published its initial value.");
         }
 
         private static IDevHost BuildHost()

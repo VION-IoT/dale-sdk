@@ -40,9 +40,10 @@ namespace Vion.Dale.DevHost.Scenarios
     /// </summary>
     public static class ScenarioRunner
     {
-        // SetPropertyAsync acks by waiting up to a fixed 5 s for the re-published change event; an ack that
-        // consumed the whole window means either a no-op set or an actor-side rejection that was swallowed
-        // (the hollow-ack gotcha). Treat anything at or above this as "no change event observed".
+        // SetPropertyAsync acks on the write's own round-trip response, with a fixed 5 s safety timeout.
+        // Applied writes — including no-op sets — ack promptly; an ack that consumed the whole window
+        // means the block never replied: an actor-side rejection that was swallowed (the hollow-ack
+        // gotcha) or a lost message.
         private const double AckCeilingMs = 4900;
 
         private const double DefaultWaitUntilTimeoutSeconds = 20;
@@ -314,12 +315,11 @@ namespace Vion.Dale.DevHost.Scenarios
                                      .ConfigureAwait(false);
                         if (stopwatch.Elapsed.TotalMilliseconds >= AckCeilingMs)
                         {
-                            // The ack consumed its whole window: either the set didn't change the value
-                            // (legitimate, e.g. idempotent setup) or the actor-side apply threw and was
-                            // swallowed (the hollow ack). A swallowed exception on the SET-VALUE message is
-                            // the one observable difference — surface it as the RFC's "rejected write"
-                            // failure. The middleware logs the message type, so requiring it in the match
-                            // keeps unrelated block exceptions from failing a healthy no-op set.
+                            // The block never acknowledged the write — applied writes, no-ops included,
+                            // ack promptly on their round-trip response. A swallowed exception on the
+                            // SET-VALUE message is the observable cause — surface it as the RFC's
+                            // "rejected write" failure. The middleware logs the message type, so
+                            // requiring it in the match keeps unrelated block exceptions out.
                             var rejection = control.RecentLogs()
                                                    .LastOrDefault(l => l.Timestamp >= startedAt && l.Message.Contains("[EXCEPTION CAUGHT]", StringComparison.Ordinal) &&
                                                                        l.Message.Contains("SetServicePropertyValue", StringComparison.Ordinal));
@@ -330,7 +330,7 @@ namespace Vion.Dale.DevHost.Scenarios
                                 return false;
                             }
 
-                            result.Detail = "acked without a change event — the value may already have had this value";
+                            result.Detail = "the block never acknowledged this write — it may not have been applied";
                         }
 
                         break;
