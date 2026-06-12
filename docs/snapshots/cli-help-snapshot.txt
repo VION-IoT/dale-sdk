@@ -13,10 +13,11 @@ Options:
 
 Commands:
   new <name>  Create a new LogicBlock library project
-  build       Build the project
-  test        Run tests
-  dev         Start the DevHost with web UI
+  build       Build the project (unrecognized options are forwarded to dotnet build, e.g. -c Release)
+  test        Run tests (unrecognized options are forwarded to dotnet test, e.g. --filter)
+  dev         Start the DevHost with web UI (extra arguments are forwarded to the DevHost app)
   list        Show project info (logic blocks, contracts, properties, etc.)
+  scenario    Work with *.scenario.json files (RFC 0006): run, validate, generate the editor schema, open in the Player
   add         Add elements to a LogicBlock project
   pack        Pack project into a NuGet package
   upload      Pack and upload library to Vion Cloud
@@ -46,45 +47,56 @@ Options:
 ---
 ## dale build
 Description:
-  Build the project
+  Build the project (unrecognized options are forwarded to dotnet build, e.g. -c Release)
 
 Usage:
-  Vion.Dale.Cli build [options]
+  Vion.Dale.Cli build [options] [[--] <additional arguments>...]]
 
 Options:
   -?, -h, --help             Show help and usage information
   -o, --output <json|table>  Output format [default: table]
   --project <project>        Path to .csproj file
   --verbose                  Show detailed output
+
+Additional Arguments:
+  Arguments passed to the application that is being run.
 
 ---
 ## dale test
 Description:
-  Run tests
+  Run tests (unrecognized options are forwarded to dotnet test, e.g. --filter)
 
 Usage:
-  Vion.Dale.Cli test [options]
+  Vion.Dale.Cli test [options] [[--] <additional arguments>...]]
 
 Options:
   -?, -h, --help             Show help and usage information
   -o, --output <json|table>  Output format [default: table]
   --project <project>        Path to .csproj file
   --verbose                  Show detailed output
+
+Additional Arguments:
+  Arguments passed to the application that is being run.
 
 ---
 ## dale dev
 Description:
-  Start the DevHost with web UI
+  Start the DevHost with web UI (extra arguments are forwarded to the DevHost app)
 
 Usage:
-  Vion.Dale.Cli dev [options]
+  Vion.Dale.Cli dev [options] [[--] <additional arguments>...]]
 
 Options:
-  --headless                 Run without opening a browser. Serves the control API and prints a JSON readiness line on stdout — for tools, CI, and agents.
-  -?, -h, --help             Show help and usage information
-  -o, --output <json|table>  Output format [default: table]
-  --project <project>        Path to .csproj file
-  --verbose                  Show detailed output
+  --headless                           Run without opening a browser. Serves the control API and prints a JSON readiness line on stdout — for tools, CI, and agents.
+  --export-config <export-config>      Boot the wired network, write its configuration (block names, services, schemas, topology) as JSON to this file, and exit — the data source for `dale scenario validate` and `dale scenario schema` (RFC 0006).
+  --export-topology <export-topology>  Boot the wired network, write it as a *.topology.json dev profile to this file, and exit — the migration path from C# presets to topology files (RFC 0006 R5).
+  -?, -h, --help                       Show help and usage information
+  -o, --output <json|table>            Output format [default: table]
+  --project <project>                  Path to .csproj file
+  --verbose                            Show detailed output
+
+Additional Arguments:
+  Arguments passed to the application that is being run.
 
 ---
 ## dale list
