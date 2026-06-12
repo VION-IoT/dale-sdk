@@ -5,8 +5,10 @@ name: Pack & Publish
 #     this workflow triggers on, reusing the pack build — see the Code Style section in
 #     CLAUDE.md and VION-IoT/shared-workflows actions/dotnet-gate.
 #   - drift-and-docs: dale-sdk specific — snapshot regen, drift detection,
-#     auto-commit on PRs and on main, push API reference to documentation
-#     on main
+#     auto-commit on PR heads (main is branch-protected: bot pushes are
+#     impossible AND unnecessary — every change lands via a PR whose run
+#     already refreshed the snapshots; main drift only warns), push API
+#     reference to documentation on main
 #
 # Both jobs are gated on github.actor != github-actions[bot] so the snapshot
 # auto-commit's push triggers an empty (skipped) workflow run instead of an
@@ -110,36 +112,52 @@ jobs:
             --version ${{ steps.version.outputs.version }} \
             --no-cache
 
-      # Auto-commits the regenerated snapshot back to the PR head or to main
-      # itself when a feature was pushed direct-to-main. On main, the resulting
-      # commit becomes the new HEAD, so the HEAD~1-vs-HEAD diff in the notify
-      # steps below sees the API-surface change instead of stale-vs-stale.
-      - name: Update snapshots (auto-commit)
+      # Auto-commits the regenerated snapshot back to the PR head — before merge, so main always
+      # receives fresh snapshots through the PR itself and the HEAD~1-vs-HEAD diff in the notify
+      # steps below sees the API-surface change. On main this only WARNS: main is branch-protected
+      # (PRs + required checks only), so the bot cannot push to it — and doesn't need to, since
+      # every change reaches main via a PR whose run refreshed the snapshots. Residual drift
+      # (generator nondeterminism, paths-ignore edge cases) self-heals on the next PR.
+      - name: Regenerate snapshots
+        id: snapshots
         if: steps.version.outputs.is_release == 'false' && (github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))
         run: |
           cp /tmp/publicapi-current.json docs/snapshots/publicapi-manifest.json
 
           {
             dale -h
-            for cmd in new build test dev list add pack upload login logout whoami config; do
+            for cmd in new build test dev list add pack upload login logout whoami config scenario; do
               echo "---"
               echo "## dale $cmd"
               dale $cmd -h 2>&1
             done
           } > docs/snapshots/cli-help-snapshot.txt
 
+          git add docs/snapshots/publicapi-manifest.json docs/snapshots/cli-help-snapshot.txt
+          if git diff --cached --quiet; then
+            echo "drift=false" >> "$GITHUB_OUTPUT"
+            echo "Snapshots are up to date"
+          else
+            echo "drift=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit snapshots to the PR head
+        if: steps.snapshots.outputs.drift == 'true' && github.event_name == 'pull_request'
+        run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/snapshots/publicapi-manifest.json docs/snapshots/cli-help-snapshot.txt
-          if ! git diff --cached --quiet; then
-            # No [skip ci] marker — the job-level actor guard above breaks
-            # the loop when the resulting push retriggers the workflow.
-            git commit -m "Update PublicApi manifest and CLI help snapshot"
-            git push origin HEAD:${{ github.head_ref || github.ref_name }}
-            echo "::notice::Auto-updated docs snapshots"
-          else
-            echo "Snapshots are up to date"
-          fi
+          # No [skip ci] marker — the job-level actor guard above breaks
+          # the loop when the resulting push retriggers the workflow.
+          git commit -m "Update PublicApi manifest and CLI help snapshot"
+          git push origin HEAD:${{ github.head_ref }}
+          echo "::notice::Auto-updated docs snapshots"
+
+      - name: Report snapshot drift on main (warn only — branch protection forbids bot pushes)
+        if: steps.snapshots.outputs.drift == 'true' && github.event_name == 'push'
+        run: |
+          echo "::warning::Docs snapshots drifted on main. They self-heal with the next PR's auto-commit; to fix sooner, regenerate them in any PR."
+          git diff --cached --stat
+          git reset --hard HEAD
 
       - name: Notify architecture of PublicApi surface changes (main only)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
