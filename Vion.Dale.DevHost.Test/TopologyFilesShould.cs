@@ -50,7 +50,7 @@ namespace Vion.Dale.DevHost.Test
                 await Task.Delay(100);
             }
 
-            Assert.IsTrue(host.Control.GetProperty("sink", "ReceivedPolls") as int? > 0, "the file-declared interface mapping should carry the startup poll");
+            Assert.IsGreaterThan(0, host.Control.GetProperty("sink", "ReceivedPolls") as int? ?? 0, "the file-declared interface mapping should carry the startup poll");
         }
 
         [TestMethod]
@@ -81,7 +81,7 @@ namespace Vion.Dale.DevHost.Test
 
             Assert.AreEqual("round-trip", reloaded.TopologyName);
             CollectionAssert.AreEquivalent(preset.LogicBlocks.Select(b => b.Name).ToList(), reloaded.LogicBlocks.Select(b => b.Name).ToList());
-            Assert.AreEqual(preset.InterfaceMappings.Count, reloaded.InterfaceMappings.Count);
+            Assert.HasCount(preset.InterfaceMappings.Count, reloaded.InterfaceMappings);
             Assert.AreEqual(preset.InterfaceMappings[0].SourceInterfaceIdentifier, reloaded.InterfaceMappings[0].SourceInterfaceIdentifier);
         }
 
