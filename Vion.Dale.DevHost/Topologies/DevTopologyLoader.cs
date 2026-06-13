@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.Loader;
 using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.DevHost.Topologies
@@ -108,12 +110,84 @@ namespace Vion.Dale.DevHost.Topologies
         }
 
         // Full-name resolution against everything already loaded; Type.GetType additionally handles
-        // assembly-qualified names. Lazy-loaded assemblies are the caller's concern — a DevHost
-        // Program.cs references its block libraries, which are loaded by the time it wires DI.
+        // assembly-qualified names. When the declaring assembly is REFERENCED but not yet LOADED, fall back
+        // to probing the application base directory, where a referenced library's assembly sits at build
+        // time. This matters for an in-process host — especially an xunit test host, which does NOT eagerly
+        // load a test project's references, so a file-backed topology that names blocks by typeFullName only
+        // would otherwise resolve order-dependently (passing only if some other fixture happened to load the
+        // library first). The probe removes that and the GC.KeepAlive ModuleInitializer shim a consumer would
+        // otherwise need (DF-14). The DevHost app itself never reaches the fallback — it instantiates blocks
+        // at startup, so their assemblies are already loaded.
         private static Type? ResolveType(string typeFullName)
         {
-            var fromLoaded = AppDomain.CurrentDomain.GetAssemblies().Where(a => !a.IsDynamic).Select(a => a.GetType(typeFullName, false)).FirstOrDefault(t => t is not null);
-            return fromLoaded ?? Type.GetType(typeFullName, false);
+            var loaded = FindInLoadedAssemblies(typeFullName) ?? Type.GetType(typeFullName, false);
+            if (loaded is not null)
+            {
+                return loaded;
+            }
+
+            foreach (var path in ProbeAssemblyPaths())
+            {
+                Assembly assembly;
+                try
+                {
+                    assembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(path);
+                }
+                catch
+                {
+                    // Not a managed assembly loadable into the default context (native / resource dll, etc.).
+                    continue;
+                }
+
+                var type = assembly.GetType(typeFullName, false);
+                if (type is not null)
+                {
+                    return type;
+                }
+            }
+
+            return null;
+        }
+
+        private static Type? FindInLoadedAssemblies(string typeFullName)
+        {
+            return AppDomain.CurrentDomain.GetAssemblies().Where(a => !a.IsDynamic).Select(a => a.GetType(typeFullName, false)).FirstOrDefault(t => t is not null);
+        }
+
+        // Managed assemblies in the app base directory that aren't already loaded — the referenced-but-unloaded
+        // libraries an in-process host (especially a test host) may not have touched yet. The scan stops at the
+        // first assembly that declares the wanted type, so the only-error path (genuinely missing type) is the
+        // one that walks the whole directory.
+        private static IEnumerable<string> ProbeAssemblyPaths()
+        {
+            var baseDirectory = AppContext.BaseDirectory;
+            if (string.IsNullOrEmpty(baseDirectory) || !Directory.Exists(baseDirectory))
+            {
+                return Array.Empty<string>();
+            }
+
+            var loadedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                if (assembly.IsDynamic)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    if (!string.IsNullOrEmpty(assembly.Location))
+                    {
+                        loadedPaths.Add(assembly.Location);
+                    }
+                }
+                catch
+                {
+                    // In-memory assemblies throw on .Location — nothing to dedupe against, skip.
+                }
+            }
+
+            return Directory.EnumerateFiles(baseDirectory, "*.dll").Where(path => !loadedPaths.Contains(path));
         }
     }
 

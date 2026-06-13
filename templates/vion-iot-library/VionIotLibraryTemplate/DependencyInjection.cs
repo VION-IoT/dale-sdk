@@ -7,8 +7,7 @@ namespace VionIotLibraryTemplate
     {
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddTransient<HelloWorld>();
-            services.AddTransient<SmartLedController>();
+            services.AddTransient<Thermostat>();
         }
     }
 }

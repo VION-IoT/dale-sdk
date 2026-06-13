@@ -3,6 +3,17 @@
 This is a Dale LogicBlock library. LogicBlocks are actor-based IoT computation
 units built on the Dale SDK by Vion-IoT.
 
+## Start here
+
+The library ships one worked example, `Thermostat` — a self-contained control loop
+(setpoint → heat/cool → temperature) that shows the core SDK surface with **no hardware**:
+writable config, a colour-coded status pill (an enum with `[Severity]` + `[EnumLabel]`),
+live unit-bearing measuring points, members that are **both** a property and a metric (the
+cross-fill rule — metadata declared once on `[ServiceProperty]`, inherited by a bare
+`[ServiceMeasuringPoint]`), a `TotalIncreasing` accumulator, and a `[Timer]`. Run `dale dev`
+and open it. `scenarios/thermostat.scenario.json` drives it end to end (RFC 0006) — run it with
+`dale scenario run thermostat` while `dale dev` is up, or open it in the Player.
+
 ## CLI
 
 Use the `dale` CLI instead of raw dotnet commands:
@@ -14,6 +25,10 @@ dale dev                  # start the DevHost with web UI at localhost:5000
 dale list                 # show logic blocks, contracts, properties, interfaces
 dale list --verbose       # show full detail
 dale pack                 # create .nupkg for deployment
+
+dale scenario validate           # check scenarios/*.scenario.json against the wired host (RFC 0006)
+dale scenario run <id>           # drive a scenario against `dale dev` and report the result
+dale scenario scaffold <id>      # graduate a scenario into a typed C# test
 
 dale add logicblock <Name>                                    # new LogicBlock class
 dale add serviceproperty <Name> --type <type> --to <Block>    # add a writable property
@@ -122,38 +137,53 @@ dale dev
 
 Works from the solution directory, library project directory, or DevHost directory.
 
-## Headless control (for CI & agents)
+## Verifying headlessly (for CI & agents)
 
-The DevHost boots the *real* wired multi-block network (unlike TestKit, which stubs every collaborator), and
-it can be driven and observed without the browser — to catch bugs that only appear in the wired,
-real-messaging path (e.g. a block that never actually sends the request a unit test hand-feeds it).
+The DevHost boots the *real* wired network (unlike TestKit, which stubs every collaborator), so it catches
+bugs that only appear in the wired, real-messaging path (e.g. a block that never actually sends the request a
+unit test hand-feeds it). Three ways to drive it without a browser, in order of what to reach for:
 
-**In-process (integration tests — the recommended way).** Add a `Vion.Dale.DevHost` reference to a test
-project and drive the network through `IDevHost.Control` (`IDevHostControl`):
+**1. Scenario files (RFC 0006) — the committed, replayable artifact.** A `scenarios/*.scenario.json` file
+describes setup → ordered stimuli → a watch list → human judgments, consumed identically by the Player, by
+CI, and by agents (see `scenarios/thermostat.scenario.json`):
+
+```bash
+dale scenario validate            # resolve every name path + topology against the wired host — OFFLINE; the PR gate
+dale scenario run thermostat      # execute it against `dale dev --headless` and print the Player's report
+```
+
+An agent stages a human's verification view simply by committing a scenario and citing its **id** in the PR.
+For in-CI *execution* (beyond `validate`), hand-write a one-line xunit theory over
+`ScenarioRunner.RunAsync(id, host.Control, scenariosDir)` — the generic `[ScenarioFiles]` attribute is not
+shipped yet.
+
+**2. In-process `IDevHostControl`** — the building block the scenario runner sits on. Add a
+`Vion.Dale.DevHost` reference to a test project and drive the wired network directly:
 
 ```csharp
 await using var host = DevHostBuilder.Create()
     .WithDi<DependencyInjection>()
-    .WithConfiguration(DevConfigurationBuilder.Create().AddLogicBlock<MyBlock>("my").AutoConnect().Build())
+    .WithConfiguration(DevConfigurationBuilder.Create().WithTopologyName("thermostat").AddLogicBlock<Thermostat>("Thermostat").Build())
     .Build();
 await host.StartAsync();
 
-await host.Control.SetPropertyAsync("my", "SomeKnob", 16.0);          // set an input
+await host.Control.SetPropertyAsync("Thermostat", "TargetTemperature", 24.0);   // set an input
+
+// Wait for an outcome — the live runtime has no synchronous time-step, so observe events:
+var state = await host.Control.WaitForAsync(
+    e => e is ServicePropertyChanged { Property: "State" } sp ? sp.Value : null, TimeSpan.FromSeconds(5));
 
 // Read state — service properties AND measuring points (for asserting calculations):
-var metric = host.Control.GetProperty("my", "SomeMetric");
+var temperature = host.Control.GetProperty("Thermostat", "CurrentTemperature");
 
-// Wait for a future change (condition-based; the live runtime has no synchronous time-step):
-var v = await host.Control.WaitForAsync(
-    e => e is ServicePropertyChanged { Property: "SomeMetric" } sp ? sp.Value : null, TimeSpan.FromSeconds(5));
-
-// Assert what another block actually received (the multi-block analogue of TestKit's Verify*):
-var msgs = host.Control.RecordedMessages("other-block");
-
-// Read the console programmatically:
-foreach (var line in host.Control.RecentLogs()) TestContext.WriteLine(line.ToString());
+// With multiple blocks, assert what a collaborator actually received (the wired analogue of TestKit's
+// Verify*): host.Control.RecordedMessages("other-block"). Read the console: host.Control.RecentLogs().
 ```
 
-**Over HTTP (external tools / scripts).** While `dale dev` runs, the same `/api` the web UI uses also serves
-read endpoints: `GET /api/logicblocks`, `GET /api/state/{logicBlock}[/{property}]`, `GET /api/logs/recent`,
-`GET /api/messages?logicBlock={name}`, alongside the existing `POST /api/dale/property/...` to set values.
+(This is wall-clock — the `[Timer(1)]` fires once a real second — so observe events with `WaitForAsync`
+rather than expecting a synchronous step.)
+
+**3. Over HTTP (external tools / scripts).** While `dale dev` runs, the same `/api` the web UI uses serves
+`GET /api/configuration`, `/api/logicblocks`, `/api/state/{logicBlock}[/{property}]`, `/api/logs/recent`,
+`/api/messages?logicBlock={name}`, the scenario endpoints (`GET /api/scenarios`,
+`POST /api/scenarios/{id}/apply`), and `POST /api/dale/property/...` to set values.

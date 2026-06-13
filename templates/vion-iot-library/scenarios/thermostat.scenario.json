@@ -1,0 +1,25 @@
+{
+  "$schema": "./.dale/scenario.schema.json",
+  "version": 1,
+  "id": "thermostat",
+  "title": "Thermostat heats to the setpoint",
+  "description": "Raise the target temperature from a cold start and watch the room warm up — the State pill goes Heating, then Idle once it arrives.",
+  "topology": "thermostat",
+  "setup": [
+    { "set": "Thermostat.Mode", "value": "Auto" },
+    { "set": "Thermostat.CurrentTemperature", "value": 20.0 }
+  ],
+  "steps": [
+    { "label": "Ask for 24 °C", "set": "Thermostat.TargetTemperature", "value": 24.0 },
+    { "label": "Room warms past 22 °C", "waitUntil": { "property": "Thermostat.CurrentTemperature", "above": 22.0 }, "timeoutSeconds": 60 }
+  ],
+  "watch": [
+    "Thermostat.CurrentTemperature",
+    "Thermostat.State",
+    "Thermostat.EnergyUsedKwh"
+  ],
+  "judge": [
+    { "text": "The State pill shows Heating while warming, then settles on Idle near the setpoint" },
+    { "text": "CurrentTemperature reaches ~24 °C without a large overshoot" }
+  ]
+}

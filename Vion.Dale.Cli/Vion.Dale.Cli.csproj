@@ -99,12 +99,14 @@
                                      Exclude="$(_BundledTemplateSourceDir)**\bin\**;$(_BundledTemplateSourceDir)**\obj\**;$(_BundledTemplateSourceDir)**\publish\**;$(_BundledTemplateSourceDir)**\_ReSharper*\**;$(_BundledTemplateSourceDir)**\.vs\**"/>
     </ItemGroup>
 
-    <!-- Stage the template into obj/BundledTemplate/ before Content is collected. -->
+    <!-- Stage the template into obj/BundledTemplate/ before Content is collected. The staging dir is wiped
+         first so files DELETED from the source template (e.g. a removed example block) don't linger in
+         incremental builds and ship stale — the staged copy always mirrors the source exactly. -->
     <Target Name="StageBundledTemplate" BeforeTargets="AssignTargetPaths;CollectPackageReferences">
+        <RemoveDir Directories="$(_BundledTemplateStagingDir)"/>
         <MakeDir Directories="$(_BundledTemplateStagingDir)"/>
         <Copy SourceFiles="@(_BundledTemplateSourceFiles)"
-              DestinationFiles="@(_BundledTemplateSourceFiles->'$(_BundledTemplateStagingDir)%(RecursiveDir)%(Filename)%(Extension)')"
-              SkipUnchangedFiles="true"/>
+              DestinationFiles="@(_BundledTemplateSourceFiles->'$(_BundledTemplateStagingDir)%(RecursiveDir)%(Filename)%(Extension)')"/>
         <ItemGroup>
             <_BundledTemplateStagedCsprojs Include="$(_BundledTemplateStagingDir)**\*.csproj"/>
         </ItemGroup>
