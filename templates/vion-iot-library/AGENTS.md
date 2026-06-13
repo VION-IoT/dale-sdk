@@ -3,6 +3,17 @@
 This is a Dale LogicBlock library. LogicBlocks are actor-based IoT computation
 units built on the Dale SDK by Vion-IoT.
 
+## Start here
+
+The library ships one worked example, `Thermostat` — a self-contained control loop
+(setpoint → heat/cool → temperature) that shows the core SDK surface with **no hardware**:
+writable config, a colour-coded status pill (an enum with `[Severity]` + `[EnumLabel]`),
+live unit-bearing measuring points, members that are **both** a property and a metric (the
+cross-fill rule — metadata declared once on `[ServiceProperty]`, inherited by a bare
+`[ServiceMeasuringPoint]`), a `TotalIncreasing` accumulator, and a `[Timer]`. Run `dale dev`
+and open it. `scenarios/thermostat.scenario.json` drives it end to end (RFC 0006) — run it with
+`dale scenario run thermostat` while `dale dev` is up, or open it in the Player.
+
 ## CLI
 
 Use the `dale` CLI instead of raw dotnet commands:
@@ -14,6 +25,10 @@ dale dev                  # start the DevHost with web UI at localhost:5000
 dale list                 # show logic blocks, contracts, properties, interfaces
 dale list --verbose       # show full detail
 dale pack                 # create .nupkg for deployment
+
+dale scenario validate           # check scenarios/*.scenario.json against the wired host (RFC 0006)
+dale scenario run <id>           # drive a scenario against `dale dev` and report the result
+dale scenario scaffold <id>      # graduate a scenario into a typed C# test
 
 dale add logicblock <Name>                                    # new LogicBlock class
 dale add serviceproperty <Name> --type <type> --to <Block>    # add a writable property
