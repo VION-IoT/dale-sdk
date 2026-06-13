@@ -99,9 +99,9 @@ namespace Vion.Dale.DevHost.Topologies
                     throw new InvalidDataException($"contractMappings: block '{mapping.LogicBlockName}' has no contract '{mapping.ContractIdentifier}'");
                 }
 
-                existing.ServiceProviderIdentifier = mapping.ServiceProviderIdentifier ?? existing.ServiceProviderIdentifier;
-                existing.ServiceIdentifier = mapping.ServiceIdentifier ?? existing.ServiceIdentifier;
-                existing.ContractEndpointIdentifier = mapping.ContractEndpointIdentifier ?? existing.ContractEndpointIdentifier;
+                existing.ServiceProviderIdentifier = mapping.MappedServiceProviderIdentifier ?? existing.ServiceProviderIdentifier;
+                existing.ServiceIdentifier = mapping.MappedServiceIdentifier ?? existing.ServiceIdentifier;
+                existing.ContractEndpointIdentifier = mapping.MappedContractIdentifier ?? existing.ContractEndpointIdentifier;
             }
 
             return configuration;

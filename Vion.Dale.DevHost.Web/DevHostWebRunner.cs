@@ -58,7 +58,7 @@ namespace Vion.Dale.DevHost.Web
             {
                 // Single-line, parseable readiness signal — lets an agent that spawned this process know
                 // the network is up and on which port before it starts driving /api.
-                Console.WriteLine($"{{\"ready\":true,\"port\":{port}}}");
+                WriteJsonLine(new { ready = true, port });
             }
             else
             {
@@ -119,13 +119,15 @@ namespace Vion.Dale.DevHost.Web
 
                 if (TryExport(host))
                 {
-                    await host.StopAsync(CancellationToken.None);
+                    // `await using var host` (above) disposes — and stops — the host exactly once when this
+                    // returns. An explicit StopAsync here would make DisposeAsync stop an already-stopped,
+                    // disposed host, throwing ObjectDisposedException from WebHostService.StopAsync (DF-08).
                     return;
                 }
 
                 if (headless)
                 {
-                    Console.WriteLine($"{{\"ready\":true,\"port\":{port},\"generation\":{generation}}}");
+                    WriteJsonLine(new { ready = true, port, generation });
                 }
                 else if (generation == 1)
                 {
@@ -178,7 +180,7 @@ namespace Vion.Dale.DevHost.Web
                                   WriteIndented = true,
                               };
                 File.WriteAllText(configPath, JsonSerializer.Serialize(host.Control.GetConfiguration(), options));
-                Console.WriteLine($"{{\"exported\":\"{configPath.Replace("\\", "\\\\")}\"}}");
+                WriteJsonLine(new { exported = configPath });
                 exported = true;
             }
 
@@ -186,11 +188,19 @@ namespace Vion.Dale.DevHost.Web
             if (!string.IsNullOrEmpty(topologyPath))
             {
                 File.WriteAllText(topologyPath, DevTopologyFile.FromConfiguration(host.Control.GetConfiguration()).ToJson());
-                Console.WriteLine($"{{\"exported\":\"{topologyPath.Replace("\\", "\\\\")}\"}}");
+                WriteJsonLine(new { exported = topologyPath });
                 exported = true;
             }
 
             return exported;
+        }
+
+        // Machine-readable single-line JSON receipts for tools/agents parsing stdout (readiness signals,
+        // export receipts). JsonSerializer escapes paths correctly — notably backslashes on Windows — so the
+        // receipt stays valid JSON without hand-rolled string building (DF-13).
+        private static void WriteJsonLine(object value)
+        {
+            Console.WriteLine(JsonSerializer.Serialize(value));
         }
 
         private static void OpenBrowser(string url)

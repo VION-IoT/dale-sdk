@@ -86,6 +86,72 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        public void ExportEmitsConvergedContractFieldNamesAndASchemaRef()
+        {
+            // DF-11: the topology contract-mapping field names converged on ConfigurationOutput's `mapped*`
+            // convention, and export now emits a real $schema ref (was null) so editors can validate.
+            var file = new DevTopologyFile
+                       {
+                           Schema = DevTopologyFile.SchemaRef,
+                           Id = "demo",
+                           LogicBlockInstances = new[] { new TopologyLogicBlockInstance { TypeFullName = "X.Y", Name = "a" } },
+                           ContractMappings = new[]
+                                              {
+                                                  new TopologyContractMapping
+                                                  {
+                                                      LogicBlockName = "a",
+                                                      ContractIdentifier = "C",
+                                                      MappedServiceProviderIdentifier = "sp_1",
+                                                      MappedServiceIdentifier = "svc_1",
+                                                      MappedContractIdentifier = "C",
+                                                  },
+                                              },
+                       };
+
+            var json = file.ToJson();
+            StringAssert.Contains(json, "\"$schema\": \"./.dale/topology.schema.json\"");
+            StringAssert.Contains(json, "\"mappedServiceProviderIdentifier\": \"sp_1\"");
+            StringAssert.Contains(json, "\"mappedServiceIdentifier\": \"svc_1\"");
+            StringAssert.Contains(json, "\"mappedContractIdentifier\": \"C\"");
+
+            var reparsed = DevTopologyFile.Parse(json);
+            Assert.AreEqual("sp_1", reparsed.ContractMappings![0].MappedServiceProviderIdentifier);
+        }
+
+        [TestMethod]
+        public void RejectsTheOldUnprefixedContractFieldNames()
+        {
+            // The convergence is a real (preview) break — strict parsing rejects the pre-convergence field
+            // names, so a stale hand-edit fails loudly rather than silently dropping the mapping.
+            var e = Assert.ThrowsExactly<InvalidDataException>(() => DevTopologyFile.Parse("""
+                                                                                           {
+                                                                                             "id": "demo",
+                                                                                             "logicBlockInstances": [ { "typeFullName": "X.Y", "name": "a" } ],
+                                                                                             "contractMappings": [ { "logicBlockName": "a", "contractIdentifier": "C", "serviceProviderIdentifier": "sp_1" } ]
+                                                                                           }
+                                                                                           """));
+            StringAssert.Contains(e.Message, "serviceProviderIdentifier");
+        }
+
+        [TestMethod]
+        public async Task ServeTheGenericTopologySchema()
+        {
+            // DF-12: the topology schema ships embedded and is served symmetrically to /api/scenarios/schema.
+            var port = FreePort();
+            var config = DevConfigurationBuilder.Create().WithTopologyName("counter-topology").AddLogicBlock<CounterBlock>("counter").Build();
+            await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithWebUi(port).Build();
+            await host.StartAsync();
+
+            using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
+            var response = await client.GetAsync("/api/topologies/schema");
+
+            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+            var schema = await response.Content.ReadAsStringAsync();
+            StringAssert.Contains(schema, "logicBlockInstances");
+            StringAssert.Contains(schema, "mappedServiceProviderIdentifier");
+        }
+
+        [TestMethod]
         public async Task SwitchTopologiesFromTheWebApi_RidingTheReset()
         {
             var topologiesDir = Path.Combine(Path.GetTempPath(), "dale-topologies-" + Guid.NewGuid().ToString("N"));

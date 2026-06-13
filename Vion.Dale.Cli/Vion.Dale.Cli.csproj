@@ -22,6 +22,17 @@
     </ItemGroup>
 
     <ItemGroup>
+        <!-- The generic scenario-file JSON Schema (RFC 0006), embedded so `dale scenario schema` runs
+             fully offline (no running DevHost) — same offline story as `dale scenario validate`. This
+             LINKS the single source file in Vion.Dale.DevHost rather than copying it, so the two can never
+             drift: there is one physical file, embedded into both assemblies. It is a data blob, not a code
+             reference, so the CLI's no-SDK-dependency rule still holds. -->
+        <EmbeddedResource Include="..\Vion.Dale.DevHost\Scenarios\scenario.schema.json">
+            <LogicalName>Vion.Dale.Cli.scenario.schema.json</LogicalName>
+        </EmbeddedResource>
+    </ItemGroup>
+
+    <ItemGroup>
         <PackageReference Include="System.CommandLine" Version="2.0.5"/>
         <PackageReference Include="Spectre.Console" Version="0.54.0"/>
     </ItemGroup>

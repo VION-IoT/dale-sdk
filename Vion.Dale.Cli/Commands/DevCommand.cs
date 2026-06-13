@@ -1,7 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.CommandLine;
+using System.Diagnostics;
 using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Vion.Dale.Cli.Helpers;
 using Vion.Dale.Cli.Output;
 
@@ -39,12 +43,20 @@ namespace Vion.Dale.Cli.Commands
                                        };
             command.Options.Add(exportTopologyOption);
 
+            var presetOption = new Option<string?>("--preset")
+                               {
+                                   Description =
+                                       "Pass <name> as the DevHost app's first program argument (args[0]) — the discoverable, composable form of `dale dev -- <name>` for selecting a consumer-defined preset. Combines with --export-config/--export-topology to export a non-default preset.",
+                               };
+            command.Options.Add(presetOption);
+
             command.SetAction(async (parseResult, cancellationToken) =>
                               {
                                   var projectPath = parseResult.GetValue<string?>("--project");
                                   var headless = parseResult.GetValue(headlessOption);
                                   var exportConfig = parseResult.GetValue(exportConfigOption);
                                   var exportTopology = parseResult.GetValue(exportTopologyOption);
+                                  var preset = parseResult.GetValue(presetOption);
 
                                   // The DevHost process (consumer-owned Program.cs via DevHostWebRunner) reads this
                                   // env var to skip the browser and emit a readiness line. UseShellExecute=false in
@@ -81,32 +93,123 @@ namespace Vion.Dale.Cli.Commands
                                   DaleConsole.Info(headless ? "  Control API at http://localhost:5000/api (no browser)" : "  Web UI at http://localhost:5000");
                                   DaleConsole.Blank();
 
-                                  var runArguments = BuildRunArguments(devHostCsproj, parseResult.UnmatchedTokens);
+                                  var runArguments = BuildRunArguments(devHostCsproj, parseResult.UnmatchedTokens, preset);
+
+                                  if (exportConfig != null || exportTopology != null)
+                                  {
+                                      // The env vars above already carry the absolute export paths.
+                                      var exportFiles = new List<string>();
+                                      if (exportConfig != null)
+                                      {
+                                          exportFiles.Add(Path.GetFullPath(exportConfig));
+                                      }
+
+                                      if (exportTopology != null)
+                                      {
+                                          exportFiles.Add(Path.GetFullPath(exportTopology));
+                                      }
+
+                                      return await RunWithBootWindowAsync(token => DotnetRunner.RunAsync("run", runArguments, workingDir, token),
+                                                                          () => exportFiles.All(File.Exists),
+                                                                          TimeSpan.FromSeconds(120),
+                                                                          TimeSpan.FromSeconds(15));
+                                  }
+
                                   return await DotnetRunner.RunAsync("run", runArguments, workingDir);
                               });
 
             return command;
         }
 
+        // Export modes are boot-dump-exit: DevHostWebRunner writes the file(s) and exits. A Program.cs that
+        // predates DevHostWebRunner ignores the DALE_DEVHOST_EXPORT_* env vars and runs forever — so bound
+        // the wait instead of hanging the CLI silently. Once an export file appears the host clearly honored
+        // the request (a slow cold build is fine — we only stop watching the clock then); a genuine
+        // non-cooperating hang (no file within the window) is killed with an actionable hint (DF-01). The
+        // runner and clock windows are injected so the three outcomes are unit-testable without a real
+        // process.
+        internal static async Task<int> RunWithBootWindowAsync(Func<CancellationToken, Task<int>> run,
+                                                               Func<bool> exportFilesWritten,
+                                                               TimeSpan bootWindow,
+                                                               TimeSpan graceAfterExport)
+        {
+            using var cts = new CancellationTokenSource();
+            var runTask = run(cts.Token);
+            var stopwatch = Stopwatch.StartNew();
+            TimeSpan? graceDeadline = null;
+
+            while (true)
+            {
+                if (await Task.WhenAny(runTask, Task.Delay(50)) == runTask)
+                {
+                    // The host exited on its own — the normal export-and-exit path.
+                    return await runTask;
+                }
+
+                if (graceDeadline is null && exportFilesWritten())
+                {
+                    // The export happened; the host should exit imminently. Stop racing the boot window.
+                    graceDeadline = stopwatch.Elapsed + graceAfterExport;
+                }
+
+                if (graceDeadline is { } grace && stopwatch.Elapsed > grace)
+                {
+                    // File(s) written but the process lingered — the export succeeded; stop the stray host.
+                    await CancelAndAwait(cts, runTask);
+                    return 0;
+                }
+
+                if (graceDeadline is null && stopwatch.Elapsed > bootWindow)
+                {
+                    await CancelAndAwait(cts, runTask);
+                    DaleConsole.Error($"DevHost did not honor the export within {bootWindow.TotalSeconds:F0}s and was stopped. " +
+                                      "Ensure the DevHost's Program.cs runs via DevHostWebRunner.RunAsync — the --export-config / --export-topology modes live there.");
+                    return 1;
+                }
+            }
+        }
+
         /// <summary>
-        ///     Builds the <c>dotnet run</c> arguments for the DevHost: the target project, then any extra tokens
-        ///     the user passed after <c>--</c> (e.g. <c>dale dev -- operator-steering</c> to select a
-        ///     consumer-defined scenario the DevHost's <c>Program.cs</c> switches on). Forwarded tokens are
+        ///     Builds the <c>dotnet run</c> arguments for the DevHost: the target project, then the program
+        ///     arguments after <c>--</c> — the optional <paramref name="preset" /> value first (so it lands as
+        ///     <c>args[0]</c>, the consumer's preset/scenario switch), followed by any extra tokens the user
+        ///     passed after <c>dale dev --</c> (e.g. <c>dale dev -- operator-steering</c>). Program arguments are
         ///     delimited with <c>--</c> so <c>dotnet run</c> passes them to the application verbatim — including
         ///     option-like names (a leading <c>-</c>, or names that collide with <c>dotnet run</c> flags) — rather
         ///     than trying to interpret them itself.
         /// </summary>
-        internal static List<string> BuildRunArguments(string devHostCsproj, IReadOnlyList<string> forwardedArgs)
+        internal static List<string> BuildRunArguments(string devHostCsproj, IReadOnlyList<string> forwardedArgs, string? preset = null)
         {
             var args = new List<string> { "--project", devHostCsproj };
 
-            if (forwardedArgs.Count > 0)
+            var programArgs = new List<string>();
+            if (!string.IsNullOrEmpty(preset))
+            {
+                programArgs.Add(preset);
+            }
+
+            programArgs.AddRange(forwardedArgs);
+
+            if (programArgs.Count > 0)
             {
                 args.Add("--");
-                args.AddRange(forwardedArgs);
+                args.AddRange(programArgs);
             }
 
             return args;
+        }
+
+        private static async Task CancelAndAwait(CancellationTokenSource cts, Task<int> run)
+        {
+            cts.Cancel();
+            try
+            {
+                await run;
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected — we cancelled the run to stop a hung or lingering host.
+            }
         }
 
         /// <summary>
