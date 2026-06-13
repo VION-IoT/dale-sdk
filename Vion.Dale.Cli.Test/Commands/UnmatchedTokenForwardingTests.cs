@@ -60,6 +60,29 @@ namespace Vion.Dale.Cli.Test.Commands
         }
 
         [TestMethod]
+        public void DevCommand_NakedScenarioArg_IsForwarded_NotAParseError()
+        {
+            // `dale dev operator-steering` (no `--`) must forward, not error — the form an integrator hit
+            // a rejection on with a stale CLI build (DF-07). Pins that it parses cleanly on this CLI.
+            var result = Program.BuildRootCommand().Parse(new[] { "dev", "operator-steering" });
+
+            Assert.AreEqual(0, result.Errors.Count, string.Join("; ", result.Errors.Select(e => e.Message)));
+            CollectionAssert.AreEqual(new[] { "operator-steering" }, result.UnmatchedTokens.ToArray());
+        }
+
+        [TestMethod]
+        public void DevCommand_PresetComposesWithExport_ParsesCleanly()
+        {
+            // `dale dev --preset <name> --export-topology <file>` — exporting a NON-default preset, the
+            // friction DF-07 is about. The first-class --preset must compose with the export options.
+            var result = Program.BuildRootCommand().Parse(new[] { "dev", "--preset", "operator-steering", "--export-topology", "out.json" });
+
+            Assert.AreEqual(0, result.Errors.Count, string.Join("; ", result.Errors.Select(e => e.Message)));
+            Assert.AreEqual("operator-steering", result.GetValue<string?>("--preset"));
+            Assert.AreEqual("out.json", result.GetValue<string?>("--export-topology"));
+        }
+
+        [TestMethod]
         public void RootCommand_UnknownSubcommand_IsStillAParseError()
         {
             // Forwarding is scoped to the dotnet-wrapping commands; a typo'd subcommand must keep failing fast.

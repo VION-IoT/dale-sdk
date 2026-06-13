@@ -221,20 +221,35 @@ namespace Vion.Dale.Cli.Commands
             schema.SetAction(async (parseResult, cancellationToken) =>
                              {
                                  var port = parseResult.GetValue(portOption);
-                                 using var http = NewClient(port);
-                                 string genericSchema;
-                                 try
+
+                                 // The generic structural schema ships embedded in the CLI, so `dale scenario
+                                 // schema` runs fully offline — the same offline story as `dale scenario
+                                 // validate` (DF-10). Enrichment with the actual block/property name paths is
+                                 // best-effort: an explicit --config export or a running host supplies them;
+                                 // with neither we emit the un-enriched generic schema (a clear, still-useful
+                                 // result, not an error).
+                                 var document = JsonNode.Parse(LoadEmbeddedGenericSchema())!;
+
+                                 var configPath = parseResult.GetValue(configOption);
+                                 JsonNode? config;
+                                 if (configPath is not null)
                                  {
-                                     genericSchema = await http.GetStringAsync("/api/scenarios/schema", cancellationToken);
+                                     config = await LoadConfigAsync(configPath, port, cancellationToken);
+                                     if (config is null)
+                                     {
+                                         // An explicitly requested --config that doesn't load is an error.
+                                         return 1;
+                                     }
                                  }
-                                 catch (HttpRequestException e)
+                                 else
                                  {
-                                     DaleConsole.Error($"No DevHost reachable on port {port} to serve the schema ({e.Message}). Start one with `dale dev --headless`.");
-                                     return 1;
+                                     config = await LoadConfigAsync(null, port, cancellationToken, false);
+                                     if (config is null && !DaleConsole.JsonMode)
+                                     {
+                                         DaleConsole.Info("    Note: emitting the generic schema — pass --config <export> or run `dale dev` for name-path completion.");
+                                     }
                                  }
 
-                                 var config = await LoadConfigAsync(parseResult.GetValue(configOption), port, cancellationToken);
-                                 var document = JsonNode.Parse(genericSchema)!;
                                  if (config is not null)
                                  {
                                      ScenarioFileChecks.EnrichSchemaWithNamePaths(document, config);
@@ -303,7 +318,10 @@ namespace Vion.Dale.Cli.Commands
             return new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
         }
 
-        private static async Task<JsonNode?> LoadConfigAsync(string? configPath, int port, CancellationToken cancellationToken)
+        // Loads the wired-host configuration to resolve name paths against: from a --config export file, or
+        // from a running DevHost's /api/configuration. When requireSource is false, an unreachable host is
+        // not an error (the caller can proceed without enrichment — see `dale scenario schema`).
+        private static async Task<JsonNode?> LoadConfigAsync(string? configPath, int port, CancellationToken cancellationToken, bool requireSource = true)
         {
             if (configPath is not null)
             {
@@ -323,10 +341,27 @@ namespace Vion.Dale.Cli.Commands
             }
             catch (HttpRequestException e)
             {
-                DaleConsole.Error($"No configuration source: no --config file given and no DevHost reachable on port {port} ({e.Message}). " +
-                                  "Run `dale dev --headless` or export one with `dale dev --export-config <file>`.");
+                if (requireSource)
+                {
+                    DaleConsole.Error($"No configuration source: no --config file given and no DevHost reachable on port {port} ({e.Message}). " +
+                                      "Run `dale dev --headless` or export one with `dale dev --export-config <file>`.");
+                }
+
                 return null;
             }
+        }
+
+        // The generic scenario-file schema, embedded in the CLI assembly (linked from the single source file
+        // in Vion.Dale.DevHost — see the .csproj). Reading it here is what lets `dale scenario schema` run
+        // without a DevHost (DF-10).
+        private static string LoadEmbeddedGenericSchema()
+        {
+            const string resourceName = "Vion.Dale.Cli.scenario.schema.json";
+            var assembly = typeof(ScenarioCommand).Assembly;
+            using var stream = assembly.GetManifestResourceStream(resourceName) ??
+                               throw new InvalidOperationException($"Embedded resource '{resourceName}' is missing from the CLI assembly.");
+            using var reader = new StreamReader(stream);
+            return reader.ReadToEnd();
         }
 
         private static void RenderReport(JsonNode report)
