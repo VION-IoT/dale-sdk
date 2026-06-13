@@ -483,10 +483,33 @@ export function orderedGroupKeys(blockGroups, itemsByGroup) {
 
 // Split a service's properties + measuring points into presentation groups, sorted within each
 // group by explicit Order then natural introspection position.
+// The renderable members of a service: its properties plus measuring points, with a member that is BOTH
+// (the cross-fill pattern: a property that is also a logged metric) collapsed to a SINGLE entry — the
+// writable property row wins, since it carries the editable control AND the live value, and is flagged
+// _alsoMetric. Only measuring points with no matching property become their own read-out rows. This is the
+// one source of truth for "what members does this service surface", so every view (Explorer rows, gallery,
+// the primary strip, the palette, counts, filter) dedupes identically. Mirrors the dashboard's
+// measuringPointMerge policy; keyed by identifier within the one service.
+export function serviceMembers(service) {
+    const members = [];
+    const propertyIds = new Set();
+    (service.serviceProperties || []).forEach(p => {
+        propertyIds.add(p.identifier);
+        members.push({ ...p, _kind: 'property' });
+    });
+    (service.serviceMeasuringPoints || []).forEach(p => {
+        if (propertyIds.has(p.identifier)) {
+            const property = members.find(it => it._kind === 'property' && it.identifier === p.identifier);
+            if (property) property._alsoMetric = true;
+            return;
+        }
+        members.push({ ...p, _kind: 'measuringPoint' });
+    });
+    return members;
+}
+
 export function groupItems(service) {
-    const items = [];
-    (service.serviceProperties || []).forEach(p => items.push({ ...p, _kind: 'property' }));
-    (service.serviceMeasuringPoints || []).forEach(p => items.push({ ...p, _kind: 'measuringPoint' }));
+    const items = serviceMembers(service);
 
     const itemsByGroup = {};
     items.forEach((it, naturalIdx) => {
