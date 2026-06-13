@@ -72,5 +72,60 @@ namespace Vion.Dale.Cli.Test.Commands
                 }
             }
         }
+
+        [TestMethod]
+        public void Scaffold_EmitsACompileShapedTest_WithApplyAsyncAndAJudgmentTodoPerItem()
+        {
+            var scenario = JsonNode.Parse("""
+                                          {
+                                            "version": 1, "id": "peak-shaving", "title": "Peak shaving", "topology": "em-closed-loop",
+                                            "specs": [ "AC-EM-23" ],
+                                            "setup": [ { "set": "RefControllableConsumer.OperatingMode", "value": "PeakShaving" } ],
+                                            "steps": [
+                                              { "label": "Raise demand", "set": "RefControllableConsumer.RequestedCurrentA", "value": 16.0 },
+                                              { "waitUntil": { "property": "RefControllableBuffer.AllocatedActivePowerKw", "below": -1.0 }, "timeoutSeconds": 20 }
+                                            ],
+                                            "watch": [ "RefControllableBuffer.AllocatedActivePowerKw" ],
+                                            "judge": [ { "text": "Buffer discharges", "spec": "AC-EM-23.2" }, { "text": "No oscillation" } ]
+                                          }
+                                          """)!;
+
+            var code = ScenarioCommand.EmitScaffold(scenario, "MyTests", "scenarios");
+
+            StringAssert.Contains(code, "namespace MyTests");
+            StringAssert.Contains(code, "public class PeakShavingScenario");
+            StringAssert.Contains(code, "[Fact]");
+            StringAssert.Contains(code, "public async Task PeakShaving()");
+            StringAssert.Contains(code, "ScenarioRunner.ApplyAsync(ScenarioId, host.Control, ScenariosDirectory)");
+            StringAssert.Contains(code, "private const string ScenarioId = \"peak-shaving\";");
+            StringAssert.Contains(code, "// Topology: em-closed-loop");
+            StringAssert.Contains(code, "// TODO [AC-EM-23.2]: Buffer discharges");
+            StringAssert.Contains(code, "// TODO: No oscillation");
+            StringAssert.Contains(code, "Build the 'em-closed-loop' DevHost");
+        }
+
+        [TestMethod]
+        public async Task Scaffold_LocatesTheFileByIdAndWritesACSharpTest()
+        {
+            var root = Path.Combine(Path.GetTempPath(), $"df09-{Guid.NewGuid():N}");
+            var scenariosDir = Path.Combine(root, "scenarios");
+            Directory.CreateDirectory(scenariosDir);
+            File.WriteAllText(Path.Combine(scenariosDir, "smoke.scenario.json"), """{ "version": 1, "id": "smoke", "topology": "t", "watch": [ "A.B" ] }""");
+            var outputPath = Path.Combine(root, "SmokeScenarioTest.cs");
+            try
+            {
+                var exit = await Program.BuildRootCommand().Parse(new[] { "scenario", "scaffold", "smoke", "--dir", scenariosDir, "-o", outputPath }).InvokeAsync();
+
+                Assert.AreEqual(0, exit);
+                Assert.IsTrue(File.Exists(outputPath));
+                var code = File.ReadAllText(outputPath);
+                StringAssert.Contains(code, "public class SmokeScenario");
+                StringAssert.Contains(code, "ScenarioRunner.ApplyAsync(ScenarioId, host.Control, ScenariosDirectory)");
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
     }
 }
