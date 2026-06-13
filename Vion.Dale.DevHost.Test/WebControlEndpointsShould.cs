@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
@@ -9,6 +10,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.SignalR.Client;
+using Vion.Dale.DevHost.Control;
 using Vion.Dale.DevHost.Web;
 
 namespace Vion.Dale.DevHost.Test
@@ -303,6 +305,48 @@ namespace Vion.Dale.DevHost.Test
             StringAssert.Contains(captured.ToString(), $"\"port\":{port}", "Readiness line should include the port.");
         }
 
+        [TestMethod]
+        public async Task DevHostWebRunner_ExportThroughSupervisedFactory_StopsExactlyOnce_AndPrintsAValidJsonReceipt()
+        {
+            // DF-08: the topology-aware supervised factory holds the host in `await using`; its export branch
+            // must NOT also call StopAsync explicitly, or DisposeAsync stops an already-disposed host and
+            // throws ObjectDisposedException from WebHostService.StopAsync. DF-13: the export receipt must be
+            // valid JSON whose path round-trips (no hand-rolled backslash escaping).
+            var port = FreePort();
+            var exportPath = Path.Combine(Path.GetTempPath(), $"dale-export-{Guid.NewGuid():N}.json");
+            CountingHost? built = null;
+
+            var originalOut = Console.Out;
+            var captured = new StringWriter();
+            Environment.SetEnvironmentVariable(DevHostWebRunner.NoBrowserEnvVar, "1");
+            Environment.SetEnvironmentVariable(DevHostWebRunner.ExportConfigEnvVar, exportPath);
+            Console.SetOut(captured);
+            try
+            {
+                await DevHostWebRunner.RunAsync(_ => built = new CountingHost(BuildWebHost(port)), port);
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+                Environment.SetEnvironmentVariable(DevHostWebRunner.NoBrowserEnvVar, null);
+                Environment.SetEnvironmentVariable(DevHostWebRunner.ExportConfigEnvVar, null);
+                if (File.Exists(exportPath))
+                {
+                    File.Delete(exportPath);
+                }
+            }
+
+            Assert.IsNotNull(built);
+            Assert.AreEqual(0, built!.ExplicitStops, "Export relies on `await using` dispose — RunAsync must not call StopAsync explicitly on the export branch (DF-08).");
+            Assert.AreEqual(1, built.Disposes, "The host must be disposed exactly once on the export path.");
+
+            var receiptLine = captured.ToString().Split('\n').Select(l => l.Trim()).Last(l => l.Contains("\"exported\""));
+            using var receipt = JsonDocument.Parse(receiptLine);
+            Assert.AreEqual(exportPath,
+                            receipt.RootElement.GetProperty("exported").GetString(),
+                            "The export receipt must round-trip the exact path through JSON — no doubled or broken escaping (DF-13).");
+        }
+
         private static int FreePort()
         {
             // OS-assigned free port — avoids fixed-port collisions when this runs alongside the rest of the
@@ -319,6 +363,49 @@ namespace Vion.Dale.DevHost.Test
             var config = DevConfigurationBuilder.Create().WithTopologyName("counter-topology").AddLogicBlock<CounterBlock>("counter").Build();
 
             return DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithWebUi(port).Build();
+        }
+
+        // Decorator that counts explicit StopAsync calls separately from DisposeAsync, so a test can pin
+        // that the export path stops the host exactly once — via dispose, not an extra StopAsync (DF-08).
+        private sealed class CountingHost : IDevHost
+        {
+            private readonly IDevHost _inner;
+
+            public int ExplicitStops { get; private set; }
+
+            public int Disposes { get; private set; }
+
+            public CountingHost(IDevHost inner)
+            {
+                _inner = inner;
+            }
+
+            public IDevHostControl Control
+            {
+                get => _inner.Control;
+            }
+
+            public Task StartAsync(CancellationToken cancellationToken = default)
+            {
+                return _inner.StartAsync(cancellationToken);
+            }
+
+            public Task RunAsync(CancellationToken cancellationToken = default)
+            {
+                return _inner.RunAsync(cancellationToken);
+            }
+
+            public Task StopAsync(CancellationToken cancellationToken = default)
+            {
+                ExplicitStops++;
+                return _inner.StopAsync(cancellationToken);
+            }
+
+            public async ValueTask DisposeAsync()
+            {
+                Disposes++;
+                await _inner.DisposeAsync();
+            }
         }
     }
 }
