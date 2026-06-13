@@ -175,5 +175,45 @@ namespace Vion.Dale.Cli.Test.Commands
             CollectionAssert.Contains(paths, "DualPoint.PointB.Limit");
             CollectionAssert.DoesNotContain(paths, "DualPoint.Limit");
         }
+
+        [TestMethod]
+        public void OffersTwoSegmentForm_WhenAMemberIsBothPropertyAndMeasuringPointOnOneService()
+        {
+            // A single-service block can expose the same member as BOTH a serviceProperty and a
+            // serviceMeasuringPoint — the real EnergyManager does exactly this for ActivePowerImportingKw.
+            // The resolver counts ONE carrier service, so the two-segment path resolves; the schema enricher
+            // must offer it too, not red-squiggle a path that validate/run accept (DF-06).
+            var config = JsonNode.Parse("""
+                                        {
+                                          "topologyName": "demo",
+                                          "logicBlocks": [
+                                            {
+                                              "name": "EnergyManager",
+                                              "services": [
+                                                {
+                                                  "identifier": "EnergyManager",
+                                                  "serviceProperties": [ { "identifier": "ActivePowerImportingKw", "schema": { "type": "number" } } ],
+                                                  "serviceMeasuringPoints": [ { "identifier": "ActivePowerImportingKw", "schema": { "type": "number" } } ]
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                        """)!;
+
+            var schema = JsonNode.Parse("""{ "$defs": { "namePath": { "type": "string", "pattern": "x" } } }""")!;
+            ScenarioFileChecks.EnrichSchemaWithNamePaths(schema, config);
+
+            var paths = schema["$defs"]!["namePath"]!["enum"]!.AsArray().Select(n => n!.GetValue<string>()).ToList();
+            CollectionAssert.Contains(paths, "EnergyManager.ActivePowerImportingKw");
+            CollectionAssert.Contains(paths, "EnergyManager.EnergyManager.ActivePowerImportingKw");
+
+            // The enricher and the resolver must agree: the two-segment form the schema now offers also
+            // passes validate (the consistency DF-06 is about).
+            var outcome = ScenarioFileChecks.Validate("imp.scenario.json",
+                                                      """{ "version": 1, "id": "imp", "topology": "demo", "watch": [ "EnergyManager.ActivePowerImportingKw" ] }""",
+                                                      config);
+            Assert.AreEqual(0, outcome.Errors.Count, string.Join("; ", outcome.Errors));
+        }
     }
 }

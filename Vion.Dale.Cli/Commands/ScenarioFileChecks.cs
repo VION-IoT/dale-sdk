@@ -130,7 +130,11 @@ namespace Vion.Dale.Cli.Commands
                 var services = block!["services"] as JsonArray ?? new JsonArray();
                 foreach (var service in services)
                 {
-                    foreach (var member in MemberNames(service))
+                    // Count DISTINCT carrier services — the resolver's ambiguity rule (ResolvePath's
+                    // `carriers`). A member exposed as BOTH a serviceProperty and a serviceMeasuringPoint on
+                    // the SAME service is one carrier, not two, so the two-segment form stays valid for a
+                    // single-service block; Distinct() dedupes that prop+MP pair (DF-06).
+                    foreach (var member in MemberNames(service).Distinct())
                     {
                         memberCounts[member] = memberCounts.TryGetValue(member, out var n) ? n + 1 : 1;
                     }
