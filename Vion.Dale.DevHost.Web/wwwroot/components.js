@@ -9,7 +9,7 @@ import {
     buildVerificationReport, cssGroupKey, defaultOpen, describeType, describeWaitUntil,
     effectiveType, enumDisplay, enumMembers, formatTemporal, formatValue, gallerySamples,
     GROUP_LABELS, groupItems, isNullable, isWritable, matchesFilter, orderedGroupKeys, parseFilter,
-    parseNamePath, presentationFacts, resolveDisplayName, resolveUnit, sampleJson, severityFor,
+    parseNamePath, presentationFacts, resolveDisplayName, resolveUnit, sampleJson, serviceMembers, severityFor,
     STEP_GLYPHS,
 } from './format.js';
 import {
@@ -673,13 +673,11 @@ export const PrimaryStrip = {
     setup(props) {
         const entries = [];
         (props.lb.services || []).forEach(service => {
-            const collect = (items, kind) => (items || []).forEach(item => {
+            serviceMembers(service).forEach(item => {
                 if (item.presentation && item.presentation.importance === 'Primary') {
-                    entries.push({ service, item: { ...item, _kind: kind } });
+                    entries.push({ service, item });
                 }
             });
-            collect(service.serviceProperties, 'property');
-            collect(service.serviceMeasuringPoints, 'measuringPoint');
         });
         return { entries };
     },
@@ -756,8 +754,7 @@ export const BlockCard = {
         const totals = computed(() => {
             let writable = 0, total = 0;
             (props.lb.services || []).forEach(s => {
-                (s.serviceProperties || []).forEach(p => { total++; if (isWritable(p)) writable++; });
-                total += (s.serviceMeasuringPoints || []).length;
+                serviceMembers(s).forEach(m => { total++; if (m._kind === 'property' && isWritable(m)) writable++; });
             });
             return { writable, total };
         });
@@ -794,8 +791,7 @@ export const Rail = {
     props: [],
     setup() {
         const blocks = computed(() => (store.config && store.config.logicBlocks) || []);
-        const count = lb => (lb.services || []).reduce(
-            (n, s) => n + (s.serviceProperties || []).length + (s.serviceMeasuringPoints || []).length, 0);
+        const count = lb => (lb.services || []).reduce((n, s) => n + serviceMembers(s).length, 0);
         const select = lb => {
             store.selectedBlockId = lb.id;
             const el = document.getElementById('block-' + lb.id);
@@ -970,8 +966,7 @@ export const TopologyPanel = {
         const counts = lb => {
             let writable = 0, total = 0;
             (lb.services || []).forEach(s => {
-                (s.serviceProperties || []).forEach(p => { total++; if (isWritable(p)) writable++; });
-                total += (s.serviceMeasuringPoints || []).length;
+                serviceMembers(s).forEach(m => { total++; if (m._kind === 'property' && isWritable(m)) writable++; });
             });
             return `${total} properties · ${writable} writable`;
         };
@@ -1447,7 +1442,7 @@ export const Palette = {
             const q = query.value.trim().toLowerCase();
             const out = [];
             ((store.config && store.config.logicBlocks) || []).forEach(lb => (lb.services || []).forEach(service => {
-                [...(service.serviceProperties || []), ...(service.serviceMeasuringPoints || [])].forEach(item => {
+                serviceMembers(service).forEach(item => {
                     if (matchesFilter(tokens, item, store.values[valueKey(service.id, item.identifier)])) {
                         // Rank: identifier substring < any-name substring < fuzzy-only.
                         const id = item.identifier.toLowerCase();
@@ -1530,7 +1525,7 @@ export const App = {
         const totals = computed(() => {
             let props = 0;
             blocks.value.forEach(lb => (lb.services || []).forEach(s => {
-                props += (s.serviceProperties || []).length + (s.serviceMeasuringPoints || []).length;
+                props += serviceMembers(s).length;
             }));
             return { blocks: blocks.value.length, props };
         });
@@ -1546,7 +1541,7 @@ export const App = {
             if (!filterTokens.value.length) return null;
             let matched = 0;
             blocks.value.forEach(lb => (lb.services || []).forEach(service => {
-                [...(service.serviceProperties || []), ...(service.serviceMeasuringPoints || [])].forEach(item => {
+                serviceMembers(service).forEach(item => {
                     if (itemMatches(service, item)) matched++;
                 });
             }));

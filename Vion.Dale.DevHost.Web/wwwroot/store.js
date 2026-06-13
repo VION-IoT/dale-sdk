@@ -177,13 +177,18 @@ export function baselineDelta(key) {
     return typeof now === 'number' && typeof then === 'number' ? now - then : null;
 }
 
-// Changed-since-baseline count for a block (rail counters).
+// Changed-since-baseline count for a block (rail counters). A member that is both a service property and
+// a measuring point shares one value key — count it once, matching the deduped render (format.groupItems).
 export function changedCountForBlock(lb) {
     if (!store.baseline) return 0;
     let n = 0;
     (lb.services || []).forEach(service => {
+        const seen = new Set();
         [...(service.serviceProperties || []), ...(service.serviceMeasuringPoints || [])].forEach(item => {
-            if (changedSinceBaseline(valueKey(service.id, item.identifier))) n++;
+            const key = valueKey(service.id, item.identifier);
+            if (seen.has(key)) return;
+            seen.add(key);
+            if (changedSinceBaseline(key)) n++;
         });
     });
     return n;
