@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vion.swiss/dale/topology.schema.json",
+  "title": "Dale DevHost topology file (RFC 0006 R5)",
+  "description": "The dev profile of a logic configuration: logic-block instances and explicit interface wiring, with contract mappings optional (unlisted contracts get DevHost mocks). The generic structural schema shipped with Vion.Dale.DevHost; 'dale dev --export-topology' writes a C#-built preset in this shape. Parsing is strict (unknown fields are rejected), so this schema catches wrong field names in hand edits.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "logicBlockInstances"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "description": "URL-safe slug; must match the file name (<id>.topology.json). Scenario files reference it via \"topology\"."
+    },
+    "logicBlockInstances": {
+      "type": "array",
+      "minItems": 1,
+      "description": "The blocks in this topology; types are resolved against the loaded plugin assemblies.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["typeFullName", "name"],
+        "properties": {
+          "typeFullName": { "type": "string", "description": "Full type name of the LogicBlock (resolved from the loaded assemblies)." },
+          "name": {
+            "type": "string",
+            "pattern": "^[^.]+$",
+            "description": "Instance name, unique within the topology. No '.', which scenario name paths split on."
+          }
+        }
+      }
+    },
+    "interfaceMappings": {
+      "type": "array",
+      "description": "Explicit logic-block interface wiring, applied verbatim (not re-discovered). Source and target names must be declared instances.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sourceLogicBlockName", "sourceInterfaceIdentifier", "targetLogicBlockName", "targetInterfaceIdentifier"],
+        "properties": {
+          "sourceLogicBlockName": { "type": "string" },
+          "sourceInterfaceIdentifier": { "type": "string" },
+          "targetLogicBlockName": { "type": "string" },
+          "targetInterfaceIdentifier": { "type": "string" }
+        }
+      }
+    },
+    "contractMappings": {
+      "type": "array",
+      "description": "Optional explicit hardware-contract endpoint mappings; unlisted contracts are auto-mocked. Field names match `dale dev --export-config` (the 'mapped' prefix), so the two shapes no longer diverge.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["logicBlockName", "contractIdentifier"],
+        "properties": {
+          "logicBlockName": { "type": "string" },
+          "contractIdentifier": { "type": "string" },
+          "mappedServiceProviderIdentifier": { "type": "string" },
+          "mappedServiceIdentifier": { "type": "string" },
+          "mappedContractIdentifier": { "type": "string" }
+        }
+      }
+    }
+  }
+}

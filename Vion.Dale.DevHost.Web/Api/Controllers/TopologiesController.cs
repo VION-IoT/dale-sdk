@@ -1,3 +1,4 @@
+using System.IO;
 using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 using Vion.Dale.DevHost.Control;
@@ -23,6 +24,21 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
         {
             _store = store;
             _control = control;
+        }
+
+        /// <summary>The generic topology-file JSON Schema shipped with the DevHost (RFC 0006 R5).</summary>
+        [HttpGet("schema")]
+        public IActionResult Schema()
+        {
+            var assembly = typeof(DevTopologyFile).Assembly;
+            using var stream = assembly.GetManifestResourceStream("Vion.Dale.DevHost.Topologies.topology.schema.json");
+            if (stream is null)
+            {
+                return NotFound(new { error = "embedded topology schema missing from the DevHost assembly" });
+            }
+
+            using var reader = new StreamReader(stream);
+            return Content(reader.ReadToEnd(), "application/json");
         }
 
         /// <summary>Discovered topology files plus the currently running topology and switchability.</summary>
