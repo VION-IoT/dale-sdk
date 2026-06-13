@@ -11,8 +11,9 @@ namespace VionIotLibraryTemplate.DevHost
     {
         public static Task Main(string[] args)
         {
-            // Build a configuration for testing with fluent API
-            var config = DevConfigurationBuilder.Create().AddLogicBlock<HelloWorld>().AddLogicBlock<SmartLedController>("SmartLed").Build();
+            // Build a configuration for testing with the fluent API. WithTopologyName names this topology so
+            // scenario files (scenarios/*.scenario.json, RFC 0006) can target it via their "topology" field.
+            var config = DevConfigurationBuilder.Create().WithTopologyName("thermostat").AddLogicBlock<Thermostat>("Thermostat").Build();
 
             // Create, configure and run the dev host
             var host = DevHostBuilder.Create()

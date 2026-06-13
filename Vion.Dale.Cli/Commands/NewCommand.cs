@@ -63,15 +63,10 @@ namespace Vion.Dale.Cli.Commands
                                   // `{AssemblyName}.dll`, so the two must match — there's no useful divergence to prompt for.
                                   var packageId = name;
                                   var author = "MyCompany";
-                                  var firstLogicBlock = "HelloWorld";
-                                  var includeExamples = true;
 
                                   if (interactive)
                                   {
                                       author = AnsiConsole.Prompt(new TextPrompt<string>("  Author [[[grey]MyCompany[/]]]:").AllowEmpty()).DefaultIfEmpty("MyCompany");
-                                      firstLogicBlock = AnsiConsole.Prompt(new TextPrompt<string>("  First LogicBlock name [[[grey]HelloWorld[/]]]:").AllowEmpty())
-                                                                   .DefaultIfEmpty("HelloWorld");
-                                      includeExamples = AnsiConsole.Confirm("  Include example LogicBlocks? (HelloWorld, SmartLedController)");
                                       DaleConsole.Blank();
                                   }
 
@@ -115,39 +110,6 @@ namespace Vion.Dale.Cli.Commands
                                       UpdateCsprojMetadata(libCsproj, packageId, author);
                                   }
 
-                                  // Remove examples if not wanted (before generating custom block)
-                                  var libDir = Path.Combine(targetDir, name);
-                                  if (!includeExamples)
-                                  {
-                                      RemoveExamples(libDir, targetDir, name);
-                                  }
-
-                                  // Generate the first LogicBlock if it doesn't already exist
-                                  if (!string.IsNullOrWhiteSpace(firstLogicBlock))
-                                  {
-                                      var blockFile = Path.Combine(libDir, $"{firstLogicBlock}.cs");
-                                      if (!File.Exists(blockFile))
-                                      {
-                                          var ns = name;
-                                          var content = GenerateLogicBlock(firstLogicBlock, ns);
-                                          File.WriteAllText(blockFile, content);
-                                      }
-
-                                      // Ensure DI registration exists
-                                      var diFile = Path.Combine(libDir, "DependencyInjection.cs");
-                                      if (File.Exists(diFile))
-                                      {
-                                          RegisterInDi(diFile, firstLogicBlock);
-                                      }
-
-                                      // Ensure DevHost Program.cs includes the first LogicBlock
-                                      var devHostProgram = Path.Combine(targetDir, $"{name}.DevHost", "Program.cs");
-                                      if (File.Exists(devHostProgram))
-                                      {
-                                          RegisterInDevHost(devHostProgram, firstLogicBlock);
-                                      }
-                                  }
-
                                   // --- Restore ---
 
                                   await DaleConsole.WithSpinner("Restoring dependencies",
@@ -157,16 +119,13 @@ namespace Vion.Dale.Cli.Commands
 
                                   if (DaleConsole.JsonMode)
                                   {
-                                      var logicBlocks = includeExamples ? new[] { firstLogicBlock, "HelloWorld", "SmartLedController" }.Distinct().ToArray() :
-                                                            new[] { firstLogicBlock };
-
                                       DaleConsole.WriteJsonResult(new
                                                                   {
                                                                       project = name,
                                                                       directory = targetDir,
                                                                       packageId,
                                                                       author,
-                                                                      logicBlocks,
+                                                                      logicBlocks = new[] { "Thermostat" },
                                                                   });
                                       return 0;
                                   }
@@ -174,15 +133,21 @@ namespace Vion.Dale.Cli.Commands
                                   DaleConsole.Blank();
                                   DaleConsole.Success("Created", name);
                                   DaleConsole.Blank();
-                                  DaleConsole.Info($"  {name}/{name}.csproj              (logic block library)");
+                                  DaleConsole.Info($"  {name}/{name}.csproj              (logic block library — the Thermostat example)");
                                   DaleConsole.Info($"  {name}/{name}.DevHost.csproj       (local dev host with web UI)");
                                   DaleConsole.Info($"  {name}/{name}.Test.csproj          (tests)");
+                                  DaleConsole.Info($"  {name}/scenarios/                  (scenario files — RFC 0006)");
                                   DaleConsole.Blank();
                                   DaleConsole.Info("Next steps:");
                                   DaleConsole.Info($"  cd {name}");
                                   DaleConsole.Info("  dale build");
-                                  DaleConsole.Info("  dale test");
-                                  DaleConsole.Info("  dale dev                                (web UI at localhost:5000)");
+                                  DaleConsole.Info("  dale dev                                 web UI at localhost:5000 — open the Thermostat block:");
+                                  DaleConsole.Info("                                             • drag the TargetTemperature slider and watch CurrentTemperature track it");
+                                  DaleConsole.Info("                                             • the State pill changes colour (Idle / Heating / Cooling)");
+                                  DaleConsole.Info("  dale scenario run thermostat             drive the bundled scenario (while `dale dev` runs)");
+                                  DaleConsole.Info("  dale test                                the unit test (Vion.Dale.Sdk.TestKit)");
+                                  DaleConsole.Info("  dale list                                introspect your blocks (properties, metrics, contracts)");
+                                  DaleConsole.Info("  dale add logicblock <Name>               scaffold another block");
 
                                   return 0;
                               });
@@ -190,9 +155,6 @@ namespace Vion.Dale.Cli.Commands
             return command;
         }
 
-        /// <summary>
-        ///     Find the bundled template shipped with the CLI tool.
-        /// </summary>
         private static bool IsValidProjectName(string name)
         {
             if (string.IsNullOrWhiteSpace(name))
@@ -204,6 +166,9 @@ namespace Vion.Dale.Cli.Commands
             return Regex.IsMatch(name, @"^[a-zA-Z][\w.\-]*$");
         }
 
+        /// <summary>
+        ///     Find the bundled template shipped with the CLI tool.
+        /// </summary>
         private static string? FindBundledTemplate()
         {
             var baseDir = AppContext.BaseDirectory;
@@ -247,170 +212,6 @@ namespace Vion.Dale.Cli.Commands
             catch
             {
                 // Non-critical — metadata can be updated manually
-            }
-        }
-
-        private static void RemoveExamples(string libDir, string targetDir, string projectName)
-        {
-            // Remove example source files
-            var helloWorld = Path.Combine(libDir, "HelloWorld.cs");
-            var smartLed = Path.Combine(libDir, "SmartLedController.cs");
-            if (File.Exists(helloWorld))
-            {
-                File.Delete(helloWorld);
-            }
-
-            if (File.Exists(smartLed))
-            {
-                File.Delete(smartLed);
-            }
-
-            // Remove example test files
-            var testDir = Path.Combine(targetDir, $"{projectName}.Test");
-            var helloWorldTest = Path.Combine(testDir, "HelloWorldShould.cs");
-            var smartLedTest = Path.Combine(testDir, "SmartLedControllerShould.cs");
-            if (File.Exists(helloWorldTest))
-            {
-                File.Delete(helloWorldTest);
-            }
-
-            if (File.Exists(smartLedTest))
-            {
-                File.Delete(smartLedTest);
-            }
-
-            // Clean DI registrations for removed classes
-            var diFile = Path.Combine(libDir, "DependencyInjection.cs");
-            if (File.Exists(diFile))
-            {
-                var lines = File.ReadAllLines(diFile).ToList();
-                lines.RemoveAll(l =>
-                                {
-                                    var trimmed = l.TrimStart();
-                                    return trimmed.Contains("AddTransient<HelloWorld>") || trimmed.Contains("AddTransient<SmartLedController>");
-                                });
-                File.WriteAllLines(diFile, lines);
-            }
-
-            // Clean DevHost Program.cs references to removed classes
-            var devHostDir = Path.Combine(targetDir, $"{projectName}.DevHost");
-            var devHostProgram = Path.Combine(devHostDir, "Program.cs");
-            if (File.Exists(devHostProgram))
-            {
-                var lines = File.ReadAllLines(devHostProgram).ToList();
-                lines.RemoveAll(l =>
-                                {
-                                    var trimmed = l.TrimStart();
-                                    return trimmed.Contains("AddLogicBlock<HelloWorld>") || trimmed.Contains("AddLogicBlock<SmartLedController>");
-                                });
-                File.WriteAllLines(devHostProgram, lines);
-            }
-        }
-
-        private static string GenerateLogicBlock(string name, string ns)
-        {
-            return $@"using Vion.Dale.Sdk.Core;
-using Microsoft.Extensions.Logging;
-
-namespace {ns}
-{{
-    public class {name} : LogicBlockBase
-    {{
-        private readonly ILogger _logger;
-
-        public {name}(ILogger logger) : base(logger)
-        {{
-            _logger = logger;
-        }}
-
-        protected override void Ready()
-        {{
-            _logger.LogInformation(""{{Name}} is ready"", nameof({name}));
-        }}
-    }}
-}}
-";
-        }
-
-        private static void RegisterInDi(string diFilePath, string className)
-        {
-            var content = File.ReadAllText(diFilePath);
-            var registration = $"services.AddTransient<{className}>();";
-
-            if (content.Contains(registration))
-            {
-                return;
-            }
-
-            var lines = File.ReadAllLines(diFilePath);
-            var insertIndex = -1;
-            var indent = "            ";
-
-            // Try to insert after the last services.Add line
-            for (var i = 0; i < lines.Length; i++)
-            {
-                var trimmed = lines[i].TrimStart();
-                if (trimmed.StartsWith("services.Add"))
-                {
-                    insertIndex = i + 1;
-                    indent = lines[i].Substring(0, lines[i].Length - lines[i].TrimStart().Length);
-                }
-            }
-
-            // Fallback: insert before the first closing brace after "ConfigureServices"
-            if (insertIndex < 0)
-            {
-                var inMethod = false;
-                for (var i = 0; i < lines.Length; i++)
-                {
-                    if (lines[i].Contains("void ConfigureServices"))
-                    {
-                        inMethod = true;
-                    }
-
-                    if (inMethod && lines[i].TrimStart().StartsWith("{"))
-                    {
-                        // Insert after the opening brace of the method body
-                        insertIndex = i + 1;
-                        indent = lines[i].Substring(0, lines[i].Length - lines[i].TrimStart().Length) + "    ";
-                        break;
-                    }
-                }
-            }
-
-            if (insertIndex >= 0)
-            {
-                var newLines = new string[lines.Length + 1];
-                Array.Copy(lines, 0, newLines, 0, insertIndex);
-                newLines[insertIndex] = indent + registration;
-                Array.Copy(lines, insertIndex, newLines, insertIndex + 1, lines.Length - insertIndex);
-                File.WriteAllLines(diFilePath, newLines);
-            }
-        }
-
-        private static void RegisterInDevHost(string programCsPath, string className)
-        {
-            var content = File.ReadAllText(programCsPath);
-            var registration = $"AddLogicBlock<{className}>()";
-
-            if (content.Contains(registration))
-            {
-                return;
-            }
-
-            var lines = File.ReadAllLines(programCsPath).ToList();
-
-            // Find the .Build() line in the DevConfigurationBuilder chain and insert before it
-            for (var i = 0; i < lines.Count; i++)
-            {
-                var trimmed = lines[i].TrimStart();
-                if (trimmed.Contains(".Build()"))
-                {
-                    var indent = lines[i].Substring(0, lines[i].Length - trimmed.Length);
-                    lines.Insert(i, $"{indent}.AddLogicBlock<{className}>()");
-                    File.WriteAllLines(programCsPath, lines);
-                    return;
-                }
             }
         }
     }
