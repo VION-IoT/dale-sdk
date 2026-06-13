@@ -142,8 +142,20 @@ namespace Vion.Dale.Cli.Commands
             {
                 if (await Task.WhenAny(runTask, Task.Delay(50)) == runTask)
                 {
-                    // The host exited on its own — the normal export-and-exit path.
-                    return await runTask;
+                    var exitCode = await runTask;
+
+                    // The host exited on its own. Normally that's the export-and-exit path — but a freshly
+                    // restored `dotnet run` can occasionally boot in serve mode and exit without honoring the
+                    // export (DF-16, a one-time rebuild race). If it exited cleanly yet wrote nothing, surface
+                    // it instead of reporting a silent success.
+                    if (exitCode == 0 && !exportFilesWritten())
+                    {
+                        DaleConsole.Error("DevHost exited without writing the export. This can happen on the first run right after a package bump " +
+                                          "(a `dotnet run` rebuild race) — re-run the command.");
+                        return 1;
+                    }
+
+                    return exitCode;
                 }
 
                 if (graceDeadline is null && exportFilesWritten())

@@ -96,7 +96,7 @@ namespace Vion.Dale.Cli.Test.Commands
             StringAssert.Contains(code, "public class PeakShavingScenario");
             StringAssert.Contains(code, "[Fact]");
             StringAssert.Contains(code, "public async Task PeakShaving()");
-            StringAssert.Contains(code, "ScenarioRunner.ApplyAsync(ScenarioId, host.Control, ScenariosDirectory)");
+            StringAssert.Contains(code, "ScenarioRunner.ApplyAsync(ScenarioId, host.Control)");
             StringAssert.Contains(code, "private const string ScenarioId = \"peak-shaving\";");
             StringAssert.Contains(code, "// Topology: em-closed-loop");
             StringAssert.Contains(code, "// TODO [AC-EM-23.2]: Buffer discharges");
@@ -120,7 +120,7 @@ namespace Vion.Dale.Cli.Test.Commands
                 Assert.IsTrue(File.Exists(outputPath));
                 var code = File.ReadAllText(outputPath);
                 StringAssert.Contains(code, "public class SmokeScenario");
-                StringAssert.Contains(code, "ScenarioRunner.ApplyAsync(ScenarioId, host.Control, ScenariosDirectory)");
+                StringAssert.Contains(code, "ScenarioRunner.ApplyAsync(ScenarioId, host.Control)");
             }
             finally
             {

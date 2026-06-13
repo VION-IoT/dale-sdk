@@ -58,9 +58,19 @@ namespace Vion.Dale.Cli.Test.Commands
         public async Task BootWindow_ProcessExitsNormally_ReturnsItsExitCode()
         {
             // The cooperating host boots, writes the export, and exits — we just relay its exit code.
-            var exit = await DevCommand.RunWithBootWindowAsync(_ => Task.FromResult(0), () => false, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+            var exit = await DevCommand.RunWithBootWindowAsync(_ => Task.FromResult(0), () => true, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
 
             Assert.AreEqual(0, exit);
+        }
+
+        [TestMethod]
+        public async Task BootWindow_ProcessExitsZeroButWroteNothing_FailsWithAHint()
+        {
+            // DF-16: a freshly-restored `dotnet run` can boot serve-mode and exit 0 without honoring the
+            // export — don't report that as a silent success.
+            var exit = await DevCommand.RunWithBootWindowAsync(_ => Task.FromResult(0), () => false, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+
+            Assert.AreEqual(1, exit);
         }
 
         [TestMethod]
