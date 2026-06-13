@@ -1,0 +1,30 @@
+{
+  "$schema": "./.dale/scenario.schema.json",
+  "version": 1,
+  "id": "charging-smoke",
+  "title": "Charging point 1 ramps up",
+  "description": "Enable charging on point 1 and watch it claim power while point 2 stays idle.",
+  "topology": "energy-demo",
+  "specs": ["AC-DEMO-1"],
+  "setup": [
+    { "set": "ChargingStationMultiPoint.ChargingPoint1.MaximumActivePower", "value": 11 },
+    { "set": "ChargingStationMultiPoint.ChargingPoint2.MaximumActivePower", "value": 11 }
+  ],
+  "steps": [
+    { "label": "Enable charging on point 1", "spec": "AC-DEMO-1.1",
+      "set": "ChargingStationMultiPoint.ChargingPoint1.EnableCharging", "value": true },
+    { "label": "Point 1 draws power",
+      "waitUntil": { "property": "ChargingStationMultiPoint.ChargingPoint1.ActivePowerConsuming", "above": 0 },
+      "timeoutSeconds": 30 },
+    { "label": "Let it settle", "wait": { "seconds": 1 } }
+  ],
+  "watch": [
+    "ChargingStationMultiPoint.ChargingPoint1.ActivePowerConsuming",
+    "ChargingStationMultiPoint.ChargingPoint2.ActivePowerConsuming",
+    "ChargingStationMultiPoint.IsExternallyLocked"
+  ],
+  "judge": [
+    { "text": "Point 1 ramps toward its requested power without oscillation", "spec": "AC-DEMO-1.2" },
+    { "text": "Point 2 stays idle the whole time" }
+  ]
+}
