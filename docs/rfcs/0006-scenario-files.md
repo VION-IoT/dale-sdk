@@ -29,6 +29,16 @@ resolution rules below. Rides additive service-qualified `IDevHostControl` overl
 topology-name `ConfigurationOutput` field listed as planned in revision 2 has shipped meanwhile
 (`WithTopologyName`, R0–R2) — the capability table is updated accordingly.
 
+Revision 6 (post-`0.8.0-preview.3` field log, [logic-block-libraries](https://github.com/VION-IoT/logic-block-libraries) adoption): corrections from the first
+real consumer. The headline peak-shaving `waitUntil` direction was runtime-inverted and is fixed
+(DF-05); the topology contract-mapping field names converged on the export-config `mapped*` convention
+and a topology JSON schema now ships (DF-11/DF-12); `dale scenario scaffold` and offline `dale scenario
+schema` shipped as documented; and the **xunit `[ScenarioFiles]` theory plus the `dale new` template
+scaffolding are explicitly marked R4-pending** (not in `0.8.0-preview.x`) with an "adopt in an existing
+project" checklist below — an RFC that claims a surface adopters can't find is itself a bug. A v2
+candidate (a read-only struct **field path** for `waitUntil`) is recorded; worked example files are now
+committed under [`docs/devhost-ui/examples/`](../devhost-ui/examples/README.md).
+
 One sentence: a tiny, versioned, git-committed JSON vocabulary (`*.scenario.json`) that describes a
 manual-test scenario — setup, ordered stimuli, watch list, human judgments — executed by **one** C#
 `ScenarioRunner` over the existing `IDevHostControl` (RFC 0003), and consumed identically by the DevHost
@@ -178,8 +188,8 @@ services the flat map shadows.
                  "peakFilterEnabled": true, "peakFactor0s": 1.0, "peakFactor4s": 1.0,
                  "peakFactor10s": 1.0, "maxExportPowerKw": null, "peakShavingLimitKw": 24.0 } },
     { "label": "Raise consumer demand", "set": "RefControllableConsumer.RequestedCurrentA", "value": 16.0 },
-    { "label": "Buffer takes over",
-      "waitUntil": { "property": "RefControllableBuffer.AllocatedActivePowerKw", "above": 5.0 },
+    { "label": "Buffer takes over (discharges)",
+      "waitUntil": { "property": "RefControllableBuffer.AllocatedActivePowerKw", "below": -1.0 },
       "timeoutSeconds": 20 },
     { "label": "Clouds roll in", "set": "RefLimitableSupplier.ProductionProfile", "value": 0.2 }
   ],
@@ -200,6 +210,14 @@ services the flat map shadows.
 (Struct values are complete literals: a struct property is **replaced as a whole** — `SetPropertyAsync`
 takes one complete value; cf. the consumer convention that writable config structs are flat aggregates,
 `_implementation-conventions.md` §8.6 rule 6. Nested nullable fields like `maxExportPowerKw` may be `null`.)
+
+> **`waitUntil` directions are runtime semantics, not just name resolution.** Buffer discharge is
+> **negative** (`AllocatedActivePowerKw` uses `+ charge / − discharge`; `HeadlessTest/PeakShavingShould.cs`
+> asserts `< -1.0`), so "buffer takes over" is `below: -1.0`, not `above`. Crucially, `dale scenario
+> validate` only checks that every name path and the `topology` **resolve** — it does **not** check that a
+> `waitUntil` is ever satisfiable. A scenario can validate green and still time out at run time. Only
+> `dale scenario run` confirms the semantics; that is the strongest argument for keeping `run` in the
+> authoring loop.
 
 Vocabulary, exhaustively (v1):
 
@@ -383,11 +401,17 @@ times, the watch tiles, the judgment checklist with spec ids displayed inline, a
 — a markdown block carrying scenario id, file git hash, step acks + timings, and judgment ticks (with their
 spec ids), pasteable into the PR.
 
-**xunit (CI).** One generic theory ships with the DevHost package (net10.0, intended for test projects):
+**xunit (CI).** _**R4-pending — not in `0.8.0-preview.x`.**_ The generic `[ScenarioFiles]` theory below is
+**not yet shipped**: putting an xunit data attribute on the runtime `Vion.Dale.DevHost` package would force an
+xunit dependency on every consumer that references it (including non-test DevHost apps), so it is deferred to
+a small dedicated package (e.g. `Vion.Dale.DevHost.Xunit`) pending demonstrated demand. Until then, the
+in-CI gate is `dale scenario validate` (fast, no wall-clock — the right gate anyway), and consumers wanting
+in-CI *execution* hand-write a one-line theory over `ScenarioRunner.RunAsync(id, host.Control, dir)` with
+`[MemberData]`. The intended shipped shape:
 
 ```csharp
 [Theory]
-[ScenarioFiles]   // default: <project>/scenarios, copied to output as content; path overridable
+[ScenarioFiles]   // R4-PENDING: default <project>/scenarios, copied to output as content; path overridable
 public Task Run(ScenarioFile scenario) => ScenarioRunner.RunAsync(scenario, _host.Control);
 ```
 
@@ -508,12 +532,91 @@ None — resolved 1–6 in revision 3, 7–9 in revision 4.
   discovery/watcher + `GET`/`apply`/`run`/`PUT` endpoints + Origin/Host check on mutating routes + Player v1
   (steps, watch tiles, judge checklist, report, mismatch interstitial, deep links) + readiness-line links +
   topology name in `ConfigurationOutput` + `object?` annotation fix.
-- **R4** — generic xunit theory; `dale scenario run / validate / schema / scaffold / open` +
-  `dale dev --export-config`; `dale new` template gains `scenarios/` + content-copy glob + an example file +
-  an AGENTS.md snippet teaching agents to emit scenarios and reference ids in PR summaries; consumer-side:
-  the small spec-trace extension.
+- **R4** — `dale scenario run / validate / schema / scaffold / open` + `dale dev --export-config`
+  (all shipped; `schema` runs offline from a `--config` export, `scaffold` emits a typed C# test);
+  consumer-side: the small spec-trace extension.
+  **R4-pending (not in `0.8.0-preview.x`):** the generic xunit `[ScenarioFiles]` theory and the `dale new`
+  template scaffolding (`scenarios/` dir + content-copy glob + example file + AGENTS.md snippet + the theory
+  class). Deferred together — the template scaffolding is gated on the theory's packaging decision (a
+  dedicated `Vion.Dale.DevHost.Xunit` package vs. an xunit dependency on the runtime package). Until they
+  ship, follow the **"Adopt RFC 0006 in an existing project"** checklist below.
 - **R5 (topology files)** — `*.topology.json` dev profile + loader (types resolved from plugin assemblies,
   unmapped contracts mocked) + `dale dev --export-topology` + Player topology switching (rides the R2
   run-control reset) + per-topology schema generation.
-- **Later** — `checks[]` (v2, server-side, opt-in), `ramp`, `Recorder`, server-side value history for a run
-  timeline, cloud-config import (production `SetLogicConfigurationPayload` → local topology file).
+- **Later (v2 candidates)** — a read-only struct **field path** for `waitUntil`
+  (`Block.Prop.Field above X`, e.g. `RefControllableConsumer.AllocatedCurrent.L1` on a `ThreePhaseCurrent`
+  struct — read-only, no struct *writes*); `checks[]` (server-side tolerance-windowed asserts, opt-in for
+  CI); `variables`/anchors for repeated struct literals; `ramp`; `Recorder`; server-side value history for a
+  run timeline; cloud-config import (production `SetLogicConfigurationPayload` → local topology file).
+  Priority from the first consumer's field log: the **struct field path** was the single biggest
+  expressiveness wall (it forces an otherwise-JSON scenario to stay C#); `checks[]` was *less* missed than
+  expected (a `waitUntil` step already fails the run/CI on timeout); `variables` was mildly missed; `ramp`
+  was not needed (the `set`/`wait` pair sufficed).
+
+## Adoption notes (revision 6)
+
+Worked, copy-pasteable example files live at [`docs/devhost-ui/examples/`](../devhost-ui/examples/README.md):
+a `scenarios/` set (with `.dale/scenario.schema.json`) and a `topologies/` set (with
+`.dale/topology.schema.json`), all standardized on the `./.dale/…` per-project `$schema` convention.
+
+### Adopt RFC 0006 in an existing project
+
+Until the `dale new` template ships the R4 scaffolding (above), an existing project adopts the stack by hand:
+
+1. **Run loop** — ensure the DevHost `Program.cs` runs via `await DevHostWebRunner.RunAsync(host, …)` (the
+   `--export-config` / `--export-topology` modes and the readiness line live there; an older `Main` that calls
+   `host.RunAsync` directly silently ignores the export env vars — the CLI now times out with a hint rather
+   than hanging).
+2. **Layout** — create `scenarios/` (committed `*.scenario.json`; scratch under `scenarios/_local/` is
+   `.gitignore`-able) and, optionally, `topologies/` (`*.topology.json`).
+3. **Editor completion** — generate the per-project schema with
+   `dale dev --export-config config.json` then `dale scenario schema --config config.json -o scenarios/.dale/scenario.schema.json`,
+   and reference it from each file via `"$schema": "./.dale/scenario.schema.json"`. (`schema` runs offline
+   from the export — no host needed.)
+4. **CI gate** — add `dale scenario validate` to the PR pipeline (fast, no wall-clock). For in-CI
+   *execution*, hand-write a one-line theory over `ScenarioRunner.RunAsync(id, host.Control, dir)` in a
+   nightly lane (the `[ScenarioFiles]` attribute is R4-pending).
+5. **Spec trace** (if used) — add the `*.scenario.json` extension and the scenarios directory to the
+   consumer's `spec-trace.ps1` scan set (2–3 lines); ids inside JSON strings match the existing regex as-is.
+6. **Agents** — tell agents (AGENTS.md) to emit `*.scenario.json` for verification-worthy changes and cite
+   the scenario **id** in the PR (resolve it with `dale scenario open <id>`), and to graduate a scenario to
+   C# with `dale scenario scaffold <id>` when it outgrows the format.
+
+### The two JSON shapes (config vs topology)
+
+`dale dev --export-config` and `dale dev --export-topology` emit deliberately different files — confusable
+because they overlap. Which is which:
+
+| | `--export-config` (`ConfigurationOutput`) | `--export-topology` (`*.topology.json` dev profile) |
+|---|---|---|
+| Top-level blocks | `logicBlocks[]` (full introspection: schemas, services) | `logicBlockInstances[]` (`typeFullName`, `name` only) |
+| Purpose | data source for `validate` / `schema` (read) | a committed, loadable topology (the C#-preset migration path) |
+| Consumed by | `dale scenario validate` / `schema` | `DevTopologyLoader`, `POST /api/topologies/{id}/switch` |
+| Contract-mapping fields | `mappedServiceProviderIdentifier` / `mappedServiceIdentifier` / `mappedContractIdentifier` | **same** (converged in revision 6 — they no longer diverge) |
+| `$schema` | n/a | `./.dale/topology.schema.json` (was `null`; generic schema served at `GET /api/topologies/schema`) |
+
+Topology parsing is strict (`JsonUnmappedMemberHandling.Disallow`): a hand-edit with an unknown field name
+**fails loudly**, and the shipped `topology.schema.json` lets editors catch it before you run.
+
+### Per-topology schemas
+
+`dale scenario schema` enriches name-path completion from exactly **one** `ConfigurationOutput` (one
+topology). A repo with multiple topologies (e.g. `em-closed-loop`, `operator-steering`) wanting editor
+completion for the non-default ones generates one schema per topology — export that topology's config
+(`dale dev --export-topology … --preset <name>` then `--export-config`) and write
+`scenarios/.dale/<topology>.scenario.schema.json`, pointing those scenarios' `"$schema"` at it. The CLI
+`validate` already checks each scenario against its own `topology` regardless; this is editor-only polish.
+
+### Sharp edges
+
+- **`set` requires an explicit `value`.** A `set` step with no `value` is a format error; to set a property
+  to null write `"value": null` (the schema marks `value` required, and explicit-null is distinct from
+  absent — the runner decodes JSON null).
+- **Case sensitivity vs. Windows.** Ids, block / service / property names, and the `<id>.scenario.json`
+  file name all match **ordinal** (case-sensitive). A Windows file system is case-insensitive, so a
+  `Foo.scenario.json` for id `foo` loads locally then 404s on Linux CI — `dale scenario validate` flags the
+  id/filename mismatch. Keep ids and file names byte-identical.
+- **Readiness-line scenario links.** `dale dev` prints discovered scenario deep links (one per line,
+  human-readable) just before the JSON readiness line; a single machine-readable JSON form of that list is a
+  v2 candidate. A PR should cite the scenario **id**, never a `http://localhost:{port}/…` URL (the port is
+  per-machine).
