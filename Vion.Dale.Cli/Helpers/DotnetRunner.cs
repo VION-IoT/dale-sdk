@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using Vion.Dale.Cli.Output;
 
@@ -10,9 +12,15 @@ namespace Vion.Dale.Cli.Helpers
     {
         /// <summary>
         ///     Run a dotnet command with inherited stdio (output streams directly to console).
-        ///     Returns the process exit code.
+        ///     Returns the process exit code. When <paramref name="cancellationToken" /> is cancelled, the
+        ///     spawned process — and its whole tree (a <c>dotnet run</c> spawns the built app as a child) —
+        ///     is killed, and <see cref="OperationCanceledException" /> is thrown so the caller can
+        ///     distinguish a cancellation from a normal exit.
         /// </summary>
-        public static async Task<int> RunAsync(string command, IEnumerable<string>? extraArgs = null, string? workingDirectory = null)
+        public static async Task<int> RunAsync(string command,
+                                               IEnumerable<string>? extraArgs = null,
+                                               string? workingDirectory = null,
+                                               CancellationToken cancellationToken = default)
         {
             var args = new List<string> { command };
             if (extraArgs != null)
@@ -39,7 +47,27 @@ namespace Vion.Dale.Cli.Helpers
                 return 1;
             }
 
-            await process.WaitForExitAsync();
+            try
+            {
+                await process.WaitForExitAsync(cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                try
+                {
+                    if (!process.HasExited)
+                    {
+                        process.Kill(true);
+                    }
+                }
+                catch
+                {
+                    // Best-effort kill — the process may have exited between the check and the kill.
+                }
+
+                throw;
+            }
+
             return process.ExitCode;
         }
 
