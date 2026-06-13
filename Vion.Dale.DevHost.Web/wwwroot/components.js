@@ -15,7 +15,7 @@ import {
 import {
     applyScenario, baselineDelta, buildSharedContractLookup, changedCountForBlock,
     changedSinceBaseline, clearBaseline, clearPins, closeScenario, collapseKey, connectionsForLb,
-    halKey, isPinned, judgeKey, loadTopologies, openScenario, pauseHost, resetHost, resumeHost,
+    halKey, historyFor, isPinned, judgeKey, loadTopologies, openScenario, pauseHost, resetHost, resumeHost,
     setAnalogInput, setBaseline, setDigitalInput, setJudgeTick, setProperty, showError, store,
     switchTopology, toggleCollapsed, togglePin, valueKey,
 } from './store.js';
@@ -73,7 +73,54 @@ function badgeList(item) {
 
 // ── value rendering ─────────────────────────────────────────────────────────────
 
+// ── inline metric sparkline (hand-rolled SVG; no charting dependency, fully offline) ────────────
+
+export const Sparkline = {
+    props: ['values', 'width', 'height'],
+    setup(props) {
+        const w = computed(() => props.width || 64);
+        const h = computed(() => props.height || 16);
+        // A polyline over the finite numeric samples, normalised into the box. Hidden below two points
+        // (a single sample is a dot, not a trend).
+        const points = computed(() => {
+            const vals = (props.values || []).filter(v => typeof v === 'number' && Number.isFinite(v));
+            if (vals.length < 2) return null;
+            const pad = 1.5;
+            const min = Math.min(...vals);
+            const max = Math.max(...vals);
+            const range = max - min || 1;
+            const innerW = w.value - 2 * pad;
+            const innerH = h.value - 2 * pad;
+            const stepX = innerW / (vals.length - 1);
+            return vals
+                .map((v, i) => `${(pad + i * stepX).toFixed(1)},${(pad + innerH * (1 - (v - min) / range)).toFixed(1)}`)
+                .join(' ');
+        });
+        return { points, w, h };
+    },
+    template: `
+        <svg v-if="points" class="sparkline" :width="w" :height="h" :viewBox="'0 0 ' + w + ' ' + h"
+             preserveAspectRatio="none" aria-hidden="true">
+            <polyline :points="points" fill="none"/>
+        </svg>
+    `,
+};
+
+// The live trend series for a numeric METRIC (a measuring point, or a property that is also one) — null
+// otherwise (config properties, enums/status, structs, or a series too short to chart). Live-only.
+function metricTrend(service, item) {
+    if (!service || !item) return null;
+    const presentation = item.presentation || {};
+    const isStatus = presentation.uiHint === 'statusIndicator' || !!presentation.statusMappings;
+    const t = effectiveType(item.schema || {});
+    const isMetric = item._kind === 'measuringPoint' || item._alsoMetric === true;
+    if (!isMetric || isStatus || (t !== 'number' && t !== 'integer')) return null;
+    const series = historyFor(service.id, item.identifier);
+    return series && series.length >= 2 ? series : null;
+}
+
 export const ValueCell = {
+    components: { Sparkline },
     // `sample`: optional value override (the gallery's synthetic previews) — rendering policy is
     // identical to live values by construction because it IS the same code path.
     props: ['service', 'item', 'sample'],
@@ -88,6 +135,16 @@ export const ValueCell = {
         const unit = resolveUnit(schema);
         const itemType = effectiveType(schema);
         const enumLabels = presentation.enumLabels || null;
+
+        // UiHints.Sparkline on a numeric array renders the value AS a sparkline (live value or gallery
+        // sample) instead of a JSON chip; null (→ falls back to the chip) below two finite samples.
+        const arraySeries = computed(() => {
+            if (presentation.uiHint !== 'sparkline' || itemType !== 'array') return null;
+            const v = live.value;
+            if (!Array.isArray(v)) return null;
+            const nums = v.filter(n => typeof n === 'number' && Number.isFinite(n));
+            return nums.length >= 2 ? nums : null;
+        });
 
         const display = computed(() => {
             const v = live.value;
@@ -114,10 +171,11 @@ export const ValueCell = {
         });
 
         const severity = computed(() => isStatus ? severityFor(presentation.statusMappings, live.value) : null);
-        return { display, severity, flashing, writeOnly, isStatus };
+        return { display, severity, flashing, writeOnly, isStatus, arraySeries };
     },
     template: `
-        <span v-if="isStatus" class="severity-pill" :class="[severity, { updated: flashing }]">{{ display }}</span>
+        <Sparkline v-if="arraySeries" :values="arraySeries" :width="84" :height="18"/>
+        <span v-else-if="isStatus" class="severity-pill" :class="[severity, { updated: flashing }]">{{ display }}</span>
         <span v-else class="value-chip" :class="{ updated: flashing, secret: writeOnly }">{{ display }}</span>
     `,
 };
@@ -556,7 +614,7 @@ export const DocsRow = {
 // ── the dense row ───────────────────────────────────────────────────────────────
 
 export const ItemRow = {
-    components: { ValueCell, NumberControl, TextControl, EnumSelect, BoolToggle, TriggerButton, SecretControl, JsonEditor, DocsRow, StructViewer },
+    components: { ValueCell, NumberControl, TextControl, EnumSelect, BoolToggle, TriggerButton, SecretControl, JsonEditor, DocsRow, StructViewer, Sparkline },
     props: ['lb', 'service', 'item'],
     setup(props) {
         const pinEntry = { block: props.lb.name, service: props.service.identifier, item: props.item.identifier };
@@ -588,10 +646,12 @@ export const ItemRow = {
         });
 
         const showStructEdit = computed(() => writable && isStruct);
+        // Inline live trend for a numeric metric (its history ring buffer) — beside the value or control.
+        const trend = computed(() => metricTrend(props.service, props.item));
         const docsOpen = ref(false);
         const editorOpen = ref(false);
         const viewerOpen = ref(false);
-        return { controlKind, docsOpen, editorOpen, viewerOpen, writable, isStruct, isStatus, hidden, unit, writeOnly, showStructEdit, pinned, togglePinRow, changed };
+        return { controlKind, docsOpen, editorOpen, viewerOpen, writable, isStruct, isStatus, hidden, unit, writeOnly, showStructEdit, trend, pinned, togglePinRow, changed };
     },
     template: `
         <div class="item" :class="{ 'hidden-importance': hidden }" :id="'item-' + service.id + '-' + item.identifier">
@@ -620,6 +680,7 @@ export const ItemRow = {
                     <button v-if="showStructEdit" type="button" class="edit-toggle"
                             :class="{ open: editorOpen }" @click="editorOpen = !editorOpen">{ } edit</button>
                 </template>
+                <Sparkline v-if="trend" :values="trend" class="trend"/>
             </div>
             <StructViewer v-if="viewerOpen" :service="service" :item="item"/>
             <JsonEditor v-if="editorOpen" :service="service" :item="item"/>
@@ -817,7 +878,7 @@ export const Rail = {
 // ── watch panel (pinned tiles, drive above observe) ─────────────────────────────
 
 const WatchTile = {
-    components: { ValueCell, NumberControl, TextControl, EnumSelect, BoolToggle, TriggerButton, SecretControl, StructViewer },
+    components: { ValueCell, NumberControl, TextControl, EnumSelect, BoolToggle, TriggerButton, SecretControl, StructViewer, Sparkline },
     props: ['entry'],
     setup(props) {
         // Resolve the name-path pin against the current topology; null → tombstone.
@@ -826,10 +887,12 @@ const WatchTile = {
             const service = lb && (lb.services || []).find(s => s.identifier === props.entry.service);
             if (!service) return null;
             const prop = (service.serviceProperties || []).find(p => p.identifier === props.entry.item);
-            const mp = !prop && (service.serviceMeasuringPoints || []).find(p => p.identifier === props.entry.item);
+            const mp = (service.serviceMeasuringPoints || []).find(p => p.identifier === props.entry.item);
             if (!prop && !mp) return null;
-            return { lb, service, item: { ...(prop || mp), _kind: prop ? 'property' : 'measuringPoint' } };
+            // Flag a member that is both so its trend sparkline shows even when pinned via the property side.
+            return { lb, service, item: { ...(prop || mp), _kind: prop ? 'property' : 'measuringPoint', _alsoMetric: !!(prop && mp) } };
         });
+        const trend = computed(() => resolved.value ? metricTrend(resolved.value.service, resolved.value.item) : null);
         const controlKind = computed(() => {
             const r = resolved.value;
             if (!r) return null;
@@ -865,7 +928,8 @@ const WatchTile = {
             return t === 'object' || t === 'array';
         });
         const viewerOpen = ref(false);
-        return { resolved, controlKind, changed, delta, unpin, isStruct, viewerOpen };
+        const showTrend = computed(() => !!trend.value && !viewerOpen.value);
+        return { resolved, controlKind, changed, delta, unpin, isStruct, viewerOpen, trend, showTrend };
     },
     template: `
         <div class="watch-tile">
@@ -888,6 +952,7 @@ const WatchTile = {
                     <TextControl v-else-if="controlKind === 'text'" :service="resolved.service" :item="resolved.item"/>
                     <ValueCell v-else :service="resolved.service" :item="resolved.item"/>
                 </div>
+                <Sparkline v-if="showTrend" :values="trend" :width="160" :height="26" class="trend tile-trend"/>
                 <div v-if="delta" class="tile-delta">{{ delta }}</div>
             </template>
             <template v-else>

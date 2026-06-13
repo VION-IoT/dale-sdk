@@ -396,6 +396,13 @@ body {
 }
 .value-chip.secret { color: var(--vion-error-fg-def-tertiary); }
 
+/* Inline metric sparkline (hand-rolled SVG). non-scaling-stroke keeps the 1px line crisp despite the
+   preserveAspectRatio="none" stretch. */
+.sparkline { display: inline-block; vertical-align: middle; }
+.sparkline polyline { stroke: var(--accent); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.sparkline.trend { margin-left: 8px; opacity: 0.85; }
+.sparkline.tile-trend { display: block; width: 100%; margin-top: 6px; opacity: 0.9; }
+
 .value-chip.updated, .severity-pill.updated {
     background: var(--vion-success-bg-def-primary);
     border-color: var(--vion-success-brd-def-primary);

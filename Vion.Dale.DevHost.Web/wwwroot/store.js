@@ -13,6 +13,10 @@ export const store = reactive({
     topologyName: null,
     // `${serviceId}/${identifier}` -> last published property / measuring-point value
     values: {},
+    // `${serviceId}/${identifier}` -> recent numeric samples (ring buffer, newest last) for inline
+    // metric sparklines. Only changed values push (Metalama [Observable] dedups exact-equal), so a flat
+    // metric accrues no trend — which is exactly when a sparkline should stay hidden (needs ≥2 samples).
+    history: {},
     // `${kind}/${spId}/${svcId}/${contractId}` -> last HAL contract value (kind: di/do/ai/ao)
     hal: {},
     // `${blockName}/${serviceIdentifier}/${groupKey}` -> explicit user collapse override (bool).
@@ -70,6 +74,27 @@ export function halKey(kind, spId, svcId, contractId) {
 
 export function liveValue(serviceId, identifier) {
     return store.values[valueKey(serviceId, identifier)];
+}
+
+// ── Metric history (inline sparklines) ──────────────────────────────────────────
+
+const HISTORY_CAP = 40;
+
+// Append a numeric sample to a value's ring buffer. Non-numbers / non-finite are ignored, so a status
+// enum, string, or struct never grows a series. Newest last, capped.
+function recordHistory(key, value) {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return;
+    let series = store.history[key];
+    if (!series) {
+        series = [];
+        store.history[key] = series;
+    }
+    series.push(value);
+    if (series.length > HISTORY_CAP) series.shift();
+}
+
+export function historyFor(serviceId, identifier) {
+    return store.history[valueKey(serviceId, identifier)] || null;
 }
 
 // ── Collapse state (policy in format.js: defaultOpen) ──────────────────────────
@@ -315,6 +340,7 @@ async function reinitClientState() {
                     store.config = await response.json();
                     store.topologyName = store.config.topologyName || null;
                     Object.keys(store.values).forEach(k => delete store.values[k]);
+                    Object.keys(store.history).forEach(k => delete store.history[k]);
                     Object.keys(store.hal).forEach(k => delete store.hal[k]);
                     clearBaseline();
                     await primeInitialValues();
@@ -352,7 +378,7 @@ function scheduleFlush() {
     flushScheduled = true;
     setTimeout(() => {
         flushScheduled = false;
-        pendingValues.forEach((v, k) => { store.values[k] = v; });
+        pendingValues.forEach((v, k) => { store.values[k] = v; recordHistory(k, v); });
         pendingValues.clear();
         pendingHal.forEach((v, k) => { store.hal[k] = v; });
         pendingHal.clear();
@@ -417,7 +443,9 @@ async function primeInitialValues() {
                 all.forEach(item => {
                     const value = byLowerKey[item.identifier.toLowerCase()];
                     if (value !== null && value !== undefined) {
-                        store.values[valueKey(service.id, item.identifier)] = value;
+                        const key = valueKey(service.id, item.identifier);
+                        store.values[key] = value;
+                        recordHistory(key, value);
                     }
                 });
             });
