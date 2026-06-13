@@ -70,7 +70,6 @@ namespace Vion.Dale.Cli.Commands
             code.AppendLine($"    public class {pascal}Scenario");
             code.AppendLine("    {");
             code.AppendLine($"        private const string ScenarioId = {CSharpString(id)};");
-            code.AppendLine($"        private const string ScenariosDirectory = {CSharpString(scenariosDir)};");
             code.AppendLine();
             code.AppendLine($"        // Topology: {topology}");
             if (specs.Count > 0)
@@ -90,7 +89,9 @@ namespace Vion.Dale.Cli.Commands
                 code.AppendLine($"            //   {line}");
             }
 
-            code.AppendLine("            await ScenarioRunner.ApplyAsync(ScenarioId, host.Control, ScenariosDirectory);");
+            code.AppendLine("            // The scenarios directory is found by walking up to the repo root; pass an explicit dir only to");
+            code.AppendLine("            // override (an explicit dir resolves relative to the test's working directory, i.e. the bin folder).");
+            code.AppendLine("            await ScenarioRunner.ApplyAsync(ScenarioId, host.Control);");
 
             var watch = (scenario["watch"] as JsonArray)?.Select(w => w?.GetValue<string>()).Where(w => w is not null).ToList() ?? new List<string?>();
             if (watch.Count > 0)
