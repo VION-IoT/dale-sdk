@@ -21,6 +21,14 @@ namespace Vion.Dale.DevHost.Topologies
     {
         public const string FileSuffix = ".topology.json";
 
+        /// <summary>
+        ///     The conventional, per-project <c>$schema</c> reference emitted on export — a sibling
+        ///     <c>.dale/topology.schema.json</c> (the generic schema this package ships and serves at
+        ///     <c>GET /api/topologies/schema</c>). Editors that resolve it then catch wrong field names in
+        ///     hand edits (parsing is strict). Mirrors the scenario files' <c>./.dale/scenario.schema.json</c>.
+        /// </summary>
+        public const string SchemaRef = "./.dale/topology.schema.json";
+
         private static readonly Regex IdSlug = new("^[A-Za-z0-9][A-Za-z0-9._-]*$", RegexOptions.Compiled);
 
         internal static readonly JsonSerializerOptions SerializerOptions = new()
@@ -151,6 +159,7 @@ namespace Vion.Dale.DevHost.Topologies
         {
             return new DevTopologyFile
                    {
+                       Schema = SchemaRef,
                        Id = configuration.TopologyName ?? "default",
                        LogicBlockInstances = configuration.LogicBlocks
                                                           .Select(lb => new TopologyLogicBlockInstance { TypeFullName = lb.TypeFullName, Name = lb.Name })
@@ -169,9 +178,9 @@ namespace Vion.Dale.DevHost.Topologies
                                                                                                           {
                                                                                                               LogicBlockName = lb.Name,
                                                                                                               ContractIdentifier = cm.ContractIdentifier,
-                                                                                                              ServiceProviderIdentifier = cm.MappedServiceProviderIdentifier,
-                                                                                                              ServiceIdentifier = cm.MappedServiceIdentifier,
-                                                                                                              ContractEndpointIdentifier = cm.MappedContractIdentifier,
+                                                                                                              MappedServiceProviderIdentifier = cm.MappedServiceProviderIdentifier,
+                                                                                                              MappedServiceIdentifier = cm.MappedServiceIdentifier,
+                                                                                                              MappedContractIdentifier = cm.MappedContractIdentifier,
                                                                                                           }))
                                                        .ToList(),
                    };
@@ -207,10 +216,12 @@ namespace Vion.Dale.DevHost.Topologies
 
         public string? ContractIdentifier { get; init; }
 
-        public string? ServiceProviderIdentifier { get; init; }
+        // Field names converged with ConfigurationOutput.ContractMapping (the `dale dev --export-config`
+        // shape) so the two near-identical topology/config JSON forms no longer diverge (DF-11).
+        public string? MappedServiceProviderIdentifier { get; init; }
 
-        public string? ServiceIdentifier { get; init; }
+        public string? MappedServiceIdentifier { get; init; }
 
-        public string? ContractEndpointIdentifier { get; init; }
+        public string? MappedContractIdentifier { get; init; }
     }
 }
