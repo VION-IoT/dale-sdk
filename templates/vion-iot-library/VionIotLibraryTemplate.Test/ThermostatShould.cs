@@ -25,7 +25,7 @@ namespace VionIotLibraryTemplate.Test
             _thermostat.Tick();
 
             // Assert
-            Assert.Equal(ThermostatState.Heating, _thermostat.State);
+            Assert.Equal(ThermostatStatus.Heating, _thermostat.Status);
             Assert.True(_thermostat.CurrentTemperature > 20.0, "the room should warm toward the setpoint");
         }
 
@@ -41,7 +41,7 @@ namespace VionIotLibraryTemplate.Test
             _thermostat.Tick();
 
             // Assert
-            Assert.Equal(ThermostatState.Idle, _thermostat.State);
+            Assert.Equal(ThermostatStatus.Idle, _thermostat.Status);
             Assert.Equal(energyBefore, _thermostat.EnergyUsedKwh);
         }
     }
