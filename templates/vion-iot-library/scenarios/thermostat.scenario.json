@@ -3,7 +3,7 @@
   "version": 1,
   "id": "thermostat",
   "title": "Thermostat heats to the setpoint",
-  "description": "Raise the target temperature from a cold start and watch the room warm up — the State pill goes Heating, then Idle once it arrives.",
+  "description": "Raise the target temperature from a cold start and watch the room warm up — the Status pill goes Heating, then Idle once it arrives.",
   "topology": "thermostat",
   "setup": [
     { "set": "Thermostat.Mode", "value": "Auto" },
@@ -15,11 +15,11 @@
   ],
   "watch": [
     "Thermostat.CurrentTemperature",
-    "Thermostat.State",
+    "Thermostat.Status",
     "Thermostat.EnergyUsedKwh"
   ],
   "judge": [
-    { "text": "The State pill shows Heating while warming, then settles on Idle near the setpoint" },
+    { "text": "The Status pill shows Heating while warming, then settles on Idle near the setpoint" },
     { "text": "CurrentTemperature reaches ~24 °C without a large overshoot" }
   ]
 }

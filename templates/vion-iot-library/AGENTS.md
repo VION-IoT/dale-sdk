@@ -170,11 +170,11 @@ await host.StartAsync();
 await host.Control.SetPropertyAsync("Thermostat", "TargetTemperature", 24.0);   // set an input
 
 // Wait for an outcome — the live runtime has no synchronous time-step, so observe events:
-var state = await host.Control.WaitForAsync(
-    e => e is ServicePropertyChanged { Property: "State" } sp ? sp.Value : null, TimeSpan.FromSeconds(5));
+var temperature = await host.Control.WaitForAsync(
+    e => e is ServicePropertyChanged { Property: "CurrentTemperature" } sp ? sp.Value : null, TimeSpan.FromSeconds(5));
 
-// Read state — service properties AND measuring points (for asserting calculations):
-var temperature = host.Control.GetProperty("Thermostat", "CurrentTemperature");
+// Read state — service properties AND measuring points (the Status pill is a measuring point):
+var status = host.Control.GetProperty("Thermostat", "Status");
 
 // With multiple blocks, assert what a collaborator actually received (the wired analogue of TestKit's
 // Verify*): host.Control.RecordedMessages("other-block"). Read the console: host.Control.RecentLogs().
