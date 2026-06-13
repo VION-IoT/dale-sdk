@@ -17,7 +17,7 @@ Commands:
   test        Run tests (unrecognized options are forwarded to dotnet test, e.g. --filter)
   dev         Start the DevHost with web UI (extra arguments are forwarded to the DevHost app)
   list        Show project info (logic blocks, contracts, properties, etc.)
-  scenario    Work with *.scenario.json files (RFC 0006): run, validate, generate the editor schema, open in the Player
+  scenario    Work with *.scenario.json files (RFC 0006): run, validate, generate the editor schema, scaffold a C# test, open in the Player
   add         Add elements to a LogicBlock project
   pack        Pack project into a NuGet package
   upload      Pack and upload library to Vion Cloud
@@ -90,6 +90,7 @@ Options:
   --headless                           Run without opening a browser. Serves the control API and prints a JSON readiness line on stdout — for tools, CI, and agents.
   --export-config <export-config>      Boot the wired network, write its configuration (block names, services, schemas, topology) as JSON to this file, and exit — the data source for `dale scenario validate` and `dale scenario schema` (RFC 0006).
   --export-topology <export-topology>  Boot the wired network, write it as a *.topology.json dev profile to this file, and exit — the migration path from C# presets to topology files (RFC 0006 R5).
+  --preset <preset>                    Pass <name> as the DevHost app's first program argument (args[0]) — the discoverable, composable form of `dale dev -- <name>` for selecting a consumer-defined preset. Combines with --export-config/--export-topology to export a non-default preset.
   -?, -h, --help                       Show help and usage information
   -o, --output <json|table>            Output format [default: table]
   --project <project>                  Path to .csproj file
@@ -233,7 +234,7 @@ Commands:
 ---
 ## dale scenario
 Description:
-  Work with *.scenario.json files (RFC 0006): run, validate, generate the editor schema, open in the Player
+  Work with *.scenario.json files (RFC 0006): run, validate, generate the editor schema, scaffold a C# test, open in the Player
 
 Usage:
   Vion.Dale.Cli scenario [command] [options]
@@ -245,8 +246,9 @@ Options:
   --verbose                  Show detailed output
 
 Commands:
-  run <id>   Execute a scenario against the running DevHost and report the result — the same report the Player's copy button produces
-  validate   Validate every scenario file: structure, name paths, and topology against the wired-host configuration — catches renames fast in CI
-  schema     Print the scenario JSON Schema, enriched with this topology's actual name paths when a configuration is available — commit it as scenarios/.dale/scenario.schema.json and reference it from scenario files via "$schema" for editor completion
-  open <id>  Open a scenario in the running DevHost's Player (the #/scenario/{id} deep link)
+  run <id>       Execute a scenario against the running DevHost and report the result — the same report the Player's copy button produces
+  validate       Validate every scenario file: structure, name paths, and topology against the wired-host configuration — catches renames fast in CI
+  schema         Print the scenario JSON Schema, enriched with this topology's actual name paths when a configuration is available — commit it as scenarios/.dale/scenario.schema.json and reference it from scenario files via "$schema" for editor completion
+  scaffold <id>  Generate a typed C# test from a scenario file — runs the scenario's setup + steps via ScenarioRunner.ApplyAsync, with TODO assertions for its human judgments (RFC 0006 composition rule: the graduation path when a scenario outgrows the format)
+  open <id>      Open a scenario in the running DevHost's Player (the #/scenario/{id} deep link)
 
