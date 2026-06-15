@@ -58,6 +58,7 @@ namespace Vion.Dale.Sdk.Introspection
                               Title = sf.Title,
                               Description = sf.Description,
                               Unit = sf.Unit,
+                              Format = sf.StringFormat,
                               Minimum = !double.IsNegativeInfinity(sf.Minimum) ? sf.Minimum : null,
                               Maximum = !double.IsPositiveInfinity(sf.Maximum) ? sf.Maximum : null,
                           };
@@ -220,6 +221,11 @@ namespace Vion.Dale.Sdk.Introspection
             if (type == typeof(TimeSpan))
             {
                 return PrimitiveKind.Duration;
+            }
+
+            if (type == typeof(Guid))
+            {
+                return PrimitiveKind.Guid;
             }
 
             return null;

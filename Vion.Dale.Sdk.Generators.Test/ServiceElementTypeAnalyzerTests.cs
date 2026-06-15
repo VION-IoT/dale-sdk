@@ -45,8 +45,10 @@ public class MyBlock
             await AnalyzerTestBase.VerifyAnalyzerAsync<ServiceElementTypeAnalyzer>(source);
         }
 
+        // Guid is a supported service-element type (maps to format:uuid) as of the string-formats
+        // change. DALE003's "unsupported type" coverage lives in the decimal / array / class tests below.
         [TestMethod]
-        public async Task UnsupportedType_ServiceProperty_ReportsDiagnostic()
+        public async Task Guid_ServiceProperty_NoDiagnostic()
         {
             var source = @"
 using System;
@@ -54,14 +56,13 @@ using Vion.Dale.Sdk.Core;
 
 public class MyBlock
 {
-    [ServiceProperty] public Guid {|#0:Id|} { get; set; }
+    [ServiceProperty] public Guid Id { get; set; }
 }";
-            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE003_UnsupportedServicePropertyType).WithLocation(0).WithArguments("Id", "ServiceProperty", "Guid");
-            await AnalyzerTestBase.VerifyAnalyzerAsync<ServiceElementTypeAnalyzer>(source, expected);
+            await AnalyzerTestBase.VerifyAnalyzerAsync<ServiceElementTypeAnalyzer>(source);
         }
 
         [TestMethod]
-        public async Task UnsupportedType_ServiceMeasuringPoint_ReportsDiagnostic()
+        public async Task Guid_ServiceMeasuringPoint_NoDiagnostic()
         {
             var source = @"
 using System;
@@ -69,10 +70,9 @@ using Vion.Dale.Sdk.Core;
 
 public class MyBlock
 {
-    [ServiceMeasuringPoint] public Guid {|#0:Id|} { get; }
+    [ServiceMeasuringPoint] public Guid Id { get; }
 }";
-            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE003_UnsupportedServicePropertyType).WithLocation(0).WithArguments("Id", "ServiceMeasuringPoint", "Guid");
-            await AnalyzerTestBase.VerifyAnalyzerAsync<ServiceElementTypeAnalyzer>(source, expected);
+            await AnalyzerTestBase.VerifyAnalyzerAsync<ServiceElementTypeAnalyzer>(source);
         }
 
         [TestMethod]

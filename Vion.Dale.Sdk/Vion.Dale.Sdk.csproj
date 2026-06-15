@@ -59,7 +59,7 @@
         <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0" />
         <!-- TimeProvider backport for netstandard2.1. Replaces homegrown IDateTimeProvider. -->
         <PackageReference Include="Microsoft.Bcl.TimeProvider" Version="10.0.0" />
-        <PackageReference Include="Vion.Contracts" Version="0.15.2" />
+        <PackageReference Include="Vion.Contracts" Version="1.1.0" />
         <PackageReference Include="System.Text.Json" Version="10.0.7" />
     </ItemGroup>
 

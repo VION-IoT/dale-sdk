@@ -380,5 +380,18 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                                                                                                Category,
                                                                                                DiagnosticSeverity.Warning,
                                                                                                true);
+
+        /// <summary>
+        ///     <c>StringFormat</c> on <c>[ServiceProperty]</c> / <c>[ServiceMeasuringPoint]</c> is honored
+        ///     only for <c>string</c> / <c>string?</c> members, and its value must not be a reserved
+        ///     type-kind format (<c>date-time</c> / <c>duration</c> / <c>uuid</c>) — those have dedicated
+        ///     CLR types (<c>DateTime</c> / <c>TimeSpan</c> / <c>Guid</c>). Otherwise the hint is misplaced.
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE033_StringFormatOnNonString = new("DALE033",
+                                                                                          "StringFormat only applies to string properties",
+                                                                                          "Property '{0}' (type '{1}') sets StringFormat, which applies only to string/string? members and must not be a reserved type-kind format (date-time/duration/uuid — use DateTime/TimeSpan/Guid, or [Presentation(Format/Decimals)] for display).",
+                                                                                          Category,
+                                                                                          DiagnosticSeverity.Warning,
+                                                                                          true);
     }
 }
