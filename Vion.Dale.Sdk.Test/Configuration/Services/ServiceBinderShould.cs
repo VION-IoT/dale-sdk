@@ -6,7 +6,7 @@ namespace Vion.Dale.Sdk.Test.Configuration.Services
 {
     // -----------------------------------------------------------------------
     // Regression-baseline tests for ServiceBinder.SetPropertyValue /
-    // GetPropertyValue / GetMeasuringPointValue across every type kind.
+    // GetPropertyValue across every type kind.
     //
     // These tests document behaviour POST-LT9 (§3.13): the ad-hoc int→enum
     // conversion at ServiceBinder.cs was removed. The codec now produces typed
@@ -278,34 +278,6 @@ namespace Vion.Dale.Sdk.Test.Configuration.Services
         }
 
         // ===================================================================
-        // GetMeasuringPointValue — read-only measuring point
-        // ===================================================================
-
-        [TestMethod]
-        public void GetMeasuringPointValue_ReturnsDefaultValueInitially()
-        {
-            var (binder, _) = ServiceBinderTestHarness.Bind<RichTypesLogicBlock>();
-
-            // Location is a Coordinates struct; default is Coordinates(0.0, 0.0).
-            var value = binder.GetMeasuringPointValue(ServiceId, "Location");
-            Assert.AreEqual(new Coordinates(0.0, 0.0), value);
-        }
-
-        [TestMethod]
-        public void GetMeasuringPointValue_ReturnsCorrectValueAfterBackingFieldChange()
-        {
-            var (binder, block) = ServiceBinderTestHarness.Bind<RichTypesLogicBlock>();
-
-            // Measuring points are read-only via the binder; the backing field can only be
-            // written by the block itself. Use reflection to simulate the block setting it.
-            var prop = typeof(RichTypesLogicBlock).GetProperty("Location")!;
-            prop.SetValue(block, new Coordinates(51.5, -0.1));
-
-            var value = binder.GetMeasuringPointValue(ServiceId, "Location");
-            Assert.AreEqual(new Coordinates(51.5, -0.1), value);
-        }
-
-        // ===================================================================
         // Error cases
         // ===================================================================
 
@@ -332,14 +304,6 @@ namespace Vion.Dale.Sdk.Test.Configuration.Services
             var (binder, _) = ServiceBinderTestHarness.Bind<RichTypesLogicBlock>();
 
             Assert.ThrowsExactly<InvalidOperationException>(() => binder.GetPropertyValue(ServiceId, "DoesNotExist"));
-        }
-
-        [TestMethod]
-        public void GetMeasuringPointValue_ThrowsInvalidOperationException_WhenPointDoesNotExist()
-        {
-            var (binder, _) = ServiceBinderTestHarness.Bind<RichTypesLogicBlock>();
-
-            Assert.ThrowsExactly<InvalidOperationException>(() => binder.GetMeasuringPointValue(ServiceId, "DoesNotExist"));
         }
     }
 }

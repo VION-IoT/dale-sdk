@@ -74,25 +74,6 @@ namespace Vion.Dale.Sdk.Configuration.Services
         }
 
         /// <summary>
-        ///     For the logic block to get a measuring point value from a service
-        /// </summary>
-        public object? GetMeasuringPointValue(string serviceIdentifier, string measuringPointIdentifier)
-        {
-            if (_serviceMeasuringPoints.TryGetValue(serviceIdentifier, out var ifaceMap))
-            {
-                foreach (var kv in ifaceMap.Values)
-                {
-                    if (kv.TryGetValue(measuringPointIdentifier, out var binding))
-                    {
-                        return binding.Getter(binding.Source);
-                    }
-                }
-            }
-
-            throw new InvalidOperationException($"Property {measuringPointIdentifier} not found in {serviceIdentifier}.");
-        }
-
-        /// <summary>
         ///     For the parser to inspect all bindings
         /// </summary>
         public IReadOnlyDictionary<string, IReadOnlyDictionary<Type, IReadOnlyDictionary<string, ServiceBinding>>> GetAllServicePropertyBindings()

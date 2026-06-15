@@ -267,16 +267,8 @@ namespace Vion.Dale.Sdk.Core
                     GetFunctionById(m.ToId).HandleMessage(m);
                     break;
 
-                case GetServicePropertyValueRequest m: // from handler, respond with current value
-                    HandleGetServicePropertyValueRequest(actorContext, m);
-                    break;
-
                 case SetServicePropertyValueRequest m: // from service proxy, set value and respond with current value
                     HandleSetServicePropertyValueRequest(actorContext, m);
-                    break;
-
-                case GetServiceMeasuringPointValueRequest m: // from handler, respond with current value
-                    HandleGetServiceMeasuringPointValueRequest(actorContext, m);
                     break;
 
                 case InvokeActionMessage m: // internal message from self
@@ -429,18 +421,6 @@ namespace Vion.Dale.Sdk.Core
             DeclarativeTimerBinder.BindTimersFromAttributes(this, configurationBuilder.Timers);
         }
 
-        private void HandleGetServicePropertyValueRequest(IActorContext actorContext, GetServicePropertyValueRequest m)
-        {
-            if (!_serviceIdentifierLookup.TryGetValue(m.ServiceIdentifier, out var serviceIdentifier))
-            {
-                _logger.LogWarning("Unknown service identifier '{ServiceIdentifier}' in logic block '{Id}'.", m.ServiceIdentifier, Id);
-                return;
-            }
-
-            var propertyValue = _serviceBinder.GetPropertyValue(serviceIdentifier, m.PropertyIdentifier);
-            actorContext.RespondToSender(new GetServicePropertyValueResponse(m.ServiceIdentifier, m.PropertyIdentifier, propertyValue));
-        }
-
         private void HandleSetServicePropertyValueRequest(IActorContext actorContext, SetServicePropertyValueRequest m)
         {
             if (!_serviceIdentifierLookup.TryGetValue(m.ServiceIdentifier, out var serviceIdentifier))
@@ -469,18 +449,6 @@ namespace Vion.Dale.Sdk.Core
             }
 
             _actorContext.SendTo(_servicePropertyHandlerActorRef, new ServicePropertyValueChanged(serviceIdentifier, args.PropertyIdentifier, args.Value));
-        }
-
-        private void HandleGetServiceMeasuringPointValueRequest(IActorContext actorContext, GetServiceMeasuringPointValueRequest m)
-        {
-            if (!_serviceIdentifierLookup.TryGetValue(m.ServiceIdentifier, out var serviceIdentifier))
-            {
-                _logger.LogWarning("Unknown service identifier '{ServiceIdentifier}' in logic block '{Id}'.", m.ServiceIdentifier, Id);
-                return;
-            }
-
-            var propertyValue = _serviceBinder.GetMeasuringPointValue(serviceIdentifier, m.MeasuringPointIdentifier);
-            actorContext.RespondToSender(new GetServiceMeasuringPointValueResponse(m.ServiceIdentifier, m.MeasuringPointIdentifier, propertyValue));
         }
 
         private void HandleServiceMeasuringPointValueChanged(object sender, ServiceMeasuringPointChangedEventArgs args)

@@ -137,16 +137,6 @@ namespace Vion.Dale.Sdk.Messages
     public readonly record struct SetServicePropertyValueResponse(ServiceIdentifier ServiceIdentifier, string PropertyIdentifier, object? Value);
 
     /// <summary>
-    ///     Message from ServicePropertyHandler to LogicBlock
-    /// </summary>
-    public readonly record struct GetServicePropertyValueRequest(ServiceIdentifier ServiceIdentifier, string PropertyIdentifier);
-
-    /// <summary>
-    ///     Message from LogicBlock to ServicePropertyHandler
-    /// </summary>
-    public readonly record struct GetServicePropertyValueResponse(ServiceIdentifier ServiceIdentifier, string PropertyIdentifier, object? Value);
-
-    /// <summary>
     ///     Message from LogicBlock to ServicePropertyHandler
     /// </summary>
     public readonly record struct ServicePropertyValueChanged(ServiceIdentifier ServiceIdentifier, string PropertyIdentifier, object? Value);
@@ -155,16 +145,6 @@ namespace Vion.Dale.Sdk.Messages
     ///     Message from LogicBlock to ServicePropertyHandler to clear the retained value
     /// </summary>
     public readonly record struct ServicePropertyValueCleared(ServiceIdentifier ServiceIdentifier, string PropertyIdentifier);
-
-    /// <summary>
-    ///     Message from ServiceMeasuringPointHandler to LogicBlock
-    /// </summary>
-    public readonly record struct GetServiceMeasuringPointValueRequest(ServiceIdentifier ServiceIdentifier, string MeasuringPointIdentifier);
-
-    /// <summary>
-    ///     Message from LogicBlock to ServiceMeasuringPointHandler
-    /// </summary>
-    public readonly record struct GetServiceMeasuringPointValueResponse(ServiceIdentifier ServiceIdentifier, string MeasuringPointIdentifier, object? Value);
 
     /// <summary>
     ///     Message from LogicBlock to ServiceMeasuringPointHandler
