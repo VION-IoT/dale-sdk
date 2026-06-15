@@ -62,7 +62,7 @@ namespace Vion.Examples.RichTypes.LogicBlocks
         ///     come from the [StructField] attributes on the record-struct constructor parameters.
         /// </summary>
         [ServiceMeasuringPoint(Description = "Live GPS fix as a flat (Lat, Lon) record struct.")]
-        [Presentation(DisplayName = "Aktuelle Position", Group = PropertyGroup.Status, Importance = Importance.Primary)]
+        [Presentation(DisplayName = "Aktuelle Position", Group = PropertyGroup.Status)]
         public Coordinates CurrentLocation { get; private set; }
 
         /// <summary>
@@ -80,7 +80,7 @@ namespace Vion.Examples.RichTypes.LogicBlocks
         ///     applies to the optional tooltip / hover value, not the visual line.
         /// </summary>
         [ServiceMeasuringPoint(Unit = "A", Description = "Last 16 current samples — visualised as a sparkline rather than a numeric list.")]
-        [Presentation(DisplayName = "Strom-Histogramm", Group = PropertyGroup.Metric, UiHint = UiHints.Sparkline, Importance = Importance.Primary)]
+        [Presentation(DisplayName = "Strom-Histogramm", Group = PropertyGroup.Metric, UiHint = UiHints.Sparkline)]
         public ImmutableArray<double> HistogramBuckets { get; private set; } = ImmutableArray<double>.Empty;
 
         /// <summary>
@@ -115,7 +115,7 @@ namespace Vion.Examples.RichTypes.LogicBlocks
         ///     drives the input tooltips.
         /// </summary>
         [ServiceProperty(Description = "Operator-supplied target setpoint applied on the next control cycle.")]
-        [Presentation(DisplayName = "Geplanter Sollwert", Group = PropertyGroup.Configuration, Order = 10, Importance = Importance.Primary)]
+        [Presentation(DisplayName = "Geplanter Sollwert", Group = PropertyGroup.Configuration, Order = 10)]
         public ScheduledSetpoint? PreferredSetpoint { get; set; }
 
         /// <summary>
@@ -144,6 +144,16 @@ namespace Vion.Examples.RichTypes.LogicBlocks
         [ServiceProperty(Title = "Gerätename")]
         [Presentation(Group = PropertyGroup.Configuration, Order = 40)]
         public string DeviceName { get; set; } = "demo";
+
+        // String-format service properties (0.8.1). Advisory: the schema carries format ipv4 / hostname;
+        // a UI may render a specialized input + soft-validate, the runtime never rejects the value.
+        [ServiceProperty(Title = "Geräte-IP", StringFormat = StringFormats.Ipv4, Description = "Statische IPv4-Adresse des Geräts.")]
+        [Presentation(Group = PropertyGroup.Configuration, Order = 42)]
+        public string DeviceIp { get; set; } = "192.168.1.10";
+
+        [ServiceProperty(Title = "Hostname", StringFormat = StringFormats.Hostname, Description = "DNS-Hostname (alternativ zur IP).")]
+        [Presentation(Group = PropertyGroup.Configuration, Order = 43)]
+        public string Hostname { get; set; } = "device.local";
 
         [ServiceProperty(Title = "Bevorzugte Position", Description = "Manuelle Override-Position; bei Null wird CurrentLocation verwendet.")]
         [Presentation(DisplayName = "Bevorzugte Position", Group = PropertyGroup.Configuration, Order = 50)]
@@ -191,6 +201,11 @@ namespace Vion.Examples.RichTypes.LogicBlocks
         public string? LastError { get; private set; }
 
         // ── Identity ──────────────────────────────────────────────────────────────
+
+        // Guid service property (0.8.1) — emitted as schema { type: string, format: uuid }.
+        [ServiceProperty(Title = "Geräte-ID")]
+        [Presentation(Group = PropertyGroup.Identity, Order = 5)]
+        public Guid DeviceId { get; set; } = Guid.NewGuid();
 
         [ServiceProperty]
         [Presentation(Group = PropertyGroup.Identity, Order = 10)]
@@ -268,9 +283,9 @@ namespace Vion.Examples.RichTypes.LogicBlocks
     ///     (label, unit, range, tooltip).
     /// </summary>
     public readonly record struct Coordinates(
-        [StructField(Unit = "deg", Minimum = -90, Maximum = 90, Description = "Latitude in WGS-84 decimal degrees.")]
+        [StructField(Title = "Breitengrad", Unit = "deg", Minimum = -90, Maximum = 90, Description = "Latitude in WGS-84 decimal degrees.")]
         double Lat,
-        [StructField(Unit = "deg", Minimum = -180, Maximum = 180, Description = "Longitude in WGS-84 decimal degrees.")]
+        [StructField(Title = "Längengrad", Unit = "deg", Minimum = -180, Maximum = 180, Description = "Longitude in WGS-84 decimal degrees.")]
         double Lon);
 
     /// <summary>
@@ -279,11 +294,11 @@ namespace Vion.Examples.RichTypes.LogicBlocks
     ///     single-value struct property.
     /// </summary>
     public readonly record struct ScheduledSetpoint(
-        [StructField(Description = "Application time (UTC).")]
+        [StructField(Title = "Zeitpunkt", Description = "Application time (UTC).")]
         DateTime At,
-        [StructField(Unit = "kW", Description = "Aktive Wirkleistung.")]
+        [StructField(Title = "Wirkleistung", Unit = "kW", Description = "Aktive Wirkleistung.")]
         double PowerSetpoint,
-        [StructField(Unit = "V", Description = "Spannungs-Sollwert.")]
+        [StructField(Title = "Spannung", Unit = "V", Description = "Spannungs-Sollwert.")]
         double VoltageSetpoint);
 
     /// <summary>

@@ -31,7 +31,7 @@ namespace Vion.Examples.PingPong.IntegrationTest
         public async Task ExchangeMessages_AndExposeThemThroughTheControlSurface()
         {
             await using var host = BuildHost();
-            await host.StartAsync();
+            await host.StartAsync(TestContext.Current.CancellationToken);
             var control = host.Control;
 
             // Topology: both blocks are wired and discoverable.
@@ -41,7 +41,8 @@ namespace Vion.Examples.PingPong.IntegrationTest
             // messaging were broken, this would never arrive — exactly the wiring bug a single-block test misses.
             var pongs = await control.WaitForAsync(e => e is ServiceMeasuringPointChanged { MeasuringPoint: "PongsPerSecond" } mp && Convert.ToInt32(mp.Value) > 0 ?
                                                             (object)mp.Value! : null,
-                                                   TimeSpan.FromSeconds(15));
+                                                   TimeSpan.FromSeconds(15),
+                                                   TestContext.Current.CancellationToken);
             Assert.NotNull(pongs);
 
             // The message tap captured the inter-actor traffic Pong received — the multi-block analogue of

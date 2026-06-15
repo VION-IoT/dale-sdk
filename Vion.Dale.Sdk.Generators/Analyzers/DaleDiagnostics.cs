@@ -389,7 +389,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         /// </summary>
         public static readonly DiagnosticDescriptor DALE033_StringFormatOnNonString = new("DALE033",
                                                                                           "StringFormat only applies to string properties",
-                                                                                          "Property '{0}' (type '{1}') sets StringFormat, which applies only to string/string? members and must not be a reserved type-kind format (date-time/duration/uuid — use DateTime/TimeSpan/Guid, or [Presentation(Format/Decimals)] for display).",
+                                                                                          "Property '{0}' (type '{1}') sets StringFormat, which is honored only on string/string? members. Use the matching CLR type for DateTime/TimeSpan/Guid, or [Presentation(Format/Decimals)] for display; a reserved type-kind format (date-time/duration/uuid) is not allowed.",
                                                                                           Category,
                                                                                           DiagnosticSeverity.Warning,
                                                                                           true);

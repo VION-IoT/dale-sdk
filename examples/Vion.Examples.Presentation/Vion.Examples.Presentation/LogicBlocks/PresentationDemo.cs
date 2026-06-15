@@ -47,6 +47,11 @@ namespace Vion.Examples.Presentation.LogicBlocks
         [Presentation(Group = PropertyGroup.Identity, Order = 99)]
         public string FirmwareVersion { get; set; } = "1.4.2";
 
+        // Guid (0.8.1) — emitted as schema { type: string, format: uuid }.
+        [ServiceProperty(Title = "Instanz-ID")]
+        [Presentation(Group = PropertyGroup.Identity, Order = 100)]
+        public Guid InstanceId { get; set; } = Guid.NewGuid();
+
         // ── Alarm group (two status indicators — demonstrates multi-status support) ──
         [ServiceProperty(Title = "Anlagenzustand", Description = "High-level operating state; drives the section banner colour.")]
         [Presentation(Group = PropertyGroup.Alarm, StatusIndicator = true, Importance = Importance.Primary)]
@@ -90,6 +95,11 @@ namespace Vion.Examples.Presentation.LogicBlocks
         [Percent]
         [Presentation(Group = PropertyGroup.Configuration, UiHint = UiHints.Slider)]
         public double TargetStateOfCharge { get; set; } = 80;
+
+        // String format (0.8.1) — schema carries format: ipv4; a UI may render an IP input + soft-validate.
+        [ServiceProperty(Title = "Management-IP", StringFormat = StringFormats.Ipv4, Description = "IPv4-Adresse der Management-Schnittstelle.")]
+        [Presentation(Group = PropertyGroup.Configuration)]
+        public string MgmtIp { get; set; } = "10.0.0.1";
 
         // Hidden importance: present in introspection but suppressed by the dashboard.
         [ServiceProperty(Title = "Interner Modus")]

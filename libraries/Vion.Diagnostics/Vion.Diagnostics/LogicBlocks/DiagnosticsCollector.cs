@@ -32,7 +32,7 @@ namespace Vion.Diagnostics.LogicBlocks
 
         // ── Diagnostics ─────────────────────────────────────────────────────────────
         [ServiceProperty(Description = "Per-logic-block vitals — one row per matched block; renders as a table.")]
-        [Presentation(DisplayName = "Logic blocks", Group = PropertyGroup.Diagnostics, Importance = Importance.Primary)]
+        [Presentation(DisplayName = "Logic blocks", Group = PropertyGroup.Diagnostics)]
         public ImmutableArray<LogicBlockVitals> LogicBlocks { get; private set; } = ImmutableArray<LogicBlockVitals>.Empty;
 
         [ServiceProperty(Description = "Runtime ingress/egress choke-points (the shared MQTT client + publisher actors).")]
