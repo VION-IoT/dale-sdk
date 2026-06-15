@@ -140,6 +140,7 @@ namespace Vion.Dale.Sdk.Introspection
             var title = hasIdentityTitle ? null : sp?.Title ?? mp?.Title;
             var description = sp?.Description ?? mp?.Description;
             var unit = sp?.Unit ?? mp?.Unit;
+            var stringFormat = sp?.StringFormat ?? mp?.StringFormat;
 
             // Minimum / Maximum: NegativeInfinity / PositiveInfinity are the sentinel "absent" values.
             // Convert finite values to nullable-bearing fields; leave null otherwise.
@@ -185,6 +186,7 @@ namespace Vion.Dale.Sdk.Introspection
                        Title = title,
                        Description = description,
                        Unit = unit,
+                       Format = stringFormat,
                        Minimum = minimum,
                        Maximum = maximum,
                        ReadOnly = readOnly,

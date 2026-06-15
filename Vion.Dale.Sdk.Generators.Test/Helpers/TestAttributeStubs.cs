@@ -37,6 +37,8 @@ namespace Vion.Dale.Sdk.Core
 
         public string? Unit { get; set; }
 
+        public string? StringFormat { get; init; }
+
         public double Minimum { get; init; } = double.NegativeInfinity;
 
         public double Maximum { get; init; } = double.PositiveInfinity;
@@ -87,6 +89,8 @@ namespace Vion.Dale.Sdk.Core
         public string? Description { get; init; }
 
         public string? Unit { get; set; }
+
+        public string? StringFormat { get; init; }
 
         public double Minimum { get; init; } = double.NegativeInfinity;
 

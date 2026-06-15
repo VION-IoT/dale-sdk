@@ -118,8 +118,9 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                            or SpecialType.System_Int32 or SpecialType.System_UInt32 or SpecialType.System_Int64 or SpecialType.System_Single or SpecialType.System_Double
                            or SpecialType.System_DateTime => true,
 
-                // TimeSpan (no SpecialType for TimeSpan)
+                // TimeSpan / Guid (no SpecialType)
                 _ when type.ToDisplayString() == "System.TimeSpan" => true,
+                _ when type.ToDisplayString() == "System.Guid" => true,
 
                 // Flat readonly record struct with primitive/enum/nullable-of-primitive-or-enum fields
                 INamedTypeSymbol named when IsFlatReadonlyRecordStruct(named) => true,
@@ -147,7 +148,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                 return true;
             }
 
-            return type.ToDisplayString() == "System.TimeSpan";
+            return type.ToDisplayString() == "System.TimeSpan" || type.ToDisplayString() == "System.Guid";
         }
 
         /// <summary>
@@ -205,7 +206,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                 var ok = inner.SpecialType is SpecialType.System_Boolean or SpecialType.System_Byte or SpecialType.System_Int16 or SpecialType.System_UInt16
                              or SpecialType.System_Int32 or SpecialType.System_UInt32 or SpecialType.System_Int64 or SpecialType.System_Single or SpecialType.System_Double
                              or SpecialType.System_DateTime || inner.TypeKind == TypeKind.Enum || inner.SpecialType == SpecialType.System_String ||
-                         inner.ToDisplayString() == "System.TimeSpan";
+                         inner.ToDisplayString() == "System.TimeSpan" || inner.ToDisplayString() == "System.Guid";
 
                 if (!ok)
                 {
