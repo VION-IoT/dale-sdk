@@ -52,6 +52,32 @@ export function resolveDisplayName(item) {
         || item.identifier;
 }
 
+// True when schema.title is identity-bearing — the CLR type name of an enum or struct (incl.
+// nullable/array wrappers), NOT an authored display label. Mirrors the SDK's HasIdentityBearingTitle
+// (PropertyMetadataBuilder): for those types the property-level [Title] is routed to
+// presentation.displayName, leaving schema.title carrying the type identity (e.g. "AlarmState").
+export function hasIdentityBearingTitle(schema) {
+    if (!schema) return false;
+    if (enumMembers(schema)) return true;
+    const t = effectiveType(schema);
+    if (t === 'object') return true;
+    if (t === 'array') return hasIdentityBearingTitle(schema.items);
+    return false;
+}
+
+// The authored, operator-facing title for a property, or null. presentation.displayName always wins
+// (where the SDK routes [Title] for enum/struct, and where explicit [Presentation(DisplayName)]
+// lands). For scalar types the authored [Title] lands in schema.title instead — surface that too,
+// but never the identity-bearing schema.title of an enum/struct (that's the CLR type name, already
+// shown via the type label). No identifier fallback: callers show the identifier separately.
+export function resolveAuthoredTitle(item) {
+    const presentation = item.presentation || {};
+    if (presentation.displayName) return presentation.displayName;
+    const schema = item.schema || {};
+    if (schema.title && !hasIdentityBearingTitle(schema)) return schema.title;
+    return null;
+}
+
 export function resolveUnit(schema) {
     return (schema && schema['x-unit']) || null;
 }
@@ -350,7 +376,8 @@ export function presentationFacts(item) {
     const authored = [];
     const missing = [];
 
-    if (p.displayName) authored.push(`name “${p.displayName}”`);
+    const authoredTitle = resolveAuthoredTitle(item);
+    if (authoredTitle) authored.push(`name “${authoredTitle}”`);
     if (p.group) authored.push(`group ${p.group}`);
     if (p.importance) authored.push(p.importance.toLowerCase());
     if (p.uiHint) authored.push(`uiHint ${p.uiHint}`);

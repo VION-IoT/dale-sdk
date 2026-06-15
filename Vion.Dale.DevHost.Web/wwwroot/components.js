@@ -9,7 +9,7 @@ import {
     buildVerificationReport, cssGroupKey, defaultOpen, describeType, describeWaitUntil,
     effectiveType, enumDisplay, enumMembers, formatTemporal, formatValue, gallerySamples,
     GROUP_LABELS, groupItems, isNullable, isWritable, matchesFilter, orderedGroupKeys, parseFilter,
-    parseNamePath, presentationFacts, resolveDisplayName, resolveUnit, sampleJson, serviceMembers, severityFor,
+    parseNamePath, presentationFacts, resolveAuthoredTitle, resolveDisplayName, resolveUnit, sampleJson, serviceMembers, severityFor,
     STEP_GLYPHS,
 } from './format.js';
 import {
@@ -1121,7 +1121,7 @@ const GalleryItem = {
         const isStruct = t === 'object' || t === 'array';
         const samples = gallerySamples(props.item);
         const facts = presentationFacts(props.item);
-        const displayName = (props.item.presentation || {}).displayName || null;
+        const displayName = resolveAuthoredTitle(props.item);
         const typeDisplay = describeType(schema);
         return { samples, facts, isStruct, displayName, typeDisplay };
     },
