@@ -92,7 +92,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                 return null;
             }
 
-            if (named.ToDisplayString() == "System.TimeSpan" || named.ToDisplayString() == "System.DateTime")
+            if (named.ToDisplayString() == "System.TimeSpan" || named.ToDisplayString() == "System.DateTime" || named.ToDisplayString() == "System.Guid")
             {
                 return null;
             }

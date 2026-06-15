@@ -7,6 +7,22 @@ namespace Vion.Dale.Sdk.Generators.Test
     [TestClass]
     public class StructServiceElementAnalyzerTests
     {
+        // Guid is a struct but a recognized built-in (maps to schema format:uuid) — not a user struct
+        // that must be a flat record struct. Regression guard for the DALE016 Guid exemption.
+        [TestMethod]
+        public async Task Guid_NoDiagnostic()
+        {
+            var source = @"
+using System;
+using Vion.Dale.Sdk.Core;
+
+public class MyBlock
+{
+    [ServiceProperty] public Guid Id { get; set; }
+}";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<StructServiceElementAnalyzer>(source);
+        }
+
         // --- Types that should trigger DALE016 ---
 
         [TestMethod]
