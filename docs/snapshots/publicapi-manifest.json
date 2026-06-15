@@ -39,6 +39,7 @@
     "Vion.Dale.Sdk.Core.SeverityAttribute",
     "Vion.Dale.Sdk.Core.StateUpdateAttribute",
     "Vion.Dale.Sdk.Core.StatusSeverity",
+    "Vion.Dale.Sdk.Core.StringFormats",
     "Vion.Dale.Sdk.Core.StructFieldAttribute",
     "Vion.Dale.Sdk.Core.TimerAttribute",
     "Vion.Dale.Sdk.Core.UiHints",
