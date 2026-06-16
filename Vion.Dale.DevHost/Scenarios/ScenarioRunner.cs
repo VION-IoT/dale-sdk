@@ -420,12 +420,21 @@ namespace Vion.Dale.DevHost.Scenarios
 
             bool Satisfied(object? live)
             {
-                return ScenarioConditions.IsSatisfied(condition, live);
+                // For a struct field-path target, the comparison is against the scalar field leaf — extract
+                // it from the boxed struct before handing it to the (unchanged) comparison logic.
+                return ScenarioConditions.IsSatisfied(condition, ExtractField(live, target.FieldPath));
             }
 
             object? Current()
             {
                 return control.GetProperty(target.Block, target.ServiceIdentifier, target.PropertyName);
+            }
+
+            // The leaf value shown in failure details — the extracted field for a field-path target.
+            string LastDisplay()
+            {
+                var leaf = ExtractField(Current(), target.FieldPath);
+                return leaf is null ? "null" : Convert.ToString(leaf, CultureInfo.InvariantCulture) ?? "null";
             }
 
             // Already-satisfied fast-path: identical in both modes.
@@ -460,18 +469,14 @@ namespace Vion.Dale.DevHost.Scenarios
                     // No progress: nothing was scheduled so the clock didn't move.
                     if (control.VirtualTimeUtc == beforeHop)
                     {
-                        var last = Current();
-                        result.Detail = $"condition not met — no further scheduled events " +
-                                        $"(last value: {(last is null ? "null" : Convert.ToString(last, CultureInfo.InvariantCulture))})";
+                        result.Detail = $"condition not met — no further scheduled events (last value: {LastDisplay()})";
                         return false;
                     }
 
                     // Virtual budget exhausted.
                     if (control.VirtualTimeUtc - virtualStart >= budget)
                     {
-                        var last = Current();
-                        result.Detail = $"condition not met within {timeoutSeconds.ToString(CultureInfo.InvariantCulture)} virtual s " +
-                                        $"(last value: {(last is null ? "null" : Convert.ToString(last, CultureInfo.InvariantCulture))})";
+                        result.Detail = $"condition not met within {timeoutSeconds.ToString(CultureInfo.InvariantCulture)} virtual s (last value: {LastDisplay()})";
                         return false;
                     }
                 }
@@ -511,9 +516,7 @@ namespace Vion.Dale.DevHost.Scenarios
                 return true;
             }
 
-            var lastValue = Current();
-            result.Detail = $"condition not met within {timeoutSeconds.ToString(CultureInfo.InvariantCulture)} s " +
-                            $"(last value: {(lastValue is null ? "null" : Convert.ToString(lastValue, CultureInfo.InvariantCulture))})";
+            result.Detail = $"condition not met within {timeoutSeconds.ToString(CultureInfo.InvariantCulture)} s (last value: {LastDisplay()})";
             return false;
         }
 
@@ -537,13 +540,19 @@ namespace Vion.Dale.DevHost.Scenarios
                 return;
             }
 
+            // Resolve the watch paths once (they passed up-front validation) so the snapshot reads the
+            // correct service-qualified member AND extracts the scalar leaf for any struct field path.
+            var resolver = new ScenarioResolver(control.GetConfiguration());
+            var resolved = watchPaths.Select(p => resolver.ResolveProperty(p, "settle.watch", new List<string>())).ToList();
+
             object?[] Snapshot()
             {
-                var values = new object?[watchPaths.Count];
-                for (var i = 0; i < watchPaths.Count; i++)
+                var values = new object?[resolved.Count];
+                for (var i = 0; i < resolved.Count; i++)
                 {
-                    var segments = watchPaths[i].Split('.');
-                    values[i] = segments.Length == 3 ? control.GetProperty(segments[0], segments[1], segments[2]) : control.GetProperty(segments[0], segments[1]);
+                    var target = resolved[i];
+                    values[i] = target is null ? null :
+                                    ExtractField(control.GetProperty(target.Block, target.ServiceIdentifier, target.PropertyName), target.FieldPath);
                 }
 
                 return values;
@@ -590,6 +599,31 @@ namespace Vion.Dale.DevHost.Scenarios
                     return;
                 }
             }
+        }
+
+        // Extract a struct field leaf from a (boxed) live value by walking the PascalCase field path via
+        // reflection. Each segment reads a public property (record-struct positional fields surface as
+        // properties) or, failing that, a field of the same name. A null intermediate short-circuits to a
+        // null leaf. With no field path the value passes through unchanged (the common scalar case).
+        private static object? ExtractField(object? value, IReadOnlyList<string>? fieldPath)
+        {
+            if (fieldPath is null || fieldPath.Count == 0)
+            {
+                return value;
+            }
+
+            foreach (var segment in fieldPath)
+            {
+                if (value is null)
+                {
+                    return null;
+                }
+
+                var type = value.GetType();
+                value = type.GetProperty(segment)?.GetValue(value) ?? type.GetField(segment)?.GetValue(value);
+            }
+
+            return value;
         }
 
         private static void Fail(ScenarioStepResult result, ScenarioRunReport report, Action<ScenarioRunReport> progress, Stopwatch stopwatch)
