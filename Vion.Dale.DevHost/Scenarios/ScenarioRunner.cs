@@ -132,25 +132,46 @@ namespace Vion.Dale.DevHost.Scenarios
         {
             var condition = step.WaitUntil!;
             var timeout = step.TimeoutSeconds ?? DefaultWaitUntilTimeoutSeconds;
-            string comparator;
-            if (condition.Above.ValueKind == JsonValueKind.Number)
+            var comparator = DescribeComparator(condition.Above, condition.Below, condition.EqualTo, condition.NotEquals, condition.OneOf, condition.Tolerance);
+            return $"{comparator} · {timeout.ToString(CultureInfo.InvariantCulture)} s timeout";
+        }
+
+        // Human-readable expect assertion for reports ("> 0", "one of [a, b]", "== {RefBlock.Limit}").
+        private static string DescribeExpect(ScenarioExpect expect)
+        {
+            return DescribeComparator(expect.Above, expect.Below, expect.EqualTo, expect.NotEquals, expect.OneOf, expect.Tolerance);
+        }
+
+        // The comparator description shared by waitUntil and expect, including oneOf and {path} comparands.
+        private static string DescribeComparator(JsonElement above, JsonElement below, JsonElement equalTo, JsonElement notEquals, JsonElement oneOf, double? tolerance)
+        {
+            if (above.ValueKind != JsonValueKind.Undefined)
             {
-                comparator = $"> {condition.Above.GetRawText()}";
-            }
-            else if (condition.Below.ValueKind == JsonValueKind.Number)
-            {
-                comparator = $"< {condition.Below.GetRawText()}";
-            }
-            else if (condition.EqualTo.ValueKind != JsonValueKind.Undefined)
-            {
-                comparator = $"== {condition.EqualTo.GetRawText()}" + (condition.Tolerance is { } tolerance ? $" ±{tolerance.ToString(CultureInfo.InvariantCulture)}" : "");
-            }
-            else
-            {
-                comparator = $"!= {condition.NotEquals.GetRawText()}";
+                return $"> {DescribeComparand(above)}";
             }
 
-            return $"{comparator} · {timeout.ToString(CultureInfo.InvariantCulture)} s timeout";
+            if (below.ValueKind != JsonValueKind.Undefined)
+            {
+                return $"< {DescribeComparand(below)}";
+            }
+
+            if (equalTo.ValueKind != JsonValueKind.Undefined)
+            {
+                return $"== {DescribeComparand(equalTo)}" + (tolerance is { } t ? $" ±{t.ToString(CultureInfo.InvariantCulture)}" : "");
+            }
+
+            if (notEquals.ValueKind != JsonValueKind.Undefined)
+            {
+                return $"!= {DescribeComparand(notEquals)}";
+            }
+
+            return $"one of [{string.Join(", ", oneOf.EnumerateArray().Select(e => e.GetRawText()))}]";
+        }
+
+        // A comparand renders as its literal, or as {Block.Prop} for the relational {path} form.
+        private static string DescribeComparand(JsonElement comparand)
+        {
+            return ScenarioComparators.IsPathComparand(comparand) ? $"{{{comparand.GetProperty("path").GetString()}}}" : comparand.GetRawText();
         }
 
         private static ScenarioRunOptions WithFileHash(ScenarioRunOptions? options, ScenarioStore store, string id)
@@ -185,6 +206,7 @@ namespace Vion.Dale.DevHost.Scenarios
                                "digitalInput" => $"{step.DigitalInput!.Block}.{step.DigitalInput.Contract}",
                                "analogInput" => $"{step.AnalogInput!.Block}.{step.AnalogInput.Contract}",
                                "waitUntil" => step.WaitUntil!.Property ?? string.Empty,
+                               "expect" => step.Expect!.Property ?? string.Empty,
                                "advance" => $"{step.Advance!.Seconds.ToString(CultureInfo.InvariantCulture)} s",
                                "settle" => "until stable",
                                _ => $"{step.Wait!.Seconds.ToString(CultureInfo.InvariantCulture)} s",
@@ -193,6 +215,7 @@ namespace Vion.Dale.DevHost.Scenarios
                            {
                                "set" or "digitalInput" or "analogInput" => step.Value.ValueKind == JsonValueKind.Undefined ? null : step.Value.GetRawText(),
                                "waitUntil" => DescribeCondition(step),
+                               "expect" => DescribeExpect(step.Expect!),
                                "settle" => step.Settle!.MaxSeconds is { } max ? $"≤{max.ToString(CultureInfo.InvariantCulture)} s" :
                                                $"≤{DefaultSettleMaxSeconds.ToString(CultureInfo.InvariantCulture)} s",
                                _ => null,
@@ -367,6 +390,15 @@ namespace Vion.Dale.DevHost.Scenarios
 
                         break;
 
+                    case "expect":
+                        if (!ExpectStep(step.Expect!, resolved, control, result))
+                        {
+                            Fail(result, report, progress, stopwatch);
+                            return false;
+                        }
+
+                        break;
+
                     case "advance":
                         await control.AdvanceAsync(TimeSpan.FromSeconds(step.Advance!.Seconds), cancellationToken).ConfigureAwait(false);
                         break;
@@ -518,6 +550,73 @@ namespace Vion.Dale.DevHost.Scenarios
 
             result.Detail = $"condition not met within {timeoutSeconds.ToString(CultureInfo.InvariantCulture)} s (last value: {LastDisplay()})";
             return false;
+        }
+
+        // The expect assertion (RFC 0006 "Assert tier"): a single point-in-time check of the target's CURRENT
+        // value. No awaiting — read once, evaluate, and FAIL the step (so the run fails) when the comparator
+        // does not hold. For a relational {path} comparand, the comparand path's current value is read too and
+        // supplied as the live comparand. Both target and comparand honor struct field paths via ExtractField.
+        private static bool ExpectStep(ScenarioExpect expect, ResolvedStep resolved, IDevHostControl control, ScenarioStepResult result)
+        {
+            var target = resolved.Property!;
+            var live = ExtractField(control.GetProperty(target.Block, target.ServiceIdentifier, target.PropertyName), target.FieldPath);
+
+            var hasComparand = resolved.Comparand is not null;
+            object? comparandLive = null;
+            if (resolved.Comparand is { } comparand)
+            {
+                comparandLive = ExtractField(control.GetProperty(comparand.Block, comparand.ServiceIdentifier, comparand.PropertyName), comparand.FieldPath);
+            }
+
+            if (ScenarioConditions.IsSatisfied(expect, live, hasComparand, comparandLive))
+            {
+                result.Detail = $"expectation held: {target.PropertyName} {DescribeExpect(expect)} (value {Display(live)})";
+                return true;
+            }
+
+            result.Detail = ExpectFailureDetail(expect, resolved, live, comparandLive);
+            return false;
+        }
+
+        // The failing-expect detail — "expected X above Y, but was Z" / "value W is not one of […]".
+        private static string ExpectFailureDetail(ScenarioExpect expect, ResolvedStep resolved, object? live, object? comparandLive)
+        {
+            var target = resolved.Property!.PropertyName;
+            var actual = Display(live);
+
+            if (expect.OneOf.ValueKind == JsonValueKind.Array)
+            {
+                var options = string.Join(", ", expect.OneOf.EnumerateArray().Select(e => e.GetRawText()));
+                return $"expected {target} to be one of [{options}], but was {actual}";
+            }
+
+            string Bound(JsonElement literal)
+            {
+                return resolved.Comparand is not null ? $"{Display(comparandLive)} (from {resolved.Comparand.PropertyName})" : literal.GetRawText();
+            }
+
+            if (expect.Above.ValueKind != JsonValueKind.Undefined)
+            {
+                return $"expected {target} above {Bound(expect.Above)}, but was {actual}";
+            }
+
+            if (expect.Below.ValueKind != JsonValueKind.Undefined)
+            {
+                return $"expected {target} below {Bound(expect.Below)}, but was {actual}";
+            }
+
+            if (expect.EqualTo.ValueKind != JsonValueKind.Undefined)
+            {
+                var tolerance = expect.Tolerance is { } t ? $" (±{t.ToString(CultureInfo.InvariantCulture)})" : "";
+                return $"expected {target} to equal {Bound(expect.EqualTo)}{tolerance}, but was {actual}";
+            }
+
+            return $"expected {target} to not equal {Bound(expect.NotEquals)}, but was {actual}";
+        }
+
+        private static string Display(object? value)
+        {
+            return value is null ? "null" : Convert.ToString(value, CultureInfo.InvariantCulture) ?? "null";
         }
 
         // Settle protocol: advance hop-by-hop until the watched values are stable across one full hop, or

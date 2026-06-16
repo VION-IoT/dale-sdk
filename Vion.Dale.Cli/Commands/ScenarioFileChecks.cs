@@ -187,16 +187,16 @@ namespace Vion.Dale.Cli.Commands
                     continue;
                 }
 
-                var shapes = new[] { "set", "digitalInput", "analogInput", "waitUntil", "wait", "advance", "settle" }.Count(k => step.ContainsKey(k));
+                var shapes = new[] { "set", "digitalInput", "analogInput", "waitUntil", "expect", "wait", "advance", "settle" }.Count(k => step.ContainsKey(k));
                 if (shapes != 1)
                 {
-                    errors.Add($"{where}: a step is exactly one of set / digitalInput / analogInput / waitUntil / wait / advance / settle");
+                    errors.Add($"{where}: a step is exactly one of set / digitalInput / analogInput / waitUntil / expect / wait / advance / settle");
                     continue;
                 }
 
-                if (setupOnlyShapes && (step.ContainsKey("waitUntil") || step.ContainsKey("wait") || step.ContainsKey("advance") || step.ContainsKey("settle")))
+                if (setupOnlyShapes && (step.ContainsKey("waitUntil") || step.ContainsKey("expect") || step.ContainsKey("wait") || step.ContainsKey("advance") || step.ContainsKey("settle")))
                 {
-                    errors.Add($"{where}: setup entries stage state — waits and time steps belong in steps");
+                    errors.Add($"{where}: setup entries stage state — waits, expects, and time steps belong in steps");
                     continue;
                 }
 
@@ -234,6 +234,10 @@ namespace Vion.Dale.Cli.Commands
                 {
                     ValidateWaitUntil(step, config, where, errors);
                 }
+                else if (step.ContainsKey("expect"))
+                {
+                    ValidateExpect(step, config, where, errors);
+                }
                 else if (step.ContainsKey("advance"))
                 {
                     if (step["advance"]?["seconds"]?.GetValueKind() != JsonValueKind.Number || step["advance"]!["seconds"]!.GetValue<double>() <= 0)
@@ -267,27 +271,7 @@ namespace Vion.Dale.Cli.Commands
                 return;
             }
 
-            var comparators = new[] { "above", "below", "equals", "notEquals" }.Where(waitUntil.ContainsKey).ToList();
-            if (comparators.Count != 1)
-            {
-                errors.Add($"{where}: waitUntil takes exactly one of above / below / equals / notEquals");
-            }
-
-            foreach (var numeric in new[] { "above", "below" }.Where(waitUntil.ContainsKey))
-            {
-                if (waitUntil[numeric]?.GetValueKind() != JsonValueKind.Number)
-                {
-                    errors.Add($"{where}: waitUntil.{numeric} must be a number");
-                }
-            }
-
-            foreach (var exact in new[] { "equals", "notEquals" }.Where(waitUntil.ContainsKey))
-            {
-                if (waitUntil[exact]?.GetValueKind() is JsonValueKind.Object or JsonValueKind.Array)
-                {
-                    errors.Add($"{where}: waitUntil.{exact} does not compare structs/arrays in v1");
-                }
-            }
+            ValidateComparators("waitUntil", waitUntil, false, where, errors);
 
             var path = waitUntil["property"]?.GetValue<string>();
             if (path is null)
@@ -303,6 +287,92 @@ namespace Vion.Dale.Cli.Commands
             {
                 errors.Add($"{where}: timeoutSeconds must be a positive number");
             }
+        }
+
+        private static void ValidateExpect(JsonObject step, JsonNode? config, string where, List<string> errors)
+        {
+            if (step["expect"] is not JsonObject expect)
+            {
+                errors.Add($"{where}: expect must be an object");
+                return;
+            }
+
+            ValidateComparators("expect", expect, true, where, errors);
+
+            var path = expect["property"]?.GetValue<string>();
+            if (path is null)
+            {
+                errors.Add($"{where}: expect.property is required");
+            }
+            else if (config is not null)
+            {
+                ResolvePath(path, config, where, false, errors);
+            }
+
+            // A relational {path} comparand must itself resolve (offline structural — the runner enforces the
+            // numeric-leaf rule for above/below at run time).
+            if (config is not null)
+            {
+                foreach (var name in new[] { "above", "below", "equals", "notEquals" })
+                {
+                    if (PathComparand(expect[name]) is { } comparandPath)
+                    {
+                        ResolvePath(comparandPath, config, $"{where} comparand", false, errors);
+                    }
+                }
+            }
+        }
+
+        // The comparator block shared by waitUntil and expect: exactly one of above / below / equals /
+        // notEquals / oneOf; above/below numeric (or a {path} object for expect); equals/notEquals reject
+        // struct/array literals (the {path} object is the only allowed object form, expect only); oneOf is a
+        // non-empty array of scalars.
+        private static void ValidateComparators(string shape, JsonObject comparators, bool allowPathComparand, string where, List<string> errors)
+        {
+            var present = new[] { "above", "below", "equals", "notEquals", "oneOf" }.Where(comparators.ContainsKey).ToList();
+            if (present.Count != 1)
+            {
+                errors.Add($"{where}: {shape} takes exactly one of above / below / equals / notEquals / oneOf");
+            }
+
+            foreach (var numeric in new[] { "above", "below" }.Where(comparators.ContainsKey))
+            {
+                if (comparators[numeric]?.GetValueKind() != JsonValueKind.Number && !(allowPathComparand && IsPathComparand(comparators[numeric])))
+                {
+                    errors.Add($"{where}: {shape}.{numeric} must be a number");
+                }
+            }
+
+            foreach (var exact in new[] { "equals", "notEquals" }.Where(comparators.ContainsKey))
+            {
+                if (comparators[exact]?.GetValueKind() is JsonValueKind.Object or JsonValueKind.Array && !(allowPathComparand && IsPathComparand(comparators[exact])))
+                {
+                    errors.Add($"{where}: {shape}.{exact} does not compare structs/arrays in v1");
+                }
+            }
+
+            if (comparators.ContainsKey("oneOf"))
+            {
+                if (comparators["oneOf"] is not JsonArray oneOf || oneOf.Count == 0)
+                {
+                    errors.Add($"{where}: {shape}.oneOf must be a non-empty array of scalars");
+                }
+                else if (oneOf.Any(e => e?.GetValueKind() is JsonValueKind.Object or JsonValueKind.Array))
+                {
+                    errors.Add($"{where}: {shape}.oneOf elements must be scalars (no objects/arrays)");
+                }
+            }
+        }
+
+        // The {path} string of a relational comparand object, or null when it is not the {path} form.
+        private static string? PathComparand(JsonNode? comparand)
+        {
+            return IsPathComparand(comparand) ? comparand!["path"]!.GetValue<string>() : null;
+        }
+
+        private static bool IsPathComparand(JsonNode? comparand)
+        {
+            return comparand is JsonObject obj && obj.Count == 1 && obj["path"]?.GetValueKind() == JsonValueKind.String;
         }
 
         // Revision 5 name-path resolution against the configuration JSON — the same rules the runner

@@ -149,6 +149,50 @@ namespace Vion.Dale.Cli.Test.Commands
         }
 
         [TestMethod]
+        public void AcceptsExpectOneOfAndPathComparand()
+        {
+            var outcome = ScenarioFileChecks.Validate("exp.scenario.json",
+                                                      """
+                                                      {
+                                                        "version": 1, "id": "exp", "topology": "demo",
+                                                        "steps": [
+                                                          { "expect": { "property": "Counter.Counter", "above": 1 } },
+                                                          { "expect": { "property": "Counter.Counter", "equals": 5, "tolerance": 1 } },
+                                                          { "expect": { "property": "Counter.Counter", "oneOf": [1, 2, 3] } },
+                                                          { "expect": { "property": "DualPoint.PointA.Limit", "above": { "path": "DualPoint.PointB.Limit" } } },
+                                                          { "waitUntil": { "property": "Counter.Counter", "oneOf": [4, 5] }, "timeoutSeconds": 2 }
+                                                        ]
+                                                      }
+                                                      """,
+                                                      Config);
+            Assert.AreEqual(0, outcome.Errors.Count, string.Join("; ", outcome.Errors));
+        }
+
+        [TestMethod]
+        public void RejectsExpectStructuralProblems()
+        {
+            var outcome = ScenarioFileChecks.Validate("bad-exp.scenario.json",
+                                                      """
+                                                      {
+                                                        "version": 1, "id": "bad-exp", "topology": "demo",
+                                                        "setup": [ { "expect": { "property": "Counter.Counter", "equals": 1 } } ],
+                                                        "steps": [
+                                                          { "expect": { "property": "Counter.Counter", "above": 1, "below": 2 } },
+                                                          { "expect": { "property": "Counter.Counter", "oneOf": [] } },
+                                                          { "expect": { "property": "Counter.Counter", "oneOf": [1, { "x": 1 }] } },
+                                                          { "expect": { "property": "Counter.Counter", "equals": { "l1": 1, "l2": 2 } } }
+                                                        ]
+                                                      }
+                                                      """,
+                                                      Config);
+            Assert.IsTrue(outcome.Errors.Any(e => e.Contains("setup entries stage state")), string.Join("; ", outcome.Errors));
+            Assert.IsTrue(outcome.Errors.Any(e => e.Contains("exactly one of above")), string.Join("; ", outcome.Errors));
+            Assert.IsTrue(outcome.Errors.Any(e => e.Contains("oneOf must be a non-empty array")), string.Join("; ", outcome.Errors));
+            Assert.IsTrue(outcome.Errors.Any(e => e.Contains("oneOf elements must be scalars")), string.Join("; ", outcome.Errors));
+            Assert.IsTrue(outcome.Errors.Any(e => e.Contains("does not compare structs/arrays")), string.Join("; ", outcome.Errors));
+        }
+
+        [TestMethod]
         public void RejectsIdProblems()
         {
             var mismatch = ScenarioFileChecks.Validate("a.scenario.json", """{ "version": 1, "id": "b", "topology": "demo" }""", Config);

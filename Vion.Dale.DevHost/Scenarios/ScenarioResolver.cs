@@ -26,10 +26,11 @@ namespace Vion.Dale.DevHost.Scenarios
     internal sealed record ResolvedContract(string ServiceProviderId, string ServiceId, string ContractId);
 
     /// <summary>
-    ///     The resolved addressing for one step — exactly one of the two is set (waits have neither... wait steps have
-    ///     neither).
+    ///     The resolved addressing for one step — exactly one of <see cref="Property" /> / <see cref="Contract" />
+    ///     is set (wait / advance / settle steps have neither). For an <c>expect</c> with a relational
+    ///     <c>{path}</c> comparand, <see cref="Comparand" /> additionally carries that path's resolution.
     /// </summary>
-    internal sealed record ResolvedStep(ResolvedProperty? Property, ResolvedContract? Contract);
+    internal sealed record ResolvedStep(ResolvedProperty? Property, ResolvedContract? Contract, ResolvedProperty? Comparand = null);
 
     /// <summary>
     ///     Resolves scenario name paths and contract references against <see cref="ConfigurationOutput" />
@@ -73,26 +74,40 @@ namespace Vion.Dale.DevHost.Scenarios
                     var property = ResolveProperty(step.WaitUntil!.Property, where, errors);
                     if (property is not null)
                     {
-                        // The comparator is checked against the RESOLVED LEAF — for a struct field path the
-                        // leaf is the scalar field's schema type, not the (object-typed) member's.
-                        var type = EffectiveSchemaType(property);
                         var numericComparator = step.WaitUntil.Above.ValueKind == JsonValueKind.Number || step.WaitUntil.Below.ValueKind == JsonValueKind.Number;
-                        if (numericComparator && type != "number" && type != "integer")
-                        {
-                            errors.Add($"{where}: above/below compare numbers, but '{step.WaitUntil.Property}' is of type '{type ?? "unknown"}'");
-                        }
-
-                        // equals/notEquals never compare structs/arrays in v1 — reject the TARGET being
-                        // composite too, not just the comparand (a notEquals against a struct would
-                        // instantly false-pass otherwise). A scalar-field leaf of a struct is allowed; only
-                        // a no-field struct/array target is rejected (the leaf type IS object/array there).
-                        if (!numericComparator && (type == "object" || type == "array"))
-                        {
-                            errors.Add($"{where}: '{step.WaitUntil.Property}' is a {type}-typed member — structs/arrays are not comparable in v1 (a scenario needing that is a C# test)");
-                        }
+                        ValidateComparatorAgainstLeaf(property, step.WaitUntil.Property, numericComparator, step.WaitUntil.OneOf, where, errors);
                     }
 
                     return new ResolvedStep(property, null);
+                }
+
+                case "expect":
+                {
+                    var property = ResolveProperty(step.Expect!.Property, where, errors);
+                    var numericComparator = step.Expect.Above.ValueKind != JsonValueKind.Undefined || step.Expect.Below.ValueKind != JsonValueKind.Undefined;
+                    if (property is not null)
+                    {
+                        ValidateComparatorAgainstLeaf(property, step.Expect.Property, numericComparator, step.Expect.OneOf, where, errors);
+                    }
+
+                    // A relational {path} comparand resolves like the target; for above/below it must be a
+                    // numeric leaf, matching the target-leaf rule.
+                    var comparand = RelationalComparand(step.Expect);
+                    ResolvedProperty? resolvedComparand = null;
+                    if (comparand is { } comparandPath)
+                    {
+                        resolvedComparand = ResolveProperty(comparandPath, $"{where} comparand", errors);
+                        if (resolvedComparand is not null && numericComparator)
+                        {
+                            var comparandType = EffectiveSchemaType(resolvedComparand);
+                            if (comparandType != "number" && comparandType != "integer")
+                            {
+                                errors.Add($"{where}: above/below compare numbers, but the comparand '{comparandPath}' is of type '{comparandType ?? "unknown"}'");
+                            }
+                        }
+                    }
+
+                    return new ResolvedStep(property, null, resolvedComparand);
                 }
 
                 case "digitalInput":
@@ -104,6 +119,62 @@ namespace Vion.Dale.DevHost.Scenarios
                 default: // wait — nothing to resolve
                     return new ResolvedStep(null, null);
             }
+        }
+
+        // The comparator-vs-leaf check shared by waitUntil and expect, run against the RESOLVED LEAF (for a
+        // struct field path the scalar field's schema type, not the object-typed member's): above/below need
+        // a numeric leaf; equals/notEquals/oneOf reject a no-field struct/array target (else a notEquals
+        // against a struct would instantly false-pass). oneOf elements are additionally type-checked here.
+        private void ValidateComparatorAgainstLeaf(ResolvedProperty property, string? path, bool numericComparator, JsonElement oneOf, string where, List<string> errors)
+        {
+            var type = EffectiveSchemaType(property);
+            if (numericComparator && type != "number" && type != "integer")
+            {
+                errors.Add($"{where}: above/below compare numbers, but '{path}' is of type '{type ?? "unknown"}'");
+            }
+
+            if (!numericComparator && (type == "object" || type == "array"))
+            {
+                errors.Add($"{where}: '{path}' is a {type}-typed member — structs/arrays are not comparable in v1 (a scenario needing that is a C# test)");
+            }
+
+            // oneOf elements must fit the leaf type: a numeric leaf takes numbers; a string/enum leaf takes
+            // strings; a boolean leaf takes booleans. (Element scalar-ness is enforced structurally.)
+            if (oneOf.ValueKind == JsonValueKind.Array && type is "number" or "integer" or "string" or "boolean")
+            {
+                foreach (var element in oneOf.EnumerateArray())
+                {
+                    if (!ElementFitsLeaf(element.ValueKind, type))
+                    {
+                        errors.Add($"{where}: oneOf element {element.GetRawText()} does not fit '{path}' (type '{type}')");
+                    }
+                }
+            }
+        }
+
+        private static bool ElementFitsLeaf(JsonValueKind element, string leafType)
+        {
+            return leafType switch
+            {
+                "number" or "integer" => element == JsonValueKind.Number,
+                "string" => element == JsonValueKind.String,
+                "boolean" => element is JsonValueKind.True or JsonValueKind.False,
+                _ => true,
+            };
+        }
+
+        // The relational comparand path of an expect when the comparator value is a {path} object, else null.
+        private static string? RelationalComparand(ScenarioExpect expect)
+        {
+            foreach (var comparand in new[] { expect.Above, expect.Below, expect.EqualTo, expect.NotEquals })
+            {
+                if (ScenarioComparators.IsPathComparand(comparand))
+                {
+                    return comparand.GetProperty("path").GetString();
+                }
+            }
+
+            return null;
         }
 
         public ResolvedProperty? ResolveProperty(string? path, string where, List<string> errors)
@@ -397,31 +468,111 @@ namespace Vion.Dale.DevHost.Scenarios
     }
 
     /// <summary>
-    ///     The <c>waitUntil</c> comparison semantics (RFC 0006 table), evaluated against live CLR values from
-    ///     the event stream / value cache: <c>above</c>/<c>below</c> numeric; <c>equals</c>/<c>notEquals</c>
-    ///     exact — numbers (optional tolerance), booleans, strings, enums by case-sensitive member name,
-    ///     <c>null</c> awaits the property becoming null.
+    ///     The comparator semantics (RFC 0006 table) shared by <c>waitUntil</c> and <c>expect</c>, evaluated
+    ///     against live CLR values from the event stream / value cache: <c>above</c>/<c>below</c> numeric;
+    ///     <c>equals</c>/<c>notEquals</c> exact — numbers (optional tolerance), booleans, strings, enums by
+    ///     case-sensitive member name, <c>null</c>; <c>oneOf</c> tests set membership. For <c>expect</c> a
+    ///     relational comparand may be a <c>{path}</c> object — the runner resolves it and passes the leaf as
+    ///     <c>comparandLive</c>, which then replaces the (absent) literal in the comparison.
     /// </summary>
     internal static class ScenarioConditions
     {
         public static bool IsSatisfied(ScenarioWaitUntil condition, object? live)
         {
-            if (condition.Above.ValueKind == JsonValueKind.Number)
+            return Evaluate(condition.Above, condition.Below, condition.EqualTo, condition.NotEquals, condition.OneOf, condition.Tolerance, live, null, false);
+        }
+
+        // expect's evaluator — identical comparator logic, but a relational comparand resolved from a {path}
+        // object is supplied via comparandLive when hasComparand is true; it replaces the literal in the
+        // numeric/exact comparison. hasComparand (not comparandLive != null) is the signal, so a comparand
+        // path that resolves to null is still handled as a relational comparison against null.
+        public static bool IsSatisfied(ScenarioExpect condition, object? live, bool hasComparand, object? comparandLive)
+        {
+            return Evaluate(condition.Above, condition.Below, condition.EqualTo, condition.NotEquals, condition.OneOf, condition.Tolerance, live, comparandLive, hasComparand);
+        }
+
+        private static bool Evaluate(JsonElement above,
+                                    JsonElement below,
+                                    JsonElement equalTo,
+                                    JsonElement notEquals,
+                                    JsonElement oneOf,
+                                    double? tolerance,
+                                    object? live,
+                                    object? comparandLive,
+                                    bool hasComparand)
+        {
+            if (above.ValueKind != JsonValueKind.Undefined)
             {
-                return TryAsDouble(live, out var value) && value > condition.Above.GetDouble();
+                return TryAsDouble(live, out var value) && TryComparand(above, comparandLive, hasComparand, out var bound) && value > bound;
             }
 
-            if (condition.Below.ValueKind == JsonValueKind.Number)
+            if (below.ValueKind != JsonValueKind.Undefined)
             {
-                return TryAsDouble(live, out var value) && value < condition.Below.GetDouble();
+                return TryAsDouble(live, out var value) && TryComparand(below, comparandLive, hasComparand, out var bound) && value < bound;
             }
 
-            if (condition.EqualTo.ValueKind != JsonValueKind.Undefined)
+            if (equalTo.ValueKind != JsonValueKind.Undefined)
             {
-                return AreEqual(condition.EqualTo, live, condition.Tolerance);
+                return hasComparand ? AreEqualLive(comparandLive, live, tolerance) : AreEqual(equalTo, live, tolerance);
             }
 
-            return !AreEqual(condition.NotEquals, live, condition.Tolerance);
+            if (notEquals.ValueKind != JsonValueKind.Undefined)
+            {
+                return hasComparand ? !AreEqualLive(comparandLive, live, tolerance) : !AreEqual(notEquals, live, tolerance);
+            }
+
+            // oneOf: satisfied if live equals any element (each compared with the same exact semantics).
+            return oneOf.ValueKind == JsonValueKind.Array && oneOf.EnumerateArray().Any(element => AreEqual(element, live, null));
+        }
+
+        // The numeric bound for above/below: the literal, or the resolved {path} comparand when present. A
+        // comparand that does not read as a number is a no-match (the structural numeric-leaf check guards the
+        // common case; this stays robust if a path resolves to null at run time).
+        private static bool TryComparand(JsonElement literal, object? comparandLive, bool hasComparand, out double bound)
+        {
+            if (hasComparand)
+            {
+                return TryAsDouble(comparandLive, out bound);
+            }
+
+            bound = literal.GetDouble();
+            return true;
+        }
+
+        // Equality between two LIVE CLR values (the {path} relational comparand path) — mirrors AreEqual's
+        // numbers/booleans/strings/enums/null rules without a JsonElement on the expected side.
+        private static bool AreEqualLive(object? expected, object? live, double? tolerance)
+        {
+            if (expected is null)
+            {
+                return live is null;
+            }
+
+            if (TryAsDouble(expected, out var expectedNumber))
+            {
+                return TryAsDouble(live, out var liveNumber) &&
+                       (tolerance is null ? liveNumber.Equals(expectedNumber) : Math.Abs(liveNumber - expectedNumber) <= tolerance.Value);
+            }
+
+            if (expected is bool expectedBool)
+            {
+                return live is bool liveBool && liveBool == expectedBool;
+            }
+
+            return string.Equals(LiveText(expected), LiveText(live), StringComparison.Ordinal) && live is not null;
+        }
+
+        // The string projection used for exact string/enum/TimeSpan comparison.
+        private static string? LiveText(object? live)
+        {
+            return live switch
+            {
+                null => null,
+                string s => s,
+                TimeSpan ts => ts.ToString(),
+                _ when live.GetType().IsEnum => live.ToString(),
+                _ => null,
+            };
         }
 
         private static bool AreEqual(JsonElement expected, object? live, double? tolerance)
@@ -445,20 +596,9 @@ namespace Vion.Dale.DevHost.Scenarios
                     return tolerance is null ? value.Equals(target) : Math.Abs(value - target) <= tolerance.Value;
 
                 case JsonValueKind.String:
-                    if (live is null)
-                    {
-                        return false;
-                    }
-
                     // Strings exact; enums by case-sensitive member name; TimeSpan via its .NET ToString
                     // form (durations stay edge-of-vocabulary in v1 — prefer above/below on numerics).
-                    var liveText = live switch
-                    {
-                        string s => s,
-                        TimeSpan ts => ts.ToString(),
-                        _ when live.GetType().IsEnum => live.ToString(),
-                        _ => null,
-                    };
+                    var liveText = LiveText(live);
                     return liveText is not null && string.Equals(liveText, expected.GetString(), StringComparison.Ordinal);
 
                 default:

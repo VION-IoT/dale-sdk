@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
@@ -184,9 +185,9 @@ namespace Vion.Dale.DevHost.Scenarios
     }
 
     /// <summary>
-    ///     One setup entry or step — exactly one of the six closed shapes (<c>set</c>, <c>digitalInput</c> /
-    ///     <c>analogInput</c>, <c>waitUntil</c>, <c>wait</c>, <c>advance</c>, <c>settle</c>), each with
-    ///     optional <c>label</c> and <c>spec</c>.
+    ///     One setup entry or step — exactly one of the closed shapes (<c>set</c>, <c>digitalInput</c> /
+    ///     <c>analogInput</c>, <c>waitUntil</c>, <c>expect</c>, <c>wait</c>, <c>advance</c>, <c>settle</c>),
+    ///     each with optional <c>label</c> and <c>spec</c>.
     /// </summary>
     public sealed class ScenarioStep
     {
@@ -203,6 +204,9 @@ namespace Vion.Dale.DevHost.Scenarios
         public ScenarioContractRef? AnalogInput { get; init; }
 
         public ScenarioWaitUntil? WaitUntil { get; init; }
+
+        /// <summary>A deterministic, point-in-time auto-assertion on the current value (step-only).</summary>
+        public ScenarioExpect? Expect { get; init; }
 
         public double? TimeoutSeconds { get; init; }
 
@@ -243,6 +247,11 @@ namespace Vion.Dale.DevHost.Scenarios
                     return "waitUntil";
                 }
 
+                if (Expect is not null)
+                {
+                    return "expect";
+                }
+
                 if (Advance is not null)
                 {
                     return "advance";
@@ -280,6 +289,11 @@ namespace Vion.Dale.DevHost.Scenarios
                 shapes++;
             }
 
+            if (Expect is not null)
+            {
+                shapes++;
+            }
+
             if (Wait is not null)
             {
                 shapes++;
@@ -297,14 +311,14 @@ namespace Vion.Dale.DevHost.Scenarios
 
             if (shapes != 1)
             {
-                yield return "a step is exactly one of set / digitalInput / analogInput / waitUntil / wait / advance / settle";
+                yield return "a step is exactly one of set / digitalInput / analogInput / waitUntil / expect / wait / advance / settle";
 
                 yield break;
             }
 
-            if (setupOnlyShapes && (WaitUntil is not null || Wait is not null || Advance is not null || Settle is not null))
+            if (setupOnlyShapes && (WaitUntil is not null || Expect is not null || Wait is not null || Advance is not null || Settle is not null))
             {
-                yield return "setup entries stage state (set / digitalInput / analogInput) — waits and time steps belong in steps";
+                yield return "setup entries stage state (set / digitalInput / analogInput) — waits, expects, and time steps belong in steps";
 
                 yield break;
             }
@@ -369,6 +383,14 @@ namespace Vion.Dale.DevHost.Scenarios
                 yield return "timeoutSeconds is only valid on a waitUntil step";
             }
 
+            if (Expect is not null)
+            {
+                foreach (var error in Expect.StructuralErrors())
+                {
+                    yield return error;
+                }
+            }
+
             if (Wait is not null && Wait.Seconds <= 0)
             {
                 yield return "wait.seconds must be positive";
@@ -414,7 +436,8 @@ namespace Vion.Dale.DevHost.Scenarios
     ///     A <c>waitUntil</c> condition: a property name path plus exactly one comparator. Comparison semantics
     ///     per RFC 0006 ("Comparison semantics"): <c>above</c>/<c>below</c> are numeric; <c>equals</c>/
     ///     <c>notEquals</c> are exact (numbers optionally with <c>tolerance</c>, enums by case-sensitive member
-    ///     name, <c>null</c> legal); structs/arrays are not comparable in v1.
+    ///     name, <c>null</c> legal); <c>oneOf</c> tests set membership against a JSON array of scalars/enum
+    ///     names; structs/arrays are not comparable in v1.
     /// </summary>
     public sealed class ScenarioWaitUntil
     {
@@ -429,6 +452,8 @@ namespace Vion.Dale.DevHost.Scenarios
 
         public JsonElement NotEquals { get; init; }
 
+        public JsonElement OneOf { get; init; }
+
         public double? Tolerance { get; init; }
 
         internal IEnumerable<string> StructuralErrors()
@@ -438,59 +463,183 @@ namespace Vion.Dale.DevHost.Scenarios
                 yield return "waitUntil.property is required";
             }
 
+            foreach (var error in ScenarioComparators.StructuralErrors("waitUntil", Above, Below, EqualTo, NotEquals, OneOf, Tolerance, allowPathComparand: false))
+            {
+                yield return error;
+            }
+        }
+    }
+
+    /// <summary>
+    ///     An <c>expect</c> auto-assertion (RFC 0006 "Assert tier"): a deterministic, point-in-time check on
+    ///     the CURRENT value of a name path. Unlike <c>waitUntil</c> (which awaits), <c>expect</c> reads the
+    ///     value once and FAILS the run if the comparator doesn't hold — the CI-failing tier. Comparators are
+    ///     the same as <c>waitUntil</c> (<c>above</c>/<c>below</c>/<c>equals</c>+<c>tolerance</c>/
+    ///     <c>notEquals</c>/<c>oneOf</c>); for the relational comparators the comparand may additionally be a
+    ///     <c>{ "path": "Block.Prop[.Field]" }</c> object, resolved to that path's current value at assert time.
+    /// </summary>
+    public sealed class ScenarioExpect
+    {
+        public string? Property { get; init; }
+
+        public JsonElement Above { get; init; }
+
+        public JsonElement Below { get; init; }
+
+        [JsonPropertyName("equals")]
+        public JsonElement EqualTo { get; init; }
+
+        public JsonElement NotEquals { get; init; }
+
+        public JsonElement OneOf { get; init; }
+
+        public double? Tolerance { get; init; }
+
+        internal IEnumerable<string> StructuralErrors()
+        {
+            if (string.IsNullOrWhiteSpace(Property))
+            {
+                yield return "expect.property is required";
+            }
+
+            foreach (var error in ScenarioComparators.StructuralErrors("expect", Above, Below, EqualTo, NotEquals, OneOf, Tolerance, allowPathComparand: true))
+            {
+                yield return error;
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Shared structural validation for the comparator block used by both <c>waitUntil</c> and
+    ///     <c>expect</c> — exactly one of <c>above</c>/<c>below</c>/<c>equals</c>/<c>notEquals</c>/<c>oneOf</c>;
+    ///     numeric comparand rules; the <c>{path}</c>-object relational comparand (<c>expect</c> only).
+    /// </summary>
+    internal static class ScenarioComparators
+    {
+        /// <summary>
+        ///     A relational comparand (<c>above</c>/<c>below</c>/<c>equals</c>/<c>notEquals</c>) that is an
+        ///     object is only legal when it is the <c>{ "path": "…" }</c> form — and only for <c>expect</c>.
+        /// </summary>
+        public static bool IsPathComparand(JsonElement comparand)
+        {
+            return comparand.ValueKind == JsonValueKind.Object &&
+                   comparand.TryGetProperty("path", out var path) &&
+                   path.ValueKind == JsonValueKind.String &&
+                   comparand.EnumerateObject().Count() == 1;
+        }
+
+        public static IEnumerable<string> StructuralErrors(string shape,
+                                                           JsonElement above,
+                                                           JsonElement below,
+                                                           JsonElement equalTo,
+                                                           JsonElement notEquals,
+                                                           JsonElement oneOf,
+                                                           double? tolerance,
+                                                           bool allowPathComparand)
+        {
             var comparators = 0;
-            if (Above.ValueKind != JsonValueKind.Undefined)
+
+            if (above.ValueKind != JsonValueKind.Undefined)
             {
                 comparators++;
-                if (Above.ValueKind != JsonValueKind.Number)
+                foreach (var error in RelationalComparandErrors(shape, "above", above, allowPathComparand, numericOnly: true))
                 {
-                    yield return "waitUntil.above must be a number";
+                    yield return error;
                 }
             }
 
-            if (Below.ValueKind != JsonValueKind.Undefined)
+            if (below.ValueKind != JsonValueKind.Undefined)
             {
                 comparators++;
-                if (Below.ValueKind != JsonValueKind.Number)
+                foreach (var error in RelationalComparandErrors(shape, "below", below, allowPathComparand, numericOnly: true))
                 {
-                    yield return "waitUntil.below must be a number";
+                    yield return error;
                 }
             }
 
-            if (EqualTo.ValueKind != JsonValueKind.Undefined)
+            if (equalTo.ValueKind != JsonValueKind.Undefined)
             {
                 comparators++;
-                if (EqualTo.ValueKind == JsonValueKind.Object || EqualTo.ValueKind == JsonValueKind.Array)
+                foreach (var error in RelationalComparandErrors(shape, "equals", equalTo, allowPathComparand, numericOnly: false))
                 {
-                    yield return "waitUntil.equals does not compare structs/arrays in v1 — a scenario needing that is a C# test";
+                    yield return error;
                 }
             }
 
-            if (NotEquals.ValueKind != JsonValueKind.Undefined)
+            if (notEquals.ValueKind != JsonValueKind.Undefined)
             {
                 comparators++;
-                if (NotEquals.ValueKind == JsonValueKind.Object || NotEquals.ValueKind == JsonValueKind.Array)
+                foreach (var error in RelationalComparandErrors(shape, "notEquals", notEquals, allowPathComparand, numericOnly: false))
                 {
-                    yield return "waitUntil.notEquals does not compare structs/arrays in v1 — a scenario needing that is a C# test";
+                    yield return error;
+                }
+            }
+
+            if (oneOf.ValueKind != JsonValueKind.Undefined)
+            {
+                comparators++;
+                if (oneOf.ValueKind != JsonValueKind.Array)
+                {
+                    yield return $"{shape}.oneOf must be an array of scalars";
+                }
+                else if (oneOf.GetArrayLength() == 0)
+                {
+                    yield return $"{shape}.oneOf must be a non-empty array";
+                }
+                else if (oneOf.EnumerateArray().Any(e => e.ValueKind == JsonValueKind.Object || e.ValueKind == JsonValueKind.Array))
+                {
+                    yield return $"{shape}.oneOf elements must be scalars (no objects/arrays)";
                 }
             }
 
             if (comparators != 1)
             {
-                yield return "waitUntil takes exactly one of above / below / equals / notEquals";
+                yield return $"{shape} takes exactly one of above / below / equals / notEquals / oneOf";
             }
 
-            if (Tolerance is not null)
+            if (tolerance is not null)
             {
-                if (Tolerance < 0)
+                if (tolerance < 0)
                 {
-                    yield return "waitUntil.tolerance must be non-negative";
+                    yield return $"{shape}.tolerance must be non-negative";
                 }
 
-                if (EqualTo.ValueKind != JsonValueKind.Number)
+                // tolerance applies to a numeric equals — a literal number, or a {path} comparand (whose
+                // resolved value is checked numeric at resolution time).
+                if (!(equalTo.ValueKind == JsonValueKind.Number || (allowPathComparand && IsPathComparand(equalTo))))
                 {
-                    yield return "waitUntil.tolerance is only valid with a numeric equals";
+                    yield return $"{shape}.tolerance is only valid with a numeric equals";
                 }
+            }
+        }
+
+        // A relational comparand is a literal scalar OR (expect only) a {path} object. above/below require a
+        // numeric literal; equals/notEquals reject struct/array literals (the {path} object is the ONE allowed
+        // object form).
+        private static IEnumerable<string> RelationalComparandErrors(string shape, string name, JsonElement comparand, bool allowPathComparand, bool numericOnly)
+        {
+            if (allowPathComparand && IsPathComparand(comparand))
+            {
+                yield break;
+            }
+
+            if (numericOnly)
+            {
+                if (comparand.ValueKind != JsonValueKind.Number)
+                {
+                    yield return allowPathComparand
+                                     ? $"{shape}.{name} must be a number or a {{ \"path\": \"…\" }} comparand"
+                                     : $"{shape}.{name} must be a number";
+                }
+
+                yield break;
+            }
+
+            if (comparand.ValueKind == JsonValueKind.Object || comparand.ValueKind == JsonValueKind.Array)
+            {
+                yield return allowPathComparand
+                                 ? $"{shape}.{name} does not compare structs/arrays in v1 — the only object form is {{ \"path\": \"…\" }} (a scenario needing more is a C# test)"
+                                 : $"{shape}.{name} does not compare structs/arrays in v1 — a scenario needing that is a C# test";
             }
         }
     }
