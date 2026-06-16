@@ -48,6 +48,9 @@ namespace Vion.Dale.DevHost.Scenarios
 
         private const double DefaultWaitUntilTimeoutSeconds = 20;
 
+        // Default virtual-time budget for a settle step when maxSeconds is not specified.
+        private const double DefaultSettleMaxSeconds = 60;
+
         /// <summary>Run a scenario and return the structured report. Failures are recorded, not thrown.</summary>
         public static async Task<ScenarioRunReport> RunAsync(ScenarioFile scenario,
                                                              IDevHostControl control,
@@ -182,12 +185,17 @@ namespace Vion.Dale.DevHost.Scenarios
                                "digitalInput" => $"{step.DigitalInput!.Block}.{step.DigitalInput.Contract}",
                                "analogInput" => $"{step.AnalogInput!.Block}.{step.AnalogInput.Contract}",
                                "waitUntil" => step.WaitUntil!.Property ?? string.Empty,
+                               "advance" => $"{step.Advance!.Seconds.ToString(CultureInfo.InvariantCulture)} s",
+                               "settle" => "until stable",
                                _ => $"{step.Wait!.Seconds.ToString(CultureInfo.InvariantCulture)} s",
                            },
                            Argument = step.Kind switch
                            {
                                "set" or "digitalInput" or "analogInput" => step.Value.ValueKind == JsonValueKind.Undefined ? null : step.Value.GetRawText(),
                                "waitUntil" => DescribeCondition(step),
+                               "settle" => step.Settle!.MaxSeconds is { } max
+                                   ? $"≤{max.ToString(CultureInfo.InvariantCulture)} s"
+                                   : $"≤{DefaultSettleMaxSeconds.ToString(CultureInfo.InvariantCulture)} s",
                                _ => null,
                            },
                        };
@@ -254,6 +262,8 @@ namespace Vion.Dale.DevHost.Scenarios
                 return;
             }
 
+            var watchPaths = scenario.Watch;
+
             // Setup in file order, then steps in order; any failure stops the run.
             for (var i = 0; i < resolvedSetup.Count; i++)
             {
@@ -280,7 +290,8 @@ namespace Vion.Dale.DevHost.Scenarios
                                         control,
                                         progress,
                                         report,
-                                        cancellationToken)
+                                        cancellationToken,
+                                        watchPaths)
                          .ConfigureAwait(false))
                 {
                     report.Status = ScenarioRunStatus.Failed;
@@ -298,7 +309,8 @@ namespace Vion.Dale.DevHost.Scenarios
                                                      IDevHostControl control,
                                                      Action<ScenarioRunReport> progress,
                                                      ScenarioRunReport report,
-                                                     CancellationToken cancellationToken)
+                                                     CancellationToken cancellationToken,
+                                                     IReadOnlyList<string>? watchPaths = null)
         {
             cancellationToken.ThrowIfCancellationRequested();
             result.Status = ScenarioStepStatus.Running;
@@ -356,7 +368,16 @@ namespace Vion.Dale.DevHost.Scenarios
 
                         break;
 
+                    case "advance":
+                        await control.AdvanceAsync(TimeSpan.FromSeconds(step.Advance!.Seconds), cancellationToken).ConfigureAwait(false);
+                        break;
+
+                    case "settle":
+                        await SettleAsync(step, watchPaths, control, result, cancellationToken).ConfigureAwait(false);
+                        break;
+
                     default: // wait
+                        result.Detail = "wall-clock delay (non-deterministic) — prefer advance for stepped hosts";
                         await Task.Delay(TimeSpan.FromSeconds(step.Wait!.Seconds), cancellationToken).ConfigureAwait(false);
                         break;
                 }
@@ -441,6 +462,82 @@ namespace Vion.Dale.DevHost.Scenarios
             result.Detail = $"condition not met within {timeout.TotalSeconds.ToString(CultureInfo.InvariantCulture)} s " +
                             $"(last value: {(last is null ? "null" : Convert.ToString(last, CultureInfo.InvariantCulture))})";
             return false;
+        }
+
+        // Settle protocol: advance hop-by-hop until the watched values are stable across one full hop, or
+        // until the virtual-time budget is exhausted. An empty watch list converges immediately — nothing to
+        // stabilize. Virtual time elapsed is tracked via control.VirtualTimeUtc so the budget is in virtual
+        // seconds, not wall seconds.
+        private static async Task SettleAsync(ScenarioStep step,
+                                              IReadOnlyList<string>? watchPaths,
+                                              IDevHostControl control,
+                                              ScenarioStepResult result,
+                                              CancellationToken cancellationToken)
+        {
+            var maxSeconds = step.Settle!.MaxSeconds ?? DefaultSettleMaxSeconds;
+            var budget = TimeSpan.FromSeconds(maxSeconds);
+
+            // Empty watch list: nothing to observe → converged immediately (stable by definition).
+            if (watchPaths is null || watchPaths.Count == 0)
+            {
+                result.Detail = "converged immediately (no watch paths to observe)";
+                return;
+            }
+
+            object?[] Snapshot()
+            {
+                var values = new object?[watchPaths.Count];
+                for (var i = 0; i < watchPaths.Count; i++)
+                {
+                    var segments = watchPaths[i].Split('.');
+                    values[i] = segments.Length == 3
+                        ? control.GetProperty(segments[0], segments[1], segments[2])
+                        : control.GetProperty(segments[0], segments[1]);
+                }
+
+                return values;
+            }
+
+            bool ValuesEqual(object?[] a, object?[] b)
+            {
+                for (var i = 0; i < a.Length; i++)
+                {
+                    if (!Equals(a[i], b[i]))
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+
+            var virtualStart = control.VirtualTimeUtc;
+            var deadline = virtualStart + budget;
+            var hops = 0;
+
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var before = Snapshot();
+                await control.AdvanceToNextEventAsync(cancellationToken).ConfigureAwait(false);
+                hops++;
+                var after = Snapshot();
+
+                if (ValuesEqual(before, after))
+                {
+                    var elapsed = (control.VirtualTimeUtc - virtualStart).TotalSeconds;
+                    result.Detail = $"converged after {hops} hop{(hops == 1 ? "" : "s")} / {elapsed.ToString("0.###", CultureInfo.InvariantCulture)} virtual s";
+                    return;
+                }
+
+                if (control.VirtualTimeUtc >= deadline)
+                {
+                    var elapsed = (control.VirtualTimeUtc - virtualStart).TotalSeconds;
+                    result.Detail = $"did not converge within {maxSeconds.ToString(CultureInfo.InvariantCulture)} virtual s ({hops} hop{(hops == 1 ? "" : "s")} / {elapsed.ToString("0.###", CultureInfo.InvariantCulture)} virtual s elapsed)";
+                    return;
+                }
+            }
         }
 
         private static void Fail(ScenarioStepResult result, ScenarioRunReport report, Action<ScenarioRunReport> progress, Stopwatch stopwatch)

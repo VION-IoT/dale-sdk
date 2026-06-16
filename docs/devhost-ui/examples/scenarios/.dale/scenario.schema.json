@@ -145,7 +145,42 @@
           }
         }
       },
-      "description": "Fixed pause for stimulus pacing (ramps, dwell times). Use wait to shape inputs, waitUntil to await outputs."
+      "description": "Fixed wall-clock pause for stimulus pacing (non-deterministic). Prefer advance on a stepped host."
+    },
+    "advanceStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["advance"],
+      "properties": {
+        "label": { "$ref": "#/$defs/stepCommon/label" },
+        "spec": { "$ref": "#/$defs/stepCommon/spec" },
+        "advance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["seconds"],
+          "properties": {
+            "seconds": { "type": "number", "exclusiveMinimum": 0, "description": "Virtual seconds to advance the stepped host's clock." }
+          }
+        }
+      },
+      "description": "Deterministic virtual-time advance (stepped host only). Fires every scheduled timer event within the budget."
+    },
+    "settleStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["settle"],
+      "properties": {
+        "label": { "$ref": "#/$defs/stepCommon/label" },
+        "spec": { "$ref": "#/$defs/stepCommon/spec" },
+        "settle": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "maxSeconds": { "type": "number", "exclusiveMinimum": 0, "default": 60, "description": "Maximum virtual seconds to spend waiting for convergence." }
+          }
+        }
+      },
+      "description": "Advance hop-by-hop until watched signals stop changing (stepped host only). Converges when no watch value changed across one hop, or the maxSeconds budget elapses."
     },
     "contractRef": {
       "type": "object",
@@ -169,7 +204,9 @@
         { "$ref": "#/$defs/digitalInputStep" },
         { "$ref": "#/$defs/analogInputStep" },
         { "$ref": "#/$defs/waitUntilStep" },
-        { "$ref": "#/$defs/waitStep" }
+        { "$ref": "#/$defs/waitStep" },
+        { "$ref": "#/$defs/advanceStep" },
+        { "$ref": "#/$defs/settleStep" }
       ]
     }
   }

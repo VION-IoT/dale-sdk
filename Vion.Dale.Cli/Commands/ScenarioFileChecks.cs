@@ -187,16 +187,16 @@ namespace Vion.Dale.Cli.Commands
                     continue;
                 }
 
-                var shapes = new[] { "set", "digitalInput", "analogInput", "waitUntil", "wait" }.Count(k => step.ContainsKey(k));
+                var shapes = new[] { "set", "digitalInput", "analogInput", "waitUntil", "wait", "advance", "settle" }.Count(k => step.ContainsKey(k));
                 if (shapes != 1)
                 {
-                    errors.Add($"{where}: a step is exactly one of set / digitalInput / analogInput / waitUntil / wait");
+                    errors.Add($"{where}: a step is exactly one of set / digitalInput / analogInput / waitUntil / wait / advance / settle");
                     continue;
                 }
 
-                if (setupOnlyShapes && (step.ContainsKey("waitUntil") || step.ContainsKey("wait")))
+                if (setupOnlyShapes && (step.ContainsKey("waitUntil") || step.ContainsKey("wait") || step.ContainsKey("advance") || step.ContainsKey("settle")))
                 {
-                    errors.Add($"{where}: setup entries stage state — waits belong in steps");
+                    errors.Add($"{where}: setup entries stage state — waits and time steps belong in steps");
                     continue;
                 }
 
@@ -233,6 +233,24 @@ namespace Vion.Dale.Cli.Commands
                 else if (step.ContainsKey("waitUntil"))
                 {
                     ValidateWaitUntil(step, config, where, errors);
+                }
+                else if (step.ContainsKey("advance"))
+                {
+                    if (step["advance"]?["seconds"]?.GetValueKind() != JsonValueKind.Number || step["advance"]!["seconds"]!.GetValue<double>() <= 0)
+                    {
+                        errors.Add($"{where}: advance.seconds must be a positive number");
+                    }
+                }
+                else if (step.ContainsKey("settle"))
+                {
+                    // settle may be an empty object {}; maxSeconds is optional but must be positive when present.
+                    if (step["settle"] is JsonObject settle && settle.ContainsKey("maxSeconds"))
+                    {
+                        if (settle["maxSeconds"]?.GetValueKind() != JsonValueKind.Number || settle["maxSeconds"]!.GetValue<double>() <= 0)
+                        {
+                            errors.Add($"{where}: settle.maxSeconds must be a positive number");
+                        }
+                    }
                 }
                 else if (step["wait"]?["seconds"]?.GetValueKind() != JsonValueKind.Number || step["wait"]!["seconds"]!.GetValue<double>() <= 0)
                 {

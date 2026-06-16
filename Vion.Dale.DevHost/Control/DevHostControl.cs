@@ -139,6 +139,12 @@ namespace Vion.Dale.DevHost.Control
             return EnsureStepper().AdvanceToNextEventAsync(cancellationToken);
         }
 
+        /// <inheritdoc />
+        public DateTimeOffset VirtualTimeUtc
+        {
+            get => _timeProvider.GetUtcNow();
+        }
+
         // Lazy: building the stepper validates the clock is a FakeTimeProvider, so a real-clock host is only
         // rejected when stepping is actually requested — not at construction.
         private DeterministicStepper EnsureStepper()

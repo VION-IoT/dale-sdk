@@ -184,8 +184,9 @@ namespace Vion.Dale.DevHost.Scenarios
     }
 
     /// <summary>
-    ///     One setup entry or step — exactly one of the four closed shapes (<c>set</c>, <c>digitalInput</c> /
-    ///     <c>analogInput</c>, <c>waitUntil</c>, <c>wait</c>), each with optional <c>label</c> and <c>spec</c>.
+    ///     One setup entry or step — exactly one of the six closed shapes (<c>set</c>, <c>digitalInput</c> /
+    ///     <c>analogInput</c>, <c>waitUntil</c>, <c>wait</c>, <c>advance</c>, <c>settle</c>), each with
+    ///     optional <c>label</c> and <c>spec</c>.
     /// </summary>
     public sealed class ScenarioStep
     {
@@ -206,6 +207,15 @@ namespace Vion.Dale.DevHost.Scenarios
         public double? TimeoutSeconds { get; init; }
 
         public ScenarioWaitStep? Wait { get; init; }
+
+        /// <summary>Advances the host's virtual clock by a deterministic time budget (stepped-host only).</summary>
+        public ScenarioAdvance? Advance { get; init; }
+
+        /// <summary>
+        ///     Advance hop-by-hop until the watched signals stop changing (or the virtual-time budget is
+        ///     exhausted). Stepped-host only.
+        /// </summary>
+        public ScenarioSettle? Settle { get; init; }
 
         /// <summary>Which of the closed shapes this step is, for reports and rendering.</summary>
         [JsonIgnore]
@@ -231,6 +241,16 @@ namespace Vion.Dale.DevHost.Scenarios
                 if (WaitUntil is not null)
                 {
                     return "waitUntil";
+                }
+
+                if (Advance is not null)
+                {
+                    return "advance";
+                }
+
+                if (Settle is not null)
+                {
+                    return "settle";
                 }
 
                 return "wait";
@@ -265,16 +285,26 @@ namespace Vion.Dale.DevHost.Scenarios
                 shapes++;
             }
 
+            if (Advance is not null)
+            {
+                shapes++;
+            }
+
+            if (Settle is not null)
+            {
+                shapes++;
+            }
+
             if (shapes != 1)
             {
-                yield return "a step is exactly one of set / digitalInput / analogInput / waitUntil / wait";
+                yield return "a step is exactly one of set / digitalInput / analogInput / waitUntil / wait / advance / settle";
 
                 yield break;
             }
 
-            if (setupOnlyShapes && (WaitUntil is not null || Wait is not null))
+            if (setupOnlyShapes && (WaitUntil is not null || Wait is not null || Advance is not null || Settle is not null))
             {
-                yield return "setup entries stage state (set / digitalInput / analogInput) — waits belong in steps";
+                yield return "setup entries stage state (set / digitalInput / analogInput) — waits and time steps belong in steps";
 
                 yield break;
             }
@@ -342,6 +372,16 @@ namespace Vion.Dale.DevHost.Scenarios
             if (Wait is not null && Wait.Seconds <= 0)
             {
                 yield return "wait.seconds must be positive";
+            }
+
+            if (Advance is not null && Advance.Seconds <= 0)
+            {
+                yield return "advance.seconds must be positive";
+            }
+
+            if (Settle is not null && Settle.MaxSeconds is <= 0)
+            {
+                yield return "settle.maxSeconds must be positive";
             }
         }
     }
@@ -459,6 +499,27 @@ namespace Vion.Dale.DevHost.Scenarios
     public sealed class ScenarioWaitStep
     {
         public double Seconds { get; init; }
+    }
+
+    /// <summary>
+    ///     Deterministic virtual-time advance (<c>advance</c>) — advances the host's virtual clock by exactly
+    ///     <see cref="Seconds" /> of simulated time, firing every scheduled event due within the budget.
+    ///     Requires a stepped host (<c>FakeTimeProvider</c>).
+    /// </summary>
+    public sealed class ScenarioAdvance
+    {
+        public double Seconds { get; init; }
+    }
+
+    /// <summary>
+    ///     Settle until the scenario's <c>watch</c> paths stop changing (<c>settle</c>) — advances
+    ///     hop-by-hop via <c>AdvanceToNextEventAsync</c> until every watched value is stable across one hop,
+    ///     or until <see cref="MaxSeconds" /> of virtual time elapse (default 60 s). Requires a stepped host.
+    /// </summary>
+    public sealed class ScenarioSettle
+    {
+        /// <summary>Maximum virtual seconds to spend waiting for convergence. Null means the default cap (60 s).</summary>
+        public double? MaxSeconds { get; init; }
     }
 
     /// <summary>A human-judgment checklist item — v1 has no auto-asserting checks; CI reports these as <c>requires human</c>.</summary>

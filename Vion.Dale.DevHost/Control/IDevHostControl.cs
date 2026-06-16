@@ -171,6 +171,13 @@ namespace Vion.Dale.DevHost.Control
         Task AdvanceToNextEventAsync(CancellationToken cancellationToken = default);
 
         /// <summary>
+        ///     The registered <see cref="TimeProvider" />'s current virtual time. Useful for tracking elapsed
+        ///     virtual time during a <c>settle</c> loop. Returns the real UTC clock value when no
+        ///     <c>FakeTimeProvider</c> is registered (e.g. on a non-stepped host).
+        /// </summary>
+        DateTimeOffset VirtualTimeUtc { get; }
+
+        /// <summary>
         ///     Ask the supervisor to recycle the host (dispose → rebuild → restart; the kill-and-`dale dev`
         ///     loop without the kill). Returns false when the host was started without a factory
         ///     (<c>DevHostWebRunner.RunAsync(hostFactory, …)</c>) — nothing can rebuild it.
