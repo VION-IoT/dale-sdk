@@ -160,7 +160,6 @@ namespace Vion.Dale.Sdk.Diagnostics
                 var mailboxDepth = (int)Math.Max(0L, messagesPosted - Interlocked.Read(ref _messagesReceived));
                 return new ActorVitals(actorName,
                                        _identity,
-                                       messagesPosted,
                                        _messagesHandled,
                                        _errors,
                                        _handlerDurationMax.Read(),

@@ -16,6 +16,10 @@ namespace Vion.Dale.ProtoActor
 {
     public class ActorSystem : IActorSystem
     {
+        // Optional, opt-in in-flight handler monitor (DevHost's deterministic-stepping barrier — RFC 0003).
+        // Null when none is registered, so a host without it keeps the original behaviour.
+        private readonly IActorActivityMonitor? _activityMonitor;
+
         private readonly Proto.ActorSystem _actorSystem;
 
         // Optional, opt-in pause gate for delayed self-sends (DevHost's pause feature). Null when none is
@@ -45,6 +49,7 @@ namespace Vion.Dale.ProtoActor
             _logger = logger;
             _messageObserver = CompositeActorMessageObserver.Combine(serviceProvider.GetServices<IActorMessageObserver>());
             _delayedSendGate = serviceProvider.GetService<IDelayedSendGate>();
+            _activityMonitor = serviceProvider.GetService<IActorActivityMonitor>();
             _timeProvider = serviceProvider.GetService<TimeProvider>() ?? TimeProvider.System;
             _vitalsCollector = serviceProvider.GetService<IActorVitalsCollector>();
             _actorSystem = serviceProvider.GetService<Proto.ActorSystem>() ?? throw new InvalidOperationException("Actor system is not registered in the service provider.");
@@ -194,16 +199,15 @@ namespace Vion.Dale.ProtoActor
                 actorReceiverInstance = ActivatorUtilities.CreateInstance(_serviceProvider, actorReceiverType, loggerArg);
             }
 
-            var genericActor = _delayedSendGate is null
-                                   ? ActivatorUtilities.CreateInstance(_serviceProvider, actorType, actorReceiverInstance)
-                                   : ActivatorUtilities.CreateInstance(_serviceProvider, actorType, actorReceiverInstance, _delayedSendGate);
+            var genericActor = _delayedSendGate is null ? ActivatorUtilities.CreateInstance(_serviceProvider, actorType, actorReceiverInstance) :
+                                   ActivatorUtilities.CreateInstance(_serviceProvider, actorType, actorReceiverInstance, _delayedSendGate);
             if (genericActor == null)
             {
                 throw new InvalidOperationException($"Actor type {actorType.FullName} is not registered in the service provider.");
             }
 
             var props = Props.FromProducer(() => (IActor)genericActor)
-                             .WithReceiverMiddleware(ActorMiddleware.ReceiveMiddleware(logger ?? _logger, _messageObserver, _timeProvider))
+                             .WithReceiverMiddleware(ActorMiddleware.ReceiveMiddleware(logger ?? _logger, _messageObserver, _timeProvider, _activityMonitor))
                              .WithSenderMiddleware(ActorMiddleware.SenderMiddleware(logger ?? _logger));
             props = WithVitals(props, actorReceiverType, name);
 
@@ -216,7 +220,7 @@ namespace Vion.Dale.ProtoActor
             where TActorReceiver : IActorReceiver
         {
             var props = Props.FromProducer(() => new Actor<TActorReceiver>(factory(), _delayedSendGate, _timeProvider))
-                             .WithReceiverMiddleware(ActorMiddleware.ReceiveMiddleware(logger as ILogger ?? _logger, _messageObserver, _timeProvider))
+                             .WithReceiverMiddleware(ActorMiddleware.ReceiveMiddleware(logger as ILogger ?? _logger, _messageObserver, _timeProvider, _activityMonitor))
                              .WithSenderMiddleware(ActorMiddleware.SenderMiddleware(logger as ILogger ?? _logger));
             props = WithVitals(props, typeof(TActorReceiver), name);
 

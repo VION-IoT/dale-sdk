@@ -25,6 +25,10 @@ namespace Vion.Dale.DevHost.Control
     /// <inheritdoc />
     internal sealed class DevHostControl : IDevHostControl, IDisposable
     {
+        // In-flight handler monitor — the exact-quiescence complement to mailbox depth. Held for the lazily
+        // built stepper's barrier.
+        private readonly InFlightActivityMonitor _activityMonitor;
+
         private readonly IActorSystem _actorSystem;
 
         private readonly DevConfiguration _configuration;
@@ -44,23 +48,23 @@ namespace Vion.Dale.DevHost.Control
 
         private readonly List<Action<DevHostEvent>> _subscribers = new();
 
-        // SPIKE (Task 3) — deterministic stepping deps. Held but unused unless AdvanceAsync is called; the
-        // stepper (which validates the clock is a FakeTimeProvider) is built lazily so a non-stepping host
-        // isn't burdened and a real-clock host isn't rejected at construction.
+        // Deterministic stepping deps. Held but unused unless AdvanceAsync is called; the stepper (which
+        // validates the clock is a FakeTimeProvider) is built lazily so a non-stepping host isn't burdened
+        // and a real-clock host isn't rejected at construction.
         private readonly TimeProvider _timeProvider;
-
-        private readonly RuntimeVitals _vitals;
-
-        private DeterministicStepper? _stepper;
 
         // Last-known value per (serviceConfigId, memberName) — fed by the change events, read by GetProperty.
         private readonly ConcurrentDictionary<(string ServiceId, string Member), object?> _values = new();
+
+        private readonly RuntimeVitals _vitals;
 
         private readonly List<Func<DevHostEvent, bool>> _waiters = new();
 
         // service-id (GUID carried on the events) → logic block name. Built lazily: in a headless boot the
         // config's Services aren't populated until DevHostIntrospection runs, which may be after construction.
         private Dictionary<string, string>? _serviceToLogicBlock;
+
+        private DeterministicStepper? _stepper;
 
         public DevHostControl(DevConfiguration configuration,
                               DevHostEvents events,
@@ -70,6 +74,7 @@ namespace Vion.Dale.DevHost.Control
                               MessageTap messageTap,
                               DevHostRunControl runControl,
                               RuntimeVitals vitals,
+                              InFlightActivityMonitor activityMonitor,
                               TimeProvider timeProvider)
         {
             _configuration = configuration;
@@ -80,6 +85,7 @@ namespace Vion.Dale.DevHost.Control
             _messageTap = messageTap;
             _runControl = runControl;
             _vitals = vitals;
+            _activityMonitor = activityMonitor;
             _timeProvider = timeProvider;
 
             _events.ServicePropertyChanged += OnServiceProperty;
@@ -120,7 +126,7 @@ namespace Vion.Dale.DevHost.Control
         {
             // Lazy: building the stepper validates the clock is a FakeTimeProvider, so a real-clock host is
             // only rejected when stepping is actually requested — not at construction.
-            _stepper ??= new DeterministicStepper(_timeProvider, new QuiescenceBarrier(_vitals));
+            _stepper ??= new DeterministicStepper(_timeProvider, new QuiescenceBarrier(_vitals, _activityMonitor));
             return _stepper.AdvanceAsync(interval, cycles, cancellationToken);
         }
 

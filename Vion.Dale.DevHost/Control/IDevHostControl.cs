@@ -138,12 +138,12 @@ namespace Vion.Dale.DevHost.Control
         void Resume();
 
         /// <summary>
-        ///     SPIKE (Task 3) — deterministic multi-cycle stepping. Runs <paramref name="cycles" /> simulation
-        ///     cycles: each advances the registered <c>FakeTimeProvider</c> by <paramref name="interval" />
-        ///     (firing the timer continuations due at the new simulated time) and then waits for the actor
-        ///     system to quiesce — every mailbox drained, no handler in flight — before the next advance. The
-        ///     wait reads the in-flight-aware <c>Σ(MessagesPosted − MessagesHandled)</c> signal from
-        ///     <c>RuntimeVitals</c>, so each cycle boundary lands on a settled, reproducible state and N
+        ///     Deterministic multi-cycle stepping. Runs <paramref name="cycles" /> simulation cycles: each
+        ///     advances the registered <c>FakeTimeProvider</c> by <paramref name="interval" /> (firing the
+        ///     timer continuations due at the new simulated time) and then waits for the actor system to
+        ///     quiesce before the next advance. Quiescence is determined by the EXACT predicate
+        ///     <c>Σ MailboxDepth == 0 AND InFlight == 0</c>: every mailbox empty AND no user handler
+        ///     currently executing. Each cycle boundary therefore lands on a settled, reproducible state and N
         ///     cycles yield the same result run-to-run.
         ///     <para>
         ///         Requires a <c>FakeTimeProvider</c> registered as the <see cref="TimeProvider" /> (throws

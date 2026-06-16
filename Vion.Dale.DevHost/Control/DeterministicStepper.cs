@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 namespace Vion.Dale.DevHost.Control
 {
     /// <summary>
-    ///     SPIKE (Task 3) — drives the actor system through N deterministic simulation cycles. Each cycle
-    ///     advances a controllable fake clock by one interval (releasing every <c>Task.Delay(…, clock)</c>
-    ///     due at the new simulated time — i.e. the next <c>[Timer]</c> tick) and then awaits
+    ///     Drives the actor system through N deterministic simulation cycles. Each cycle advances a
+    ///     controllable fake clock by one interval (releasing every <c>Task.Delay(…, clock)</c> due at the
+    ///     new simulated time — i.e. the next <c>[Timer]</c> tick) and then awaits
     ///     <see cref="QuiescenceBarrier" /> so the resulting handler cascade fully settles before the next
     ///     advance.
     ///     <para>
@@ -81,10 +81,9 @@ namespace Vion.Dale.DevHost.Control
             }
             catch (OperationCanceledException) when (timeout.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
             {
-                throw new TimeoutException(
-                    $"Actor system did not reach quiescence within {QuiescenceTimeout.TotalSeconds:0}s — the " +
-                    "Σ MailboxDepth signal never held at zero for the required consecutive reads. The cascade " +
-                    "is either stuck or producing unbounded follow-up traffic.");
+                throw new TimeoutException($"Actor system did not reach quiescence within {QuiescenceTimeout.TotalSeconds:0}s — the exact " +
+                                           "predicate (Σ MailboxDepth == 0 AND no user handler in flight) never held. The cascade is " +
+                                           "either stuck or producing unbounded follow-up traffic.");
             }
         }
 
@@ -92,19 +91,14 @@ namespace Vion.Dale.DevHost.Control
         // compile-time reference to the test-only TimeProvider.Testing assembly from the shipped library.
         private static Action<TimeSpan> BindAdvance(TimeProvider timeProvider)
         {
-            var advance = timeProvider.GetType().GetMethod("Advance",
-                                                           BindingFlags.Public | BindingFlags.Instance,
-                                                           binder: null,
-                                                           types: new[] { typeof(TimeSpan) },
-                                                           modifiers: null);
+            var advance = timeProvider.GetType().GetMethod("Advance", BindingFlags.Public | BindingFlags.Instance, null, new[] { typeof(TimeSpan) }, null);
 
             if (advance is null || advance.ReturnType != typeof(void))
             {
-                throw new InvalidOperationException(
-                    "Deterministic stepping requires a controllable clock (FakeTimeProvider) registered as the " +
-                    "TimeProvider — e.g. .ConfigureServices(s => s.AddSingleton<TimeProvider>(new FakeTimeProvider())). " +
-                    $"The resolved TimeProvider is '{timeProvider.GetType().Name}', which exposes no Advance(TimeSpan) " +
-                    "and cannot be stepped.");
+                throw new InvalidOperationException("Deterministic stepping requires a controllable clock (FakeTimeProvider) registered as the " +
+                                                    "TimeProvider — e.g. .ConfigureServices(s => s.AddSingleton<TimeProvider>(new FakeTimeProvider())). " +
+                                                    $"The resolved TimeProvider is '{timeProvider.GetType().Name}', which exposes no Advance(TimeSpan) " +
+                                                    "and cannot be stepped.");
             }
 
             return interval => advance.Invoke(timeProvider, new object[] { interval });

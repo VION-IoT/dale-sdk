@@ -119,6 +119,13 @@ namespace Vion.Dale.DevHost
             // IDelayedSendGate here (only in DevHost) is what enables pause; production registers none.
             _services.AddSingleton<DevHostRunControl>();
             _services.AddSingleton<IDelayedSendGate>(sp => sp.GetRequiredService<DevHostRunControl>());
+
+            // In-flight handler monitor: the exact-quiescence complement to mailbox depth. Same opt-in
+            // pattern — registering IActorActivityMonitor here (only in DevHost) is what lets the stepping
+            // barrier read an EXACT quiescence predicate; the production runtime registers none.
+            _services.AddSingleton<InFlightActivityMonitor>();
+            _services.AddSingleton<IActorActivityMonitor>(sp => sp.GetRequiredService<InFlightActivityMonitor>());
+
             _services.AddSingleton<IDevHostControl, DevHostControl>();
 
             // Register initializer

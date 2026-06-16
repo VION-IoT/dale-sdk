@@ -2,83 +2,77 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Diagnostics;
 
 namespace Vion.Dale.DevHost.Control
 {
     /// <summary>
-    ///     SPIKE (Task 3) — awaits actor-system <em>quiescence</em>: the point at which every mailbox is
-    ///     drained and no handler is mid-flight, so the cascade kicked off by the previous
+    ///     Awaits actor-system <em>quiescence</em>: the point at which every mailbox is drained AND no user
+    ///     handler is mid-flight, so the cascade kicked off by the previous
     ///     <see cref="Microsoft.Extensions.Time.Testing.FakeTimeProvider.Advance" /> has fully settled.
     ///     <para>
-    ///         The quiescence signal is read from <see cref="RuntimeVitals" />, which the Proto
-    ///         mailbox-statistics hook feeds for every mailbox message (user, system, and infrastructure
-    ///         alike). The clean, same-denominator signal is <see cref="ActorVitals.MailboxDepth" />
-    ///         (messages posted − received): both counters come from that one hook, so their difference is
-    ///         exactly the number of messages still <em>queued</em> (enqueued, not yet dequeued). When it
-    ///         reads zero for every actor, every mailbox is empty.
+    ///         The predicate is EXACT, not a time-window heuristic. It conjoins two independent live signals:
+    ///         <list type="bullet">
+    ///             <item>
+    ///                 <c>Σ MailboxDepth == 0</c> — read from <see cref="RuntimeVitals" /> (fed by the Proto
+    ///                 mailbox-statistics hook for every message): <c>posted − received</c> is exactly the
+    ///                 number of messages still queued. Zero means every mailbox is empty.
+    ///             </item>
+    ///             <item>
+    ///                 <c>InFlight == 0</c> — read from <see cref="IActorActivityMonitor" /> (the DevHost opt-in
+    ///                 monitor the actor middleware brackets every handler with): zero means no user handler is
+    ///                 currently executing.
+    ///             </item>
+    ///         </list>
+    ///         Mailbox depth alone has a blind spot: <c>received</c> is incremented at <em>dequeue</em>, before
+    ///         the handler runs, so depth can read zero while a handler is still executing and about to post a
+    ///         follow-up (a fire-and-forget forward-only cascade exposes this — there is no reverse traffic to
+    ///         keep depth above zero). The in-flight count closes it exactly: the middleware enters a handler
+    ///         BEFORE its body runs, so a handler that is about to post the next hop has already incremented
+    ///         in-flight. Therefore <c>depth == 0 AND inFlight == 0</c> cannot be observed while any cascade is
+    ///         still live — a single observation is true quiescence. No stability window is needed.
     ///     </para>
     ///     <para>
-    ///         Mailbox depth has one blind spot: <c>received</c> is incremented at <em>dequeue</em>, before
-    ///         the handler runs, so depth can read zero while a handler is still executing and about to post
-    ///         a follow-up. (The cumulative <see cref="ActorVitals.MessagesHandled" /> can't close this gap on
-    ///         its own — it is fed by the actor <em>middleware</em>, which only sees user-handler messages, so
-    ///         <c>posted − handled</c> never returns to zero: every system / infrastructure message posted to
-    ///         a mailbox is counted by <c>posted</c> but never by <c>handled</c>, leaving a permanent positive
-    ///         floor.) The blind spot is bridged by requiring <c>Σ MailboxDepth == 0</c> for a few CONSECUTIVE
-    ///         reads spaced by a real-clock poll: a handler that is briefly in-flight will post its follow-up
-    ///         within that window, re-raising the sum above zero and resetting the streak.
-    ///     </para>
-    ///     <para>
-    ///         The barrier is orchestration: its poll cadence uses REAL wall-clock
-    ///         <see cref="Task.Delay(int)" />; only the <em>simulated</em> time is the fake clock the stepper
-    ///         advances. A timeout surfaces as a thrown <see cref="TimeoutException" /> — never an infinite
-    ///         loop, never a silent "assume settled".
+    ///         The barrier still polls on the REAL wall clock (<see cref="Task.Delay(int)" />) — that is
+    ///         orchestration, not simulation; only the <em>simulated</em> time is the fake clock the stepper
+    ///         advances. The poll merely re-evaluates an exact predicate; it does not rely on timing. A timeout
+    ///         surfaces as a thrown <see cref="TimeoutException" /> — never an infinite loop, never a silent
+    ///         "assume settled".
     ///     </para>
     /// </summary>
     internal sealed class QuiescenceBarrier
     {
-        // Number of consecutive zero-depth reads required before declaring quiescence. Bridges the mailbox-
-        // depth blind spot: a handler that has been dequeued (depth already back to zero) but is about to
-        // post a follow-up will do so within this many polls, re-raising the sum and resetting the streak.
-        private const int RequiredConsecutiveIdleReads = 5;
+        // Real-clock spacing between predicate evaluations. Small enough to keep stepping snappy; the value is
+        // not load-bearing for correctness (the predicate is exact, not a window) — only for responsiveness.
+        private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(1);
 
-        // Real-clock spacing between polls. Small enough to keep stepping snappy, large enough to let an
-        // in-flight handler make progress (post its follow-up) between reads.
-        private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(2);
+        // Optional in-flight monitor. When null (no DevHost monitor registered) the barrier degrades to the
+        // depth-only signal — but DevHost always registers one, so the exact predicate is the live path.
+        private readonly IActorActivityMonitor? _activity;
 
         private readonly RuntimeVitals _vitals;
 
-        public QuiescenceBarrier(RuntimeVitals vitals)
+        public QuiescenceBarrier(RuntimeVitals vitals, IActorActivityMonitor? activity)
         {
             _vitals = vitals ?? throw new ArgumentNullException(nameof(vitals));
+            _activity = activity;
         }
 
         /// <summary>
-        ///     Polls <c>Σ MailboxDepth</c> until it reads zero for <see cref="RequiredConsecutiveIdleReads" />
-        ///     consecutive reads (the stable window that bridges the in-flight blind spot), or throws if
-        ///     <paramref name="cancellationToken" /> fires first (the caller wires it to a generous
-        ///     real-clock safety timeout).
+        ///     Polls the exact quiescence predicate (<c>Σ MailboxDepth == 0 AND InFlight == 0</c>) until it
+        ///     holds, or throws if <paramref name="cancellationToken" /> fires first (the caller wires it to a
+        ///     generous real-clock safety timeout). A single satisfying observation returns — no window.
         /// </summary>
         public async Task WaitForQuiescenceAsync(CancellationToken cancellationToken)
         {
-            var consecutiveIdle = 0;
-
             while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                if (QueuedDepth() == 0)
+                if (IsQuiescent())
                 {
-                    consecutiveIdle++;
-                    if (consecutiveIdle >= RequiredConsecutiveIdleReads)
-                    {
-                        return;
-                    }
-                }
-                else
-                {
-                    consecutiveIdle = 0;
+                    return;
                 }
 
                 // Real-clock cadence (orchestration), not the simulated clock — see class remarks.
@@ -86,12 +80,18 @@ namespace Vion.Dale.DevHost.Control
             }
         }
 
-        // Σ MailboxDepth across all actors: messages enqueued but not yet dequeued. Zero == every mailbox
-        // empty. The consecutive-reads window in the caller bridges the in-flight blind spot (a handler
-        // dequeued but not finished). Snapshot() allocates a list per call — acceptable for a spike's poll.
-        private long QueuedDepth()
+        // EXACT predicate: every mailbox empty AND no user handler currently executing. The in-flight count is
+        // entered before a handler body runs, so a handler that has dequeued its message but not yet posted the
+        // next hop is shadowed by inFlight > 0 — the predicate cannot be true mid-cascade. Snapshot() allocates
+        // a list per call; acceptable for a real-clock poll cadence.
+        private bool IsQuiescent()
         {
-            return _vitals.Snapshot().Sum(a => (long)a.MailboxDepth);
+            if (_activity is not null && _activity.InFlight != 0)
+            {
+                return false;
+            }
+
+            return _vitals.Snapshot().Sum(a => (long)a.MailboxDepth) == 0;
         }
     }
 }
