@@ -108,7 +108,7 @@ namespace Vion.Dale.ProtoActor
                                                                    ctx.Request(pid, msg);
                                                                }
 
-                                                               ctx.ReenterAfter(Task.Delay(timeout),
+                                                               ctx.ReenterAfter(Task.Delay(timeout, _timeProvider),
                                                                                 _ =>
                                                                                 {
                                                                                     if (remainingCount > 0)
@@ -194,8 +194,9 @@ namespace Vion.Dale.ProtoActor
                 actorReceiverInstance = ActivatorUtilities.CreateInstance(_serviceProvider, actorReceiverType, loggerArg);
             }
 
-            var genericActor = _delayedSendGate is null ? ActivatorUtilities.CreateInstance(_serviceProvider, actorType, actorReceiverInstance) :
-                                   ActivatorUtilities.CreateInstance(_serviceProvider, actorType, actorReceiverInstance, _delayedSendGate);
+            var genericActor = _delayedSendGate is null
+                                   ? ActivatorUtilities.CreateInstance(_serviceProvider, actorType, actorReceiverInstance)
+                                   : ActivatorUtilities.CreateInstance(_serviceProvider, actorType, actorReceiverInstance, _delayedSendGate);
             if (genericActor == null)
             {
                 throw new InvalidOperationException($"Actor type {actorType.FullName} is not registered in the service provider.");
@@ -214,7 +215,7 @@ namespace Vion.Dale.ProtoActor
         public IActorReference CreateRootActorFor<TActorReceiver>(Func<TActorReceiver> factory, string name, object? logger)
             where TActorReceiver : IActorReceiver
         {
-            var props = Props.FromProducer(() => new Actor<TActorReceiver>(factory(), _delayedSendGate))
+            var props = Props.FromProducer(() => new Actor<TActorReceiver>(factory(), _delayedSendGate, _timeProvider))
                              .WithReceiverMiddleware(ActorMiddleware.ReceiveMiddleware(logger as ILogger ?? _logger, _messageObserver, _timeProvider))
                              .WithSenderMiddleware(ActorMiddleware.SenderMiddleware(logger as ILogger ?? _logger));
             props = WithVitals(props, typeof(TActorReceiver), name);
@@ -248,7 +249,7 @@ namespace Vion.Dale.ProtoActor
                                                                    ctx.Watch(pid);
                                                                }
 
-                                                               ctx.ReenterAfter(Task.Delay(timeout),
+                                                               ctx.ReenterAfter(Task.Delay(timeout, _timeProvider),
                                                                                 _ =>
                                                                                 {
                                                                                     if (remainingCount > 0)

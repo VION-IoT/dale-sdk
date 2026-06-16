@@ -1,5 +1,6 @@
 using System;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Diagnostics;
@@ -14,7 +15,9 @@ namespace Vion.Dale.Sdk
             serviceCollection.AddSingleton<ILogger>(sp => sp.GetRequiredService<ILoggerFactory>().CreateLogger("Dale"));
 
             // TimeProvider.System is the real wall clock; tests swap it for a FakeTimeProvider via TestKit.
-            serviceCollection.AddSingleton(TimeProvider.System);
+            // TryAddSingleton lets a caller pre-register their own TimeProvider (e.g. FakeTimeProvider for
+            // deterministic stepping) before AddDaleSdk runs, without having it silently overwritten.
+            serviceCollection.TryAddSingleton(TimeProvider.System);
 
             // RFC 0005 vitals core: one singleton observed through three surfaces — the per-message observer,
             // the spawn-time collector, and the read-only diagnostics snapshot.

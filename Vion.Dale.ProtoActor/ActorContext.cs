@@ -13,10 +13,13 @@ namespace Vion.Dale.ProtoActor
 
         private readonly IDelayedSendGate? _delayedSendGate;
 
-        public ActorContext(Func<IContext> context, IDelayedSendGate? delayedSendGate = null)
+        private readonly TimeProvider _timeProvider;
+
+        public ActorContext(Func<IContext> context, IDelayedSendGate? delayedSendGate = null, TimeProvider? timeProvider = null)
         {
             _context = context;
             _delayedSendGate = delayedSendGate;
+            _timeProvider = timeProvider ?? TimeProvider.System;
         }
 
         public IReadOnlyDictionary<string, string> Headers
@@ -47,7 +50,7 @@ namespace Vion.Dale.ProtoActor
                 return;
             }
 
-            _context().ReenterAfter(Task.Delay(delay), _ => SendToSelf(message));
+            _context().ReenterAfter(Task.Delay(delay, _timeProvider), _ => SendToSelf(message));
         }
 
         public void RespondToSender(object message)
