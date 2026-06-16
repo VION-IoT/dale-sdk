@@ -13,13 +13,16 @@ namespace Vion.Dale.ProtoActor
 
         private readonly IDelayedSendGate? _delayedSendGate;
 
+        private readonly IVirtualSchedule? _schedule;
+
         private readonly TimeProvider _timeProvider;
 
-        public Actor(TActorReceiver actorReceiver, IDelayedSendGate? delayedSendGate = null, TimeProvider? timeProvider = null)
+        public Actor(TActorReceiver actorReceiver, IDelayedSendGate? delayedSendGate = null, TimeProvider? timeProvider = null, IVirtualSchedule? schedule = null)
         {
             _actorReceiver = actorReceiver;
             _delayedSendGate = delayedSendGate;
             _timeProvider = timeProvider ?? TimeProvider.System;
+            _schedule = schedule;
         }
 
         /// <inheritdoc />
@@ -32,7 +35,7 @@ namespace Vion.Dale.ProtoActor
                     break;
 
                 default:
-                    await _actorReceiver.HandleMessageAsync(context.Message, new ActorContext(() => context, _delayedSendGate, _timeProvider));
+                    await _actorReceiver.HandleMessageAsync(context.Message, new ActorContext(() => context, _delayedSendGate, _timeProvider, _schedule));
                     break;
             }
         }

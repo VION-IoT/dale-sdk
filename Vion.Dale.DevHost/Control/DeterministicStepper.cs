@@ -2,29 +2,39 @@ using System;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Vion.Dale.Sdk.Abstractions;
 
 namespace Vion.Dale.DevHost.Control
 {
     /// <summary>
-    ///     Drives the actor system through N deterministic simulation cycles. Each cycle advances a
-    ///     controllable fake clock by one interval (releasing every <c>Task.Delay(…, clock)</c> due at the
-    ///     new simulated time — i.e. the next <c>[Timer]</c> tick) and then awaits
-    ///     <see cref="QuiescenceBarrier" /> so the resulting handler cascade fully settles before the next
-    ///     advance.
+    ///     Drives the actor system through deterministic <em>next-event</em> virtual-time stepping. Rather than
+    ///     advancing a controllable fake clock by a caller-supplied fixed interval, the stepper advances to each
+    ///     next scheduled event — read from the engine-owned <see cref="IVirtualSchedule" /> — and quiesces
+    ///     after each, so every due <c>[Timer]</c> / <c>InvokeSynchronizedAfter</c> fires the right number of
+    ///     times at the right virtual times with no drift, even when reschedule delays are dynamic.
+    ///     <para>
+    ///         Why next-event and not a fixed interval: a single <c>FakeTimeProvider.Advance(5s)</c> fires a
+    ///         <c>[Timer(1)]</c> only ONCE — its reschedule runs async, AFTER <c>Advance</c> returns — and
+    ///         desyncs the cadence. To fire it 5× with no drift the stepper advances to EACH next scheduled
+    ///         event and quiesces between, so the handler runs and reschedules at the correct virtual time
+    ///         before the next advance. <see cref="Microsoft.Extensions.Time.Testing.FakeTimeProvider" /> does
+    ///         not expose its next-due time, so the engine owns its own virtual schedule at the delayed-send
+    ///         choke point (<c>ActorContext.SendToSelfAfter</c>) it already controls.
+    ///     </para>
     ///     <para>
     ///         Determinism comes from the two-phase loop: nothing simulated happens except at a clock
-    ///         <c>Advance</c>, and the barrier guarantees the system is idle (every mailbox drained, no
-    ///         handler in flight) at each cycle boundary. So a given (block set, interval, cycle count)
-    ///         always produces the same end state, run to run, regardless of real-thread timing.
+    ///         <c>Advance</c>, and the barrier guarantees the system is idle (every mailbox drained, no handler
+    ///         in flight) at each event boundary. So a given (block set, virtual budget) always produces the
+    ///         same end state, run to run, regardless of real-thread timing.
     ///     </para>
     ///     <para>
     ///         Stepping requires a controllable clock. The stepper detects <c>FakeTimeProvider</c>
-    ///         <em>structurally</em> — by its public <c>Advance(TimeSpan)</c> method — so the shipped
-    ///         <c>Vion.Dale.DevHost</c> package carries no dependency on the test-only
+    ///         <em>structurally</em> — by its public <c>Advance(TimeSpan)</c> and <c>GetUtcNow()</c> — so the
+    ///         shipped <c>Vion.Dale.DevHost</c> package carries no dependency on the test-only
     ///         <c>Microsoft.Extensions.TimeProvider.Testing</c> assembly. If the registered
-    ///         <see cref="TimeProvider" /> has no such method (e.g. the real
-    ///         <see cref="TimeProvider.System" />), the constructor throws: advancing a real wall clock by
-    ///         hand is meaningless.
+    ///         <see cref="TimeProvider" /> has no <c>Advance</c> method (e.g. the real
+    ///         <see cref="TimeProvider.System" />), the constructor throws: advancing a real wall clock by hand
+    ///         is meaningless.
     ///     </para>
     /// </summary>
     internal sealed class DeterministicStepper
@@ -37,7 +47,11 @@ namespace Vion.Dale.DevHost.Control
 
         private readonly QuiescenceBarrier _barrier;
 
-        public DeterministicStepper(TimeProvider timeProvider, QuiescenceBarrier barrier)
+        private readonly TimeProvider _clock;
+
+        private readonly IVirtualSchedule _schedule;
+
+        public DeterministicStepper(TimeProvider timeProvider, QuiescenceBarrier barrier, IVirtualSchedule schedule)
         {
             if (timeProvider is null)
             {
@@ -45,27 +59,75 @@ namespace Vion.Dale.DevHost.Control
             }
 
             _advance = BindAdvance(timeProvider);
+            _clock = timeProvider;
             _barrier = barrier ?? throw new ArgumentNullException(nameof(barrier));
+            _schedule = schedule ?? throw new ArgumentNullException(nameof(schedule));
         }
 
         /// <summary>
-        ///     Settle any startup traffic, then run <paramref name="cycles" /> deterministic cycles:
-        ///     advance the fake clock by <paramref name="interval" /> and await quiescence each time.
+        ///     Advance virtual time by <paramref name="budget" />, firing every event due within it. Settles
+        ///     startup traffic first, then advances to each next scheduled event (re-querying the schedule each
+        ///     iteration — handlers reschedule during quiescence, moving the minimum forward) until no event
+        ///     remains at or before the target. Finally, if the clock hasn't reached the target (no event sits
+        ///     exactly at the end), advances the remainder so EXACTLY <paramref name="budget" /> virtual time
+        ///     elapses.
         /// </summary>
-        public async Task AdvanceAsync(TimeSpan interval, int cycles, CancellationToken cancellationToken = default)
+        public async Task AdvanceByAsync(TimeSpan budget, CancellationToken cancellationToken = default)
         {
-            if (cycles < 0)
+            if (budget < TimeSpan.Zero)
             {
-                throw new ArgumentOutOfRangeException(nameof(cycles), cycles, "Cycle count must not be negative.");
+                throw new ArgumentOutOfRangeException(nameof(budget), budget, "Virtual time budget must not be negative.");
             }
 
-            // Settle startup traffic once before stepping, so cycle 1 starts from a known-idle state.
+            // Settle startup traffic once before stepping, so the first hop starts from a known-idle state.
             await SettleAsync(cancellationToken).ConfigureAwait(false);
 
-            for (var cycle = 0; cycle < cycles; cycle++)
+            var target = _clock.GetUtcNow() + budget;
+
+            // Advance to each next scheduled event due at or before the target, quiescing between. Re-query
+            // every iteration: each quiescence runs handlers that reschedule the next event forward.
+            while (_schedule.NextDue() is { } due && due <= target)
             {
-                _advance(interval);
+                AdvanceTo(due);
                 await SettleAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            // No event sits exactly at the end of the budget: advance the remainder so exactly `budget`
+            // virtual time elapses (a caller asking for "5 virtual seconds" gets the clock moved 5 s even if
+            // the last event landed before t+5s), then quiesce.
+            var now = _clock.GetUtcNow();
+            if (now < target)
+            {
+                _advance(target - now);
+                await SettleAsync(cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        /// <summary>
+        ///     Advance to the single next scheduled event and quiesce. When nothing is scheduled, just waits
+        ///     for the system to be idle and returns (no clock movement). A single event hop — the primitive
+        ///     <c>waitUntil</c> / <c>settle</c> helpers build on.
+        /// </summary>
+        public async Task AdvanceToNextEventAsync(CancellationToken cancellationToken = default)
+        {
+            await SettleAsync(cancellationToken).ConfigureAwait(false);
+
+            if (_schedule.NextDue() is { } due)
+            {
+                AdvanceTo(due);
+                await SettleAsync(cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        // Advance the fake clock from its current value to `due`. Never moves backward: a due-time already at
+        // or behind the clock (e.g. an event that became due during quiescence) advances by zero, then the
+        // following quiescence still drains it. Guards the BindAdvance reflection invariant (non-negative).
+        private void AdvanceTo(DateTimeOffset due)
+        {
+            var delta = due - _clock.GetUtcNow();
+            if (delta > TimeSpan.Zero)
+            {
+                _advance(delta);
             }
         }
 

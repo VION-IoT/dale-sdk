@@ -126,6 +126,13 @@ namespace Vion.Dale.DevHost
             _services.AddSingleton<InFlightActivityMonitor>();
             _services.AddSingleton<IActorActivityMonitor>(sp => sp.GetRequiredService<InFlightActivityMonitor>());
 
+            // Virtual schedule: the engine-owned view of pending delayed sends. Same opt-in pattern —
+            // registering IVirtualSchedule here (only in DevHost) is what lets next-event stepping ask
+            // "when is the next scheduled event?" (the FakeTimeProvider doesn't expose that); the
+            // production runtime registers none, so SendToSelfAfter is unchanged there.
+            _services.AddSingleton<VirtualSchedule>();
+            _services.AddSingleton<IVirtualSchedule>(sp => sp.GetRequiredService<VirtualSchedule>());
+
             _services.AddSingleton<IDevHostControl, DevHostControl>();
 
             // Register initializer

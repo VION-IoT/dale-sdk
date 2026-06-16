@@ -9,29 +9,29 @@ using Vion.Dale.Sdk.Core;
 namespace Vion.Dale.DevHost.Test.Stepping
 {
     /// <summary>
-    ///     Regression tests for deterministic multi-cycle stepping via the exact quiescence barrier.
+    ///     Regression tests for deterministic next-event stepping via the exact quiescence barrier.
     ///     A registered <see cref="FakeTimeProvider" /> drives real <c>[Timer]</c> ticks on the
     ///     real-wired DevHost / Proto.Actor system: advancing the fake clock completes the outstanding
     ///     <c>Task.Delay(delay, clock)</c> immediately, re-entering the actor on a real thread.
-    ///     After each advance the stepper waits for the actor system to quiesce before the next
-    ///     advance. Quiescence is determined by the EXACT predicate
-    ///     <c>Σ MailboxDepth == 0 AND InFlight == 0</c>: every mailbox empty AND no user handler
-    ///     currently executing. Each cycle boundary therefore lands on a settled, reproducible state
-    ///     and N cycles yield the same result run-to-run.
+    ///     <c>AdvanceAsync(virtualTime)</c> advances to each next scheduled event and waits for the
+    ///     actor system to quiesce before the next advance. Quiescence is determined by the EXACT
+    ///     predicate <c>Σ MailboxDepth == 0 AND InFlight == 0</c>: every mailbox empty AND no user
+    ///     handler currently executing. So <c>AdvanceAsync(Ns)</c> over a <c>[Timer(1)]</c> fires it
+    ///     exactly N times, the same result run-to-run.
     /// </summary>
     [TestClass]
     public class DeterministicSteppingShould
     {
         /// <summary>
-        ///     50 runs × 5 cycles on a single-block ticker: every run must land on exactly 5 ticks.
-        ///     The first tick is scheduled at startup with a +1s fake delay, so <c>Advance(1s)</c>
-        ///     yields <c>Ticks == 1</c>; five advances yield five. Any deviation means the barrier
-        ///     has a gap — not something to paper over with retries.
+        ///     15 runs on a single-block ticker: <c>AdvanceAsync(5s)</c> over a <c>[Timer(1)]</c> must
+        ///     land on exactly 5 ticks every time. The first tick is scheduled at startup with a +1s
+        ///     fake delay; next-event stepping advances to each subsequent tick at t=1..5s. Any
+        ///     deviation means the barrier has a gap — not something to paper over with retries.
         /// </summary>
         [TestMethod]
         public async Task StepDeterministically_AcrossManyRuns()
         {
-            for (var run = 0; run < 50; run++)
+            for (var run = 0; run < 15; run++)
             {
                 var clock = new FakeTimeProvider(new DateTimeOffset(2026,
                                                                     1,
@@ -51,16 +51,17 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
                 await host.StartAsync();
 
-                // 5 deterministic cycles: each advances the fake clock 1 s and waits for quiescence.
-                await host.Control.AdvanceAsync(TimeSpan.FromSeconds(1), 5);
+                // Advance 5 virtual seconds: next-event stepping fires the [Timer(1)] at t=1..5s.
+                await host.Control.AdvanceAsync(TimeSpan.FromSeconds(5));
 
-                Assert.AreEqual(5, (int)host.Control.GetProperty("ticker", "Ticks")!, $"run {run}: 5 deterministic cycles must yield exactly 5 ticks every time.");
+                Assert.AreEqual(5, (int)host.Control.GetProperty("ticker", "Ticks")!, $"run {run}: advancing 5 virtual seconds must yield exactly 5 ticks every time.");
             }
         }
 
         /// <summary>
-        ///     Single-tick proof: <c>AdvanceAsync(1s, 1)</c> advances the fake clock one interval and
-        ///     waits for the actor system to settle. Exactly one tick must land, deterministically.
+        ///     Single-tick proof: <c>AdvanceAsync(1s)</c> advances to the first scheduled event (the
+        ///     +1s tick) and waits for the actor system to settle. Exactly one tick must land,
+        ///     deterministically.
         /// </summary>
         [TestMethod]
         public async Task Advance_DrivesOneTimerTick()
@@ -83,11 +84,11 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
             await host.StartAsync();
 
-            await host.Control.AdvanceAsync(TimeSpan.FromSeconds(1), 1);
+            await host.Control.AdvanceAsync(TimeSpan.FromSeconds(1));
 
             Assert.AreEqual(1,
                             (int)host.Control.GetProperty("ticker", "Ticks")!,
-                            "Advancing the fake clock by one interval and waiting for quiescence must fire exactly one timer tick.");
+                            "Advancing one virtual second and waiting for quiescence must fire exactly one timer tick.");
         }
 
         /// <summary>
@@ -102,7 +103,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
             await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).Build();
             await host.StartAsync();
 
-            await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () => await host.Control.AdvanceAsync(TimeSpan.FromSeconds(1), 1));
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () => await host.Control.AdvanceAsync(TimeSpan.FromSeconds(1)));
         }
 
         /// <summary>

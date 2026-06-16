@@ -7,17 +7,18 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace Vion.Dale.DevHost.Test.Stepping
 {
     /// <summary>
-    ///     Regression test for the exact quiescence barrier on a fire-and-forget (forward-only) cascade.
-    ///     The chain is head [Timer(1)] → relay1 → relay2 → relay3 → sink [Arrivals++], connected by
-    ///     one-way <c>[Command]</c> contracts (no reverse traffic). After each <c>Advance(1s)</c> the
-    ///     barrier waits for the exact predicate <c>Σ MailboxDepth == 0 AND InFlight == 0</c> before
-    ///     returning, so every advance delivers exactly one token to the sink. After N advances
+    ///     Regression test for the exact quiescence barrier on a fire-and-forget (forward-only) cascade
+    ///     under next-event stepping. The chain is head [Timer(1)] → relay1 → relay2 → relay3 → sink
+    ///     [Arrivals++], connected by one-way <c>[Command]</c> contracts (no reverse traffic).
+    ///     <c>AdvanceAsync(Ns)</c> advances to each head tick (t=1..N) and waits for the exact predicate
+    ///     <c>Σ MailboxDepth == 0 AND InFlight == 0</c> before the next advance, so every tick delivers
+    ///     exactly one token through all four hops to the sink. After advancing N virtual seconds
     ///     <c>Arrivals</c> must equal N — any shortfall means the barrier declared quiescence mid-cascade.
     /// </summary>
     [TestClass]
     public class ForwardCascadeSteppingShould
     {
-        private const int Cycles = 8;
+        private const int VirtualSeconds = 8;
 
         private const int Iterations = 15;
 
@@ -43,14 +44,14 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
                 await host.StartAsync();
 
-                // Each cycle advances the fake clock 1 s (one head tick) and waits for the 4-hop
-                // fire-and-forget cascade to settle before the next advance.
-                await host.Control.AdvanceAsync(TimeSpan.FromSeconds(1), Cycles);
+                // Advance N virtual seconds: next-event stepping fires the head [Timer(1)] at t=1..N,
+                // each waiting for the 4-hop fire-and-forget cascade to settle before the next advance.
+                await host.Control.AdvanceAsync(TimeSpan.FromSeconds(VirtualSeconds));
 
                 var arrivals = (int)host.Control.GetProperty("sink", "Arrivals")!;
-                Assert.AreEqual(Cycles,
+                Assert.AreEqual(VirtualSeconds,
                                 arrivals,
-                                $"run {run}: {Cycles} deterministic cycles must drive exactly {Cycles} arrivals " +
+                                $"run {run}: advancing {VirtualSeconds} virtual seconds must drive exactly {VirtualSeconds} arrivals " +
                                 "through the 4-hop forward-only cascade. A mismatch means the exact quiescence " + "barrier declared quiescence mid-cascade (short-read).");
             }
         }

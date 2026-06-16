@@ -48,6 +48,10 @@ namespace Vion.Dale.DevHost.Control
 
         private readonly List<Action<DevHostEvent>> _subscribers = new();
 
+        // Engine-owned virtual schedule of pending delayed sends — read by next-event stepping to find the
+        // next scheduled event. Held for the lazily built stepper.
+        private readonly IVirtualSchedule _schedule;
+
         // Deterministic stepping deps. Held but unused unless AdvanceAsync is called; the stepper (which
         // validates the clock is a FakeTimeProvider) is built lazily so a non-stepping host isn't burdened
         // and a real-clock host isn't rejected at construction.
@@ -75,6 +79,7 @@ namespace Vion.Dale.DevHost.Control
                               DevHostRunControl runControl,
                               RuntimeVitals vitals,
                               InFlightActivityMonitor activityMonitor,
+                              VirtualSchedule schedule,
                               TimeProvider timeProvider)
         {
             _configuration = configuration;
@@ -86,6 +91,7 @@ namespace Vion.Dale.DevHost.Control
             _runControl = runControl;
             _vitals = vitals;
             _activityMonitor = activityMonitor;
+            _schedule = schedule;
             _timeProvider = timeProvider;
 
             _events.ServicePropertyChanged += OnServiceProperty;
@@ -122,12 +128,22 @@ namespace Vion.Dale.DevHost.Control
         }
 
         /// <inheritdoc />
-        public Task AdvanceAsync(TimeSpan interval, int cycles, CancellationToken cancellationToken = default)
+        public Task AdvanceAsync(TimeSpan virtualTime, CancellationToken cancellationToken = default)
         {
-            // Lazy: building the stepper validates the clock is a FakeTimeProvider, so a real-clock host is
-            // only rejected when stepping is actually requested — not at construction.
-            _stepper ??= new DeterministicStepper(_timeProvider, new QuiescenceBarrier(_vitals, _activityMonitor));
-            return _stepper.AdvanceAsync(interval, cycles, cancellationToken);
+            return EnsureStepper().AdvanceByAsync(virtualTime, cancellationToken);
+        }
+
+        /// <inheritdoc />
+        public Task AdvanceToNextEventAsync(CancellationToken cancellationToken = default)
+        {
+            return EnsureStepper().AdvanceToNextEventAsync(cancellationToken);
+        }
+
+        // Lazy: building the stepper validates the clock is a FakeTimeProvider, so a real-clock host is only
+        // rejected when stepping is actually requested — not at construction.
+        private DeterministicStepper EnsureStepper()
+        {
+            return _stepper ??= new DeterministicStepper(_timeProvider, new QuiescenceBarrier(_vitals, _activityMonitor), _schedule);
         }
 
         /// <inheritdoc />

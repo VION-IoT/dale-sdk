@@ -33,6 +33,11 @@ namespace Vion.Dale.ProtoActor
         // observer keeps the original behaviour.
         private readonly IActorMessageObserver? _messageObserver;
 
+        // Optional, opt-in virtual schedule of pending delayed sends (DevHost's next-event stepping — RFC
+        // 0003). Null when none is registered, so a host without it keeps the original behaviour. Threaded
+        // into every spawned actor's context, and used here for the two internal ack/stop timeout waits.
+        private readonly IVirtualSchedule? _schedule;
+
         private readonly IServiceProvider _serviceProvider;
 
         // Drives handler-duration measurement in the middleware: the real clock in production, a
@@ -50,6 +55,7 @@ namespace Vion.Dale.ProtoActor
             _messageObserver = CompositeActorMessageObserver.Combine(serviceProvider.GetServices<IActorMessageObserver>());
             _delayedSendGate = serviceProvider.GetService<IDelayedSendGate>();
             _activityMonitor = serviceProvider.GetService<IActorActivityMonitor>();
+            _schedule = serviceProvider.GetService<IVirtualSchedule>();
             _timeProvider = serviceProvider.GetService<TimeProvider>() ?? TimeProvider.System;
             _vitalsCollector = serviceProvider.GetService<IActorVitalsCollector>();
             _actorSystem = serviceProvider.GetService<Proto.ActorSystem>() ?? throw new InvalidOperationException("Actor system is not registered in the service provider.");
@@ -100,6 +106,12 @@ namespace Vion.Dale.ProtoActor
             var responses = new Dictionary<IActorReference, TAcknowledgementMessage>();
             var pidToActorMap = actorMessages.Keys.ToDictionary(actorRef => ((ActorReference)actorRef).Pid, actorRef => actorRef);
 
+            // This timeout wait is a delayed send too — register its virtual due-time so next-event stepping
+            // can see it (else a stepped run could skip past its due-time). Per-call token; unregistered both
+            // in the timeout continuation AND on the normal-completion path (last ack), so a fast ack — the
+            // usual case — does not leak a far-future entry that the stepper would otherwise hop to.
+            var timeoutToken = new object();
+
             // spawn a temporary actor to handle the acknowledgements
             _actorSystem.Root.Spawn(Props.FromFunc(ctx =>
                                                    {
@@ -113,9 +125,11 @@ namespace Vion.Dale.ProtoActor
                                                                    ctx.Request(pid, msg);
                                                                }
 
+                                                               _schedule?.Register(timeoutToken, _timeProvider.GetUtcNow() + timeout);
                                                                ctx.ReenterAfter(Task.Delay(timeout, _timeProvider),
                                                                                 _ =>
                                                                                 {
+                                                                                    _schedule?.Unregister(timeoutToken);
                                                                                     if (remainingCount > 0)
                                                                                     {
                                                                                         var elapsed = Stopwatch.GetElapsedTime(startTime);
@@ -143,6 +157,7 @@ namespace Vion.Dale.ProtoActor
                                                                remainingCount--;
                                                                if (remainingCount == 0)
                                                                {
+                                                                   _schedule?.Unregister(timeoutToken);
                                                                    tcs.TrySetResult(responses);
                                                                    ctx.Stop(ctx.Self);
                                                                }
@@ -219,7 +234,7 @@ namespace Vion.Dale.ProtoActor
         public IActorReference CreateRootActorFor<TActorReceiver>(Func<TActorReceiver> factory, string name, object? logger)
             where TActorReceiver : IActorReceiver
         {
-            var props = Props.FromProducer(() => new Actor<TActorReceiver>(factory(), _delayedSendGate, _timeProvider))
+            var props = Props.FromProducer(() => new Actor<TActorReceiver>(factory(), _delayedSendGate, _timeProvider, _schedule))
                              .WithReceiverMiddleware(ActorMiddleware.ReceiveMiddleware(logger as ILogger ?? _logger, _messageObserver, _timeProvider, _activityMonitor))
                              .WithSenderMiddleware(ActorMiddleware.SenderMiddleware(logger as ILogger ?? _logger));
             props = WithVitals(props, typeof(TActorReceiver), name);
@@ -240,6 +255,11 @@ namespace Vion.Dale.ProtoActor
             var tcs = new TaskCompletionSource();
             var remainingCount = pidsToStop.Count;
 
+            // See the ack-wait note above: register the timeout in the virtual schedule and unregister it on
+            // BOTH the timeout continuation and the normal-completion path (last Terminated), so a quick
+            // termination — the usual case — leaves no far-future entry for the stepper to hop to.
+            var timeoutToken = new object();
+
             _actorSystem.Root.Spawn(Props.FromFunc(ctx =>
                                                    {
                                                        switch (ctx.Message)
@@ -253,9 +273,11 @@ namespace Vion.Dale.ProtoActor
                                                                    ctx.Watch(pid);
                                                                }
 
+                                                               _schedule?.Register(timeoutToken, _timeProvider.GetUtcNow() + timeout);
                                                                ctx.ReenterAfter(Task.Delay(timeout, _timeProvider),
                                                                                 _ =>
                                                                                 {
+                                                                                    _schedule?.Unregister(timeoutToken);
                                                                                     if (remainingCount > 0)
                                                                                     {
                                                                                         _logger
@@ -277,6 +299,7 @@ namespace Vion.Dale.ProtoActor
                                                                remainingCount--;
                                                                if (remainingCount == 0)
                                                                {
+                                                                   _schedule?.Unregister(timeoutToken);
                                                                    tcs.TrySetResult();
                                                                    ctx.Stop(ctx.Self); // Cleanup
                                                                }

@@ -138,13 +138,20 @@ namespace Vion.Dale.DevHost.Control
         void Resume();
 
         /// <summary>
-        ///     Deterministic multi-cycle stepping. Runs <paramref name="cycles" /> simulation cycles: each
-        ///     advances the registered <c>FakeTimeProvider</c> by <paramref name="interval" /> (firing the
-        ///     timer continuations due at the new simulated time) and then waits for the actor system to
-        ///     quiesce before the next advance. Quiescence is determined by the EXACT predicate
-        ///     <c>Σ MailboxDepth == 0 AND InFlight == 0</c>: every mailbox empty AND no user handler
-        ///     currently executing. Each cycle boundary therefore lands on a settled, reproducible state and N
-        ///     cycles yield the same result run-to-run.
+        ///     Deterministic <em>next-event</em> virtual-time stepping. Advances the registered
+        ///     <c>FakeTimeProvider</c> by <paramref name="virtualTime" /> of simulated time, firing every
+        ///     <c>[Timer]</c> / <c>InvokeSynchronizedAfter</c> event due within it the correct number of times,
+        ///     at the right virtual times, with no drift. Internally it advances to each next scheduled event
+        ///     (read from the engine's virtual schedule) and waits for the actor system to quiesce before the
+        ///     next advance, so an author can simply say "advance 5 virtual seconds" without knowing any timer
+        ///     rate — a <c>[Timer(1)]</c> fires 5× under <c>AdvanceAsync(5s)</c>, and self-rescheduling /
+        ///     dynamic-delay timers fire correctly too.
+        ///     <para>
+        ///         Quiescence is the EXACT predicate <c>Σ MailboxDepth == 0 AND InFlight == 0</c>: every
+        ///         mailbox empty AND no user handler currently executing. Each event boundary therefore lands
+        ///         on a settled, reproducible state, so a given (block set, budget) yields the same result
+        ///         run-to-run.
+        ///     </para>
         ///     <para>
         ///         Requires a <c>FakeTimeProvider</c> registered as the <see cref="TimeProvider" /> (throws
         ///         <see cref="InvalidOperationException" /> on a real clock — stepping a wall clock by hand is
@@ -153,7 +160,15 @@ namespace Vion.Dale.DevHost.Control
         ///         infinite wait.
         ///     </para>
         /// </summary>
-        Task AdvanceAsync(TimeSpan interval, int cycles, CancellationToken cancellationToken = default);
+        Task AdvanceAsync(TimeSpan virtualTime, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        ///     Advance to the single next scheduled event (one event hop) and wait for quiescence. When nothing
+        ///     is scheduled, waits for the system to be idle and returns without moving the clock. The
+        ///     primitive that condition-based <c>waitUntil</c> / <c>settle</c> helpers build on. Same clock
+        ///     requirement and failure modes as <see cref="AdvanceAsync(TimeSpan, CancellationToken)" />.
+        /// </summary>
+        Task AdvanceToNextEventAsync(CancellationToken cancellationToken = default);
 
         /// <summary>
         ///     Ask the supervisor to recycle the host (dispose → rebuild → restart; the kill-and-`dale dev`

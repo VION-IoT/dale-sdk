@@ -17,6 +17,11 @@
         <EmbeddedResource Include="Topologies\topology.schema.json"/>
     </ItemGroup>
     <ItemGroup>
+        <!-- Expose internals to the test project so the engine-owned VirtualSchedule (RFC 0003 next-event
+             stepping) can be unit-tested for register/unregister hygiene without a public surface. -->
+        <InternalsVisibleTo Include="Vion.Dale.DevHost.Test"/>
+    </ItemGroup>
+    <ItemGroup>
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0"/>
         <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.0"/>
         <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0"/>
