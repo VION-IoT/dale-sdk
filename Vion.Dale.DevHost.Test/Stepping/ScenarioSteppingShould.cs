@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
@@ -18,42 +19,6 @@ namespace Vion.Dale.DevHost.Test.Stepping
     [TestClass]
     public class ScenarioSteppingShould
     {
-        // ── Helpers ──────────────────────────────────────────────────────────────────────────────────────
-
-        private static FakeTimeProvider NewClock()
-        {
-            return new FakeTimeProvider(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
-        }
-
-        private static IDevHost BuildTickerHost(FakeTimeProvider clock)
-        {
-            var config = DevConfigurationBuilder.Create()
-                                                .WithTopologyName("stepping-topology")
-                                                .AddLogicBlock<TickerBlock>("Ticker")
-                                                .Build();
-
-            return DevHostBuilder.Create()
-                                 .WithDi<TestDependencyInjection>()
-                                 .WithConfiguration(config)
-                                 .ConfigureServices(s => s.AddSingleton<TimeProvider>(clock))
-                                 .Build();
-        }
-
-        private static IDevHost BuildSettleHost(FakeTimeProvider clock)
-        {
-            var config = DevConfigurationBuilder.Create()
-                                                .WithTopologyName("stepping-topology")
-                                                .AddLogicBlock<TickerBlock>("Ticker")
-                                                .AddLogicBlock<LatchBlock>("Latch")
-                                                .Build();
-
-            return DevHostBuilder.Create()
-                                 .WithDi<SteppingDependencyInjection>()
-                                 .WithConfiguration(config)
-                                 .ConfigureServices(s => s.AddSingleton<TimeProvider>(clock))
-                                 .Build();
-        }
-
         // ── advance step — determinism across many runs ───────────────────────────────────────────────
 
         /// <summary>
@@ -83,9 +48,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
                 var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
-                Assert.AreEqual(ScenarioRunStatus.Succeeded,
-                                report.Status,
-                                $"run {run}: {Join(report)}");
+                Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, $"run {run}: {Join(report)}");
 
                 // The advance step must have fired exactly 3 ticks.
                 Assert.AreEqual(3, (int)host.Control.GetProperty("Ticker", "Ticks")!, $"run {run}: advancing 3 virtual seconds must yield exactly 3 ticks.");
@@ -190,6 +153,89 @@ namespace Vion.Dale.DevHost.Test.Stepping
             StringAssert.Contains(report.Steps[0].Detail, "no watch paths", $"Detail was: {report.Steps[0].Detail}");
         }
 
+        // ── waitUntil — stepped path (deterministic + near-instant) ──────────────────────────────────
+
+        /// <summary>
+        ///     A stepped <c>waitUntil Ticks &gt;= 3</c> succeeds by advancing virtual time hop-by-hop,
+        ///     across 15 identical runs, deterministically. Real wall-clock time must be negligible (well
+        ///     under 2 s for a 3 virtual-second wait), proving the wait is virtual, not wall-clock.
+        /// </summary>
+        [TestMethod]
+        public async Task WaitUntil_SteppedPath_SucceedsDeterministicallyAndIsNearInstant()
+        {
+            for (var run = 0; run < 15; run++)
+            {
+                var clock = NewClock();
+                await using var host = BuildTickerHost(clock);
+                await host.StartAsync();
+
+                // Scenario: pure waitUntil with a 5 s virtual timeout — Ticks must reach 3 by advancing.
+                var scenario = ScenarioFile.Parse("""
+                                                  {
+                                                    "version": 1, "id": "wait-until-stepped", "topology": "stepping-topology",
+                                                    "steps": [
+                                                      { "waitUntil": { "property": "Ticker.Ticks", "above": 2 }, "timeoutSeconds": 5 }
+                                                    ]
+                                                  }
+                                                  """);
+
+                var wall = Stopwatch.StartNew();
+                var report = await ScenarioRunner.RunAsync(scenario, host.Control);
+                wall.Stop();
+
+                Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, $"run {run}: {Join(report)}");
+
+                // The Ticks property must be at least 3 (satisfied the condition >= 3).
+                var ticks = (int)host.Control.GetProperty("Ticker", "Ticks")!;
+                Assert.IsGreaterThanOrEqualTo(ticks, 3, $"run {run}: expected Ticks >= 3 but got {ticks}");
+
+                // Determinism: detail must mention hops and virtual seconds.
+                var detail = report.Steps[0].Detail ?? string.Empty;
+                StringAssert.Contains(detail, "virtual s", $"run {run}: detail should mention virtual time. Got: {detail}");
+
+                // Near-instant: real wall time must be well under 2 s (this is a 3+ virtual-second wait).
+                Assert.IsTrue(wall.Elapsed < TimeSpan.FromSeconds(2),
+                              $"run {run}: wall clock was {wall.Elapsed.TotalMilliseconds:0} ms — stepped waitUntil should complete near-instantly.");
+            }
+        }
+
+        /// <summary>
+        ///     A stepped <c>waitUntil Ticks &gt;= 999</c> with a 5 s virtual timeout fails on the virtual
+        ///     budget — not the wall clock. Real time must be negligible (well under 2 s for a 5 virtual-second
+        ///     budget exhaustion), proving the timeout is virtual.
+        /// </summary>
+        [TestMethod]
+        public async Task WaitUntil_SteppedPath_FailsOnVirtualBudget_NearInstant()
+        {
+            var clock = NewClock();
+            await using var host = BuildTickerHost(clock);
+            await host.StartAsync();
+
+            // waitUntil for an effectively unreachable threshold (999 ticks) with a 5 s virtual timeout.
+            var scenario = ScenarioFile.Parse("""
+                                              {
+                                                "version": 1, "id": "wait-until-budget", "topology": "stepping-topology",
+                                                "steps": [
+                                                  { "waitUntil": { "property": "Ticker.Ticks", "above": 998 }, "timeoutSeconds": 5 }
+                                                ]
+                                              }
+                                              """);
+
+            var wall = Stopwatch.StartNew();
+            var report = await ScenarioRunner.RunAsync(scenario, host.Control);
+            wall.Stop();
+
+            Assert.AreEqual(ScenarioRunStatus.Failed, report.Status, Join(report));
+
+            var detail = report.Steps[0].Detail ?? string.Empty;
+            StringAssert.Contains(detail, "5 virtual s", $"Detail should mention the 5 virtual-second budget. Got: {detail}");
+            StringAssert.Contains(detail, "condition not met", $"Detail should say condition not met. Got: {detail}");
+
+            // Near-instant: 5 virtual seconds must not cost 5 real seconds.
+            Assert.IsTrue(wall.Elapsed < TimeSpan.FromSeconds(2),
+                          $"Wall clock was {wall.Elapsed.TotalMilliseconds:0} ms — stepped budget exhaustion should complete near-instantly.");
+        }
+
         // ── structural validation ─────────────────────────────────────────────────────────────────────
 
         /// <summary><c>advance</c> and <c>settle</c> are rejected in <c>setup</c> (step-only shapes).</summary>
@@ -218,19 +264,19 @@ namespace Vion.Dale.DevHost.Test.Stepping
         public void AdvanceStep_ZeroOrNegativeSeconds_Rejected()
         {
             var zero = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse("""
-                                                                                               {
-                                                                                                 "version": 1, "id": "x", "topology": "t",
-                                                                                                 "steps": [ { "advance": { "seconds": 0 } } ]
-                                                                                               }
-                                                                                               """));
+                                                                                              {
+                                                                                                "version": 1, "id": "x", "topology": "t",
+                                                                                                "steps": [ { "advance": { "seconds": 0 } } ]
+                                                                                              }
+                                                                                              """));
             Assert.IsTrue(zero.Errors.Any(e => e.Contains("advance.seconds must be positive")), string.Join("; ", zero.Errors));
 
             var negative = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse("""
-                                                                                                   {
-                                                                                                     "version": 1, "id": "x", "topology": "t",
-                                                                                                     "steps": [ { "advance": { "seconds": -1 } } ]
-                                                                                                   }
-                                                                                                   """));
+                                                                                                  {
+                                                                                                    "version": 1, "id": "x", "topology": "t",
+                                                                                                    "steps": [ { "advance": { "seconds": -1 } } ]
+                                                                                                  }
+                                                                                                  """));
             Assert.IsTrue(negative.Errors.Any(e => e.Contains("advance.seconds must be positive")), string.Join("; ", negative.Errors));
         }
 
@@ -239,11 +285,11 @@ namespace Vion.Dale.DevHost.Test.Stepping
         public void SettleStep_NonPositiveMaxSeconds_Rejected()
         {
             var zero = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse("""
-                                                                                               {
-                                                                                                 "version": 1, "id": "x", "topology": "t",
-                                                                                                 "steps": [ { "settle": { "maxSeconds": 0 } } ]
-                                                                                               }
-                                                                                               """));
+                                                                                              {
+                                                                                                "version": 1, "id": "x", "topology": "t",
+                                                                                                "steps": [ { "settle": { "maxSeconds": 0 } } ]
+                                                                                              }
+                                                                                              """));
             Assert.IsTrue(zero.Errors.Any(e => e.Contains("settle.maxSeconds must be positive")), string.Join("; ", zero.Errors));
         }
 
@@ -294,10 +340,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
         public async Task AdvanceStep_OnRealClockHost_FailsStepWithHelpfulMessage()
         {
             // Build WITHOUT registering a FakeTimeProvider — the real TimeProvider.System is in place.
-            var config = DevConfigurationBuilder.Create()
-                                                .WithTopologyName("stepping-topology")
-                                                .AddLogicBlock<TickerBlock>("Ticker")
-                                                .Build();
+            var config = DevConfigurationBuilder.Create().WithTopologyName("stepping-topology").AddLogicBlock<TickerBlock>("Ticker").Build();
             await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).Build();
             await host.StartAsync();
 
@@ -335,10 +378,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
             // The report's Target/Argument for advance and settle is computed by BuildReport.
             // We verify via ScenarioRunner.RunAsync — even on a topology-mismatch the report is built.
             // Use a dummy control indirectly via building a minimal host.
-            var config = DevConfigurationBuilder.Create()
-                                                .WithTopologyName("other-topology")
-                                                .AddLogicBlock<TickerBlock>("Ticker")
-                                                .Build();
+            var config = DevConfigurationBuilder.Create().WithTopologyName("other-topology").AddLogicBlock<TickerBlock>("Ticker").Build();
 
             // We only need the built ScenarioRunReport (no host needed — topology mismatch short-circuits).
             // Access via the public RunAsync which builds the report before checking topology.
@@ -349,6 +389,33 @@ namespace Vion.Dale.DevHost.Test.Stepping
             Assert.AreEqual(10.0, file.Steps[1].Settle!.MaxSeconds!.Value, 0.0001);
             Assert.AreEqual("settle", file.Steps![2].Kind);
             Assert.IsNull(file.Steps[2].Settle!.MaxSeconds);
+        }
+
+        // ── Helpers ──────────────────────────────────────────────────────────────────────────────────────
+
+        private static FakeTimeProvider NewClock()
+        {
+            return new FakeTimeProvider(new DateTimeOffset(2026,
+                                                           1,
+                                                           1,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           TimeSpan.Zero));
+        }
+
+        private static IDevHost BuildTickerHost(FakeTimeProvider clock)
+        {
+            var config = DevConfigurationBuilder.Create().WithTopologyName("stepping-topology").AddLogicBlock<TickerBlock>("Ticker").Build();
+
+            return DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).ConfigureServices(s => s.AddSingleton<TimeProvider>(clock)).Build();
+        }
+
+        private static IDevHost BuildSettleHost(FakeTimeProvider clock)
+        {
+            var config = DevConfigurationBuilder.Create().WithTopologyName("stepping-topology").AddLogicBlock<TickerBlock>("Ticker").AddLogicBlock<LatchBlock>("Latch").Build();
+
+            return DevHostBuilder.Create().WithDi<SteppingDependencyInjection>().WithConfiguration(config).ConfigureServices(s => s.AddSingleton<TimeProvider>(clock)).Build();
         }
 
         // ── helpers ───────────────────────────────────────────────────────────────────────────────────

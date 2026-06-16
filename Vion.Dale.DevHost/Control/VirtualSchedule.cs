@@ -19,11 +19,23 @@ namespace Vion.Dale.DevHost.Control
     /// </summary>
     internal sealed class VirtualSchedule : IVirtualSchedule
     {
+        private readonly object _gate = new();
+
         // Reference-identity keyed: tokens are fresh `new object()` per delayed send, so the default
         // equality (reference) is exactly right and two distinct sends never collide.
         private readonly Dictionary<object, DateTimeOffset> _pending = new();
 
-        private readonly object _gate = new();
+        /// <summary>The number of pending entries — a test hook for schedule-hygiene assertions (no token leaks).</summary>
+        public int PendingCount
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _pending.Count;
+                }
+            }
+        }
 
         /// <inheritdoc />
         public void Register(object token, DateTimeOffset dueUtc)
@@ -73,18 +85,6 @@ namespace Vion.Dale.DevHost.Control
                 }
 
                 return min;
-            }
-        }
-
-        /// <summary>The number of pending entries — a test hook for schedule-hygiene assertions (no token leaks).</summary>
-        public int PendingCount
-        {
-            get
-            {
-                lock (_gate)
-                {
-                    return _pending.Count;
-                }
             }
         }
     }

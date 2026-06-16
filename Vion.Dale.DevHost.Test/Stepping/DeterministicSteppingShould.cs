@@ -86,9 +86,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
             await host.Control.AdvanceAsync(TimeSpan.FromSeconds(1));
 
-            Assert.AreEqual(1,
-                            (int)host.Control.GetProperty("ticker", "Ticks")!,
-                            "Advancing one virtual second and waiting for quiescence must fire exactly one timer tick.");
+            Assert.AreEqual(1, (int)host.Control.GetProperty("ticker", "Ticks")!, "Advancing one virtual second and waiting for quiescence must fire exactly one timer tick.");
         }
 
         /// <summary>

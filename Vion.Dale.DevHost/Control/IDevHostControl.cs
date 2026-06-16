@@ -19,11 +19,26 @@ namespace Vion.Dale.DevHost.Control
         /// <summary>True while time-driven activity is paused (see <see cref="Pause" />).</summary>
         bool IsPaused { get; }
 
+        /// <summary>
+        ///     True when the registered <see cref="TimeProvider" /> is a controllable (fake) clock — one that
+        ///     exposes a public <c>Advance(TimeSpan)</c> method, as <c>FakeTimeProvider</c> does. When true,
+        ///     time-advancing helpers (e.g. <c>waitUntil</c> in scenarios) drive virtual time instead of waiting
+        ///     on the real wall clock, making scenario execution deterministic and instant.
+        /// </summary>
+        bool IsStepped { get; }
+
         /// <summary>True when a supervisor capable of recycling the host is attached (see <see cref="TryRequestReset" />).</summary>
         bool CanReset { get; }
 
         /// <summary>The topology id the latest switch requested — read by the supervisor when the reset fires.</summary>
         string? RequestedTopology { get; }
+
+        /// <summary>
+        ///     The registered <see cref="TimeProvider" />'s current virtual time. Useful for tracking elapsed
+        ///     virtual time during a <c>settle</c> loop. Returns the real UTC clock value when no
+        ///     <c>FakeTimeProvider</c> is registered (e.g. on a non-stepped host).
+        /// </summary>
+        DateTimeOffset VirtualTimeUtc { get; }
 
         /// <summary>The logic blocks in the wired network, with their ids, names, type, and service identifiers.</summary>
         IReadOnlyList<LogicBlockInfo> ListLogicBlocks();
@@ -169,13 +184,6 @@ namespace Vion.Dale.DevHost.Control
         ///     requirement and failure modes as <see cref="AdvanceAsync(TimeSpan, CancellationToken)" />.
         /// </summary>
         Task AdvanceToNextEventAsync(CancellationToken cancellationToken = default);
-
-        /// <summary>
-        ///     The registered <see cref="TimeProvider" />'s current virtual time. Useful for tracking elapsed
-        ///     virtual time during a <c>settle</c> loop. Returns the real UTC clock value when no
-        ///     <c>FakeTimeProvider</c> is registered (e.g. on a non-stepped host).
-        /// </summary>
-        DateTimeOffset VirtualTimeUtc { get; }
 
         /// <summary>
         ///     Ask the supervisor to recycle the host (dispose → rebuild → restart; the kill-and-`dale dev`

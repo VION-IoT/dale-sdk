@@ -193,9 +193,8 @@ namespace Vion.Dale.DevHost.Scenarios
                            {
                                "set" or "digitalInput" or "analogInput" => step.Value.ValueKind == JsonValueKind.Undefined ? null : step.Value.GetRawText(),
                                "waitUntil" => DescribeCondition(step),
-                               "settle" => step.Settle!.MaxSeconds is { } max
-                                   ? $"≤{max.ToString(CultureInfo.InvariantCulture)} s"
-                                   : $"≤{DefaultSettleMaxSeconds.ToString(CultureInfo.InvariantCulture)} s",
+                               "settle" => step.Settle!.MaxSeconds is { } max ? $"≤{max.ToString(CultureInfo.InvariantCulture)} s" :
+                                               $"≤{DefaultSettleMaxSeconds.ToString(CultureInfo.InvariantCulture)} s",
                                _ => null,
                            },
                        };
@@ -399,10 +398,16 @@ namespace Vion.Dale.DevHost.Scenarios
             return true;
         }
 
-        // The waitUntil protocol (RFC 0006 "Execution model"): WaitForAsync observes only events occurring
-        // after the call, so evaluate against the current value first (already true → complete immediately),
-        // subscribe, then re-evaluate once more to close the set-between-check-and-subscribe race. A timeout
-        // converts to a step failure.
+        // The waitUntil protocol (RFC 0006 "Execution model"): two branches depending on the host clock.
+        //
+        // Stepped host (FakeTimeProvider — control.IsStepped): advance virtual time hop-by-hop until the
+        // condition holds or the virtual-time budget is exhausted. No real wall-clock wait occurs; the test
+        // completes near-instantly even for multi-second virtual waits. A stall (AdvanceToNextEventAsync
+        // returns without moving the clock, meaning nothing is scheduled) fails promptly rather than spinning.
+        //
+        // Real-clock host (Player free-run, !IsStepped): the original WaitForAsync event-subscription path —
+        // observes only events that occur after the call, with the set-before-subscribe race closed by a
+        // re-check immediately after subscribing.
         private static async Task<bool> WaitUntilAsync(ScenarioStep step,
                                                        ResolvedProperty target,
                                                        IDevHostControl control,
@@ -410,7 +415,8 @@ namespace Vion.Dale.DevHost.Scenarios
                                                        CancellationToken cancellationToken)
         {
             var condition = step.WaitUntil!;
-            var timeout = TimeSpan.FromSeconds(step.TimeoutSeconds ?? DefaultWaitUntilTimeoutSeconds);
+            var timeoutSeconds = step.TimeoutSeconds ?? DefaultWaitUntilTimeoutSeconds;
+            var timeout = TimeSpan.FromSeconds(timeoutSeconds);
 
             bool Satisfied(object? live)
             {
@@ -422,11 +428,58 @@ namespace Vion.Dale.DevHost.Scenarios
                 return control.GetProperty(target.Block, target.ServiceIdentifier, target.PropertyName);
             }
 
+            // Already-satisfied fast-path: identical in both modes.
             if (Satisfied(Current()))
             {
                 result.Detail = "already satisfied";
                 return true;
             }
+
+            // ── Stepped path ─────────────────────────────────────────────────────────────────────────────
+            if (control.IsStepped)
+            {
+                var virtualStart = control.VirtualTimeUtc;
+                var budget = timeout;
+                var hops = 0;
+
+                while (true)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    var beforeHop = control.VirtualTimeUtc;
+                    await control.AdvanceToNextEventAsync(cancellationToken).ConfigureAwait(false);
+                    hops++;
+
+                    if (Satisfied(Current()))
+                    {
+                        var elapsed = (control.VirtualTimeUtc - virtualStart).TotalSeconds;
+                        result.Detail = $"satisfied after {hops} hop{(hops == 1 ? "" : "s")} / {elapsed.ToString("0.###", CultureInfo.InvariantCulture)} virtual s";
+                        return true;
+                    }
+
+                    // No progress: nothing was scheduled so the clock didn't move.
+                    if (control.VirtualTimeUtc == beforeHop)
+                    {
+                        var last = Current();
+                        result.Detail = $"condition not met — no further scheduled events " +
+                                        $"(last value: {(last is null ? "null" : Convert.ToString(last, CultureInfo.InvariantCulture))})";
+                        return false;
+                    }
+
+                    // Virtual budget exhausted.
+                    if (control.VirtualTimeUtc - virtualStart >= budget)
+                    {
+                        var last = Current();
+                        result.Detail = $"condition not met within {timeoutSeconds.ToString(CultureInfo.InvariantCulture)} virtual s " +
+                                        $"(last value: {(last is null ? "null" : Convert.ToString(last, CultureInfo.InvariantCulture))})";
+                        return false;
+                    }
+                }
+            }
+
+            // ── Real-clock path ──────────────────────────────────────────────────────────────────────────
+            // WaitForAsync observes only events occurring after the call. Subscribe, then re-evaluate once
+            // more to close the set-between-check-and-subscribe race. A timeout converts to a step failure.
 
             DevHostEvent? Selector(DevHostEvent e)
             {
@@ -458,9 +511,9 @@ namespace Vion.Dale.DevHost.Scenarios
                 return true;
             }
 
-            var last = Current();
-            result.Detail = $"condition not met within {timeout.TotalSeconds.ToString(CultureInfo.InvariantCulture)} s " +
-                            $"(last value: {(last is null ? "null" : Convert.ToString(last, CultureInfo.InvariantCulture))})";
+            var lastValue = Current();
+            result.Detail = $"condition not met within {timeoutSeconds.ToString(CultureInfo.InvariantCulture)} s " +
+                            $"(last value: {(lastValue is null ? "null" : Convert.ToString(lastValue, CultureInfo.InvariantCulture))})";
             return false;
         }
 
@@ -490,9 +543,7 @@ namespace Vion.Dale.DevHost.Scenarios
                 for (var i = 0; i < watchPaths.Count; i++)
                 {
                     var segments = watchPaths[i].Split('.');
-                    values[i] = segments.Length == 3
-                        ? control.GetProperty(segments[0], segments[1], segments[2])
-                        : control.GetProperty(segments[0], segments[1]);
+                    values[i] = segments.Length == 3 ? control.GetProperty(segments[0], segments[1], segments[2]) : control.GetProperty(segments[0], segments[1]);
                 }
 
                 return values;
@@ -534,7 +585,8 @@ namespace Vion.Dale.DevHost.Scenarios
                 if (control.VirtualTimeUtc >= deadline)
                 {
                     var elapsed = (control.VirtualTimeUtc - virtualStart).TotalSeconds;
-                    result.Detail = $"did not converge within {maxSeconds.ToString(CultureInfo.InvariantCulture)} virtual s ({hops} hop{(hops == 1 ? "" : "s")} / {elapsed.ToString("0.###", CultureInfo.InvariantCulture)} virtual s elapsed)";
+                    result.Detail =
+                        $"did not converge within {maxSeconds.ToString(CultureInfo.InvariantCulture)} virtual s ({hops} hop{(hops == 1 ? "" : "s")} / {elapsed.ToString("0.###", CultureInfo.InvariantCulture)} virtual s elapsed)";
                     return;
                 }
             }

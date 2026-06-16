@@ -68,12 +68,13 @@ namespace Vion.Dale.ProtoActor
 
             var token = new object();
             _schedule.Register(token, _timeProvider.GetUtcNow() + delay);
-            _context().ReenterAfter(Task.Delay(delay, _timeProvider),
-                                    _ =>
-                                    {
-                                        _schedule.Unregister(token);
-                                        SendToSelf(message);
-                                    });
+            _context()
+                .ReenterAfter(Task.Delay(delay, _timeProvider),
+                              _ =>
+                              {
+                                  _schedule.Unregister(token);
+                                  SendToSelf(message);
+                              });
         }
 
         public void RespondToSender(object message)

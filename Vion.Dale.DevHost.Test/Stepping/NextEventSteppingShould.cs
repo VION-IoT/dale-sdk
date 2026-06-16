@@ -19,17 +19,6 @@ namespace Vion.Dale.DevHost.Test.Stepping
     [TestClass]
     public class NextEventSteppingShould
     {
-        private static FakeTimeProvider NewClock()
-        {
-            return new FakeTimeProvider(new DateTimeOffset(2026,
-                                                           1,
-                                                           1,
-                                                           0,
-                                                           0,
-                                                           0,
-                                                           TimeSpan.Zero));
-        }
-
         /// <summary>
         ///     The headline regression guard: <c>AdvanceAsync(5s)</c> over a <c>[Timer(1)]</c> fires it
         ///     EXACTLY 5 times — never once (the single-jump-fires-once bug). Run across 20 iterations:
@@ -82,9 +71,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
             Assert.AreEqual(5, (int)host.Control.GetProperty("ticker", "Ticks")!, "Five seconds → five ticks.");
 
             await host.Control.AdvanceAsync(TimeSpan.FromSeconds(1));
-            Assert.AreEqual(6,
-                            (int)host.Control.GetProperty("ticker", "Ticks")!,
-                            "The 6th tick was scheduled at virtual t=6s; one more second must fire it with no drift.");
+            Assert.AreEqual(6, (int)host.Control.GetProperty("ticker", "Ticks")!, "The 6th tick was scheduled at virtual t=6s; one more second must fire it with no drift.");
         }
 
         /// <summary>
@@ -153,6 +140,17 @@ namespace Vion.Dale.DevHost.Test.Stepping
             schedule.Unregister(new object());
             schedule.Unregister(early);
             Assert.AreEqual(0, schedule.PendingCount);
+        }
+
+        private static FakeTimeProvider NewClock()
+        {
+            return new FakeTimeProvider(new DateTimeOffset(2026,
+                                                           1,
+                                                           1,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           TimeSpan.Zero));
         }
     }
 

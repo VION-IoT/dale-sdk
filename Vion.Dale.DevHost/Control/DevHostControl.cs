@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading;
@@ -46,11 +47,11 @@ namespace Vion.Dale.DevHost.Control
 
         private readonly DevHostRunControl _runControl;
 
-        private readonly List<Action<DevHostEvent>> _subscribers = new();
-
         // Engine-owned virtual schedule of pending delayed sends — read by next-event stepping to find the
         // next scheduled event. Held for the lazily built stepper.
         private readonly IVirtualSchedule _schedule;
+
+        private readonly List<Action<DevHostEvent>> _subscribers = new();
 
         // Deterministic stepping deps. Held but unused unless AdvanceAsync is called; the stepper (which
         // validates the clock is a FakeTimeProvider) is built lazily so a non-stepping host isn't burdened
@@ -110,6 +111,16 @@ namespace Vion.Dale.DevHost.Control
         }
 
         /// <inheritdoc />
+        public bool IsStepped
+        {
+            // Structural detection: same check DeterministicStepper.BindAdvance performs. Avoids a
+            // compile-time reference to the test-only Microsoft.Extensions.TimeProvider.Testing assembly.
+            get =>
+                _timeProvider.GetType().GetMethod("Advance", BindingFlags.Public | BindingFlags.Instance, null, new[] { typeof(TimeSpan) }, null) is { ReturnType: var r } &&
+                r == typeof(void);
+        }
+
+        /// <inheritdoc />
         public bool CanReset
         {
             get => _runControl.CanReset;
@@ -143,13 +154,6 @@ namespace Vion.Dale.DevHost.Control
         public DateTimeOffset VirtualTimeUtc
         {
             get => _timeProvider.GetUtcNow();
-        }
-
-        // Lazy: building the stepper validates the clock is a FakeTimeProvider, so a real-clock host is only
-        // rejected when stepping is actually requested — not at construction.
-        private DeterministicStepper EnsureStepper()
-        {
-            return _stepper ??= new DeterministicStepper(_timeProvider, new QuiescenceBarrier(_vitals, _activityMonitor), _schedule);
         }
 
         /// <inheritdoc />
@@ -405,6 +409,13 @@ namespace Vion.Dale.DevHost.Control
             _events.DigitalOutputChanged -= OnDigitalOutput;
             _events.AnalogInputChanged -= OnAnalogInput;
             _events.AnalogOutputChanged -= OnAnalogOutput;
+        }
+
+        // Lazy: building the stepper validates the clock is a FakeTimeProvider, so a real-clock host is only
+        // rejected when stepping is actually requested — not at construction.
+        private DeterministicStepper EnsureStepper()
+        {
+            return _stepper ??= new DeterministicStepper(_timeProvider, new QuiescenceBarrier(_vitals, _activityMonitor), _schedule);
         }
 
         // JSON → typed CLR for the HTTP set path (moved here when IDevHostStateProvider was collapsed into the
