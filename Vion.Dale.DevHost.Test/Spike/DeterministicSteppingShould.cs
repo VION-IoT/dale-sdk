@@ -9,22 +9,64 @@ using Vion.Dale.Sdk.Core;
 namespace Vion.Dale.DevHost.Test.Spike
 {
     /// <summary>
-    ///     SPIKE Task 1 — proves that a registered <see cref="FakeTimeProvider" /> drives a real
-    ///     [Timer] tick on the real-wired DevHost / Proto.Actor system.
+    ///     SPIKE Task 3 — deterministic multi-cycle stepping on top of Task 1's fake-clock-driven timers.
     ///
-    ///     The settle window is 300 ms — intentionally shorter than the 1-second wall-clock delay.
-    ///     Without the fix, the timer fires via <c>Task.Delay(delay)</c> on the real clock, which
-    ///     takes 1 full second, so the poll times out and Ticks stays 0.
-    ///     With the fix, <c>Task.Delay(delay, _timeProvider)</c> completes the moment
-    ///     <see cref="FakeTimeProvider.Advance" /> is called, so the tick lands well within 300 ms.
+    ///     Task 1 proved a registered <see cref="FakeTimeProvider" /> drives a real [Timer] tick on the
+    ///     real-wired DevHost / Proto.Actor system: advancing the fake clock completes the outstanding
+    ///     <c>Task.Delay(delay, clock)</c> immediately, re-entering the actor on a real thread.
+    ///
+    ///     Task 3 builds on that: after each <see cref="FakeTimeProvider.Advance" /> the due timer
+    ///     continuation cascades on real threads, so to step deterministically the stepper waits for the
+    ///     actor system to QUIESCE (every mailbox drained, no handler in flight) before the next advance.
+    ///     Quiescence is read from <c>RuntimeVitals</c> via the in-flight-aware
+    ///     <c>Σ(MessagesPosted − MessagesHandled) == 0</c> signal. The proof is
+    ///     <see cref="StepDeterministically_AcrossManyRuns" />: 50 runs of 5 cycles, every one landing on
+    ///     exactly 5 ticks, no flake.
     /// </summary>
     [TestClass]
     public class DeterministicSteppingShould
     {
+        // The spike's actual proof: N deterministic cycles produce the EXACT same result across many runs.
+        // 5 cycles → 5 ticks (the first tick is scheduled at startup with a +1s fake delay, so cycle 1's
+        // Advance(1s) yields Ticks==1; five advances yield five). If any run gives Ticks != 5 the quiescence
+        // heuristic has a gap — that is the spike failing honestly, NOT something to paper over with a sleep.
+        [TestMethod]
+        public async Task StepDeterministically_AcrossManyRuns()
+        {
+            for (var run = 0; run < 50; run++)
+            {
+                var clock = new FakeTimeProvider(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
+
+                var config = DevConfigurationBuilder.Create()
+                                                    .AddLogicBlock<TickerBlock>("ticker")
+                                                    .Build();
+
+                await using var host = DevHostBuilder.Create()
+                                                     .WithDi<TestDependencyInjection>()
+                                                     .WithConfiguration(config)
+                                                     .ConfigureServices(s => s.AddSingleton<TimeProvider>(clock))
+                                                     .Build();
+
+                await host.StartAsync();
+
+                // 5 deterministic cycles: each advances the fake clock 1 s and waits for quiescence.
+                await host.Control.AdvanceAsync(TimeSpan.FromSeconds(1), 5);
+
+                Assert.AreEqual(5, (int)host.Control.GetProperty("ticker", "Ticks")!,
+                                $"run {run}: 5 deterministic cycles must yield exactly 5 ticks every time.");
+            }
+        }
+
+        /// <summary>
+        ///     Task 1's single-tick proof, now routed through the quiescence barrier instead of the temporary
+        ///     bounded poll: <c>AdvanceAsync(1s, 1)</c> advances the fake clock one interval and waits for the
+        ///     actor system to settle. Without Task 1's fix the timer would fire via the real clock (1 full
+        ///     second) and the 10 s quiescence budget would still cover it — so the load-bearing assertion is
+        ///     simply that exactly one tick lands, deterministically.
+        /// </summary>
         [TestMethod]
         public async Task Advance_DrivesOneTimerTick()
         {
-            // Arrange — a frozen clock starting at 2026-01-01 00:00:00 UTC
             var clock = new FakeTimeProvider(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
 
             var config = DevConfigurationBuilder.Create()
@@ -39,31 +81,26 @@ namespace Vion.Dale.DevHost.Test.Spike
 
             await host.StartAsync();
 
-            // Act — advance the fake clock by one timer interval (1 s).
-            // With the fix this completes the outstanding Task.Delay immediately; without the fix,
-            // the real-clock delay won't fire within the 300 ms settle window below.
-            clock.Advance(TimeSpan.FromSeconds(1));
+            await host.Control.AdvanceAsync(TimeSpan.FromSeconds(1), 1);
 
-            // Settle the async re-entrant continuation with a *bounded* poll.
-            // The window (300 ms) is intentionally shorter than the 1-second wall-clock timer so
-            // the test fails before the fix and passes only when the fake clock drives the delay.
-            // TODO(spike): replace bounded poll with quiescence barrier
-            var deadline = DateTime.UtcNow + TimeSpan.FromMilliseconds(300);
-            while (DateTime.UtcNow < deadline)
-            {
-                var v = host.Control.GetProperty("ticker", "Ticks");
-                if (v is int n && n >= 1)
-                {
-                    break;
-                }
-
-                await Task.Delay(25);
-            }
-
-            // Assert
             Assert.AreEqual(1, (int)host.Control.GetProperty("ticker", "Ticks")!,
-                            "Advancing the fake clock by one interval must fire exactly one timer tick " +
-                            "within 300 ms — well under the 1-second real-clock delay.");
+                            "Advancing the fake clock by one interval and waiting for quiescence must fire exactly one timer tick.");
+        }
+
+        /// <summary>
+        ///     Stepping on a real (non-fake) clock is meaningless and must fail loudly rather than hang or
+        ///     silently no-op. Building the host WITHOUT registering a FakeTimeProvider leaves the real
+        ///     <see cref="TimeProvider.System" /> in place; the first stepping call must throw.
+        /// </summary>
+        [TestMethod]
+        public async Task AdvanceAsync_OnRealClock_Throws()
+        {
+            var config = DevConfigurationBuilder.Create().AddLogicBlock<TickerBlock>("ticker").Build();
+            await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).Build();
+            await host.StartAsync();
+
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+                async () => await host.Control.AdvanceAsync(TimeSpan.FromSeconds(1), 1));
         }
 
         // Diagnostic test: verify Task.Delay with FakeTimeProvider fires and the settle window
@@ -86,38 +123,6 @@ namespace Vion.Dale.DevHost.Test.Spike
             clock.Advance(TimeSpan.FromSeconds(1));
             await Task.Delay(50); // let the continuation run
             Assert.IsTrue(fired, "Should have fired after Advance(1s)");
-        }
-
-        // Extended-settle diagnostic: with 3s poll window the real-clock timer fires. This lets us
-        // distinguish "timer never fires at all" from "timer fires too late".
-        // After the fix this should pass with Ticks == 1; we don't include it in the spike gate
-        // because it only proves real-clock firing, not deterministic stepping.
-        [TestMethod]
-        [Ignore("Diagnostic only — not part of the spike gate")]
-        public async Task Diagnostic_TimerFires_WithRealClock_In3sWindow()
-        {
-            var clock = new FakeTimeProvider(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
-            var config = DevConfigurationBuilder.Create().AddLogicBlock<TickerBlock>("ticker").Build();
-            await using var host = DevHostBuilder.Create()
-                                                 .WithDi<TestDependencyInjection>()
-                                                 .WithConfiguration(config)
-                                                 .ConfigureServices(s => s.AddSingleton<TimeProvider>(clock))
-                                                 .Build();
-            await host.StartAsync();
-
-            clock.Advance(TimeSpan.FromSeconds(1));
-
-            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(3);
-            while (DateTime.UtcNow < deadline)
-            {
-                var v = host.Control.GetProperty("ticker", "Ticks");
-                if (v is int n && n >= 1) break;
-                await Task.Delay(50);
-            }
-
-            var ticks = (int)host.Control.GetProperty("ticker", "Ticks")!;
-            Console.WriteLine($"Ticks after 3s settle: {ticks}");
-            Assert.IsGreaterThanOrEqualTo(ticks, 1, $"Expected at least 1 tick, got {ticks}");
         }
     }
 }

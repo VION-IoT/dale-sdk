@@ -14,6 +14,7 @@ using Vion.Dale.DevHost.Mocking;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.AnalogIo.Input;
 using Vion.Dale.Sdk.AnalogIo.Output;
+using Vion.Dale.Sdk.Diagnostics;
 using Vion.Dale.Sdk.DigitalIo.Input;
 using Vion.Dale.Sdk.DigitalIo.Output;
 using Vion.Dale.Sdk.Messages;
@@ -43,6 +44,15 @@ namespace Vion.Dale.DevHost.Control
 
         private readonly List<Action<DevHostEvent>> _subscribers = new();
 
+        // SPIKE (Task 3) — deterministic stepping deps. Held but unused unless AdvanceAsync is called; the
+        // stepper (which validates the clock is a FakeTimeProvider) is built lazily so a non-stepping host
+        // isn't burdened and a real-clock host isn't rejected at construction.
+        private readonly TimeProvider _timeProvider;
+
+        private readonly RuntimeVitals _vitals;
+
+        private DeterministicStepper? _stepper;
+
         // Last-known value per (serviceConfigId, memberName) — fed by the change events, read by GetProperty.
         private readonly ConcurrentDictionary<(string ServiceId, string Member), object?> _values = new();
 
@@ -58,7 +68,9 @@ namespace Vion.Dale.DevHost.Control
                               DevHostIntrospection introspection,
                               IActorSystem actorSystem,
                               MessageTap messageTap,
-                              DevHostRunControl runControl)
+                              DevHostRunControl runControl,
+                              RuntimeVitals vitals,
+                              TimeProvider timeProvider)
         {
             _configuration = configuration;
             _events = events;
@@ -67,6 +79,8 @@ namespace Vion.Dale.DevHost.Control
             _actorSystem = actorSystem;
             _messageTap = messageTap;
             _runControl = runControl;
+            _vitals = vitals;
+            _timeProvider = timeProvider;
 
             _events.ServicePropertyChanged += OnServiceProperty;
             _events.ServicePropertyWriteAcknowledged += OnWriteAcknowledged;
@@ -99,6 +113,15 @@ namespace Vion.Dale.DevHost.Control
         public void Resume()
         {
             _runControl.Resume();
+        }
+
+        /// <inheritdoc />
+        public Task AdvanceAsync(TimeSpan interval, int cycles, CancellationToken cancellationToken = default)
+        {
+            // Lazy: building the stepper validates the clock is a FakeTimeProvider, so a real-clock host is
+            // only rejected when stepping is actually requested — not at construction.
+            _stepper ??= new DeterministicStepper(_timeProvider, new QuiescenceBarrier(_vitals));
+            return _stepper.AdvanceAsync(interval, cycles, cancellationToken);
         }
 
         /// <inheritdoc />

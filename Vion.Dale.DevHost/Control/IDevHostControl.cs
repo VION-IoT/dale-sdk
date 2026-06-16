@@ -138,6 +138,24 @@ namespace Vion.Dale.DevHost.Control
         void Resume();
 
         /// <summary>
+        ///     SPIKE (Task 3) — deterministic multi-cycle stepping. Runs <paramref name="cycles" /> simulation
+        ///     cycles: each advances the registered <c>FakeTimeProvider</c> by <paramref name="interval" />
+        ///     (firing the timer continuations due at the new simulated time) and then waits for the actor
+        ///     system to quiesce — every mailbox drained, no handler in flight — before the next advance. The
+        ///     wait reads the in-flight-aware <c>Σ(MessagesPosted − MessagesHandled)</c> signal from
+        ///     <c>RuntimeVitals</c>, so each cycle boundary lands on a settled, reproducible state and N
+        ///     cycles yield the same result run-to-run.
+        ///     <para>
+        ///         Requires a <c>FakeTimeProvider</c> registered as the <see cref="TimeProvider" /> (throws
+        ///         <see cref="InvalidOperationException" /> on a real clock — stepping a wall clock by hand is
+        ///         meaningless). A system that never settles surfaces as a thrown
+        ///         <see cref="TimeoutException" />, bounded by a generous real-clock safety budget — never an
+        ///         infinite wait.
+        ///     </para>
+        /// </summary>
+        Task AdvanceAsync(TimeSpan interval, int cycles, CancellationToken cancellationToken = default);
+
+        /// <summary>
         ///     Ask the supervisor to recycle the host (dispose → rebuild → restart; the kill-and-`dale dev`
         ///     loop without the kill). Returns false when the host was started without a factory
         ///     (<c>DevHostWebRunner.RunAsync(hostFactory, …)</c>) — nothing can rebuild it.
