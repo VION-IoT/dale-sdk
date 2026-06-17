@@ -45,6 +45,40 @@ namespace Vion.Dale.DevHost
             return this;
         }
 
+        /// <summary>
+        ///     Enumerate the <see cref="LogicBlockBase" /> types registered by all plugin assemblies added
+        ///     via <see cref="WithDi{TConfigureServices}" />. Each registered concrete block type appears
+        ///     exactly once (distinct by type). Does not require <see cref="Build" /> to have been called.
+        ///     <para>
+        ///         The generator (<c>IConfigureServices</c>) registers blocks as <c>AddTransient&lt;TBlock&gt;()</c>
+        ///         — so <c>ServiceDescriptor.ServiceType</c> is the concrete block type, directly assignable
+        ///         to <see cref="LogicBlockBase" />.
+        ///     </para>
+        /// </summary>
+        internal IReadOnlyList<Type> GetBlockCatalog()
+        {
+            var tempServices = new ServiceCollection();
+
+            foreach (var assembly in _pluginAssemblies)
+            {
+                var configureServicesTypes = assembly.GetTypes()
+                                                     .Where(t => typeof(IConfigureServices).IsAssignableFrom(t) && !t.IsAbstract)
+                                                     .ToList();
+
+                foreach (var type in configureServicesTypes)
+                {
+                    var registration = (IConfigureServices)Activator.CreateInstance(type)!;
+                    registration.ConfigureServices(tempServices);
+                }
+            }
+
+            return tempServices
+                   .Where(sd => typeof(LogicBlockBase).IsAssignableFrom(sd.ServiceType))
+                   .Select(sd => sd.ServiceType)
+                   .Distinct()
+                   .ToList();
+        }
+
         public DevHostBuilder ConfigureLogging(Action<ILoggingBuilder> configure)
         {
             _services.AddLogging(configure);
