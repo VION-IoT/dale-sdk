@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "id": "showcase-tour",
+  "topology": "default",
+  "title": "Showcase tour — value shapes, stepping, and inter-block wiring",
+  "description": "Stages a couple of writable properties, advances the virtual clock, and asserts: the staged values held, the timer-driven metrics moved under stepping, and every ping the signal source sent was delivered to the sink (the inter-block link works). Exercises set, advance, settle (scoped via until), and expect with number / relational {path} / oneOf / boolean comparators.",
+  "specs": ["smoke", "value-shapes", "wiring"],
+  "watch": [
+    "ShowcaseBlock.CurrentMood",
+    "ShowcaseBlock.Cycles",
+    "ShowcaseBlock.Uptime",
+    "ShowcaseBlock.Setpoint",
+    "ShowcaseBlock.CurrentPosition",
+    "ShowcaseBlock.Trend",
+    "ShowcaseBlock.Enabled",
+    "SignalSourceBlock.SentPings",
+    "SignalSinkBlock.ReceivedPings",
+    "IoBlock.IsEnabled"
+  ],
+  "setup": [
+    { "set": "ShowcaseBlock.Setpoint", "value": 50, "label": "stage the setpoint" },
+    { "set": "ShowcaseBlock.Enabled", "value": false, "label": "stage a boolean" }
+  ],
+  "steps": [
+    { "advance": { "seconds": 4 }, "label": "run the timers for four virtual seconds" },
+    { "settle": { "until": ["ShowcaseBlock.Setpoint"] }, "label": "let the staged setpoint settle (scoped — the ticking metrics don't block it)" },
+    { "expect": { "property": "ShowcaseBlock.Setpoint", "equals": 50 }, "label": "the staged setpoint held", "spec": "value-shapes" },
+    { "expect": { "property": "ShowcaseBlock.Enabled", "equals": false }, "label": "the staged boolean held", "spec": "value-shapes" },
+    { "expect": { "property": "ShowcaseBlock.Cycles", "above": 0 }, "label": "the timer advanced the cycle counter", "spec": "smoke" },
+    { "expect": { "property": "ShowcaseBlock.CurrentMood", "oneOf": ["Calm", "Busy", "Overloaded"] }, "label": "the status enum holds a known member", "spec": "value-shapes" },
+    { "expect": { "property": "SignalSourceBlock.SentPings", "above": 0 }, "label": "the source sent pings", "spec": "wiring" },
+    { "expect": { "property": "SignalSinkBlock.ReceivedPings", "equals": { "path": "SignalSourceBlock.SentPings" } }, "label": "every ping the source sent reached the sink — the inter-block link works", "spec": "wiring" }
+  ],
+  "judge": [
+    { "text": "In the UI: every value shape renders (status pill, struct, sparkline, duration, bounded number field, bool toggle); the signal source's pings are all delivered to the sink; the timer-driven metrics advance when stepping.", "spec": "smoke" }
+  ]
+}

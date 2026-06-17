@@ -1,0 +1,31 @@
+{
+  "$schema": "./.dale/topology.schema.json",
+  "id": "default",
+  "logicBlockInstances": [
+    {
+      "typeFullName": "Vion.Dale.DevHost.SmokeHost.LogicBlocks.ShowcaseBlock",
+      "name": "ShowcaseBlock"
+    },
+    {
+      "typeFullName": "Vion.Dale.DevHost.SmokeHost.LogicBlocks.IoBlock",
+      "name": "IoBlock"
+    },
+    {
+      "typeFullName": "Vion.Dale.DevHost.SmokeHost.LogicBlocks.SignalSourceBlock",
+      "name": "SignalSourceBlock"
+    },
+    {
+      "typeFullName": "Vion.Dale.DevHost.SmokeHost.LogicBlocks.SignalSinkBlock",
+      "name": "SignalSinkBlock"
+    }
+  ],
+  "interfaceMappings": [
+    {
+      "sourceLogicBlockName": "SignalSourceBlock",
+      "sourceInterfaceIdentifier": "ISignalSource",
+      "targetLogicBlockName": "SignalSinkBlock",
+      "targetInterfaceIdentifier": "ISignalSink"
+    }
+  ],
+  "contractMappings": []
+}

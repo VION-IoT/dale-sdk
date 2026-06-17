@@ -1,0 +1,12 @@
+{
+  "$schema": "./.dale/topology.schema.json",
+  "id": "minimal",
+  "logicBlockInstances": [
+    {
+      "typeFullName": "Vion.Dale.DevHost.SmokeHost.LogicBlocks.ShowcaseBlock",
+      "name": "ShowcaseBlock"
+    }
+  ],
+  "interfaceMappings": [],
+  "contractMappings": []
+}
