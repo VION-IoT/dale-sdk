@@ -1334,8 +1334,9 @@ export const PlayerPanel = {
         const run = computed(() => store.run && store.run.scenarioId === store.scenarioId ? store.run : null);
         const running = computed(() => !!run.value && run.value.status === 'running');
 
-        // Topology guard: the pre-run mismatch warning uses the live host topology; a blocked run
-        // reports it server-side too (status topologyMismatch).
+        // Topology note: when the open scenario targets a different topology than the live host, running
+        // recycles the host onto it (recycle-on-run). On a supervised host that just works; otherwise the
+        // run is refused and the user must switch the host's topology first.
         const mismatch = computed(() => {
             if (!scenario.value) return false;
             return scenario.value.topology !== store.topologyName;
@@ -1343,7 +1344,9 @@ export const PlayerPanel = {
         const mismatchText = computed(() => {
             if (!scenario.value) return '';
             const host = store.topologyName ? `'${store.topologyName}'` : 'no declared topology';
-            return `this scenario expects topology '${scenario.value.topology}' — the host runs ${host}`;
+            return store.canReset
+                ? `Running recycles the host onto topology '${scenario.value.topology}' (currently ${host}) for a clean, reproducible run.`
+                : `This scenario expects topology '${scenario.value.topology}' — the host runs ${host} and has no supervisor to recycle. Switch the host's topology first.`;
         });
 
         // Before the first run: pending-shaped rows from the file, so the working set is visible
@@ -1404,7 +1407,7 @@ export const PlayerPanel = {
             const entry = entries2.find(e => e.id === store.scenarioId);
             return entry ? entry.error : null;
         });
-        const start = force => applyScenario(store.scenarioId, { restart: running.value, force });
+        const start = () => applyScenario(store.scenarioId, { restart: running.value });
         const tick = (index, verdict) => {
             if (run.value) setJudgeTick(run.value.runId, index, verdict);
         };
@@ -1473,9 +1476,9 @@ export const PlayerPanel = {
                     <span v-if="staleRun" class="stale-chip" title="the file on disk no longer matches the file this run executed — the report below is about the older version">file changed since this run</span>
                     <span v-if="run" class="run-status" :class="statusClass">{{ run.status }}</span>
                     <button type="button" class="theme-toggle" title="re-read the file from disk" @click="reload">⟳</button>
-                    <button v-if="!mismatch" type="button" class="trigger-button"
+                    <button type="button" class="trigger-button"
                             :title="running ? 'cancel the active run and start over' : 'run this scenario'"
-                            @click="start(false)">{{ runLabel }}</button>
+                            @click="start()">{{ runLabel }}</button>
                 </div>
                 <div v-if="store.scenarioError" class="player-empty">{{ store.scenarioError }}</div>
                 <div v-if="entryError" class="player-validation">
@@ -1488,7 +1491,6 @@ export const PlayerPanel = {
                     </details>
                     <div v-if="mismatch" class="player-interstitial">
                         <span>⚠ {{ mismatchText }}</span>
-                        <button type="button" @click="start(true)">run anyway</button>
                     </div>
                     <div v-if="run" class="player-validation">
                         <div v-for="(e, i) in run.validationErrors" :key="i" class="validation-error">✗ {{ e }}</div>
