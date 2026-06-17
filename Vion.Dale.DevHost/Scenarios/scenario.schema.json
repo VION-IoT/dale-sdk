@@ -236,11 +236,17 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
+            "until": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/namePath" },
+              "description": "Explicit target paths that must stabilize for convergence; omit to settle over the whole watch list. A large watch set is for observability — scope settle to the specific values meant to settle so a volatile tile (free-running counter / clock-derived value / noisy sensor) does not burn the budget."
+            },
             "maxSeconds": { "type": "number", "exclusiveMinimum": 0, "default": 60, "description": "Maximum virtual seconds to spend waiting for convergence." }
           }
         }
       },
-      "description": "Advance hop-by-hop until watched signals stop changing (stepped host only). Converges when no watch value changed across one hop, or the maxSeconds budget elapses."
+      "description": "Advance hop-by-hop until the targeted signals stop changing (stepped host only). The targeted set is settle.until when given, else the whole watch list. Converges when no targeted value changed across one hop; FAILS the step if the maxSeconds budget elapses while a target is still changing."
     },
     "contractRef": {
       "type": "object",

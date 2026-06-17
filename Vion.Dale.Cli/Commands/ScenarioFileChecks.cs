@@ -347,11 +347,42 @@ namespace Vion.Dale.Cli.Commands
                 else if (step.ContainsKey("settle"))
                 {
                     // settle may be an empty object {}; maxSeconds is optional but must be positive when present.
-                    if (step["settle"] is JsonObject settle && settle.ContainsKey("maxSeconds"))
+                    if (step["settle"] is JsonObject settle)
                     {
-                        if (settle["maxSeconds"]?.GetValueKind() != JsonValueKind.Number || settle["maxSeconds"]!.GetValue<double>() <= 0)
+                        if (settle.ContainsKey("maxSeconds") && (settle["maxSeconds"]?.GetValueKind() != JsonValueKind.Number || settle["maxSeconds"]!.GetValue<double>() <= 0))
                         {
                             errors.Add($"{where}: settle.maxSeconds must be a positive number");
+                        }
+
+                        // settle.until, when present, scopes convergence to explicit target paths: a non-empty
+                        // array of name paths that resolve against the topology (omit it to settle over watch).
+                        if (settle.ContainsKey("until"))
+                        {
+                            if (settle["until"] is not JsonArray until || until.Count == 0)
+                            {
+                                errors.Add($"{where}: settle.until must be a non-empty array of name paths (omit it to settle over the whole watch list)");
+                            }
+                            else
+                            {
+                                for (var u = 0; u < until.Count; u++)
+                                {
+                                    var element = until[u];
+                                    if (element is null || element.GetValueKind() != JsonValueKind.String)
+                                    {
+                                        errors.Add($"{where}: settle.until[{u}] not a string");
+                                    }
+                                    else if (string.IsNullOrWhiteSpace(element.GetValue<string>()))
+                                    {
+                                        // Structural, config-independent — mirror the model (ScenarioFile) so the
+                                        // CLI and the runner agree even when path resolution is skipped.
+                                        errors.Add($"{where}: settle.until[{u}]: empty name path");
+                                    }
+                                    else if (config is not null)
+                                    {
+                                        ResolvePath(element.GetValue<string>(), config, $"{where} settle.until[{u}]", false, errors);
+                                    }
+                                }
+                            }
                         }
                     }
                 }

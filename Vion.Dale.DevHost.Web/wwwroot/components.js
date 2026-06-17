@@ -1369,7 +1369,7 @@ export const PlayerPanel = {
                     : s.waitUntil ? s.waitUntil.property
                     : s.expect ? s.expect.property
                     : s.advance ? ''
-                    : s.settle !== undefined ? 'until stable'
+                    : s.settle !== undefined ? (s.settle.until ? `until ${s.settle.until.join(', ')}` : 'until stable')
                     : s.wait ? `${s.wait.seconds} s` : '?',
                 argument: 'value' in s ? JSON.stringify(s.value)
                     : s.waitUntil ? describeWaitUntil(s.waitUntil, s.timeoutSeconds)

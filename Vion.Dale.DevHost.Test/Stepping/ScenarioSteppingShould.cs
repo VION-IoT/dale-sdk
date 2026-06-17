@@ -55,14 +55,16 @@ namespace Vion.Dale.DevHost.Test.Stepping
             }
         }
 
-        // ── settle step — budget exhausted (TickerBlock never converges) ──────────────────────────────
+        // ── settle step — non-convergence now FAILS the step (RFC 0008 §8.6 footgun fix) ───────────────
 
         /// <summary>
-        ///     <c>settle</c> over <c>Ticker.Ticks</c> (which increments every virtual second, forever) hits
-        ///     its <c>maxSeconds</c> budget and records the "did not converge" detail.
+        ///     <c>settle</c> over a volatile watch (<c>Ticker.Ticks</c> increments every virtual second,
+        ///     forever) exhausts its <c>maxSeconds</c> budget without converging. Per the §8.6 refinement this
+        ///     now FAILS the step (it previously passed with a soft detail) and names the still-changing target
+        ///     so the failure is diagnosable rather than silent.
         /// </summary>
         [TestMethod]
-        public async Task SettleStep_BudgetExhausted_WhenWatchNeverConverges()
+        public async Task SettleStep_NonConvergence_FailsTheStep_AndNamesTheChangingTarget()
         {
             var clock = NewClock();
             await using var host = BuildTickerHost(clock);
@@ -81,13 +83,102 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
-            // settle does NOT fail the scenario when the budget is exhausted — it records the outcome.
-            Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
+            // §8.6: a settle that never converges is a real failure, not a silent pass.
+            Assert.AreEqual(ScenarioRunStatus.Failed, report.Status, Join(report));
 
             var settleResult = report.Steps[0];
             Assert.AreEqual("settle", settleResult.Kind);
+            Assert.AreEqual(ScenarioStepStatus.Failed, settleResult.Status);
             Assert.IsNotNull(settleResult.Detail);
             StringAssert.Contains(settleResult.Detail, "did not converge", $"Detail was: {settleResult.Detail}");
+            StringAssert.Contains(settleResult.Detail, "Ticker.Ticks", $"Detail must name the still-changing target. Was: {settleResult.Detail}");
+        }
+
+        // ── settle.until — scope convergence to explicit paths, ignoring volatile watch tiles ──────────
+
+        /// <summary>
+        ///     A large <c>watch</c> set is for observability; not everything is meant to settle.
+        ///     <c>settle.until</c> scopes convergence to the specific values that must stabilize. Here the watch
+        ///     set includes a never-settling <c>Ticker.Ticks</c>, but the step targets only <c>Latch.Value</c>
+        ///     (which fires once and stops) — so it converges and SUCCEEDS despite the volatile watch tile.
+        /// </summary>
+        [TestMethod]
+        public async Task SettleStep_Until_ScopesConvergenceToExplicitPaths_IgnoringVolatileWatch()
+        {
+            var clock = NewClock();
+            await using var host = BuildSettleHost(clock);
+            await host.StartAsync();
+
+            var scenario = ScenarioFile.Parse("""
+                                              {
+                                                "version": 1, "id": "settle-until", "topology": "stepping-topology",
+                                                "watch": ["Ticker.Ticks", "Latch.Value"],
+                                                "steps": [
+                                                  { "settle": { "until": ["Latch.Value"], "maxSeconds": 30 } }
+                                                ]
+                                              }
+                                              """);
+
+            var report = await ScenarioRunner.RunAsync(scenario, host.Control);
+
+            Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
+            StringAssert.Contains(report.Steps[0].Detail, "converged", $"Detail was: {report.Steps[0].Detail}");
+            Assert.AreEqual(1, (int)host.Control.GetProperty("Latch", "Value")!);
+        }
+
+        /// <summary>
+        ///     <c>settle.until</c> targeting a volatile path (independent of the <c>watch</c> set) fails loudly
+        ///     and names the targeted path that would not stabilize.
+        /// </summary>
+        [TestMethod]
+        public async Task SettleStep_Until_NonConvergence_FailsTheStep()
+        {
+            var clock = NewClock();
+            await using var host = BuildSettleHost(clock);
+            await host.StartAsync();
+
+            var scenario = ScenarioFile.Parse("""
+                                              {
+                                                "version": 1, "id": "settle-until-fail", "topology": "stepping-topology",
+                                                "watch": ["Latch.Value"],
+                                                "steps": [
+                                                  { "settle": { "until": ["Ticker.Ticks"], "maxSeconds": 3 } }
+                                                ]
+                                              }
+                                              """);
+
+            var report = await ScenarioRunner.RunAsync(scenario, host.Control);
+
+            Assert.AreEqual(ScenarioRunStatus.Failed, report.Status, Join(report));
+            StringAssert.Contains(report.Steps[0].Detail, "Ticker.Ticks", $"Detail was: {report.Steps[0].Detail}");
+            StringAssert.Contains(report.Steps[0].Detail, "→", $"Detail should show the last value transition. Was: {report.Steps[0].Detail}");
+        }
+
+        /// <summary>
+        ///     An unresolvable <c>settle.until</c> path (a typo or a topology mismatch) must FAIL the run up
+        ///     front — not silently "converge" on a never-changing null. This keeps scoping settle to explicit
+        ///     paths loud, matching how <c>watch</c> paths are validated (RFC 0008 §8.6).
+        /// </summary>
+        [TestMethod]
+        public async Task SettleStep_Until_UnresolvablePath_FailsValidation()
+        {
+            var clock = NewClock();
+            await using var host = BuildTickerHost(clock);
+            await host.StartAsync();
+
+            var scenario = ScenarioFile.Parse("""
+                                              {
+                                                "version": 1, "id": "settle-until-bad", "topology": "stepping-topology",
+                                                "steps": [
+                                                  { "settle": { "until": ["Ticker.Nonexistent"] } }
+                                                ]
+                                              }
+                                              """);
+
+            var report = await ScenarioRunner.RunAsync(scenario, host.Control);
+
+            Assert.AreEqual(ScenarioRunStatus.Failed, report.Status, Join(report));
+            Assert.IsTrue(report.ValidationErrors.Any(e => e.Contains("settle.until")), Join(report));
         }
 
         // ── settle step — converges when values stabilize ─────────────────────────────────────────────
@@ -304,6 +395,43 @@ namespace Vion.Dale.DevHost.Test.Stepping
                                           }
                                           """);
             Assert.IsNull(file.Steps![0].Settle!.MaxSeconds);
+        }
+
+        /// <summary><c>settle.until</c>, when present, must be a non-empty array of name paths.</summary>
+        [TestMethod]
+        public void SettleStep_EmptyUntil_Rejected()
+        {
+            var empty = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse("""
+                                                                                               {
+                                                                                                 "version": 1, "id": "x", "topology": "t",
+                                                                                                 "steps": [ { "settle": { "until": [] } } ]
+                                                                                               }
+                                                                                               """));
+            Assert.IsTrue(empty.Errors.Any(e => e.Contains("settle.until")), string.Join("; ", empty.Errors));
+
+            var blank = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse("""
+                                                                                               {
+                                                                                                 "version": 1, "id": "x", "topology": "t",
+                                                                                                 "steps": [ { "settle": { "until": ["  "] } } ]
+                                                                                               }
+                                                                                               """));
+            Assert.IsTrue(blank.Errors.Any(e => e.Contains("settle.until")), string.Join("; ", blank.Errors));
+        }
+
+        /// <summary><c>settle.until</c> parses to the model as the explicit target list.</summary>
+        [TestMethod]
+        public void SettleStep_Until_ParseFromJson_RoundTrip()
+        {
+            var file = ScenarioFile.Parse("""
+                                          {
+                                            "version": 1, "id": "x", "topology": "t",
+                                            "steps": [ { "settle": { "until": ["A.B", "C.D.E"], "maxSeconds": 5 } } ]
+                                          }
+                                          """);
+
+            var settle = file.Steps![0].Settle!;
+            Assert.AreEqual(5.0, settle.MaxSeconds!.Value, 0.0001);
+            CollectionAssert.AreEqual(new[] { "A.B", "C.D.E" }, settle.Until!.ToArray());
         }
 
         /// <summary>Round-trip: JSON with <c>advance</c> / <c>settle</c> parses to the expected model.</summary>

@@ -149,6 +149,40 @@ namespace Vion.Dale.Cli.Test.Commands
         }
 
         [TestMethod]
+        public void SettleUntil_ResolvesTargetPaths_AndRejectsEmptyOrUnknown()
+        {
+            // A valid settle.until resolves its target paths against the topology, like watch.
+            var ok = ScenarioFileChecks.Validate("settle-ok.scenario.json",
+                                                 """
+                                                 { "version": 1, "id": "settle-ok", "topology": "demo",
+                                                   "watch": [ "Counter.Counter" ],
+                                                   "steps": [ { "settle": { "until": [ "Counter.Counter" ], "maxSeconds": 5 } } ] }
+                                                 """,
+                                                 Config);
+            Assert.AreEqual(0, ok.Errors.Count, string.Join("; ", ok.Errors));
+
+            // An empty until list and an unresolvable target path are both reported.
+            var bad = ScenarioFileChecks.Validate("settle-bad.scenario.json",
+                                                  """
+                                                  { "version": 1, "id": "settle-bad", "topology": "demo",
+                                                    "steps": [
+                                                      { "settle": { "until": [] } },
+                                                      { "settle": { "until": [ "Counter.Nope" ] } }
+                                                    ] }
+                                                  """,
+                                                  Config);
+            Assert.IsTrue(bad.Errors.Any(e => e.Contains("settle.until must be a non-empty array")), string.Join("; ", bad.Errors));
+            Assert.IsTrue(bad.Errors.Any(e => e.Contains("settle.until[0]")), string.Join("; ", bad.Errors));
+
+            // Structural until checks are config-independent (mirroring the model): a blank entry is rejected
+            // even for a non-matching topology where path resolution is skipped — the two validators agree.
+            var blankSkipped = ScenarioFileChecks.Validate("settle-blank.scenario.json",
+                                                           """{ "version": 1, "id": "settle-blank", "topology": "elsewhere", "steps": [ { "settle": { "until": ["  "] } } ] }""",
+                                                           Config);
+            Assert.IsTrue(blankSkipped.Errors.Any(e => e.Contains("settle.until[0]") && e.Contains("empty name path")), string.Join("; ", blankSkipped.Errors));
+        }
+
+        [TestMethod]
         public void AcceptsExpectOneOfAndPathComparand()
         {
             var outcome = ScenarioFileChecks.Validate("exp.scenario.json",

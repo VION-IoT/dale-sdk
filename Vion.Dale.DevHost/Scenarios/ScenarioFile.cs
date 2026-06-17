@@ -405,6 +405,22 @@ namespace Vion.Dale.DevHost.Scenarios
             {
                 yield return "settle.maxSeconds must be positive";
             }
+
+            if (Settle?.Until is { } until)
+            {
+                if (until.Count == 0)
+                {
+                    yield return "settle.until must be a non-empty array of name paths (omit it to settle over the whole watch list)";
+                }
+
+                for (var i = 0; i < until.Count; i++)
+                {
+                    if (string.IsNullOrWhiteSpace(until[i]))
+                    {
+                        yield return $"settle.until[{i}]: empty name path";
+                    }
+                }
+            }
         }
     }
 
@@ -671,14 +687,24 @@ namespace Vion.Dale.DevHost.Scenarios
     }
 
     /// <summary>
-    ///     Settle until the scenario's <c>watch</c> paths stop changing (<c>settle</c>) — advances
-    ///     hop-by-hop via <c>AdvanceToNextEventAsync</c> until every watched value is stable across one hop,
-    ///     or until <see cref="MaxSeconds" /> of virtual time elapse (default 60 s). Requires a stepped host.
+    ///     Settle until the targeted paths stop changing (<c>settle</c>) — advances hop-by-hop via
+    ///     <c>AdvanceToNextEventAsync</c> until every targeted value is stable across one hop, or until
+    ///     <see cref="MaxSeconds" /> of virtual time elapse (default 60 s). The targeted set is
+    ///     <see cref="Until" /> when given, else the scenario's <c>watch</c> list — a large watch set is for
+    ///     observability and need not all settle (RFC 0008 §8.6). Non-convergence FAILS the step, naming the
+    ///     still-changing target. Requires a stepped host.
     /// </summary>
     public sealed class ScenarioSettle
     {
         /// <summary>Maximum virtual seconds to spend waiting for convergence. Null means the default cap (60 s).</summary>
         public double? MaxSeconds { get; init; }
+
+        /// <summary>
+        ///     Explicit target paths that must stabilize for convergence. Omit to settle over the whole
+        ///     <c>watch</c> list. Scoping to the specific values meant to settle keeps a volatile observability
+        ///     tile (a free-running counter / clock-derived value / noisy sensor) from burning the budget.
+        /// </summary>
+        public IReadOnlyList<string>? Until { get; init; }
     }
 
     /// <summary>A human-judgment checklist item — v1 has no auto-asserting checks; CI reports these as <c>requires human</c>.</summary>

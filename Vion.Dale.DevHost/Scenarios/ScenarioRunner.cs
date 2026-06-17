@@ -223,7 +223,7 @@ namespace Vion.Dale.DevHost.Scenarios
                                "waitUntil" => step.WaitUntil!.Property ?? string.Empty,
                                "expect" => step.Expect!.Property ?? string.Empty,
                                "advance" => string.Empty,
-                               "settle" => "until stable",
+                               "settle" => step.Settle!.Until is { } until ? $"until {string.Join(", ", until)}" : "until stable",
                                _ => $"{step.Wait!.Seconds.ToString(CultureInfo.InvariantCulture)} s",
                            },
                            Argument = step.Kind switch
@@ -290,6 +290,20 @@ namespace Vion.Dale.DevHost.Scenarios
             foreach (var (path, index) in (scenario.Watch ?? Array.Empty<string>()).Select((w, i) => (w, i)))
             {
                 resolver.ResolveProperty(path, $"watch[{index}]", errors);
+            }
+
+            // settle.until target paths resolve up front too — scoping settle to explicit paths must fail
+            // loudly on a typo / topology mismatch, never silently "converge" on an unresolved (null) target
+            // that trivially never changes (RFC 0008 §8.6).
+            for (var i = 0; i < runSteps.Count; i++)
+            {
+                if (runSteps[i].Settle?.Until is { } until)
+                {
+                    for (var u = 0; u < until.Count; u++)
+                    {
+                        resolver.ResolveProperty(until[u], $"steps[{i}] settle.until[{u}]", errors);
+                    }
+                }
             }
 
             if (errors.Count > 0)
@@ -420,7 +434,12 @@ namespace Vion.Dale.DevHost.Scenarios
                         break;
 
                     case "settle":
-                        await SettleAsync(step, watchPaths, control, result, cancellationToken).ConfigureAwait(false);
+                        if (!await SettleAsync(step, watchPaths, control, result, cancellationToken).ConfigureAwait(false))
+                        {
+                            Fail(result, report, progress, stopwatch);
+                            return false;
+                        }
+
                         break;
 
                     default: // wait
@@ -635,30 +654,38 @@ namespace Vion.Dale.DevHost.Scenarios
             return value is null ? "null" : Convert.ToString(value, CultureInfo.InvariantCulture) ?? "null";
         }
 
-        // Settle protocol: advance hop-by-hop until the watched values are stable across one full hop, or
-        // until the virtual-time budget is exhausted. An empty watch list converges immediately — nothing to
-        // stabilize. Virtual time elapsed is tracked via control.VirtualTimeUtc so the budget is in virtual
-        // seconds, not wall seconds.
-        private static async Task SettleAsync(ScenarioStep step,
-                                              IReadOnlyList<string>? watchPaths,
-                                              IDevHostControl control,
-                                              ScenarioStepResult result,
-                                              CancellationToken cancellationToken)
+        // Settle protocol (RFC 0008 §8.6): advance hop-by-hop until the TARGETED values are stable across one
+        // full hop, or until the virtual-time budget — or the hop backstop — is exhausted, in which case the
+        // step FAILS and the detail names the still-changing target. The targeted set is settle.until when
+        // given, else the scenario's watch list: a large watch set is for observability and need not all
+        // settle, so scoping settle to the specific values keeps a volatile tile (free-running counter,
+        // clock-derived value, noisy sensor) from silently burning the budget. Virtual time elapsed is tracked
+        // via control.VirtualTimeUtc so the budget is in virtual seconds, not wall seconds.
+        private static async Task<bool> SettleAsync(ScenarioStep step,
+                                                    IReadOnlyList<string>? watchPaths,
+                                                    IDevHostControl control,
+                                                    ScenarioStepResult result,
+                                                    CancellationToken cancellationToken)
         {
             var maxSeconds = step.Settle!.MaxSeconds ?? DefaultSettleMaxSeconds;
             var budget = TimeSpan.FromSeconds(maxSeconds);
 
-            // Empty watch list: nothing to observe → converged immediately (stable by definition).
-            if (watchPaths is null || watchPaths.Count == 0)
+            // Scope convergence to settle.until when present, else the whole watch list. An empty target set
+            // converges immediately — nothing to stabilize.
+            var scoped = step.Settle!.Until is not null;
+            var targetPaths = step.Settle!.Until ?? watchPaths;
+            if (targetPaths is null || targetPaths.Count == 0)
             {
-                result.Detail = "converged immediately (no watch paths to observe)";
-                return;
+                result.Detail = scoped ? "converged immediately (empty until list)" : "converged immediately (no watch paths to observe)";
+                return true;
             }
 
-            // Resolve the watch paths once (they passed up-front validation) so the snapshot reads the
-            // correct service-qualified member AND extracts the scalar leaf for any struct field path.
+            // Resolve the target paths once (both settle.until and watch are validated up front, so every
+            // path resolves) so the snapshot reads the correct service-qualified member AND extracts the
+            // scalar leaf for any struct field path.
             var resolver = new ScenarioResolver(control.GetConfiguration());
-            var resolved = watchPaths.Select(p => resolver.ResolveProperty(p, "settle.watch", new List<string>())).ToList();
+            var context = scoped ? "settle.until" : "settle.watch";
+            var resolved = targetPaths.Select(p => resolver.ResolveProperty(p, context, new List<string>())).ToList();
 
             object?[] Snapshot()
             {
@@ -672,17 +699,18 @@ namespace Vion.Dale.DevHost.Scenarios
                 return values;
             }
 
-            bool ValuesEqual(object?[] a, object?[] b)
+            // Index of the first target that changed across a hop, or -1 when every target is stable.
+            int FirstChanged(object?[] a, object?[] b)
             {
                 for (var i = 0; i < a.Length; i++)
                 {
                     if (!Equals(a[i], b[i]))
                     {
-                        return false;
+                        return i;
                     }
                 }
 
-                return true;
+                return -1;
             }
 
             var virtualStart = control.VirtualTimeUtc;
@@ -698,19 +726,24 @@ namespace Vion.Dale.DevHost.Scenarios
                 hops++;
                 var after = Snapshot();
 
-                if (ValuesEqual(before, after))
+                var changed = FirstChanged(before, after);
+                var elapsed = (control.VirtualTimeUtc - virtualStart).TotalSeconds;
+
+                if (changed < 0)
                 {
-                    var elapsed = (control.VirtualTimeUtc - virtualStart).TotalSeconds;
                     result.Detail = $"converged after {hops} hop{(hops == 1 ? "" : "s")} / {elapsed.ToString("0.###", CultureInfo.InvariantCulture)} virtual s";
-                    return;
+                    return true;
                 }
 
+                // Non-convergence: the virtual-time budget is spent while a target still moves. Fail loudly,
+                // naming the still-changing target and its last step — rather than the old silent soft-pass
+                // that let a volatile signal burn the whole budget unnoticed (RFC 0008 §8.6). A non-advancing
+                // event storm can never reach here: it fails earlier via the quiescence barrier's safety timeout.
                 if (control.VirtualTimeUtc >= deadline)
                 {
-                    var elapsed = (control.VirtualTimeUtc - virtualStart).TotalSeconds;
                     result.Detail =
-                        $"did not converge within {maxSeconds.ToString(CultureInfo.InvariantCulture)} virtual s ({hops} hop{(hops == 1 ? "" : "s")} / {elapsed.ToString("0.###", CultureInfo.InvariantCulture)} virtual s elapsed)";
-                    return;
+                        $"did not converge within {maxSeconds.ToString(CultureInfo.InvariantCulture)} virtual s — {targetPaths[changed]} still changing ({Display(before[changed])} → {Display(after[changed])}) after {hops} hop{(hops == 1 ? "" : "s")} / {elapsed.ToString("0.###", CultureInfo.InvariantCulture)} virtual s";
+                    return false;
                 }
             }
         }
