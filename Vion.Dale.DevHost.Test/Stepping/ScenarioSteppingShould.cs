@@ -550,6 +550,23 @@ namespace Vion.Dale.DevHost.Test.Stepping
             Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
         }
 
+        /// <summary>
+        ///     <c>HasAdvancedFromBaseline</c> is the clean-slate signal recycle-on-run reads: false on a freshly
+        ///     started stepped generation (clock at the epoch baseline), true once the virtual clock has moved.
+        /// </summary>
+        [TestMethod]
+        public async Task HasAdvancedFromBaseline_TracksWhetherTheSteppedGenerationIsDirty()
+        {
+            var config = DevConfigurationBuilder.Create().WithTopologyName("stepping-topology").AddLogicBlock<TickerBlock>("Ticker").Build();
+            await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithDeterministicStepping().Build();
+            await host.StartAsync();
+
+            Assert.IsFalse(host.Control.HasAdvancedFromBaseline, "A freshly-started stepped host is at its clean baseline (epoch clock).");
+
+            await host.Control.AdvanceAsync(TimeSpan.FromSeconds(5));
+            Assert.IsTrue(host.Control.HasAdvancedFromBaseline, "Advancing the virtual clock dirties the generation — no longer a clean slate.");
+        }
+
         // ── Helpers ──────────────────────────────────────────────────────────────────────────────────────
 
         private static FakeTimeProvider NewClock()

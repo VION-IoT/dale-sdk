@@ -112,7 +112,7 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task BlockOnTopologyMismatch_AndProceedWhenForced()
+        public async Task BlockOnTopologyMismatch()
         {
             await using var host = BuildHost();
             await host.StartAsync();
@@ -122,13 +122,13 @@ namespace Vion.Dale.DevHost.Test
                                                 "steps": [ { "set": "Counter.Counter", "value": 5 } ] }
                                               """);
 
+            // A scenario only runs against the topology it declares — there is no "force" override. The web
+            // caller brings the host to the right topology first (recycle-on-run); the in-process runner just
+            // refuses a mismatch loudly.
             var blocked = await ScenarioRunner.RunAsync(scenario, host.Control);
             Assert.AreEqual(ScenarioRunStatus.TopologyMismatch, blocked.Status);
             Assert.AreEqual("scenario-topology", blocked.HostTopology);
             Assert.IsTrue(blocked.Steps.All(s => s.Status == ScenarioStepStatus.Skipped), Join(blocked));
-
-            var forced = await ScenarioRunner.RunAsync(scenario, host.Control, new ScenarioRunOptions { IgnoreTopologyMismatch = true });
-            Assert.AreEqual(ScenarioRunStatus.Succeeded, forced.Status, Join(forced));
         }
 
         [TestMethod]

@@ -40,6 +40,15 @@ namespace Vion.Dale.DevHost.Control
         /// </summary>
         DateTimeOffset VirtualTimeUtc { get; }
 
+        /// <summary>
+        ///     True on a stepped host whose virtual clock has moved past the per-generation baseline captured
+        ///     at construction — i.e. a prior <c>advance</c>/<c>step</c> or scenario run has dirtied this
+        ///     generation, so it is no longer a clean slate. Always false on a non-stepped host (no virtual
+        ///     clock to advance). Used to decide whether a scenario run can proceed in place or needs a recycle
+        ///     for a reproducible result.
+        /// </summary>
+        bool HasAdvancedFromBaseline { get; }
+
         /// <summary>The logic blocks in the wired network, with their ids, names, type, and service identifiers.</summary>
         IReadOnlyList<LogicBlockInfo> ListLogicBlocks();
 

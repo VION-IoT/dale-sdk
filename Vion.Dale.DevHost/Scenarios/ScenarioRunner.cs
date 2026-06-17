@@ -13,12 +13,6 @@ namespace Vion.Dale.DevHost.Scenarios
     /// <summary>Options for a scenario run.</summary>
     public sealed class ScenarioRunOptions
     {
-        /// <summary>
-        ///     Run despite a topology mismatch (the Player's "proceed anyway"). Default false: a mismatch
-        ///     blocks before anything executes.
-        /// </summary>
-        public bool IgnoreTopologyMismatch { get; init; }
-
         /// <summary>Run identity surfaced in the report; generated when null.</summary>
         public string? RunId { get; init; }
 
@@ -199,7 +193,6 @@ namespace Vion.Dale.DevHost.Scenarios
             return new ScenarioRunOptions
                    {
                        RunId = options?.RunId,
-                       IgnoreTopologyMismatch = options?.IgnoreTopologyMismatch ?? false,
                        OnProgress = options?.OnProgress,
                        FileHash = store.FileHash(id),
                    };
@@ -265,9 +258,11 @@ namespace Vion.Dale.DevHost.Scenarios
             var configuration = control.GetConfiguration();
             report.HostTopology = configuration.TopologyName;
 
-            // Topology guard: blocked before anything runs (Player interstitial / CI skip semantics live
-            // with the callers; the runner just refuses).
-            if (!options.IgnoreTopologyMismatch && !string.Equals(scenario.Topology, configuration.TopologyName, StringComparison.Ordinal))
+            // Topology guard: a scenario only runs against the topology it declares. The web caller brings the
+            // host to that topology first (recycle-on-run); an in-process / unsupervised caller must have built
+            // the host on it. A mismatch here is a setup error — refuse loudly before anything executes. There
+            // is no "force" override: running against the wrong graph silently produced misleading green runs.
+            if (!string.Equals(scenario.Topology, configuration.TopologyName, StringComparison.Ordinal))
             {
                 report.Status = ScenarioRunStatus.TopologyMismatch;
                 report.ValidationErrors = new[]

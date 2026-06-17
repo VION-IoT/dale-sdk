@@ -71,6 +71,11 @@ namespace Vion.Dale.DevHost.Control
 
         private DeterministicStepper? _stepper;
 
+        // The virtual clock at construction — the per-generation clean baseline. On a stepped host the clock
+        // only moves via explicit advance/step, so VirtualTimeUtc > this means the generation has been dirtied
+        // (a prior run or manual stepping) and is no longer reproducible from a clean slate.
+        private readonly DateTimeOffset _baselineUtc;
+
         public DevHostControl(DevConfiguration configuration,
                               DevHostEvents events,
                               DevHostLogSink logSink,
@@ -94,6 +99,10 @@ namespace Vion.Dale.DevHost.Control
             _activityMonitor = activityMonitor;
             _schedule = schedule;
             _timeProvider = timeProvider;
+
+            // Captured before the logic system starts and before any advance/step — the clean baseline for
+            // this host generation (the deterministic epoch on a stepped host).
+            _baselineUtc = timeProvider.GetUtcNow();
 
             _events.ServicePropertyChanged += OnServiceProperty;
             _events.ServicePropertyWriteAcknowledged += OnWriteAcknowledged;
@@ -154,6 +163,12 @@ namespace Vion.Dale.DevHost.Control
         public DateTimeOffset VirtualTimeUtc
         {
             get => _timeProvider.GetUtcNow();
+        }
+
+        /// <inheritdoc />
+        public bool HasAdvancedFromBaseline
+        {
+            get => IsStepped && _timeProvider.GetUtcNow() > _baselineUtc;
         }
 
         /// <inheritdoc />

@@ -132,7 +132,7 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task BlockTopologyMismatchesUnlessForced()
+        public async Task BlockTopologyMismatchOnAnUnsupervisedHost()
         {
             var dir = NewScenarioDir();
             File.WriteAllText(Path.Combine(dir, "wrong.scenario.json"),
@@ -143,13 +143,11 @@ namespace Vion.Dale.DevHost.Test
             await host.StartAsync();
             using var client = NewClient(port);
 
-            await client.PostAsync("/api/scenarios/wrong/apply", null);
-            var blocked = await PollRunUntilDoneAsync(client, "wrong", TimeSpan.FromSeconds(15));
-            Assert.AreEqual("topologyMismatch", blocked.GetProperty("status").GetString(), blocked.GetRawText());
-
-            await client.PostAsync("/api/scenarios/wrong/apply?force=true", null);
-            var forced = await PollRunUntilDoneAsync(client, "wrong", TimeSpan.FromSeconds(15));
-            Assert.AreEqual("succeeded", forced.GetProperty("status").GetString(), forced.GetRawText());
+            // The scenario's topology doesn't match the host, and this host has no supervisor to recycle onto
+            // the right one (recycle-on-run needs DevHostWebRunner.RunAsync with a topology factory). Apply must
+            // refuse loudly at the call (409) — never run against the wrong graph. There is no ?force= override.
+            var response = await client.PostAsync("/api/scenarios/wrong/apply", null);
+            Assert.AreEqual(HttpStatusCode.Conflict, response.StatusCode, await response.Content.ReadAsStringAsync());
         }
 
         [TestMethod]

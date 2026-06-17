@@ -50,7 +50,7 @@ namespace Vion.Dale.DevHost.Web.Services
         ///     Start a run. Refuses (conflict) while another run is active unless <paramref name="restart" />,
         ///     which cancels the active run and awaits its teardown first.
         /// </summary>
-        public async Task<ScenarioApplyResult> ApplyAsync(ScenarioFile scenario, IDevHostControl control, bool restart, bool force, string? fileHash = null)
+        public async Task<ScenarioApplyResult> ApplyAsync(ScenarioFile scenario, IDevHostControl control, bool restart, string? fileHash = null)
         {
             ActiveRun? toCancel;
             lock (_gate)
@@ -80,7 +80,6 @@ namespace Vion.Dale.DevHost.Web.Services
             var options = new ScenarioRunOptions
                           {
                               RunId = runId,
-                              IgnoreTopologyMismatch = force,
                               FileHash = fileHash,
                               OnProgress = report => Publish(scenario.Id!, report),
                           };
