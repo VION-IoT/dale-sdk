@@ -48,6 +48,27 @@ namespace Vion.Dale.DevHost.Test
         }
     }
 
+    /// <summary>
+    ///     A second, independent ISource block — used to construct a catalog-level AutoConnect ambiguity
+    ///     (two sources both matching one sink), which the conflict guard must leave unwired.
+    /// </summary>
+    [LogicBlock(Name = "Source2")]
+    [LogicBlockInterfaceBinding(typeof(ISource), Multiplicity = LinkMultiplicity.ExactlyOne)]
+    public class SecondSourceBlock : LogicBlockBase, ISource
+    {
+        public SecondSourceBlock(ILogger logger) : base(logger)
+        {
+        }
+
+        public void HandleResponse(InterfaceId functionId, PollLink.Ack response)
+        {
+        }
+
+        protected override void Ready()
+        {
+        }
+    }
+
     /// <summary>Receives the poll and records it on an observable property — the "device".</summary>
     [LogicBlock(Name = "Sink")]
     [LogicBlockInterfaceBinding(typeof(ISink), Multiplicity = LinkMultiplicity.ExactlyOne)]

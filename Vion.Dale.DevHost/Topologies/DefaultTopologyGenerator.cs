@@ -22,12 +22,11 @@ namespace Vion.Dale.DevHost.Topologies
         ///         convention of today's C# presets.
         ///     </para>
         ///     <para>
-        ///         // TODO(phase3): AutoConnect over an uncurated catalog is best-effort — two blocks that
-        ///         both implement a "commander" side of the same interface (e.g. two blocks that both manage
-        ///         the same device) will be wired into a potentially fighting network. Curated libraries
-        ///         should commit their own topology files so this generator never runs for them; a
-        ///         conflict-detection pass should be added here for uncurated catalogs before this path is
-        ///         used in production boot.
+        ///         AutoConnect wires only UNAMBIGUOUS interface pairs: an interface matching more than one
+        ///         counterpart block (e.g. two "commander" blocks on one device-manager interface) is left
+        ///         unwired and noted, so an uncurated catalog yields a coherent topology rather than a
+        ///         fighting network. Curated libraries still commit their own topology files; this generator
+        ///         is the zero-config fallback.
         ///     </para>
         /// </summary>
         public static DevConfiguration Generate(IEnumerable<Type> blockTypes, string id = "default")
@@ -39,10 +38,9 @@ namespace Vion.Dale.DevHost.Topologies
                 builder.AddLogicBlock(type, out _, type.Name);
             }
 
-            // TODO(phase3): AutoConnect over an uncurated catalog is best-effort — two blocks that both
-            // manage the same device will be wired into a fighting network. Curated libraries commit their
-            // own topology files so this generator never runs for them. Add conflict-detection before this
-            // path is used in production boot.
+            // AutoConnect leaves ambiguous interfaces (an interface matching >1 counterpart block) unwired
+            // and notes them, so an uncurated catalog yields a coherent topology rather than a fighting
+            // network — the conflict guard lives in DevConfigurationBuilder.AutoConnect.
             builder.AutoConnect();
 
             return builder.Build();

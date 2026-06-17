@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using Vion.Dale.Sdk.CodeGeneration;
 using Vion.Dale.Sdk.Configuration.Contract;
@@ -218,30 +219,85 @@ namespace Vion.Dale.DevHost
 
         private void AddInterfaceMappings(DevConfiguration config, LogicBlockHandle source, LogicBlockHandle target)
         {
-            var matches = DiscoverMatchingInterfaces(source.LogicBlockType, target.LogicBlockType);
-
-            foreach (var (sourceInterfaceId, targetInterfaceId) in matches)
+            // Explicit connections are intentional — added verbatim (the AutoConnect conflict guard below
+            // applies only to auto-wiring, never to a connection the developer asked for).
+            foreach (var mapping in BuildMappings(source, target))
             {
-                config.InterfaceMappings.Add(new DevInterfaceMapping
-                                             {
-                                                 SourceLogicBlockId = source.Id,
-                                                 SourceLogicBlockName = source.Name,
-                                                 SourceInterfaceIdentifier = sourceInterfaceId,
-                                                 TargetLogicBlockId = target.Id,
-                                                 TargetLogicBlockName = target.Name,
-                                                 TargetInterfaceIdentifier = targetInterfaceId,
-                                             });
+                config.InterfaceMappings.Add(mapping);
             }
         }
 
+        private List<DevInterfaceMapping> BuildMappings(LogicBlockHandle source, LogicBlockHandle target)
+        {
+            return DiscoverMatchingInterfaces(source.LogicBlockType, target.LogicBlockType)
+                   .Select(m => new DevInterfaceMapping
+                                {
+                                    SourceLogicBlockId = source.Id,
+                                    SourceLogicBlockName = source.Name,
+                                    SourceInterfaceIdentifier = m.SourceInterfaceId,
+                                    TargetLogicBlockId = target.Id,
+                                    TargetLogicBlockName = target.Name,
+                                    TargetInterfaceIdentifier = m.TargetInterfaceId,
+                                })
+                   .ToList();
+        }
+
+        // AutoConnect over the catalog wires only UNAMBIGUOUS interface pairs. An interface endpoint (a
+        // block + interface identifier) that matches more than one counterpart block is ambiguous — auto-
+        // wiring it would build a fighting network (e.g. two "commander" blocks on one device-manager
+        // interface, RFC 0008 §6.3). Ambiguous endpoints are left unwired and noted; the developer resolves
+        // them by wiring explicitly in a committed topology file. This makes the behaviour match the
+        // method's contract ("auto-wire unambiguous interface matches").
         private void AutoConnectInterfaces(DevConfiguration config)
         {
+            var candidates = new List<DevInterfaceMapping>();
             for (var i = 0; i < _handles.Count; i++)
             {
                 for (var j = i + 1; j < _handles.Count; j++)
                 {
-                    AddInterfaceMappings(config, _handles[i], _handles[j]);
+                    candidates.AddRange(BuildMappings(_handles[i], _handles[j]));
                 }
+            }
+
+            // Per endpoint, the distinct set of counterpart blocks it auto-matches.
+            var counterparts = new Dictionary<(string Block, string Interface), HashSet<string>>();
+
+            void Track(string block, string iface, string other)
+            {
+                if (!counterparts.TryGetValue((block, iface), out var set))
+                {
+                    counterparts[(block, iface)] = set = new HashSet<string>(StringComparer.Ordinal);
+                }
+
+                set.Add(other);
+            }
+
+            foreach (var mapping in candidates)
+            {
+                Track(mapping.SourceLogicBlockId, mapping.SourceInterfaceIdentifier, mapping.TargetLogicBlockId);
+                Track(mapping.TargetLogicBlockId, mapping.TargetInterfaceIdentifier, mapping.SourceLogicBlockId);
+            }
+
+            // Keep a mapping only when BOTH endpoints are unambiguous (each matches exactly one counterpart).
+            foreach (var mapping in candidates)
+            {
+                if (counterparts[(mapping.SourceLogicBlockId, mapping.SourceInterfaceIdentifier)].Count == 1 &&
+                    counterparts[(mapping.TargetLogicBlockId, mapping.TargetInterfaceIdentifier)].Count == 1)
+                {
+                    config.InterfaceMappings.Add(mapping);
+                }
+            }
+
+            // Note each ambiguous endpoint once — a skipped auto-connection should be visible, not silent.
+            foreach (var entry in counterparts)
+            {
+                if (entry.Value.Count <= 1)
+                {
+                    continue;
+                }
+
+                var name = _handles.Where(h => h.Id == entry.Key.Block).Select(h => h.Name).FirstOrDefault() ?? entry.Key.Block;
+                Console.WriteLine($"AutoConnect: left '{entry.Key.Interface}' on '{name}' unwired — it matches {entry.Value.Count} blocks; wire it explicitly in a topology file.");
             }
         }
 
