@@ -105,6 +105,41 @@ namespace Vion.Dale.DevHost.Test
                           "Advancing the virtual clock must fire the timer further.");
         }
 
+        [TestMethod]
+        [TestCategory("Smoke")]
+        public async Task Smoke_HalInputScenario_DrivesTheSmokeHostIoBlock()
+        {
+            // Covers the digitalInput / analogInput / waitUntil scenario step types + the HAL round-trip in CI
+            // (no other test exercises SetDigitalInput/AnalogInput), and guards that the SmokeHost's IoBlock
+            // boots + introspects — otherwise it's only compile-checked. Uses the committed IoBlock fixture.
+            var dir = NewScenarioDir();
+            File.WriteAllText(Path.Combine(dir, "io.scenario.json"),
+                              """
+                              {
+                                "version": 1, "id": "io", "topology": "io", "watch": ["io.IsEnabled", "io.CurrentLevel"],
+                                "steps": [
+                                  { "digitalInput": { "block": "io", "contract": "EnableInput" }, "value": true },
+                                  { "analogInput": { "block": "io", "contract": "LevelInput" }, "value": 3.3 },
+                                  { "waitUntil": { "property": "io.IsEnabled", "equals": true }, "timeoutSeconds": 5 },
+                                  { "expect": { "property": "io.IsEnabled", "equals": true } },
+                                  { "expect": { "property": "io.CurrentLevel", "equals": 3.3, "tolerance": 0.001 } }
+                                ]
+                              }
+                              """);
+
+            var port = FreePort();
+            var config = DevConfigurationBuilder.Create().WithTopologyName("io").WithScenarios(dir).AddLogicBlock<SmokeHost.LogicBlocks.IoBlock>("io").Build();
+            await using var host = DevHostBuilder.Create().WithDi<SmokeHost.DependencyInjection>().WithConfiguration(config).WithDeterministicStepping().WithWebUi(port).Build();
+            await host.StartAsync();
+
+            using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
+
+            var apply = await client.PostAsync("/api/scenarios/io/apply", null);
+            Assert.AreEqual(HttpStatusCode.Accepted, apply.StatusCode, "Applying the HAL scenario must start a run.");
+            var report = await PollRunUntilDoneAsync(client, "io", TimeSpan.FromSeconds(30));
+            Assert.AreEqual("succeeded", report.GetProperty("status").GetString(), report.GetRawText());
+        }
+
         private static async Task<string> GetStringAsync(HttpClient client, string path)
         {
             var response = await client.GetAsync(path);

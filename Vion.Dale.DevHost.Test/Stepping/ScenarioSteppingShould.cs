@@ -252,6 +252,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
         ///     under 2 s for a 3 virtual-second wait), proving the wait is virtual, not wall-clock.
         /// </summary>
         [TestMethod]
+        [TestCategory("Smoke")]
         public async Task WaitUntil_SteppedPath_SucceedsDeterministicallyAndIsNearInstant()
         {
             for (var run = 0; run < 15; run++)

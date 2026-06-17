@@ -13,10 +13,12 @@ Two tiers. Tier 1 is the fast headless gate (run it always); Tier 2 drives the a
 dotnet test Vion.Dale.DevHost.Test/Vion.Dale.DevHost.Test.csproj --filter "TestCategory=Smoke" --nologo
 ```
 
-Expect **3 tests passed** (~2 s execution; ~10 s wall the first time, for the incremental build). This boots a real web host (Kestrel + the full API/SignalR pipeline + a wired logic-block network) and sweeps the assembled surface over HTTP:
+Expect **6 tests passed** (~4 s execution; ~10 s wall the first time, for the incremental build). This boots real web hosts (Kestrel + the full API/SignalR pipeline + a wired logic-block network) and sweeps the assembled surface over HTTP:
 
-- **boot/introspection** (`/api/configuration`, `/api/logicblocks`), **state read**, **writable set + read-back**, **read-only write rejected with 400** (not a silent 200), **`stepped:true`**, a **scenario run to `succeeded`**, and **manual virtual-clock advance** firing a `[Timer]` — all in `DevHostSmokeShould`;
-- **recycle-on-run** lifecycle (`RecycleOnRunShould`) and **topology switch + host reset** (`RunControlShould`).
+- **core sweep** (`DevHostSmokeShould`): boot/introspection (`/api/configuration`, `/api/logicblocks`), state read, **writable set + read-back**, **read-only write rejected with 400** (not a silent 200), **`stepped:true`**, a **scenario run to `succeeded`**, **manual virtual-clock advance** firing a `[Timer]`, and a **HAL-input scenario** (`digitalInput` + `analogInput` + `waitUntil` → the mocked input reaches the block) that also boots the SmokeHost's `IoBlock`;
+- **lifecycle + step types**: recycle-on-run (`RecycleOnRunShould`), explicit topology switch (`TopologyFilesShould`), host reset/recycle (`RunControlShould`), and the deterministic `waitUntil` path (`ScenarioSteppingShould`).
+
+Between them the smoke exercises every important scenario step type (`set` / `advance` / `settle` / `expect` / `waitUntil` / `digitalInput` / `analogInput`; only the discouraged non-deterministic `wait` is omitted).
 
 It does **not** drive the SPA web UI (the host *serves* it but the headless test never loads the page or runs its JS). A green Tier 1 is not proof the UI works — that's Tier 2.
 
@@ -40,8 +42,9 @@ It does **not** drive the SPA web UI (the host *serves* it but the headless test
 2. **Drive the UI** with the chrome-devtools MCP. If no page is connected, open one (`new_page`); if you genuinely can't drive a browser, fall back to Tier 1 + API checks against `localhost:5000` and say so. Navigate to `http://localhost:5000` and reload with `ignoreCache` (dodges stale assets). A leftover route or pins from a previous session are harmless — reload to the root, or use an isolated context / clear localStorage for a clean view. Then verify:
    - The page loads and the Explorer lists the four blocks (Showcase, IO Device, Signal Source, Signal Sink).
    - Step the clock first (`+10s`) so the live metrics populate, then confirm the value shapes render on `ShowcaseBlock` — status pill (enum), struct, **sparkline** (array; empty until stepped), duration, a bounded number field (writable double, min/max — `uiHint=slider` is advisory, the control is a number field, not a range slider), bool toggle.
-   - Open the **`showcase-tour`** scenario in the Player and click **Run** → it goes green (stepped, so near-instant).
-   - Open **`minimal-subset`** (a different topology) and Run → it recycles onto `minimal`, then runs green (recycle-on-run through the UI).
+   - Pin a member in a block (the pin control) → it appears in the watch panel; unpin → it's removed.
+   - Open the **`showcase-tour`** scenario in the Player and click **Run** → green (stepped, so near-instant). Open **`io-control`** and Run → green (it drives the digital + analog HAL inputs and the block observes them). Moving between scenarios is the Player's scenario switching.
+   - Switch topology from **`⛁ topology`** to `minimal` → the host recycles and the header shows the new topology. (Equivalently, open **`minimal-subset`** and Run → recycle-on-run onto `minimal` through the Player.)
 
 3. **Tear down**: stop the process —
    ```powershell
