@@ -21,6 +21,7 @@ namespace Vion.Dale.DevHost.Test
     public class RecycleOnRunShould
     {
         [TestMethod]
+        [TestCategory("Smoke")]
         public async Task ApplyOnADirtySteppedHost_RecyclesToACleanSlate_ThenRunsOnReapply()
         {
             var dir = NewScenarioDir();

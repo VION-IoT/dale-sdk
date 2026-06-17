@@ -127,6 +127,7 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        [TestCategory("Smoke")]
         public async Task SupervisedRunner_RecyclesTheHost_OnResetRequest_SamePort()
         {
             var port = FreePort();
