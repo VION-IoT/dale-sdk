@@ -1698,6 +1698,8 @@ export const App = {
                     <button type="button" title="re-snapshot (b)" @click="setBaseline">↺</button>
                     <button type="button" title="clear baseline" @click="clearBaseline">✕</button>
                 </span>
+                <span v-if="store.stepped" class="stepped-chip"
+                      title="deterministic stepping (dale dev --stepped) — the virtual clock advances only via advance/settle, so scenario runs are exact and reproducible. Timers idle between runs.">⏱ stepped</span>
                 <button v-if="!store.paused" type="button" class="theme-toggle"
                         title="pause time-driven activity — timers hold, writes still work"
                         @click="pauseHost">⏸ pause</button>

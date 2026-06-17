@@ -36,9 +36,11 @@ export const store = reactive({
     baselineSeconds: 0,
     // Ctrl+K command palette (jump / pin).
     paletteOpen: false,
-    // Run control: paused (timer/delayed fires held), canReset (supervisor attached).
+    // Run control: paused (timer/delayed fires held), canReset (supervisor attached),
+    // stepped (deterministic virtual clock — scenario runs step exactly; `dale dev --stepped`).
     paused: false,
     canReset: false,
+    stepped: false,
     // Top-level view: 'explorer' (default), 'topology', 'gallery', or 'player' (scenarios, RFC 0006).
     view: 'explorer',
     // Topology files (RFC 0006 R5): the discovery payload for the switcher in the topology panel.
@@ -278,6 +280,7 @@ async function fetchControlStatus() {
         const status = await response.json();
         store.paused = !!status.paused;
         store.canReset = !!status.canReset;
+        store.stepped = !!status.stepped;
     } catch (err) {
         console.warn('Could not fetch control status', err);
     }

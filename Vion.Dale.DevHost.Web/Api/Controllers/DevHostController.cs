@@ -98,11 +98,11 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
 
         // --- Run control (pause / resume / reset) ---
 
-        /// <summary>Run-control state: paused? supervisor attached (reset possible)?</summary>
+        /// <summary>Run-control state: paused? supervisor attached (reset possible)? stepped (deterministic clock)?</summary>
         [HttpGet("control/status")]
         public ActionResult GetControlStatus()
         {
-            return Ok(new { paused = _control.IsPaused, canReset = _control.CanReset });
+            return Ok(new { paused = _control.IsPaused, canReset = _control.CanReset, stepped = _control.IsStepped });
         }
 
         /// <summary>

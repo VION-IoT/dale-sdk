@@ -59,6 +59,22 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        public async Task ControlStatus_ReportsSteppedMode_WhenBootedStepped()
+        {
+            // Part 3: a stepped-booted web host advertises it on the control status, so the Player can show
+            // the "stepped / deterministic" badge.
+            var port = FreePort();
+            var config = DevConfigurationBuilder.Create().WithTopologyName("counter-topology").AddLogicBlock<CounterBlock>("counter").Build();
+            await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithWebUi(port, true).Build();
+            await host.StartAsync();
+
+            using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
+
+            var body = await client.GetStringAsync("/api/control/status");
+            StringAssert.Contains(body, "\"stepped\":true", $"GET /api/control/status must report deterministic stepping mode. Body: {body}");
+        }
+
+        [TestMethod]
         public async Task PostSetProperty_ThroughUnifiedControl_IsAppliedAndReadBack()
         {
             // Full HTTP write loop on the one abstraction: discover the service id, POST a JSON value to the

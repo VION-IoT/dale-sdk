@@ -131,6 +131,20 @@ body {
 }
 .paused-chip button { background: none; border: none; color: inherit; font-size: 11px; padding: 0 2px; }
 
+/* Deterministic-stepping mode indicator (dale dev --stepped) — an accent-outlined pill, distinct from
+   the warning-coloured pause/baseline chips: it marks a mode, not an alert. */
+.stepped-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 11px;
+    font-weight: var(--vion-font-weight-emphasized);
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 2px 9px;
+    border-radius: 999px;
+}
+
 .theme-toggle:disabled { opacity: 0.4; cursor: not-allowed; }
 .theme-toggle.view-active { color: var(--accent); border-color: var(--accent); }
 
