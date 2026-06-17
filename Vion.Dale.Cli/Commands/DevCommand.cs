@@ -50,6 +50,13 @@ namespace Vion.Dale.Cli.Commands
                                };
             command.Options.Add(presetOption);
 
+            var steppedOption = new Option<bool>("--stepped")
+                                {
+                                    Description =
+                                        "Boot in deterministic stepping mode (a controllable virtual clock) so scenario runs — in the Player and via `dale scenario run` — step exactly instead of waiting on the wall clock. Timers idle between runs; use the default real-clock mode for live watching.",
+                                };
+            command.Options.Add(steppedOption);
+
             command.SetAction(async (parseResult, cancellationToken) =>
                               {
                                   var projectPath = parseResult.GetValue<string?>("--project");
@@ -57,6 +64,7 @@ namespace Vion.Dale.Cli.Commands
                                   var exportConfig = parseResult.GetValue(exportConfigOption);
                                   var exportTopology = parseResult.GetValue(exportTopologyOption);
                                   var preset = parseResult.GetValue(presetOption);
+                                  var stepped = parseResult.GetValue(steppedOption);
 
                                   // The DevHost process (consumer-owned Program.cs via DevHostWebRunner) reads this
                                   // env var to skip the browser and emit a readiness line. UseShellExecute=false in
@@ -65,6 +73,14 @@ namespace Vion.Dale.Cli.Commands
                                   if (headless || exportConfig != null || exportTopology != null)
                                   {
                                       Environment.SetEnvironmentVariable("DALE_DEVHOST_NO_BROWSER", "1");
+                                  }
+
+                                  // Deterministic stepping: the consumer's WithWebUi() reads this and boots a
+                                  // controllable clock. Hardcoded name to keep the CLI's no-SDK-dependency rule
+                                  // (mirrors DevHostWebRunner.SteppedEnvVar).
+                                  if (stepped)
+                                  {
+                                      Environment.SetEnvironmentVariable("DALE_DEVHOST_STEPPED", "1");
                                   }
 
                                   // One-shot exports (boot, dump, exit) — mirror DevHostWebRunner.Export*EnvVar.

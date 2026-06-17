@@ -23,6 +23,14 @@ namespace Vion.Dale.DevHost.Web
         public const string NoBrowserEnvVar = "DALE_DEVHOST_NO_BROWSER";
 
         /// <summary>
+        ///     The env var (<c>=1</c>) that boots the web DevHost in deterministic stepping mode — a
+        ///     controllable clock so server-side scenario runs (Player + <c>dale scenario run</c>) step
+        ///     exactly instead of waiting on the wall clock. Set by <c>dale dev --stepped</c>; read by
+        ///     <see cref="DevHostBuilderExtensions.WithWebUi" />.
+        /// </summary>
+        public const string SteppedEnvVar = "DALE_DEVHOST_STEPPED";
+
+        /// <summary>
         ///     One-shot export mode (RFC 0006 R4): when set to a file path, the runner boots the host, writes
         ///     the wired network's <c>ConfigurationOutput</c> JSON to that path (the same shape
         ///     <c>GET /api/configuration</c> serves — block instance names, service identifiers, schemas,
