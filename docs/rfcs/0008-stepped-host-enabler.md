@@ -75,10 +75,32 @@ references a published SDK; it adopts after release and flips its `kind=headless
   temporary project references + chrome-devtools MCP (the `Vion.Dale.DevHost.Web/CLAUDE.md` verify loop) —
   the project-reference switch is **not committed**.
 
+### Part 4 — interactive manual stepping (the why-loop)
+
+Manual stepping reuses the Phase-1 stepper through the in-process control; this part only exposes it
+over HTTP + a Player affordance (no pump, no new clock machinery).
+
+- API (`DevHostController`): `POST /api/control/step` → `AdvanceToNextEventAsync()` (one event hop);
+  `POST /api/control/advance?seconds=N` → `AdvanceAsync(N s)` (jump, firing every event in between).
+  Both return the new `virtualTimeUtc` and are guarded: `409` when the host is not stepped, and `409`
+  while a scenario run is active. `GET /api/control/status` also gains `virtualTimeUtc`.
+- **`settle` folded into `advance N`** — the stepper quiesces after every advance, and an open-ended
+  "settle until idle" never terminates for periodic-timer systems. Scenario `settle` (with `until` /
+  budget) remains the home for convergence semantics.
+- UI (`wwwroot`, no-build): the `⏱ stepped` badge becomes a control cluster —
+  `⏱ stepped · t=<virtual clock> · [↦ step] [+N s]`. Buttons POST to the endpoints; the readout updates
+  from the response; live values refresh via the existing SignalR stream. Controls disable while a run
+  is active.
+- Concurrency: clock-driving operations are mutually exclusive — manual stepping rejects (409) while the
+  scenario-run registry reports an active run.
+- Tests: HTTP endpoint tests (step/advance move `virtualTimeUtc`; `409` when not-stepped and when a run
+  is active) on the real-Kestrel harness; end-to-end via chrome-devtools (poke → step → watch).
+
 ## Out of scope (deferred)
 
-- Free-run **pump** + runtime stepped/free-run **toggle** ("Part 4").
-- Interactive manual `advance`/`settle` over HTTP (step buttons).
+- Free-run **pump** + runtime stepped/free-run **toggle** (live feel while stepped). Deferred as YAGNI —
+  live "dashboard feel" already exists in the default real-clock mode; manual stepping (Part 4) delivers
+  the deterministic why-loop without the pump's clock-driver coordination.
 - Consumer-side gate move (post-publish: consumer's `HeadlessHost` adopts `WithDeterministicStepping()`,
   flips the `kind=headless-integration` trait, retires `headless-nightly.yml`).
 
