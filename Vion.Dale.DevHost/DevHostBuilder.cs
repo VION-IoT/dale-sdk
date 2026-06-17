@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Time.Testing;
 using Vion.Dale.DevHost.Control;
 using Vion.Dale.DevHost.Mocking;
 using Vion.Dale.ProtoActor.Extensions;
@@ -15,6 +16,16 @@ namespace Vion.Dale.DevHost
 {
     public class DevHostBuilder
     {
+        // The fixed virtual-clock start for WithDeterministicStepping() when no instant is given — a stable
+        // epoch so a stepped run is reproducible (matches the stepping tests' clock).
+        private static readonly DateTimeOffset DeterministicEpoch = new(2026,
+                                                                        1,
+                                                                        1,
+                                                                        0,
+                                                                        0,
+                                                                        0,
+                                                                        TimeSpan.Zero);
+
         private readonly List<Assembly> _pluginAssemblies = new();
 
         private readonly ServiceCollection _services = new();
@@ -93,6 +104,20 @@ namespace Vion.Dale.DevHost
         public DevHostBuilder ConfigureServices(Action<IServiceCollection> configure)
         {
             configure(_services);
+            return this;
+        }
+
+        /// <summary>
+        ///     Boot in deterministic stepping mode: register a controllable clock so
+        ///     <see cref="Control.IDevHostControl.IsStepped" /> is true and a scenario's <c>advance</c> /
+        ///     <c>settle</c> steps drive virtual time exactly instead of waiting on the wall clock. The clock
+        ///     starts at <paramref name="startUtc" /> (default a fixed epoch, so a run is reproducible). It is
+        ///     registered ahead of <see cref="Build" />'s <c>TryAddSingleton(TimeProvider.System)</c>, so this
+        ///     explicit clock wins.
+        /// </summary>
+        public DevHostBuilder WithDeterministicStepping(DateTimeOffset? startUtc = null)
+        {
+            _services.AddSingleton<TimeProvider>(new FakeTimeProvider(startUtc ?? DeterministicEpoch));
             return this;
         }
 

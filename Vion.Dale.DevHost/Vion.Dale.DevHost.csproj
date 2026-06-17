@@ -26,6 +26,10 @@
         <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.0"/>
         <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0"/>
         <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.0"/>
+        <!-- Controllable clock for WithDeterministicStepping() — the canonical FakeTimeProvider. The
+             stepper detects it structurally (Advance/GetUtcNow reflection), so this is the only place the
+             type is referenced. Already a dependency of the shipped Vion.Dale.Sdk.TestKit. -->
+        <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.0.0"/>
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\Vion.Dale.Sdk\Vion.Dale.Sdk.csproj"/>

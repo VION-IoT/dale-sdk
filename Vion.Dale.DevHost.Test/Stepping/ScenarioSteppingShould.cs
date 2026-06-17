@@ -519,6 +519,37 @@ namespace Vion.Dale.DevHost.Test.Stepping
             Assert.IsNull(file.Steps[2].Settle!.MaxSeconds);
         }
 
+        // ── WithDeterministicStepping() builds a stepped host (Part 1) ────────────────────────────────
+
+        /// <summary>
+        ///     <c>DevHostBuilder.WithDeterministicStepping()</c> registers a controllable clock so the host
+        ///     runs stepped — <c>IsStepped</c> is true and <c>advance</c> drives virtual time exactly — without
+        ///     a hand-wired <c>FakeTimeProvider</c>.
+        /// </summary>
+        [TestMethod]
+        public async Task WithDeterministicStepping_BuildsASteppedHost_ThatDrivesVirtualTime()
+        {
+            var config = DevConfigurationBuilder.Create().WithTopologyName("stepping-topology").AddLogicBlock<TickerBlock>("Ticker").Build();
+            await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithDeterministicStepping().Build();
+            await host.StartAsync();
+
+            Assert.IsTrue(host.Control.IsStepped, "WithDeterministicStepping() must register a controllable clock so IsStepped is true.");
+
+            // It actually steps: advancing 3 virtual seconds fires the [Timer(1)] exactly 3 times.
+            var scenario = ScenarioFile.Parse("""
+                                              {
+                                                "version": 1, "id": "wds", "topology": "stepping-topology",
+                                                "steps": [
+                                                  { "advance": { "seconds": 3 } },
+                                                  { "expect": { "property": "Ticker.Ticks", "equals": 3 } }
+                                                ]
+                                              }
+                                              """);
+
+            var report = await ScenarioRunner.RunAsync(scenario, host.Control);
+            Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
+        }
+
         // ── Helpers ──────────────────────────────────────────────────────────────────────────────────────
 
         private static FakeTimeProvider NewClock()
