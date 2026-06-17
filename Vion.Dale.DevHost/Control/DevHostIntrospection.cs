@@ -9,6 +9,19 @@ using Vion.Dale.Sdk.Introspection;
 
 namespace Vion.Dale.DevHost.Control
 {
+    /// <summary>Whether a member addressed for a write exists and, if so, whether it can be written.</summary>
+    public enum ServicePropertyWriteState
+    {
+        /// <summary>No service property or measuring point of that name on the service.</summary>
+        Unknown,
+
+        /// <summary>The member exists but cannot be written (a measuring point, or a property with no public setter).</summary>
+        ReadOnly,
+
+        /// <summary>A writable service property.</summary>
+        Writable,
+    }
+
     /// <summary>
     ///     Core-side logic-block introspection for the headless control surface (RFC 0003). Owns the
     ///     introspection results: assigns service identifiers, records the property → service-id map for
@@ -143,6 +156,40 @@ namespace Vion.Dale.DevHost.Control
 
             clrType = hostType.GetProperty(propertyName)?.PropertyType;
             return clrType is not null;
+        }
+
+        /// <summary>
+        ///     Whether a member addressed by service-config id can be written: <see cref="ServicePropertyWriteState.Unknown" />
+        ///     when no such member exists, <see cref="ServicePropertyWriteState.ReadOnly" /> for a measuring point or a
+        ///     property whose schema carries <c>readOnly: true</c> (no public setter), else
+        ///     <see cref="ServicePropertyWriteState.Writable" />. The set path consults this to reject a write the block
+        ///     cannot apply LOUDLY, rather than letting the binder exception be swallowed into a silent no-op.
+        /// </summary>
+        public ServicePropertyWriteState GetServicePropertyWriteState(string serviceId, string propertyName)
+        {
+            EnsureIntrospected();
+
+            var block = _configuration.LogicBlocks.FirstOrDefault(lb => lb.Services.Any(s => s.Id == serviceId));
+            if (block is null || !_results.TryGetValue(block.Id, out var result))
+            {
+                return ServicePropertyWriteState.Unknown;
+            }
+
+            var serviceConfig = block.Services.First(s => s.Id == serviceId);
+            var serviceInfo = result.Services.FirstOrDefault(si => si.Identifier == serviceConfig.Identifier);
+            if (serviceInfo is null)
+            {
+                return ServicePropertyWriteState.Unknown;
+            }
+
+            var property = serviceInfo.Properties.FirstOrDefault(p => p.Identifier == propertyName);
+            if (property is not null)
+            {
+                return property.Schema?["readOnly"]?.GetValue<bool>() == true ? ServicePropertyWriteState.ReadOnly : ServicePropertyWriteState.Writable;
+            }
+
+            // Measuring points are read-only computed metrics — known members, never writable.
+            return serviceInfo.MeasuringPoints.Any(mp => mp.Identifier == propertyName) ? ServicePropertyWriteState.ReadOnly : ServicePropertyWriteState.Unknown;
         }
 
         /// <summary>Build the full introspection output for the wired network (the heavyweight view).</summary>

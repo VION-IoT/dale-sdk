@@ -171,6 +171,30 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        public async Task PostSetProperty_OnReadOnlyOrUnknownMember_Returns400()
+        {
+            // Trip wire: a write the block can't apply (read-only measuring point / unknown member) used to
+            // return 200 after silently burning the 5 s ack timeout. It must now fail loudly with a 4xx so an
+            // agent or developer driving the HTTP path is not misled into thinking the write took effect.
+            var port = FreePort();
+            await using var host = BuildWebHost(port);
+            await host.StartAsync();
+
+            using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
+
+            var blocksJson = await client.GetStringAsync("/api/logicblocks");
+            using var blocksDoc = JsonDocument.Parse(blocksJson);
+            var serviceId = blocksDoc.RootElement[0].GetProperty("serviceIds")[0].GetString();
+
+            // CounterDoubled is a read-only [ServiceMeasuringPoint].
+            var readOnly = await client.PostAsJsonAsync($"/api/dale/property/{serviceId}/CounterDoubled", new { value = 7 });
+            Assert.AreEqual(HttpStatusCode.BadRequest, readOnly.StatusCode, "Writing a read-only member must fail loudly (400), not silently succeed (200).");
+
+            var unknown = await client.PostAsJsonAsync($"/api/dale/property/{serviceId}/NoSuchMember", new { value = 7 });
+            Assert.AreEqual(HttpStatusCode.BadRequest, unknown.StatusCode, "Writing an unknown member must fail loudly (400).");
+        }
+
+        [TestMethod]
         public async Task PostSetProperty_OnNestedServiceProperty_DecodesJsonAndApplies()
         {
             // Regression for the "multi charging point has no grid effect" bug: properties living on a

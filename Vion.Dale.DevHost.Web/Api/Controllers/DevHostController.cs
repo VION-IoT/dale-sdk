@@ -58,8 +58,17 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
         [HttpPost("dale/property/{serviceIdentifier}/{propertyIdentifier}")]
         public async Task<ActionResult> SetServicePropertyValue(string serviceIdentifier, string propertyIdentifier, [FromBody] SetValueInput<object> input)
         {
-            await _control.SetServicePropertyValueAsync(serviceIdentifier, propertyIdentifier, input.Value);
-            return Ok();
+            try
+            {
+                await _control.SetServicePropertyValueAsync(serviceIdentifier, propertyIdentifier, input.Value);
+                return Ok();
+            }
+            catch (InvalidOperationException ex)
+            {
+                // Unknown service id, or a read-only / unknown member — a write the block can't apply. Fail
+                // loudly with a 4xx instead of a silently-timed-out 200.
+                return BadRequest(new { error = ex.Message });
+            }
         }
 
         // --- Read / observe (headless control surface, RFC 0003) ---

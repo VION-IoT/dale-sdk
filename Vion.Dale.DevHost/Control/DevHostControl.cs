@@ -259,6 +259,17 @@ namespace Vion.Dale.DevHost.Control
             var logicBlock = _configuration.LogicBlocks.FirstOrDefault(lb => lb.Services.Any(s => s.Id == serviceId)) ??
                              throw new InvalidOperationException($"Unknown service id '{serviceId}'.");
 
+            // Reject a write the block can't apply UP FRONT, loudly. Otherwise the binder throws inside the
+            // actor, the middleware swallows it, the write ack times out, and the HTTP path returns 200 — a
+            // silent no-op that misleads an agent or developer into thinking the value took (the trip wire).
+            switch (_introspection.GetServicePropertyWriteState(serviceId, propertyName))
+            {
+                case ServicePropertyWriteState.Unknown:
+                    throw new InvalidOperationException($"No service property '{propertyName}' on service '{serviceId}'.");
+                case ServicePropertyWriteState.ReadOnly:
+                    throw new InvalidOperationException($"Service property '{propertyName}' is read-only and cannot be set.");
+            }
+
             // Decode JSON values (the HTTP path delivers JsonElement) into the precise CLR type the block
             // expects; CLR values from in-process callers pass through unchanged.
             var typedValue = NormalizeValue(serviceId, propertyName, value);
