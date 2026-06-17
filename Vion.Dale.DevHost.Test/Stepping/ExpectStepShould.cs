@@ -252,7 +252,13 @@ namespace Vion.Dale.DevHost.Test.Stepping
         [TestMethod]
         public async Task SupportOneOf_OnWaitUntil()
         {
-            var clock = new FakeTimeProvider(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
+            var clock = new FakeTimeProvider(new DateTimeOffset(2026,
+                                                                1,
+                                                                1,
+                                                                0,
+                                                                0,
+                                                                0,
+                                                                TimeSpan.Zero));
             await using var host = BuildSteppedRampHost(clock);
             await host.StartAsync();
 

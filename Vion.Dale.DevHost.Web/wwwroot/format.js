@@ -415,14 +415,41 @@ export function parseNamePath(path) {
 // Step status → glyph for the Player's step list.
 export const STEP_GLYPHS = { pending: '◌', running: '▸', ok: '✓', failed: '✗', skipped: '⊘' };
 
+// Render a comparand: a { path } object → "{Block.Prop}", everything else → JSON literal.
+// Mirrors ScenarioRunner.DescribeComparand (the {path} relational form is expect-only per the schema
+// but the helper is shared to keep describeComparator uniform).
+function describeComparand(v) {
+    if (v !== null && typeof v === 'object' && 'path' in v && typeof v.path === 'string') {
+        return `{${v.path}}`;
+    }
+    return JSON.stringify(v);
+}
+
+// Human-readable comparator — mirrors ScenarioRunner.DescribeComparator (C#).
+// Covers above / below / equals (+tolerance) / notEquals / oneOf, and {path} comparands.
+function describeComparator(c) {
+    if (c.above !== undefined) return `> ${describeComparand(c.above)}`;
+    if (c.below !== undefined) return `< ${describeComparand(c.below)}`;
+    if ('equals' in c) {
+        const tol = c.tolerance !== undefined ? ` ±${c.tolerance}` : '';
+        return `== ${describeComparand(c.equals)}${tol}`;
+    }
+    if (c.notEquals !== undefined) return `!= ${describeComparand(c.notEquals)}`;
+    // oneOf: render as "one of [a, b, c]"
+    const members = Array.isArray(c.oneOf) ? c.oneOf.map(e => JSON.stringify(e)).join(', ') : '?';
+    return `one of [${members}]`;
+}
+
 // Human-readable waitUntil condition — the same "> 0 · 30 s timeout" wording the server puts in
 // run reports, used for pending (pre-run) rows derived from the file.
 export function describeWaitUntil(waitUntil, timeoutSeconds) {
-    const comparator = waitUntil.above !== undefined ? `> ${JSON.stringify(waitUntil.above)}`
-        : waitUntil.below !== undefined ? `< ${JSON.stringify(waitUntil.below)}`
-        : 'equals' in waitUntil ? `== ${JSON.stringify(waitUntil.equals)}${waitUntil.tolerance !== undefined ? ` ±${waitUntil.tolerance}` : ''}`
-        : `!= ${JSON.stringify(waitUntil.notEquals)}`;
-    return `${comparator} · ${timeoutSeconds ?? 20} s timeout`;
+    return `${describeComparator(waitUntil)} · ${timeoutSeconds ?? 20} s timeout`;
+}
+
+// Human-readable expect assertion — mirrors ScenarioRunner.DescribeExpect (C#).
+// Used for pending (pre-run) rows; the server report overwrites these once the run completes.
+export function describeExpect(expect) {
+    return describeComparator(expect);
 }
 
 // Build the copy-paste verification report (markdown) from the scenario, the run report, and the

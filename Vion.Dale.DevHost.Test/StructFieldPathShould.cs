@@ -232,7 +232,13 @@ namespace Vion.Dale.DevHost.Test
         {
             for (var run = 0; run < 5; run++)
             {
-                var clock = new FakeTimeProvider(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
+                var clock = new FakeTimeProvider(new DateTimeOffset(2026,
+                                                                    1,
+                                                                    1,
+                                                                    0,
+                                                                    0,
+                                                                    0,
+                                                                    TimeSpan.Zero));
                 await using var host = BuildSteppedHost(clock);
                 await host.StartAsync();
 
@@ -286,10 +292,14 @@ namespace Vion.Dale.DevHost.Test
     ///     PascalCase "did you mean" suggestion.
     /// </summary>
     public readonly record struct PhaseCurrents(
-        [StructField(Title = "L1", Unit = "A")] double L1,
-        [StructField(Title = "L2", Unit = "A")] double L2,
-        [StructField(Title = "L3", Unit = "A")] double L3,
-        [StructField(Title = "Neutral", Unit = "A")] double NeutralCurrent);
+        [StructField(Title = "L1", Unit = "A")]
+        double L1,
+        [StructField(Title = "L2", Unit = "A")]
+        double L2,
+        [StructField(Title = "L3", Unit = "A")]
+        double L3,
+        [StructField(Title = "Neutral", Unit = "A")]
+        double NeutralCurrent);
 
     /// <summary>
     ///     A block exposing a struct <c>[ServiceProperty]</c> and a struct <c>[ServiceMeasuringPoint]</c>,
@@ -370,12 +380,12 @@ namespace Vion.Dale.DevHost.Test
     [LogicBlock(Name = "Ramp")]
     public class RampBlock : LogicBlockBase
     {
+        [ServiceProperty(Title = "Ramp")]
+        public PhaseCurrents Ramp { get; private set; }
+
         public RampBlock(ILogger logger) : base(logger)
         {
         }
-
-        [ServiceProperty(Title = "Ramp")]
-        public PhaseCurrents Ramp { get; private set; }
 
         [Timer(1)]
         public void OnTick()

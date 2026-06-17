@@ -6,7 +6,7 @@
 
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from './vue.esm-browser.prod.js';
 import {
-    buildVerificationReport, cssGroupKey, defaultOpen, describeType, describeWaitUntil,
+    buildVerificationReport, cssGroupKey, defaultOpen, describeExpect, describeType, describeWaitUntil,
     effectiveType, enumDisplay, enumMembers, formatTemporal, formatValue, gallerySamples,
     GROUP_LABELS, groupItems, isNullable, isWritable, matchesFilter, orderedGroupKeys, parseFilter,
     parseNamePath, presentationFacts, resolveAuthoredTitle, resolveDisplayName, resolveUnit, sampleJson, serviceMembers, severityFor,
@@ -1357,6 +1357,9 @@ export const PlayerPanel = {
                     : s.digitalInput ? 'digitalInput'
                     : s.analogInput ? 'analogInput'
                     : s.waitUntil ? 'waitUntil'
+                    : s.expect ? 'expect'
+                    : s.advance ? 'advance'
+                    : s.settle !== undefined ? 'settle'
                     : s.wait ? 'wait' : 'unknown',
                 label: s.label,
                 spec: s.spec,
@@ -1364,9 +1367,15 @@ export const PlayerPanel = {
                     : s.digitalInput ? `${s.digitalInput.block}.${s.digitalInput.contract}`
                     : s.analogInput ? `${s.analogInput.block}.${s.analogInput.contract}`
                     : s.waitUntil ? s.waitUntil.property
+                    : s.expect ? s.expect.property
+                    : s.advance ? `${s.advance.seconds} s`
+                    : s.settle !== undefined ? 'until stable'
                     : s.wait ? `${s.wait.seconds} s` : '?',
                 argument: 'value' in s ? JSON.stringify(s.value)
-                    : s.waitUntil ? describeWaitUntil(s.waitUntil, s.timeoutSeconds) : null,
+                    : s.waitUntil ? describeWaitUntil(s.waitUntil, s.timeoutSeconds)
+                    : s.expect ? describeExpect(s.expect)
+                    : s.settle !== undefined ? (s.settle.maxSeconds !== undefined ? `≤${s.settle.maxSeconds} s` : '≤60 s')
+                    : null,
                 status: 'pending',
             }));
         };

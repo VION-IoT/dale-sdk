@@ -292,7 +292,8 @@ namespace Vion.Dale.Cli.Commands
                     continue;
                 }
 
-                if (setupOnlyShapes && (step.ContainsKey("waitUntil") || step.ContainsKey("expect") || step.ContainsKey("wait") || step.ContainsKey("advance") || step.ContainsKey("settle")))
+                if (setupOnlyShapes && (step.ContainsKey("waitUntil") || step.ContainsKey("expect") || step.ContainsKey("wait") || step.ContainsKey("advance") ||
+                                        step.ContainsKey("settle")))
                 {
                     errors.Add($"{where}: setup entries stage state — waits, expects, and time steps belong in steps");
                     continue;

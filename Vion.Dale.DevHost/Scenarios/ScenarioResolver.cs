@@ -15,12 +15,13 @@ namespace Vion.Dale.DevHost.Scenarios
     ///     member names (PascalCase), like the rest of the path; the schema's <c>properties</c> keys are
     ///     camelCase, matched by lower-casing the first char.
     /// </summary>
-    internal sealed record ResolvedProperty(string Block,
-                                            string ServiceIdentifier,
-                                            string ServiceConfigId,
-                                            string PropertyName,
-                                            bool IsMeasuringPoint,
-                                            IReadOnlyList<string>? FieldPath = null);
+    internal sealed record ResolvedProperty(
+        string Block,
+        string ServiceIdentifier,
+        string ServiceConfigId,
+        string PropertyName,
+        bool IsMeasuringPoint,
+        IReadOnlyList<string>? FieldPath = null);
 
     /// <summary>A contract reference resolved to its mocked endpoint (service provider / service / contract ids).</summary>
     internal sealed record ResolvedContract(string ServiceProviderId, string ServiceId, string ContractId);
@@ -75,7 +76,12 @@ namespace Vion.Dale.DevHost.Scenarios
                     if (property is not null)
                     {
                         var numericComparator = step.WaitUntil.Above.ValueKind == JsonValueKind.Number || step.WaitUntil.Below.ValueKind == JsonValueKind.Number;
-                        ValidateComparatorAgainstLeaf(property, step.WaitUntil.Property, numericComparator, step.WaitUntil.OneOf, where, errors);
+                        ValidateComparatorAgainstLeaf(property,
+                                                      step.WaitUntil.Property,
+                                                      numericComparator,
+                                                      step.WaitUntil.OneOf,
+                                                      where,
+                                                      errors);
                     }
 
                     return new ResolvedStep(property, null);
@@ -87,7 +93,12 @@ namespace Vion.Dale.DevHost.Scenarios
                     var numericComparator = step.Expect.Above.ValueKind != JsonValueKind.Undefined || step.Expect.Below.ValueKind != JsonValueKind.Undefined;
                     if (property is not null)
                     {
-                        ValidateComparatorAgainstLeaf(property, step.Expect.Property, numericComparator, step.Expect.OneOf, where, errors);
+                        ValidateComparatorAgainstLeaf(property,
+                                                      step.Expect.Property,
+                                                      numericComparator,
+                                                      step.Expect.OneOf,
+                                                      where,
+                                                      errors);
                     }
 
                     // A relational {path} comparand resolves like the target; for above/below it must be a
@@ -121,62 +132,6 @@ namespace Vion.Dale.DevHost.Scenarios
             }
         }
 
-        // The comparator-vs-leaf check shared by waitUntil and expect, run against the RESOLVED LEAF (for a
-        // struct field path the scalar field's schema type, not the object-typed member's): above/below need
-        // a numeric leaf; equals/notEquals/oneOf reject a no-field struct/array target (else a notEquals
-        // against a struct would instantly false-pass). oneOf elements are additionally type-checked here.
-        private void ValidateComparatorAgainstLeaf(ResolvedProperty property, string? path, bool numericComparator, JsonElement oneOf, string where, List<string> errors)
-        {
-            var type = EffectiveSchemaType(property);
-            if (numericComparator && type != "number" && type != "integer")
-            {
-                errors.Add($"{where}: above/below compare numbers, but '{path}' is of type '{type ?? "unknown"}'");
-            }
-
-            if (!numericComparator && (type == "object" || type == "array"))
-            {
-                errors.Add($"{where}: '{path}' is a {type}-typed member — structs/arrays are not comparable in v1 (a scenario needing that is a C# test)");
-            }
-
-            // oneOf elements must fit the leaf type: a numeric leaf takes numbers; a string/enum leaf takes
-            // strings; a boolean leaf takes booleans. (Element scalar-ness is enforced structurally.)
-            if (oneOf.ValueKind == JsonValueKind.Array && type is "number" or "integer" or "string" or "boolean")
-            {
-                foreach (var element in oneOf.EnumerateArray())
-                {
-                    if (!ElementFitsLeaf(element.ValueKind, type))
-                    {
-                        errors.Add($"{where}: oneOf element {element.GetRawText()} does not fit '{path}' (type '{type}')");
-                    }
-                }
-            }
-        }
-
-        private static bool ElementFitsLeaf(JsonValueKind element, string leafType)
-        {
-            return leafType switch
-            {
-                "number" or "integer" => element == JsonValueKind.Number,
-                "string" => element == JsonValueKind.String,
-                "boolean" => element is JsonValueKind.True or JsonValueKind.False,
-                _ => true,
-            };
-        }
-
-        // The relational comparand path of an expect when the comparator value is a {path} object, else null.
-        private static string? RelationalComparand(ScenarioExpect expect)
-        {
-            foreach (var comparand in new[] { expect.Above, expect.Below, expect.EqualTo, expect.NotEquals })
-            {
-                if (ScenarioComparators.IsPathComparand(comparand))
-                {
-                    return comparand.GetProperty("path").GetString();
-                }
-            }
-
-            return null;
-        }
-
         public ResolvedProperty? ResolveProperty(string? path, string where, List<string> errors)
         {
             if (path is null || !TryParseSegments(path, out var segments))
@@ -196,7 +151,7 @@ namespace Vion.Dale.DevHost.Scenarios
             // Disambiguate Block.Service.Property (3+ seg) against Block.Property.Field (3+ seg) by the
             // CONFIG, never by counting segments: seg[1] is a service iff the block declares it. If seg[1]
             // is ALSO a valid member of the block, the path is genuinely ambiguous — list both readings.
-            ConfigurationOutput.Service? service = segments.Count >= 3 ? block.Services.FirstOrDefault(s => s.Identifier == segments[1]) : null;
+            var service = segments.Count >= 3 ? block.Services.FirstOrDefault(s => s.Identifier == segments[1]) : null;
             var seg1IsMember = block.Services.Any(s => HasMember(s, segments[1]));
 
             if (service is not null && seg1IsMember)
@@ -266,6 +221,67 @@ namespace Vion.Dale.DevHost.Scenarios
             }
 
             return resolved with { FieldPath = fieldPath };
+        }
+
+        // The comparator-vs-leaf check shared by waitUntil and expect, run against the RESOLVED LEAF (for a
+        // struct field path the scalar field's schema type, not the object-typed member's): above/below need
+        // a numeric leaf; equals/notEquals/oneOf reject a no-field struct/array target (else a notEquals
+        // against a struct would instantly false-pass). oneOf elements are additionally type-checked here.
+        private void ValidateComparatorAgainstLeaf(ResolvedProperty property,
+                                                   string? path,
+                                                   bool numericComparator,
+                                                   JsonElement oneOf,
+                                                   string where,
+                                                   List<string> errors)
+        {
+            var type = EffectiveSchemaType(property);
+            if (numericComparator && type != "number" && type != "integer")
+            {
+                errors.Add($"{where}: above/below compare numbers, but '{path}' is of type '{type ?? "unknown"}'");
+            }
+
+            if (!numericComparator && (type == "object" || type == "array"))
+            {
+                errors.Add($"{where}: '{path}' is a {type}-typed member — structs/arrays are not comparable in v1 (a scenario needing that is a C# test)");
+            }
+
+            // oneOf elements must fit the leaf type: a numeric leaf takes numbers; a string/enum leaf takes
+            // strings; a boolean leaf takes booleans. (Element scalar-ness is enforced structurally.)
+            if (oneOf.ValueKind == JsonValueKind.Array && type is "number" or "integer" or "string" or "boolean")
+            {
+                foreach (var element in oneOf.EnumerateArray())
+                {
+                    if (!ElementFitsLeaf(element.ValueKind, type))
+                    {
+                        errors.Add($"{where}: oneOf element {element.GetRawText()} does not fit '{path}' (type '{type}')");
+                    }
+                }
+            }
+        }
+
+        private static bool ElementFitsLeaf(JsonValueKind element, string leafType)
+        {
+            return leafType switch
+            {
+                "number" or "integer" => element == JsonValueKind.Number,
+                "string" => element == JsonValueKind.String,
+                "boolean" => element is JsonValueKind.True or JsonValueKind.False,
+                _ => true,
+            };
+        }
+
+        // The relational comparand path of an expect when the comparator value is a {path} object, else null.
+        private static string? RelationalComparand(ScenarioExpect expect)
+        {
+            foreach (var comparand in new[] { expect.Above, expect.Below, expect.EqualTo, expect.NotEquals })
+            {
+                if (ScenarioComparators.IsPathComparand(comparand))
+                {
+                    return comparand.GetProperty("path").GetString();
+                }
+            }
+
+            return null;
         }
 
         private static ResolvedProperty? Find(ConfigurationOutput.LogicBlock block,
@@ -479,7 +495,15 @@ namespace Vion.Dale.DevHost.Scenarios
     {
         public static bool IsSatisfied(ScenarioWaitUntil condition, object? live)
         {
-            return Evaluate(condition.Above, condition.Below, condition.EqualTo, condition.NotEquals, condition.OneOf, condition.Tolerance, live, null, false);
+            return Evaluate(condition.Above,
+                            condition.Below,
+                            condition.EqualTo,
+                            condition.NotEquals,
+                            condition.OneOf,
+                            condition.Tolerance,
+                            live,
+                            null,
+                            false);
         }
 
         // expect's evaluator — identical comparator logic, but a relational comparand resolved from a {path}
@@ -488,18 +512,26 @@ namespace Vion.Dale.DevHost.Scenarios
         // path that resolves to null is still handled as a relational comparison against null.
         public static bool IsSatisfied(ScenarioExpect condition, object? live, bool hasComparand, object? comparandLive)
         {
-            return Evaluate(condition.Above, condition.Below, condition.EqualTo, condition.NotEquals, condition.OneOf, condition.Tolerance, live, comparandLive, hasComparand);
+            return Evaluate(condition.Above,
+                            condition.Below,
+                            condition.EqualTo,
+                            condition.NotEquals,
+                            condition.OneOf,
+                            condition.Tolerance,
+                            live,
+                            comparandLive,
+                            hasComparand);
         }
 
         private static bool Evaluate(JsonElement above,
-                                    JsonElement below,
-                                    JsonElement equalTo,
-                                    JsonElement notEquals,
-                                    JsonElement oneOf,
-                                    double? tolerance,
-                                    object? live,
-                                    object? comparandLive,
-                                    bool hasComparand)
+                                     JsonElement below,
+                                     JsonElement equalTo,
+                                     JsonElement notEquals,
+                                     JsonElement oneOf,
+                                     double? tolerance,
+                                     object? live,
+                                     object? comparandLive,
+                                     bool hasComparand)
         {
             if (above.ValueKind != JsonValueKind.Undefined)
             {
@@ -550,8 +582,7 @@ namespace Vion.Dale.DevHost.Scenarios
 
             if (TryAsDouble(expected, out var expectedNumber))
             {
-                return TryAsDouble(live, out var liveNumber) &&
-                       (tolerance is null ? liveNumber.Equals(expectedNumber) : Math.Abs(liveNumber - expectedNumber) <= tolerance.Value);
+                return TryAsDouble(live, out var liveNumber) && (tolerance is null ? liveNumber.Equals(expectedNumber) : Math.Abs(liveNumber - expectedNumber) <= tolerance.Value);
             }
 
             if (expected is bool expectedBool)

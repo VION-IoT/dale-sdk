@@ -132,18 +132,33 @@ namespace Vion.Dale.DevHost.Scenarios
         {
             var condition = step.WaitUntil!;
             var timeout = step.TimeoutSeconds ?? DefaultWaitUntilTimeoutSeconds;
-            var comparator = DescribeComparator(condition.Above, condition.Below, condition.EqualTo, condition.NotEquals, condition.OneOf, condition.Tolerance);
+            var comparator = DescribeComparator(condition.Above,
+                                                condition.Below,
+                                                condition.EqualTo,
+                                                condition.NotEquals,
+                                                condition.OneOf,
+                                                condition.Tolerance);
             return $"{comparator} · {timeout.ToString(CultureInfo.InvariantCulture)} s timeout";
         }
 
         // Human-readable expect assertion for reports ("> 0", "one of [a, b]", "== {RefBlock.Limit}").
         private static string DescribeExpect(ScenarioExpect expect)
         {
-            return DescribeComparator(expect.Above, expect.Below, expect.EqualTo, expect.NotEquals, expect.OneOf, expect.Tolerance);
+            return DescribeComparator(expect.Above,
+                                      expect.Below,
+                                      expect.EqualTo,
+                                      expect.NotEquals,
+                                      expect.OneOf,
+                                      expect.Tolerance);
         }
 
         // The comparator description shared by waitUntil and expect, including oneOf and {path} comparands.
-        private static string DescribeComparator(JsonElement above, JsonElement below, JsonElement equalTo, JsonElement notEquals, JsonElement oneOf, double? tolerance)
+        private static string DescribeComparator(JsonElement above,
+                                                 JsonElement below,
+                                                 JsonElement equalTo,
+                                                 JsonElement notEquals,
+                                                 JsonElement oneOf,
+                                                 double? tolerance)
         {
             if (above.ValueKind != JsonValueKind.Undefined)
             {
@@ -650,8 +665,7 @@ namespace Vion.Dale.DevHost.Scenarios
                 for (var i = 0; i < resolved.Count; i++)
                 {
                     var target = resolved[i];
-                    values[i] = target is null ? null :
-                                    ExtractField(control.GetProperty(target.Block, target.ServiceIdentifier, target.PropertyName), target.FieldPath);
+                    values[i] = target is null ? null : ExtractField(control.GetProperty(target.Block, target.ServiceIdentifier, target.PropertyName), target.FieldPath);
                 }
 
                 return values;

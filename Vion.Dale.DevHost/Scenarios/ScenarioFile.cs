@@ -463,7 +463,14 @@ namespace Vion.Dale.DevHost.Scenarios
                 yield return "waitUntil.property is required";
             }
 
-            foreach (var error in ScenarioComparators.StructuralErrors("waitUntil", Above, Below, EqualTo, NotEquals, OneOf, Tolerance, allowPathComparand: false))
+            foreach (var error in ScenarioComparators.StructuralErrors("waitUntil",
+                                                                       Above,
+                                                                       Below,
+                                                                       EqualTo,
+                                                                       NotEquals,
+                                                                       OneOf,
+                                                                       Tolerance,
+                                                                       false))
             {
                 yield return error;
             }
@@ -502,7 +509,14 @@ namespace Vion.Dale.DevHost.Scenarios
                 yield return "expect.property is required";
             }
 
-            foreach (var error in ScenarioComparators.StructuralErrors("expect", Above, Below, EqualTo, NotEquals, OneOf, Tolerance, allowPathComparand: true))
+            foreach (var error in ScenarioComparators.StructuralErrors("expect",
+                                                                       Above,
+                                                                       Below,
+                                                                       EqualTo,
+                                                                       NotEquals,
+                                                                       OneOf,
+                                                                       Tolerance,
+                                                                       true))
             {
                 yield return error;
             }
@@ -522,9 +536,7 @@ namespace Vion.Dale.DevHost.Scenarios
         /// </summary>
         public static bool IsPathComparand(JsonElement comparand)
         {
-            return comparand.ValueKind == JsonValueKind.Object &&
-                   comparand.TryGetProperty("path", out var path) &&
-                   path.ValueKind == JsonValueKind.String &&
+            return comparand.ValueKind == JsonValueKind.Object && comparand.TryGetProperty("path", out var path) && path.ValueKind == JsonValueKind.String &&
                    comparand.EnumerateObject().Count() == 1;
         }
 
@@ -542,7 +554,7 @@ namespace Vion.Dale.DevHost.Scenarios
             if (above.ValueKind != JsonValueKind.Undefined)
             {
                 comparators++;
-                foreach (var error in RelationalComparandErrors(shape, "above", above, allowPathComparand, numericOnly: true))
+                foreach (var error in RelationalComparandErrors(shape, "above", above, allowPathComparand, true))
                 {
                     yield return error;
                 }
@@ -551,7 +563,7 @@ namespace Vion.Dale.DevHost.Scenarios
             if (below.ValueKind != JsonValueKind.Undefined)
             {
                 comparators++;
-                foreach (var error in RelationalComparandErrors(shape, "below", below, allowPathComparand, numericOnly: true))
+                foreach (var error in RelationalComparandErrors(shape, "below", below, allowPathComparand, true))
                 {
                     yield return error;
                 }
@@ -560,7 +572,7 @@ namespace Vion.Dale.DevHost.Scenarios
             if (equalTo.ValueKind != JsonValueKind.Undefined)
             {
                 comparators++;
-                foreach (var error in RelationalComparandErrors(shape, "equals", equalTo, allowPathComparand, numericOnly: false))
+                foreach (var error in RelationalComparandErrors(shape, "equals", equalTo, allowPathComparand, false))
                 {
                     yield return error;
                 }
@@ -569,7 +581,7 @@ namespace Vion.Dale.DevHost.Scenarios
             if (notEquals.ValueKind != JsonValueKind.Undefined)
             {
                 comparators++;
-                foreach (var error in RelationalComparandErrors(shape, "notEquals", notEquals, allowPathComparand, numericOnly: false))
+                foreach (var error in RelationalComparandErrors(shape, "notEquals", notEquals, allowPathComparand, false))
                 {
                     yield return error;
                 }
@@ -627,9 +639,7 @@ namespace Vion.Dale.DevHost.Scenarios
             {
                 if (comparand.ValueKind != JsonValueKind.Number)
                 {
-                    yield return allowPathComparand
-                                     ? $"{shape}.{name} must be a number or a {{ \"path\": \"…\" }} comparand"
-                                     : $"{shape}.{name} must be a number";
+                    yield return allowPathComparand ? $"{shape}.{name} must be a number or a {{ \"path\": \"…\" }} comparand" : $"{shape}.{name} must be a number";
                 }
 
                 yield break;
@@ -637,9 +647,9 @@ namespace Vion.Dale.DevHost.Scenarios
 
             if (comparand.ValueKind == JsonValueKind.Object || comparand.ValueKind == JsonValueKind.Array)
             {
-                yield return allowPathComparand
-                                 ? $"{shape}.{name} does not compare structs/arrays in v1 — the only object form is {{ \"path\": \"…\" }} (a scenario needing more is a C# test)"
-                                 : $"{shape}.{name} does not compare structs/arrays in v1 — a scenario needing that is a C# test";
+                yield return allowPathComparand ?
+                                 $"{shape}.{name} does not compare structs/arrays in v1 — the only object form is {{ \"path\": \"…\" }} (a scenario needing more is a C# test)" :
+                                 $"{shape}.{name} does not compare structs/arrays in v1 — a scenario needing that is a C# test";
             }
         }
     }
