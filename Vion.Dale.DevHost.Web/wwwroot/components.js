@@ -1368,12 +1368,13 @@ export const PlayerPanel = {
                     : s.analogInput ? `${s.analogInput.block}.${s.analogInput.contract}`
                     : s.waitUntil ? s.waitUntil.property
                     : s.expect ? s.expect.property
-                    : s.advance ? `${s.advance.seconds} s`
+                    : s.advance ? ''
                     : s.settle !== undefined ? 'until stable'
                     : s.wait ? `${s.wait.seconds} s` : '?',
                 argument: 'value' in s ? JSON.stringify(s.value)
                     : s.waitUntil ? describeWaitUntil(s.waitUntil, s.timeoutSeconds)
                     : s.expect ? describeExpect(s.expect)
+                    : s.advance ? `${s.advance.seconds} s`
                     : s.settle !== undefined ? (s.settle.maxSeconds !== undefined ? `≤${s.settle.maxSeconds} s` : '≤60 s')
                     : null,
                 status: 'pending',

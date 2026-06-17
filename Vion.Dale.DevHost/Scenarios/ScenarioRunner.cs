@@ -222,7 +222,7 @@ namespace Vion.Dale.DevHost.Scenarios
                                "analogInput" => $"{step.AnalogInput!.Block}.{step.AnalogInput.Contract}",
                                "waitUntil" => step.WaitUntil!.Property ?? string.Empty,
                                "expect" => step.Expect!.Property ?? string.Empty,
-                               "advance" => $"{step.Advance!.Seconds.ToString(CultureInfo.InvariantCulture)} s",
+                               "advance" => string.Empty,
                                "settle" => "until stable",
                                _ => $"{step.Wait!.Seconds.ToString(CultureInfo.InvariantCulture)} s",
                            },
@@ -233,6 +233,7 @@ namespace Vion.Dale.DevHost.Scenarios
                                "expect" => DescribeExpect(step.Expect!),
                                "settle" => step.Settle!.MaxSeconds is { } max ? $"≤{max.ToString(CultureInfo.InvariantCulture)} s" :
                                                $"≤{DefaultSettleMaxSeconds.ToString(CultureInfo.InvariantCulture)} s",
+                               "advance" => $"{step.Advance!.Seconds.ToString(CultureInfo.InvariantCulture)} s",
                                _ => null,
                            },
                        };
