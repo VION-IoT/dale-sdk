@@ -114,6 +114,10 @@ namespace Vion.Dale.Cli.Commands
         ///     Enrich the generic schema's name-path definition with an enum of every valid path in this
         ///     topology — completion and red squiggles in any editor, the type-safety substitute for the
         ///     rejected C# builder (RFC 0006). Two-segment forms are listed only when unambiguous.
+        ///     Struct-typed members are expanded: for each scalar field leaf (possibly nested) a
+        ///     <c>Block.Member.Field</c> (or <c>Block.Service.Member.Field</c>) path is also emitted.
+        ///     Field segment keys are PascalCase (the schema <c>properties</c> keys are camelCase; the first
+        ///     char is upper-cased, matching the path convention used by the resolver and runner).
         /// </summary>
         public static void EnrichSchemaWithNamePaths(JsonNode schemaDocument, JsonNode config)
         {
@@ -143,8 +147,9 @@ namespace Vion.Dale.Cli.Commands
                 foreach (var service in services)
                 {
                     var serviceIdentifier = service?["identifier"]?.GetValue<string>();
-                    foreach (var member in MemberNames(service))
+                    foreach (var (member, memberSchema) in MemberNamesWithSchema(service))
                     {
+                        // Always emit the member path itself (scalar leaf or struct — set accepts a whole struct).
                         if (memberCounts[member] == 1)
                         {
                             paths.Add($"{blockName}.{member}");
@@ -154,6 +159,24 @@ namespace Vion.Dale.Cli.Commands
                         {
                             paths.Add($"{blockName}.{serviceIdentifier}.{member}");
                         }
+
+                        // If the member's schema is a struct (type:object with properties), also emit every
+                        // scalar leaf path so editors autocomplete Block.Member.Field paths.
+                        if (memberSchema is not null && IsStructSchema(memberSchema))
+                        {
+                            foreach (var fieldSuffix in StructFieldPaths(memberSchema))
+                            {
+                                if (memberCounts[member] == 1)
+                                {
+                                    paths.Add($"{blockName}.{member}.{fieldSuffix}");
+                                }
+
+                                if (serviceIdentifier is not null)
+                                {
+                                    paths.Add($"{blockName}.{serviceIdentifier}.{member}.{fieldSuffix}");
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -162,6 +185,81 @@ namespace Vion.Dale.Cli.Commands
             {
                 namePath["enum"] = new JsonArray(paths.Select(p => (JsonNode)p).ToArray());
                 namePath.Remove("pattern");
+            }
+        }
+
+        // Returns true when a JSON Schema node represents a struct (type:object with a properties map).
+        // Handles both the plain form { "type": "object" } and the nullable-widened form
+        // { "type": ["object", "null"] } that the generator emits for nullable structs.
+        private static bool IsStructSchema(JsonNode schema)
+        {
+            var type = schema["type"];
+            bool isObject;
+            if (type is JsonValue)
+            {
+                isObject = type.GetValue<string>() == "object";
+            }
+            else if (type is JsonArray typeArray)
+            {
+                isObject = typeArray.Any(t => t?.GetValue<string>() == "object");
+            }
+            else
+            {
+                isObject = false;
+            }
+
+            return isObject && schema["properties"] is JsonObject;
+        }
+
+        // Recursively walks the "properties" map of a struct schema and yields dot-joined PascalCase field
+        // paths for every scalar leaf. Nested structs are descended; non-scalar leaf nodes (type:object,
+        // type:array) are skipped — only addressable scalar leaves are emitted.
+        private static IEnumerable<string> StructFieldPaths(JsonNode structSchema)
+        {
+            var properties = structSchema["properties"] as JsonObject;
+            if (properties is null)
+            {
+                yield break;
+            }
+
+            foreach (var kvp in properties)
+            {
+                var fieldSchema = kvp.Value;
+                if (fieldSchema is null)
+                {
+                    continue;
+                }
+
+                // Convert the camelCase property key to PascalCase (upper-case the first char).
+                var fieldName = string.IsNullOrEmpty(kvp.Key) ? kvp.Key : char.ToUpperInvariant(kvp.Key[0]) + kvp.Key.Substring(1);
+
+                if (IsStructSchema(fieldSchema))
+                {
+                    // Nested struct — recurse and prepend this segment.
+                    foreach (var subPath in StructFieldPaths(fieldSchema))
+                    {
+                        yield return $"{fieldName}.{subPath}";
+                    }
+                }
+                else
+                {
+                    // Scalar (or array, which is not addressable) — emit only non-array scalars.
+                    var type = fieldSchema["type"];
+                    string? typeString = null;
+                    if (type is JsonValue tv)
+                    {
+                        typeString = tv.GetValue<string>();
+                    }
+                    else if (type is JsonArray ta)
+                    {
+                        typeString = ta.Select(t => t?.GetValue<string>()).FirstOrDefault(t => t != "null");
+                    }
+
+                    if (typeString != "object" && typeString != "array")
+                    {
+                        yield return fieldName;
+                    }
+                }
             }
         }
 
@@ -471,11 +569,21 @@ namespace Vion.Dale.Cli.Commands
 
         private static IEnumerable<string> MemberNames(JsonNode? service)
         {
+            foreach (var (name, _) in MemberNamesWithSchema(service))
+            {
+                yield return name;
+            }
+        }
+
+        // Like MemberNames but also yields the member's "schema" node so the caller can inspect it for
+        // struct expansion. Used by EnrichSchemaWithNamePaths to emit Block.Member.Field paths.
+        private static IEnumerable<(string Name, JsonNode? Schema)> MemberNamesWithSchema(JsonNode? service)
+        {
             foreach (var property in service?["serviceProperties"] as JsonArray ?? new JsonArray())
             {
                 if (property?["identifier"]?.GetValue<string>() is { } name)
                 {
-                    yield return name;
+                    yield return (name, property["schema"]);
                 }
             }
 
@@ -483,7 +591,7 @@ namespace Vion.Dale.Cli.Commands
             {
                 if (measuringPoint?["identifier"]?.GetValue<string>() is { } name)
                 {
-                    yield return name;
+                    yield return (name, measuringPoint["schema"]);
                 }
             }
         }

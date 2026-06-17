@@ -221,6 +221,131 @@ namespace Vion.Dale.Cli.Test.Commands
         }
 
         [TestMethod]
+        public void EnrichesTheSchemaWithStructFieldPaths_ForStructTypedMembers()
+        {
+            // A block with a struct-typed service property (AllocatedCurrent with scalar fields L1, L2, L3)
+            // and a plain scalar property. The enricher must emit the field paths in PascalCase.
+            var config = JsonNode.Parse("""
+                                        {
+                                          "topologyName": "energy",
+                                          "logicBlocks": [
+                                            {
+                                              "name": "RefControllableConsumer",
+                                              "services": [
+                                                {
+                                                  "identifier": "ConsumerService",
+                                                  "serviceProperties": [
+                                                    {
+                                                      "identifier": "AllocatedCurrent",
+                                                      "schema": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                          "l1": { "type": "number" },
+                                                          "l2": { "type": "number" },
+                                                          "l3": { "type": "number" }
+                                                        }
+                                                      }
+                                                    },
+                                                    { "identifier": "OperatingMode", "schema": { "type": "string" } }
+                                                  ],
+                                                  "serviceMeasuringPoints": []
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                        """)!;
+
+            var schema = JsonNode.Parse("""{ "$defs": { "namePath": { "type": "string", "pattern": "x" } } }""")!;
+            ScenarioFileChecks.EnrichSchemaWithNamePaths(schema, config);
+
+            var paths = schema["$defs"]!["namePath"]!["enum"]!.AsArray().Select(n => n!.GetValue<string>()).ToList();
+
+            // The struct member itself (valid set target).
+            CollectionAssert.Contains(paths, "RefControllableConsumer.AllocatedCurrent");
+            CollectionAssert.Contains(paths, "RefControllableConsumer.ConsumerService.AllocatedCurrent");
+
+            // Field paths — camelCase keys converted to PascalCase.
+            CollectionAssert.Contains(paths, "RefControllableConsumer.AllocatedCurrent.L1");
+            CollectionAssert.Contains(paths, "RefControllableConsumer.AllocatedCurrent.L2");
+            CollectionAssert.Contains(paths, "RefControllableConsumer.AllocatedCurrent.L3");
+
+            // Service-qualified field paths.
+            CollectionAssert.Contains(paths, "RefControllableConsumer.ConsumerService.AllocatedCurrent.L1");
+            CollectionAssert.Contains(paths, "RefControllableConsumer.ConsumerService.AllocatedCurrent.L2");
+            CollectionAssert.Contains(paths, "RefControllableConsumer.ConsumerService.AllocatedCurrent.L3");
+
+            // The scalar member still gets its path.
+            CollectionAssert.Contains(paths, "RefControllableConsumer.OperatingMode");
+            CollectionAssert.Contains(paths, "RefControllableConsumer.ConsumerService.OperatingMode");
+
+            // No path that ends on the object (would not be addressable as a scalar target in waitUntil/expect).
+            // (The struct member path itself IS included for set / watch, so we only check that intermediate
+            // objects without being a top-level member are not emitted as synthetic entries.)
+            CollectionAssert.DoesNotContain(paths, "RefControllableConsumer.AllocatedCurrent."); // no trailing dot
+        }
+
+        [TestMethod]
+        public void EnrichesTheSchemaWithNestedStructFieldPaths()
+        {
+            // A struct member with a nested struct field — should recurse and emit the scalar leaf only.
+            var config = JsonNode.Parse("""
+                                        {
+                                          "topologyName": "nested",
+                                          "logicBlocks": [
+                                            {
+                                              "name": "Block",
+                                              "services": [
+                                                {
+                                                  "identifier": "Service",
+                                                  "serviceProperties": [
+                                                    {
+                                                      "identifier": "Status",
+                                                      "schema": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                          "inner": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                              "value": { "type": "number" }
+                                                            }
+                                                          },
+                                                          "flag": { "type": "boolean" }
+                                                        }
+                                                      }
+                                                    }
+                                                  ],
+                                                  "serviceMeasuringPoints": []
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                        """)!;
+
+            var schema = JsonNode.Parse("""{ "$defs": { "namePath": { "type": "string", "pattern": "x" } } }""")!;
+            ScenarioFileChecks.EnrichSchemaWithNamePaths(schema, config);
+
+            var paths = schema["$defs"]!["namePath"]!["enum"]!.AsArray().Select(n => n!.GetValue<string>()).ToList();
+
+            // Nested scalar leaf via the intermediate struct.
+            CollectionAssert.Contains(paths, "Block.Status.Inner.Value");
+            CollectionAssert.Contains(paths, "Block.Service.Status.Inner.Value");
+
+            // Scalar field at top level of the struct.
+            CollectionAssert.Contains(paths, "Block.Status.Flag");
+            CollectionAssert.Contains(paths, "Block.Service.Status.Flag");
+
+            // The intermediate struct field itself is NOT emitted as a separate path (only scalar leaves).
+            CollectionAssert.DoesNotContain(paths, "Block.Status.Inner");
+            CollectionAssert.DoesNotContain(paths, "Block.Service.Status.Inner");
+
+            // The struct member itself IS still emitted.
+            CollectionAssert.Contains(paths, "Block.Status");
+            CollectionAssert.Contains(paths, "Block.Service.Status");
+        }
+
+        [TestMethod]
         public void OffersTwoSegmentForm_WhenAMemberIsBothPropertyAndMeasuringPointOnOneService()
         {
             // A single-service block can expose the same member as BOTH a serviceProperty and a
