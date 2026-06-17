@@ -61,9 +61,7 @@ namespace Vion.Dale.DevHost
 
             foreach (var assembly in _pluginAssemblies)
             {
-                var configureServicesTypes = assembly.GetTypes()
-                                                     .Where(t => typeof(IConfigureServices).IsAssignableFrom(t) && !t.IsAbstract)
-                                                     .ToList();
+                var configureServicesTypes = assembly.GetTypes().Where(t => typeof(IConfigureServices).IsAssignableFrom(t) && !t.IsAbstract).ToList();
 
                 foreach (var type in configureServicesTypes)
                 {
@@ -72,11 +70,7 @@ namespace Vion.Dale.DevHost
                 }
             }
 
-            return tempServices
-                   .Where(sd => typeof(LogicBlockBase).IsAssignableFrom(sd.ServiceType))
-                   .Select(sd => sd.ServiceType)
-                   .Distinct()
-                   .ToList();
+            return tempServices.Where(sd => typeof(LogicBlockBase).IsAssignableFrom(sd.ServiceType)).Select(sd => sd.ServiceType).Distinct().ToList();
         }
 
         public DevHostBuilder ConfigureLogging(Action<ILoggingBuilder> configure)

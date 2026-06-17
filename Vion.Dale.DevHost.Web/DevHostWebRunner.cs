@@ -234,15 +234,13 @@ namespace Vion.Dale.DevHost.Web
 
             if (list.Count > 0)
             {
-                return list.Any(e => string.Equals(e.Id, "default", StringComparison.OrdinalIgnoreCase))
-                           ? "default"
-                           : list.OrderBy(e => e.Id, StringComparer.OrdinalIgnoreCase).First().Id;
+                return list.Any(e => string.Equals(e.Id, "default", StringComparison.OrdinalIgnoreCase)) ? "default" :
+                           list.OrderBy(e => e.Id, StringComparer.OrdinalIgnoreCase).First().Id;
             }
 
             // No committed topology — generate one and announce it.
             var path = DefaultTopologyGenerator.WriteDefault(catalog, topologiesDir);
-            Console.WriteLine(
-                $"No topology found — generated {path} (each block once, auto-connected). Edit it, commit it, or add it to .gitignore.");
+            Console.WriteLine($"No topology found — generated {path} (each block once, auto-connected). Edit it, commit it, or add it to .gitignore.");
             return "default";
         }
 

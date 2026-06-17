@@ -44,7 +44,7 @@ namespace Vion.Dale.DevHost.Test
         [TestMethod]
         public void Generate_SetsTopologyId()
         {
-            var config = DefaultTopologyGenerator.Generate(new[] { typeof(CounterBlock) }, id: "my-catalog");
+            var config = DefaultTopologyGenerator.Generate(new[] { typeof(CounterBlock) }, "my-catalog");
 
             Assert.AreEqual("my-catalog", config.TopologyName);
         }
@@ -85,21 +85,15 @@ namespace Vion.Dale.DevHost.Test
             // DevTopologyLoader.Build loads from the projected file — no file I/O needed.
             var reloaded = DevTopologyLoader.Build(file);
 
-            CollectionAssert.AreEquivalent(
-                config.LogicBlocks.Select(lb => lb.Name).ToList(),
-                reloaded.LogicBlocks.Select(lb => lb.Name).ToList());
+            CollectionAssert.AreEquivalent(config.LogicBlocks.Select(lb => lb.Name).ToList(), reloaded.LogicBlocks.Select(lb => lb.Name).ToList());
 
             Assert.HasCount(config.InterfaceMappings.Count, reloaded.InterfaceMappings);
 
             if (config.InterfaceMappings.Count > 0)
             {
-                Assert.AreEqual(
-                    config.InterfaceMappings[0].SourceInterfaceIdentifier,
-                    reloaded.InterfaceMappings[0].SourceInterfaceIdentifier);
+                Assert.AreEqual(config.InterfaceMappings[0].SourceInterfaceIdentifier, reloaded.InterfaceMappings[0].SourceInterfaceIdentifier);
 
-                Assert.AreEqual(
-                    config.InterfaceMappings[0].TargetInterfaceIdentifier,
-                    reloaded.InterfaceMappings[0].TargetInterfaceIdentifier);
+                Assert.AreEqual(config.InterfaceMappings[0].TargetInterfaceIdentifier, reloaded.InterfaceMappings[0].TargetInterfaceIdentifier);
             }
         }
 
@@ -113,9 +107,7 @@ namespace Vion.Dale.DevHost.Test
             var dir = Path.Combine(Path.GetTempPath(), "dale-default-topo-" + Guid.NewGuid().ToString("N"));
             try
             {
-                var path = DefaultTopologyGenerator.WriteDefault(
-                    new[] { typeof(SourceBlock), typeof(SinkBlock) },
-                    topologiesDir: dir);
+                var path = DefaultTopologyGenerator.WriteDefault(new[] { typeof(SourceBlock), typeof(SinkBlock) }, dir);
 
                 Assert.IsTrue(File.Exists(path), "topology file should be written to disk");
                 Assert.IsTrue(path.EndsWith("default" + DevTopologyFile.FileSuffix, StringComparison.OrdinalIgnoreCase));
@@ -130,7 +122,7 @@ namespace Vion.Dale.DevHost.Test
             {
                 if (Directory.Exists(dir))
                 {
-                    Directory.Delete(dir, recursive: true);
+                    Directory.Delete(dir, true);
                 }
             }
         }
@@ -154,9 +146,7 @@ namespace Vion.Dale.DevHost.Test
                 File.WriteAllText(existingPath, sentinelContent);
 
                 // WriteDefault should return the same path without touching the file.
-                var returned = DefaultTopologyGenerator.WriteDefault(
-                    new[] { typeof(SourceBlock), typeof(SinkBlock) },
-                    topologiesDir: dir);
+                var returned = DefaultTopologyGenerator.WriteDefault(new[] { typeof(SourceBlock), typeof(SinkBlock) }, dir);
 
                 Assert.AreEqual(existingPath, returned, StringComparer.OrdinalIgnoreCase);
                 Assert.AreEqual(sentinelContent, File.ReadAllText(existingPath), "existing file must not be overwritten");
@@ -165,7 +155,7 @@ namespace Vion.Dale.DevHost.Test
             {
                 if (Directory.Exists(dir))
                 {
-                    Directory.Delete(dir, recursive: true);
+                    Directory.Delete(dir, true);
                 }
             }
         }
@@ -178,9 +168,7 @@ namespace Vion.Dale.DevHost.Test
         public void DevHostBuilder_GetBlockCatalog_ReturnsRegisteredBlockTypes()
         {
             // TestDependencyInjection registers CounterBlock, MultiPointBlock, TickerBlock, DualPointBlock.
-            var catalog = DevHostBuilder.Create()
-                                        .WithDi<TestDependencyInjection>()
-                                        .GetBlockCatalog();
+            var catalog = DevHostBuilder.Create().WithDi<TestDependencyInjection>().GetBlockCatalog();
 
             CollectionAssert.Contains(catalog.ToList(), typeof(CounterBlock));
             CollectionAssert.Contains(catalog.ToList(), typeof(MultiPointBlock));
@@ -190,9 +178,7 @@ namespace Vion.Dale.DevHost.Test
         [TestMethod]
         public void DevHostBuilder_GetBlockCatalog_ReturnsSourceAndSinkFromCrossBlockDi()
         {
-            var catalog = DevHostBuilder.Create()
-                                        .WithDi<CrossBlockDependencyInjection>()
-                                        .GetBlockCatalog();
+            var catalog = DevHostBuilder.Create().WithDi<CrossBlockDependencyInjection>().GetBlockCatalog();
 
             CollectionAssert.Contains(catalog.ToList(), typeof(SourceBlock));
             CollectionAssert.Contains(catalog.ToList(), typeof(SinkBlock));
@@ -203,24 +189,18 @@ namespace Vion.Dale.DevHost.Test
         {
             // CrossBlockDependencyInjection only registers SourceBlock + SinkBlock — no non-block services.
             // TestDependencyInjection similarly registers only blocks. Neither should surface non-block types.
-            var catalog = DevHostBuilder.Create()
-                                        .WithDi<CrossBlockDependencyInjection>()
-                                        .GetBlockCatalog();
+            var catalog = DevHostBuilder.Create().WithDi<CrossBlockDependencyInjection>().GetBlockCatalog();
 
             foreach (var type in catalog)
             {
-                Assert.IsTrue(
-                    typeof(Sdk.Core.LogicBlockBase).IsAssignableFrom(type),
-                    $"Catalog must contain only LogicBlockBase types; got {type.FullName}");
+                Assert.IsTrue(typeof(Sdk.Core.LogicBlockBase).IsAssignableFrom(type), $"Catalog must contain only LogicBlockBase types; got {type.FullName}");
             }
         }
 
         [TestMethod]
         public void DevHostBuilder_GetBlockCatalog_DeduplicatesWhenSameAssemblyAddedTwice()
         {
-            var catalog = DevHostBuilder.Create()
-                                        .WithDi<CrossBlockDependencyInjection>()
-                                        .GetBlockCatalog();
+            var catalog = DevHostBuilder.Create().WithDi<CrossBlockDependencyInjection>().GetBlockCatalog();
 
             // A second WithDi<> for the same assembly is a no-op in the plugin list, so distinct is trivially satisfied.
             var distinct = catalog.Distinct().ToList();

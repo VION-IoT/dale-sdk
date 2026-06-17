@@ -36,7 +36,7 @@ namespace Vion.Dale.DevHost.Topologies
 
             foreach (var type in blockTypes)
             {
-                builder.AddLogicBlock(type, out _, name: type.Name);
+                builder.AddLogicBlock(type, out _, type.Name);
             }
 
             // TODO(phase3): AutoConnect over an uncurated catalog is best-effort — two blocks that both
@@ -75,6 +75,7 @@ namespace Vion.Dale.DevHost.Topologies
                                                                    TargetInterfaceIdentifier = im.TargetInterfaceIdentifier,
                                                                })
                                                  .ToList(),
+
                        // Contract mappings are omitted from the default topology: the loader auto-mocks
                        // them, exactly matching the C# preset behavior. Consumers can add explicit mappings
                        // to the written file to express shared-endpoint wiring.

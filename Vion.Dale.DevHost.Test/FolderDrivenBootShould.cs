@@ -84,23 +84,21 @@ namespace Vion.Dale.DevHost.Test
                 Directory.CreateDirectory(dir);
 
                 // Write two topologies in non-alphabetical creation order — only the alphabetical first should win.
-                File.WriteAllText(
-                    Path.Combine(dir, "zzz" + DevTopologyFile.FileSuffix),
-                    """
-                    {
-                      "id": "zzz",
-                      "logicBlockInstances": [ { "typeFullName": "Vion.Dale.DevHost.Test.SinkBlock", "name": "SinkBlock" } ]
-                    }
-                    """);
+                File.WriteAllText(Path.Combine(dir, "zzz" + DevTopologyFile.FileSuffix),
+                                  """
+                                  {
+                                    "id": "zzz",
+                                    "logicBlockInstances": [ { "typeFullName": "Vion.Dale.DevHost.Test.SinkBlock", "name": "SinkBlock" } ]
+                                  }
+                                  """);
 
-                File.WriteAllText(
-                    Path.Combine(dir, "aaa" + DevTopologyFile.FileSuffix),
-                    """
-                    {
-                      "id": "aaa",
-                      "logicBlockInstances": [ { "typeFullName": "Vion.Dale.DevHost.Test.SourceBlock", "name": "SourceBlock" } ]
-                    }
-                    """);
+                File.WriteAllText(Path.Combine(dir, "aaa" + DevTopologyFile.FileSuffix),
+                                  """
+                                  {
+                                    "id": "aaa",
+                                    "logicBlockInstances": [ { "typeFullName": "Vion.Dale.DevHost.Test.SourceBlock", "name": "SourceBlock" } ]
+                                  }
+                                  """);
 
                 var catalog = new[] { typeof(CounterBlock) };
                 var id = DevHostWebRunner.ResolveBootTopologyId(catalog, dir);
@@ -136,19 +134,20 @@ namespace Vion.Dale.DevHost.Test
 
                 // Step 2: write a topology for the builder to load (avoids dependency on auto-gen paths).
                 var topoPath = Path.Combine(topologiesDir, "default" + DevTopologyFile.FileSuffix);
-                File.WriteAllText(topoPath, $$"""
-                                             {
-                                               "id": "default",
-                                               "logicBlockInstances": [
-                                                 { "typeFullName": "{{typeof(SourceBlock).FullName}}", "name": "source" },
-                                                 { "typeFullName": "{{typeof(SinkBlock).FullName}}", "name": "sink" }
-                                               ],
-                                               "interfaceMappings": [
-                                                 { "sourceLogicBlockName": "source", "sourceInterfaceIdentifier": "ISource",
-                                                   "targetLogicBlockName": "sink", "targetInterfaceIdentifier": "ISink" }
-                                               ]
-                                             }
-                                             """);
+                File.WriteAllText(topoPath,
+                                  $$"""
+                                    {
+                                      "id": "default",
+                                      "logicBlockInstances": [
+                                        { "typeFullName": "{{typeof(SourceBlock).FullName}}", "name": "source" },
+                                        { "typeFullName": "{{typeof(SinkBlock).FullName}}", "name": "sink" }
+                                      ],
+                                      "interfaceMappings": [
+                                        { "sourceLogicBlockName": "source", "sourceInterfaceIdentifier": "ISource",
+                                          "targetLogicBlockName": "sink", "targetInterfaceIdentifier": "ISink" }
+                                      ]
+                                    }
+                                    """);
 
                 // Step 3: configure + build on the SAME builder — must not throw.
                 var config = DevTopologyLoader.Load("default", topologiesDir);
@@ -156,9 +155,7 @@ namespace Vion.Dale.DevHost.Test
                 await using var host = builder.Build();
 
                 Assert.AreEqual("default", host.Control.GetConfiguration().TopologyName);
-                CollectionAssert.Contains(
-                    host.Control.GetConfiguration().LogicBlocks.Select(lb => lb.Name).ToList(),
-                    "source");
+                CollectionAssert.Contains(host.Control.GetConfiguration().LogicBlocks.Select(lb => lb.Name).ToList(), "source");
             }
             finally
             {
@@ -180,31 +177,27 @@ namespace Vion.Dale.DevHost.Test
                 Directory.CreateDirectory(topologiesDir);
 
                 // Commit a hand-written topology — should take priority over auto-gen.
-                File.WriteAllText(
-                    Path.Combine(topologiesDir, "default" + DevTopologyFile.FileSuffix),
-                    $$"""
-                      {
-                        "id": "default",
-                        "logicBlockInstances": [
-                          { "typeFullName": "{{typeof(SourceBlock).FullName}}", "name": "source" },
-                          { "typeFullName": "{{typeof(SinkBlock).FullName}}", "name": "sink" }
-                        ],
-                        "interfaceMappings": [
-                          { "sourceLogicBlockName": "source", "sourceInterfaceIdentifier": "ISource",
-                            "targetLogicBlockName": "sink", "targetInterfaceIdentifier": "ISink" }
-                        ]
-                      }
-                      """);
+                File.WriteAllText(Path.Combine(topologiesDir, "default" + DevTopologyFile.FileSuffix),
+                                  $$"""
+                                    {
+                                      "id": "default",
+                                      "logicBlockInstances": [
+                                        { "typeFullName": "{{typeof(SourceBlock).FullName}}", "name": "source" },
+                                        { "typeFullName": "{{typeof(SinkBlock).FullName}}", "name": "sink" }
+                                      ],
+                                      "interfaceMappings": [
+                                        { "sourceLogicBlockName": "source", "sourceInterfaceIdentifier": "ISource",
+                                          "targetLogicBlockName": "sink", "targetInterfaceIdentifier": "ISink" }
+                                      ]
+                                    }
+                                    """);
 
                 var catalog = DevHostBuilder.Create().WithDi<CrossBlockDependencyInjection>().GetBlockCatalog();
                 var bootId = DevHostWebRunner.ResolveBootTopologyId(catalog, topologiesDir);
                 Assert.AreEqual("default", bootId);
 
                 var config = DevTopologyLoader.Load(bootId, topologiesDir);
-                await using var host = DevHostBuilder.Create()
-                                                     .WithDi<CrossBlockDependencyInjection>()
-                                                     .WithConfiguration(config)
-                                                     .Build();
+                await using var host = DevHostBuilder.Create().WithDi<CrossBlockDependencyInjection>().WithConfiguration(config).Build();
 
                 await host.StartAsync(CancellationToken.None);
 
@@ -232,7 +225,7 @@ namespace Vion.Dale.DevHost.Test
         {
             if (Directory.Exists(dir))
             {
-                Directory.Delete(dir, recursive: true);
+                Directory.Delete(dir, true);
             }
         }
     }
