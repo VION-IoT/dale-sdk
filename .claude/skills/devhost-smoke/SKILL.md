@@ -1,6 +1,6 @@
 ---
 name: devhost-smoke
-description: Smoke-test the Vion Dale DevHost end-to-end. Tier 1 (headless, ~2 s, CI) covers the HTTP/runtime surface; Tier 2 (live, chrome-devtools) drives the no-build SPA UI on a real server. Use after changing anything under Vion.Dale.DevHost / Vion.Dale.DevHost.Web / the scenario runner / deterministic stepping, or when asked to verify the DevHost is healthy. A subagent can run Tier 2 after DevHost work.
+description: Smoke-test the Vion Dale DevHost end-to-end. Tier 1 (headless, CI) covers the HTTP/runtime surface; Tier 2 (live, chrome-devtools) drives the no-build SPA UI on a real server. Use after changing anything under Vion.Dale.DevHost / Vion.Dale.DevHost.Web / the scenario runner / deterministic stepping, or when asked to verify the DevHost is healthy. A subagent can run Tier 2 after DevHost work.
 ---
 
 # DevHost smoke test
@@ -13,7 +13,7 @@ Two tiers. Tier 1 is the fast headless gate (run it always); Tier 2 drives the a
 dotnet test Vion.Dale.DevHost.Test/Vion.Dale.DevHost.Test.csproj --filter "TestCategory=Smoke" --nologo
 ```
 
-Expect **6 tests passed** (~4 s execution; ~10 s wall the first time, for the incremental build). This boots real web hosts (Kestrel + the full API/SignalR pipeline + a wired logic-block network) and sweeps the assembled surface over HTTP:
+Expect **6 tests passed** — ~4 s of test execution, but **~25 s cold wall**: `dotnet test` rebuilds and runs an up-to-date check across the dependency graph, and that build tax (not the tests) dominates. For repeat runs in the same session, build once then append **`--no-build`** → ~5 s. This boots real web hosts (Kestrel + the full API/SignalR pipeline + a wired logic-block network) and sweeps the assembled surface over HTTP:
 
 - **core sweep** (`DevHostSmokeShould`): boot/introspection (`/api/configuration`, `/api/logicblocks`), state read, **writable set + read-back**, **read-only write rejected with 400** (not a silent 200), **`stepped:true`**, a **scenario run to `succeeded`**, **manual virtual-clock advance** firing a `[Timer]`, and a **HAL-input scenario** (`digitalInput` + `analogInput` + `waitUntil` → the mocked input reaches the block) that also boots the SmokeHost's `IoBlock`;
 - **lifecycle + step types**: recycle-on-run (`RecycleOnRunShould`), explicit topology switch (`TopologyFilesShould`), host reset/recycle (`RunControlShould`), and the deterministic `waitUntil` path (`ScenarioSteppingShould`).
@@ -37,7 +37,7 @@ It does **not** drive the SPA web UI (the host *serves* it but the headless test
    Start-Process dotnet -ArgumentList "$dir\bin\Debug\net10.0\Vion.Dale.DevHost.SmokeHost.dll" -WorkingDirectory $dir -WindowStyle Hidden
    ```
 
-   Poll `http://localhost:5000/api/control/status` until it responds (`stepped:true`).
+   Poll `http://localhost:5000/api/control/status` until it responds (`stepped:true`). (Boot-to-ready is ~1 s — the ~50 s is the `dotnet build`. If the solution is already built, e.g. you just ran Tier 1 or `dotnet build`, skip `dotnet build $dir` and boot the existing DLL.)
 
 2. **Drive the UI** with the chrome-devtools MCP. If no page is connected, open one (`new_page`); if you genuinely can't drive a browser, fall back to Tier 1 + API checks against `localhost:5000` and say so. Navigate to `http://localhost:5000` and reload with `ignoreCache` (dodges stale assets). A leftover route or pins from a previous session are harmless — reload to the root, or use an isolated context / clear localStorage for a clean view. Then verify:
    - The page loads and the Explorer lists the four blocks (Showcase, IO Device, Signal Source, Signal Sink).
@@ -48,7 +48,7 @@ It does **not** drive the SPA web UI (the host *serves* it but the headless test
 
 3. **Tear down**: stop the process —
    ```powershell
-   Get-NetTCPConnection -LocalPort 5000 -State Listen -EA SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
+   Get-NetTCPConnection -LocalPort 5000 -State Listen -EA SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -EA SilentlyContinue }
    ```
 
 ## CI
