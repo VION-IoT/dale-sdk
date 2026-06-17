@@ -11,7 +11,7 @@
         <PackageId>Vion.Diagnostics</PackageId>
         <!-- Tracks the SDK release version (loosely in lockstep with the SDK + examples);
              bumped by scripts/set-version.ps1. -->
-        <Version>0.8.1</Version>
+        <Version>0.9.0-preview.1</Version>
         <Authors>Vion-IoT</Authors>
         <Company>Vion-IoT</Company>
         <Description>VION runtime diagnostics logic block (RFC 0005 Sink 2): a dashboard-native per-actor vitals table + runtime-health rollup, read from the SDK's IRuntimeDiagnostics.</Description>
@@ -23,7 +23,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Vion.Dale.Sdk" Version="0.8.1"/>
+        <PackageReference Include="Vion.Dale.Sdk" Version="0.9.0-preview.1"/>
         <!-- shim to be able to use readonly record structs in netstandard2.1 -->
         <PackageReference Include="IsExternalInit" Version="1.0.3">
             <PrivateAssets>all</PrivateAssets>
