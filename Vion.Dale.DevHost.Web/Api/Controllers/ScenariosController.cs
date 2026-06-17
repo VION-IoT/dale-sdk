@@ -183,7 +183,7 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
                 var path = _store.Save(id, raw);
                 return Ok(new { saved = Path.GetFileName(path), directory = _store.Directory });
             }
-            catch (System.InvalidOperationException e)
+            catch (InvalidOperationException e)
             {
                 return StatusCode(StatusCodes.Status403Forbidden, new { error = e.Message });
             }

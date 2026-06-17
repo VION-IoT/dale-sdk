@@ -73,8 +73,7 @@ namespace Vion.Dale.DevHost.Test
                 var reapply = await client.PostAsync("/api/scenarios/recyclable/apply", null);
                 Assert.AreEqual(HttpStatusCode.Accepted, reapply.StatusCode);
                 var reapplyBody = JsonDocument.Parse(await reapply.Content.ReadAsStringAsync()).RootElement;
-                Assert.IsTrue(reapplyBody.TryGetProperty("runId", out _),
-                              $"A clean, matching host must run in place. Got: {reapplyBody.GetRawText()}");
+                Assert.IsTrue(reapplyBody.TryGetProperty("runId", out _), $"A clean, matching host must run in place. Got: {reapplyBody.GetRawText()}");
 
                 var report = await PollRunUntilDoneAsync(client, "recyclable", TimeSpan.FromSeconds(30));
                 Assert.AreEqual("succeeded", report.GetProperty("status").GetString(), report.GetRawText());
@@ -121,7 +120,13 @@ namespace Vion.Dale.DevHost.Test
                 {
                     var status = JsonDocument.Parse(await client.GetStringAsync("/api/control/status")).RootElement;
                     var virtualTime = status.GetProperty("virtualTimeUtc").GetDateTimeOffset();
-                    if (virtualTime == new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero))
+                    if (virtualTime == new DateTimeOffset(2026,
+                                                          1,
+                                                          1,
+                                                          0,
+                                                          0,
+                                                          0,
+                                                          TimeSpan.Zero))
                     {
                         return true;
                     }

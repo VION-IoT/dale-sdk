@@ -32,6 +32,11 @@ namespace Vion.Dale.DevHost.Control
 
         private readonly IActorSystem _actorSystem;
 
+        // The virtual clock at construction — the per-generation clean baseline. On a stepped host the clock
+        // only moves via explicit advance/step, so VirtualTimeUtc > this means the generation has been dirtied
+        // (a prior run or manual stepping) and is no longer reproducible from a clean slate.
+        private readonly DateTimeOffset _baselineUtc;
+
         private readonly DevConfiguration _configuration;
 
         private readonly DevHostEvents _events;
@@ -70,11 +75,6 @@ namespace Vion.Dale.DevHost.Control
         private Dictionary<string, string>? _serviceToLogicBlock;
 
         private DeterministicStepper? _stepper;
-
-        // The virtual clock at construction — the per-generation clean baseline. On a stepped host the clock
-        // only moves via explicit advance/step, so VirtualTimeUtc > this means the generation has been dirtied
-        // (a prior run or manual stepping) and is no longer reproducible from a clean slate.
-        private readonly DateTimeOffset _baselineUtc;
 
         public DevHostControl(DevConfiguration configuration,
                               DevHostEvents events,
