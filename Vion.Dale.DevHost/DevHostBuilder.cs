@@ -55,7 +55,7 @@ namespace Vion.Dale.DevHost
         ///         to <see cref="LogicBlockBase" />.
         ///     </para>
         /// </summary>
-        internal IReadOnlyList<Type> GetBlockCatalog()
+        public IReadOnlyList<Type> GetBlockCatalog()
         {
             var tempServices = new ServiceCollection();
 

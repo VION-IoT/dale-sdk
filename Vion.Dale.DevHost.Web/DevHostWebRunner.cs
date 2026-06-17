@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -160,6 +162,88 @@ namespace Vion.Dale.DevHost.Web
                 await host.StopAsync(CancellationToken.None);
                 await Task.Delay(TimeSpan.FromMilliseconds(250), CancellationToken.None);
             }
+        }
+
+        /// <summary>
+        ///     Folder-driven supervised variant: discovers topologies from the
+        ///     <c>topologies/</c> directory (resolved via <see cref="DevDataDirectory" />), generates and
+        ///     writes <c>topologies/default.topology.json</c> when none exists, and runs the supervised
+        ///     recycle loop exactly like <see cref="RunAsync(Func{string?,IDevHost},int,CancellationToken)" />.
+        ///     <para>
+        ///         Consumers supply only DI registration and optional extras (<c>ConfigureLogging</c>) via
+        ///         <paramref name="configure" /> — no <c>WithConfiguration</c>. The runner owns topology
+        ///         discovery, generation, and loading.
+        ///     </para>
+        /// </summary>
+        /// <param name="configure">
+        ///     Applies <c>WithDi&lt;TDi&gt;</c>, <c>WithWebUi(port)</c>, and optionally
+        ///     <c>ConfigureLogging</c> to the builder. Must NOT call <c>WithConfiguration</c>.
+        /// </param>
+        /// <param name="port">The port the web UI / API is served on.</param>
+        /// <param name="cancellationToken">Cancelled to shut down (typically wired to Ctrl+C).</param>
+        public static Task RunFolderDrivenAsync(Action<DevHostBuilder> configure, int port = 5000, CancellationToken cancellationToken = default)
+        {
+            // Resolve the topologies directory once (same resolution logic DevTopologyStore/DevTopologyLoader
+            // use — so the boot resolution and the switching store always agree on the directory).
+            var topologiesDir = DevDataDirectory.Resolve("topologies", null);
+
+            // Boot: discover committed topologies; auto-generate default if none found. The catalog
+            // enumeration from a temporary builder avoids mutating a real builder that also calls Build().
+            var catalogBuilder = DevHostBuilder.Create();
+            configure(catalogBuilder);
+            var catalog = catalogBuilder.GetBlockCatalog();
+            var bootId = ResolveBootTopologyId(catalog, topologiesDir);
+
+            IDevHost Factory(string? requestedId)
+            {
+                var builder = DevHostBuilder.Create();
+                configure(builder);
+
+                // For non-null requested ids (topology-switch) the UI supplies an id the store knows about.
+                // For null (plain reset) we keep the last resolved boot id (topologyId in RunAsync stays
+                // the previous selection), so fall back to the last resolved boot id.
+                var id = requestedId ?? bootId;
+                builder.WithConfiguration(DevTopologyLoader.Load(id, topologiesDir));
+                return builder.Build();
+            }
+
+            return RunAsync(Factory, port, cancellationToken);
+        }
+
+        /// <summary>
+        ///     Resolve which topology id to boot with, given the discovered catalog and topology directory.
+        ///     <list type="bullet">
+        ///         <item>
+        ///             <description>
+        ///                 If committed topologies exist: return <c>"default"</c> when that id is present, or
+        ///                 the first id alphabetically otherwise.
+        ///             </description>
+        ///         </item>
+        ///         <item>
+        ///             <description>
+        ///                 If none exist: generate <c>default.topology.json</c>, announce it on the console,
+        ///                 and return <c>"default"</c>.
+        ///             </description>
+        ///         </item>
+        ///     </list>
+        /// </summary>
+        public static string ResolveBootTopologyId(IReadOnlyCollection<Type> catalog, string? topologiesDir)
+        {
+            var store = new DevTopologyStore(topologiesDir);
+            var list = store.List();
+
+            if (list.Count > 0)
+            {
+                return list.Any(e => string.Equals(e.Id, "default", StringComparison.OrdinalIgnoreCase))
+                           ? "default"
+                           : list.OrderBy(e => e.Id, StringComparer.OrdinalIgnoreCase).First().Id;
+            }
+
+            // No committed topology — generate one and announce it.
+            var path = DefaultTopologyGenerator.WriteDefault(catalog, topologiesDir);
+            Console.WriteLine(
+                $"No topology found — generated {path} (each block once, auto-connected). Edit it, commit it, or add it to .gitignore.");
+            return "default";
         }
 
         // One-shot export modes: write the wired configuration (the /api/configuration wire shape) and/or

@@ -1,41 +1,37 @@
-﻿using System;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Vion.Dale.DevHost;
 using Vion.Dale.DevHost.Web;
 
 namespace VionIotLibraryTemplate.DevHost
 {
     public class Program
     {
+        private const int Port = 5000;
+
         public static Task Main(string[] args)
         {
-            // Build a configuration for testing with the fluent API. WithTopologyName names this topology so
-            // scenario files (scenarios/*.scenario.json, RFC 0006) can target it via their "topology" field.
-            var config = DevConfigurationBuilder.Create().WithTopologyName("thermostat").AddLogicBlock<Thermostat>("Thermostat").Build();
-
-            // Create, configure and run the dev host
-            var host = DevHostBuilder.Create()
-                                     .WithDi<DependencyInjection>()
-                                     .WithConfiguration(config)
-                                     .WithWebUi()
-                                     .ConfigureLogging(logging =>
-                                                       {
-                                                           logging.AddConsole();
-                                                           logging.SetMinimumLevel(LogLevel.Debug);
-                                                       })
-                                     .Build();
-
-            // Start the host. Interactive: opens the browser. Headless (DALE_DEVHOST_NO_BROWSER=1 — e.g.
-            // `dale dev --headless`, CI, or an agent): prints a JSON readiness line instead. See RFC 0003.
+            // Folder-driven boot: if a topologies/ directory exists the first topology (preferring
+            // "default") is loaded automatically. If none exists, default.topology.json is generated
+            // from the DI catalog, announced on the console, and used. The topology-switch UI works
+            // without any Program.cs changes. See RFC 0006.
             var cts = new CancellationTokenSource();
             Console.CancelKeyPress += (_, eventArgs) =>
                                       {
                                           eventArgs.Cancel = true;
                                           cts.Cancel();
                                       };
-            return DevHostWebRunner.RunAsync(host, 5000, cts.Token);
+            return DevHostWebRunner.RunFolderDrivenAsync(
+                b => b.WithDi<DependencyInjection>()
+                      .WithWebUi(Port)
+                      .ConfigureLogging(logging =>
+                                        {
+                                            logging.AddConsole();
+                                            logging.SetMinimumLevel(LogLevel.Debug);
+                                        }),
+                Port,
+                cts.Token);
         }
     }
 }
