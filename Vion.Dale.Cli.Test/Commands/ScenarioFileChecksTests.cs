@@ -149,6 +149,84 @@ namespace Vion.Dale.Cli.Test.Commands
         }
 
         [TestMethod]
+        public void SettleUntil_ResolvesTargetPaths_AndRejectsEmptyOrUnknown()
+        {
+            // A valid settle.until resolves its target paths against the topology, like watch.
+            var ok = ScenarioFileChecks.Validate("settle-ok.scenario.json",
+                                                 """
+                                                 { "version": 1, "id": "settle-ok", "topology": "demo",
+                                                   "watch": [ "Counter.Counter" ],
+                                                   "steps": [ { "settle": { "until": [ "Counter.Counter" ], "maxSeconds": 5 } } ] }
+                                                 """,
+                                                 Config);
+            Assert.AreEqual(0, ok.Errors.Count, string.Join("; ", ok.Errors));
+
+            // An empty until list and an unresolvable target path are both reported.
+            var bad = ScenarioFileChecks.Validate("settle-bad.scenario.json",
+                                                  """
+                                                  { "version": 1, "id": "settle-bad", "topology": "demo",
+                                                    "steps": [
+                                                      { "settle": { "until": [] } },
+                                                      { "settle": { "until": [ "Counter.Nope" ] } }
+                                                    ] }
+                                                  """,
+                                                  Config);
+            Assert.IsTrue(bad.Errors.Any(e => e.Contains("settle.until must be a non-empty array")), string.Join("; ", bad.Errors));
+            Assert.IsTrue(bad.Errors.Any(e => e.Contains("settle.until[0]")), string.Join("; ", bad.Errors));
+
+            // Structural until checks are config-independent (mirroring the model): a blank entry is rejected
+            // even for a non-matching topology where path resolution is skipped — the two validators agree.
+            var blankSkipped = ScenarioFileChecks.Validate("settle-blank.scenario.json",
+                                                           """{ "version": 1, "id": "settle-blank", "topology": "elsewhere", "steps": [ { "settle": { "until": ["  "] } } ] }""",
+                                                           Config);
+            Assert.IsTrue(blankSkipped.Errors.Any(e => e.Contains("settle.until[0]") && e.Contains("empty name path")), string.Join("; ", blankSkipped.Errors));
+        }
+
+        [TestMethod]
+        public void AcceptsExpectOneOfAndPathComparand()
+        {
+            var outcome = ScenarioFileChecks.Validate("exp.scenario.json",
+                                                      """
+                                                      {
+                                                        "version": 1, "id": "exp", "topology": "demo",
+                                                        "steps": [
+                                                          { "expect": { "property": "Counter.Counter", "above": 1 } },
+                                                          { "expect": { "property": "Counter.Counter", "equals": 5, "tolerance": 1 } },
+                                                          { "expect": { "property": "Counter.Counter", "oneOf": [1, 2, 3] } },
+                                                          { "expect": { "property": "DualPoint.PointA.Limit", "above": { "path": "DualPoint.PointB.Limit" } } },
+                                                          { "waitUntil": { "property": "Counter.Counter", "oneOf": [4, 5] }, "timeoutSeconds": 2 }
+                                                        ]
+                                                      }
+                                                      """,
+                                                      Config);
+            Assert.AreEqual(0, outcome.Errors.Count, string.Join("; ", outcome.Errors));
+        }
+
+        [TestMethod]
+        public void RejectsExpectStructuralProblems()
+        {
+            var outcome = ScenarioFileChecks.Validate("bad-exp.scenario.json",
+                                                      """
+                                                      {
+                                                        "version": 1, "id": "bad-exp", "topology": "demo",
+                                                        "setup": [ { "expect": { "property": "Counter.Counter", "equals": 1 } } ],
+                                                        "steps": [
+                                                          { "expect": { "property": "Counter.Counter", "above": 1, "below": 2 } },
+                                                          { "expect": { "property": "Counter.Counter", "oneOf": [] } },
+                                                          { "expect": { "property": "Counter.Counter", "oneOf": [1, { "x": 1 }] } },
+                                                          { "expect": { "property": "Counter.Counter", "equals": { "l1": 1, "l2": 2 } } }
+                                                        ]
+                                                      }
+                                                      """,
+                                                      Config);
+            Assert.IsTrue(outcome.Errors.Any(e => e.Contains("setup entries stage state")), string.Join("; ", outcome.Errors));
+            Assert.IsTrue(outcome.Errors.Any(e => e.Contains("exactly one of above")), string.Join("; ", outcome.Errors));
+            Assert.IsTrue(outcome.Errors.Any(e => e.Contains("oneOf must be a non-empty array")), string.Join("; ", outcome.Errors));
+            Assert.IsTrue(outcome.Errors.Any(e => e.Contains("oneOf elements must be scalars")), string.Join("; ", outcome.Errors));
+            Assert.IsTrue(outcome.Errors.Any(e => e.Contains("does not compare structs/arrays")), string.Join("; ", outcome.Errors));
+        }
+
+        [TestMethod]
         public void RejectsIdProblems()
         {
             var mismatch = ScenarioFileChecks.Validate("a.scenario.json", """{ "version": 1, "id": "b", "topology": "demo" }""", Config);
@@ -174,6 +252,131 @@ namespace Vion.Dale.Cli.Test.Commands
             CollectionAssert.Contains(paths, "DualPoint.PointA.Limit");
             CollectionAssert.Contains(paths, "DualPoint.PointB.Limit");
             CollectionAssert.DoesNotContain(paths, "DualPoint.Limit");
+        }
+
+        [TestMethod]
+        public void EnrichesTheSchemaWithStructFieldPaths_ForStructTypedMembers()
+        {
+            // A block with a struct-typed service property (AllocatedCurrent with scalar fields L1, L2, L3)
+            // and a plain scalar property. The enricher must emit the field paths in PascalCase.
+            var config = JsonNode.Parse("""
+                                        {
+                                          "topologyName": "energy",
+                                          "logicBlocks": [
+                                            {
+                                              "name": "RefControllableConsumer",
+                                              "services": [
+                                                {
+                                                  "identifier": "ConsumerService",
+                                                  "serviceProperties": [
+                                                    {
+                                                      "identifier": "AllocatedCurrent",
+                                                      "schema": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                          "l1": { "type": "number" },
+                                                          "l2": { "type": "number" },
+                                                          "l3": { "type": "number" }
+                                                        }
+                                                      }
+                                                    },
+                                                    { "identifier": "OperatingMode", "schema": { "type": "string" } }
+                                                  ],
+                                                  "serviceMeasuringPoints": []
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                        """)!;
+
+            var schema = JsonNode.Parse("""{ "$defs": { "namePath": { "type": "string", "pattern": "x" } } }""")!;
+            ScenarioFileChecks.EnrichSchemaWithNamePaths(schema, config);
+
+            var paths = schema["$defs"]!["namePath"]!["enum"]!.AsArray().Select(n => n!.GetValue<string>()).ToList();
+
+            // The struct member itself (valid set target).
+            CollectionAssert.Contains(paths, "RefControllableConsumer.AllocatedCurrent");
+            CollectionAssert.Contains(paths, "RefControllableConsumer.ConsumerService.AllocatedCurrent");
+
+            // Field paths — camelCase keys converted to PascalCase.
+            CollectionAssert.Contains(paths, "RefControllableConsumer.AllocatedCurrent.L1");
+            CollectionAssert.Contains(paths, "RefControllableConsumer.AllocatedCurrent.L2");
+            CollectionAssert.Contains(paths, "RefControllableConsumer.AllocatedCurrent.L3");
+
+            // Service-qualified field paths.
+            CollectionAssert.Contains(paths, "RefControllableConsumer.ConsumerService.AllocatedCurrent.L1");
+            CollectionAssert.Contains(paths, "RefControllableConsumer.ConsumerService.AllocatedCurrent.L2");
+            CollectionAssert.Contains(paths, "RefControllableConsumer.ConsumerService.AllocatedCurrent.L3");
+
+            // The scalar member still gets its path.
+            CollectionAssert.Contains(paths, "RefControllableConsumer.OperatingMode");
+            CollectionAssert.Contains(paths, "RefControllableConsumer.ConsumerService.OperatingMode");
+
+            // No path that ends on the object (would not be addressable as a scalar target in waitUntil/expect).
+            // (The struct member path itself IS included for set / watch, so we only check that intermediate
+            // objects without being a top-level member are not emitted as synthetic entries.)
+            CollectionAssert.DoesNotContain(paths, "RefControllableConsumer.AllocatedCurrent."); // no trailing dot
+        }
+
+        [TestMethod]
+        public void EnrichesTheSchemaWithNestedStructFieldPaths()
+        {
+            // A struct member with a nested struct field — should recurse and emit the scalar leaf only.
+            var config = JsonNode.Parse("""
+                                        {
+                                          "topologyName": "nested",
+                                          "logicBlocks": [
+                                            {
+                                              "name": "Block",
+                                              "services": [
+                                                {
+                                                  "identifier": "Service",
+                                                  "serviceProperties": [
+                                                    {
+                                                      "identifier": "Status",
+                                                      "schema": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                          "inner": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                              "value": { "type": "number" }
+                                                            }
+                                                          },
+                                                          "flag": { "type": "boolean" }
+                                                        }
+                                                      }
+                                                    }
+                                                  ],
+                                                  "serviceMeasuringPoints": []
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                        """)!;
+
+            var schema = JsonNode.Parse("""{ "$defs": { "namePath": { "type": "string", "pattern": "x" } } }""")!;
+            ScenarioFileChecks.EnrichSchemaWithNamePaths(schema, config);
+
+            var paths = schema["$defs"]!["namePath"]!["enum"]!.AsArray().Select(n => n!.GetValue<string>()).ToList();
+
+            // Nested scalar leaf via the intermediate struct.
+            CollectionAssert.Contains(paths, "Block.Status.Inner.Value");
+            CollectionAssert.Contains(paths, "Block.Service.Status.Inner.Value");
+
+            // Scalar field at top level of the struct.
+            CollectionAssert.Contains(paths, "Block.Status.Flag");
+            CollectionAssert.Contains(paths, "Block.Service.Status.Flag");
+
+            // The intermediate struct field itself is NOT emitted as a separate path (only scalar leaves).
+            CollectionAssert.DoesNotContain(paths, "Block.Status.Inner");
+            CollectionAssert.DoesNotContain(paths, "Block.Service.Status.Inner");
+
+            // The struct member itself IS still emitted.
+            CollectionAssert.Contains(paths, "Block.Status");
+            CollectionAssert.Contains(paths, "Block.Service.Status");
         }
 
         [TestMethod]

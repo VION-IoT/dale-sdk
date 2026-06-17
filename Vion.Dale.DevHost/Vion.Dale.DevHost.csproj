@@ -17,10 +17,19 @@
         <EmbeddedResource Include="Topologies\topology.schema.json"/>
     </ItemGroup>
     <ItemGroup>
+        <!-- Expose internals to the test project so the engine-owned VirtualSchedule (RFC 0003 next-event
+             stepping) can be unit-tested for register/unregister hygiene without a public surface. -->
+        <InternalsVisibleTo Include="Vion.Dale.DevHost.Test"/>
+    </ItemGroup>
+    <ItemGroup>
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0"/>
         <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.0"/>
         <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0"/>
         <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.0"/>
+        <!-- Controllable clock for WithDeterministicStepping() — the canonical FakeTimeProvider. The
+             stepper detects it structurally (Advance/GetUtcNow reflection), so this is the only place the
+             type is referenced. Already a dependency of the shipped Vion.Dale.Sdk.TestKit. -->
+        <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.0.0"/>
     </ItemGroup>
     <ItemGroup>
         <ProjectReference Include="..\Vion.Dale.Sdk\Vion.Dale.Sdk.csproj"/>

@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
@@ -84,12 +85,17 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
         }
 
         /// <summary>
-        ///     Start a run. One active run per host: 409 while another run is active unless
-        ///     <c>?restart=true</c> (cancels it first); <c>?force=true</c> proceeds despite a topology
-        ///     mismatch (the Player's interstitial choice).
+        ///     Start a run (RFC 0008 recycle-on-run). A scenario runs against the topology it declares, from a
+        ///     clean slate — so every run is reproducible. When the host is on a different topology, or this
+        ///     stepped generation has already been advanced/run (dirty), the host is recycled onto the
+        ///     scenario's topology first (a fresh generation: epoch clock, freshly-instantiated blocks) and the
+        ///     response is <c>{ recycling: true }</c> — the caller re-applies once the host is back. A clean,
+        ///     matching host runs in place. One active run per host: 409 while another is active unless
+        ///     <c>?restart=true</c> (cancels it first). There is no <c>force</c>: running against the wrong
+        ///     topology or a dirty clock silently produced misleading results.
         /// </summary>
         [HttpPost("{id}/apply")]
-        public async Task<IActionResult> Apply(string id, [FromQuery] bool restart = false, [FromQuery] bool force = false)
+        public async Task<IActionResult> Apply(string id, [FromQuery] bool restart = false)
         {
             var raw = _store.ReadRaw(id);
             if (raw is null)
@@ -112,7 +118,43 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
                 return UnprocessableEntity(new { error = $"id '{scenario.Id}' does not match the file name '{id}'" });
             }
 
-            var result = await _registry.ApplyAsync(scenario, _control, restart, force, _store.FileHash(id));
+            // Recycle-on-run: bring the host to the scenario's topology + a clean slate before running, so the
+            // result is reproducible. "Dirty" (needs a clean slate) is a stepped generation whose clock has
+            // advanced or that has already run a scenario — the same generation re-run would otherwise build on
+            // leftover state. A topology mismatch always needs a recycle (you cannot run a scenario against the
+            // wrong graph).
+            var hostTopology = _control.GetConfiguration().TopologyName;
+            var topologyMatches = string.Equals(scenario.Topology, hostTopology, StringComparison.Ordinal);
+            var dirty = _control.HasAdvancedFromBaseline || (_control.IsStepped && _registry.Latest(id) is not null);
+
+            if (!topologyMatches || dirty)
+            {
+                if (_control.CanReset)
+                {
+                    // Rides the topology-switch recycle: the supervisor rebuilds the host onto this topology
+                    // with a fresh clock and blocks. The caller polls until the host is back, then re-applies
+                    // against the now-clean, matching generation (which runs in place).
+                    _control.TryRequestTopologySwitch(scenario.Topology!);
+                    return Accepted(new { recycling = true, topology = scenario.Topology });
+                }
+
+                if (!topologyMatches)
+                {
+                    // No supervisor to recycle and the topology is wrong — a setup error the caller must fix.
+                    return Conflict(new
+                                    {
+                                        error =
+                                            $"host is on topology '{hostTopology}', scenario '{id}' expects '{scenario.Topology}', and this host has no supervisor to recycle — build it on '{scenario.Topology}'.",
+                                        scenarioTopology = scenario.Topology,
+                                        hostTopology,
+                                    });
+                }
+
+                // Unsupervised, right topology, but a dirty stepped clock: a clean slate isn't possible without
+                // a supervisor, so run in place — the report's virtual start time reflects the non-clean clock.
+            }
+
+            var result = await _registry.ApplyAsync(scenario, _control, restart, _store.FileHash(id));
             if (result.IsConflict)
             {
                 return Conflict(new
@@ -141,7 +183,7 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
                 var path = _store.Save(id, raw);
                 return Ok(new { saved = Path.GetFileName(path), directory = _store.Directory });
             }
-            catch (System.InvalidOperationException e)
+            catch (InvalidOperationException e)
             {
                 return StatusCode(StatusCodes.Status403Forbidden, new { error = e.Message });
             }

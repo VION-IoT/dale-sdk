@@ -114,6 +114,10 @@ namespace Vion.Dale.Cli.Commands
         ///     Enrich the generic schema's name-path definition with an enum of every valid path in this
         ///     topology — completion and red squiggles in any editor, the type-safety substitute for the
         ///     rejected C# builder (RFC 0006). Two-segment forms are listed only when unambiguous.
+        ///     Struct-typed members are expanded: for each scalar field leaf (possibly nested) a
+        ///     <c>Block.Member.Field</c> (or <c>Block.Service.Member.Field</c>) path is also emitted.
+        ///     Field segment keys are PascalCase (the schema <c>properties</c> keys are camelCase; the first
+        ///     char is upper-cased, matching the path convention used by the resolver and runner).
         /// </summary>
         public static void EnrichSchemaWithNamePaths(JsonNode schemaDocument, JsonNode config)
         {
@@ -143,8 +147,9 @@ namespace Vion.Dale.Cli.Commands
                 foreach (var service in services)
                 {
                     var serviceIdentifier = service?["identifier"]?.GetValue<string>();
-                    foreach (var member in MemberNames(service))
+                    foreach (var (member, memberSchema) in MemberNamesWithSchema(service))
                     {
+                        // Always emit the member path itself (scalar leaf or struct — set accepts a whole struct).
                         if (memberCounts[member] == 1)
                         {
                             paths.Add($"{blockName}.{member}");
@@ -154,6 +159,24 @@ namespace Vion.Dale.Cli.Commands
                         {
                             paths.Add($"{blockName}.{serviceIdentifier}.{member}");
                         }
+
+                        // If the member's schema is a struct (type:object with properties), also emit every
+                        // scalar leaf path so editors autocomplete Block.Member.Field paths.
+                        if (memberSchema is not null && IsStructSchema(memberSchema))
+                        {
+                            foreach (var fieldSuffix in StructFieldPaths(memberSchema))
+                            {
+                                if (memberCounts[member] == 1)
+                                {
+                                    paths.Add($"{blockName}.{member}.{fieldSuffix}");
+                                }
+
+                                if (serviceIdentifier is not null)
+                                {
+                                    paths.Add($"{blockName}.{serviceIdentifier}.{member}.{fieldSuffix}");
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -162,6 +185,81 @@ namespace Vion.Dale.Cli.Commands
             {
                 namePath["enum"] = new JsonArray(paths.Select(p => (JsonNode)p).ToArray());
                 namePath.Remove("pattern");
+            }
+        }
+
+        // Returns true when a JSON Schema node represents a struct (type:object with a properties map).
+        // Handles both the plain form { "type": "object" } and the nullable-widened form
+        // { "type": ["object", "null"] } that the generator emits for nullable structs.
+        private static bool IsStructSchema(JsonNode schema)
+        {
+            var type = schema["type"];
+            bool isObject;
+            if (type is JsonValue)
+            {
+                isObject = type.GetValue<string>() == "object";
+            }
+            else if (type is JsonArray typeArray)
+            {
+                isObject = typeArray.Any(t => t?.GetValue<string>() == "object");
+            }
+            else
+            {
+                isObject = false;
+            }
+
+            return isObject && schema["properties"] is JsonObject;
+        }
+
+        // Recursively walks the "properties" map of a struct schema and yields dot-joined PascalCase field
+        // paths for every scalar leaf. Nested structs are descended; non-scalar leaf nodes (type:object,
+        // type:array) are skipped — only addressable scalar leaves are emitted.
+        private static IEnumerable<string> StructFieldPaths(JsonNode structSchema)
+        {
+            var properties = structSchema["properties"] as JsonObject;
+            if (properties is null)
+            {
+                yield break;
+            }
+
+            foreach (var kvp in properties)
+            {
+                var fieldSchema = kvp.Value;
+                if (fieldSchema is null)
+                {
+                    continue;
+                }
+
+                // Convert the camelCase property key to PascalCase (upper-case the first char).
+                var fieldName = string.IsNullOrEmpty(kvp.Key) ? kvp.Key : char.ToUpperInvariant(kvp.Key[0]) + kvp.Key.Substring(1);
+
+                if (IsStructSchema(fieldSchema))
+                {
+                    // Nested struct — recurse and prepend this segment.
+                    foreach (var subPath in StructFieldPaths(fieldSchema))
+                    {
+                        yield return $"{fieldName}.{subPath}";
+                    }
+                }
+                else
+                {
+                    // Scalar (or array, which is not addressable) — emit only non-array scalars.
+                    var type = fieldSchema["type"];
+                    string? typeString = null;
+                    if (type is JsonValue tv)
+                    {
+                        typeString = tv.GetValue<string>();
+                    }
+                    else if (type is JsonArray ta)
+                    {
+                        typeString = ta.Select(t => t?.GetValue<string>()).FirstOrDefault(t => t != "null");
+                    }
+
+                    if (typeString != "object" && typeString != "array")
+                    {
+                        yield return fieldName;
+                    }
+                }
             }
         }
 
@@ -187,16 +285,17 @@ namespace Vion.Dale.Cli.Commands
                     continue;
                 }
 
-                var shapes = new[] { "set", "digitalInput", "analogInput", "waitUntil", "wait" }.Count(k => step.ContainsKey(k));
+                var shapes = new[] { "set", "digitalInput", "analogInput", "waitUntil", "expect", "wait", "advance", "settle" }.Count(k => step.ContainsKey(k));
                 if (shapes != 1)
                 {
-                    errors.Add($"{where}: a step is exactly one of set / digitalInput / analogInput / waitUntil / wait");
+                    errors.Add($"{where}: a step is exactly one of set / digitalInput / analogInput / waitUntil / expect / wait / advance / settle");
                     continue;
                 }
 
-                if (setupOnlyShapes && (step.ContainsKey("waitUntil") || step.ContainsKey("wait")))
+                if (setupOnlyShapes && (step.ContainsKey("waitUntil") || step.ContainsKey("expect") || step.ContainsKey("wait") || step.ContainsKey("advance") ||
+                                        step.ContainsKey("settle")))
                 {
-                    errors.Add($"{where}: setup entries stage state — waits belong in steps");
+                    errors.Add($"{where}: setup entries stage state — waits, expects, and time steps belong in steps");
                     continue;
                 }
 
@@ -234,6 +333,59 @@ namespace Vion.Dale.Cli.Commands
                 {
                     ValidateWaitUntil(step, config, where, errors);
                 }
+                else if (step.ContainsKey("expect"))
+                {
+                    ValidateExpect(step, config, where, errors);
+                }
+                else if (step.ContainsKey("advance"))
+                {
+                    if (step["advance"]?["seconds"]?.GetValueKind() != JsonValueKind.Number || step["advance"]!["seconds"]!.GetValue<double>() <= 0)
+                    {
+                        errors.Add($"{where}: advance.seconds must be a positive number");
+                    }
+                }
+                else if (step.ContainsKey("settle"))
+                {
+                    // settle may be an empty object {}; maxSeconds is optional but must be positive when present.
+                    if (step["settle"] is JsonObject settle)
+                    {
+                        if (settle.ContainsKey("maxSeconds") && (settle["maxSeconds"]?.GetValueKind() != JsonValueKind.Number || settle["maxSeconds"]!.GetValue<double>() <= 0))
+                        {
+                            errors.Add($"{where}: settle.maxSeconds must be a positive number");
+                        }
+
+                        // settle.until, when present, scopes convergence to explicit target paths: a non-empty
+                        // array of name paths that resolve against the topology (omit it to settle over watch).
+                        if (settle.ContainsKey("until"))
+                        {
+                            if (settle["until"] is not JsonArray until || until.Count == 0)
+                            {
+                                errors.Add($"{where}: settle.until must be a non-empty array of name paths (omit it to settle over the whole watch list)");
+                            }
+                            else
+                            {
+                                for (var u = 0; u < until.Count; u++)
+                                {
+                                    var element = until[u];
+                                    if (element is null || element.GetValueKind() != JsonValueKind.String)
+                                    {
+                                        errors.Add($"{where}: settle.until[{u}] not a string");
+                                    }
+                                    else if (string.IsNullOrWhiteSpace(element.GetValue<string>()))
+                                    {
+                                        // Structural, config-independent — mirror the model (ScenarioFile) so the
+                                        // CLI and the runner agree even when path resolution is skipped.
+                                        errors.Add($"{where}: settle.until[{u}]: empty name path");
+                                    }
+                                    else if (config is not null)
+                                    {
+                                        ResolvePath(element.GetValue<string>(), config, $"{where} settle.until[{u}]", false, errors);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 else if (step["wait"]?["seconds"]?.GetValueKind() != JsonValueKind.Number || step["wait"]!["seconds"]!.GetValue<double>() <= 0)
                 {
                     errors.Add($"{where}: wait.seconds must be a positive number");
@@ -249,27 +401,7 @@ namespace Vion.Dale.Cli.Commands
                 return;
             }
 
-            var comparators = new[] { "above", "below", "equals", "notEquals" }.Where(waitUntil.ContainsKey).ToList();
-            if (comparators.Count != 1)
-            {
-                errors.Add($"{where}: waitUntil takes exactly one of above / below / equals / notEquals");
-            }
-
-            foreach (var numeric in new[] { "above", "below" }.Where(waitUntil.ContainsKey))
-            {
-                if (waitUntil[numeric]?.GetValueKind() != JsonValueKind.Number)
-                {
-                    errors.Add($"{where}: waitUntil.{numeric} must be a number");
-                }
-            }
-
-            foreach (var exact in new[] { "equals", "notEquals" }.Where(waitUntil.ContainsKey))
-            {
-                if (waitUntil[exact]?.GetValueKind() is JsonValueKind.Object or JsonValueKind.Array)
-                {
-                    errors.Add($"{where}: waitUntil.{exact} does not compare structs/arrays in v1");
-                }
-            }
+            ValidateComparators("waitUntil", waitUntil, false, where, errors);
 
             var path = waitUntil["property"]?.GetValue<string>();
             if (path is null)
@@ -285,6 +417,92 @@ namespace Vion.Dale.Cli.Commands
             {
                 errors.Add($"{where}: timeoutSeconds must be a positive number");
             }
+        }
+
+        private static void ValidateExpect(JsonObject step, JsonNode? config, string where, List<string> errors)
+        {
+            if (step["expect"] is not JsonObject expect)
+            {
+                errors.Add($"{where}: expect must be an object");
+                return;
+            }
+
+            ValidateComparators("expect", expect, true, where, errors);
+
+            var path = expect["property"]?.GetValue<string>();
+            if (path is null)
+            {
+                errors.Add($"{where}: expect.property is required");
+            }
+            else if (config is not null)
+            {
+                ResolvePath(path, config, where, false, errors);
+            }
+
+            // A relational {path} comparand must itself resolve (offline structural — the runner enforces the
+            // numeric-leaf rule for above/below at run time).
+            if (config is not null)
+            {
+                foreach (var name in new[] { "above", "below", "equals", "notEquals" })
+                {
+                    if (PathComparand(expect[name]) is { } comparandPath)
+                    {
+                        ResolvePath(comparandPath, config, $"{where} comparand", false, errors);
+                    }
+                }
+            }
+        }
+
+        // The comparator block shared by waitUntil and expect: exactly one of above / below / equals /
+        // notEquals / oneOf; above/below numeric (or a {path} object for expect); equals/notEquals reject
+        // struct/array literals (the {path} object is the only allowed object form, expect only); oneOf is a
+        // non-empty array of scalars.
+        private static void ValidateComparators(string shape, JsonObject comparators, bool allowPathComparand, string where, List<string> errors)
+        {
+            var present = new[] { "above", "below", "equals", "notEquals", "oneOf" }.Where(comparators.ContainsKey).ToList();
+            if (present.Count != 1)
+            {
+                errors.Add($"{where}: {shape} takes exactly one of above / below / equals / notEquals / oneOf");
+            }
+
+            foreach (var numeric in new[] { "above", "below" }.Where(comparators.ContainsKey))
+            {
+                if (comparators[numeric]?.GetValueKind() != JsonValueKind.Number && !(allowPathComparand && IsPathComparand(comparators[numeric])))
+                {
+                    errors.Add($"{where}: {shape}.{numeric} must be a number");
+                }
+            }
+
+            foreach (var exact in new[] { "equals", "notEquals" }.Where(comparators.ContainsKey))
+            {
+                if (comparators[exact]?.GetValueKind() is JsonValueKind.Object or JsonValueKind.Array && !(allowPathComparand && IsPathComparand(comparators[exact])))
+                {
+                    errors.Add($"{where}: {shape}.{exact} does not compare structs/arrays in v1");
+                }
+            }
+
+            if (comparators.ContainsKey("oneOf"))
+            {
+                if (comparators["oneOf"] is not JsonArray oneOf || oneOf.Count == 0)
+                {
+                    errors.Add($"{where}: {shape}.oneOf must be a non-empty array of scalars");
+                }
+                else if (oneOf.Any(e => e?.GetValueKind() is JsonValueKind.Object or JsonValueKind.Array))
+                {
+                    errors.Add($"{where}: {shape}.oneOf elements must be scalars (no objects/arrays)");
+                }
+            }
+        }
+
+        // The {path} string of a relational comparand object, or null when it is not the {path} form.
+        private static string? PathComparand(JsonNode? comparand)
+        {
+            return IsPathComparand(comparand) ? comparand!["path"]!.GetValue<string>() : null;
+        }
+
+        private static bool IsPathComparand(JsonNode? comparand)
+        {
+            return comparand is JsonObject obj && obj.Count == 1 && obj["path"]?.GetValueKind() == JsonValueKind.String;
         }
 
         // Revision 5 name-path resolution against the configuration JSON — the same rules the runner
@@ -383,11 +601,21 @@ namespace Vion.Dale.Cli.Commands
 
         private static IEnumerable<string> MemberNames(JsonNode? service)
         {
+            foreach (var (name, _) in MemberNamesWithSchema(service))
+            {
+                yield return name;
+            }
+        }
+
+        // Like MemberNames but also yields the member's "schema" node so the caller can inspect it for
+        // struct expansion. Used by EnrichSchemaWithNamePaths to emit Block.Member.Field paths.
+        private static IEnumerable<(string Name, JsonNode? Schema)> MemberNamesWithSchema(JsonNode? service)
+        {
             foreach (var property in service?["serviceProperties"] as JsonArray ?? new JsonArray())
             {
                 if (property?["identifier"]?.GetValue<string>() is { } name)
                 {
-                    yield return name;
+                    yield return (name, property["schema"]);
                 }
             }
 
@@ -395,7 +623,7 @@ namespace Vion.Dale.Cli.Commands
             {
                 if (measuringPoint?["identifier"]?.GetValue<string>() is { } name)
                 {
-                    yield return name;
+                    yield return (name, measuringPoint["schema"]);
                 }
             }
         }

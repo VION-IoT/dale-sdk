@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "id": "io-control",
+  "topology": "default",
+  "title": "HAL control — drive mocked inputs, observe the round-trip",
+  "description": "Injects a digital and an analog HAL input, waits for the IoBlock to observe them, and asserts the values reached its service properties. Exercises the digitalInput / analogInput / waitUntil scenario step types (the ones the other scenarios don't) and the full HAL round-trip: mocked input -> block -> observable property.",
+  "specs": ["smoke", "hal", "step-types"],
+  "watch": ["IoBlock.IsEnabled", "IoBlock.CurrentLevel"],
+  "steps": [
+    { "digitalInput": { "block": "IoBlock", "contract": "EnableInput" }, "value": true, "label": "drive the digital input high" },
+    { "analogInput": { "block": "IoBlock", "contract": "LevelInput" }, "value": 3.3, "label": "drive the analog input to 3.3" },
+    { "waitUntil": { "property": "IoBlock.IsEnabled", "equals": true }, "timeoutSeconds": 5, "label": "wait until the block observes the digital input" },
+    { "expect": { "property": "IoBlock.IsEnabled", "equals": true }, "label": "the digital input reached the block", "spec": "hal" },
+    { "expect": { "property": "IoBlock.CurrentLevel", "equals": 3.3, "tolerance": 0.001 }, "label": "the analog input reached the block", "spec": "hal" }
+  ]
+}

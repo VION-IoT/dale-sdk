@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <!--
+      A committed, project-referencing DevHost fixture: synthetic logic blocks engineered to light up
+      every DevHost surface (value shapes, presentation groups, read-only members, a timer for stepping,
+      HAL contracts, inter-block wiring), plus topologies + scenarios. Unlike examples/* (which
+      PackageReference the published SDK to validate the package), this fixture ProjectReferences the
+      LOCAL source on purpose — so `dotnet run` always boots a real DevHost server against your working
+      tree, with no temp-switching and no version mismatch. It is the boot target for the /devhost-smoke
+      skill's live-UI tier. Not packed, not published.
+    -->
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>false</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+        <IsPublishable>false</IsPublishable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vion.Dale.DevHost.Web\Vion.Dale.DevHost.Web.csproj"/>
+        <ProjectReference Include="..\Vion.Dale.Sdk\Vion.Dale.Sdk.csproj"/>
+        <ProjectReference Include="..\Vion.Dale.Sdk.AnalogIo\Vion.Dale.Sdk.AnalogIo.csproj"/>
+        <ProjectReference Include="..\Vion.Dale.Sdk.DigitalIo\Vion.Dale.Sdk.DigitalIo.csproj"/>
+        <ProjectReference Include="..\Vion.Dale.Sdk.Generators\Vion.Dale.Sdk.Generators.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer"/>
+        <PackageReference Include="Metalama.Patterns.Observability" Version="2026.1.18"/>
+    </ItemGroup>
+
+</Project>

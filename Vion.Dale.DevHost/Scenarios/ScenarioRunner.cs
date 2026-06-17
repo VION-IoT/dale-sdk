@@ -13,12 +13,6 @@ namespace Vion.Dale.DevHost.Scenarios
     /// <summary>Options for a scenario run.</summary>
     public sealed class ScenarioRunOptions
     {
-        /// <summary>
-        ///     Run despite a topology mismatch (the Player's "proceed anyway"). Default false: a mismatch
-        ///     blocks before anything executes.
-        /// </summary>
-        public bool IgnoreTopologyMismatch { get; init; }
-
         /// <summary>Run identity surfaced in the report; generated when null.</summary>
         public string? RunId { get; init; }
 
@@ -47,6 +41,9 @@ namespace Vion.Dale.DevHost.Scenarios
         private const double AckCeilingMs = 4900;
 
         private const double DefaultWaitUntilTimeoutSeconds = 20;
+
+        // Default virtual-time budget for a settle step when maxSeconds is not specified.
+        private const double DefaultSettleMaxSeconds = 60;
 
         /// <summary>Run a scenario and return the structured report. Failures are recorded, not thrown.</summary>
         public static async Task<ScenarioRunReport> RunAsync(ScenarioFile scenario,
@@ -129,25 +126,61 @@ namespace Vion.Dale.DevHost.Scenarios
         {
             var condition = step.WaitUntil!;
             var timeout = step.TimeoutSeconds ?? DefaultWaitUntilTimeoutSeconds;
-            string comparator;
-            if (condition.Above.ValueKind == JsonValueKind.Number)
+            var comparator = DescribeComparator(condition.Above,
+                                                condition.Below,
+                                                condition.EqualTo,
+                                                condition.NotEquals,
+                                                condition.OneOf,
+                                                condition.Tolerance);
+            return $"{comparator} · {timeout.ToString(CultureInfo.InvariantCulture)} s timeout";
+        }
+
+        // Human-readable expect assertion for reports ("> 0", "one of [a, b]", "== {RefBlock.Limit}").
+        private static string DescribeExpect(ScenarioExpect expect)
+        {
+            return DescribeComparator(expect.Above,
+                                      expect.Below,
+                                      expect.EqualTo,
+                                      expect.NotEquals,
+                                      expect.OneOf,
+                                      expect.Tolerance);
+        }
+
+        // The comparator description shared by waitUntil and expect, including oneOf and {path} comparands.
+        private static string DescribeComparator(JsonElement above,
+                                                 JsonElement below,
+                                                 JsonElement equalTo,
+                                                 JsonElement notEquals,
+                                                 JsonElement oneOf,
+                                                 double? tolerance)
+        {
+            if (above.ValueKind != JsonValueKind.Undefined)
             {
-                comparator = $"> {condition.Above.GetRawText()}";
-            }
-            else if (condition.Below.ValueKind == JsonValueKind.Number)
-            {
-                comparator = $"< {condition.Below.GetRawText()}";
-            }
-            else if (condition.EqualTo.ValueKind != JsonValueKind.Undefined)
-            {
-                comparator = $"== {condition.EqualTo.GetRawText()}" + (condition.Tolerance is { } tolerance ? $" ±{tolerance.ToString(CultureInfo.InvariantCulture)}" : "");
-            }
-            else
-            {
-                comparator = $"!= {condition.NotEquals.GetRawText()}";
+                return $"> {DescribeComparand(above)}";
             }
 
-            return $"{comparator} · {timeout.ToString(CultureInfo.InvariantCulture)} s timeout";
+            if (below.ValueKind != JsonValueKind.Undefined)
+            {
+                return $"< {DescribeComparand(below)}";
+            }
+
+            if (equalTo.ValueKind != JsonValueKind.Undefined)
+            {
+                return $"== {DescribeComparand(equalTo)}" + (tolerance is { } t ? $" ±{t.ToString(CultureInfo.InvariantCulture)}" : "");
+            }
+
+            if (notEquals.ValueKind != JsonValueKind.Undefined)
+            {
+                return $"!= {DescribeComparand(notEquals)}";
+            }
+
+            return $"one of [{string.Join(", ", oneOf.EnumerateArray().Select(e => e.GetRawText()))}]";
+        }
+
+        // A comparand renders as its literal, or as {Block.Prop} for the relational {path} form.
+        private static string DescribeComparand(JsonElement comparand)
+        {
+            return ScenarioComparators.IsPathComparand(comparand) ? $"{{{comparand.GetProperty("path").GetString()}}}" : comparand.GetRawText();
         }
 
         private static ScenarioRunOptions WithFileHash(ScenarioRunOptions? options, ScenarioStore store, string id)
@@ -160,7 +193,6 @@ namespace Vion.Dale.DevHost.Scenarios
             return new ScenarioRunOptions
                    {
                        RunId = options?.RunId,
-                       IgnoreTopologyMismatch = options?.IgnoreTopologyMismatch ?? false,
                        OnProgress = options?.OnProgress,
                        FileHash = store.FileHash(id),
                    };
@@ -182,12 +214,19 @@ namespace Vion.Dale.DevHost.Scenarios
                                "digitalInput" => $"{step.DigitalInput!.Block}.{step.DigitalInput.Contract}",
                                "analogInput" => $"{step.AnalogInput!.Block}.{step.AnalogInput.Contract}",
                                "waitUntil" => step.WaitUntil!.Property ?? string.Empty,
+                               "expect" => step.Expect!.Property ?? string.Empty,
+                               "advance" => string.Empty,
+                               "settle" => step.Settle!.Until is { } until ? $"until {string.Join(", ", until)}" : "until stable",
                                _ => $"{step.Wait!.Seconds.ToString(CultureInfo.InvariantCulture)} s",
                            },
                            Argument = step.Kind switch
                            {
                                "set" or "digitalInput" or "analogInput" => step.Value.ValueKind == JsonValueKind.Undefined ? null : step.Value.GetRawText(),
                                "waitUntil" => DescribeCondition(step),
+                               "expect" => DescribeExpect(step.Expect!),
+                               "settle" => step.Settle!.MaxSeconds is { } max ? $"≤{max.ToString(CultureInfo.InvariantCulture)} s" :
+                                               $"≤{DefaultSettleMaxSeconds.ToString(CultureInfo.InvariantCulture)} s",
+                               "advance" => $"{step.Advance!.Seconds.ToString(CultureInfo.InvariantCulture)} s",
                                _ => null,
                            },
                        };
@@ -219,9 +258,11 @@ namespace Vion.Dale.DevHost.Scenarios
             var configuration = control.GetConfiguration();
             report.HostTopology = configuration.TopologyName;
 
-            // Topology guard: blocked before anything runs (Player interstitial / CI skip semantics live
-            // with the callers; the runner just refuses).
-            if (!options.IgnoreTopologyMismatch && !string.Equals(scenario.Topology, configuration.TopologyName, StringComparison.Ordinal))
+            // Topology guard: a scenario only runs against the topology it declares. The web caller brings the
+            // host to that topology first (recycle-on-run); an in-process / unsupervised caller must have built
+            // the host on it. A mismatch here is a setup error — refuse loudly before anything executes. There
+            // is no "force" override: running against the wrong graph silently produced misleading green runs.
+            if (!string.Equals(scenario.Topology, configuration.TopologyName, StringComparison.Ordinal))
             {
                 report.Status = ScenarioRunStatus.TopologyMismatch;
                 report.ValidationErrors = new[]
@@ -246,6 +287,20 @@ namespace Vion.Dale.DevHost.Scenarios
                 resolver.ResolveProperty(path, $"watch[{index}]", errors);
             }
 
+            // settle.until target paths resolve up front too — scoping settle to explicit paths must fail
+            // loudly on a typo / topology mismatch, never silently "converge" on an unresolved (null) target
+            // that trivially never changes (RFC 0008 §8.6).
+            for (var i = 0; i < runSteps.Count; i++)
+            {
+                if (runSteps[i].Settle?.Until is { } until)
+                {
+                    for (var u = 0; u < until.Count; u++)
+                    {
+                        resolver.ResolveProperty(until[u], $"steps[{i}] settle.until[{u}]", errors);
+                    }
+                }
+            }
+
             if (errors.Count > 0)
             {
                 report.Status = ScenarioRunStatus.Failed;
@@ -253,6 +308,8 @@ namespace Vion.Dale.DevHost.Scenarios
                 SkipRemaining(report, "validation failed");
                 return;
             }
+
+            var watchPaths = scenario.Watch;
 
             // Setup in file order, then steps in order; any failure stops the run.
             for (var i = 0; i < resolvedSetup.Count; i++)
@@ -280,7 +337,8 @@ namespace Vion.Dale.DevHost.Scenarios
                                         control,
                                         progress,
                                         report,
-                                        cancellationToken)
+                                        cancellationToken,
+                                        watchPaths)
                          .ConfigureAwait(false))
                 {
                     report.Status = ScenarioRunStatus.Failed;
@@ -298,7 +356,8 @@ namespace Vion.Dale.DevHost.Scenarios
                                                      IDevHostControl control,
                                                      Action<ScenarioRunReport> progress,
                                                      ScenarioRunReport report,
-                                                     CancellationToken cancellationToken)
+                                                     CancellationToken cancellationToken,
+                                                     IReadOnlyList<string>? watchPaths = null)
         {
             cancellationToken.ThrowIfCancellationRequested();
             result.Status = ScenarioStepStatus.Running;
@@ -356,7 +415,30 @@ namespace Vion.Dale.DevHost.Scenarios
 
                         break;
 
+                    case "expect":
+                        if (!ExpectStep(step.Expect!, resolved, control, result))
+                        {
+                            Fail(result, report, progress, stopwatch);
+                            return false;
+                        }
+
+                        break;
+
+                    case "advance":
+                        await control.AdvanceAsync(TimeSpan.FromSeconds(step.Advance!.Seconds), cancellationToken).ConfigureAwait(false);
+                        break;
+
+                    case "settle":
+                        if (!await SettleAsync(step, watchPaths, control, result, cancellationToken).ConfigureAwait(false))
+                        {
+                            Fail(result, report, progress, stopwatch);
+                            return false;
+                        }
+
+                        break;
+
                     default: // wait
+                        result.Detail = "wall-clock delay (non-deterministic) — prefer advance for stepped hosts";
                         await Task.Delay(TimeSpan.FromSeconds(step.Wait!.Seconds), cancellationToken).ConfigureAwait(false);
                         break;
                 }
@@ -378,10 +460,16 @@ namespace Vion.Dale.DevHost.Scenarios
             return true;
         }
 
-        // The waitUntil protocol (RFC 0006 "Execution model"): WaitForAsync observes only events occurring
-        // after the call, so evaluate against the current value first (already true → complete immediately),
-        // subscribe, then re-evaluate once more to close the set-between-check-and-subscribe race. A timeout
-        // converts to a step failure.
+        // The waitUntil protocol (RFC 0006 "Execution model"): two branches depending on the host clock.
+        //
+        // Stepped host (FakeTimeProvider — control.IsStepped): advance virtual time hop-by-hop until the
+        // condition holds or the virtual-time budget is exhausted. No real wall-clock wait occurs; the test
+        // completes near-instantly even for multi-second virtual waits. A stall (AdvanceToNextEventAsync
+        // returns without moving the clock, meaning nothing is scheduled) fails promptly rather than spinning.
+        //
+        // Real-clock host (Player free-run, !IsStepped): the original WaitForAsync event-subscription path —
+        // observes only events that occur after the call, with the set-before-subscribe race closed by a
+        // re-check immediately after subscribing.
         private static async Task<bool> WaitUntilAsync(ScenarioStep step,
                                                        ResolvedProperty target,
                                                        IDevHostControl control,
@@ -389,11 +477,14 @@ namespace Vion.Dale.DevHost.Scenarios
                                                        CancellationToken cancellationToken)
         {
             var condition = step.WaitUntil!;
-            var timeout = TimeSpan.FromSeconds(step.TimeoutSeconds ?? DefaultWaitUntilTimeoutSeconds);
+            var timeoutSeconds = step.TimeoutSeconds ?? DefaultWaitUntilTimeoutSeconds;
+            var timeout = TimeSpan.FromSeconds(timeoutSeconds);
 
             bool Satisfied(object? live)
             {
-                return ScenarioConditions.IsSatisfied(condition, live);
+                // For a struct field-path target, the comparison is against the scalar field leaf — extract
+                // it from the boxed struct before handing it to the (unchanged) comparison logic.
+                return ScenarioConditions.IsSatisfied(condition, ExtractField(live, target.FieldPath));
             }
 
             object? Current()
@@ -401,11 +492,61 @@ namespace Vion.Dale.DevHost.Scenarios
                 return control.GetProperty(target.Block, target.ServiceIdentifier, target.PropertyName);
             }
 
+            // The leaf value shown in failure details — the extracted field for a field-path target.
+            string LastDisplay()
+            {
+                var leaf = ExtractField(Current(), target.FieldPath);
+                return leaf is null ? "null" : Convert.ToString(leaf, CultureInfo.InvariantCulture) ?? "null";
+            }
+
+            // Already-satisfied fast-path: identical in both modes.
             if (Satisfied(Current()))
             {
                 result.Detail = "already satisfied";
                 return true;
             }
+
+            // ── Stepped path ─────────────────────────────────────────────────────────────────────────────
+            if (control.IsStepped)
+            {
+                var virtualStart = control.VirtualTimeUtc;
+                var budget = timeout;
+                var hops = 0;
+
+                while (true)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    var beforeHop = control.VirtualTimeUtc;
+                    await control.AdvanceToNextEventAsync(cancellationToken).ConfigureAwait(false);
+                    hops++;
+
+                    if (Satisfied(Current()))
+                    {
+                        var elapsed = (control.VirtualTimeUtc - virtualStart).TotalSeconds;
+                        result.Detail = $"satisfied after {hops} hop{(hops == 1 ? "" : "s")} / {elapsed.ToString("0.###", CultureInfo.InvariantCulture)} virtual s";
+                        return true;
+                    }
+
+                    // No progress: nothing was scheduled so the clock didn't move.
+                    if (control.VirtualTimeUtc == beforeHop)
+                    {
+                        result.Detail = $"condition not met — no further scheduled events (last value: {LastDisplay()})";
+                        return false;
+                    }
+
+                    // Virtual budget exhausted.
+                    if (control.VirtualTimeUtc - virtualStart >= budget)
+                    {
+                        result.Detail = $"condition not met within {timeoutSeconds.ToString(CultureInfo.InvariantCulture)} virtual s (last value: {LastDisplay()})";
+                        return false;
+                    }
+                }
+            }
+
+            // ── Real-clock path ──────────────────────────────────────────────────────────────────────────
+            // WaitForAsync observes only events occurring after the call. Subscribe, then re-evaluate once
+            // more to close the set-between-check-and-subscribe race. A timeout converts to a step failure.
 
             DevHostEvent? Selector(DevHostEvent e)
             {
@@ -437,10 +578,194 @@ namespace Vion.Dale.DevHost.Scenarios
                 return true;
             }
 
-            var last = Current();
-            result.Detail = $"condition not met within {timeout.TotalSeconds.ToString(CultureInfo.InvariantCulture)} s " +
-                            $"(last value: {(last is null ? "null" : Convert.ToString(last, CultureInfo.InvariantCulture))})";
+            result.Detail = $"condition not met within {timeoutSeconds.ToString(CultureInfo.InvariantCulture)} s (last value: {LastDisplay()})";
             return false;
+        }
+
+        // The expect assertion (RFC 0006 "Assert tier"): a single point-in-time check of the target's CURRENT
+        // value. No awaiting — read once, evaluate, and FAIL the step (so the run fails) when the comparator
+        // does not hold. For a relational {path} comparand, the comparand path's current value is read too and
+        // supplied as the live comparand. Both target and comparand honor struct field paths via ExtractField.
+        private static bool ExpectStep(ScenarioExpect expect, ResolvedStep resolved, IDevHostControl control, ScenarioStepResult result)
+        {
+            var target = resolved.Property!;
+            var live = ExtractField(control.GetProperty(target.Block, target.ServiceIdentifier, target.PropertyName), target.FieldPath);
+
+            var hasComparand = resolved.Comparand is not null;
+            object? comparandLive = null;
+            if (resolved.Comparand is { } comparand)
+            {
+                comparandLive = ExtractField(control.GetProperty(comparand.Block, comparand.ServiceIdentifier, comparand.PropertyName), comparand.FieldPath);
+            }
+
+            if (ScenarioConditions.IsSatisfied(expect, live, hasComparand, comparandLive))
+            {
+                result.Detail = $"expectation held: {target.PropertyName} {DescribeExpect(expect)} (value {Display(live)})";
+                return true;
+            }
+
+            result.Detail = ExpectFailureDetail(expect, resolved, live, comparandLive);
+            return false;
+        }
+
+        // The failing-expect detail — "expected X above Y, but was Z" / "value W is not one of […]".
+        private static string ExpectFailureDetail(ScenarioExpect expect, ResolvedStep resolved, object? live, object? comparandLive)
+        {
+            var target = resolved.Property!.PropertyName;
+            var actual = Display(live);
+
+            if (expect.OneOf.ValueKind == JsonValueKind.Array)
+            {
+                var options = string.Join(", ", expect.OneOf.EnumerateArray().Select(e => e.GetRawText()));
+                return $"expected {target} to be one of [{options}], but was {actual}";
+            }
+
+            string Bound(JsonElement literal)
+            {
+                return resolved.Comparand is not null ? $"{Display(comparandLive)} (from {resolved.Comparand.PropertyName})" : literal.GetRawText();
+            }
+
+            if (expect.Above.ValueKind != JsonValueKind.Undefined)
+            {
+                return $"expected {target} above {Bound(expect.Above)}, but was {actual}";
+            }
+
+            if (expect.Below.ValueKind != JsonValueKind.Undefined)
+            {
+                return $"expected {target} below {Bound(expect.Below)}, but was {actual}";
+            }
+
+            if (expect.EqualTo.ValueKind != JsonValueKind.Undefined)
+            {
+                var tolerance = expect.Tolerance is { } t ? $" (±{t.ToString(CultureInfo.InvariantCulture)})" : "";
+                return $"expected {target} to equal {Bound(expect.EqualTo)}{tolerance}, but was {actual}";
+            }
+
+            return $"expected {target} to not equal {Bound(expect.NotEquals)}, but was {actual}";
+        }
+
+        private static string Display(object? value)
+        {
+            return value is null ? "null" : Convert.ToString(value, CultureInfo.InvariantCulture) ?? "null";
+        }
+
+        // Settle protocol (RFC 0008 §8.6): advance hop-by-hop until the TARGETED values are stable across one
+        // full hop, or until the virtual-time budget — or the hop backstop — is exhausted, in which case the
+        // step FAILS and the detail names the still-changing target. The targeted set is settle.until when
+        // given, else the scenario's watch list: a large watch set is for observability and need not all
+        // settle, so scoping settle to the specific values keeps a volatile tile (free-running counter,
+        // clock-derived value, noisy sensor) from silently burning the budget. Virtual time elapsed is tracked
+        // via control.VirtualTimeUtc so the budget is in virtual seconds, not wall seconds.
+        private static async Task<bool> SettleAsync(ScenarioStep step,
+                                                    IReadOnlyList<string>? watchPaths,
+                                                    IDevHostControl control,
+                                                    ScenarioStepResult result,
+                                                    CancellationToken cancellationToken)
+        {
+            var maxSeconds = step.Settle!.MaxSeconds ?? DefaultSettleMaxSeconds;
+            var budget = TimeSpan.FromSeconds(maxSeconds);
+
+            // Scope convergence to settle.until when present, else the whole watch list. An empty target set
+            // converges immediately — nothing to stabilize.
+            var scoped = step.Settle!.Until is not null;
+            var targetPaths = step.Settle!.Until ?? watchPaths;
+            if (targetPaths is null || targetPaths.Count == 0)
+            {
+                result.Detail = scoped ? "converged immediately (empty until list)" : "converged immediately (no watch paths to observe)";
+                return true;
+            }
+
+            // Resolve the target paths once (both settle.until and watch are validated up front, so every
+            // path resolves) so the snapshot reads the correct service-qualified member AND extracts the
+            // scalar leaf for any struct field path.
+            var resolver = new ScenarioResolver(control.GetConfiguration());
+            var context = scoped ? "settle.until" : "settle.watch";
+            var resolved = targetPaths.Select(p => resolver.ResolveProperty(p, context, new List<string>())).ToList();
+
+            object?[] Snapshot()
+            {
+                var values = new object?[resolved.Count];
+                for (var i = 0; i < resolved.Count; i++)
+                {
+                    var target = resolved[i];
+                    values[i] = target is null ? null : ExtractField(control.GetProperty(target.Block, target.ServiceIdentifier, target.PropertyName), target.FieldPath);
+                }
+
+                return values;
+            }
+
+            // Index of the first target that changed across a hop, or -1 when every target is stable.
+            int FirstChanged(object?[] a, object?[] b)
+            {
+                for (var i = 0; i < a.Length; i++)
+                {
+                    if (!Equals(a[i], b[i]))
+                    {
+                        return i;
+                    }
+                }
+
+                return -1;
+            }
+
+            var virtualStart = control.VirtualTimeUtc;
+            var deadline = virtualStart + budget;
+            var hops = 0;
+
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var before = Snapshot();
+                await control.AdvanceToNextEventAsync(cancellationToken).ConfigureAwait(false);
+                hops++;
+                var after = Snapshot();
+
+                var changed = FirstChanged(before, after);
+                var elapsed = (control.VirtualTimeUtc - virtualStart).TotalSeconds;
+
+                if (changed < 0)
+                {
+                    result.Detail = $"converged after {hops} hop{(hops == 1 ? "" : "s")} / {elapsed.ToString("0.###", CultureInfo.InvariantCulture)} virtual s";
+                    return true;
+                }
+
+                // Non-convergence: the virtual-time budget is spent while a target still moves. Fail loudly,
+                // naming the still-changing target and its last step — rather than the old silent soft-pass
+                // that let a volatile signal burn the whole budget unnoticed (RFC 0008 §8.6). A non-advancing
+                // event storm can never reach here: it fails earlier via the quiescence barrier's safety timeout.
+                if (control.VirtualTimeUtc >= deadline)
+                {
+                    result.Detail =
+                        $"did not converge within {maxSeconds.ToString(CultureInfo.InvariantCulture)} virtual s — {targetPaths[changed]} still changing ({Display(before[changed])} → {Display(after[changed])}) after {hops} hop{(hops == 1 ? "" : "s")} / {elapsed.ToString("0.###", CultureInfo.InvariantCulture)} virtual s";
+                    return false;
+                }
+            }
+        }
+
+        // Extract a struct field leaf from a (boxed) live value by walking the PascalCase field path via
+        // reflection. Each segment reads a public property (record-struct positional fields surface as
+        // properties) or, failing that, a field of the same name. A null intermediate short-circuits to a
+        // null leaf. With no field path the value passes through unchanged (the common scalar case).
+        private static object? ExtractField(object? value, IReadOnlyList<string>? fieldPath)
+        {
+            if (fieldPath is null || fieldPath.Count == 0)
+            {
+                return value;
+            }
+
+            foreach (var segment in fieldPath)
+            {
+                if (value is null)
+                {
+                    return null;
+                }
+
+                var type = value.GetType();
+                value = type.GetProperty(segment)?.GetValue(value) ?? type.GetField(segment)?.GetValue(value);
+            }
+
+            return value;
         }
 
         private static void Fail(ScenarioStepResult result, ScenarioRunReport report, Action<ScenarioRunReport> progress, Stopwatch stopwatch)

@@ -91,6 +91,7 @@ Options:
   --export-config <export-config>      Boot the wired network, write its configuration (block names, services, schemas, topology) as JSON to this file, and exit — the data source for `dale scenario validate` and `dale scenario schema` (RFC 0006).
   --export-topology <export-topology>  Boot the wired network, write it as a *.topology.json dev profile to this file, and exit — the migration path from C# presets to topology files (RFC 0006 R5).
   --preset <preset>                    Pass <name> as the DevHost app's first program argument (args[0]) — the discoverable, composable form of `dale dev -- <name>` for selecting a consumer-defined preset. Combines with --export-config/--export-topology to export a non-default preset.
+  --stepped                            Boot in deterministic stepping mode (a controllable virtual clock) so scenario runs — in the Player and via `dale scenario run` — step exactly instead of waiting on the wall clock. Timers idle between runs; use the default real-clock mode for live watching.
   -?, -h, --help                       Show help and usage information
   -o, --output <json|table>            Output format [default: table]
   --project <project>                  Path to .csproj file

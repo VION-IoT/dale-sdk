@@ -36,9 +36,13 @@ export const store = reactive({
     baselineSeconds: 0,
     // Ctrl+K command palette (jump / pin).
     paletteOpen: false,
-    // Run control: paused (timer/delayed fires held), canReset (supervisor attached).
+    // Run control: paused (timer/delayed fires held), canReset (supervisor attached),
+    // stepped (deterministic virtual clock — scenario runs step exactly; `dale dev --stepped`).
     paused: false,
     canReset: false,
+    stepped: false,
+    // The host's virtual clock (ISO string), shown in the stepped-mode control cluster.
+    virtualTime: null,
     // Top-level view: 'explorer' (default), 'topology', 'gallery', or 'player' (scenarios, RFC 0006).
     view: 'explorer',
     // Topology files (RFC 0006 R5): the discovery payload for the switcher in the topology panel.
@@ -56,6 +60,9 @@ export const store = reactive({
     scenarioFileHash: null,
     scenarioError: null,
     run: null,
+    // Recycle-on-run (RFC 0008): when an apply recycles the host onto the scenario's topology for a clean
+    // slate, the run is parked here and re-applied once the fresh generation is up (in reinitClientState).
+    pendingScenarioRun: null,
     // Human judgment ticks, keyed `${runId}/${index}` -> 'ok' | 'notOk'. Local to this browser;
     // they enter the copied verification report, not the server.
     judgeTicks: {},
@@ -278,6 +285,8 @@ async function fetchControlStatus() {
         const status = await response.json();
         store.paused = !!status.paused;
         store.canReset = !!status.canReset;
+        store.stepped = !!status.stepped;
+        store.virtualTime = status.virtualTimeUtc ?? null;
     } catch (err) {
         console.warn('Could not fetch control status', err);
     }
@@ -300,6 +309,30 @@ export async function resumeHost() {
         store.paused = false;
     } catch (err) {
         showError(`Failed to resume: ${err.message ?? err}`);
+    }
+}
+
+// Manual stepping (RFC 0008 §Part 4): drive the virtual clock by hand on a stepped host. The server
+// 409s when not stepped or while a scenario run is driving the clock — surfaced as an error toast.
+export async function stepHost() {
+    await driveClock('/api/control/step', 'step');
+}
+
+export async function advanceHost(seconds) {
+    await driveClock(`/api/control/advance?seconds=${seconds}`, `advance ${seconds}s`);
+}
+
+async function driveClock(url, label) {
+    try {
+        const response = await fetch(url, { method: 'POST' });
+        if (!response.ok) {
+            const body = await response.json().catch(() => ({}));
+            throw new Error(body.error ?? `HTTP ${response.status}`);
+        }
+        const body = await response.json();
+        if (body.virtualTimeUtc) store.virtualTime = body.virtualTimeUtc;
+    } catch (err) {
+        showError(`Failed to ${label}: ${err.message ?? err}`);
     }
 }
 
@@ -351,6 +384,18 @@ async function reinitClientState() {
                     await loadScenarios();
                     await loadTopologies();
                     store.run = null;
+                    // Recycle-on-run: if a scenario apply triggered this recycle, run it now on the fresh,
+                    // clean generation — but ONLY once the host is actually on the scenario's topology. A
+                    // transient reconnect to the OLD generation (still tearing down) would otherwise re-apply
+                    // against the wrong topology and re-trigger the recycle in a loop, so keep the pending run
+                    // parked until the target topology lands. Then the re-apply runs in place (epoch clock,
+                    // matching topology — no second recycle).
+                    const pending = store.pendingScenarioRun;
+                    if (pending && store.scenarioId === pending.id && store.view === 'player' && store.scenario && store.topologyName === store.scenario.topology) {
+                        store.pendingScenarioRun = null;
+                        applyScenario(pending.id, { restart: pending.restart });
+                    }
+
                     return true;
                 }
             } catch {
@@ -636,10 +681,10 @@ function pollRun(id) {
     }, live ? 400 : 2000);
 }
 
-export async function applyScenario(id, { restart = false, force = false } = {}) {
+export async function applyScenario(id, { restart = false } = {}) {
     try {
-        const query = [restart ? 'restart=true' : null, force ? 'force=true' : null].filter(Boolean).join('&');
-        const response = await fetch(`/api/scenarios/${encodeURIComponent(id)}/apply${query ? '?' + query : ''}`, { method: 'POST' });
+        const query = restart ? '?restart=true' : '';
+        const response = await fetch(`/api/scenarios/${encodeURIComponent(id)}/apply${query}`, { method: 'POST' });
         if (response.status === 409) {
             const body = await response.json();
             showError(body.error || 'A scenario run is already active.');
@@ -656,6 +701,17 @@ export async function applyScenario(id, { restart = false, force = false } = {})
             }
             throw new Error(detail);
         }
+        const body = await response.json().catch(() => ({}));
+        if (body.recycling) {
+            // Recycle-on-run: the host is rebuilding onto the scenario's topology with a clean slate (epoch
+            // clock, fresh blocks). Park the run; the reconnect path (reinitClientState) re-applies it on the
+            // fresh generation, where it runs in place. Drop the stale report and reflect the connection blip.
+            store.pendingScenarioRun = { id, restart };
+            store.run = null;
+            store.connected = false;
+            return;
+        }
+
         await refreshRun(id);
         pollRun(id);
     } catch (err) {

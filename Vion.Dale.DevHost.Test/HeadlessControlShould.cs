@@ -169,6 +169,31 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        public async Task SetServicePropertyValueAsync_OnReadOnlyOrUnknownMember_ThrowsLoudly()
+        {
+            // Trip wire: writing a member the block can't apply — a read-only measuring point / [ServiceProperty]
+            // with no public setter, or an unknown member name — used to look successful (the actor swallowed the
+            // binder exception, the write ack timed out, and the HTTP path returned 200). The control surface must
+            // reject such a write UP FRONT, loudly, on both the HTTP and scenario paths.
+            await using var host = BuildHost();
+            await host.StartAsync();
+
+            var serviceId = host.Control
+                                .GetConfiguration()
+                                .LogicBlocks
+                                .Single(b => b.Name == "counter")
+                                .Services
+                                .Single(s => s.ServiceMeasuringPoints.Any(m => m.Identifier == "CounterDoubled"))
+                                .Id;
+
+            // CounterDoubled is a [ServiceMeasuringPoint] — read-only.
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => host.Control.SetServicePropertyValueAsync(serviceId, "CounterDoubled", JsonValue.Create(7)));
+
+            // An unknown member name on a known service must also fail loudly, not silently no-op.
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => host.Control.SetServicePropertyValueAsync(serviceId, "NoSuchMember", JsonValue.Create(7)));
+        }
+
+        [TestMethod]
         public async Task SetTimeSpanProperty_AcceptsBothDotNetAndIsoDurationFormats()
         {
             // TimeSpan maps to PrimitiveKind.Duration. The rich-types codec parses ISO-8601 ("PT5S") only,

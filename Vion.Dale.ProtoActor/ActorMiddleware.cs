@@ -9,7 +9,10 @@ namespace Vion.Dale.ProtoActor
 {
     public static class ActorMiddleware
     {
-        public static Func<Receiver, Receiver> ReceiveMiddleware(ILogger logger, IActorMessageObserver? observer = null, TimeProvider? timeProvider = null)
+        public static Func<Receiver, Receiver> ReceiveMiddleware(ILogger logger,
+                                                                 IActorMessageObserver? observer = null,
+                                                                 TimeProvider? timeProvider = null,
+                                                                 IActorActivityMonitor? activityMonitor = null)
         {
             var clock = timeProvider ?? TimeProvider.System;
             return next => async (context, envelope) =>
@@ -27,6 +30,23 @@ namespace Vion.Dale.ProtoActor
                                    catch
                                    {
                                        // A faulty observer must never affect message delivery.
+                                   }
+                               }
+
+                               // Optional, opt-in in-flight bracket (RFC 0003 — deterministic stepping): only
+                               // active when a monitor is registered (DevHost). Entered BEFORE the handler runs
+                               // so any follow-up the handler posts happens while in-flight is already > 0 — the
+                               // invariant that makes the quiescence barrier exact. Null in production →
+                               // behaviour is unchanged. A faulty monitor must never affect delivery.
+                               if (activityMonitor != null)
+                               {
+                                   try
+                                   {
+                                       activityMonitor.EnterHandler();
+                                   }
+                                   catch
+                                   {
+                                       // A faulty monitor must never affect message delivery.
                                    }
                                }
 
@@ -62,6 +82,22 @@ namespace Vion.Dale.ProtoActor
                                                        serializedHeaders,
                                                        correlationId,
                                                        message.Topic);
+                                   }
+                               }
+                               finally
+                               {
+                                   // Mirror of EnterHandler — runs on both the success path and the swallowed-
+                                   // exception path above, so in-flight always returns to its pre-handler value.
+                                   if (activityMonitor != null)
+                                   {
+                                       try
+                                       {
+                                           activityMonitor.ExitHandler();
+                                       }
+                                       catch
+                                       {
+                                           // A faulty monitor must never affect message delivery.
+                                       }
                                    }
                                }
                            };

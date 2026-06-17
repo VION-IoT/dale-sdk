@@ -156,7 +156,8 @@ namespace Vion.Dale.Sdk.Diagnostics
 
             public ActorVitals ToSnapshot(string actorName)
             {
-                var mailboxDepth = (int)Math.Max(0L, Interlocked.Read(ref _messagesPosted) - Interlocked.Read(ref _messagesReceived));
+                var messagesPosted = Interlocked.Read(ref _messagesPosted);
+                var mailboxDepth = (int)Math.Max(0L, messagesPosted - Interlocked.Read(ref _messagesReceived));
                 return new ActorVitals(actorName,
                                        _identity,
                                        _messagesHandled,

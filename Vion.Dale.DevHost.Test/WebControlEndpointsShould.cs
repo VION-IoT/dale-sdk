@@ -59,6 +59,75 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        public async Task ControlStatus_ReportsSteppedMode_WhenBootedStepped()
+        {
+            // Part 3: a stepped-booted web host advertises it on the control status, so the Player can show
+            // the "stepped / deterministic" badge.
+            var port = FreePort();
+            var config = DevConfigurationBuilder.Create().WithTopologyName("counter-topology").AddLogicBlock<CounterBlock>("counter").Build();
+            await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithWebUi(port, true).Build();
+            await host.StartAsync();
+
+            using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
+
+            var body = await client.GetStringAsync("/api/control/status");
+            StringAssert.Contains(body, "\"stepped\":true", $"GET /api/control/status must report deterministic stepping mode. Body: {body}");
+        }
+
+        [TestMethod]
+        public async Task ManualStep_AdvancesToTheNextEvent_OnASteppedHost()
+        {
+            // Part 4: POST /api/control/step advances the virtual clock to the next scheduled event.
+            var port = FreePort();
+            var config = DevConfigurationBuilder.Create().WithTopologyName("stepping-topology").AddLogicBlock<TickerBlock>("Ticker").Build();
+            await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithWebUi(port, true).Build();
+            await host.StartAsync();
+            using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
+
+            var before = await VirtualTime(client);
+            var resp = await client.PostAsync("/api/control/step", null);
+            Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+            var after = await VirtualTime(client);
+            Assert.AreEqual(1.0, (after - before).TotalSeconds, 0.001, "POST /api/control/step must advance to the next [Timer(1)] event (+1 virtual s).");
+        }
+
+        [TestMethod]
+        public async Task ManualAdvance_MovesTheVirtualClockBySeconds_AndFiresTimers()
+        {
+            // Part 4: POST /api/control/advance?seconds=N jumps the virtual clock, firing every event in between.
+            var port = FreePort();
+            var config = DevConfigurationBuilder.Create().WithTopologyName("stepping-topology").AddLogicBlock<TickerBlock>("Ticker").Build();
+            await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithWebUi(port, true).Build();
+            await host.StartAsync();
+            using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
+
+            var before = await VirtualTime(client);
+            var resp = await client.PostAsync("/api/control/advance?seconds=3", null);
+            Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
+            var after = await VirtualTime(client);
+            Assert.AreEqual(3.0, (after - before).TotalSeconds, 0.001, "POST /api/control/advance?seconds=3 must move the virtual clock 3 s.");
+
+            var stateJson = await client.GetStringAsync("/api/state/Ticker/Ticks");
+            using var stateDoc = JsonDocument.Parse(stateJson);
+            Assert.AreEqual(3, stateDoc.RootElement.GetProperty("value").GetInt32(), "advancing 3 virtual s must fire the [Timer(1)] exactly 3 times.");
+        }
+
+        [TestMethod]
+        public async Task ManualStepping_OnNonSteppedHost_Returns409()
+        {
+            // Stepping a real-clock host is meaningless — the endpoints reject it.
+            var port = FreePort();
+            await using var host = BuildWebHost(port);
+            await host.StartAsync();
+            using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
+
+            var step = await client.PostAsync("/api/control/step", null);
+            Assert.AreEqual(HttpStatusCode.Conflict, step.StatusCode, "Manual stepping requires a stepped host.");
+            var advance = await client.PostAsync("/api/control/advance?seconds=1", null);
+            Assert.AreEqual(HttpStatusCode.Conflict, advance.StatusCode, "Manual stepping requires a stepped host.");
+        }
+
+        [TestMethod]
         public async Task PostSetProperty_ThroughUnifiedControl_IsAppliedAndReadBack()
         {
             // Full HTTP write loop on the one abstraction: discover the service id, POST a JSON value to the
@@ -99,6 +168,30 @@ namespace Vion.Dale.DevHost.Test
             }
 
             Assert.AreEqual(123, value, "The value set via the unified control POST should be observable on the state route.");
+        }
+
+        [TestMethod]
+        public async Task PostSetProperty_OnReadOnlyOrUnknownMember_Returns400()
+        {
+            // Trip wire: a write the block can't apply (read-only measuring point / unknown member) used to
+            // return 200 after silently burning the 5 s ack timeout. It must now fail loudly with a 4xx so an
+            // agent or developer driving the HTTP path is not misled into thinking the write took effect.
+            var port = FreePort();
+            await using var host = BuildWebHost(port);
+            await host.StartAsync();
+
+            using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
+
+            var blocksJson = await client.GetStringAsync("/api/logicblocks");
+            using var blocksDoc = JsonDocument.Parse(blocksJson);
+            var serviceId = blocksDoc.RootElement[0].GetProperty("serviceIds")[0].GetString();
+
+            // CounterDoubled is a read-only [ServiceMeasuringPoint].
+            var readOnly = await client.PostAsJsonAsync($"/api/dale/property/{serviceId}/CounterDoubled", new { value = 7 });
+            Assert.AreEqual(HttpStatusCode.BadRequest, readOnly.StatusCode, "Writing a read-only member must fail loudly (400), not silently succeed (200).");
+
+            var unknown = await client.PostAsJsonAsync($"/api/dale/property/{serviceId}/NoSuchMember", new { value = 7 });
+            Assert.AreEqual(HttpStatusCode.BadRequest, unknown.StatusCode, "Writing an unknown member must fail loudly (400).");
         }
 
         [TestMethod]
@@ -345,6 +438,13 @@ namespace Vion.Dale.DevHost.Test
             Assert.AreEqual(exportPath,
                             receipt.RootElement.GetProperty("exported").GetString(),
                             "The export receipt must round-trip the exact path through JSON — no doubled or broken escaping (DF-13).");
+        }
+
+        private static async Task<DateTimeOffset> VirtualTime(HttpClient client)
+        {
+            var body = await client.GetStringAsync("/api/control/status");
+            using var doc = JsonDocument.Parse(body);
+            return doc.RootElement.GetProperty("virtualTimeUtc").GetDateTimeOffset();
         }
 
         private static int FreePort()

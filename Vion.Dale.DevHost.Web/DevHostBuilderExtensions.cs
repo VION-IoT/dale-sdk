@@ -1,11 +1,18 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using System;
+using Microsoft.Extensions.DependencyInjection;
 using Vion.Dale.DevHost.Web.Services;
 
 namespace Vion.Dale.DevHost.Web
 {
     public static class DevHostBuilderExtensions
     {
-        public static DevHostBuilder WithWebUi(this DevHostBuilder builder, int port = 5000)
+        /// <summary>
+        ///     Add the DevHost web UI / API. When <paramref name="stepped" /> is true — or, when it is null,
+        ///     the <c>DALE_DEVHOST_STEPPED</c> env var is set (i.e. <c>dale dev --stepped</c>) — the host also
+        ///     boots in deterministic stepping mode, so server-side scenario runs step exactly. This is the
+        ///     universal hook every web DevHost calls, so <c>--stepped</c> works without editing <c>Program.cs</c>.
+        /// </summary>
+        public static DevHostBuilder WithWebUi(this DevHostBuilder builder, int port = 5000, bool? stepped = null)
         {
             builder.ConfigureServices(services =>
                                       {
@@ -20,6 +27,14 @@ namespace Vion.Dale.DevHost.Web
                                           // Add hosted service to start web server
                                           services.AddHostedService<WebHostService>();
                                       });
+
+            // Boot stepped when explicitly requested, or — when unspecified — when `dale dev --stepped` set
+            // the env var. Applied before Build()'s TryAddSingleton(TimeProvider.System), so the controllable
+            // clock wins and server-side scenario runs step deterministically.
+            if (stepped ?? Environment.GetEnvironmentVariable(DevHostWebRunner.SteppedEnvVar) == "1")
+            {
+                builder.WithDeterministicStepping();
+            }
 
             return builder;
         }

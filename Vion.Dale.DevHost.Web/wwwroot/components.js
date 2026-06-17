@@ -6,7 +6,7 @@
 
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from './vue.esm-browser.prod.js';
 import {
-    buildVerificationReport, cssGroupKey, defaultOpen, describeType, describeWaitUntil,
+    buildVerificationReport, cssGroupKey, defaultOpen, describeExpect, describeType, describeWaitUntil,
     effectiveType, enumDisplay, enumMembers, formatTemporal, formatValue, gallerySamples,
     GROUP_LABELS, groupItems, isNullable, isWritable, matchesFilter, orderedGroupKeys, parseFilter,
     parseNamePath, presentationFacts, resolveAuthoredTitle, resolveDisplayName, resolveUnit, sampleJson, serviceMembers, severityFor,
@@ -15,7 +15,7 @@ import {
 import {
     applyScenario, baselineDelta, buildSharedContractLookup, changedCountForBlock,
     changedSinceBaseline, clearBaseline, clearPins, closeScenario, collapseKey, connectionsForLb,
-    halKey, historyFor, isPinned, judgeKey, loadTopologies, openScenario, pauseHost, resetHost, resumeHost,
+    advanceHost, halKey, historyFor, isPinned, judgeKey, loadTopologies, openScenario, pauseHost, resetHost, resumeHost, stepHost,
     setAnalogInput, setBaseline, setDigitalInput, setJudgeTick, setProperty, showError, store,
     switchTopology, toggleCollapsed, togglePin, valueKey,
 } from './store.js';
@@ -1334,8 +1334,9 @@ export const PlayerPanel = {
         const run = computed(() => store.run && store.run.scenarioId === store.scenarioId ? store.run : null);
         const running = computed(() => !!run.value && run.value.status === 'running');
 
-        // Topology guard: the pre-run mismatch warning uses the live host topology; a blocked run
-        // reports it server-side too (status topologyMismatch).
+        // Topology note: when the open scenario targets a different topology than the live host, running
+        // recycles the host onto it (recycle-on-run). On a supervised host that just works; otherwise the
+        // run is refused and the user must switch the host's topology first.
         const mismatch = computed(() => {
             if (!scenario.value) return false;
             return scenario.value.topology !== store.topologyName;
@@ -1343,7 +1344,9 @@ export const PlayerPanel = {
         const mismatchText = computed(() => {
             if (!scenario.value) return '';
             const host = store.topologyName ? `'${store.topologyName}'` : 'no declared topology';
-            return `this scenario expects topology '${scenario.value.topology}' — the host runs ${host}`;
+            return store.canReset
+                ? `Running recycles the host onto topology '${scenario.value.topology}' (currently ${host}) for a clean, reproducible run.`
+                : `This scenario expects topology '${scenario.value.topology}' — the host runs ${host} and has no supervisor to recycle. Switch the host's topology first.`;
         });
 
         // Before the first run: pending-shaped rows from the file, so the working set is visible
@@ -1357,6 +1360,9 @@ export const PlayerPanel = {
                     : s.digitalInput ? 'digitalInput'
                     : s.analogInput ? 'analogInput'
                     : s.waitUntil ? 'waitUntil'
+                    : s.expect ? 'expect'
+                    : s.advance ? 'advance'
+                    : s.settle !== undefined ? 'settle'
                     : s.wait ? 'wait' : 'unknown',
                 label: s.label,
                 spec: s.spec,
@@ -1364,9 +1370,16 @@ export const PlayerPanel = {
                     : s.digitalInput ? `${s.digitalInput.block}.${s.digitalInput.contract}`
                     : s.analogInput ? `${s.analogInput.block}.${s.analogInput.contract}`
                     : s.waitUntil ? s.waitUntil.property
+                    : s.expect ? s.expect.property
+                    : s.advance ? ''
+                    : s.settle !== undefined ? (s.settle.until ? `until ${s.settle.until.join(', ')}` : 'until stable')
                     : s.wait ? `${s.wait.seconds} s` : '?',
                 argument: 'value' in s ? JSON.stringify(s.value)
-                    : s.waitUntil ? describeWaitUntil(s.waitUntil, s.timeoutSeconds) : null,
+                    : s.waitUntil ? describeWaitUntil(s.waitUntil, s.timeoutSeconds)
+                    : s.expect ? describeExpect(s.expect)
+                    : s.advance ? `${s.advance.seconds} s`
+                    : s.settle !== undefined ? (s.settle.maxSeconds !== undefined ? `≤${s.settle.maxSeconds} s` : '≤60 s')
+                    : null,
                 status: 'pending',
             }));
         };
@@ -1394,7 +1407,7 @@ export const PlayerPanel = {
             const entry = entries2.find(e => e.id === store.scenarioId);
             return entry ? entry.error : null;
         });
-        const start = force => applyScenario(store.scenarioId, { restart: running.value, force });
+        const start = () => applyScenario(store.scenarioId, { restart: running.value });
         const tick = (index, verdict) => {
             if (run.value) setJudgeTick(run.value.runId, index, verdict);
         };
@@ -1408,10 +1421,23 @@ export const PlayerPanel = {
         };
         const reload = () => openScenario(store.scenarioId);
 
+        // Tag filter: narrow the scenario list to a free-form spec tag (the scenario-level `specs`). The
+        // chip row hides when nothing is tagged; clicking the active tag clears it.
+        const tagFilter = ref(null);
+        const allTags = computed(() => {
+            const set = new Set();
+            for (const e of entries.value) for (const t of (e.specs || [])) set.add(t);
+            return Array.from(set).sort();
+        });
+        const filteredEntries = computed(() =>
+            tagFilter.value ? entries.value.filter(e => (e.specs || []).includes(tagFilter.value)) : entries.value);
+        const toggleTag = t => { tagFilter.value = tagFilter.value === t ? null : t; };
+
         return {
             store, entries, directory, scenario, run, running, mismatch, mismatchText, setupSteps,
             steps, judge, statusClass, staleRun, runLabel, heading, entryError, start, tick,
             tickState, copyReport, reload, open: openScenario, close: closeScenario,
+            tagFilter, allTags, filteredEntries, toggleTag,
         };
     },
     template: `
@@ -1422,11 +1448,18 @@ export const PlayerPanel = {
                     <span class="item-spacer"></span>
                     <span class="block-counts">{{ entries.length }} discovered · {{ directory }}</span>
                 </div>
+                <div v-if="allTags.length" class="scenario-tags">
+                    <span class="scenario-tags-label">tag</span>
+                    <button v-for="t in allTags" :key="t" type="button" class="scenario-tag"
+                            :class="{ 'tag-active': tagFilter === t }"
+                            :title="tagFilter === t ? 'clear filter' : 'show only scenarios tagged ' + t"
+                            @click="toggleTag(t)">{{ t }}</button>
+                </div>
                 <div v-if="!entries.length" class="player-empty">
                     No scenario files. Create <code>scenarios/&lt;id&gt;.scenario.json</code> (schema:
                     <code>/api/scenarios/schema</code>) — a watch-only scenario is the recommended starting point.
                 </div>
-                <button v-for="e in entries" :key="e.id" type="button" class="scenario-row" @click="open(e.id)">
+                <button v-for="e in filteredEntries" :key="e.id" type="button" class="scenario-row" @click="open(e.id)">
                     <span class="mono scenario-id">{{ e.id }}</span>
                     <span v-if="e.title" class="scenario-title">{{ e.title }}</span>
                     <span class="item-spacer"></span>
@@ -1443,9 +1476,9 @@ export const PlayerPanel = {
                     <span v-if="staleRun" class="stale-chip" title="the file on disk no longer matches the file this run executed — the report below is about the older version">file changed since this run</span>
                     <span v-if="run" class="run-status" :class="statusClass">{{ run.status }}</span>
                     <button type="button" class="theme-toggle" title="re-read the file from disk" @click="reload">⟳</button>
-                    <button v-if="!mismatch" type="button" class="trigger-button"
+                    <button type="button" class="trigger-button"
                             :title="running ? 'cancel the active run and start over' : 'run this scenario'"
-                            @click="start(false)">{{ runLabel }}</button>
+                            @click="start()">{{ runLabel }}</button>
                 </div>
                 <div v-if="store.scenarioError" class="player-empty">{{ store.scenarioError }}</div>
                 <div v-if="entryError" class="player-validation">
@@ -1458,7 +1491,6 @@ export const PlayerPanel = {
                     </details>
                     <div v-if="mismatch" class="player-interstitial">
                         <span>⚠ {{ mismatchText }}</span>
-                        <button type="button" @click="start(true)">run anyway</button>
                     </div>
                     <div v-if="run" class="player-validation">
                         <div v-for="(e, i) in run.validationErrors" :key="i" class="validation-error">✗ {{ e }}</div>
@@ -1662,10 +1694,17 @@ export const App = {
         const confirmReset = () => {
             resetHost();
         };
+        // Virtual clock readout for the stepped-mode control cluster (HH:MM:SS of virtual time; the clock
+        // starts at the fixed epoch so this reads as elapsed for a typical session).
+        const steppedClock = computed(() => {
+            if (!store.virtualTime) return '—';
+            try { return new Date(store.virtualTime).toISOString().slice(11, 19); }
+            catch { return '—'; }
+        });
         return {
             store, blocks, sharedLookup, totals, theme, toggleTheme, matches, changedTotal,
             baselineClock, filterEl, setBaseline, clearBaseline, pauseHost, resumeHost,
-            confirmReset, setView, toggleScenarios,
+            confirmReset, setView, toggleScenarios, stepHost, advanceHost, steppedClock,
         };
     },
     template: `
@@ -1687,6 +1726,14 @@ export const App = {
                     <span>⚑ {{ baselineClock }} · {{ changedTotal }} changed</span>
                     <button type="button" title="re-snapshot (b)" @click="setBaseline">↺</button>
                     <button type="button" title="clear baseline" @click="clearBaseline">✕</button>
+                </span>
+                <span v-if="store.stepped" class="stepped-chip"
+                      title="deterministic stepping (dale dev --stepped) — the virtual clock advances only when you step it or a scenario runs, so runs are exact and reproducible.">
+                    <span>⏱ stepped</span>
+                    <span class="stepped-clock" title="virtual clock">t={{ steppedClock }}</span>
+                    <button type="button" title="advance to the next scheduled event" @click="stepHost">↦</button>
+                    <button type="button" title="advance 1 virtual second" @click="advanceHost(1)">+1s</button>
+                    <button type="button" title="advance 10 virtual seconds" @click="advanceHost(10)">+10s</button>
                 </span>
                 <button v-if="!store.paused" type="button" class="theme-toggle"
                         title="pause time-driven activity — timers hold, writes still work"

@@ -55,15 +55,22 @@ Rules that keep it working:
 - **Rendering policy lives in `format.js`**, view wiring in `components.js`. A change to "how is a
   value displayed / grouped / ordered" goes in format.js so the Player (R3) reuses it.
 
-## Verify loop
+## Verify loop — run the `devhost-smoke` skill
 
-Run a real consumer-shaped host and look at it — unit tests can't execute the page's JS:
+**After any change here (or under `Vion.Dale.DevHost` / the scenario runner / stepping), run the
+`devhost-smoke` skill** (`.claude/skills/devhost-smoke/`) — and grow its fixture when you add a
+feature. Two tiers:
 
-1. Temporarily switch `examples/Vion.Examples.RichTypes` to project references (see the e2e-harness
-   pattern in `Vion.Dale.DevHost.Test.csproj`: SDK + Generators-as-analyzer + Metalama package) —
-   do not commit that switch.
-2. `dotnet run` its DevHost (port 5000; `DALE_DEVHOST_NO_BROWSER=1` for headless) and drive the
-   page (browser or preview tooling). RichBlock exercises every value shape: enums with German
-   labels, status pills, structs, arrays, nullables, durations, relative timestamps, a 2 s timer.
-3. `Vion.Dale.DevHost.Test` guards the contract surface (endpoints, assets, no-CDN invariant);
-   behavioral checks are this manual loop.
+1. **Tier 1 (headless, CI):** `dotnet test Vion.Dale.DevHost.Test --filter "TestCategory=Smoke"` —
+   boots real web hosts and sweeps the HTTP/runtime surface (introspection, read, writable set,
+   read-only-reject, stepping, scenario run incl. a HAL `digitalInput`/`analogInput`/`waitUntil`
+   round-trip, recycle-on-run, topology switch). Runs in the normal `dotnet test` CI pass.
+2. **Tier 2 (live UI):** unit tests can't execute the page's JS, so boot the committed
+   `Vion.Dale.DevHost.SmokeHost` (project-referenced — a real server against local source, **no
+   temp-switching**) and drive the SPA with chrome-devtools; a subagent can do this. Its synthetic
+   blocks cover every value shape, HAL, and inter-block wiring; `ShowcaseBlock` is the
+   value-shape champion (the old recipe of temp-switching `examples/Vion.Examples.RichTypes` to
+   project refs is now only for verifying that specific consumer).
+
+When you add a DevHost surface, extend the SmokeHost fixture + the skill so the smoke keeps meaning
+"the whole thing works."

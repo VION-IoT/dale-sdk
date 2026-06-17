@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading;
@@ -14,6 +15,7 @@ using Vion.Dale.DevHost.Mocking;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.AnalogIo.Input;
 using Vion.Dale.Sdk.AnalogIo.Output;
+using Vion.Dale.Sdk.Diagnostics;
 using Vion.Dale.Sdk.DigitalIo.Input;
 using Vion.Dale.Sdk.DigitalIo.Output;
 using Vion.Dale.Sdk.Messages;
@@ -24,7 +26,16 @@ namespace Vion.Dale.DevHost.Control
     /// <inheritdoc />
     internal sealed class DevHostControl : IDevHostControl, IDisposable
     {
+        // In-flight handler monitor — the exact-quiescence complement to mailbox depth. Held for the lazily
+        // built stepper's barrier.
+        private readonly InFlightActivityMonitor _activityMonitor;
+
         private readonly IActorSystem _actorSystem;
+
+        // The virtual clock at construction — the per-generation clean baseline. On a stepped host the clock
+        // only moves via explicit advance/step, so VirtualTimeUtc > this means the generation has been dirtied
+        // (a prior run or manual stepping) and is no longer reproducible from a clean slate.
+        private readonly DateTimeOffset _baselineUtc;
 
         private readonly DevConfiguration _configuration;
 
@@ -41,10 +52,21 @@ namespace Vion.Dale.DevHost.Control
 
         private readonly DevHostRunControl _runControl;
 
+        // Engine-owned virtual schedule of pending delayed sends — read by next-event stepping to find the
+        // next scheduled event. Held for the lazily built stepper.
+        private readonly IVirtualSchedule _schedule;
+
         private readonly List<Action<DevHostEvent>> _subscribers = new();
+
+        // Deterministic stepping deps. Held but unused unless AdvanceAsync is called; the stepper (which
+        // validates the clock is a FakeTimeProvider) is built lazily so a non-stepping host isn't burdened
+        // and a real-clock host isn't rejected at construction.
+        private readonly TimeProvider _timeProvider;
 
         // Last-known value per (serviceConfigId, memberName) — fed by the change events, read by GetProperty.
         private readonly ConcurrentDictionary<(string ServiceId, string Member), object?> _values = new();
+
+        private readonly RuntimeVitals _vitals;
 
         private readonly List<Func<DevHostEvent, bool>> _waiters = new();
 
@@ -52,13 +74,19 @@ namespace Vion.Dale.DevHost.Control
         // config's Services aren't populated until DevHostIntrospection runs, which may be after construction.
         private Dictionary<string, string>? _serviceToLogicBlock;
 
+        private DeterministicStepper? _stepper;
+
         public DevHostControl(DevConfiguration configuration,
                               DevHostEvents events,
                               DevHostLogSink logSink,
                               DevHostIntrospection introspection,
                               IActorSystem actorSystem,
                               MessageTap messageTap,
-                              DevHostRunControl runControl)
+                              DevHostRunControl runControl,
+                              RuntimeVitals vitals,
+                              InFlightActivityMonitor activityMonitor,
+                              VirtualSchedule schedule,
+                              TimeProvider timeProvider)
         {
             _configuration = configuration;
             _events = events;
@@ -67,6 +95,14 @@ namespace Vion.Dale.DevHost.Control
             _actorSystem = actorSystem;
             _messageTap = messageTap;
             _runControl = runControl;
+            _vitals = vitals;
+            _activityMonitor = activityMonitor;
+            _schedule = schedule;
+            _timeProvider = timeProvider;
+
+            // Captured before the logic system starts and before any advance/step — the clean baseline for
+            // this host generation (the deterministic epoch on a stepped host).
+            _baselineUtc = timeProvider.GetUtcNow();
 
             _events.ServicePropertyChanged += OnServiceProperty;
             _events.ServicePropertyWriteAcknowledged += OnWriteAcknowledged;
@@ -81,6 +117,16 @@ namespace Vion.Dale.DevHost.Control
         public bool IsPaused
         {
             get => _runControl.IsPaused;
+        }
+
+        /// <inheritdoc />
+        public bool IsStepped
+        {
+            // Structural detection: same check DeterministicStepper.BindAdvance performs. Avoids a
+            // compile-time reference to the test-only Microsoft.Extensions.TimeProvider.Testing assembly.
+            get =>
+                _timeProvider.GetType().GetMethod("Advance", BindingFlags.Public | BindingFlags.Instance, null, new[] { typeof(TimeSpan) }, null) is { ReturnType: var r } &&
+                r == typeof(void);
         }
 
         /// <inheritdoc />
@@ -99,6 +145,30 @@ namespace Vion.Dale.DevHost.Control
         public void Resume()
         {
             _runControl.Resume();
+        }
+
+        /// <inheritdoc />
+        public Task AdvanceAsync(TimeSpan virtualTime, CancellationToken cancellationToken = default)
+        {
+            return EnsureStepper().AdvanceByAsync(virtualTime, cancellationToken);
+        }
+
+        /// <inheritdoc />
+        public Task AdvanceToNextEventAsync(CancellationToken cancellationToken = default)
+        {
+            return EnsureStepper().AdvanceToNextEventAsync(cancellationToken);
+        }
+
+        /// <inheritdoc />
+        public DateTimeOffset VirtualTimeUtc
+        {
+            get => _timeProvider.GetUtcNow();
+        }
+
+        /// <inheritdoc />
+        public bool HasAdvancedFromBaseline
+        {
+            get => IsStepped && _timeProvider.GetUtcNow() > _baselineUtc;
         }
 
         /// <inheritdoc />
@@ -203,6 +273,17 @@ namespace Vion.Dale.DevHost.Control
         {
             var logicBlock = _configuration.LogicBlocks.FirstOrDefault(lb => lb.Services.Any(s => s.Id == serviceId)) ??
                              throw new InvalidOperationException($"Unknown service id '{serviceId}'.");
+
+            // Reject a write the block can't apply UP FRONT, loudly. Otherwise the binder throws inside the
+            // actor, the middleware swallows it, the write ack times out, and the HTTP path returns 200 — a
+            // silent no-op that misleads an agent or developer into thinking the value took (the trip wire).
+            switch (_introspection.GetServicePropertyWriteState(serviceId, propertyName))
+            {
+                case ServicePropertyWriteState.Unknown:
+                    throw new InvalidOperationException($"No service property '{propertyName}' on service '{serviceId}'.");
+                case ServicePropertyWriteState.ReadOnly:
+                    throw new InvalidOperationException($"Service property '{propertyName}' is read-only and cannot be set.");
+            }
 
             // Decode JSON values (the HTTP path delivers JsonElement) into the precise CLR type the block
             // expects; CLR values from in-process callers pass through unchanged.
@@ -354,6 +435,13 @@ namespace Vion.Dale.DevHost.Control
             _events.DigitalOutputChanged -= OnDigitalOutput;
             _events.AnalogInputChanged -= OnAnalogInput;
             _events.AnalogOutputChanged -= OnAnalogOutput;
+        }
+
+        // Lazy: building the stepper validates the clock is a FakeTimeProvider, so a real-clock host is only
+        // rejected when stepping is actually requested — not at construction.
+        private DeterministicStepper EnsureStepper()
+        {
+            return _stepper ??= new DeterministicStepper(_timeProvider, new QuiescenceBarrier(_vitals, _activityMonitor), _schedule);
         }
 
         // JSON → typed CLR for the HTTP set path (moved here when IDevHostStateProvider was collapsed into the

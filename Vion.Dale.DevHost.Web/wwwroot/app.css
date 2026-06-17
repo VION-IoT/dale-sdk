@@ -131,6 +131,30 @@ body {
 }
 .paused-chip button { background: none; border: none; color: inherit; font-size: 11px; padding: 0 2px; }
 
+/* Deterministic-stepping mode indicator (dale dev --stepped) — an accent-outlined pill, distinct from
+   the warning-coloured pause/baseline chips: it marks a mode, not an alert. */
+.stepped-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 11px;
+    font-weight: var(--vion-font-weight-emphasized);
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 2px 9px;
+    border-radius: 999px;
+}
+.stepped-chip button {
+    background: none;
+    border: none;
+    color: inherit;
+    font-family: var(--mono);
+    font-size: 11px;
+    cursor: pointer;
+    padding: 0 3px;
+}
+.stepped-clock { font-family: var(--mono); color: var(--text-faint); }
+
 .theme-toggle:disabled { opacity: 0.4; cursor: not-allowed; }
 .theme-toggle.view-active { color: var(--accent); border-color: var(--accent); }
 
@@ -740,6 +764,28 @@ button { cursor: pointer; font-family: inherit; }
 
 .player-empty { font-size: 12px; color: var(--text-dim); padding: 10px 2px; }
 .player-empty code { font-family: var(--mono); font-size: 11px; }
+
+/* Tag filter chips above the scenario list — click to narrow to a free-form spec tag (RFC 0008). */
+.scenario-tags {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 2px 8px;
+}
+.scenario-tags-label { font-size: 10.5px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.4px; }
+.scenario-tag {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--text-dim);
+    background: none;
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    padding: 1px 8px;
+    cursor: pointer;
+}
+.scenario-tag:hover { background: var(--bg-raised); }
+.scenario-tag.tag-active { color: var(--accent); border-color: var(--accent); }
 
 .scenario-row {
     display: flex;

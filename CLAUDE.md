@@ -24,8 +24,9 @@ Vion.Dale.Sdk.*.TestKit/    I/O-specific test helpers (DigitalIo, AnalogIo, Modb
 Vion.Dale.ProtoActor/       Proto.Actor integration (net10.0)
 Vion.Dale.Plugin/           Plugin AssemblyLoadContext (net10.0) — shared by the runtime + LogicBlockParser
 Vion.Dale.LogicBlockParser/ Assembly introspector — bundled into Vion.Dale.Sdk as a tool
-Vion.Dale.DevHost/          Local development host (+ headless IDevHostControl surface for CI/agents — RFC 0003)
+Vion.Dale.DevHost/          Local development host (+ headless IDevHostControl surface for CI/agents — RFC 0003). After changes here / Web / scenario runner / stepping, verify with the `devhost-smoke` skill.
 Vion.Dale.DevHost.Web/      Web UI for DevHost (static SPA assets) + HTTP control endpoints
+Vion.Dale.DevHost.SmokeHost/ Project-referencing smoke fixture — synthetic blocks (value shapes, HAL, wiring) + topologies + scenarios; boots a real server for the `devhost-smoke` skill's live-UI tier
 Vion.Dale.Cli/              CLI tool (dotnet global tool `dale`) — see Vion.Dale.Cli/CLAUDE.md
 Vion.Dale.Cli.Test/         CLI unit tests
 templates/                  Project template bundled as content inside Vion.Dale.Cli (source used by `dale new`)

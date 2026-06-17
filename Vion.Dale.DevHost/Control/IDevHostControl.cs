@@ -19,11 +19,35 @@ namespace Vion.Dale.DevHost.Control
         /// <summary>True while time-driven activity is paused (see <see cref="Pause" />).</summary>
         bool IsPaused { get; }
 
+        /// <summary>
+        ///     True when the registered <see cref="TimeProvider" /> is a controllable (fake) clock — one that
+        ///     exposes a public <c>Advance(TimeSpan)</c> method, as <c>FakeTimeProvider</c> does. When true,
+        ///     time-advancing helpers (e.g. <c>waitUntil</c> in scenarios) drive virtual time instead of waiting
+        ///     on the real wall clock, making scenario execution deterministic and instant.
+        /// </summary>
+        bool IsStepped { get; }
+
         /// <summary>True when a supervisor capable of recycling the host is attached (see <see cref="TryRequestReset" />).</summary>
         bool CanReset { get; }
 
         /// <summary>The topology id the latest switch requested — read by the supervisor when the reset fires.</summary>
         string? RequestedTopology { get; }
+
+        /// <summary>
+        ///     The registered <see cref="TimeProvider" />'s current virtual time. Useful for tracking elapsed
+        ///     virtual time during a <c>settle</c> loop. Returns the real UTC clock value when no
+        ///     <c>FakeTimeProvider</c> is registered (e.g. on a non-stepped host).
+        /// </summary>
+        DateTimeOffset VirtualTimeUtc { get; }
+
+        /// <summary>
+        ///     True on a stepped host whose virtual clock has moved past the per-generation baseline captured
+        ///     at construction — i.e. a prior <c>advance</c>/<c>step</c> or scenario run has dirtied this
+        ///     generation, so it is no longer a clean slate. Always false on a non-stepped host (no virtual
+        ///     clock to advance). Used to decide whether a scenario run can proceed in place or needs a recycle
+        ///     for a reproducible result.
+        /// </summary>
+        bool HasAdvancedFromBaseline { get; }
 
         /// <summary>The logic blocks in the wired network, with their ids, names, type, and service identifiers.</summary>
         IReadOnlyList<LogicBlockInfo> ListLogicBlocks();
@@ -136,6 +160,39 @@ namespace Vion.Dale.DevHost.Control
 
         /// <summary>Resume: replay every held schedule, in order, with its original delay — self-rescheduling chains survive.</summary>
         void Resume();
+
+        /// <summary>
+        ///     Deterministic <em>next-event</em> virtual-time stepping. Advances the registered
+        ///     <c>FakeTimeProvider</c> by <paramref name="virtualTime" /> of simulated time, firing every
+        ///     <c>[Timer]</c> / <c>InvokeSynchronizedAfter</c> event due within it the correct number of times,
+        ///     at the right virtual times, with no drift. Internally it advances to each next scheduled event
+        ///     (read from the engine's virtual schedule) and waits for the actor system to quiesce before the
+        ///     next advance, so an author can simply say "advance 5 virtual seconds" without knowing any timer
+        ///     rate — a <c>[Timer(1)]</c> fires 5× under <c>AdvanceAsync(5s)</c>, and self-rescheduling /
+        ///     dynamic-delay timers fire correctly too.
+        ///     <para>
+        ///         Quiescence is the EXACT predicate <c>Σ MailboxDepth == 0 AND InFlight == 0</c>: every
+        ///         mailbox empty AND no user handler currently executing. Each event boundary therefore lands
+        ///         on a settled, reproducible state, so a given (block set, budget) yields the same result
+        ///         run-to-run.
+        ///     </para>
+        ///     <para>
+        ///         Requires a <c>FakeTimeProvider</c> registered as the <see cref="TimeProvider" /> (throws
+        ///         <see cref="InvalidOperationException" /> on a real clock — stepping a wall clock by hand is
+        ///         meaningless). A system that never settles surfaces as a thrown
+        ///         <see cref="TimeoutException" />, bounded by a generous real-clock safety budget — never an
+        ///         infinite wait.
+        ///     </para>
+        /// </summary>
+        Task AdvanceAsync(TimeSpan virtualTime, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        ///     Advance to the single next scheduled event (one event hop) and wait for quiescence. When nothing
+        ///     is scheduled, waits for the system to be idle and returns without moving the clock. The
+        ///     primitive that condition-based <c>waitUntil</c> / <c>settle</c> helpers build on. Same clock
+        ///     requirement and failure modes as <see cref="AdvanceAsync(TimeSpan, CancellationToken)" />.
+        /// </summary>
+        Task AdvanceToNextEventAsync(CancellationToken cancellationToken = default);
 
         /// <summary>
         ///     Ask the supervisor to recycle the host (dispose → rebuild → restart; the kill-and-`dale dev`

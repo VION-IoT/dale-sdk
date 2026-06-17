@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Time.Testing;
 using Vion.Dale.DevHost.Control;
 using Vion.Dale.DevHost.Mocking;
 using Vion.Dale.ProtoActor.Extensions;
@@ -15,6 +16,16 @@ namespace Vion.Dale.DevHost
 {
     public class DevHostBuilder
     {
+        // The fixed virtual-clock start for WithDeterministicStepping() when no instant is given — a stable
+        // epoch so a stepped run is reproducible (matches the stepping tests' clock).
+        private static readonly DateTimeOffset DeterministicEpoch = new(2026,
+                                                                        1,
+                                                                        1,
+                                                                        0,
+                                                                        0,
+                                                                        0,
+                                                                        TimeSpan.Zero);
+
         private readonly List<Assembly> _pluginAssemblies = new();
 
         private readonly ServiceCollection _services = new();
@@ -45,6 +56,34 @@ namespace Vion.Dale.DevHost
             return this;
         }
 
+        /// <summary>
+        ///     Enumerate the <see cref="LogicBlockBase" /> types registered by all plugin assemblies added
+        ///     via <see cref="WithDi{TConfigureServices}" />. Each registered concrete block type appears
+        ///     exactly once (distinct by type). Does not require <see cref="Build" /> to have been called.
+        ///     <para>
+        ///         The generator (<c>IConfigureServices</c>) registers blocks as <c>AddTransient&lt;TBlock&gt;()</c>
+        ///         — so <c>ServiceDescriptor.ServiceType</c> is the concrete block type, directly assignable
+        ///         to <see cref="LogicBlockBase" />.
+        ///     </para>
+        /// </summary>
+        public IReadOnlyList<Type> GetBlockCatalog()
+        {
+            var tempServices = new ServiceCollection();
+
+            foreach (var assembly in _pluginAssemblies)
+            {
+                var configureServicesTypes = assembly.GetTypes().Where(t => typeof(IConfigureServices).IsAssignableFrom(t) && !t.IsAbstract).ToList();
+
+                foreach (var type in configureServicesTypes)
+                {
+                    var registration = (IConfigureServices)Activator.CreateInstance(type)!;
+                    registration.ConfigureServices(tempServices);
+                }
+            }
+
+            return tempServices.Where(sd => typeof(LogicBlockBase).IsAssignableFrom(sd.ServiceType)).Select(sd => sd.ServiceType).Distinct().ToList();
+        }
+
         public DevHostBuilder ConfigureLogging(Action<ILoggingBuilder> configure)
         {
             _services.AddLogging(configure);
@@ -65,6 +104,20 @@ namespace Vion.Dale.DevHost
         public DevHostBuilder ConfigureServices(Action<IServiceCollection> configure)
         {
             configure(_services);
+            return this;
+        }
+
+        /// <summary>
+        ///     Boot in deterministic stepping mode: register a controllable clock so
+        ///     <see cref="Control.IDevHostControl.IsStepped" /> is true and a scenario's <c>advance</c> /
+        ///     <c>settle</c> steps drive virtual time exactly instead of waiting on the wall clock. The clock
+        ///     starts at <paramref name="startUtc" /> (default a fixed epoch, so a run is reproducible). It is
+        ///     registered ahead of <see cref="Build" />'s <c>TryAddSingleton(TimeProvider.System)</c>, so this
+        ///     explicit clock wins.
+        /// </summary>
+        public DevHostBuilder WithDeterministicStepping(DateTimeOffset? startUtc = null)
+        {
+            _services.AddSingleton<TimeProvider>(new FakeTimeProvider(startUtc ?? DeterministicEpoch));
             return this;
         }
 
@@ -119,6 +172,20 @@ namespace Vion.Dale.DevHost
             // IDelayedSendGate here (only in DevHost) is what enables pause; production registers none.
             _services.AddSingleton<DevHostRunControl>();
             _services.AddSingleton<IDelayedSendGate>(sp => sp.GetRequiredService<DevHostRunControl>());
+
+            // In-flight handler monitor: the exact-quiescence complement to mailbox depth. Same opt-in
+            // pattern — registering IActorActivityMonitor here (only in DevHost) is what lets the stepping
+            // barrier read an EXACT quiescence predicate; the production runtime registers none.
+            _services.AddSingleton<InFlightActivityMonitor>();
+            _services.AddSingleton<IActorActivityMonitor>(sp => sp.GetRequiredService<InFlightActivityMonitor>());
+
+            // Virtual schedule: the engine-owned view of pending delayed sends. Same opt-in pattern —
+            // registering IVirtualSchedule here (only in DevHost) is what lets next-event stepping ask
+            // "when is the next scheduled event?" (the FakeTimeProvider doesn't expose that); the
+            // production runtime registers none, so SendToSelfAfter is unchanged there.
+            _services.AddSingleton<VirtualSchedule>();
+            _services.AddSingleton<IVirtualSchedule>(sp => sp.GetRequiredService<VirtualSchedule>());
+
             _services.AddSingleton<IDevHostControl, DevHostControl>();
 
             // Register initializer

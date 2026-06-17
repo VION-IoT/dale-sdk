@@ -63,6 +63,33 @@
       "not": { "type": ["object", "array"] },
       "description": "A scalar, enum member name, or null — structs/arrays are not comparable in v1."
     },
+    "pathComparand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path"],
+      "properties": { "path": { "$ref": "#/$defs/namePath" } },
+      "description": "A relational comparand resolved to another path's current value at assert time (expect only)."
+    },
+    "relationalComparand": {
+      "oneOf": [
+        { "$ref": "#/$defs/comparand" },
+        { "$ref": "#/$defs/pathComparand" }
+      ],
+      "description": "A literal scalar/enum/null, or a { path } object resolved at assert time (expect only)."
+    },
+    "numericComparand": {
+      "oneOf": [
+        { "type": "number" },
+        { "$ref": "#/$defs/pathComparand" }
+      ],
+      "description": "A literal number, or a { path } object resolved to a numeric leaf at assert time (expect only)."
+    },
+    "oneOfComparand": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "not": { "type": ["object", "array"] } },
+      "description": "A non-empty array of scalars/enum names; value ∈ this set satisfies the comparator."
+    },
     "stepCommon": {
       "label": { "type": "string", "description": "Shown in the Player and in reports." },
       "spec": { "type": "string", "description": "Free-form trace id for this step." }
@@ -117,16 +144,49 @@
             "below": { "type": "number" },
             "equals": { "$ref": "#/$defs/comparand" },
             "notEquals": { "$ref": "#/$defs/comparand" },
+            "oneOf": { "$ref": "#/$defs/oneOfComparand" },
             "tolerance": { "type": "number", "minimum": 0, "description": "Only with a numeric equals." }
           },
           "oneOf": [
             { "required": ["above"] },
             { "required": ["below"] },
             { "required": ["equals"] },
-            { "required": ["notEquals"] }
+            { "required": ["notEquals"] },
+            { "required": ["oneOf"] }
           ]
         },
         "timeoutSeconds": { "type": "number", "exclusiveMinimum": 0, "default": 20 }
+      }
+    },
+    "expectStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["expect"],
+      "description": "A deterministic, point-in-time auto-assertion on the current value (CI-failing tier). Read once; fail the run if the comparator does not hold.",
+      "properties": {
+        "label": { "$ref": "#/$defs/stepCommon/label" },
+        "spec": { "$ref": "#/$defs/stepCommon/spec" },
+        "expect": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["property"],
+          "properties": {
+            "property": { "$ref": "#/$defs/namePath" },
+            "above": { "$ref": "#/$defs/numericComparand" },
+            "below": { "$ref": "#/$defs/numericComparand" },
+            "equals": { "$ref": "#/$defs/relationalComparand" },
+            "notEquals": { "$ref": "#/$defs/relationalComparand" },
+            "oneOf": { "$ref": "#/$defs/oneOfComparand" },
+            "tolerance": { "type": "number", "minimum": 0, "description": "Only with a numeric equals." }
+          },
+          "oneOf": [
+            { "required": ["above"] },
+            { "required": ["below"] },
+            { "required": ["equals"] },
+            { "required": ["notEquals"] },
+            { "required": ["oneOf"] }
+          ]
+        }
       }
     },
     "waitStep": {
@@ -145,7 +205,48 @@
           }
         }
       },
-      "description": "Fixed pause for stimulus pacing (ramps, dwell times). Use wait to shape inputs, waitUntil to await outputs."
+      "description": "Fixed wall-clock pause for stimulus pacing (non-deterministic). Prefer advance on a stepped host."
+    },
+    "advanceStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["advance"],
+      "properties": {
+        "label": { "$ref": "#/$defs/stepCommon/label" },
+        "spec": { "$ref": "#/$defs/stepCommon/spec" },
+        "advance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["seconds"],
+          "properties": {
+            "seconds": { "type": "number", "exclusiveMinimum": 0, "description": "Virtual seconds to advance the stepped host's clock." }
+          }
+        }
+      },
+      "description": "Deterministic virtual-time advance (stepped host only). Fires every scheduled timer event within the budget."
+    },
+    "settleStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["settle"],
+      "properties": {
+        "label": { "$ref": "#/$defs/stepCommon/label" },
+        "spec": { "$ref": "#/$defs/stepCommon/spec" },
+        "settle": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "until": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/namePath" },
+              "description": "Explicit target paths that must stabilize for convergence; omit to settle over the whole watch list. A large watch set is for observability — scope settle to the specific values meant to settle so a volatile tile (free-running counter / clock-derived value / noisy sensor) does not burn the budget."
+            },
+            "maxSeconds": { "type": "number", "exclusiveMinimum": 0, "default": 60, "description": "Maximum virtual seconds to spend waiting for convergence." }
+          }
+        }
+      },
+      "description": "Advance hop-by-hop until the targeted signals stop changing (stepped host only). The targeted set is settle.until when given, else the whole watch list. Converges when no targeted value changed across one hop; FAILS the step if the maxSeconds budget elapses while a target is still changing."
     },
     "contractRef": {
       "type": "object",
@@ -169,7 +270,10 @@
         { "$ref": "#/$defs/digitalInputStep" },
         { "$ref": "#/$defs/analogInputStep" },
         { "$ref": "#/$defs/waitUntilStep" },
-        { "$ref": "#/$defs/waitStep" }
+        { "$ref": "#/$defs/expectStep" },
+        { "$ref": "#/$defs/waitStep" },
+        { "$ref": "#/$defs/advanceStep" },
+        { "$ref": "#/$defs/settleStep" }
       ]
     }
   }

@@ -152,6 +152,7 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        [TestCategory("Smoke")]
         public async Task SwitchTopologiesFromTheWebApi_RidingTheReset()
         {
             var topologiesDir = Path.Combine(Path.GetTempPath(), "dale-topologies-" + Guid.NewGuid().ToString("N"));
