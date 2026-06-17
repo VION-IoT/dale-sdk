@@ -144,6 +144,16 @@ body {
     padding: 2px 9px;
     border-radius: 999px;
 }
+.stepped-chip button {
+    background: none;
+    border: none;
+    color: inherit;
+    font-family: var(--mono);
+    font-size: 11px;
+    cursor: pointer;
+    padding: 0 3px;
+}
+.stepped-clock { font-family: var(--mono); color: var(--text-faint); }
 
 .theme-toggle:disabled { opacity: 0.4; cursor: not-allowed; }
 .theme-toggle.view-active { color: var(--accent); border-color: var(--accent); }

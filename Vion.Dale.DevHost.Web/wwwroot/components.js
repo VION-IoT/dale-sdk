@@ -15,7 +15,7 @@ import {
 import {
     applyScenario, baselineDelta, buildSharedContractLookup, changedCountForBlock,
     changedSinceBaseline, clearBaseline, clearPins, closeScenario, collapseKey, connectionsForLb,
-    halKey, historyFor, isPinned, judgeKey, loadTopologies, openScenario, pauseHost, resetHost, resumeHost,
+    advanceHost, halKey, historyFor, isPinned, judgeKey, loadTopologies, openScenario, pauseHost, resetHost, resumeHost, stepHost,
     setAnalogInput, setBaseline, setDigitalInput, setJudgeTick, setProperty, showError, store,
     switchTopology, toggleCollapsed, togglePin, valueKey,
 } from './store.js';
@@ -1672,10 +1672,17 @@ export const App = {
         const confirmReset = () => {
             resetHost();
         };
+        // Virtual clock readout for the stepped-mode control cluster (HH:MM:SS of virtual time; the clock
+        // starts at the fixed epoch so this reads as elapsed for a typical session).
+        const steppedClock = computed(() => {
+            if (!store.virtualTime) return '—';
+            try { return new Date(store.virtualTime).toISOString().slice(11, 19); }
+            catch { return '—'; }
+        });
         return {
             store, blocks, sharedLookup, totals, theme, toggleTheme, matches, changedTotal,
             baselineClock, filterEl, setBaseline, clearBaseline, pauseHost, resumeHost,
-            confirmReset, setView, toggleScenarios,
+            confirmReset, setView, toggleScenarios, stepHost, advanceHost, steppedClock,
         };
     },
     template: `
@@ -1699,7 +1706,13 @@ export const App = {
                     <button type="button" title="clear baseline" @click="clearBaseline">✕</button>
                 </span>
                 <span v-if="store.stepped" class="stepped-chip"
-                      title="deterministic stepping (dale dev --stepped) — the virtual clock advances only via advance/settle, so scenario runs are exact and reproducible. Timers idle between runs.">⏱ stepped</span>
+                      title="deterministic stepping (dale dev --stepped) — the virtual clock advances only when you step it or a scenario runs, so runs are exact and reproducible.">
+                    <span>⏱ stepped</span>
+                    <span class="stepped-clock" title="virtual clock">t={{ steppedClock }}</span>
+                    <button type="button" title="advance to the next scheduled event" @click="stepHost">↦</button>
+                    <button type="button" title="advance 1 virtual second" @click="advanceHost(1)">+1s</button>
+                    <button type="button" title="advance 10 virtual seconds" @click="advanceHost(10)">+10s</button>
+                </span>
                 <button v-if="!store.paused" type="button" class="theme-toggle"
                         title="pause time-driven activity — timers hold, writes still work"
                         @click="pauseHost">⏸ pause</button>

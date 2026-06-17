@@ -1,8 +1,10 @@
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Vion.Dale.DevHost.Control;
 using Vion.Dale.DevHost.Web.Api.Dtos;
+using Vion.Dale.DevHost.Web.Services;
 
 namespace Vion.Dale.DevHost.Web.Api.Controllers
 {
@@ -16,9 +18,12 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
     {
         private readonly IDevHostControl _control;
 
-        public DevHostController(IDevHostControl control)
+        private readonly ScenarioRunRegistry _runs;
+
+        public DevHostController(IDevHostControl control, ScenarioRunRegistry runs)
         {
             _control = control;
+            _runs = runs;
         }
 
         // --- Configuration & writes ---
@@ -98,11 +103,55 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
 
         // --- Run control (pause / resume / reset) ---
 
-        /// <summary>Run-control state: paused? supervisor attached (reset possible)? stepped (deterministic clock)?</summary>
+        /// <summary>Run-control state: paused? supervisor attached (reset possible)? stepped? + the virtual clock.</summary>
         [HttpGet("control/status")]
         public ActionResult GetControlStatus()
         {
-            return Ok(new { paused = _control.IsPaused, canReset = _control.CanReset, stepped = _control.IsStepped });
+            return Ok(new
+                      {
+                          paused = _control.IsPaused,
+                          canReset = _control.CanReset,
+                          stepped = _control.IsStepped,
+                          virtualTimeUtc = _control.VirtualTimeUtc,
+                      });
+        }
+
+        /// <summary>
+        ///     Manual stepping (RFC 0008 §Part 4): advance the virtual clock to the next scheduled event and
+        ///     quiesce — the atomic "step" of the deterministic why-loop. 409 unless the host is stepped and
+        ///     no scenario run is driving the clock.
+        /// </summary>
+        [HttpPost("control/step")]
+        public async Task<ActionResult> Step()
+        {
+            if (StepConflict() is { } conflict)
+            {
+                return conflict;
+            }
+
+            await _control.AdvanceToNextEventAsync();
+            return Ok(new { virtualTimeUtc = _control.VirtualTimeUtc });
+        }
+
+        /// <summary>
+        ///     Manual stepping (RFC 0008 §Part 4): advance the virtual clock by <paramref name="seconds" /> of
+        ///     simulated time, firing every event due within it. Same 409 guards as <see cref="Step" />.
+        /// </summary>
+        [HttpPost("control/advance")]
+        public async Task<ActionResult> Advance([FromQuery] double seconds)
+        {
+            if (seconds <= 0)
+            {
+                return BadRequest(new { error = "seconds must be a positive number" });
+            }
+
+            if (StepConflict() is { } conflict)
+            {
+                return conflict;
+            }
+
+            await _control.AdvanceAsync(TimeSpan.FromSeconds(seconds));
+            return Ok(new { virtualTimeUtc = _control.VirtualTimeUtc });
         }
 
         /// <summary>
@@ -153,6 +202,23 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
                                                     timestamp = m.Timestamp,
                                                 });
             return Ok(messages);
+        }
+
+        // The shared guard for manual stepping: only meaningful on a stepped host, and never while a scenario
+        // run is driving the clock (the two would race on the shared virtual schedule).
+        private ActionResult? StepConflict()
+        {
+            if (!_control.IsStepped)
+            {
+                return Conflict(new { error = "not a stepped host — start it with `dale dev --stepped` to step the virtual clock by hand" });
+            }
+
+            if (_runs.HasActiveRun)
+            {
+                return Conflict(new { error = "a scenario run is driving the clock — stepping is unavailable until it finishes" });
+            }
+
+            return null;
         }
     }
 }

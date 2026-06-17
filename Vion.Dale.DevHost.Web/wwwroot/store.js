@@ -41,6 +41,8 @@ export const store = reactive({
     paused: false,
     canReset: false,
     stepped: false,
+    // The host's virtual clock (ISO string), shown in the stepped-mode control cluster.
+    virtualTime: null,
     // Top-level view: 'explorer' (default), 'topology', 'gallery', or 'player' (scenarios, RFC 0006).
     view: 'explorer',
     // Topology files (RFC 0006 R5): the discovery payload for the switcher in the topology panel.
@@ -281,6 +283,7 @@ async function fetchControlStatus() {
         store.paused = !!status.paused;
         store.canReset = !!status.canReset;
         store.stepped = !!status.stepped;
+        store.virtualTime = status.virtualTimeUtc ?? null;
     } catch (err) {
         console.warn('Could not fetch control status', err);
     }
@@ -303,6 +306,30 @@ export async function resumeHost() {
         store.paused = false;
     } catch (err) {
         showError(`Failed to resume: ${err.message ?? err}`);
+    }
+}
+
+// Manual stepping (RFC 0008 §Part 4): drive the virtual clock by hand on a stepped host. The server
+// 409s when not stepped or while a scenario run is driving the clock — surfaced as an error toast.
+export async function stepHost() {
+    await driveClock('/api/control/step', 'step');
+}
+
+export async function advanceHost(seconds) {
+    await driveClock(`/api/control/advance?seconds=${seconds}`, `advance ${seconds}s`);
+}
+
+async function driveClock(url, label) {
+    try {
+        const response = await fetch(url, { method: 'POST' });
+        if (!response.ok) {
+            const body = await response.json().catch(() => ({}));
+            throw new Error(body.error ?? `HTTP ${response.status}`);
+        }
+        const body = await response.json();
+        if (body.virtualTimeUtc) store.virtualTime = body.virtualTimeUtc;
+    } catch (err) {
+        showError(`Failed to ${label}: ${err.message ?? err}`);
     }
 }
 

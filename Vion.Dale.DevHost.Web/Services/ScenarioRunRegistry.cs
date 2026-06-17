@@ -22,6 +22,21 @@ namespace Vion.Dale.DevHost.Web.Services
 
         private ActiveRun? _active;
 
+        /// <summary>
+        ///     True while a scenario run is in flight. Manual stepping (RFC 0008 §Part 4) must not drive the
+        ///     clock while a run does — the two would race on the shared virtual schedule.
+        /// </summary>
+        public bool HasActiveRun
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _active is { } active && !active.Task.IsCompleted;
+                }
+            }
+        }
+
         /// <summary>The latest run report for a scenario id, or null when it never ran this host generation.</summary>
         public ScenarioRunReport? Latest(string scenarioId)
         {
