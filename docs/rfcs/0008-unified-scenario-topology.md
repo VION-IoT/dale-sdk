@@ -243,3 +243,35 @@ The **only** legit reason to edit `Program.cs` is the advanced **multi-library**
 ## 10. Graduation to RFCs
 
 This design is expected to land as: an **RFC 0006 v2** revision (the grown artifact + topology-as-data + DI-catalog + auto-gen default + per-topology struct-aware schema) and a **new RFC** for deterministic DevHost stepping (the `TimeProvider` + delayed-send-gate + quiescence model, as a sibling to RFC 0003). Cross-repo coordination (SDK ↔ `logic-block-libraries`) may additionally use the `architecture` repo's `/spec` flow.
+
+---
+
+## 11. Authoring cookbook — scenarios for your logic blocks (consumer-facing)
+
+The vocabulary is in §6.2; this is the *workflow* and the *footguns*, distilled from authoring the first realistic scenario end-to-end (the Energy peak-shaving example). It is the documentation the logic-block-library devs read first — most of these were silent traps before they were made loud (commits on `feat/deterministic-stepping-exact`).
+
+### 11.1 The loop
+
+1. **Declare a dedicated, minimal topology for the scenario** (`topologies/<name>.topology.json`: just the blocks the behaviour needs — block instances + interface mappings; empty/omitted `contractMappings` auto-mocks the HAL). A focused graph is deterministic and legible; the catch-all `default` topology drags in unrelated blocks that perturb the result (an extra controllable consumer can silently eat the headroom you're testing).
+2. **Pin every non-deterministic input** (§11.2). Run **stepped** (`dale dev --stepped`, or `DALE_DEVHOST_STEPPED=1`) so `advance`/`settle` drive virtual time exactly.
+3. **Stage the starting state** with `setup` `set` steps (mode, limits, config). For state a block accumulates rather than exposes a setter for, **stage it with a phase** (§11.4), not a direct write.
+4. **Drive + assert**: `advance`/`settle` to the regime under test, then `expect[]` — prefer **relational `{path}` comparands** (`ActivePowerImporting == {PeakShavingLimit}`) so an assertion reads like the invariant and survives a config change.
+5. **Record-to-author empirically**: run it, read the failure detail (it prints the resolved value, e.g. `expected … below 0, but was 0`), and adjust the comparand to the physics. The runner's own output is the fastest way to discover the right assertion.
+6. **Keep a `judge[]` item** for the first authoring (§11.3).
+
+### 11.2 Determinism footguns
+
+- **Externally-driven inputs break reproducibility.** A block fed by live data (the PV's OpenMeteo subscription), the wall clock, or RNG will not reproduce. Neutralise it: a config knob that zeroes its effect (`PV.PanelArea = 0`), or — cleaner — a **dedicated topology that omits the block entirely**. The deterministic substrate only guarantees reproducibility for what *it* drives (the virtual clock + the wired graph).
+- **Re-runs are clean by construction (recycle-on-run).** Each run executes against the scenario's topology from a fresh generation (epoch clock, freshly-instantiated blocks). `apply` answers `{ recycling: true }` and recycles first when the host is on the wrong topology or the stepped generation is dirty; the caller re-applies on the clean host (the Player does this automatically). **There is no `force`** — it only ever ran a scenario against the wrong topology and produced misleading green runs. A scenario only runs against the topology it declares.
+
+### 11.3 The "green ≠ correct" trap
+
+The runner verifies *behaviour-matches-your-assertion*, **not** that your assertion encodes the right physics. A confidently wrong `expect[]` passes. (The first peak-shaving draft asserted the load gets *curtailed*; it ran green though the real behaviour is the opposite — the battery discharges to hold the grid at the cap.) Mitigations: a human `judge[]` item stating the intended behaviour in plain language (CI reports it `requiresHuman`); and treating the first authoring of a scenario as needing a human sign-off, not just a green tier.
+
+### 11.4 Stateful blocks need staging, not a poke
+
+A block gated on accumulated state (a battery that can only discharge when `StateOfCharge > 0`) usually can't be set directly — **status/measuring properties are read-only** (private setter), and a write to one now fails loud (HTTP 400 / failed `set` step) rather than silently no-opping. Reach the state through a **staging phase**: drive the inputs that build it (charge the battery from the grid for a virtual interval), then exercise the behaviour under test. Only writable `[ServiceProperty]` (public setter — typically `Configuration`-group) can be staged with `set`.
+
+### 11.5 Addressing
+
+Scenarios address members by **name path** (`Block.Member`, or `Block.Service.Member` to disambiguate, plus `.Field` into a struct); the runner resolves them against the wired graph and fails loudly on a typo or a read-only/unknown target. (The raw HTTP set route, `POST /api/dale/property/{serviceId}/{member}`, takes the **service-id GUID**, not the block name — but scenario authors never touch that; the runner does the mapping.)
