@@ -9,9 +9,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <!-- Switch to project reference on this branch (new RunFolderDrivenAsync API not yet released).
-             Revert to PackageReference once Vion.Dale.DevHost.Web ≥ 0.9.0 is published via set-version.ps1. -->
-        <ProjectReference Include="..\..\..\Vion.Dale.DevHost.Web\Vion.Dale.DevHost.Web.csproj"/>
+        <PackageReference Include="Vion.Dale.DevHost.Web" Version="0.8.1"/>
     </ItemGroup>
 
     <ItemGroup>
