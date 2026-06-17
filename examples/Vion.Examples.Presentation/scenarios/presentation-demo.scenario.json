@@ -1,0 +1,30 @@
+{
+  "$schema": "./.dale/scenario.schema.json",
+  "version": 1,
+  "id": "presentation-demo",
+  "title": "Status indicators cycle and the energy counter climbs",
+  "description": "Steps the 2 s timer: the Plant and Link status pills cycle deterministically by tick count, the TotalIncreasing energy counter rises, and the calibration trigger increments its counter. Deterministic under `dale dev --stepped`.",
+  "topology": "default",
+  "setup": [],
+  "steps": [
+    { "label": "Fresh boot — plant running, link connected", "expect": { "property": "PresentationDemo.Plant", "equals": "Running" } },
+    { "label": "Link is connected", "expect": { "property": "PresentationDemo.Link", "equals": "Connected" } },
+    { "label": "No calibrations yet", "expect": { "property": "PresentationDemo.CalibrationsTriggered", "equals": 0 } },
+    { "label": "Run 10 timer ticks (20 s of virtual time)", "advance": { "seconds": 20 } },
+    { "label": "Plant has cycled to Maintenance", "expect": { "property": "PresentationDemo.Plant", "equals": "Maintenance" } },
+    { "label": "Link has cycled to Disconnected", "expect": { "property": "PresentationDemo.Link", "equals": "Disconnected" } },
+    { "label": "The energy counter climbed", "expect": { "property": "PresentationDemo.EnergyImported", "above": 1234.5 } },
+    { "label": "Fire the calibration trigger", "set": "PresentationDemo.StartCalibration", "value": true },
+    { "label": "The trigger counted once", "expect": { "property": "PresentationDemo.CalibrationsTriggered", "equals": 1 } },
+    { "label": "…and the trigger rests back at false", "expect": { "property": "PresentationDemo.StartCalibration", "equals": false } }
+  ],
+  "watch": [
+    "PresentationDemo.Plant",
+    "PresentationDemo.Link",
+    "PresentationDemo.EnergyImported",
+    "PresentationDemo.CalibrationsTriggered"
+  ],
+  "judge": [
+    { "text": "The Plant and Link status pills change colour as they cycle (Success / Warning / Error severities)" }
+  ]
+}

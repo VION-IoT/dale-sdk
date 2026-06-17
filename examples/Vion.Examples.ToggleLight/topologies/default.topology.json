@@ -1,0 +1,38 @@
+{
+  "$schema": "./.dale/topology.schema.json",
+  "id": "default",
+  "logicBlockInstances": [
+    {
+      "typeFullName": "Vion.Examples.ToggleLight.LogicBlocks.Toggle",
+      "name": "Toggle"
+    },
+    {
+      "typeFullName": "Vion.Examples.ToggleLight.LogicBlocks.Light",
+      "name": "Light"
+    }
+  ],
+  "interfaceMappings": [
+    {
+      "sourceLogicBlockName": "Toggle",
+      "sourceInterfaceIdentifier": "IToggler",
+      "targetLogicBlockName": "Light",
+      "targetInterfaceIdentifier": "IToggleable"
+    }
+  ],
+  "contractMappings": [
+    {
+      "logicBlockName": "Toggle",
+      "contractIdentifier": "DigitalInput",
+      "mappedServiceProviderIdentifier": "sp_lb_0",
+      "mappedServiceIdentifier": "svc_lb_0",
+      "mappedContractIdentifier": "DigitalInput"
+    },
+    {
+      "logicBlockName": "Light",
+      "contractIdentifier": "DigitalOutput",
+      "mappedServiceProviderIdentifier": "sp_lb_1",
+      "mappedServiceIdentifier": "svc_lb_1",
+      "mappedContractIdentifier": "DigitalOutput"
+    }
+  ]
+}

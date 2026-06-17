@@ -1,41 +1,40 @@
-﻿using System;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Vion.Dale.DevHost;
 using Vion.Dale.DevHost.Web;
 
 namespace VionIotLibraryTemplate.DevHost
 {
     public class Program
     {
+        private const int Port = 5000;
+
         public static Task Main(string[] args)
         {
-            // Build a configuration for testing with the fluent API. WithTopologyName names this topology so
-            // scenario files (scenarios/*.scenario.json, RFC 0006) can target it via their "topology" field.
-            var config = DevConfigurationBuilder.Create().WithTopologyName("thermostat").AddLogicBlock<Thermostat>("Thermostat").Build();
-
-            // Create, configure and run the dev host
-            var host = DevHostBuilder.Create()
-                                     .WithDi<DependencyInjection>()
-                                     .WithConfiguration(config)
-                                     .WithWebUi()
-                                     .ConfigureLogging(logging =>
-                                                       {
-                                                           logging.AddConsole();
-                                                           logging.SetMinimumLevel(LogLevel.Debug);
-                                                       })
-                                     .Build();
-
-            // Start the host. Interactive: opens the browser. Headless (DALE_DEVHOST_NO_BROWSER=1 — e.g.
-            // `dale dev --headless`, CI, or an agent): prints a JSON readiness line instead. See RFC 0003.
+            // Folder-driven boot (RFC 0008, topology-as-data): the first topology under topologies/
+            // (preferring "default") is loaded automatically. If none exists, default.topology.json is
+            // generated from the DI catalog, announced on the console, and used. Add blocks in
+            // DependencyInjection.cs and describe the instance graph in topologies/*.topology.json — the
+            // topology-switch UI then works with no changes here. Interactive runs open the browser;
+            // headless (DALE_DEVHOST_NO_BROWSER=1 — `dale dev --headless`, CI, an agent) print a JSON
+            // readiness line instead. `dale dev --stepped` boots a deterministic virtual clock so scenarios
+            // step exactly. See RFC 0003 (headless) and the scenario-authoring cookbook.
             var cts = new CancellationTokenSource();
             Console.CancelKeyPress += (_, eventArgs) =>
                                       {
                                           eventArgs.Cancel = true;
                                           cts.Cancel();
                                       };
-            return DevHostWebRunner.RunAsync(host, 5000, cts.Token);
+            return DevHostWebRunner.RunFolderDrivenAsync(b => b.WithDi<DependencyInjection>()
+                                                               .WithWebUi()
+                                                               .ConfigureLogging(logging =>
+                                                                                 {
+                                                                                     logging.AddConsole();
+                                                                                     logging.SetMinimumLevel(LogLevel.Debug);
+                                                                                 }),
+                                                         Port,
+                                                         cts.Token);
         }
     }
 }

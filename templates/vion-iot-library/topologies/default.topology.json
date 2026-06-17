@@ -1,0 +1,12 @@
+{
+  "$schema": "./.dale/topology.schema.json",
+  "id": "default",
+  "logicBlockInstances": [
+    {
+      "typeFullName": "VionIotLibraryTemplate.Thermostat",
+      "name": "Thermostat"
+    }
+  ],
+  "interfaceMappings": [],
+  "contractMappings": []
+}

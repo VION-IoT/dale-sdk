@@ -1,0 +1,12 @@
+{
+  "$schema": "./.dale/topology.schema.json",
+  "id": "default",
+  "logicBlockInstances": [
+    {
+      "typeFullName": "Vion.Examples.RichTypes.LogicBlocks.RichBlock",
+      "name": "RichBlock"
+    }
+  ],
+  "interfaceMappings": [],
+  "contractMappings": []
+}
