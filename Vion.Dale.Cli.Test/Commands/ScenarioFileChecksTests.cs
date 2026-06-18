@@ -292,6 +292,45 @@ namespace Vion.Dale.Cli.Test.Commands
         }
 
         [TestMethod]
+        public void RejectsToleranceWithoutANumericEquals()
+        {
+            // DF-22: the runtime loader rejects `tolerance` unless paired with a numeric `equals`; the lite
+            // validator (and the generated schema) must agree, so `dale scenario validate` fails as early as
+            // the loader rather than green-lighting a form the run then rejects.
+            var outcome = ScenarioFileChecks.Validate("tol.scenario.json",
+                                                      """
+                                                      {
+                                                        "version": 1, "id": "tol", "topology": "demo",
+                                                        "steps": [
+                                                          { "expect": { "property": "Counter.Counter", "above": 1, "tolerance": 0.3 } },
+                                                          { "waitUntil": { "property": "Counter.Counter", "oneOf": [1, 2], "tolerance": 0.5 }, "timeoutSeconds": 2 }
+                                                        ]
+                                                      }
+                                                      """,
+                                                      Config);
+            Assert.AreEqual(2, outcome.Errors.Count(e => e.Contains("tolerance is only valid with a numeric equals")), string.Join("; ", outcome.Errors));
+        }
+
+        [TestMethod]
+        public void AcceptsToleranceWithANumericEquals()
+        {
+            // The valid pairing (numeric equals + tolerance), incl. the expect-only relational {path} equals
+            // whose resolved value is checked numeric at run time — neither must be flagged.
+            var outcome = ScenarioFileChecks.Validate("tol-ok.scenario.json",
+                                                      """
+                                                      {
+                                                        "version": 1, "id": "tol-ok", "topology": "demo",
+                                                        "steps": [
+                                                          { "expect": { "property": "Counter.Counter", "equals": 5, "tolerance": 0.5 } },
+                                                          { "expect": { "property": "DualPoint.PointA.Limit", "equals": { "path": "DualPoint.PointB.Limit" }, "tolerance": 0.1 } }
+                                                        ]
+                                                      }
+                                                      """,
+                                                      Config);
+            Assert.AreEqual(0, outcome.Errors.Count, string.Join("; ", outcome.Errors));
+        }
+
+        [TestMethod]
         public void RejectsIdProblems()
         {
             var mismatch = ScenarioFileChecks.Validate("a.scenario.json", """{ "version": 1, "id": "b", "topology": "demo" }""", Config);
