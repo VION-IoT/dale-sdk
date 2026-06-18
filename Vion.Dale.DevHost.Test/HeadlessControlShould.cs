@@ -262,6 +262,43 @@ namespace Vion.Dale.DevHost.Test
                           "Expected at least one DevHost boot log line to be captured.");
         }
 
+        [TestMethod]
+        public async Task GetDigitalAndAnalogOutput_AreNullUntilSet_ThenCarryTheLastMirroredValue()
+        {
+            // The read half of HAL (the symmetric complement of SetDigitalInput/SetAnalogInput): the mock
+            // output handlers record what a block Sets and raise *OutputChanged; the control surface caches
+            // those (from the same events it already republishes) so a scenario can ASSERT an output. The
+            // SmokeHost IoBlock's [Timer(1)] OnTick mirrors IsEnabled -> ActiveOutput and CurrentLevel ->
+            // EchoOutput. Before any Set the getters return null (the member never produced a value — distinct
+            // from a Set false / 0); after driving the inputs and firing the timer they carry the mirrored value.
+            await using var host = BuildSteppedIoHost();
+            await host.StartAsync();
+
+            var io = host.Control.GetConfiguration().LogicBlocks.Single(b => b.Name == "io");
+            var active = io.ContractMappings.Single(m => m.ContractIdentifier == "ActiveOutput");
+            var echo = io.ContractMappings.Single(m => m.ContractIdentifier == "EchoOutput");
+
+            // Never Set yet -> null.
+            Assert.IsNull(host.Control.GetDigitalOutput(active.MappedServiceProviderIdentifier, active.MappedServiceIdentifier, active.MappedContractIdentifier),
+                          "A digital output that has never been Set must read null.");
+            Assert.IsNull(host.Control.GetAnalogOutput(echo.MappedServiceProviderIdentifier, echo.MappedServiceIdentifier, echo.MappedContractIdentifier),
+                          "An analog output that has never been Set must read null.");
+
+            // Drive the inputs, then advance one virtual second so OnTick fires and mirrors them onto the outputs.
+            var enable = io.ContractMappings.Single(m => m.ContractIdentifier == "EnableInput");
+            var level = io.ContractMappings.Single(m => m.ContractIdentifier == "LevelInput");
+            await host.Control.SetDigitalInputAsync(enable.MappedServiceProviderIdentifier, enable.MappedServiceIdentifier, enable.MappedContractIdentifier, true);
+            await host.Control.SetAnalogInputAsync(level.MappedServiceProviderIdentifier, level.MappedServiceIdentifier, level.MappedContractIdentifier, 3.3);
+            await host.Control.AdvanceAsync(TimeSpan.FromSeconds(1));
+
+            Assert.IsTrue(host.Control.GetDigitalOutput(active.MappedServiceProviderIdentifier, active.MappedServiceIdentifier, active.MappedContractIdentifier) ?? false,
+                          "ActiveOutput must mirror IsEnabled=true after the timer fired.");
+            Assert.AreEqual(3.3,
+                            host.Control.GetAnalogOutput(echo.MappedServiceProviderIdentifier, echo.MappedServiceIdentifier, echo.MappedContractIdentifier)!.Value,
+                            0.001,
+                            "EchoOutput must mirror CurrentLevel=3.3 after the timer fired.");
+        }
+
         private static DevConfiguration Config()
         {
             return DevConfigurationBuilder.Create().AddLogicBlock<CounterBlock>("counter").Build();
@@ -270,6 +307,15 @@ namespace Vion.Dale.DevHost.Test
         private static IDevHost BuildHost()
         {
             return DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(Config()).Build();
+        }
+
+        // A stepped host wiring the SmokeHost IoBlock — the committed HAL fixture (digital + analog input and
+        // output, with a [Timer(1)] mirroring inputs onto outputs). Stepped so AdvanceAsync fires the timer
+        // deterministically.
+        private static IDevHost BuildSteppedIoHost()
+        {
+            var config = DevConfigurationBuilder.Create().WithTopologyName("io").AddLogicBlock<SmokeHost.LogicBlocks.IoBlock>("io").Build();
+            return DevHostBuilder.Create().WithDi<SmokeHost.DependencyInjection>().WithConfiguration(config).WithDeterministicStepping().Build();
         }
     }
 }

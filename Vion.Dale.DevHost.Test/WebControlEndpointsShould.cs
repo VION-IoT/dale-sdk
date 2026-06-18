@@ -440,6 +440,52 @@ namespace Vion.Dale.DevHost.Test
                             "The export receipt must round-trip the exact path through JSON — no doubled or broken escaping (DF-13).");
         }
 
+        [TestMethod]
+        public async Task HalOutputGetRoutes_ReadTheLastSetValue_AfterTheTimerMirrorsInputs()
+        {
+            // The HTTP read complement of POST /api/hal/di + /ai: GET /api/hal/do + /ao serve the value a block
+            // last Set on a mocked output (for the SPA's HAL tiles and headless symmetry). Drive the SmokeHost
+            // IoBlock's inputs over HTTP, advance the stepped clock to fire OnTick, then read the mirrored
+            // outputs back — value null until the block actually Sets them.
+            var port = FreePort();
+            var config = DevConfigurationBuilder.Create().WithTopologyName("io").AddLogicBlock<SmokeHost.LogicBlocks.IoBlock>("io").Build();
+            await using var host = DevHostBuilder.Create().WithDi<SmokeHost.DependencyInjection>().WithConfiguration(config).WithWebUi(port, true).Build();
+            await host.StartAsync();
+
+            using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
+
+            var enable = await Mapping(client, "EnableInput");
+            var level = await Mapping(client, "LevelInput");
+            var active = await Mapping(client, "ActiveOutput");
+            var echo = await Mapping(client, "EchoOutput");
+
+            // Never Set yet -> value null.
+            var before = JsonDocument.Parse(await client.GetStringAsync($"/api/hal/do/{active.Sp}/{active.Svc}/{active.Contract}")).RootElement;
+            Assert.AreEqual(JsonValueKind.Null, before.GetProperty("value").ValueKind, "An un-Set digital output must read value null.");
+
+            // Drive the inputs over HTTP, then advance one virtual second so OnTick mirrors them onto the outputs.
+            Assert.AreEqual(HttpStatusCode.OK, (await client.PostAsJsonAsync($"/api/hal/di/{enable.Sp}/{enable.Svc}/{enable.Contract}", new { value = true })).StatusCode);
+            Assert.AreEqual(HttpStatusCode.OK, (await client.PostAsJsonAsync($"/api/hal/ai/{level.Sp}/{level.Svc}/{level.Contract}", new { value = 3.3 })).StatusCode);
+            Assert.AreEqual(HttpStatusCode.OK, (await client.PostAsync("/api/control/advance?seconds=1", null)).StatusCode);
+
+            var digital = JsonDocument.Parse(await client.GetStringAsync($"/api/hal/do/{active.Sp}/{active.Svc}/{active.Contract}")).RootElement;
+            Assert.IsTrue(digital.GetProperty("value").GetBoolean(), "ActiveOutput must read true after the timer mirrored IsEnabled.");
+
+            var analog = JsonDocument.Parse(await client.GetStringAsync($"/api/hal/ao/{echo.Sp}/{echo.Svc}/{echo.Contract}")).RootElement;
+            Assert.AreEqual(3.3, analog.GetProperty("value").GetDouble(), 0.001, "EchoOutput must read 3.3 after the timer mirrored CurrentLevel.");
+        }
+
+        // The mocked endpoint ids for a contract, read from /api/configuration (the addressing the SPA and the
+        // HAL routes use).
+        private static async Task<(string Sp, string Svc, string Contract)> Mapping(HttpClient client, string contractIdentifier)
+        {
+            using var doc = JsonDocument.Parse(await client.GetStringAsync("/api/configuration"));
+            var io = doc.RootElement.GetProperty("logicBlocks").EnumerateArray().Single(b => b.GetProperty("name").GetString() == "io");
+            var mapping = io.GetProperty("contractMappings").EnumerateArray().Single(m => m.GetProperty("contractIdentifier").GetString() == contractIdentifier);
+            return (mapping.GetProperty("mappedServiceProviderIdentifier").GetString()!, mapping.GetProperty("mappedServiceIdentifier").GetString()!,
+                       mapping.GetProperty("mappedContractIdentifier").GetString()!);
+        }
+
         private static async Task<DateTimeOffset> VirtualTime(HttpClient client)
         {
             var body = await client.GetStringAsync("/api/control/status");

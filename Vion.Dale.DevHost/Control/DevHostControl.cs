@@ -32,12 +32,20 @@ namespace Vion.Dale.DevHost.Control
 
         private readonly IActorSystem _actorSystem;
 
+        private readonly ConcurrentDictionary<(string ServiceProviderId, string ServiceId, string ContractId), double> _analogOutputs = new();
+
         // The virtual clock at construction — the per-generation clean baseline. On a stepped host the clock
         // only moves via explicit advance/step, so VirtualTimeUtc > this means the generation has been dirtied
         // (a prior run or manual stepping) and is no longer reproducible from a clean slate.
         private readonly DateTimeOffset _baselineUtc;
 
         private readonly DevConfiguration _configuration;
+
+        // Last-known mocked-output value per (serviceProviderId, serviceId, contractId) — fed by the
+        // DigitalOutputChanged / AnalogOutputChanged events the mock output handlers raise (the same events
+        // republished to subscribers), read by GetDigitalOutput / GetAnalogOutput. The output read-cache
+        // mirroring the _values service-property cache; an absent key means the output was never Set.
+        private readonly ConcurrentDictionary<(string ServiceProviderId, string ServiceId, string ContractId), bool> _digitalOutputs = new();
 
         private readonly DevHostEvents _events;
 
@@ -324,6 +332,16 @@ namespace Vion.Dale.DevHost.Control
             return Task.CompletedTask;
         }
 
+        public bool? GetDigitalOutput(string serviceProviderId, string serviceId, string contractId)
+        {
+            return _digitalOutputs.TryGetValue((serviceProviderId, serviceId, contractId), out var value) ? value : null;
+        }
+
+        public double? GetAnalogOutput(string serviceProviderId, string serviceId, string contractId)
+        {
+            return _analogOutputs.TryGetValue((serviceProviderId, serviceId, contractId), out var value) ? value : null;
+        }
+
         public void PublishAllStates()
         {
             _actorSystem.SendTo(_actorSystem.LookupByName(nameof(DigitalInputHandler)), new MockPublishAllStatesMessage());
@@ -561,6 +579,7 @@ namespace Vion.Dale.DevHost.Control
 
         private void OnDigitalOutput(object? sender, DigitalOutputChangedEventArgs e)
         {
+            _digitalOutputs[(e.ServiceProviderIdentifier, e.ServiceIdentifier, e.ContractIdentifier)] = e.Value;
             Publish(new DigitalOutputChanged(e.ServiceProviderIdentifier, e.ServiceIdentifier, e.ContractIdentifier, e.Value));
         }
 
@@ -571,6 +590,7 @@ namespace Vion.Dale.DevHost.Control
 
         private void OnAnalogOutput(object? sender, AnalogOutputChangedEventArgs e)
         {
+            _analogOutputs[(e.ServiceProviderIdentifier, e.ServiceIdentifier, e.ContractIdentifier)] = e.Value;
             Publish(new AnalogOutputChanged(e.ServiceProviderIdentifier, e.ServiceIdentifier, e.ContractIdentifier, e.Value));
         }
 

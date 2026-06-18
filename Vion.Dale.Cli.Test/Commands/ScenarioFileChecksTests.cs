@@ -227,6 +227,71 @@ namespace Vion.Dale.Cli.Test.Commands
         }
 
         [TestMethod]
+        public void AcceptsOutputAsserts_AndRejectsANonOutputContract()
+        {
+            // digitalOutput / analogOutput are the read half of HAL — a contract-ref + comparator, resolved
+            // like digitalInput / analogInput but against an output contract type. The lite validator must
+            // agree with the runner: accept a well-formed output assert, reject a non-output contract.
+            var config = JsonNode.Parse("""
+                                        {
+                                          "topologyName": "demo",
+                                          "logicBlocks": [
+                                            {
+                                              "name": "Io",
+                                              "services": [ { "identifier": "Io", "serviceProperties": [], "serviceMeasuringPoints": [] } ],
+                                              "contracts": [
+                                                { "identifier": "ActiveOutput", "matchingContractType": "DigitalOutput" },
+                                                { "identifier": "EchoOutput", "matchingContractType": "AnalogOutput" },
+                                                { "identifier": "EnableInput", "matchingContractType": "DigitalInput" }
+                                              ],
+                                              "contractMappings": []
+                                            }
+                                          ]
+                                        }
+                                        """)!;
+
+            var ok = ScenarioFileChecks.Validate("io-out.scenario.json",
+                                                 """
+                                                 {
+                                                   "version": 1, "id": "io-out", "topology": "demo",
+                                                   "steps": [
+                                                     { "digitalOutput": { "block": "Io", "contract": "ActiveOutput", "equals": true } },
+                                                     { "analogOutput": { "block": "Io", "contract": "EchoOutput", "equals": 3.3, "tolerance": 0.001 } },
+                                                     { "analogOutput": { "block": "Io", "contract": "EchoOutput", "above": 3 } }
+                                                   ]
+                                                 }
+                                                 """,
+                                                 config);
+            Assert.AreEqual(0, ok.Errors.Count, string.Join("; ", ok.Errors));
+
+            var wrong = ScenarioFileChecks.Validate("io-wrong.scenario.json",
+                                                    """
+                                                    { "version": 1, "id": "io-wrong", "topology": "demo",
+                                                      "steps": [ { "digitalOutput": { "block": "Io", "contract": "EnableInput", "equals": true } } ] }
+                                                    """,
+                                                    config);
+            Assert.IsTrue(wrong.Errors.Any(e => e.Contains("DigitalInput") && e.Contains("DigitalOutput")), string.Join("; ", wrong.Errors));
+        }
+
+        [TestMethod]
+        public void RejectsOutputAssertStructuralProblems()
+        {
+            // Topology "elsewhere" skips path/contract resolution, isolating the structural checks: output
+            // asserts are step-only, and take exactly one comparator.
+            var outcome = ScenarioFileChecks.Validate("bad-out.scenario.json",
+                                                      """
+                                                      {
+                                                        "version": 1, "id": "bad-out", "topology": "elsewhere",
+                                                        "setup": [ { "digitalOutput": { "block": "Io", "contract": "ActiveOutput", "equals": true } } ],
+                                                        "steps": [ { "analogOutput": { "block": "Io", "contract": "EchoOutput", "above": 1, "below": 2 } } ]
+                                                      }
+                                                      """,
+                                                      Config);
+            Assert.IsTrue(outcome.Errors.Any(e => e.Contains("setup entries")), string.Join("; ", outcome.Errors));
+            Assert.IsTrue(outcome.Errors.Any(e => e.Contains("exactly one of above")), string.Join("; ", outcome.Errors));
+        }
+
+        [TestMethod]
         public void RejectsIdProblems()
         {
             var mismatch = ScenarioFileChecks.Validate("a.scenario.json", """{ "version": 1, "id": "b", "topology": "demo" }""", Config);
