@@ -154,33 +154,17 @@ namespace Vion.Dale.Cli.Commands
                               var port = parseResult.GetValue(portOption);
                               using var http = NewClient(port);
 
-                              var query = new List<string>();
-                              if (parseResult.GetValue(restartOption))
+                              // Apply, transparently handling recycle-on-run (RFC 0008): when the scenario's
+                              // topology differs from the host's, or the stepped generation is dirty (a prior
+                              // run/advance), apply answers { recycling: true } and the supervisor rebuilds the
+                              // host onto a clean generation — we wait for it to come back and re-apply, so a
+                              // run against the "wrong" topology or a second run in a session just works.
+                              var (runId, applyExit) = await ApplyWithRecycleAsync(http, id, parseResult.GetValue(restartOption), port, cancellationToken);
+                              if (applyExit is { } exitCode)
                               {
-                                  query.Add("restart=true");
+                                  return exitCode;
                               }
 
-                              HttpResponseMessage apply;
-                              try
-                              {
-                                  apply = await http.PostAsync($"/api/scenarios/{Uri.EscapeDataString(id)}/apply{(query.Count > 0 ? "?" + string.Join("&", query) : "")}",
-                                                               null,
-                                                               cancellationToken);
-                              }
-                              catch (HttpRequestException e)
-                              {
-                                  DaleConsole.Error($"No DevHost reachable on port {port} ({e.Message}). Start one with `dale dev --headless`.");
-                                  return 1;
-                              }
-
-                              var applyBody = await apply.Content.ReadAsStringAsync(cancellationToken);
-                              if (!apply.IsSuccessStatusCode)
-                              {
-                                  DaleConsole.Error($"apply returned {(int)apply.StatusCode}: {applyBody}");
-                                  return 1;
-                              }
-
-                              var runId = JsonNode.Parse(applyBody)?["runId"]?.GetValue<string>();
                               var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(parseResult.GetValue(timeoutOption));
                               JsonNode? report = null;
                               while (DateTimeOffset.UtcNow < deadline)
@@ -595,6 +579,93 @@ namespace Vion.Dale.Cli.Commands
         private static HttpClient NewClient(int port)
         {
             return new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
+        }
+
+        // Apply a scenario, transparently handling RFC 0008 recycle-on-run. Returns the started run's id, or an
+        // exit code (after printing the error) on failure. When the host is on a different topology than the
+        // scenario declares, or the stepped generation is dirty (a prior run/advance), apply answers
+        // { recycling: true } and the supervisor rebuilds the host onto a clean, matching generation — we wait
+        // for it to come back and re-apply (bounded), so running a non-current topology or a repeated run in a
+        // stepped session converges instead of failing. A 409 / 4xx (unsupervised topology mismatch, malformed
+        // file, active run without --restart) is surfaced verbatim.
+        private static async Task<(string? RunId, int? ExitCode)> ApplyWithRecycleAsync(HttpClient http, string id, bool restart, int port, CancellationToken cancellationToken)
+        {
+            const int maxRecycles = 5;
+            var query = restart ? "?restart=true" : string.Empty;
+
+            for (var attempt = 0;; attempt++)
+            {
+                HttpResponseMessage apply;
+                try
+                {
+                    apply = await http.PostAsync($"/api/scenarios/{Uri.EscapeDataString(id)}/apply{query}", null, cancellationToken);
+                }
+                catch (HttpRequestException e)
+                {
+                    DaleConsole.Error($"No DevHost reachable on port {port} ({e.Message}). Start one with `dale dev --headless`.");
+                    return (null, 1);
+                }
+
+                var applyBody = await apply.Content.ReadAsStringAsync(cancellationToken);
+                if (!apply.IsSuccessStatusCode)
+                {
+                    DaleConsole.Error($"apply returned {(int)apply.StatusCode}: {applyBody}");
+                    return (null, 1);
+                }
+
+                var node = JsonNode.Parse(applyBody);
+                if (node?["runId"]?.GetValue<string>() is { } runId)
+                {
+                    return (runId, null);
+                }
+
+                if (node?["recycling"]?.GetValue<bool>() == true)
+                {
+                    var topology = node["topology"]?.GetValue<string>();
+                    if (attempt >= maxRecycles)
+                    {
+                        DaleConsole.Error($"host kept recycling after {maxRecycles} attempts — it may be failing to rebuild onto topology '{topology}'.");
+                        return (null, 1);
+                    }
+
+                    if (!DaleConsole.JsonMode)
+                    {
+                        DaleConsole.Info($"    Host recycling onto topology '{topology}' for a clean run — waiting…");
+                    }
+
+                    await WaitForHostReadyAsync(http, cancellationToken);
+                    continue;
+                }
+
+                DaleConsole.Error($"apply returned an unexpected response (no runId, not recycling): {applyBody}");
+                return (null, 1);
+            }
+        }
+
+        // Wait for a recycling host to come back: the supervisor rebuilds on the same port, so
+        // /api/control/status may briefly stop responding before the fresh generation answers. A short initial
+        // delay lets the teardown start; then poll until it responds, bounded by a generous real-clock budget.
+        private static async Task WaitForHostReadyAsync(HttpClient http, CancellationToken cancellationToken)
+        {
+            var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
+            await Task.Delay(500, cancellationToken);
+            while (DateTimeOffset.UtcNow < deadline)
+            {
+                try
+                {
+                    var status = await http.GetAsync("/api/control/status", cancellationToken);
+                    if (status.IsSuccessStatusCode)
+                    {
+                        return;
+                    }
+                }
+                catch (HttpRequestException)
+                {
+                    // Host down mid-rebuild — keep polling.
+                }
+
+                await Task.Delay(500, cancellationToken);
+            }
         }
 
         // Loads the wired-host configuration to resolve name paths against: from a --config export file, or
