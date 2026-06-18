@@ -1,0 +1,38 @@
+{
+  "$schema": "./.dale/topology.schema.json",
+  "id": "default",
+  "logicBlockInstances": [
+    {
+      "typeFullName": "Vion.Examples.PingPong.LogicBlocks.Ping",
+      "name": "Ping"
+    },
+    {
+      "typeFullName": "Vion.Examples.PingPong.LogicBlocks.Pong",
+      "name": "Pong"
+    }
+  ],
+  "interfaceMappings": [
+    {
+      "sourceLogicBlockName": "Ping",
+      "sourceInterfaceIdentifier": "IPing",
+      "targetLogicBlockName": "Pong",
+      "targetInterfaceIdentifier": "IPong"
+    }
+  ],
+  "contractMappings": [
+    {
+      "logicBlockName": "Ping",
+      "contractIdentifier": "DigitalInput",
+      "mappedServiceProviderIdentifier": "sp_lb_0",
+      "mappedServiceIdentifier": "svc_lb_0",
+      "mappedContractIdentifier": "DigitalInput"
+    },
+    {
+      "logicBlockName": "Pong",
+      "contractIdentifier": "DigitalOutput",
+      "mappedServiceProviderIdentifier": "sp_lb_1",
+      "mappedServiceIdentifier": "svc_lb_1",
+      "mappedContractIdentifier": "DigitalOutput"
+    }
+  ]
+}

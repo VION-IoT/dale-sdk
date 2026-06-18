@@ -1,0 +1,31 @@
+{
+  "$schema": "./.dale/topology.schema.json",
+  "id": "default",
+  "logicBlockInstances": [
+    {
+      "typeFullName": "Vion.Examples.ModbusRtu.LogicBlocks.Em122ElectricityMeter",
+      "name": "EM122"
+    },
+    {
+      "typeFullName": "Vion.Examples.ModbusRtu.LogicBlocks.ModbusThroughputTest",
+      "name": "Durchsatztest"
+    }
+  ],
+  "interfaceMappings": [],
+  "contractMappings": [
+    {
+      "logicBlockName": "EM122",
+      "contractIdentifier": "Modbus",
+      "mappedServiceProviderIdentifier": "sp_lb_0",
+      "mappedServiceIdentifier": "svc_lb_0",
+      "mappedContractIdentifier": "Modbus"
+    },
+    {
+      "logicBlockName": "Durchsatztest",
+      "contractIdentifier": "Modbus",
+      "mappedServiceProviderIdentifier": "sp_lb_1",
+      "mappedServiceIdentifier": "svc_lb_1",
+      "mappedContractIdentifier": "Modbus"
+    }
+  ]
+}

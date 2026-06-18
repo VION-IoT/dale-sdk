@@ -142,12 +142,10 @@ namespace Vion.Dale.Cli.Commands
             var idArgument = new Argument<string>("id") { Description = "Scenario id (the file name without .scenario.json)." };
             var portOption = PortOption();
             var restartOption = new Option<bool>("--restart") { Description = "Cancel an active run and take over (the API's ?restart=true)." };
-            var forceOption = new Option<bool>("--force") { Description = "Proceed despite a topology mismatch (the Player's run-anyway)." };
             var timeoutOption = new Option<int>("--timeout") { Description = "Seconds to wait for the run to finish (default 600).", DefaultValueFactory = _ => 600 };
             run.Arguments.Add(idArgument);
             run.Options.Add(portOption);
             run.Options.Add(restartOption);
-            run.Options.Add(forceOption);
             run.Options.Add(timeoutOption);
 
             run.SetAction(async (parseResult, cancellationToken) =>
@@ -160,11 +158,6 @@ namespace Vion.Dale.Cli.Commands
                               if (parseResult.GetValue(restartOption))
                               {
                                   query.Add("restart=true");
-                              }
-
-                              if (parseResult.GetValue(forceOption))
-                              {
-                                  query.Add("force=true");
                               }
 
                               HttpResponseMessage apply;

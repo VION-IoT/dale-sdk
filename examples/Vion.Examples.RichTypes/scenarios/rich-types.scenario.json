@@ -1,0 +1,38 @@
+{
+  "$schema": "./.dale/scenario.schema.json",
+  "version": 1,
+  "id": "rich-types",
+  "title": "Rich-type properties round-trip and the timer drives the counters",
+  "description": "Sets a spread of rich writable shapes (string, bounded double, nullable int, bool) and reads them back, then steps the 2 s timer and checks the TotalIncreasing counter and the cycling alarm enum land on their deterministic tick-count values. Deterministic under `dale dev --stepped`.",
+  "topology": "default",
+  "setup": [
+    { "set": "RichBlock.DeviceName", "value": "edge-01" },
+    { "set": "RichBlock.VoltageSetpoint", "value": 250.0 },
+    { "set": "RichBlock.OptionalCount", "value": 42 },
+    { "set": "RichBlock.Enabled", "value": false }
+  ],
+  "steps": [
+    { "label": "The string property round-trips", "expect": { "property": "RichBlock.DeviceName", "equals": "edge-01" } },
+    { "label": "The bounded double round-trips", "expect": { "property": "RichBlock.VoltageSetpoint", "equals": 250.0, "tolerance": 0.001 } },
+    { "label": "The nullable int round-trips", "expect": { "property": "RichBlock.OptionalCount", "equals": 42 } },
+    { "label": "The bool round-trips", "expect": { "property": "RichBlock.Enabled", "equals": false } },
+    { "label": "Fresh boot — no ticks yet", "expect": { "property": "RichBlock.LongCounter", "equals": 0 } },
+    { "label": "Alarm starts Ok", "expect": { "property": "RichBlock.CurrentAlarm", "equals": "Ok" } },
+    { "label": "Run 10 timer ticks (20 s of virtual time)", "advance": { "seconds": 20 } },
+    { "label": "The lifetime counter reached 10", "expect": { "property": "RichBlock.LongCounter", "equals": 10 } },
+    { "label": "The alarm has cycled to Warning", "expect": { "property": "RichBlock.CurrentAlarm", "equals": "Warning" } },
+    { "label": "Run 10 more ticks (20 s)", "advance": { "seconds": 20 } },
+    { "label": "The lifetime counter reached 20", "expect": { "property": "RichBlock.LongCounter", "equals": 20 } },
+    { "label": "The alarm has cycled to Critical", "expect": { "property": "RichBlock.CurrentAlarm", "equals": "Critical" } }
+  ],
+  "watch": [
+    "RichBlock.LongCounter",
+    "RichBlock.CurrentAlarm",
+    "RichBlock.Uptime",
+    "RichBlock.AlarmHistory",
+    "RichBlock.DeviceName"
+  ],
+  "judge": [
+    { "text": "Uptime, the struct/array shapes (CurrentLocation, AlarmHistory, HistogramBuckets) and the duration render and move as the timer ticks" }
+  ]
+}

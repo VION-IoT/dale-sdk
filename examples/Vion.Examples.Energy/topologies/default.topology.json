@@ -1,0 +1,137 @@
+{
+  "$schema": "./.dale/topology.schema.json",
+  "id": "default",
+  "logicBlockInstances": [
+    {
+      "typeFullName": "Vion.Examples.Energy.LogicBlocks.EnergyManagerSimulation",
+      "name": "EnergyManager"
+    },
+    {
+      "typeFullName": "Vion.Examples.Energy.LogicBlocks.PhotovoltaicsSimulation",
+      "name": "PV"
+    },
+    {
+      "typeFullName": "Vion.Examples.Energy.LogicBlocks.HouseSimulation",
+      "name": "House"
+    },
+    {
+      "typeFullName": "Vion.Examples.Energy.LogicBlocks.ChargingStationSimulation",
+      "name": "ChargingStation"
+    },
+    {
+      "typeFullName": "Vion.Examples.Energy.LogicBlocks.ChargingStationMultiPointSimulation",
+      "name": "ChargingStationMultiPoint"
+    },
+    {
+      "typeFullName": "Vion.Examples.Energy.LogicBlocks.BatterySimulation",
+      "name": "Battery"
+    },
+    {
+      "typeFullName": "Vion.Examples.Energy.LogicBlocks.WeatherDataService",
+      "name": "WeatherService"
+    }
+  ],
+  "interfaceMappings": [
+    {
+      "sourceLogicBlockName": "PV",
+      "sourceInterfaceIdentifier": "IObservableElectricitySupplier",
+      "targetLogicBlockName": "EnergyManager",
+      "targetInterfaceIdentifier": "IObservableElectricitySupplierManager"
+    },
+    {
+      "sourceLogicBlockName": "House",
+      "sourceInterfaceIdentifier": "IObservableElectricityConsumer",
+      "targetLogicBlockName": "EnergyManager",
+      "targetInterfaceIdentifier": "IObservableElectricityConsumerManager"
+    },
+    {
+      "sourceLogicBlockName": "ChargingStation",
+      "sourceInterfaceIdentifier": "IControllableElectricityConsumer",
+      "targetLogicBlockName": "EnergyManager",
+      "targetInterfaceIdentifier": "IControllableElectricityConsumerManager"
+    },
+    {
+      "sourceLogicBlockName": "ChargingStationMultiPoint",
+      "sourceInterfaceIdentifier": "ChargingPoint1_IControllableElectricityConsumer",
+      "targetLogicBlockName": "EnergyManager",
+      "targetInterfaceIdentifier": "IControllableElectricityConsumerManager"
+    },
+    {
+      "sourceLogicBlockName": "ChargingStationMultiPoint",
+      "sourceInterfaceIdentifier": "ChargingPoint2_IControllableElectricityConsumer",
+      "targetLogicBlockName": "EnergyManager",
+      "targetInterfaceIdentifier": "IControllableElectricityConsumerManager"
+    },
+    {
+      "sourceLogicBlockName": "Battery",
+      "sourceInterfaceIdentifier": "IControllableElectricityBuffer",
+      "targetLogicBlockName": "EnergyManager",
+      "targetInterfaceIdentifier": "IControllableElectricityBufferManager"
+    }
+  ],
+  "contractMappings": [
+    {
+      "logicBlockName": "PV",
+      "contractIdentifier": "ActivePowerPercentageOutput",
+      "mappedServiceProviderIdentifier": "sp_lb_1",
+      "mappedServiceIdentifier": "svc_lb_1",
+      "mappedContractIdentifier": "ActivePowerPercentageOutput"
+    },
+    {
+      "logicBlockName": "ChargingStation",
+      "contractIdentifier": "ExternallyLockedInput",
+      "mappedServiceProviderIdentifier": "sp_lb_3",
+      "mappedServiceIdentifier": "svc_lb_3",
+      "mappedContractIdentifier": "ExternallyLockedInput"
+    },
+    {
+      "logicBlockName": "ChargingStation",
+      "contractIdentifier": "ChargingOutput",
+      "mappedServiceProviderIdentifier": "sp_lb_3",
+      "mappedServiceIdentifier": "svc_lb_3",
+      "mappedContractIdentifier": "ChargingOutput"
+    },
+    {
+      "logicBlockName": "ChargingStationMultiPoint",
+      "contractIdentifier": "ExternallyLockedInput",
+      "mappedServiceProviderIdentifier": "sp_lb_4",
+      "mappedServiceIdentifier": "svc_lb_4",
+      "mappedContractIdentifier": "ExternallyLockedInput"
+    },
+    {
+      "logicBlockName": "ChargingStationMultiPoint",
+      "contractIdentifier": "ChargingPoint1Output",
+      "mappedServiceProviderIdentifier": "sp_lb_4",
+      "mappedServiceIdentifier": "svc_lb_4",
+      "mappedContractIdentifier": "ChargingPoint1Output"
+    },
+    {
+      "logicBlockName": "ChargingStationMultiPoint",
+      "contractIdentifier": "ChargingPoint2Output",
+      "mappedServiceProviderIdentifier": "sp_lb_4",
+      "mappedServiceIdentifier": "svc_lb_4",
+      "mappedContractIdentifier": "ChargingPoint2Output"
+    },
+    {
+      "logicBlockName": "Battery",
+      "contractIdentifier": "StateOfChargeOutput",
+      "mappedServiceProviderIdentifier": "sp_lb_5",
+      "mappedServiceIdentifier": "svc_lb_5",
+      "mappedContractIdentifier": "StateOfChargeOutput"
+    },
+    {
+      "logicBlockName": "Battery",
+      "contractIdentifier": "BatteryChargingOutput",
+      "mappedServiceProviderIdentifier": "sp_lb_5",
+      "mappedServiceIdentifier": "svc_lb_5",
+      "mappedContractIdentifier": "BatteryChargingOutput"
+    },
+    {
+      "logicBlockName": "Battery",
+      "contractIdentifier": "BatteryDischargingOutput",
+      "mappedServiceProviderIdentifier": "sp_lb_5",
+      "mappedServiceIdentifier": "svc_lb_5",
+      "mappedContractIdentifier": "BatteryDischargingOutput"
+    }
+  ]
+}

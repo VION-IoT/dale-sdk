@@ -3,15 +3,20 @@
   "version": 1,
   "id": "thermostat",
   "title": "Thermostat heats to the setpoint",
-  "description": "Raise the target temperature from a cold start and watch the room warm up — the Status pill goes Heating, then Idle once it arrives.",
-  "topology": "thermostat",
+  "description": "From a cold 20 °C start, ask for 24 °C and step the virtual clock: the controller engages (Status → Heating), the room warms past 22 °C, and the energy meter accumulates. Runs deterministically under `dale dev --stepped`. Targets the default topology.",
+  "topology": "default",
   "setup": [
     { "set": "Thermostat.Mode", "value": "Auto" },
     { "set": "Thermostat.CurrentTemperature", "value": 20.0 }
   ],
   "steps": [
     { "label": "Ask for 24 °C", "set": "Thermostat.TargetTemperature", "value": 24.0 },
-    { "label": "Room warms past 22 °C", "waitUntil": { "property": "Thermostat.CurrentTemperature", "above": 22.0 }, "timeoutSeconds": 60 }
+    { "label": "One control tick — the thermostat engages", "advance": { "seconds": 1 } },
+    { "label": "Status pill goes Heating", "expect": { "property": "Thermostat.Status", "equals": "Heating" } },
+    { "label": "Warm the room for 25 s of virtual time", "advance": { "seconds": 25 } },
+    { "label": "The room has climbed past 22 °C", "expect": { "property": "Thermostat.CurrentTemperature", "above": 22.0 } },
+    { "label": "…but is still short of the 24 °C setpoint (no overshoot)", "expect": { "property": "Thermostat.CurrentTemperature", "below": 24.0 } },
+    { "label": "The energy meter accumulated while heating", "expect": { "property": "Thermostat.EnergyUsedKwh", "above": 0.0 } }
   ],
   "watch": [
     "Thermostat.CurrentTemperature",

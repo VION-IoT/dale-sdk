@@ -1,0 +1,32 @@
+{
+  "$schema": "./.dale/scenario.schema.json",
+  "version": 1,
+  "id": "load-management",
+  "title": "Two charging stations share a tight load-management limit",
+  "description": "Both stations ask for 10 kW (20 kW total) but the grid limit is 12 kW. The energy manager shares the budget proportionally (ratio 0.6), so each station is allocated 6 kW and total import holds at the 12 kW limit — neither station is starved. No PV/house/weather, so it is fully deterministic under `dale dev --stepped`.",
+  "topology": "em-load-management",
+  "setup": [
+    { "set": "EnergyManager.ModeGlobal", "value": "LoadManagement" },
+    { "set": "EnergyManager.LoadManagementLimit", "value": 12 },
+    { "set": "ChargingStation1.EnableCharging", "value": true },
+    { "set": "ChargingStation1.MaximumActivePower", "value": 10 },
+    { "set": "ChargingStation2.EnableCharging", "value": true },
+    { "set": "ChargingStation2.MaximumActivePower", "value": 10 }
+  ],
+  "steps": [
+    { "label": "Run several manager allocation cycles (30 s of virtual time)", "advance": { "seconds": 30 } },
+    { "label": "Station 1 is throttled to its 6 kW share", "expect": { "property": "ChargingStation1.AllocatedActivePower", "equals": 6.0, "tolerance": 0.01 } },
+    { "label": "Station 2 gets the same 6 kW share", "expect": { "property": "ChargingStation2.AllocatedActivePower", "equals": 6.0, "tolerance": 0.01 } },
+    { "label": "Total import holds at the 12 kW limit", "expect": { "property": "EnergyManager.ActivePowerConsuming", "equals": 12.0, "tolerance": 0.02 } }
+  ],
+  "watch": [
+    "EnergyManager.ActivePowerConsuming",
+    "ChargingStation1.RequestedActivePower",
+    "ChargingStation1.AllocatedActivePower",
+    "ChargingStation1.ActivePowerConsuming",
+    "ChargingStation2.AllocatedActivePower"
+  ],
+  "judge": [
+    { "text": "Equal requests get an equal proportional share — neither station is starved while the other runs full." }
+  ]
+}

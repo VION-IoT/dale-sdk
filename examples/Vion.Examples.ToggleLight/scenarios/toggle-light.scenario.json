@@ -1,0 +1,27 @@
+{
+  "$schema": "./.dale/scenario.schema.json",
+  "version": 1,
+  "id": "toggle-light",
+  "title": "A button press turns the light on",
+  "description": "Drive the Toggle's digital input high; the press propagates over the IToggler → IToggleable contract and the Light switches on, counting the switch-on and accumulating on-time on its 1 s timer. Deterministic under `dale dev --stepped`.",
+  "topology": "default",
+  "setup": [
+    { "set": "Light.ToggleMode", "value": "ToggleOnPressed" }
+  ],
+  "steps": [
+    { "label": "Press the button (digital input goes high)", "digitalInput": { "block": "Toggle", "contract": "DigitalInput" }, "value": true },
+    { "label": "The light switches on", "waitUntil": { "property": "Light.On", "equals": true }, "timeoutSeconds": 5 },
+    { "label": "…and counts exactly one switch-on", "expect": { "property": "Light.TimesSwitchedOn", "equals": 1 } },
+    { "label": "Hold it on for 3 s of virtual time", "advance": { "seconds": 3 } },
+    { "label": "The light is still on", "expect": { "property": "Light.On", "equals": true } }
+  ],
+  "watch": [
+    "Light.On",
+    "Light.TimesSwitchedOn",
+    "Light.TotalTimeOn"
+  ],
+  "judge": [
+    { "text": "TotalTimeOn is about 3 s after the hold (the [Timer(1)] accumulates only while the light is on)" },
+    { "text": "The light's digital output mirrors the On state" }
+  ]
+}
