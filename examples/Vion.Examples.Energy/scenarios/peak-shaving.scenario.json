@@ -1,0 +1,31 @@
+{
+  "$schema": "./.dale/scenario.schema.json",
+  "version": 1,
+  "id": "peak-shaving",
+  "title": "The battery shaves the import peak above the grid limit",
+  "description": "A charging station draws 10 kW but the peak-shaving grid limit is 5 kW. The grid supplies the 5 kW cap and the battery discharges the remaining 5 kW, so the station still gets its full load — the part above the limit comes from the battery, not from curtailing the load. The battery is staged to 50% SoC so it can discharge. No PV/house/weather, so it is deterministic under `dale dev --stepped`.",
+  "topology": "em-peak-shaving",
+  "setup": [
+    { "set": "EnergyManager.ModeGlobal", "value": "PeakShaving" },
+    { "set": "EnergyManager.PeakShavingLimit", "value": 5 },
+    { "set": "ChargingStation.EnableCharging", "value": true },
+    { "set": "ChargingStation.MaximumActivePower", "value": 10 },
+    { "set": "Battery.StateOfCharge", "value": 50 },
+    { "set": "Battery.MaximumActivePowerDischarging", "value": 10 }
+  ],
+  "steps": [
+    { "label": "Run several manager + battery cycles (40 s of virtual time)", "advance": { "seconds": 40 } },
+    { "label": "The station still draws its full 10 kW (not curtailed)", "expect": { "property": "ChargingStation.ActivePowerConsuming", "equals": 10.0, "tolerance": 0.05 } },
+    { "label": "The battery discharges the 5 kW above the grid limit", "expect": { "property": "Battery.ActivePowerDischarging", "equals": 5.0, "tolerance": 0.05 } },
+    { "label": "The battery still holds charge", "expect": { "property": "Battery.StateOfCharge", "above": 49.0 } }
+  ],
+  "watch": [
+    "ChargingStation.ActivePowerConsuming",
+    "Battery.ActivePowerDischarging",
+    "Battery.StateOfCharge",
+    "EnergyManager.ActivePowerConsuming"
+  ],
+  "judge": [
+    { "text": "Grid import holds at the 5 kW peak limit; the battery covers the 5 kW above it (peak shaving) and the station is NOT curtailed." }
+  ]
+}

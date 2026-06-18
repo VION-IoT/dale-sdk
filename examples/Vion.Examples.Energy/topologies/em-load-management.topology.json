@@ -1,0 +1,33 @@
+{
+  "$schema": "./.dale/topology.schema.json",
+  "id": "em-load-management",
+  "logicBlockInstances": [
+    {
+      "typeFullName": "Vion.Examples.Energy.LogicBlocks.EnergyManagerSimulation",
+      "name": "EnergyManager"
+    },
+    {
+      "typeFullName": "Vion.Examples.Energy.LogicBlocks.ChargingStationSimulation",
+      "name": "ChargingStation1"
+    },
+    {
+      "typeFullName": "Vion.Examples.Energy.LogicBlocks.ChargingStationSimulation",
+      "name": "ChargingStation2"
+    }
+  ],
+  "interfaceMappings": [
+    {
+      "sourceLogicBlockName": "ChargingStation1",
+      "sourceInterfaceIdentifier": "IControllableElectricityConsumer",
+      "targetLogicBlockName": "EnergyManager",
+      "targetInterfaceIdentifier": "IControllableElectricityConsumerManager"
+    },
+    {
+      "sourceLogicBlockName": "ChargingStation2",
+      "sourceInterfaceIdentifier": "IControllableElectricityConsumer",
+      "targetLogicBlockName": "EnergyManager",
+      "targetInterfaceIdentifier": "IControllableElectricityConsumerManager"
+    }
+  ],
+  "contractMappings": []
+}

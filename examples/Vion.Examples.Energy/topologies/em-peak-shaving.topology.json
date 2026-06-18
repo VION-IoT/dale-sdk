@@ -1,0 +1,33 @@
+{
+  "$schema": "./.dale/topology.schema.json",
+  "id": "em-peak-shaving",
+  "logicBlockInstances": [
+    {
+      "typeFullName": "Vion.Examples.Energy.LogicBlocks.EnergyManagerSimulation",
+      "name": "EnergyManager"
+    },
+    {
+      "typeFullName": "Vion.Examples.Energy.LogicBlocks.ChargingStationSimulation",
+      "name": "ChargingStation"
+    },
+    {
+      "typeFullName": "Vion.Examples.Energy.LogicBlocks.BatterySimulation",
+      "name": "Battery"
+    }
+  ],
+  "interfaceMappings": [
+    {
+      "sourceLogicBlockName": "ChargingStation",
+      "sourceInterfaceIdentifier": "IControllableElectricityConsumer",
+      "targetLogicBlockName": "EnergyManager",
+      "targetInterfaceIdentifier": "IControllableElectricityConsumerManager"
+    },
+    {
+      "sourceLogicBlockName": "Battery",
+      "sourceInterfaceIdentifier": "IControllableElectricityBuffer",
+      "targetLogicBlockName": "EnergyManager",
+      "targetInterfaceIdentifier": "IControllableElectricityBufferManager"
+    }
+  ],
+  "contractMappings": []
+}

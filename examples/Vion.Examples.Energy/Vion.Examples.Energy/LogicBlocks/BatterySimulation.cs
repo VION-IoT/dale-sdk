@@ -27,11 +27,14 @@ namespace Vion.Examples.Energy.LogicBlocks
         [ServiceProviderContractBinding(DefaultName = "Batterie entlädt")]
         public IDigitalOutput BatteryDischargingOutput { get; private set; }
 
+        // Both a live read-out and a writable input (the cross-fill rule): the simulation drives it, but a
+        // scenario or the UI can also stage a starting charge — e.g. so the peak-shaving demo has a battery
+        // that can actually discharge. Defaults to empty.
         [ServiceProperty(Title = "Ladezustand", Unit = "%")]
         [ServiceMeasuringPoint]
         [Persistent]
         [Presentation(Group = PropertyGroup.Status, Importance = Importance.Primary)]
-        public double StateOfCharge { get; private set; }
+        public double StateOfCharge { get; set; }
 
         [ServiceProperty(Title = "Kapazität", Unit = "kWh")]
         [Presentation(Group = PropertyGroup.Configuration)]
