@@ -1,6 +1,6 @@
 # RFC 0006: Scenario files — a portable verification vocabulary for DevHost
 
-Status: **Accepted** (revision 5 — all open questions resolved; ready for implementation, R3/R4/R5).
+Status: **Accepted** (revision 5 — all open questions resolved; ready for implementation, R3/R4/R5. Revision 7 — the xunit `[ScenarioFiles]` lane shipped in the dedicated `Vion.Dale.DevHost.Xunit` package; only the `dale new` R4 template scaffolding remains pending).
 Author: jonas.bertsch. Date: 2026-06-11.
 
 Revision 2: example corrected against the real consumer block surfaces (block names, struct fields, enum
@@ -401,29 +401,47 @@ times, the watch tiles, the judgment checklist with spec ids displayed inline, a
 — a markdown block carrying scenario id, file git hash, step acks + timings, and judgment ticks (with their
 spec ids), pasteable into the PR.
 
-**xunit (CI).** _**R4-pending — not in `0.8.0-preview.x`.**_ The generic `[ScenarioFiles]` theory below is
-**not yet shipped**: putting an xunit data attribute on the runtime `Vion.Dale.DevHost` package would force an
-xunit dependency on every consumer that references it (including non-test DevHost apps), so it is deferred to
-a small dedicated package (e.g. `Vion.Dale.DevHost.Xunit`) pending demonstrated demand. Until then, the
-in-CI gate is `dale scenario validate` (fast, no wall-clock — the right gate anyway), and consumers wanting
-in-CI *execution* hand-write a one-line theory over `ScenarioRunner.RunAsync(id, host.Control, dir)` with
-`[MemberData]`. The intended shipped shape:
+**xunit (CI).** _**Shipped**_ in the dedicated `Vion.Dale.DevHost.Xunit` package (xunit.net v3). It is kept
+out of the runtime `Vion.Dale.DevHost` package because an xunit data attribute there would force an xunit
+dependency on every consumer that references DevHost (including non-test apps). The package ships three pieces
+— a `[ScenarioFiles]` theory data source, a `DevHostScenarioFixture` host-builder base, and
+`RunScenarioAsync` / `ApplyScenarioAsync` / `AssertSucceeded` helpers — so an in-CI execution lane is a few
+lines:
 
 ```csharp
-[Theory]
-[ScenarioFiles]   // R4-PENDING: default <project>/scenarios, copied to output as content; path overridable
-public Task Run(ScenarioFile scenario) => ScenarioRunner.RunAsync(scenario, _host.Control);
+public sealed class MyFixture : DevHostScenarioFixture
+{
+    protected override DevHostBuilder ConfigureDi(DevHostBuilder b) => b.WithDi<MyLibrary.DependencyInjection>();
+}
+
+public class CommittedScenariosShould : IClassFixture<MyFixture>
+{
+    private readonly MyFixture _fixture;
+    public CommittedScenariosShould(MyFixture fixture) => _fixture = fixture;
+
+    [Theory]
+    [ScenarioFiles]   // one (id, topology) row per committed *.scenario.json
+    public async Task RunsGreen(string id, string topology)
+    {
+        await using var host = await _fixture.LoadAsync(topology, stepped: true);
+        (await host.RunScenarioAsync(id)).AssertSucceeded();
+    }
+}
 ```
 
-Semantics, fully specified: the attribute discovers `*.scenario.json` files copied to the test output
-directory (the `dale new` template adds the `<Content CopyToOutputDirectory>` glob; an explicit path
-argument overrides). A scenario whose `topology` differs from the fixture host's declared topology is
-**skipped with a reason**, not failed — consumers group scenarios per topology fixture. Scenario tests must
-run in a single **serial collection per host** (xunit parallelizes across collections; interleaving scenarios
-against one network is the same hazard the HTTP 409 refuses). CI behavior per file is content-derived (see
-format section): steps smoke, watch paths resolve, judgments report `requires human`. The theory is
-**opt-in** (explicit attribute, no magic discovery): scenario runs reintroduce the wall-clock waits the
-virtual-time TestKit tier (RFC 0001) deliberately avoids, and consumers choose where that trade-off runs.
+Two refinements over the originally-sketched shape: (1) rows are `(string id, string topology)` — both natively
+serializable, so each scenario is a stable Test Explorer entry — rather than a `ScenarioFile` parameter (which
+would need `IXunitSerializable`); and (2) each row carries its scenario's declared topology so the fixture
+builds the matching host per row (`[ScenarioFiles(Topology = "…")]` filters to one topology when a class binds
+to a single fixture), rather than relying on a runtime skip-on-mismatch. Discovery reuses the SDK's
+`ScenarioStore` (default `{cwd}/scenarios`, walking up to the repo root; the `Directory` property overrides),
+so no content-copy glob is required. Broken or topology-less files are skipped — `dale scenario validate` is the
+gate that fails on those. Scenario tests still run in a **serial collection per host** (xunit parallelizes
+across collections; interleaving scenarios on one network is the same hazard the HTTP 409 refuses) — either one
+fresh host per row (the default, via `await using`) or a shared `ICollectionFixture` collection. The lane is
+**opt-in** (explicit attribute, no magic discovery): build the fixture `stepped: true` for instant,
+reproducible CI, or non-stepped for the wall clock. The fast `dale scenario validate` gate remains the
+recommended PR check regardless.
 
 **CLI / agents.** All `dale scenario` verbs follow the CLI's rules (`-o json`; no SDK dependency — they
 operate on files, processes, and the localhost `/api`):
@@ -457,7 +475,7 @@ strings match the existing raw-content regex as-is). The resulting chain, end to
 1. `spec/<block>/requirements.md` declares `AC-EM-23.2`.
 2. `scenarios/peak-shaving.scenario.json` carries it on a judgment item.
 3. `spec-trace.ps1` counts the scenario as coverage — the id is no longer an orphan.
-4. CI runs the file as a smoke test on every push (once the consumer adds the opt-in theory — R4).
+4. CI runs the file as a smoke test on every push (once the consumer adds the opt-in `[ScenarioFiles]` theory from `Vion.Dale.DevHost.Xunit`).
 5. The Player shows `AC-EM-23.2` beside the checkbox the human ticks.
 6. The verification report pasted into the PR cites the id with a verdict and a file hash.
 
@@ -493,8 +511,9 @@ visualizations for existing tests; it is a convenience, not a pillar.
   glob, the AGENTS.md snippet, and the theory class — they adopt by regenerating or hand-adding (same
   compat posture as RFC 0003's `DevHostWebRunner` note). Nothing breaks meanwhile; `dale scenario` verbs
   degrade with clear errors when no scenarios directory exists.
-- `ScenarioRunner` + `[ScenarioFiles]` ship in `Vion.Dale.DevHost` (net10.0) — fine for test projects and
-  DevHost hosts, which are already net10.0; the netstandard2.1 SDK runtime is untouched.
+- `ScenarioRunner` ships in `Vion.Dale.DevHost` and `[ScenarioFiles]` (+ the fixture/run helpers) in
+  `Vion.Dale.DevHost.Xunit` (both net10.0) — fine for test projects and DevHost hosts, which are already
+  net10.0; the netstandard2.1 SDK runtime is untouched, and a non-test DevHost consumer never takes xunit.
 
 ## Non-goals
 
@@ -534,12 +553,13 @@ None — resolved 1–6 in revision 3, 7–9 in revision 4.
   topology name in `ConfigurationOutput` + `object?` annotation fix.
 - **R4** — `dale scenario run / validate / schema / scaffold / open` + `dale dev --export-config`
   (all shipped; `schema` runs offline from a `--config` export, `scaffold` emits a typed C# test);
-  consumer-side: the small spec-trace extension.
-  **R4-pending (not in `0.8.0-preview.x`):** the generic xunit `[ScenarioFiles]` theory and the `dale new`
-  template scaffolding (`scenarios/` dir + content-copy glob + example file + AGENTS.md snippet + the theory
-  class). Deferred together — the template scaffolding is gated on the theory's packaging decision (a
-  dedicated `Vion.Dale.DevHost.Xunit` package vs. an xunit dependency on the runtime package). Until they
-  ship, follow the **"Adopt RFC 0006 in an existing project"** checklist below.
+  consumer-side: the small spec-trace extension. The generic xunit `[ScenarioFiles]` theory (+ the
+  `DevHostScenarioFixture` host base and `RunScenarioAsync`/`ApplyScenarioAsync`/`AssertSucceeded` helpers)
+  **shipped** in the dedicated `Vion.Dale.DevHost.Xunit` package — the packaging decision resolved in favour of
+  the separate package (so the runtime `Vion.Dale.DevHost` never takes an xunit dependency).
+  **Still R4-pending:** the `dale new` template scaffolding (`scenarios/` dir + content-copy glob + example
+  file + AGENTS.md snippet + a ready-made theory class) — until it ships, follow the **"Adopt RFC 0006 in an
+  existing project"** checklist below.
 - **R5 (topology files)** — `*.topology.json` dev profile + loader (types resolved from plugin assemblies,
   unmapped contracts mocked) + `dale dev --export-topology` + Player topology switching (rides the R2
   run-control reset) + per-topology schema generation.
@@ -574,8 +594,9 @@ Until the `dale new` template ships the R4 scaffolding (above), an existing proj
    and reference it from each file via `"$schema": "./.dale/scenario.schema.json"`. (`schema` runs offline
    from the export — no host needed.)
 4. **CI gate** — add `dale scenario validate` to the PR pipeline (fast, no wall-clock). For in-CI
-   *execution*, hand-write a one-line theory over `ScenarioRunner.RunAsync(id, host.Control, dir)` in a
-   nightly lane (the `[ScenarioFiles]` attribute is R4-pending).
+   *execution*, add the `Vion.Dale.DevHost.Xunit` package and a `[ScenarioFiles]` theory over a
+   `DevHostScenarioFixture` (see the **xunit (CI)** section) in a nightly lane — or, without the package, a
+   `[MemberData]` theory over `ScenarioRunner.RunAsync(id, host.Control, dir)`.
 5. **Spec trace** (if used) — add the `*.scenario.json` extension and the scenarios directory to the
    consumer's `spec-trace.ps1` scan set (2–3 lines); ids inside JSON strings match the existing regex as-is.
 6. **Agents** — tell agents (AGENTS.md) to emit `*.scenario.json` for verification-worthy changes and cite

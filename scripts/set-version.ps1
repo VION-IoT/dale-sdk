@@ -211,7 +211,8 @@ function Clear-NuGetPackageCache
         "Vion.Dale.Sdk.Modbus.Rtu.TestKit",
         "Vion.Dale.Sdk.TestKit",
         "Vion.Dale.DevHost",
-        "Vion.Dale.DevHost.Web"
+        "Vion.Dale.DevHost.Web",
+        "Vion.Dale.DevHost.Xunit"
     )
 
     Write-Host "`nClearing NuGet cache for version $version..." -ForegroundColor Yellow

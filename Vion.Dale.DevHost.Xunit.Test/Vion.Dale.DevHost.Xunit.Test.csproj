@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>false</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPublishable>false</IsPublishable>
+        <IsPackable>false</IsPackable>
+        <IsTestProject>true</IsTestProject>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="coverlet.collector" Version="6.0.4">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1"/>
+        <PackageReference Include="MSTest" Version="4.0.2"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vion.Dale.DevHost.Xunit\Vion.Dale.DevHost.Xunit.csproj"/>
+        <!-- The committed DevHost fixture supplies the block catalog (DependencyInjection) + the block dlls
+             the topology loader resolves, plus the committed scenarios/topologies copied below. -->
+        <ProjectReference Include="..\Vion.Dale.DevHost.SmokeHost\Vion.Dale.DevHost.SmokeHost.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- Run the package against the SmokeHost's real scenarios + topologies (copied into the test output,
+             passed to the store/loader as explicit dirs so discovery is hermetic, not cwd-walk dependent). -->
+        <None Include="..\Vion.Dale.DevHost.SmokeHost\scenarios\*.scenario.json" Link="scenarios\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest"/>
+        <None Include="..\Vion.Dale.DevHost.SmokeHost\topologies\*.topology.json" Link="topologies\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting"/>
+    </ItemGroup>
+
+</Project>
