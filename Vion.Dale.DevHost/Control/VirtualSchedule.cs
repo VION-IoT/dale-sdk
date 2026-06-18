@@ -22,8 +22,15 @@ namespace Vion.Dale.DevHost.Control
         private readonly object _gate = new();
 
         // Reference-identity keyed: tokens are fresh `new object()` per delayed send, so the default
-        // equality (reference) is exactly right and two distinct sends never collide.
-        private readonly Dictionary<object, DateTimeOffset> _pending = new();
+        // equality (reference) is exactly right and two distinct sends never collide. Each entry carries a
+        // monotonic sequence (assigned at registration) so the stepper can break same-due-time ties
+        // deterministically, and an optional delivery action (stepper-driven sends; null for Task.Delay-backed
+        // entries such as the ack/stop timeouts).
+        private readonly Dictionary<object, Entry> _pending = new();
+
+        // Monotonic registration counter — the deterministic tie-break for entries due at the same virtual
+        // instant. Registration order is itself deterministic (block spawn order + deterministic handler logic).
+        private long _nextSequence;
 
         /// <summary>The number of pending entries — a test hook for schedule-hygiene assertions (no token leaks).</summary>
         public int PendingCount
@@ -40,15 +47,13 @@ namespace Vion.Dale.DevHost.Control
         /// <inheritdoc />
         public void Register(object token, DateTimeOffset dueUtc)
         {
-            if (token is null)
-            {
-                throw new ArgumentNullException(nameof(token));
-            }
+            Add(token, dueUtc, null);
+        }
 
-            lock (_gate)
-            {
-                _pending[token] = dueUtc;
-            }
+        /// <inheritdoc />
+        public void RegisterDelivery(object token, DateTimeOffset dueUtc, Action deliver)
+        {
+            Add(token, dueUtc, deliver ?? throw new ArgumentNullException(nameof(deliver)));
         }
 
         /// <inheritdoc />
@@ -70,22 +75,74 @@ namespace Vion.Dale.DevHost.Control
         {
             lock (_gate)
             {
+                return _pending.Count == 0 ? null : Min().Value.Due;
+            }
+        }
+
+        /// <inheritdoc />
+        public bool TryTakeNext(out DateTimeOffset dueUtc, out Action? deliver)
+        {
+            lock (_gate)
+            {
                 if (_pending.Count == 0)
                 {
-                    return null;
+                    dueUtc = default;
+                    deliver = null;
+                    return false;
                 }
 
-                var min = DateTimeOffset.MaxValue;
-                foreach (var due in _pending.Values)
-                {
-                    if (due < min)
-                    {
-                        min = due;
-                    }
-                }
-
-                return min;
+                var min = Min();
+                _pending.Remove(min.Key);
+                dueUtc = min.Value.Due;
+                deliver = min.Value.Deliver;
+                return true;
             }
+        }
+
+        private void Add(object token, DateTimeOffset dueUtc, Action? deliver)
+        {
+            if (token is null)
+            {
+                throw new ArgumentNullException(nameof(token));
+            }
+
+            lock (_gate)
+            {
+                _pending[token] = new Entry(dueUtc, _nextSequence++, deliver);
+            }
+        }
+
+        // The minimum entry by (Due, Sequence) — the next event to fire. Caller holds _gate.
+        private KeyValuePair<object, Entry> Min()
+        {
+            var min = default(KeyValuePair<object, Entry>);
+            var first = true;
+            foreach (var entry in _pending)
+            {
+                if (first || entry.Value.Due < min.Value.Due || (entry.Value.Due == min.Value.Due && entry.Value.Sequence < min.Value.Sequence))
+                {
+                    min = entry;
+                    first = false;
+                }
+            }
+
+            return min;
+        }
+
+        private readonly struct Entry
+        {
+            public Entry(DateTimeOffset due, long sequence, Action? deliver)
+            {
+                Due = due;
+                Sequence = sequence;
+                Deliver = deliver;
+            }
+
+            public DateTimeOffset Due { get; }
+
+            public long Sequence { get; }
+
+            public Action? Deliver { get; }
         }
     }
 }

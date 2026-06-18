@@ -278,27 +278,79 @@ namespace Vion.Dale.DevHost
                 Track(mapping.TargetLogicBlockId, mapping.TargetInterfaceIdentifier, mapping.SourceLogicBlockId);
             }
 
-            // Keep a mapping only when BOTH endpoints are unambiguous (each matches exactly one counterpart).
+            // An endpoint that matches more than one counterpart is acceptable only when its binding
+            // multiplicity declares it a many-side: an AGGREGATION fan-in (many sources → one aggregator, e.g.
+            // many IGridSimulationParticipant → one IGridSimulationAggregator) is legitimate and should
+            // auto-wire, whereas COMMAND CONTENTION (many commanders → one single-writer managed interface,
+            // RFC 0008 §6.3) must be refused. The multiplicity on the ambiguous endpoint's binding is exactly
+            // that distinction: OneOrMore / ZeroOrMore = "I accept many" (fan-in); ExactlyOne / ZeroOrOne =
+            // "single writer" (contention). A single match is always fine (DF-19).
+            bool Acceptable(string block, string iface)
+            {
+                if (counterparts[(block, iface)].Count <= 1)
+                {
+                    return true;
+                }
+
+                var multiplicity = MultiplicityOf(block, iface);
+                return multiplicity == LinkMultiplicity.OneOrMore || multiplicity == LinkMultiplicity.ZeroOrMore;
+            }
+
             foreach (var mapping in candidates)
             {
-                if (counterparts[(mapping.SourceLogicBlockId, mapping.SourceInterfaceIdentifier)].Count == 1 &&
-                    counterparts[(mapping.TargetLogicBlockId, mapping.TargetInterfaceIdentifier)].Count == 1)
+                if (Acceptable(mapping.SourceLogicBlockId, mapping.SourceInterfaceIdentifier) && Acceptable(mapping.TargetLogicBlockId, mapping.TargetInterfaceIdentifier))
                 {
                     config.InterfaceMappings.Add(mapping);
                 }
             }
 
-            // Note each ambiguous endpoint once — a skipped auto-connection should be visible, not silent.
+            // Note each REFUSED ambiguous endpoint once (single-writer interface matched by many) — a skipped
+            // auto-connection should be visible, not silent. A legitimately auto-wired fan-in is not noted.
             foreach (var entry in counterparts)
             {
-                if (entry.Value.Count <= 1)
+                if (entry.Value.Count <= 1 || Acceptable(entry.Key.Block, entry.Key.Interface))
                 {
                     continue;
                 }
 
                 var name = _handles.Where(h => h.Id == entry.Key.Block).Select(h => h.Name).FirstOrDefault() ?? entry.Key.Block;
-                Console.WriteLine($"AutoConnect: left '{entry.Key.Interface}' on '{name}' unwired — it matches {entry.Value.Count} blocks; wire it explicitly in a topology file.");
+                Console.WriteLine($"AutoConnect: left '{entry.Key.Interface}' on '{name}' unwired — a single-writer interface matched by {entry.Value.Count} blocks; " +
+                                  "wire it explicitly in a topology file, or mark the binding OneOrMore/ZeroOrMore if it is an aggregator fan-in.");
             }
+        }
+
+        // The consumer-side link multiplicity declared on a block's interface binding
+        // ([LogicBlockInterfaceBinding(Multiplicity = …)]), for the endpoint (block id + interface identifier)
+        // AutoConnect keys on. Class-level bindings use the interface name as the identifier; property-bound
+        // interfaces use "{Property}_{Interface}". Defaults to ZeroOrMore (unconstrained) when not annotated.
+        private LinkMultiplicity MultiplicityOf(string blockId, string interfaceIdentifier)
+        {
+            var type = _handles.FirstOrDefault(h => h.Id == blockId)?.LogicBlockType;
+            if (type is null)
+            {
+                return LinkMultiplicity.ZeroOrMore;
+            }
+
+            foreach (var attribute in type.GetCustomAttributes<LogicBlockInterfaceBindingAttribute>())
+            {
+                if (attribute.ForInterface.Name == interfaceIdentifier)
+                {
+                    return attribute.Multiplicity;
+                }
+            }
+
+            foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            {
+                foreach (var attribute in property.GetCustomAttributes<LogicBlockInterfaceBindingAttribute>())
+                {
+                    if ($"{property.Name}_{attribute.ForInterface.Name}" == interfaceIdentifier)
+                    {
+                        return attribute.Multiplicity;
+                    }
+                }
+            }
+
+            return LinkMultiplicity.ZeroOrMore;
         }
 
         private void AutoCreateServiceProviders(DevConfiguration config)

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Threading.Tasks;
 using Proto;
 using Vion.Dale.ProtoActor.Extensions;
@@ -17,6 +18,11 @@ namespace Vion.Dale.ProtoActor
         // so a host without it keeps the original scheduling behaviour.
         private readonly IVirtualSchedule? _schedule;
 
+        // True when the clock is controllable (FakeTimeProvider) — i.e. the host is stepped. Computed once
+        // (the structural Advance(TimeSpan) detection used across the stepping stack) so the hot SendToSelfAfter
+        // path doesn't reflect per call.
+        private readonly bool _stepped;
+
         private readonly TimeProvider _timeProvider;
 
         public ActorContext(Func<IContext> context, IDelayedSendGate? delayedSendGate = null, TimeProvider? timeProvider = null, IVirtualSchedule? schedule = null)
@@ -25,6 +31,7 @@ namespace Vion.Dale.ProtoActor
             _delayedSendGate = delayedSendGate;
             _timeProvider = timeProvider ?? TimeProvider.System;
             _schedule = schedule;
+            _stepped = IsSteppedClock(_timeProvider);
         }
 
         public IReadOnlyDictionary<string, string> Headers
@@ -55,11 +62,23 @@ namespace Vion.Dale.ProtoActor
                 return;
             }
 
-            // Opt-in virtual schedule (DevHost next-event stepping): record this send's virtual due-time so
-            // the stepper can advance the fake clock to the next scheduled event. The token is a fresh
-            // identity; it is unregistered in the continuation BEFORE the message is sent, so the moment the
-            // delay completes the entry is gone and a re-query sees the rescheduled (later) due-time, not
-            // this stale one. Null schedule (production) → unchanged.
+            // Stepped host (DevHost + FakeTimeProvider): the next-event stepper DELIVERS this send itself, in a
+            // deterministic order, instead of a Task.Delay continuation firing it — when several timers are due
+            // at the same virtual instant, racing Task.Delay continuations on the thread pool would otherwise
+            // deliver them in a thread-pool-dependent order (RFC 0008 / DF-18). Register the delivery action
+            // (no Task.Delay armed); the stepper invokes it at the due virtual time, earliest-then-registration
+            // order, having taken (removed) the entry — so the action just performs the send.
+            if (_schedule is not null && _stepped)
+            {
+                _schedule.RegisterDelivery(new object(), _timeProvider.GetUtcNow() + delay, () => SendToSelf(message));
+                return;
+            }
+
+            // Opt-in virtual schedule (DevHost next-event stepping) on a real-clock host: record this send's
+            // virtual due-time so the stepper can advance the fake clock to the next scheduled event. The token
+            // is a fresh identity; it is unregistered in the continuation BEFORE the message is sent, so the
+            // moment the delay completes the entry is gone and a re-query sees the rescheduled (later) due-time,
+            // not this stale one. Null schedule (production) → unchanged.
             if (_schedule is null)
             {
                 _context().ReenterAfter(Task.Delay(delay, _timeProvider), _ => SendToSelf(message));
@@ -85,6 +104,15 @@ namespace Vion.Dale.ProtoActor
         public IActorReference LookupByName(string name)
         {
             return new ActorReference(PidUtils.FromName(name));
+        }
+
+        // Structural detection of a controllable clock (FakeTimeProvider): a public instance Advance(TimeSpan)
+        // returning void — the same detection used by DeterministicStepper / IDevHostControl.IsStepped, so the
+        // shipped library needs no reference to the test-only TimeProvider.Testing assembly.
+        private static bool IsSteppedClock(TimeProvider timeProvider)
+        {
+            var advance = timeProvider.GetType().GetMethod("Advance", BindingFlags.Public | BindingFlags.Instance, null, new[] { typeof(TimeSpan) }, null);
+            return advance is { ReturnType: { } returnType } && returnType == typeof(void);
         }
     }
 }

@@ -56,6 +56,28 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        public void Generate_AutoWiresAFanInAggregator()
+        {
+            // Three sources each implement IFanSource; the aggregator binds IFanSink with ZeroOrMore — the
+            // legitimate many-sources → one-aggregator fan-in (the RefGridMeter shape). Unlike command
+            // contention (a single-writer interface matched by many, left unwired by the test above), the
+            // many-multiplicity binding means all three wires must SURVIVE AutoConnect (DF-19).
+            var config = DefaultTopologyGenerator.Generate(new[]
+                                                           {
+                                                               typeof(Stepping.FanSourceA),
+                                                               typeof(Stepping.FanSourceB),
+                                                               typeof(Stepping.FanSourceC),
+                                                               typeof(Stepping.FanAggregatorBlock),
+                                                           });
+
+            Assert.HasCount(3,
+                            config.InterfaceMappings,
+                            "All three IFanSource → IFanSink (ZeroOrMore aggregator) wires must survive — a fan-in is not contention. Mappings: " +
+                            string.Join(", ", config.InterfaceMappings.Select(m => $"{m.SourceLogicBlockName}->{m.TargetLogicBlockName}")));
+            Assert.IsTrue(config.InterfaceMappings.All(m => m.TargetInterfaceIdentifier == "IFanSink"), "every fan-in wire must target the aggregator's IFanSink");
+        }
+
+        [TestMethod]
         public void Generate_SetsTopologyId()
         {
             var config = DefaultTopologyGenerator.Generate(new[] { typeof(CounterBlock) }, "my-catalog");
