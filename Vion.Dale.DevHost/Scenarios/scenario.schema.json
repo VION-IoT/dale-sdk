@@ -170,7 +170,8 @@
         { "required": ["equals"] },
         { "required": ["notEquals"] },
         { "required": ["oneOf"] }
-      ]
+      ],
+      "dependentRequired": { "tolerance": ["equals"] }
     },
     "waitUntilStep": {
       "type": "object",
@@ -198,7 +199,8 @@
             { "required": ["equals"] },
             { "required": ["notEquals"] },
             { "required": ["oneOf"] }
-          ]
+          ],
+          "dependentRequired": { "tolerance": ["equals"] }
         },
         "timeoutSeconds": { "type": "number", "exclusiveMinimum": 0, "default": 20 }
       }
@@ -230,7 +232,8 @@
             { "required": ["equals"] },
             { "required": ["notEquals"] },
             { "required": ["oneOf"] }
-          ]
+          ],
+          "dependentRequired": { "tolerance": ["equals"] }
         }
       }
     },

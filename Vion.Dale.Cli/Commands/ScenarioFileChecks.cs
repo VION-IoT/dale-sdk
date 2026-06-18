@@ -514,6 +514,24 @@ namespace Vion.Dale.Cli.Commands
                     errors.Add($"{where}: {shape}.oneOf elements must be scalars (no objects/arrays)");
                 }
             }
+
+            // tolerance is only meaningful on a numeric equals — mirror the runner's structural rule
+            // (ScenarioFile.StructuralErrors) so `dale scenario validate` and the schema fail as early as
+            // the loader, instead of green-lighting e.g. `{ above, tolerance }` the run then rejects (DF-22).
+            if (comparators.ContainsKey("tolerance"))
+            {
+                if (comparators["tolerance"]?.GetValueKind() == JsonValueKind.Number && comparators["tolerance"]!.GetValue<double>() < 0)
+                {
+                    errors.Add($"{where}: {shape}.tolerance must be non-negative");
+                }
+
+                // A literal number, or (expect only) a {path} comparand whose resolved value is checked numeric at run time.
+                var equals = comparators.ContainsKey("equals") ? comparators["equals"] : null;
+                if (!(equals?.GetValueKind() == JsonValueKind.Number || (allowPathComparand && IsPathComparand(equals))))
+                {
+                    errors.Add($"{where}: {shape}.tolerance is only valid with a numeric equals");
+                }
+            }
         }
 
         // The {path} string of a relational comparand object, or null when it is not the {path} form.
