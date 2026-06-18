@@ -145,6 +145,21 @@ dale dev
 
 Works from the solution directory, library project directory, or DevHost directory.
 
+### Boot style — folder-driven is the default
+
+`Program.cs` boots **folder-driven** via `DevHostWebRunner.RunFolderDrivenAsync(...)`: the instance
+graph comes from `topologies/*.topology.json` and the replayable checks from
+`scenarios/*.scenario.json`, both discovered from disk. This is the default for a project DevHost —
+it's the only path that gets the topology-as-data files, the topology-switch UI, scenario
+recycle-on-run, and `dale dev --stepped` determinism, and it means adding a block or rewiring is a
+topology edit, not a code change.
+
+The lower-level code-declared form — `DevConfigurationBuilder.Create()...AddLogicBlock<T>()...Build()`
+fed to `DevHostBuilder.WithConfiguration(...)` (and `RunFolderDrivenAsync` is built on top of it) —
+is for **in-process tests**: a test project references `Vion.Dale.DevHost`, wires a fixed config in
+C#, and drives `host.Control` directly (see "Verifying headlessly" below). Use folder-driven for the
+runnable DevHost; use the code-config builder inside tests.
+
 ## Verifying headlessly (for CI & agents)
 
 The DevHost boots the *real* wired network (unlike TestKit, which stubs every collaborator), so it catches
