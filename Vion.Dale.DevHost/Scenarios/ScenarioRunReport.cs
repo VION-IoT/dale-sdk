@@ -65,6 +65,7 @@ namespace Vion.Dale.DevHost.Scenarios
                            Argument = s.Argument,
                            Status = s.Status,
                            ElapsedMs = s.ElapsedMs,
+                           VirtualElapsedMs = s.VirtualElapsedMs,
                            Detail = s.Detail,
                        };
             }
@@ -127,7 +128,19 @@ namespace Vion.Dale.DevHost.Scenarios
         /// <summary>One of <see cref="ScenarioStepStatus" />.</summary>
         public string Status { get; set; } = ScenarioStepStatus.Pending;
 
+        /// <summary>
+        ///     Wall-clock duration of the step (real <see cref="System.Diagnostics.Stopwatch" />) — instrumentation; varies
+        ///     with thread jitter, not reproducible.
+        /// </summary>
         public double? ElapsedMs { get; set; }
+
+        /// <summary>
+        ///     Virtual-time duration of the step on a stepped host (<c>control.VirtualTimeUtc</c> before/after),
+        ///     or <c>null</c> on a real-clock host. Unlike <see cref="ElapsedMs" /> this is deterministic, so a
+        ///     stepped run report is bit-reproducible across runs — the prerequisite for trace-diff regression
+        ///     and judge-assist forensics (RFC 0008 / DF-20).
+        /// </summary>
+        public double? VirtualElapsedMs { get; set; }
 
         public string? Detail { get; set; }
     }

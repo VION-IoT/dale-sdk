@@ -28,6 +28,17 @@ namespace Vion.Dale.DevHost.Control
     ///         same end state, run to run, regardless of real-thread timing.
     ///     </para>
     ///     <para>
+    ///         Quiescence DETECTION alone is not enough on a fan-in network: it waits for concurrently-running
+    ///         handlers to finish but does not ORDER them, so the relative order of same-virtual-instant
+    ///         messages would be thread-pool-dependent (RFC 0008 / DF-18). Two further pieces pin the order:
+    ///         (1) every actor runs on a single shared serial dispatcher in stepped mode
+    ///         (<c>DeterministicDispatcher</c>), so a message cascade drains in one reproducible order rather
+    ///         than fanning out across the thread pool; and (2) the stepper DELIVERS each due timer send itself,
+    ///         taking entries from <see cref="IVirtualSchedule" /> one at a time in (due-time, registration)
+    ///         order — see the loop below — instead of letting racing <c>Task.Delay</c> continuations deliver
+    ///         them. Together, virtual TIME and message ORDER are both deterministic.
+    ///     </para>
+    ///     <para>
     ///         Stepping requires a controllable clock. The stepper detects <c>FakeTimeProvider</c>
     ///         <em>structurally</em> — by its public <c>Advance(TimeSpan)</c> and <c>GetUtcNow()</c> — so the
     ///         shipped <c>Vion.Dale.DevHost</c> package carries no dependency on the test-only
@@ -85,10 +96,17 @@ namespace Vion.Dale.DevHost.Control
             var target = _clock.GetUtcNow() + budget;
 
             // Advance to each next scheduled event due at or before the target, quiescing between. Re-query
-            // every iteration: each quiescence runs handlers that reschedule the next event forward.
+            // every iteration: each quiescence runs handlers that reschedule the next event forward. Each
+            // iteration takes the SINGLE earliest entry (by due-time, then registration order) and — for a
+            // stepper-delivered timer send — delivers it itself, so several timers due at the same virtual
+            // instant deliver one at a time in a fixed order rather than via racing Task.Delay continuations
+            // (RFC 0008 / DF-18). A plain (Task.Delay-backed) entry has no delivery action; advancing the clock
+            // to its due-time fires it.
             while (_schedule.NextDue() is { } due && due <= target)
             {
-                AdvanceTo(due);
+                _schedule.TryTakeNext(out var dueTime, out var deliver);
+                AdvanceTo(dueTime);
+                deliver?.Invoke();
                 await SettleAsync(cancellationToken).ConfigureAwait(false);
             }
 
@@ -112,10 +130,22 @@ namespace Vion.Dale.DevHost.Control
         {
             await SettleAsync(cancellationToken).ConfigureAwait(false);
 
-            if (_schedule.NextDue() is { } due)
+            // A hop advances exactly one virtual INSTANT: deliver every event due at the next scheduled time,
+            // one at a time in (due, registration) order, quiescing between each. Per-instant (not per-event)
+            // granularity is what the hop-based waitUntil / settle protocols rely on — a hop moves the clock
+            // forward, and a settle "stable across one hop" check sees the full effect of that instant — while
+            // same-instant fires still deliver in a single deterministic order (RFC 0008 / DF-18). Re-querying
+            // each iteration drains any further entries that remain due at this instant; reschedules land later
+            // and end the loop.
+            if (_schedule.NextDue() is { } instant)
             {
-                AdvanceTo(due);
-                await SettleAsync(cancellationToken).ConfigureAwait(false);
+                while (_schedule.NextDue() is { } next && next <= instant)
+                {
+                    _schedule.TryTakeNext(out var due, out var deliver);
+                    AdvanceTo(due);
+                    deliver?.Invoke();
+                    await SettleAsync(cancellationToken).ConfigureAwait(false);
+                }
             }
         }
 

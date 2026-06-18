@@ -368,6 +368,7 @@ namespace Vion.Dale.DevHost.Scenarios
             progress(report);
             var startedAt = DateTimeOffset.UtcNow;
             var stopwatch = Stopwatch.StartNew();
+            var virtualStart = control.VirtualTimeUtc;
 
             try
             {
@@ -389,7 +390,12 @@ namespace Vion.Dale.DevHost.Scenarios
                             if (rejection is not null)
                             {
                                 result.Detail = $"write appears rejected — a block exception was logged during this write: {rejection.Message}";
-                                Fail(result, report, progress, stopwatch);
+                                Fail(result,
+                                     report,
+                                     progress,
+                                     stopwatch,
+                                     control,
+                                     virtualStart);
                                 return false;
                             }
 
@@ -416,7 +422,12 @@ namespace Vion.Dale.DevHost.Scenarios
                         var live = control.GetDigitalOutput(contract.ServiceProviderId, contract.ServiceId, contract.ContractId);
                         if (!OutputAssertStep(step.DigitalOutput!, live, result))
                         {
-                            Fail(result, report, progress, stopwatch);
+                            Fail(result,
+                                 report,
+                                 progress,
+                                 stopwatch,
+                                 control,
+                                 virtualStart);
                             return false;
                         }
 
@@ -429,7 +440,12 @@ namespace Vion.Dale.DevHost.Scenarios
                         var live = control.GetAnalogOutput(contract.ServiceProviderId, contract.ServiceId, contract.ContractId);
                         if (!OutputAssertStep(step.AnalogOutput!, live, result))
                         {
-                            Fail(result, report, progress, stopwatch);
+                            Fail(result,
+                                 report,
+                                 progress,
+                                 stopwatch,
+                                 control,
+                                 virtualStart);
                             return false;
                         }
 
@@ -439,7 +455,12 @@ namespace Vion.Dale.DevHost.Scenarios
                     case "waitUntil":
                         if (!await WaitUntilAsync(step, resolved.Property!, control, result, cancellationToken).ConfigureAwait(false))
                         {
-                            Fail(result, report, progress, stopwatch);
+                            Fail(result,
+                                 report,
+                                 progress,
+                                 stopwatch,
+                                 control,
+                                 virtualStart);
                             return false;
                         }
 
@@ -448,7 +469,12 @@ namespace Vion.Dale.DevHost.Scenarios
                     case "expect":
                         if (!ExpectStep(step.Expect!, resolved, control, result))
                         {
-                            Fail(result, report, progress, stopwatch);
+                            Fail(result,
+                                 report,
+                                 progress,
+                                 stopwatch,
+                                 control,
+                                 virtualStart);
                             return false;
                         }
 
@@ -461,7 +487,12 @@ namespace Vion.Dale.DevHost.Scenarios
                     case "settle":
                         if (!await SettleAsync(step, watchPaths, control, result, cancellationToken).ConfigureAwait(false))
                         {
-                            Fail(result, report, progress, stopwatch);
+                            Fail(result,
+                                 report,
+                                 progress,
+                                 stopwatch,
+                                 control,
+                                 virtualStart);
                             return false;
                         }
 
@@ -480,12 +511,18 @@ namespace Vion.Dale.DevHost.Scenarios
             catch (Exception e)
             {
                 result.Detail = e.Message;
-                Fail(result, report, progress, stopwatch);
+                Fail(result,
+                     report,
+                     progress,
+                     stopwatch,
+                     control,
+                     virtualStart);
                 return false;
             }
 
             result.Status = ScenarioStepStatus.Ok;
             result.ElapsedMs = stopwatch.Elapsed.TotalMilliseconds;
+            result.VirtualElapsedMs = VirtualElapsed(control, virtualStart);
             progress(report);
             return true;
         }
@@ -857,11 +894,24 @@ namespace Vion.Dale.DevHost.Scenarios
             return value;
         }
 
-        private static void Fail(ScenarioStepResult result, ScenarioRunReport report, Action<ScenarioRunReport> progress, Stopwatch stopwatch)
+        private static void Fail(ScenarioStepResult result,
+                                 ScenarioRunReport report,
+                                 Action<ScenarioRunReport> progress,
+                                 Stopwatch stopwatch,
+                                 IDevHostControl control,
+                                 DateTimeOffset virtualStart)
         {
             result.Status = ScenarioStepStatus.Failed;
             result.ElapsedMs = stopwatch.Elapsed.TotalMilliseconds;
+            result.VirtualElapsedMs = VirtualElapsed(control, virtualStart);
             progress(report);
+        }
+
+        // Deterministic virtual-time duration of a step on a stepped host (from control.VirtualTimeUtc), or
+        // null on a real-clock host — so a stepped run report carries a reproducible elapsed (RFC 0008 / DF-20).
+        private static double? VirtualElapsed(IDevHostControl control, DateTimeOffset virtualStart)
+        {
+            return control.IsStepped ? (control.VirtualTimeUtc - virtualStart).TotalMilliseconds : null;
         }
 
         private static void SkipRemaining(ScenarioRunReport report, string reason)

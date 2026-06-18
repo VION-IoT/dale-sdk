@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,6 +26,12 @@ namespace Vion.Dale.ProtoActor
         // Optional, opt-in pause gate for delayed self-sends (DevHost's pause feature). Null when none is
         // registered, so a host without it keeps the original scheduling behaviour.
         private readonly IDelayedSendGate? _delayedSendGate;
+
+        // RFC 0008 deterministic stepping: on a stepped host (a controllable FakeTimeProvider clock) every
+        // actor is spawned onto one shared serial dispatcher so the message cascade within a quiescence round
+        // drains in a single reproducible order instead of fanning out across the thread pool. Null on a
+        // real-clock host (free-running Player / production), so Proto's ThreadPoolDispatcher is used as before.
+        private readonly IDispatcher? _deterministicDispatcher;
 
         private readonly ILogger<ActorSystem> _logger;
 
@@ -58,6 +65,16 @@ namespace Vion.Dale.ProtoActor
             _schedule = serviceProvider.GetService<IVirtualSchedule>();
             _timeProvider = serviceProvider.GetService<TimeProvider>() ?? TimeProvider.System;
             _vitalsCollector = serviceProvider.GetService<IActorVitalsCollector>();
+
+            // A controllable (FakeTimeProvider) clock means the host is stepped (same structural detection as
+            // DeterministicStepper / IDevHostControl.IsStepped). Build one shared exclusive scheduler and wrap
+            // it in the serial dispatcher applied to every actor below — created once per actor system so all
+            // actors serialize onto the SAME timeline.
+            if (IsSteppedClock(_timeProvider))
+            {
+                _deterministicDispatcher = new DeterministicDispatcher(new ConcurrentExclusiveSchedulerPair().ExclusiveScheduler);
+            }
+
             _actorSystem = serviceProvider.GetService<Proto.ActorSystem>() ?? throw new InvalidOperationException("Actor system is not registered in the service provider.");
             _actorSystem.EventStream.Subscribe<DeadLetterEvent>(e =>
                                                                 {
@@ -113,61 +130,62 @@ namespace Vion.Dale.ProtoActor
             var timeoutToken = new object();
 
             // spawn a temporary actor to handle the acknowledgements
-            _actorSystem.Root.Spawn(Props.FromFunc(ctx =>
-                                                   {
-                                                       switch (ctx.Message)
-                                                       {
-                                                           case Started: // Send messages to all actors and set up timeout
-                                                           {
-                                                               foreach (var (actorRef, msg) in actorMessages)
-                                                               {
-                                                                   var pid = ((ActorReference)actorRef).Pid;
-                                                                   ctx.Request(pid, msg);
-                                                               }
+            _actorSystem.Root.Spawn(WithDeterministicDispatcher(Props.FromFunc(ctx =>
+                                                                               {
+                                                                                   switch (ctx.Message)
+                                                                                   {
+                                                                                       case Started: // Send messages to all actors and set up timeout
+                                                                                       {
+                                                                                           foreach (var (actorRef, msg) in actorMessages)
+                                                                                           {
+                                                                                               var pid = ((ActorReference)actorRef).Pid;
+                                                                                               ctx.Request(pid, msg);
+                                                                                           }
 
-                                                               _schedule?.Register(timeoutToken, _timeProvider.GetUtcNow() + timeout);
-                                                               ctx.ReenterAfter(Task.Delay(timeout, _timeProvider),
-                                                                                _ =>
-                                                                                {
-                                                                                    _schedule?.Unregister(timeoutToken);
-                                                                                    if (remainingCount > 0)
-                                                                                    {
-                                                                                        var elapsed = Stopwatch.GetElapsedTime(startTime);
-                                                                                        _logger
-                                                                                            .LogWarning("Timeout waiting for {RemainingCount} acknowledgements after {ElapsedMs}ms",
-                                                                                                        remainingCount,
-                                                                                                        elapsed.TotalMilliseconds);
-                                                                                        tcs.TrySetException(new
-                                                                                                                TimeoutException($"Timeout waiting for {remainingCount} actor(s) to acknowledge"));
-                                                                                        ctx.Stop(ctx.Self);
-                                                                                    }
+                                                                                           _schedule?.Register(timeoutToken, _timeProvider.GetUtcNow() + timeout);
+                                                                                           ctx.ReenterAfter(Task.Delay(timeout, _timeProvider),
+                                                                                                            _ =>
+                                                                                                            {
+                                                                                                                _schedule?.Unregister(timeoutToken);
+                                                                                                                if (remainingCount > 0)
+                                                                                                                {
+                                                                                                                    var elapsed = Stopwatch.GetElapsedTime(startTime);
+                                                                                                                    _logger
+                                                                                                                        .LogWarning("Timeout waiting for {RemainingCount} acknowledgements after {ElapsedMs}ms",
+                                                                                                                            remainingCount,
+                                                                                                                            elapsed.TotalMilliseconds);
+                                                                                                                    tcs.TrySetException(new
+                                                                                                                        TimeoutException($"Timeout waiting for {remainingCount} actor(s) to acknowledge"));
+                                                                                                                    ctx.Stop(ctx.Self);
+                                                                                                                }
 
-                                                                                    return Task.CompletedTask;
-                                                                                });
-                                                               break;
-                                                           }
-                                                           case TAcknowledgementMessage ack: // handle acknowledgement messages, cleanup after last message
-                                                           {
-                                                               // Map the sender PID back to the original actor reference
-                                                               if (pidToActorMap.TryGetValue(ctx.Sender!, out var actorRef))
-                                                               {
-                                                                   responses[actorRef] = ack;
-                                                               }
+                                                                                                                return Task.CompletedTask;
+                                                                                                            });
+                                                                                           break;
+                                                                                       }
+                                                                                       case TAcknowledgementMessage ack
+                                                                                           : // handle acknowledgement messages, cleanup after last message
+                                                                                       {
+                                                                                           // Map the sender PID back to the original actor reference
+                                                                                           if (pidToActorMap.TryGetValue(ctx.Sender!, out var actorRef))
+                                                                                           {
+                                                                                               responses[actorRef] = ack;
+                                                                                           }
 
-                                                               remainingCount--;
-                                                               if (remainingCount == 0)
-                                                               {
-                                                                   _schedule?.Unregister(timeoutToken);
-                                                                   tcs.TrySetResult(responses);
-                                                                   ctx.Stop(ctx.Self);
-                                                               }
+                                                                                           remainingCount--;
+                                                                                           if (remainingCount == 0)
+                                                                                           {
+                                                                                               _schedule?.Unregister(timeoutToken);
+                                                                                               tcs.TrySetResult(responses);
+                                                                                               ctx.Stop(ctx.Self);
+                                                                                           }
 
-                                                               break;
-                                                           }
-                                                       }
+                                                                                           break;
+                                                                                       }
+                                                                                   }
 
-                                                       return Task.CompletedTask;
-                                                   }));
+                                                                                   return Task.CompletedTask;
+                                                                               })));
 
             var result = await tcs.Task;
             var totalElapsed = Stopwatch.GetElapsedTime(startTime);
@@ -225,6 +243,7 @@ namespace Vion.Dale.ProtoActor
                              .WithReceiverMiddleware(ActorMiddleware.ReceiveMiddleware(logger ?? _logger, _messageObserver, _timeProvider, _activityMonitor))
                              .WithSenderMiddleware(ActorMiddleware.SenderMiddleware(logger ?? _logger));
             props = WithVitals(props, actorReceiverType, name);
+            props = WithDeterministicDispatcher(props);
 
             var pid = _actorSystem.Root.SpawnNamed(props, name);
             return pid.ToActorReference();
@@ -238,6 +257,7 @@ namespace Vion.Dale.ProtoActor
                              .WithReceiverMiddleware(ActorMiddleware.ReceiveMiddleware(logger as ILogger ?? _logger, _messageObserver, _timeProvider, _activityMonitor))
                              .WithSenderMiddleware(ActorMiddleware.SenderMiddleware(logger as ILogger ?? _logger));
             props = WithVitals(props, typeof(TActorReceiver), name);
+            props = WithDeterministicDispatcher(props);
 
             var pid = _actorSystem.Root.SpawnNamed(props, name);
             return pid.ToActorReference();
@@ -260,56 +280,56 @@ namespace Vion.Dale.ProtoActor
             // termination — the usual case — leaves no far-future entry for the stepper to hop to.
             var timeoutToken = new object();
 
-            _actorSystem.Root.Spawn(Props.FromFunc(ctx =>
-                                                   {
-                                                       switch (ctx.Message)
-                                                       {
-                                                           case Started: // Start watching all actors and set up timeout
-                                                           {
-                                                               _logger.LogDebug("Watching {ActorCount} actors for termination", pidsToStop.Count);
+            _actorSystem.Root.Spawn(WithDeterministicDispatcher(Props.FromFunc(ctx =>
+                                                                               {
+                                                                                   switch (ctx.Message)
+                                                                                   {
+                                                                                       case Started: // Start watching all actors and set up timeout
+                                                                                       {
+                                                                                           _logger.LogDebug("Watching {ActorCount} actors for termination", pidsToStop.Count);
 
-                                                               foreach (var pid in pidsToStop)
-                                                               {
-                                                                   ctx.Watch(pid);
-                                                               }
+                                                                                           foreach (var pid in pidsToStop)
+                                                                                           {
+                                                                                               ctx.Watch(pid);
+                                                                                           }
 
-                                                               _schedule?.Register(timeoutToken, _timeProvider.GetUtcNow() + timeout);
-                                                               ctx.ReenterAfter(Task.Delay(timeout, _timeProvider),
-                                                                                _ =>
-                                                                                {
-                                                                                    _schedule?.Unregister(timeoutToken);
-                                                                                    if (remainingCount > 0)
-                                                                                    {
-                                                                                        _logger
-                                                                                            .LogWarning("Timeout waiting for {RemainingCount} actors to terminate after {TimeoutMs}ms",
-                                                                                                        remainingCount,
-                                                                                                        timeout.TotalMilliseconds);
-                                                                                        tcs.TrySetException(new
-                                                                                                                TimeoutException($"Timeout waiting for {remainingCount} actor(s) to terminate after {timeout.TotalMilliseconds}ms"));
-                                                                                        ctx.Stop(ctx.Self);
-                                                                                    }
+                                                                                           _schedule?.Register(timeoutToken, _timeProvider.GetUtcNow() + timeout);
+                                                                                           ctx.ReenterAfter(Task.Delay(timeout, _timeProvider),
+                                                                                                            _ =>
+                                                                                                            {
+                                                                                                                _schedule?.Unregister(timeoutToken);
+                                                                                                                if (remainingCount > 0)
+                                                                                                                {
+                                                                                                                    _logger
+                                                                                                                        .LogWarning("Timeout waiting for {RemainingCount} actors to terminate after {TimeoutMs}ms",
+                                                                                                                            remainingCount,
+                                                                                                                            timeout.TotalMilliseconds);
+                                                                                                                    tcs.TrySetException(new
+                                                                                                                        TimeoutException($"Timeout waiting for {remainingCount} actor(s) to terminate after {timeout.TotalMilliseconds}ms"));
+                                                                                                                    ctx.Stop(ctx.Self);
+                                                                                                                }
 
-                                                                                    return Task.CompletedTask;
-                                                                                });
+                                                                                                                return Task.CompletedTask;
+                                                                                                            });
 
-                                                               break;
-                                                           }
-                                                           case Terminated: // handle terminated message from watched actors, cleanup after last
-                                                           {
-                                                               remainingCount--;
-                                                               if (remainingCount == 0)
-                                                               {
-                                                                   _schedule?.Unregister(timeoutToken);
-                                                                   tcs.TrySetResult();
-                                                                   ctx.Stop(ctx.Self); // Cleanup
-                                                               }
+                                                                                           break;
+                                                                                       }
+                                                                                       case Terminated: // handle terminated message from watched actors, cleanup after last
+                                                                                       {
+                                                                                           remainingCount--;
+                                                                                           if (remainingCount == 0)
+                                                                                           {
+                                                                                               _schedule?.Unregister(timeoutToken);
+                                                                                               tcs.TrySetResult();
+                                                                                               ctx.Stop(ctx.Self); // Cleanup
+                                                                                           }
 
-                                                               break;
-                                                           }
-                                                       }
+                                                                                           break;
+                                                                                       }
+                                                                                   }
 
-                                                       return Task.CompletedTask;
-                                                   }));
+                                                                                   return Task.CompletedTask;
+                                                                               })));
 
             foreach (var pid in pidsToStop)
             {
@@ -338,6 +358,22 @@ namespace Vion.Dale.ProtoActor
         public IActorReference LookupByName(string name)
         {
             return new ActorReference(PidUtils.FromName(name));
+        }
+
+        // RFC 0008: on a stepped host, route the actor onto the shared serial dispatcher so its handlers never
+        // run concurrently with another actor's. No-op on a real-clock host (keeps Proto's ThreadPoolDispatcher).
+        private Props WithDeterministicDispatcher(Props props)
+        {
+            return _deterministicDispatcher is null ? props : props.WithDispatcher(_deterministicDispatcher);
+        }
+
+        // Structural detection of a controllable clock (FakeTimeProvider): a public instance Advance(TimeSpan)
+        // returning void. Mirrors DeterministicStepper.BindAdvance / IDevHostControl.IsStepped so the shipped
+        // library needs no compile-time reference to the test-only TimeProvider.Testing assembly.
+        private static bool IsSteppedClock(TimeProvider timeProvider)
+        {
+            var advance = timeProvider.GetType().GetMethod("Advance", BindingFlags.Public | BindingFlags.Instance, null, new[] { typeof(TimeSpan) }, null);
+            return advance is { ReturnType: { } returnType } && returnType == typeof(void);
         }
 
         // RFC 0005: register the actor's identity and attach mailbox-depth statistics when the vitals core
