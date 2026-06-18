@@ -9,12 +9,20 @@
         <PackageId>Vion.Dale.DevHost.Xunit</PackageId>
         <Description>xUnit.net v3 integration for Vion Dale DevHost scenario files (RFC 0006): a [ScenarioFiles] theory data source, a host fixture base, and run/assert helpers over ScenarioRunner. Kept out of the runtime Vion.Dale.DevHost package so a non-test DevHost consumer is never forced to take an xUnit dependency.</Description>
         <IsPackable>true</IsPackable>
+        <!-- Ship a package-specific README (the Vion.Dale.Cli convention) rather than the shared
+             docs/package-readme.md. PackageReadmeFile must be SET and the file PACKED below, or pack
+             fails NU5039 — Directory.Build.targets only auto-includes the shared readme when none is local. -->
+        <PackageReadmeFile>README.md</PackageReadmeFile>
 
         <!--documentation related-->
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <!-- 1591: missing XML doc comments. -->
         <NoWarn>$(NoWarn);1591</NoWarn>
     </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/"/>
+    </ItemGroup>
 
     <ItemGroup>
         <!-- The extensibility surface only (DataAttribute / ITheoryDataRow / TheoryDataRow / DisposalTracker),
