@@ -280,7 +280,7 @@ namespace Vion.Dale.DevHost.Control
         public async Task SetServicePropertyValueAsync(string serviceId, string propertyName, object? value)
         {
             var logicBlock = _configuration.LogicBlocks.FirstOrDefault(lb => lb.Services.Any(s => s.Id == serviceId)) ??
-                             throw new InvalidOperationException($"Unknown service id '{serviceId}'.");
+                             throw new ServicePropertyWriteException(ServicePropertyWriteException.ReasonUnknownService, null, $"Unknown service id '{serviceId}'.");
 
             // Reject a write the block can't apply UP FRONT, loudly. Otherwise the binder throws inside the
             // actor, the middleware swallows it, the write ack times out, and the HTTP path returns 200 — a
@@ -288,9 +288,13 @@ namespace Vion.Dale.DevHost.Control
             switch (_introspection.GetServicePropertyWriteState(serviceId, propertyName))
             {
                 case ServicePropertyWriteState.Unknown:
-                    throw new InvalidOperationException($"No service property '{propertyName}' on service '{serviceId}'.");
+                    throw new ServicePropertyWriteException(ServicePropertyWriteException.ReasonUnknownMember,
+                                                            propertyName,
+                                                            $"No service property '{propertyName}' on service '{serviceId}'.");
                 case ServicePropertyWriteState.ReadOnly:
-                    throw new InvalidOperationException($"Service property '{propertyName}' is read-only and cannot be set.");
+                    throw new ServicePropertyWriteException(ServicePropertyWriteException.ReasonReadOnly,
+                                                            propertyName,
+                                                            $"Service property '{propertyName}' is read-only and cannot be set.");
             }
 
             // Decode JSON values (the HTTP path delivers JsonElement) into the precise CLR type the block
