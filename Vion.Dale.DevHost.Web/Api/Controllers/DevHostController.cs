@@ -83,10 +83,15 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
                 await _control.SetServicePropertyValueAsync(serviceIdentifier, propertyIdentifier, input.Value);
                 return Ok();
             }
+            catch (ServicePropertyWriteException ex)
+            {
+                // A write the block can't apply (unknown service / unknown member / read-only) — fail loudly
+                // with a structured 4xx (reason + property) so tooling/agents can act without string-matching
+                // the message, instead of a silently-timed-out 200.
+                return BadRequest(new { error = ex.Message, reason = ex.Reason, property = ex.Property });
+            }
             catch (InvalidOperationException ex)
             {
-                // Unknown service id, or a read-only / unknown member — a write the block can't apply. Fail
-                // loudly with a 4xx instead of a silently-timed-out 200.
                 return BadRequest(new { error = ex.Message });
             }
         }

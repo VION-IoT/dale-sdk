@@ -186,12 +186,19 @@ namespace Vion.Dale.DevHost.Test
             using var blocksDoc = JsonDocument.Parse(blocksJson);
             var serviceId = blocksDoc.RootElement[0].GetProperty("serviceIds")[0].GetString();
 
-            // CounterDoubled is a read-only [ServiceMeasuringPoint].
+            // CounterDoubled is a read-only [ServiceMeasuringPoint]. The 400 body is structured (reason +
+            // property), so tooling/agents can act without string-matching the message.
             var readOnly = await client.PostAsJsonAsync($"/api/dale/property/{serviceId}/CounterDoubled", new { value = 7 });
             Assert.AreEqual(HttpStatusCode.BadRequest, readOnly.StatusCode, "Writing a read-only member must fail loudly (400), not silently succeed (200).");
+            var readOnlyBody = JsonDocument.Parse(await readOnly.Content.ReadAsStringAsync()).RootElement;
+            Assert.AreEqual("readOnly", readOnlyBody.GetProperty("reason").GetString(), "the 400 body must name the machine-readable reason");
+            Assert.AreEqual("CounterDoubled", readOnlyBody.GetProperty("property").GetString(), "the 400 body must name the offending property");
 
             var unknown = await client.PostAsJsonAsync($"/api/dale/property/{serviceId}/NoSuchMember", new { value = 7 });
             Assert.AreEqual(HttpStatusCode.BadRequest, unknown.StatusCode, "Writing an unknown member must fail loudly (400).");
+            var unknownBody = JsonDocument.Parse(await unknown.Content.ReadAsStringAsync()).RootElement;
+            Assert.AreEqual("unknownMember", unknownBody.GetProperty("reason").GetString());
+            Assert.AreEqual("NoSuchMember", unknownBody.GetProperty("property").GetString());
         }
 
         [TestMethod]

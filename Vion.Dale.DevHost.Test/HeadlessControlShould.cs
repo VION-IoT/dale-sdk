@@ -186,11 +186,18 @@ namespace Vion.Dale.DevHost.Test
                                 .Single(s => s.ServiceMeasuringPoints.Any(m => m.Identifier == "CounterDoubled"))
                                 .Id;
 
-            // CounterDoubled is a [ServiceMeasuringPoint] — read-only.
-            await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => host.Control.SetServicePropertyValueAsync(serviceId, "CounterDoubled", JsonValue.Create(7)));
+            // CounterDoubled is a [ServiceMeasuringPoint] — read-only. The typed exception carries a
+            // machine-readable reason + the offending property (subclass of InvalidOperationException).
+            var readOnly =
+                await Assert.ThrowsExactlyAsync<ServicePropertyWriteException>(() => host.Control.SetServicePropertyValueAsync(serviceId, "CounterDoubled", JsonValue.Create(7)));
+            Assert.AreEqual(ServicePropertyWriteException.ReasonReadOnly, readOnly.Reason);
+            Assert.AreEqual("CounterDoubled", readOnly.Property);
 
             // An unknown member name on a known service must also fail loudly, not silently no-op.
-            await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => host.Control.SetServicePropertyValueAsync(serviceId, "NoSuchMember", JsonValue.Create(7)));
+            var unknown =
+                await Assert.ThrowsExactlyAsync<ServicePropertyWriteException>(() => host.Control.SetServicePropertyValueAsync(serviceId, "NoSuchMember", JsonValue.Create(7)));
+            Assert.AreEqual(ServicePropertyWriteException.ReasonUnknownMember, unknown.Reason);
+            Assert.AreEqual("NoSuchMember", unknown.Property);
         }
 
         [TestMethod]

@@ -286,9 +286,14 @@ namespace Vion.Dale.DevHost.Scenarios
             var runSteps = scenario.Steps ?? Array.Empty<ScenarioStep>();
             var resolvedSetup = setupSteps.Select((s, i) => resolver.ResolveStep(s, $"setup[{i}]", errors)).ToList();
             var resolvedSteps = runSteps.Select((s, i) => resolver.ResolveStep(s, $"steps[{i}]", errors)).ToList();
+            var watchResolved = new List<(string Path, ResolvedProperty Resolved)>();
             foreach (var (path, index) in (scenario.Watch ?? Array.Empty<string>()).Select((w, i) => (w, i)))
             {
-                resolver.ResolveProperty(path, $"watch[{index}]", errors);
+                var resolvedWatch = resolver.ResolveProperty(path, $"watch[{index}]", errors);
+                if (resolvedWatch is not null)
+                {
+                    watchResolved.Add((path, resolvedWatch));
+                }
             }
 
             // settle.until target paths resolve up front too — scoping settle to explicit paths must fail
@@ -315,6 +320,39 @@ namespace Vion.Dale.DevHost.Scenarios
 
             var watchPaths = scenario.Watch;
 
+            // Watch trace: a per-step timeseries of the watched values, for forensics / report-diffing (RFC
+            // 0008 §11.7 — observability, not an assertion target). Sampled on the runner thread only, so it
+            // rides along in the snapshots progress() takes; empty when nothing is watched.
+            var watchTrace = watchResolved.Count > 0 ? new List<WatchSample>() : null;
+            if (watchTrace is not null)
+            {
+                report.WatchTrace = watchTrace;
+            }
+
+            var runVirtualStart = control.VirtualTimeUtc;
+
+            void SampleWatch(string phase, int stepIndex)
+            {
+                if (watchTrace is null)
+                {
+                    return;
+                }
+
+                var values = new Dictionary<string, object?>(StringComparer.Ordinal);
+                foreach (var (path, resolved) in watchResolved)
+                {
+                    values[path] = ExtractField(control.GetProperty(resolved.Block, resolved.ServiceIdentifier, resolved.PropertyName), resolved.FieldPath);
+                }
+
+                watchTrace.Add(new WatchSample
+                               {
+                                   Phase = phase,
+                                   StepIndex = stepIndex,
+                                   VirtualElapsedMs = control.IsStepped ? (control.VirtualTimeUtc - runVirtualStart).TotalMilliseconds : null,
+                                   Values = values,
+                               });
+            }
+
             // Setup in file order, then steps in order; any failure stops the run.
             for (var i = 0; i < resolvedSetup.Count; i++)
             {
@@ -333,17 +371,26 @@ namespace Vion.Dale.DevHost.Scenarios
                 }
             }
 
+            // The starting state (after setup staged it, before the timeline runs).
+            SampleWatch("start", -1);
+
             for (var i = 0; i < resolvedSteps.Count; i++)
             {
-                if (!await RunStepAsync(runSteps[i],
-                                        resolvedSteps[i],
-                                        report.Steps[i],
-                                        control,
-                                        progress,
-                                        report,
-                                        cancellationToken,
-                                        watchPaths)
-                         .ConfigureAwait(false))
+                var ok = await RunStepAsync(runSteps[i],
+                                            resolvedSteps[i],
+                                            report.Steps[i],
+                                            control,
+                                            progress,
+                                            report,
+                                            cancellationToken,
+                                            watchPaths)
+                             .ConfigureAwait(false);
+
+                // Sample after the step whether it passed or failed — the watched values at the moment of a
+                // failure are exactly what the forensic trail needs.
+                SampleWatch("steps", i);
+
+                if (!ok)
                 {
                     report.Status = ScenarioRunStatus.Failed;
                     SkipRemaining(report, "an earlier step failed");

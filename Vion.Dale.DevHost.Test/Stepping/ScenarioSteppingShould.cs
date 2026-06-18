@@ -55,6 +55,54 @@ namespace Vion.Dale.DevHost.Test.Stepping
             }
         }
 
+        // ── watch trace — per-step timeseries of the watched values (forensics, deterministic) ─────────
+
+        /// <summary>
+        ///     The report carries a <c>WatchTrace</c>: one sample after setup (start) and one after each step,
+        ///     each with the watched values and the deterministic virtual elapsed. On a stepped host it is
+        ///     bit-reproducible — observability for report-diffing / judge-assist (RFC 0008 §11.7).
+        /// </summary>
+        [TestMethod]
+        public async Task WatchTrace_RecordsAStartAndPerStepSample_DeterministicallyUnderStepping()
+        {
+            var clock = NewClock();
+            await using var host = BuildTickerHost(clock);
+            await host.StartAsync();
+
+            var scenario = ScenarioFile.Parse("""
+                                              {
+                                                "version": 1, "id": "watch-trace", "topology": "stepping-topology",
+                                                "watch": ["Ticker.Ticks"],
+                                                "steps": [
+                                                  { "advance": { "seconds": 2 } },
+                                                  { "advance": { "seconds": 1 } }
+                                                ]
+                                              }
+                                              """);
+
+            var report = await ScenarioRunner.RunAsync(scenario, host.Control);
+
+            Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
+
+            // start (after setup) + one per step.
+            Assert.HasCount(3, report.WatchTrace);
+
+            Assert.AreEqual("start", report.WatchTrace[0].Phase);
+            Assert.AreEqual(-1, report.WatchTrace[0].StepIndex);
+            Assert.AreEqual(0, Convert.ToInt32(report.WatchTrace[0].Values["Ticker.Ticks"]));
+            Assert.AreEqual(0.0, report.WatchTrace[0].VirtualElapsedMs!.Value, 0.001);
+
+            // advance 2 s → Ticks 2; advance 1 more → Ticks 3. Virtual elapsed is deterministic (2000, 3000 ms).
+            Assert.AreEqual("steps", report.WatchTrace[1].Phase);
+            Assert.AreEqual(0, report.WatchTrace[1].StepIndex);
+            Assert.AreEqual(2, Convert.ToInt32(report.WatchTrace[1].Values["Ticker.Ticks"]));
+            Assert.AreEqual(2000.0, report.WatchTrace[1].VirtualElapsedMs!.Value, 0.001);
+
+            Assert.AreEqual(1, report.WatchTrace[2].StepIndex);
+            Assert.AreEqual(3, Convert.ToInt32(report.WatchTrace[2].Values["Ticker.Ticks"]));
+            Assert.AreEqual(3000.0, report.WatchTrace[2].VirtualElapsedMs!.Value, 0.001);
+        }
+
         // ── settle step — non-convergence now FAILS the step (RFC 0008 §8.6 footgun fix) ───────────────
 
         /// <summary>

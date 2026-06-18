@@ -48,6 +48,15 @@ namespace Vion.Dale.DevHost.Scenarios
         public IReadOnlyList<ScenarioJudgmentResult> Judge { get; set; } = Array.Empty<ScenarioJudgmentResult>();
 
         /// <summary>
+        ///     A timeseries of the <c>watch</c> name paths' values, sampled at each step boundary (and once at
+        ///     the start, after setup) — the forensic trail of what the watched signals did across the run, for
+        ///     report-diffing and judge-assist diagnosis. Empty when the scenario declares no <c>watch</c>.
+        ///     Deterministic on a stepped host (the values and <see cref="WatchSample.VirtualElapsedMs" /> are
+        ///     reproducible run-to-run); it is observability, not an assertion target (RFC 0008 §11.7).
+        /// </summary>
+        public IReadOnlyList<WatchSample> WatchTrace { get; set; } = Array.Empty<WatchSample>();
+
+        /// <summary>
         ///     A consistent deep copy — the runner mutates its live instance on its own thread, so anything
         ///     that serializes a report concurrently (the web run registry) stores snapshots instead.
         /// </summary>
@@ -85,6 +94,14 @@ namespace Vion.Dale.DevHost.Scenarios
                        Setup = Setup.Select(Copy).ToList(),
                        Steps = Steps.Select(Copy).ToList(),
                        Judge = Judge.Select(j => new ScenarioJudgmentResult { Text = j.Text, Spec = j.Spec, Status = j.Status }).ToList(),
+                       WatchTrace = WatchTrace.Select(s => new WatchSample
+                                                           {
+                                                               Phase = s.Phase,
+                                                               StepIndex = s.StepIndex,
+                                                               VirtualElapsedMs = s.VirtualElapsedMs,
+                                                               Values = new Dictionary<string, object?>(s.Values),
+                                                           })
+                                              .ToList(),
                    };
         }
     }
@@ -143,6 +160,25 @@ namespace Vion.Dale.DevHost.Scenarios
         public double? VirtualElapsedMs { get; set; }
 
         public string? Detail { get; set; }
+    }
+
+    /// <summary>
+    ///     One sample in the <see cref="ScenarioRunReport.WatchTrace" /> timeseries — the values of the
+    ///     scenario's <c>watch</c> name paths at a step boundary.
+    /// </summary>
+    public sealed class WatchSample
+    {
+        /// <summary>Where in the run this was sampled: <c>start</c> (after setup, before steps) or <c>steps</c>.</summary>
+        public string Phase { get; set; } = string.Empty;
+
+        /// <summary>The <c>steps</c> index this sample follows, or <c>-1</c> for the start-of-run sample.</summary>
+        public int StepIndex { get; set; }
+
+        /// <summary>Virtual time elapsed since the run started, in ms — deterministic on a stepped host, null on a real clock.</summary>
+        public double? VirtualElapsedMs { get; set; }
+
+        /// <summary>The watched name path → its value at this sample (struct field paths resolved to their scalar leaf).</summary>
+        public Dictionary<string, object?> Values { get; set; } = new();
     }
 
     /// <summary>Step-level status values (string-typed on the wire).</summary>
