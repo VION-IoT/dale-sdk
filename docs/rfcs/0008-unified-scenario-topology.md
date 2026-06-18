@@ -139,7 +139,7 @@ One file, a superset of today's shape (`Vion.Dale.DevHost/Scenarios/ScenarioFile
 | `setup` | `set` / `digitalInput` / `analogInput` | unchanged |
 | timeline `steps` | `set`/inputs, `wait{seconds}`, scalar `waitUntil` | **logical-time vocabulary**: `advance {cycles}`, `settle` (advance-until-quiescent), `waitUntil {condition}`. `wait{seconds}` is **demoted to Player-only stimulus pacing** — never an assertion clock. |
 | observe | `watch[]`, scalar `waitUntil` | **struct field paths** (`RefControllableConsumer.AllocatedCurrent.L1`), numeric tolerances |
-| assert | `judge[]` (human only) | **`expect[]`** (auto: `above`/`below`/`equals`+`tolerance`/`notEquals`, **+ relational** path-vs-path) **and** `judge[]` retained for the un-mechanizable |
+| assert | `judge[]` (human only) | **`expect[]`** (auto: `above`/`below`/`equals`+`tolerance`/`notEquals`, **+ relational** path-vs-path) **and** `judge[]` retained for the un-mechanizable; **`digitalOutput` / `analogOutput`** auto-assert the value a block last Set on a mocked HAL output — the read half of HAL, symmetric with the `digitalInput` / `analogInput` drive steps (§11.6) |
 | trace | `specs` / per-item `spec` | unchanged — **optional free-form tag** |
 
 - **Struct field paths** are read-only addressing. Extend `ScenarioResolver` to walk struct fields and `ScenarioConditions` to compare them; the lift at `ScenarioFile.cs:423-426` (reject structs/arrays) becomes "reject struct *as a whole*, allow an addressed scalar leaf."
@@ -275,3 +275,16 @@ A block gated on accumulated state (a battery that can only discharge when `Stat
 ### 11.5 Addressing
 
 Scenarios address members by **name path** (`Block.Member`, or `Block.Service.Member` to disambiguate, plus `.Field` into a struct); the runner resolves them against the wired graph and fails loudly on a typo or a read-only/unknown target. (The raw HTTP set route, `POST /api/dale/property/{serviceId}/{member}`, takes the **service-id GUID**, not the block name — but scenario authors never touch that; the runner does the mapping.)
+
+### 11.6 Asserting HAL outputs (`digitalOutput` / `analogOutput`)
+
+`digitalInput` / `analogInput` **drive** mocked HAL inputs; `digitalOutput` / `analogOutput` **assert** what a block Set on a mocked HAL output — the missing read half, so a scenario can close the full loop `input → block → output` without graduating to a C# test. Each is a **contract-ref + comparator**, addressed by `block` + `contract` (the contract identifier on the block, not a name path), with the same comparator vocabulary as `expect` — `above` / `below` / `equals` (+ `tolerance`) / `notEquals` / `oneOf`:
+
+```json
+{ "digitalOutput": { "block": "Light", "contract": "DigitalOutput", "equals": true } }
+{ "analogOutput":  { "block": "IoBlock", "contract": "EchoOutput",  "equals": 3.3, "tolerance": 0.001 } }
+```
+
+For a boolean digital output only `equals` / `notEquals` / `oneOf` are sensible (not a hard error). Comparands are **literals only** — the relational `{path}` comparand is `expect`-only. Like `expect`, a failing output assert FAILS the run (the CI-failing tier) with the live value in the detail; output asserts are **step-only** (not `setup`).
+
+**The output is `null` until the block actually calls `.Set(...)`** — pair the assert with `advance` / `waitUntil` so the timer or handler that drives the output has fired first (an assert read too early sees `null` and fails). The canonical shape: drive the input, `waitUntil` the block observes it, `advance` to fire the timer that mirrors it onto the output, then assert the output — see `scenarios/io-control.scenario.json` in the DevHost SmokeHost, or the `toggle-light` example (`Light.DigitalOutput == true` after the press). The runner reads the cached output value from `IDevHostControl.GetDigitalOutput` / `GetAnalogOutput` (no actor round-trip); the same values are served over HTTP at `GET /api/hal/do/...` and `GET /api/hal/ao/...` for the Player and headless symmetry.

@@ -213,6 +213,8 @@ namespace Vion.Dale.DevHost.Scenarios
                                "set" => step.Set!,
                                "digitalInput" => $"{step.DigitalInput!.Block}.{step.DigitalInput.Contract}",
                                "analogInput" => $"{step.AnalogInput!.Block}.{step.AnalogInput.Contract}",
+                               "digitalOutput" => $"{step.DigitalOutput!.Block}.{step.DigitalOutput.Contract}",
+                               "analogOutput" => $"{step.AnalogOutput!.Block}.{step.AnalogOutput.Contract}",
                                "waitUntil" => step.WaitUntil!.Property ?? string.Empty,
                                "expect" => step.Expect!.Property ?? string.Empty,
                                "advance" => string.Empty,
@@ -222,6 +224,8 @@ namespace Vion.Dale.DevHost.Scenarios
                            Argument = step.Kind switch
                            {
                                "set" or "digitalInput" or "analogInput" => step.Value.ValueKind == JsonValueKind.Undefined ? null : step.Value.GetRawText(),
+                               "digitalOutput" => DescribeOutputAssert(step.DigitalOutput!),
+                               "analogOutput" => DescribeOutputAssert(step.AnalogOutput!),
                                "waitUntil" => DescribeCondition(step),
                                "expect" => DescribeExpect(step.Expect!),
                                "settle" => step.Settle!.MaxSeconds is { } max ? $"≤{max.ToString(CultureInfo.InvariantCulture)} s" :
@@ -405,6 +409,32 @@ namespace Vion.Dale.DevHost.Scenarios
                                      .ConfigureAwait(false);
                         result.Detail = "injected (inputs are fire-and-forget; pair with waitUntil to observe the effect)";
                         break;
+
+                    case "digitalOutput":
+                    {
+                        var contract = resolved.Contract!;
+                        var live = control.GetDigitalOutput(contract.ServiceProviderId, contract.ServiceId, contract.ContractId);
+                        if (!OutputAssertStep(step.DigitalOutput!, live, result))
+                        {
+                            Fail(result, report, progress, stopwatch);
+                            return false;
+                        }
+
+                        break;
+                    }
+
+                    case "analogOutput":
+                    {
+                        var contract = resolved.Contract!;
+                        var live = control.GetAnalogOutput(contract.ServiceProviderId, contract.ServiceId, contract.ContractId);
+                        if (!OutputAssertStep(step.AnalogOutput!, live, result))
+                        {
+                            Fail(result, report, progress, stopwatch);
+                            return false;
+                        }
+
+                        break;
+                    }
 
                     case "waitUntil":
                         if (!await WaitUntilAsync(step, resolved.Property!, control, result, cancellationToken).ConfigureAwait(false))
@@ -642,6 +672,65 @@ namespace Vion.Dale.DevHost.Scenarios
             }
 
             return $"expected {target} to not equal {Bound(expect.NotEquals)}, but was {actual}";
+        }
+
+        // The digitalOutput / analogOutput assertion (RFC 0006 "Assert tier", HAL outputs): a point-in-time
+        // check of the value the block last Set on the mocked output, read from the control's output cache.
+        // No awaiting — read once, evaluate, and FAIL the step when the comparator does not hold. The symmetric
+        // read complement of the digitalInput / analogInput drive steps; literals only (no relational comparand).
+        private static bool OutputAssertStep(ScenarioOutputAssert assert, object? live, ScenarioStepResult result)
+        {
+            if (ScenarioConditions.IsSatisfied(assert, live))
+            {
+                result.Detail = $"output held: {assert.Block}.{assert.Contract} {DescribeOutputAssert(assert)} (value {Display(live)})";
+                return true;
+            }
+
+            result.Detail = OutputFailureDetail(assert, live);
+            return false;
+        }
+
+        // The failing output-assert detail — "expected Block.Contract to equal X, but was Y" / "value W is not
+        // one of […]". Mirrors ExpectFailureDetail without the relational {path} comparand (outputs are literals).
+        private static string OutputFailureDetail(ScenarioOutputAssert assert, object? live)
+        {
+            var target = $"{assert.Block}.{assert.Contract}";
+            var actual = Display(live);
+
+            if (assert.OneOf.ValueKind == JsonValueKind.Array)
+            {
+                var options = string.Join(", ", assert.OneOf.EnumerateArray().Select(e => e.GetRawText()));
+                return $"expected {target} to be one of [{options}], but was {actual}";
+            }
+
+            if (assert.Above.ValueKind != JsonValueKind.Undefined)
+            {
+                return $"expected {target} above {assert.Above.GetRawText()}, but was {actual}";
+            }
+
+            if (assert.Below.ValueKind != JsonValueKind.Undefined)
+            {
+                return $"expected {target} below {assert.Below.GetRawText()}, but was {actual}";
+            }
+
+            if (assert.EqualTo.ValueKind != JsonValueKind.Undefined)
+            {
+                var tolerance = assert.Tolerance is { } t ? $" (±{t.ToString(CultureInfo.InvariantCulture)})" : "";
+                return $"expected {target} to equal {assert.EqualTo.GetRawText()}{tolerance}, but was {actual}";
+            }
+
+            return $"expected {target} to not equal {assert.NotEquals.GetRawText()}, but was {actual}";
+        }
+
+        // Human-readable output-assert comparator for reports ("== true", "> 3", "== 3.3 ±0.001").
+        private static string DescribeOutputAssert(ScenarioOutputAssert assert)
+        {
+            return DescribeComparator(assert.Above,
+                                      assert.Below,
+                                      assert.EqualTo,
+                                      assert.NotEquals,
+                                      assert.OneOf,
+                                      assert.Tolerance);
         }
 
         private static string Display(object? value)

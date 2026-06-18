@@ -452,6 +452,12 @@ export function describeExpect(expect) {
     return describeComparator(expect);
 }
 
+// Human-readable digitalOutput / analogOutput assertion — mirrors ScenarioRunner.DescribeOutputAssert (C#).
+// The comparator object carries the same above/below/equals(+tolerance)/notEquals/oneOf fields as expect.
+export function describeOutputAssert(output) {
+    return describeComparator(output);
+}
+
 // Build the copy-paste verification report (markdown) from the scenario, the run report, and the
 // human's judgment ticks ('ok' | 'notOk' keyed `${runId}/${index}`). What lands in the PR.
 export function buildVerificationReport(scenario, run, judgeTicks) {

@@ -203,6 +203,12 @@ namespace Vion.Dale.DevHost.Scenarios
 
         public ScenarioContractRef? AnalogInput { get; init; }
 
+        /// <summary>A deterministic, point-in-time auto-assertion on a mocked <c>IDigitalOutput</c> (step-only).</summary>
+        public ScenarioOutputAssert? DigitalOutput { get; init; }
+
+        /// <summary>A deterministic, point-in-time auto-assertion on a mocked <c>IAnalogOutput</c> (step-only).</summary>
+        public ScenarioOutputAssert? AnalogOutput { get; init; }
+
         public ScenarioWaitUntil? WaitUntil { get; init; }
 
         /// <summary>A deterministic, point-in-time auto-assertion on the current value (step-only).</summary>
@@ -240,6 +246,16 @@ namespace Vion.Dale.DevHost.Scenarios
                 if (AnalogInput is not null)
                 {
                     return "analogInput";
+                }
+
+                if (DigitalOutput is not null)
+                {
+                    return "digitalOutput";
+                }
+
+                if (AnalogOutput is not null)
+                {
+                    return "analogOutput";
                 }
 
                 if (WaitUntil is not null)
@@ -284,6 +300,16 @@ namespace Vion.Dale.DevHost.Scenarios
                 shapes++;
             }
 
+            if (DigitalOutput is not null)
+            {
+                shapes++;
+            }
+
+            if (AnalogOutput is not null)
+            {
+                shapes++;
+            }
+
             if (WaitUntil is not null)
             {
                 shapes++;
@@ -311,14 +337,15 @@ namespace Vion.Dale.DevHost.Scenarios
 
             if (shapes != 1)
             {
-                yield return "a step is exactly one of set / digitalInput / analogInput / waitUntil / expect / wait / advance / settle";
+                yield return "a step is exactly one of set / digitalInput / analogInput / digitalOutput / analogOutput / waitUntil / expect / wait / advance / settle";
 
                 yield break;
             }
 
-            if (setupOnlyShapes && (WaitUntil is not null || Expect is not null || Wait is not null || Advance is not null || Settle is not null))
+            if (setupOnlyShapes && (WaitUntil is not null || Expect is not null || DigitalOutput is not null || AnalogOutput is not null || Wait is not null ||
+                                    Advance is not null || Settle is not null))
             {
-                yield return "setup entries stage state (set / digitalInput / analogInput) — waits, expects, and time steps belong in steps";
+                yield return "setup entries stage state (set / digitalInput / analogInput) — waits, expects, output asserts, and time steps belong in steps";
 
                 yield break;
             }
@@ -363,6 +390,22 @@ namespace Vion.Dale.DevHost.Scenarios
                 if (Value.ValueKind != JsonValueKind.Number)
                 {
                     yield return "analogInput requires a numeric value";
+                }
+            }
+
+            if (DigitalOutput is not null)
+            {
+                foreach (var error in DigitalOutput.StructuralErrors("digitalOutput"))
+                {
+                    yield return error;
+                }
+            }
+
+            if (AnalogOutput is not null)
+            {
+                foreach (var error in AnalogOutput.StructuralErrors("analogOutput"))
+                {
+                    yield return error;
                 }
             }
 
@@ -444,6 +487,62 @@ namespace Vion.Dale.DevHost.Scenarios
             if (string.IsNullOrWhiteSpace(Contract))
             {
                 yield return $"{shape}.contract is required";
+            }
+        }
+    }
+
+    /// <summary>
+    ///     A <c>digitalOutput</c> / <c>analogOutput</c> auto-assertion (RFC 0006 "Assert tier", HAL outputs):
+    ///     a hardware-contract reference (block + contract identifier) plus exactly one comparator, checked
+    ///     against the value the block last Set on that mocked output. The read half of HAL, symmetric with
+    ///     <c>digitalInput</c> / <c>analogInput</c> (drive). Comparators are the same as <c>expect</c>
+    ///     (<c>above</c>/<c>below</c>/<c>equals</c>+<c>tolerance</c>/<c>notEquals</c>/<c>oneOf</c>) — for a
+    ///     boolean digital output only <c>equals</c>/<c>notEquals</c>/<c>oneOf</c> are sensible, but that is not
+    ///     a hard error. Unlike <c>expect</c>, comparands are literals only (no relational <c>{path}</c> form).
+    /// </summary>
+    public sealed class ScenarioOutputAssert
+    {
+        public string? Block { get; init; }
+
+        public string? Contract { get; init; }
+
+        public JsonElement Above { get; init; }
+
+        public JsonElement Below { get; init; }
+
+        [JsonPropertyName("equals")]
+        public JsonElement EqualTo { get; init; }
+
+        public JsonElement NotEquals { get; init; }
+
+        public JsonElement OneOf { get; init; }
+
+        public double? Tolerance { get; init; }
+
+        internal IEnumerable<string> StructuralErrors(string shape)
+        {
+            if (string.IsNullOrWhiteSpace(Block))
+            {
+                yield return $"{shape}.block is required";
+            }
+
+            if (string.IsNullOrWhiteSpace(Contract))
+            {
+                yield return $"{shape}.contract is required";
+            }
+
+            // Output comparands are literals only — allowPathComparand: false, so a {path} object is rejected
+            // (the relational comparand is an expect-only feature against another property).
+            foreach (var error in ScenarioComparators.StructuralErrors(shape,
+                                                                       Above,
+                                                                       Below,
+                                                                       EqualTo,
+                                                                       NotEquals,
+                                                                       OneOf,
+                                                                       Tolerance,
+                                                                       false))
+            {
+                yield return error;
             }
         }
     }

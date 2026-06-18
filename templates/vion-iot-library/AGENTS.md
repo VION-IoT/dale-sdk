@@ -181,8 +181,11 @@ Under `--stepped` the time-bearing steps run in **virtual time**: `advance` jump
 `[Timer]`s), `settle` advances hop-by-hop until the watched signals stabilize, and `waitUntil` resolves
 deterministically. `expect` steps auto-assert — `above` / `below` / `equals` (+ `tolerance`) / `notEquals` /
 `oneOf`, and a relational `{ "path": "Block.Other" }` comparand — and fail the run loudly; `judge[]` items
-are for human sign-off. An agent stages a human's verification view by committing a scenario and citing its
-**id** in the PR.
+are for human sign-off. For hardware blocks, `digitalInput` / `analogInput` **drive** mocked HAL inputs and
+`digitalOutput` / `analogOutput` **assert** the value the block Set on a mocked HAL output (a `block` +
+`contract` ref with the same comparators, literals only) — pair an output assert with `advance` / `waitUntil`
+so the timer/handler that drives the output has fired first. An agent stages a human's verification view by
+committing a scenario and citing its **id** in the PR.
 
 **Authoring loop:** (1) declare a dedicated, minimal `topologies/*.topology.json` with just the blocks the
 behaviour needs; (2) pin every non-deterministic input (live data, wall clock, RNG) — or omit the block from

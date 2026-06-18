@@ -285,17 +285,19 @@ namespace Vion.Dale.Cli.Commands
                     continue;
                 }
 
-                var shapes = new[] { "set", "digitalInput", "analogInput", "waitUntil", "expect", "wait", "advance", "settle" }.Count(k => step.ContainsKey(k));
+                var shapes =
+                    new[] { "set", "digitalInput", "analogInput", "digitalOutput", "analogOutput", "waitUntil", "expect", "wait", "advance", "settle" }
+                        .Count(k => step.ContainsKey(k));
                 if (shapes != 1)
                 {
-                    errors.Add($"{where}: a step is exactly one of set / digitalInput / analogInput / waitUntil / expect / wait / advance / settle");
+                    errors.Add($"{where}: a step is exactly one of set / digitalInput / analogInput / digitalOutput / analogOutput / waitUntil / expect / wait / advance / settle");
                     continue;
                 }
 
-                if (setupOnlyShapes && (step.ContainsKey("waitUntil") || step.ContainsKey("expect") || step.ContainsKey("wait") || step.ContainsKey("advance") ||
-                                        step.ContainsKey("settle")))
+                if (setupOnlyShapes && (step.ContainsKey("waitUntil") || step.ContainsKey("expect") || step.ContainsKey("digitalOutput") || step.ContainsKey("analogOutput") ||
+                                        step.ContainsKey("wait") || step.ContainsKey("advance") || step.ContainsKey("settle")))
                 {
-                    errors.Add($"{where}: setup entries stage state — waits, expects, and time steps belong in steps");
+                    errors.Add($"{where}: setup entries stage state — waits, expects, output asserts, and time steps belong in steps");
                     continue;
                 }
 
@@ -327,6 +329,26 @@ namespace Vion.Dale.Cli.Commands
                     if (config is not null)
                     {
                         ResolveContract(step[kind], digital ? "DigitalInput" : "AnalogInput", config, where, errors);
+                    }
+                }
+                else if (step.ContainsKey("digitalOutput") || step.ContainsKey("analogOutput"))
+                {
+                    // The read half of HAL: a contract-ref + comparator on a mocked output, resolved like the
+                    // input drive steps but against an output contract type. Comparands are literals only
+                    // (allowPathComparand: false) — the relational { path } form is expect-only.
+                    var digital = step.ContainsKey("digitalOutput");
+                    var kind = digital ? "digitalOutput" : "analogOutput";
+                    if (step[kind] is JsonObject assert)
+                    {
+                        ValidateComparators(kind, assert, false, where, errors);
+                        if (config is not null)
+                        {
+                            ResolveContract(assert, digital ? "DigitalOutput" : "AnalogOutput", config, where, errors);
+                        }
+                    }
+                    else
+                    {
+                        errors.Add($"{where}: {kind} must be an object");
                     }
                 }
                 else if (step.ContainsKey("waitUntil"))

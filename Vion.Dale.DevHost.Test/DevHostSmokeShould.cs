@@ -140,6 +140,44 @@ namespace Vion.Dale.DevHost.Test
             Assert.AreEqual("succeeded", report.GetProperty("status").GetString(), report.GetRawText());
         }
 
+        [TestMethod]
+        [TestCategory("Smoke")]
+        public async Task Smoke_HalOutputScenario_AssertsTheSmokeHostIoBlockOutputs()
+        {
+            // The other half of HAL testing: a scenario DRIVES inputs then ASSERTS outputs. The IoBlock's
+            // [Timer(1)] OnTick mirrors IsEnabled -> ActiveOutput and CurrentLevel -> EchoOutput, so after one
+            // virtual-second advance the mocked outputs carry the driven values — read via the digitalOutput /
+            // analogOutput step types and the GetDigitalOutput / GetAnalogOutput control getters. No other test
+            // exercises the output-assert path; this guards the full mocked-input -> block -> mocked-output loop.
+            var dir = NewScenarioDir();
+            File.WriteAllText(Path.Combine(dir, "io-out.scenario.json"),
+                              """
+                              {
+                                "version": 1, "id": "io-out", "topology": "io", "watch": ["io.IsEnabled", "io.CurrentLevel"],
+                                "steps": [
+                                  { "digitalInput": { "block": "io", "contract": "EnableInput" }, "value": true },
+                                  { "analogInput": { "block": "io", "contract": "LevelInput" }, "value": 3.3 },
+                                  { "waitUntil": { "property": "io.IsEnabled", "equals": true }, "timeoutSeconds": 5 },
+                                  { "advance": { "seconds": 1 } },
+                                  { "digitalOutput": { "block": "io", "contract": "ActiveOutput", "equals": true } },
+                                  { "analogOutput": { "block": "io", "contract": "EchoOutput", "equals": 3.3, "tolerance": 0.001 } }
+                                ]
+                              }
+                              """);
+
+            var port = FreePort();
+            var config = DevConfigurationBuilder.Create().WithTopologyName("io").WithScenarios(dir).AddLogicBlock<SmokeHost.LogicBlocks.IoBlock>("io").Build();
+            await using var host = DevHostBuilder.Create().WithDi<SmokeHost.DependencyInjection>().WithConfiguration(config).WithDeterministicStepping().WithWebUi(port).Build();
+            await host.StartAsync();
+
+            using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
+
+            var apply = await client.PostAsync("/api/scenarios/io-out/apply", null);
+            Assert.AreEqual(HttpStatusCode.Accepted, apply.StatusCode, "Applying the HAL output scenario must start a run.");
+            var report = await PollRunUntilDoneAsync(client, "io-out", TimeSpan.FromSeconds(30));
+            Assert.AreEqual("succeeded", report.GetProperty("status").GetString(), report.GetRawText());
+        }
+
         private static async Task<string> GetStringAsync(HttpClient client, string path)
         {
             var response = await client.GetAsync(path);

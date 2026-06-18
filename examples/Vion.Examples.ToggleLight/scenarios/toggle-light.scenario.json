@@ -13,7 +13,8 @@
     { "label": "The light switches on", "waitUntil": { "property": "Light.On", "equals": true }, "timeoutSeconds": 5 },
     { "label": "…and counts exactly one switch-on", "expect": { "property": "Light.TimesSwitchedOn", "equals": 1 } },
     { "label": "Hold it on for 3 s of virtual time", "advance": { "seconds": 3 } },
-    { "label": "The light is still on", "expect": { "property": "Light.On", "equals": true } }
+    { "label": "The light is still on", "expect": { "property": "Light.On", "equals": true } },
+    { "label": "…and its digital output mirrors the On state", "digitalOutput": { "block": "Light", "contract": "DigitalOutput", "equals": true } }
   ],
   "watch": [
     "Light.On",
@@ -21,7 +22,6 @@
     "Light.TotalTimeOn"
   ],
   "judge": [
-    { "text": "TotalTimeOn is about 3 s after the hold (the [Timer(1)] accumulates only while the light is on)" },
-    { "text": "The light's digital output mirrors the On state" }
+    { "text": "TotalTimeOn is about 3 s after the hold (the [Timer(1)] accumulates only while the light is on)" }
   ]
 }

@@ -55,6 +55,26 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
             return Ok();
         }
 
+        /// <summary>
+        ///     The last value a block Set on a mocked digital output (the read complement of the
+        ///     <c>hal/di</c> POST) — <c>{ value }</c> is the cached bool, or null if the output was never Set.
+        /// </summary>
+        [HttpGet("hal/do/{serviceProviderIdentifier}/{serviceIdentifier}/{contractIdentifier}")]
+        public ActionResult GetDigitalOutputValue(string serviceProviderIdentifier, string serviceIdentifier, string contractIdentifier)
+        {
+            return Ok(new { value = _control.GetDigitalOutput(serviceProviderIdentifier, serviceIdentifier, contractIdentifier) });
+        }
+
+        /// <summary>
+        ///     The last value a block Set on a mocked analog output (the read complement of the <c>hal/ai</c>
+        ///     POST) — <c>{ value }</c> is the cached double, or null if the output was never Set.
+        /// </summary>
+        [HttpGet("hal/ao/{serviceProviderIdentifier}/{serviceIdentifier}/{contractIdentifier}")]
+        public ActionResult GetAnalogOutputValue(string serviceProviderIdentifier, string serviceIdentifier, string contractIdentifier)
+        {
+            return Ok(new { value = _control.GetAnalogOutput(serviceProviderIdentifier, serviceIdentifier, contractIdentifier) });
+        }
+
         [HttpPost("dale/property/{serviceIdentifier}/{propertyIdentifier}")]
         public async Task<ActionResult> SetServicePropertyValue(string serviceIdentifier, string propertyIdentifier, [FromBody] SetValueInput<object> input)
         {

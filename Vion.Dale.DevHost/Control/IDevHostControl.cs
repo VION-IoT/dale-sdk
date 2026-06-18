@@ -113,6 +113,24 @@ namespace Vion.Dale.DevHost.Control
         Task SetAnalogInputAsync(string serviceProviderId, string serviceId, string contractId, double value);
 
         /// <summary>
+        ///     Read the last value a logic block Set on a mocked <c>IDigitalOutput</c>, addressed by the mocked
+        ///     endpoint's service-provider / service / contract identifiers (the mapping in
+        ///     <see cref="GetConfiguration" />). This is the symmetric read complement of
+        ///     <see cref="SetDigitalInputAsync" /> — the cached value the mock output handler last published via
+        ///     <c>DigitalOutputChanged</c>, exactly what the web UI shows. Returns <c>null</c> if the output has
+        ///     never been Set (no actor round-trip — the value is served from the event cache).
+        /// </summary>
+        bool? GetDigitalOutput(string serviceProviderId, string serviceId, string contractId);
+
+        /// <summary>
+        ///     Read the last value a logic block Set on a mocked <c>IAnalogOutput</c>, addressed by the mocked
+        ///     endpoint's service-provider / service / contract identifiers (the mapping in
+        ///     <see cref="GetConfiguration" />). The analog complement of <see cref="GetDigitalOutput" />.
+        ///     Returns <c>null</c> if the output has never been Set.
+        /// </summary>
+        double? GetAnalogOutput(string serviceProviderId, string serviceId, string contractId);
+
+        /// <summary>
         ///     Ask every mock handler to re-publish its current state — used by the web UI on (re)connect to
         ///     prime a fresh client. In-process callers rarely need this (the value cache is already warm).
         /// </summary>
