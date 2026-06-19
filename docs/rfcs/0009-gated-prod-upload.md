@@ -1,6 +1,7 @@
 # RFC 0009: Gated production upload for libraries and onboarding examples
 
-Status: **Accepted** (open questions resolved 2026-06-19; deltas implemented on `feat/gated-prod-upload`).
+Status: **Accepted** (open questions resolved 2026-06-19; deltas implemented on `feat/gated-prod-upload`.
+Revision 2: `Vion.Examples.PingPong` added to the onboarding/production example subset).
 Author: jonas.bertsch. Date: 2026-06-19.
 
 One sentence: promote the two existing test-only `dale upload` workflows into a two-stage,
@@ -63,16 +64,16 @@ production   ⏳ waiting for review  commit a1b2c3      ← in test, not yet in 
   No tags for either area, matching the current model.
 - **Production scope:**
   - **Libraries** → all libraries (currently just `Vion.Diagnostics`; prod matrix = test matrix).
-  - **Examples** → the **onboarding subset** `Vion.Examples.Energy` and `Vion.Examples.ToggleLight` only.
-    The other four examples stay test-only.
+  - **Examples** → the **onboarding subset** `Vion.Examples.Energy`, `Vion.Examples.ToggleLight`, and
+    `Vion.Examples.PingPong`. The other three examples stay test-only.
 
 ### Examples production is change-scoped (the chosen "Option A")
 
-Because the production example set is a strict subset of the test set, a push touching an unrelated example
-(e.g. `Vion.Examples.PingPong`) would otherwise still raise a production approval for `Energy`/`ToggleLight`
+Because the production example set is a strict subset of the test set, a push touching a test-only example
+(e.g. `Vion.Examples.ModbusRtu`) would otherwise still raise a production approval for the onboarding examples
 that did not change — a pointless click and a noisy board. To avoid that, the examples `upload-prod` job is
 driven by a **dynamic matrix** computed from what actually changed: a `detect-prod` job runs a path filter
-over the two production example directories and emits the list of changed ones. If neither changed, the
+over the production example directories and emits the list of changed ones. If none changed, the
 production job is **skipped entirely** — no deployment record, no approval request.
 
 (Libraries do not need this yet: while `Vion.Diagnostics` is the only library, prod scope equals test scope,
@@ -159,11 +160,13 @@ uploads):
               - 'examples/Vion.Examples.Energy/**'
             Vion.Examples.ToggleLight:
               - 'examples/Vion.Examples.ToggleLight/**'
+            Vion.Examples.PingPong:
+              - 'examples/Vion.Examples.PingPong/**'
       - id: resolve
-        # On a push: only the changed prod examples. On manual dispatch: both (deliberate re-push).
+        # On a push: only the changed prod examples. On manual dispatch: all (deliberate re-push).
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo 'examples=["Vion.Examples.Energy","Vion.Examples.ToggleLight"]' >> "$GITHUB_OUTPUT"
+            echo 'examples=["Vion.Examples.Energy","Vion.Examples.ToggleLight","Vion.Examples.PingPong"]' >> "$GITHUB_OUTPUT"
           else
             echo 'examples=${{ steps.changes.outputs.changes }}' >> "$GITHUB_OUTPUT"
           fi
