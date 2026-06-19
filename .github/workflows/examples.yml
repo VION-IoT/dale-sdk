@@ -1,8 +1,17 @@
-# Upload example LogicBlock libraries to the Vion Cloud test environment.
+# Upload example LogicBlock libraries to the Vion Cloud.
 #
-# Runs whenever an example changes. Installs `Vion.Dale.Cli` from nuget.org
-# and runs `dale upload` with a service-account client-credentials flow.
-# Uses `--skip-duplicate` so re-pushing the same content is a no-op.
+# Two-stage, environment-gated pipeline (RFC 0009 — docs/rfcs/0009-gated-prod-upload.md):
+#   upload-test  on every main push touching examples/: `dale upload --environment test` for all examples.
+#   detect-prod  computes which onboarding examples (Energy, ToggleLight) actually changed in the push.
+#   upload-prod  gated by the GitHub `production` environment (required reviewer: vion-iot-developers team);
+#                `dale upload --environment production` for only the changed onboarding examples. Skipped
+#                entirely when none changed, so no spurious approval is raised. A manual workflow_dispatch
+#                promotes both onboarding examples deliberately.
+#
+# `--skip-duplicate` makes re-pushing the same content a no-op. Credentials are environment-scoped secrets
+# (the test/production GitHub environments carry their own DALE_CI_CLIENT_ID/SECRET); the integrator is
+# auto-resolved, so no --integrator-id. NB: the GitHub `environment:` and the dale `--environment` flag are
+# independent systems that merely share the test/production names.
 name: Upload Examples
 
 on:
@@ -16,8 +25,9 @@ permissions:
   contents: read
 
 jobs:
-  upload:
+  upload-test:
     runs-on: ubuntu-latest
+    environment: test
     strategy:
       fail-fast: false
       matrix:
@@ -45,6 +55,63 @@ jobs:
             --client-id "$DALE_CI_CLIENT_ID" \
             --client-secret "$DALE_CI_CLIENT_SECRET" \
             --environment test \
+            --skip-duplicate
+        env:
+          DALE_CI_CLIENT_ID: ${{ secrets.DALE_CI_CLIENT_ID }}
+          DALE_CI_CLIENT_SECRET: ${{ secrets.DALE_CI_CLIENT_SECRET }}
+
+  detect-prod:
+    needs: upload-test
+    runs-on: ubuntu-latest
+    outputs:
+      examples: ${{ steps.resolve.outputs.examples }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: changes
+        uses: dorny/paths-filter@v4
+        with:
+          filters: |
+            Vion.Examples.Energy:
+              - 'examples/Vion.Examples.Energy/**'
+            Vion.Examples.ToggleLight:
+              - 'examples/Vion.Examples.ToggleLight/**'
+
+      - id: resolve
+        # On a push: only the changed onboarding examples. On manual dispatch: both (deliberate re-push).
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo 'examples=["Vion.Examples.Energy","Vion.Examples.ToggleLight"]' >> "$GITHUB_OUTPUT"
+          else
+            echo 'examples=${{ steps.changes.outputs.changes }}' >> "$GITHUB_OUTPUT"
+          fi
+
+  upload-prod:
+    needs: detect-prod
+    if: ${{ needs.detect-prod.outputs.examples != '[]' }}
+    runs-on: ubuntu-latest
+    environment: production
+    strategy:
+      fail-fast: false
+      matrix:
+        example: ${{ fromJson(needs.detect-prod.outputs.examples) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install Vion.Dale.Cli
+        run: dotnet tool update -g Vion.Dale.Cli
+
+      - name: Upload example
+        working-directory: examples/${{ matrix.example }}/${{ matrix.example }}
+        run: |
+          dale upload \
+            --client-id "$DALE_CI_CLIENT_ID" \
+            --client-secret "$DALE_CI_CLIENT_SECRET" \
+            --environment production \
             --skip-duplicate
         env:
           DALE_CI_CLIENT_ID: ${{ secrets.DALE_CI_CLIENT_ID }}
