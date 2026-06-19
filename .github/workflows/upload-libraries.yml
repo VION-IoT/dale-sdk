@@ -1,9 +1,17 @@
-# Upload first-party LogicBlock libraries (libraries/) to the Vion Cloud test environment.
+# Upload first-party LogicBlock libraries (libraries/) to the Vion Cloud.
 #
-# Mirrors examples.yml, for the libraries/ area: on a main push touching libraries/, test the
-# library and `dale upload` it with the integrator service-account credentials. `--skip-duplicate`
-# makes re-pushing the same (packageId, <Version>) a no-op — so a release is just a <Version> bump
-# in the library csproj. The library <Version> is independent of the SDK (see scripts/set-version.ps1).
+# Two-stage, environment-gated pipeline (RFC 0009 — docs/rfcs/0009-gated-prod-upload.md):
+#   upload-test  on every main push touching libraries/: dotnet test + `dale upload --environment test`.
+#   upload-prod  gated by the GitHub `production` environment (required reviewer: vion-iot-developers team);
+#                re-packs and `dale upload --environment production`. No re-test — upload-test already
+#                validated this commit. `--skip-duplicate` makes re-pushing the same (packageId, <Version>)
+#                a no-op, so a release is just a <Version> bump in the library csproj (independent of the
+#                SDK; see scripts/set-version.ps1).
+#
+# Credentials are environment-scoped secrets: the `test` and `production` GitHub environments each carry
+# their own DALE_CI_CLIENT_ID/SECRET (different integrator service accounts). The integrator is auto-resolved
+# from the service account, so no --integrator-id is passed. NB: the GitHub `environment:` and the dale
+# `--environment` flag are independent systems that merely share the test/production names.
 name: Upload Libraries
 
 on:
@@ -17,8 +25,9 @@ permissions:
   contents: read
 
 jobs:
-  upload:
+  upload-test:
     runs-on: ubuntu-latest
+    environment: test
     strategy:
       fail-fast: false
       matrix:
@@ -44,6 +53,37 @@ jobs:
             --client-id "$DALE_CI_CLIENT_ID" \
             --client-secret "$DALE_CI_CLIENT_SECRET" \
             --environment test \
+            --skip-duplicate
+        env:
+          DALE_CI_CLIENT_ID: ${{ secrets.DALE_CI_CLIENT_ID }}
+          DALE_CI_CLIENT_SECRET: ${{ secrets.DALE_CI_CLIENT_SECRET }}
+
+  upload-prod:
+    needs: upload-test
+    runs-on: ubuntu-latest
+    environment: production
+    strategy:
+      fail-fast: false
+      matrix:
+        library:
+          - Vion.Diagnostics
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install Vion.Dale.Cli
+        run: dotnet tool update -g Vion.Dale.Cli
+
+      - name: Upload library
+        working-directory: libraries/${{ matrix.library }}/${{ matrix.library }}
+        run: |
+          dale upload \
+            --client-id "$DALE_CI_CLIENT_ID" \
+            --client-secret "$DALE_CI_CLIENT_SECRET" \
+            --environment production \
             --skip-duplicate
         env:
           DALE_CI_CLIENT_ID: ${{ secrets.DALE_CI_CLIENT_ID }}
