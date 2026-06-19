@@ -44,6 +44,29 @@ namespace Vion.Dale.Cli.Test.Commands
                                                                  }
                                                                  """)!;
 
+        // A block with a struct-typed property (AllocatedCurrent {l1,l2,l3}) on a single service, plus a scalar
+        // property — the DF-26 shape. The enricher emits struct field-paths for it; validate must resolve them.
+        private static readonly JsonNode StructConfig = JsonNode.Parse("""
+                                                                       {
+                                                                         "topologyName": "energy",
+                                                                         "logicBlocks": [
+                                                                           {
+                                                                             "name": "RefControllableConsumer",
+                                                                             "services": [
+                                                                               {
+                                                                                 "identifier": "ConsumerService",
+                                                                                 "serviceProperties": [
+                                                                                   { "identifier": "AllocatedCurrent", "schema": { "type": "object", "properties": { "l1": { "type": "number" }, "l2": { "type": "number" }, "l3": { "type": "number" } } } },
+                                                                                   { "identifier": "OperatingMode", "schema": { "type": "string" } }
+                                                                                 ],
+                                                                                 "serviceMeasuringPoints": []
+                                                                               }
+                                                                             ]
+                                                                           }
+                                                                         ]
+                                                                       }
+                                                                       """)!;
+
         [TestMethod]
         public void AcceptsAValidScenario()
         {
@@ -328,6 +351,46 @@ namespace Vion.Dale.Cli.Test.Commands
                                                       """,
                                                       Config);
             Assert.AreEqual(0, outcome.Errors.Count, string.Join("; ", outcome.Errors));
+        }
+
+        [TestMethod]
+        public void ResolvesStructFieldPaths_TheEnricherEmitsAndTheRunnerResolves()
+        {
+            // DF-26: validate must resolve the struct-field name paths its own enricher emits and the runner
+            // accepts — both the Block.Member.Field (3-seg) and Block.Service.Member.Field (4-seg) forms.
+            var outcome = ScenarioFileChecks.Validate("sf.scenario.json",
+                                                      """
+                                                      {
+                                                        "version": 1, "id": "sf", "topology": "energy",
+                                                        "watch": [
+                                                          "RefControllableConsumer.AllocatedCurrent.L1",
+                                                          "RefControllableConsumer.ConsumerService.AllocatedCurrent.L3"
+                                                        ],
+                                                        "steps": [
+                                                          { "expect": { "property": "RefControllableConsumer.AllocatedCurrent.L2", "above": 0 } }
+                                                        ]
+                                                      }
+                                                      """,
+                                                      StructConfig);
+            Assert.AreEqual(0, outcome.Errors.Count, string.Join("; ", outcome.Errors));
+        }
+
+        [TestMethod]
+        public void RejectsUnknownStructFieldAndDescentIntoAScalar()
+        {
+            var outcome = ScenarioFileChecks.Validate("sf-bad.scenario.json",
+                                                      """
+                                                      {
+                                                        "version": 1, "id": "sf-bad", "topology": "energy",
+                                                        "watch": [
+                                                          "RefControllableConsumer.AllocatedCurrent.L9",
+                                                          "RefControllableConsumer.OperatingMode.Nope"
+                                                        ]
+                                                      }
+                                                      """,
+                                                      StructConfig);
+            Assert.IsTrue(outcome.Errors.Any(e => e.Contains("has no field 'L9'")), string.Join("; ", outcome.Errors));
+            Assert.IsTrue(outcome.Errors.Any(e => e.Contains("is not a struct")), string.Join("; ", outcome.Errors));
         }
 
         [TestMethod]
