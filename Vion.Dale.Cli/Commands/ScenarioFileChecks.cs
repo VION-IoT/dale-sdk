@@ -551,9 +551,9 @@ namespace Vion.Dale.Cli.Commands
         private static void ResolvePath(string path, JsonNode config, string where, bool forWrite, List<string> errors)
         {
             var segments = path.Split('.');
-            if (segments.Length is < 2 or > 3 || segments.Any(string.IsNullOrWhiteSpace))
+            if (segments.Length < 2 || segments.Any(string.IsNullOrWhiteSpace))
             {
-                errors.Add($"{where}: '{path}' is not a name path (Block.Property or Block.Service.Property)");
+                errors.Add($"{where}: '{path}' is not a name path (Block.Property or Block.Service.Property, optionally followed by a struct field path)");
                 return;
             }
 
@@ -565,19 +565,38 @@ namespace Vion.Dale.Cli.Commands
             }
 
             var services = block["services"] as JsonArray ?? new JsonArray();
-            var property = segments[^1];
-            JsonNode? service;
-            if (segments.Length == 3)
+
+            // Disambiguate Block.Service.Member(.Field) vs Block.Member.Field by the CONFIG, never by counting
+            // segments (mirrors ScenarioResolver.ResolveProperty): seg[1] is a service iff the block declares it.
+            // If seg[1] is ALSO a member, the path is genuinely ambiguous.
+            var service = segments.Length >= 3 ? services.FirstOrDefault(s => s?["identifier"]?.GetValue<string>() == segments[1]) : null;
+            var seg1IsMember = services.Any(s => MemberNames(s).Contains(segments[1]));
+
+            if (service is not null && seg1IsMember)
             {
-                service = services.FirstOrDefault(s => s?["identifier"]?.GetValue<string>() == segments[1]);
-                if (service is null || !MemberNames(service).Contains(property))
+                errors.Add($"{where}: '{path}' is ambiguous — '{segments[1]}' is both a service of '{segments[0]}' and a member");
+                return;
+            }
+
+            string property;
+            string[] fieldPath;
+            if (service is not null)
+            {
+                // Service-qualified: seg[2] = member, seg[3..] = struct field path.
+                property = segments[2];
+                fieldPath = segments.Skip(3).ToArray();
+                if (!MemberNames(service).Contains(property))
                 {
-                    errors.Add($"{where}: '{path}' does not resolve (no service '{segments[1]}' with member '{property}')");
+                    errors.Add($"{where}: '{path}' does not resolve — service '{segments[1]}' has no member '{property}'");
                     return;
                 }
             }
             else
             {
+                // seg[1] is an (unambiguous) member; seg[2..] = struct field path. The two-segment form falls
+                // out of this with an empty field path.
+                property = segments[1];
+                fieldPath = segments.Skip(2).ToArray();
                 var carriers = services.Where(s => MemberNames(s).Contains(property)).ToList();
                 if (carriers.Count == 0)
                 {
@@ -607,6 +626,78 @@ namespace Vion.Dale.Cli.Commands
                     errors.Add($"{where}: '{path}' is a read-only property");
                 }
             }
+
+            // A trailing struct field path must descend the member's struct schema to a scalar leaf — mirroring
+            // both EnrichSchemaWithNamePaths (which OFFERS these paths) and ScenarioResolver.ValidateFieldPath
+            // (which RESOLVES them at run time). Without this branch, validate rejects a path its own schema
+            // advertises and the runner accepts (DF-26).
+            if (fieldPath.Length > 0)
+            {
+                var memberSchema = MemberNamesWithSchema(service).Where(m => m.Name == property).Select(m => m.Schema).FirstOrDefault();
+                ValidateStructFieldPath(memberSchema,
+                                        property,
+                                        fieldPath,
+                                        path,
+                                        where,
+                                        errors);
+            }
+        }
+
+        // Walks a struct field path against the member's JSON schema (mirrors ScenarioResolver.ValidateFieldPath):
+        // each intermediate must be a struct (type:object), each PascalCase segment maps to the camelCase
+        // properties key, and the leaf must be a scalar (not object/array). Records the first miss.
+        private static void ValidateStructFieldPath(JsonNode? memberSchema,
+                                                    string member,
+                                                    IReadOnlyList<string> fieldPath,
+                                                    string path,
+                                                    string where,
+                                                    List<string> errors)
+        {
+            var current = memberSchema;
+            for (var i = 0; i < fieldPath.Count; i++)
+            {
+                var segment = fieldPath[i];
+                if (SchemaType(current) != "object")
+                {
+                    var prefix = string.Join(".", new[] { member }.Concat(fieldPath.Take(i)));
+                    errors.Add($"{where}: '{path}' descends into '{segment}' but '{prefix}' is not a struct");
+                    return;
+                }
+
+                var properties = current?["properties"] as JsonObject;
+                var key = string.IsNullOrEmpty(segment) ? segment : char.ToLowerInvariant(segment[0]) + segment.Substring(1);
+                var field = properties?[key];
+                if (field is null)
+                {
+                    errors.Add($"{where}: struct '{member}' has no field '{segment}'");
+                    return;
+                }
+
+                current = field;
+            }
+
+            var leafType = SchemaType(current);
+            if (leafType is "object" or "array")
+            {
+                errors.Add($"{where}: '{path}' resolves to a {leafType}-typed field — only a scalar field leaf is addressable (structs/arrays are not comparable in v1)");
+            }
+        }
+
+        // The JSON-Schema "type" of a node, picking the non-null member of a nullable-widened ["x", "null"] array.
+        private static string? SchemaType(JsonNode? schema)
+        {
+            var type = schema?["type"];
+            if (type is JsonValue value)
+            {
+                return value.GetValue<string>();
+            }
+
+            if (type is JsonArray array)
+            {
+                return array.Select(t => t?.GetValue<string>()).FirstOrDefault(t => t != "null");
+            }
+
+            return null;
         }
 
         private static void ResolveContract(JsonNode? reference, string expectedType, JsonNode config, string where, List<string> errors)
