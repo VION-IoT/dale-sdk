@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Abstractions;
@@ -173,6 +174,12 @@ namespace Vion.Dale.Sdk.Core
                                                                  actorContext,
                                                                  ScheduleNextTimerTick,
                                                                  m.ServiceProvider));
+
+                    // RFC 0004: build one Throttler per bound service property + measuring point,
+                    // resolved from each binding's attribute + CLR value type. Cheap no-op state when
+                    // the policy is inactive (the gate bypasses), but always built so the override path
+                    // and production share one construction site.
+                    BuildThrottlers();
 
                     foreach (var (identifier, logicBlockContractId) in m.LogicBlockContractIdLookup)
                     {
@@ -443,6 +450,62 @@ namespace Vion.Dale.Sdk.Core
             DeclarativeTimerBinder.BindTimersFromAttributes(this, configurationBuilder.Timers);
         }
 
+        /// <summary>
+        ///     RFC 0004: constructs one <see cref="Throttler" /> per bound service property and measuring
+        ///     point from its declarative emission attributes. Keyed by (ServiceIdentifier, member name)
+        ///     so <see cref="HandleServicePropertyValueChanged" /> / the measuring-point handler can look
+        ///     up the gate on each change. The attribute (an <see cref="IThrottleConfigured" />) is read off
+        ///     the binding's root source <see cref="System.Reflection.PropertyInfo" />; the value type comes
+        ///     from <see cref="ServiceBinding.TargetPropertyType" />.
+        /// </summary>
+        private void BuildThrottlers()
+        {
+            BuildThrottlersFor(_serviceBinder.GetAllServicePropertyBindings());
+            BuildThrottlersFor(_serviceBinder.GetAllServiceMeasuringPointBindings());
+        }
+
+        private void BuildThrottlersFor(
+            IReadOnlyDictionary<string, IReadOnlyDictionary<Type, IReadOnlyDictionary<string, ServiceBinding>>> bindings)
+        {
+            foreach (var (serviceIdentifier, interfaceMap) in bindings)
+            {
+                foreach (var perInterface in interfaceMap.Values)
+                {
+                    foreach (var (memberIdentifier, binding) in perInterface)
+                    {
+                        var configured = ResolveThrottleConfigured(binding);
+                        if (configured == null)
+                        {
+                            continue;
+                        }
+
+                        var policy = ThrottlePolicy.FromConfigured(configured, binding.TargetPropertyType);
+                        _throttlers[(serviceIdentifier, memberIdentifier)] = new Throttler(policy);
+                    }
+                }
+            }
+        }
+
+        private static IThrottleConfigured? ResolveThrottleConfigured(ServiceBinding binding)
+        {
+            var property = binding.RootSourcePropertyInfo;
+            if (property == null)
+            {
+                return null;
+            }
+
+            // The same PropertyInfo carries either [ServiceProperty] or [ServiceMeasuringPoint];
+            // both implement IThrottleConfigured. Reflect whichever is present.
+            return (IThrottleConfigured?)property.GetCustomAttribute(typeof(ServicePropertyAttribute), true)
+                   ?? (IThrottleConfigured?)property.GetCustomAttribute(typeof(ServiceMeasuringPointAttribute), true);
+        }
+
+        // Fully implemented in T25 (trailing-edge flush). Stubbed here so the gate compiles; Hold
+        // values are flushed once the self-scheduled flush path lands in the next task.
+        private void ScheduleEmissionFlush(DateTimeOffset earliestDeadline)
+        {
+        }
+
         private void HandleSetServicePropertyValueRequest(IActorContext actorContext, SetServicePropertyValueRequest m)
         {
             if (!_serviceIdentifierLookup.TryGetValue(m.ServiceIdentifier, out var serviceIdentifier))
@@ -470,7 +533,25 @@ namespace Vion.Dale.Sdk.Core
                 return;
             }
 
-            _actorContext.SendTo(_servicePropertyHandlerActorRef, new ServicePropertyValueChanged(serviceIdentifier, args.PropertyIdentifier, args.Value));
+            // RFC 0004: when the policy is inactive (controllable clock without override), or no
+            // throttler exists for this member, send as before. Otherwise gate via the throttler.
+            if (!_emissionPolicyActive || !_throttlers.TryGetValue((args.ServiceIdentifier, args.PropertyIdentifier), out var throttler))
+            {
+                _actorContext.SendTo(_servicePropertyHandlerActorRef, new ServicePropertyValueChanged(serviceIdentifier, args.PropertyIdentifier, args.Value));
+                return;
+            }
+
+            switch (throttler.Offer(args.Value, _timeProvider.GetUtcNow()).Action)
+            {
+                case EmitAction.Emit:
+                    _actorContext.SendTo(_servicePropertyHandlerActorRef, new ServicePropertyValueChanged(serviceIdentifier, args.PropertyIdentifier, args.Value));
+                    break;
+                case EmitAction.Drop:
+                    break;
+                case EmitAction.Hold:
+                    ScheduleEmissionFlush(throttler.PendingDeadline);
+                    break;
+            }
         }
 
         private void HandleServiceMeasuringPointValueChanged(object sender, ServiceMeasuringPointChangedEventArgs args)
@@ -487,7 +568,24 @@ namespace Vion.Dale.Sdk.Core
                 return;
             }
 
-            _actorContext.SendTo(_serviceMeasuringPointHandlerActorRef, new ServiceMeasuringPointValueChanged(serviceIdentifier, args.MeasuringPointIdentifier, args.Value));
+            // RFC 0004: same gate as the service-property path, keyed by measuring-point identifier.
+            if (!_emissionPolicyActive || !_throttlers.TryGetValue((args.ServiceIdentifier, args.MeasuringPointIdentifier), out var throttler))
+            {
+                _actorContext.SendTo(_serviceMeasuringPointHandlerActorRef, new ServiceMeasuringPointValueChanged(serviceIdentifier, args.MeasuringPointIdentifier, args.Value));
+                return;
+            }
+
+            switch (throttler.Offer(args.Value, _timeProvider.GetUtcNow()).Action)
+            {
+                case EmitAction.Emit:
+                    _actorContext.SendTo(_serviceMeasuringPointHandlerActorRef, new ServiceMeasuringPointValueChanged(serviceIdentifier, args.MeasuringPointIdentifier, args.Value));
+                    break;
+                case EmitAction.Drop:
+                    break;
+                case EmitAction.Hold:
+                    ScheduleEmissionFlush(throttler.PendingDeadline);
+                    break;
+            }
         }
 
         private void HandleServicePropertyCleared(object sender, ServicePropertyClearedEventArgs args)
