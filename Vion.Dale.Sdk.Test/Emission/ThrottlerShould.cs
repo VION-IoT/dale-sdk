@@ -40,5 +40,33 @@ namespace Vion.Dale.Sdk.Test.Emission
             Assert.AreEqual(1.0d, throttler.LastEmitted);
             Assert.IsFalse(throttler.HasPending);
         }
+
+        [TestMethod]
+        public void HoldWithinTheIntervalKeepingTheLatestValueThenFlushAtTheDeadline()
+        {
+            var throttler = new Throttler(Policy("250ms"));
+
+            // Leading-edge emit at T0.
+            Assert.AreEqual(EmitAction.Emit, throttler.Offer(1.0d, T0).Action);
+
+            // Two changes inside the 250ms window -> both Hold, deadline = T0 + 250ms, latest wins.
+            var firstHold = throttler.Offer(2.0d, T0 + TimeSpan.FromMilliseconds(50));
+            Assert.AreEqual(EmitAction.Hold, firstHold.Action);
+            Assert.AreEqual(T0 + TimeSpan.FromMilliseconds(250), firstHold.Deadline);
+
+            var secondHold = throttler.Offer(3.0d, T0 + TimeSpan.FromMilliseconds(100));
+            Assert.AreEqual(EmitAction.Hold, secondHold.Action);
+            Assert.AreEqual(T0 + TimeSpan.FromMilliseconds(250), secondHold.Deadline);
+
+            Assert.IsTrue(throttler.HasPending);
+            Assert.AreEqual(T0 + TimeSpan.FromMilliseconds(250), throttler.PendingDeadline);
+
+            // Flush at the deadline -> the latest held value (3.0), pending cleared.
+            var flushed = throttler.TryFlush(T0 + TimeSpan.FromMilliseconds(250), out var value);
+            Assert.IsTrue(flushed);
+            Assert.AreEqual(3.0d, value);
+            Assert.AreEqual(3.0d, throttler.LastEmitted);
+            Assert.IsFalse(throttler.HasPending);
+        }
     }
 }
