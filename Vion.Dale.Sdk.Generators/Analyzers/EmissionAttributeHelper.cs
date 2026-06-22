@@ -120,9 +120,14 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                     return true;
                 case SpecialType.System_Double:
                 case SpecialType.System_Single:
-                case SpecialType.System_Decimal:
                     expectationHint = "An invariant-culture number";
                     parses = ParsesAsFloat(minChange);
+                    return true;
+                case SpecialType.System_Decimal:
+                    // Runtime decimal threshold uses NumberStyles.Number (thousands separators allowed,
+                    // no exponent) — mirror it exactly so a valid runtime token is never flagged.
+                    expectationHint = "An invariant-culture number";
+                    parses = ParsesAsDecimal(minChange);
                     return true;
             }
 
@@ -145,6 +150,11 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         private static bool ParsesAsFloat(string token)
         {
             return double.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out _);
+        }
+
+        private static bool ParsesAsDecimal(string token)
+        {
+            return decimal.TryParse(token, NumberStyles.Number, CultureInfo.InvariantCulture, out _);
         }
 
         /// <summary>

@@ -130,5 +130,34 @@ public class MyBlock
 }";
             await AnalyzerTestBase.VerifyAnalyzerAsync<MinChangeUnparseableAnalyzer>(source);
         }
+
+        [TestMethod]
+        public async Task ValidDecimalMinChange_NoDiagnostic()
+        {
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public class MyBlock
+{
+    [ServiceProperty(MinChange = ""0.01"")] public decimal Price { get; set; }
+}";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<MinChangeUnparseableAnalyzer>(source);
+        }
+
+        [TestMethod]
+        public async Task NonNumericDecimalMinChange_ReportsDiagnostic()
+        {
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public class MyBlock
+{
+    [ServiceProperty(MinChange = ""cheap"")] public decimal {|#0:Price|} { get; set; }
+}";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE035_MinChangeUnparseable)
+                                           .WithLocation(0)
+                                           .WithArguments("Price", "cheap", "decimal", "An invariant-culture number");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<MinChangeUnparseableAnalyzer>(source, expected);
+        }
     }
 }
