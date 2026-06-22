@@ -22,6 +22,7 @@
     <ItemGroup>
         <InternalsVisibleTo Include="Vion.Dale.Sdk.TestKit" />
         <InternalsVisibleTo Include="Vion.Dale.Sdk.Test" />
+        <InternalsVisibleTo Include="Vion.Dale.Sdk.TestKit.Test" />
     </ItemGroup>
 
     <!--code generator project reference (compile time only reference). could be also a package reference, but it would be harder to debug the gho code generation	-->
