@@ -132,14 +132,14 @@ The scenario vocabulary gains exactly **one** generic pair and loses the four ha
 
 ```jsonc
 // drive an input contract (replaces digitalInput / analogInput)
-{ "serviceProviderSet":    { "block": "Io",  "contract": "EnableInput" }, "value": true }
-{ "serviceProviderSet":    { "block": "ppc", "contract": "gridDemand"  }, "value": { "valid": true, "scope": "Total", "activePowerW": 1500 } }
+{ "serviceProviderSet":    { "logicBlock": "Io",  "contract": "EnableInput" }, "value": true }
+{ "serviceProviderSet":    { "logicBlock": "ppc", "contract": "gridDemand"  }, "value": { "valid": true, "scope": "Total", "activePowerW": 1500 } }
 
 // assert an output contract (replaces digitalOutput / analogOutput)
-{ "serviceProviderExpect": { "block": "Io",  "contract": "ActiveOutput" }, "equals": true }
+{ "serviceProviderExpect": { "logicBlock": "Io",  "contract": "ActiveOutput" }, "equals": true }
 ```
 
-- Addressing is uniform `{ block, contract }` — the same `ResolveContract` the HAL steps use today
+- Addressing is uniform `{ logicBlock, contract }` — the same `ResolveContract` the HAL steps use today
   ([`ScenarioResolver.cs`](../../Vion.Dale.DevHost/Scenarios/ScenarioResolver.cs)), with the
   `matchingContractType` gate generalized from "one of four" to "any `[ServiceProviderContractType]`".
 - The `value` is the contract's wire struct (a scalar for digital/analog, a JSON object for PPC/Modbus).
@@ -185,10 +185,10 @@ public partial class DigitalInput : LogicBlockContractBase, IDigitalInput
 Scenario (a SmokeHost-style `io-control`):
 
 ```jsonc
-{ "serviceProviderSet": { "block": "Io", "contract": "EnableInput" }, "value": true }
+{ "serviceProviderSet": { "logicBlock": "Io", "contract": "EnableInput" }, "value": true }
 { "waitUntil": { "property": "Io.IsEnabled", "equals": true } }
 { "advance": { "seconds": 1 } }
-{ "serviceProviderExpect": { "block": "Io", "contract": "ActiveOutput" }, "equals": true }
+{ "serviceProviderExpect": { "logicBlock": "Io", "contract": "ActiveOutput" }, "equals": true }
 ```
 
 The author writes the contract as they do today **plus the `Wire` line**, and gets the full drive/assert
@@ -218,7 +218,7 @@ replacement for today's C# `RaiseDemandReceived`:
 {
   "id": "ppc-grid-demand-folds-into-em", "topology": "em-closed-loop",
   "steps": [
-    { "serviceProviderSet": { "block": "PpcGridTF8360", "contract": "ppcGrid" },
+    { "serviceProviderSet": { "logicBlock": "PpcGridTF8360", "contract": "ppcGrid" },
       "value": { "valid": true, "scope": "Total", "activePowerW": 1500 } },
     { "settle": {} },
     { "expect": { "property": "EnergyManager.GridExportLimitKw", "equals": 1.5, "tolerance": 0.01 } }
@@ -247,10 +247,10 @@ Removing the four kinds invalidates every scenario that uses them. The rewrite i
 
 | v1 | v2 |
 |---|---|
-| `{ "digitalInput": { block, contract }, "value": v }` | `{ "serviceProviderSet": { block, contract }, "value": v }` |
-| `{ "analogInput":  { block, contract }, "value": v }` | `{ "serviceProviderSet": { block, contract }, "value": v }` |
-| `{ "digitalOutput": { block, contract }, "equals": v }` | `{ "serviceProviderExpect": { block, contract }, "equals": v }` |
-| `{ "analogOutput":  { block, contract }, "equals": v }` | `{ "serviceProviderExpect": { block, contract }, "equals": v }` |
+| `{ "digitalInput": { block, contract }, "value": v }` | `{ "serviceProviderSet": { logicBlock, contract }, "value": v }` |
+| `{ "analogInput":  { block, contract }, "value": v }` | `{ "serviceProviderSet": { logicBlock, contract }, "value": v }` |
+| `{ "digitalOutput": { block, contract }, "equals": v }` | `{ "serviceProviderExpect": { logicBlock, contract }, "equals": v }` |
+| `{ "analogOutput":  { block, contract }, "equals": v }` | `{ "serviceProviderExpect": { logicBlock, contract }, "equals": v }` |
 
 Sites to migrate in lockstep (the format lives in four parallel places + the docs):
 - committed scenarios: SmokeHost `io-control`, the examples, the consumer's HAL scenarios;
