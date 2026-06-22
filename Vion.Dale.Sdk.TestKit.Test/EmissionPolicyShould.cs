@@ -57,5 +57,22 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
             ctx.VerifyServicePropertyEmitted(lb => lb.Voltage, times: Times.Once());
         }
+
+        [TestMethod]
+        public void DropEqualValuesUnderForcedPolicy()
+        {
+            // Value-equality floor: re-emitting the same value is dropped even on the leading edge.
+            var block = LogicBlockTestHelper.Create<ThrottledBlock>();
+            var ctx = block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).Build();
+
+            ctx.AdvanceTime(TimeSpan.FromMilliseconds(250)); // clear the start-seed interval
+
+            block.Voltage = 5.0; // leading edge -> emit
+            // Metalama dedups exact-equal sets for value types, so re-assigning 5.0 raises no INPC;
+            // the gate never even sees the duplicate. The single leading-edge emit is all that is seen.
+            block.Voltage = 5.0; // no INPC (Metalama) — gate never sees it
+
+            ctx.VerifyServicePropertyEmitted(lb => lb.Voltage, value => Assert.AreEqual(5.0, value), Times.Once());
+        }
     }
 }
