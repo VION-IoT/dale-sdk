@@ -8,7 +8,7 @@ namespace Vion.Dale.Sdk.Core
     /// </summary>
     [PublicApi]
     [AttributeUsage(AttributeTargets.Property)]
-    public class ServicePropertyAttribute : Attribute
+    public class ServicePropertyAttribute : Attribute, IThrottleConfigured
     {
         public string? Title { get; init; }
 
@@ -49,6 +49,27 @@ namespace Vion.Dale.Sdk.Core
         ///     <c>[ServiceMeasuringPoint]</c> would set, so the dashboard groups it with metrics.
         /// </summary>
         public bool ReadOnly { get; init; }
+
+        /// <summary>
+        ///     Minimum spacing between two emitted values for this property, as a duration string
+        ///     (e.g. <c>"250ms"</c>, <c>"1s"</c>, <c>"500us"</c>, <c>"0"</c>). Drives the RFC 0004
+        ///     emission gate. <c>"0"</c> / <c>"0ms"</c> disables interval throttling. Defaults to
+        ///     <c>"250ms"</c>.
+        /// </summary>
+        public string MinInterval { get; init; } = "250ms";
+
+        /// <summary>
+        ///     Optional minimum change (relative to the last emitted value) a new value must clear before
+        ///     it is emitted, resolved against a registered change-threshold for the property's value type.
+        ///     <c>null</c> (the default) means no change gate.
+        /// </summary>
+        public string? MinChange { get; init; }
+
+        /// <summary>
+        ///     When <c>true</c>, every observed change of this property is emitted immediately, bypassing
+        ///     the interval and change gates. Defaults to <c>false</c>.
+        /// </summary>
+        public bool Immediate { get; init; }
 
         [Obsolete("Use Title instead. Will be removed in next major.")]
         public string? DefaultName
