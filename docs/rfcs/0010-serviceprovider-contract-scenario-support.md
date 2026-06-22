@@ -2,11 +2,15 @@
 
 Status: **Draft** (DF-27; supersedes the hardcoded HAL mock path).
 Author: jonas.bertsch. Date: 2026-06-22.
+Revision 2: handler-side `[ScenarioWire]` + a DevHost codec (not a contract-side type); discovery via the
+runtime's own convention scan; a scope boundary (only **value** contracts are in scope — Modbus RTU is
+request/response and deferred, HTTP / Modbus-TCP are direct-DI and out). Foundation implemented on branch
+`feat/serviceprovider-contract-scenario-support` (the `[ScenarioWire]` attribute + `ScenarioWireCodec`).
 
-One sentence: make **every** `[ServiceProviderContractType]` contract — the SDK's own digital/analog
-I/O and Modbus, and any third-party contract like PPC — drivable and assertable from a committed
-`*.scenario.json` through **one** generic DevHost handler and **one** generic step pair, with **no
-hardcoded contract support in the core** and **no change to any production code path**.
+One sentence: make every `[ServiceProviderContractType]` **value** contract — the SDK's own digital/analog
+I/O and any third-party contract like PPC — drivable and assertable from a committed `*.scenario.json`
+through **one** generic DevHost handler and **one** generic step pair, with **no hardcoded contract support
+in the core** and **no change to any production code path**.
 
 ## Motivation
 
@@ -21,12 +25,10 @@ through the **real** adapter is impossible.
 
 The fix is not to add a *second* hardcoded family. It is to **delete the special-casing**: the four HAL
 contracts become ordinary service-provider contracts handled by the same generic mechanism every
-third-party contract uses. The SDK eats its own dog food. Two consequences fall out for free:
-
-- **Modbus RTU becomes scenario-drivable in the DevHost for the first time** — it has a real MQTT
-  handler (`ModbusRtuHandler`) but **no DevHost mock today**, so it is the structured-payload stress
-  test that proves the mechanism generalizes past scalars.
-- The four duplicated `MockHal*Handler` classes collapse into one.
+third-party **value** contract uses. The SDK eats its own dog food. The four duplicated `MockHal*Handler`
+classes collapse into one generic stand-in, and the DevHost simply becomes a faithful mirror of the
+runtime — which already discovers handlers by convention (see §1). (Which contracts this reaches, and which
+stay out, is the scope boundary in §4 — value contracts only.)
 
 ## How service-provider contracts work today (grounded)
 
@@ -81,50 +83,62 @@ contract is inert. **That is DF-27.**
 Replace the four `MockHal*Handler` actors with a single generic
 **`ServiceProviderContractHandler : ServiceProviderHandlerBase`** in the DevHost. At wire time the host:
 
-1. **Discovers** every bound `[ServiceProviderContractType]` contract in the topology — it already does
-   this in `AutoCreateServiceProviders` via `GetContractProperties`.
-2. For each distinct contract, **creates one `ServiceProviderContractHandler` registered under that
-   contract's `ContractHandlerActorName`** — `nameof(DigitalInputHandler)` for digital input,
-   `nameof(PowerPlantControlGridHandler)` for PPC. This is exactly what the DevHost already does for the
-   four HAL names; we stop hardcoding the set and loop over the discovered set instead.
-3. Includes each in the same `LinkLogicBlockContractActors` fan-out, so the handler's
-   `ContractLogicBlockActorReferences` is populated and `ForwardToLogicBlocks` reaches the consumer.
+1. **Discovers the service-provider handler types by convention — exactly as the runtime already does.**
+   The production runtime is *not* hardcoded: it scans `assemblies.GetConcreteTypes(typeof(IServiceProviderHandlerActor))`
+   and creates/links each handler under its class name (`Dale/Program.cs` `CreateMqttHandlerActors`;
+   `LogicSystemConfigurationInitializer` contract-linking). The DevHost loads the same assemblies, so the
+   same scan finds `DigitalInputHandler … ModbusRtuHandler` **and** a consumer's `PowerPlantControlGridHandler`.
+   The four-name hardcoding in `DevLogicSystemInitializer.cs:150-153 / :294-297` is the **only** place that
+   isn't already generic.
+2. For each scanned handler type, **creates one generic stand-in registered under that handler's class
+   name** — the name the consumer's contract `ContractHandlerActorName` already looks up — instead of the
+   real MQTT handler (which needs a broker). It reads the handler's `[ScenarioWire]` (below) to know how to
+   build/decode the contract message.
+3. Includes each in the same `LinkLogicBlockContractActors` fan-out, so its `ContractLogicBlockActorReferences`
+   is populated and `ForwardToLogicBlocks` reaches the consumer. The link map is already built from **all**
+   contracts, unfiltered — `AutoCreateServiceProviders` (`DevConfigurationBuilder.cs:443`) fabricates a
+   mapping for every `[ServiceProviderContractType]` — so a custom contract is already in it; only the create
+   + fan-out were hardcoded.
 
-**The decisive property: because the handler registers under the name the consumer's contract *already*
-looks up, `LogicBlockBase.cs:115` is unchanged and no production code path is touched.** The earlier
-"retarget the handler name with a dev/test override map on the production `LinkRuntimeActors` path" idea
-is **not needed** — it was an artifact of bolting a *second* actor alongside the real one. Here the
-generic handler simply *is* the stand-in, under the expected name, the way the four HAL mocks always
-were. No override map, no production gate, no leakage surface, no coordination with the private runtime.
+**The decisive property: because the stand-in registers under the name the consumer's contract *already*
+looks up, `LogicBlockBase.cs:115` is unchanged and no production code path is touched.** An earlier
+"retarget the handler name with a dev/test override map on the production path" idea is **not needed** — it
+was an artifact of bolting a *second* actor alongside the real one. Here the stand-in simply *is* the
+handler, under the expected name, the way the four HAL mocks always were. No override map, no production
+gate, no leakage surface, no coordination with the private runtime.
 
-### 2. How the generic handler stays type-agnostic: the wire descriptor
+### 2. How the generic handler stays type-agnostic: `[ScenarioWire]` + a DevHost codec
 
-`ForwardToLogicBlocks<TChanged>` is generic and `ContractMessage<TChanged>` must carry the **exact**
-struct the consumer's `HandleContractMessage` switches on, so the generic handler — which lives in the
-DevHost and cannot reference a consumer's `PpcDemandGridReceived` — needs a typed bridge from "a JSON
-value" to "the right `ContractMessage<T>`". A switch-case's generic type is not reflectable, so the
-contract **declares** its wire shape, one line next to `ContractHandlerActorName`:
+`ForwardToLogicBlocks<TChanged>` needs the **exact** struct the consumer's `HandleContractMessage` switches
+on, and the generic handler lives in the DevHost and cannot reference a consumer's `PpcDemandGridReceived`.
+A switch-case's generic type is not reflectable, so the **handler declares** its wire struct with one
+attribute — and because the DevHost discovers handlers by the convention scan, it reads the attribute off
+the scanned type with **no instance** needed:
 
 ```csharp
-// inbound-only (driven by the scenario; SP -> block). PPC and digital/analog input:
-public override ServiceProviderWire Wire { get; } = ServiceProviderWire.Inbound<PpcDemandGridReceived>();
+[ScenarioWire(Inbound = typeof(DigitalInputChanged))]   // an input — digital/analog input, PPC demand
+public partial class DigitalInputHandler : ServiceProviderHandlerBase { … }
 
-// output (block writes; asserted by the scenario). digital/analog output:
-public override ServiceProviderWire Wire { get; } = ServiceProviderWire.Outbound<SetDigitalOutput, DigitalOutputChanged>();
+[ScenarioWire(Outbound = typeof(SetDigitalOutput))]     // an output — digital/analog output
+public partial class DigitalOutputHandler : ServiceProviderHandlerBase { … }
 ```
 
-`ServiceProviderWire` (new, in `Vion.Dale.Sdk`) carries strongly-typed factories closed over `T`:
-`JsonElement -> ContractMessage<TChanged>` (drive) and `ContractMessage<TCommand> -> JsonElement` (assert
-read-back), using the **existing** `Vion.Contracts.PropertyValueCodec` for the JSON↔struct conversion —
-the same codec a consumer's `set` of a struct already uses (DF-25). No new codec, no runtime reflection
-in the message path; the generic handler calls `contract.Wire.MakeInbound(id, json)` and sends the
-result.
+The split is deliberate — it keeps the scope **structural**, not just named:
 
-> **Convention, not magic.** This one line is the author's only new obligation, and it is explicit and
-> type-checked. A source generator *could* emit `Wire` from the `HandleContractMessage` switch to reach
-> *zero* author boilerplate — but that is **deliberately not pursued**: a whole generator, with its
-> build-time and debugging surface, to save one declared, type-checked line is a poor cost/benefit trade.
-> Revisit only if `Wire` ever grows past one line, or the per-contract boilerplate otherwise multiplies.
+- **`[ScenarioWire]` (in `Vion.Dale.Sdk`)** is a pure declarative marker (`Type Inbound` / `Type Outbound`).
+  The production runtime reaches hardware over MQTT (FlatBuffers) and **never reads it** — it carries no
+  runtime behaviour. This attribute is the *entire* SDK surface the feature adds.
+- **`ScenarioWireCodec` (internal to `Vion.Dale.DevHost`)** is where the JSON↔struct lives. It reflects over
+  the declared `Type` to build the exact closed `ContractMessage<TInbound>` from a scenario JSON value
+  (drive) and decode an output command back to a value (assert). A single-field struct round-trips as its
+  scalar (so a digital input is driven by `true`); a multi-field struct as a JSON object; enums by name
+  (`JsonSerialization.DefaultOptions`). It produces the **same CLR wire payload the production handler
+  forwards** — just sourced from a JSON value instead of a FlatBuffer frame, on the opposite side of the
+  handler, so the two encodings never meet.
+
+The author's only obligation is that one attribute line on the handler (which already constructs the wire
+struct). A source generator could derive it, but is deliberately out of scope — a whole generator to save
+one type-checked line is poor cost/benefit.
 
 ### 3. One generic step pair; the four HAL kinds are deleted (format v2)
 
@@ -142,7 +156,7 @@ The scenario vocabulary gains exactly **one** generic pair and loses the four ha
 - Addressing is uniform `{ logicBlock, contract }` — the same `ResolveContract` the HAL steps use today
   ([`ScenarioResolver.cs`](../../Vion.Dale.DevHost/Scenarios/ScenarioResolver.cs)), with the
   `matchingContractType` gate generalized from "one of four" to "any `[ServiceProviderContractType]`".
-- The `value` is the contract's wire struct (a scalar for digital/analog, a JSON object for PPC/Modbus).
+- The `value` is the contract's wire struct (a scalar for digital/analog, a JSON object for PPC).
   Per-topology schema enrichment types it (the DF-25 typed-`set`-value work — this RFC is its first real
   consumer; until it lands the value is untyped-but-runtime-checked, exactly like a struct `set` today).
 - **Direction is read off the contract**, never guessed: `[ServiceProviderContractType].Consumers`
@@ -155,13 +169,22 @@ The scenario vocabulary gains exactly **one** generic pair and loses the four ha
 core carries no contract-specific vocabulary. This is a **breaking format change → `version: 2`** (see
 Migration).
 
-### 4. Modbus and the structured payload
+### 4. Scope boundary — which IO is scenario-testable
 
-Modbus RTU is just another service-provider contract. Under this design it gets a
-`ServiceProviderContractHandler` automatically and becomes scenario-drivable for the first time — but its
-wire structs (register frames, function codes) are richer than `bool`/`double`, so it (with PPC) forces
-the `value` codec to handle arbitrary structs from day one. This is the right forcing function: if the
-mechanism handles Modbus and PPC, it handles everything, and there is no scalar-only shortcut to regret.
+Not all external IO fits this mechanism; there are **three** distinct kinds, and only the first is in scope:
+
+| mechanism | wiring | examples | verdict |
+|---|---|---|---|
+| **value contract** | `[ServiceProviderContractType]`, fire-and-forget | digital/analog I/O, PPC demand | **this RFC** — `serviceProviderSet` / `serviceProviderExpect` |
+| **request/response contract** | `[ServiceProviderContractType]`, but with in-process `Action` callbacks | **Modbus RTU** (`IModbusRtu`) | **deferred** — a request triggers a response, so it needs a *response-fixture* vocabulary on the same actor plane, not a value-drive; `[ScenarioWire]` does not apply |
+| **direct-DI client** | an injected service, *off* the actor/contract plane | **HTTP** (`ILogicBlockHttpClient`), **Modbus-TCP** (`ILogicBlockModbusTcpClientFactory`) | **out of scope** — the contract-plane mechanism can't reach it; scripting HTTP bodies / register maps in scenario JSON is protocol mocking the C# TestKit does better. Keep the **Ref\*** substitute (scenario) / **TestKit** (real block) |
+
+So scenarios cover the logic network **plus its service-provider *value*-contract boundary** — and stop
+there. Request/response (Modbus RTU) is a coherent future extension *on the same plane* (a fixture vocab);
+direct-DI external protocols stay in the TestKit/integration layer with Ref\* as the scenario-side stand-in.
+That keeps scenarios at their valuable altitude (deterministic logic verification) rather than drifting into
+integration testing. The structured-payload codec is still exercised — PPC's multi-field struct is the
+non-scalar case that proves it generalizes past `bool`/`double`.
 
 ## Authoring guide — make your service provider scenario-testable
 
@@ -169,17 +192,13 @@ This is the section that decides whether the feature is usable. Two worked examp
 
 ### Simple case: a digital input (what the SDK itself does)
 
-The SDK's `DigitalInput` is already a service-provider contract. Under this RFC it needs **one** line —
-the `Wire` declaration — and it is then scenario-drivable with zero further work:
+The SDK's `DigitalInputHandler` is the handler for a digital-input contract. Under this RFC it needs
+**one** line — the `[ScenarioWire]` attribute — and the contract is then scenario-drivable with no change
+to the contract or the consuming block:
 
 ```csharp
-public partial class DigitalInput : LogicBlockContractBase, IDigitalInput
-{
-    public override string ContractHandlerActorName { get; protected set; } = nameof(DigitalInputHandler);
-    public override ServiceProviderWire Wire { get; } = ServiceProviderWire.Inbound<DigitalInputChanged>();   // <- the one new line
-    public event EventHandler<bool>? InputChanged;
-    public override void HandleContractMessage(IContractMessage m) { /* unchanged */ }
-}
+[ScenarioWire(Inbound = typeof(DigitalInputChanged))]   // <- the one new line
+public partial class DigitalInputHandler : ServiceProviderHandlerBase { /* unchanged */ }
 ```
 
 Scenario (a SmokeHost-style `io-control`):
@@ -191,24 +210,18 @@ Scenario (a SmokeHost-style `io-control`):
 { "serviceProviderExpect": { "logicBlock": "Io", "contract": "ActiveOutput" }, "equals": true }
 ```
 
-The author writes the contract as they do today **plus the `Wire` line**, and gets the full drive/assert
-loop. The interface keeps `[ServiceProviderContractType("digitalInput", Consumers = ZeroOrMore)]`; the
-consuming block keeps `[ServiceProviderContractBinding]` on its property. Nothing about the consumer
-block changes.
+The handler carries the one attribute; the **contract and the consuming block are untouched**. The interface
+keeps `[ServiceProviderContractType("digitalInput", Consumers = ZeroOrMore)]`; the consuming block keeps
+`[ServiceProviderContractBinding]` on its property.
 
 ### Rich case: PPC (the DF-27 unblock)
 
-Ecocoach's `PowerPlantControlGrid` is a real third-party contract — a unidirectional SP→block contract
-whose wire struct `PpcDemandGridReceived` carries multiple fields. The author adds the same one line:
+Ecocoach's `PowerPlantControlGridHandler` is the handler for a real third-party contract whose wire struct
+`PpcDemandGridReceived` carries multiple fields. The author adds the same one line, to the handler:
 
 ```csharp
-public partial class PowerPlantControlGrid : LogicBlockContractBase, IPowerPlantControlGrid
-{
-    public override string ContractHandlerActorName { get; protected set; } = nameof(PowerPlantControlGridHandler);
-    public override ServiceProviderWire Wire { get; } = ServiceProviderWire.Inbound<PpcDemandGridReceived>();   // <- the one new line
-    public event EventHandler<PpcDemandGridReceived>? DemandReceived;
-    public override void HandleContractMessage(IContractMessage m) { /* unchanged */ }
-}
+[ScenarioWire(Inbound = typeof(PpcDemandGridReceived))]   // <- the one new line
+public partial class PowerPlantControlGridHandler : ServiceProviderHandlerBase { /* unchanged */ }
 ```
 
 Then the committed scenario drives the **real** `PpcGridTF8360` adapter end-to-end — the portable
@@ -236,7 +249,7 @@ state. No provider block, no broker, no C#.
 | Author writes | Author gets for free |
 |---|---|
 | The contract + handler **as today** | The DevHost stand-in handler (generic; no per-contract mock) |
-| **One `Wire` line** on the contract | `serviceProviderSet` / `serviceProviderExpect` for that contract |
+| **One `[ScenarioWire]` line** on the handler | `serviceProviderSet` / `serviceProviderExpect` for that contract |
 | `[ServiceProviderContractType]` (already there) | Direction + ambiguity policy from its multiplicity |
 | The wire struct (already there) | The `value` shape (and typed schema autocomplete once DF-25 lands) |
 | Nothing on the consuming block | Drive/assert through the **real** consumer, deterministically under stepping |
@@ -263,11 +276,12 @@ Sites to migrate in lockstep (the format lives in four parallel places + the doc
 
 ## Implementation & staging
 
-1. **This RFC. The de-risking spike is done (✅).** The wiring open question was answered from source
-   (see Risks), and a throwaway spike (`spike/serviceprovider-generic-handler`) proved the one new piece,
-   `ServiceProviderWire`, builds the exact closed `ContractMessage<T>` a consumer's `HandleContractMessage`
-   switch matches — from a scenario JSON value, for both a scalar HAL wire struct and a multi-field
-   PPC/Modbus struct — via one uniform decode. No surprises; the MVP is unblocked.
+1. **This RFC. The de-risking spike + the foundation are done (✅).** The wiring open question was answered
+   from source (see Risks); a throwaway spike (`spike/serviceprovider-generic-handler`) proved the codec
+   builds the exact closed `ContractMessage<T>` a consumer's `HandleContractMessage` switch matches — from a
+   scenario JSON value, for both a scalar HAL wire struct and a multi-field PPC struct — via one uniform
+   decode. The `[ScenarioWire]` attribute + the internal `ScenarioWireCodec` (with tests) are committed on
+   `feat/serviceprovider-contract-scenario-support`. No surprises; the MVP is unblocked.
 2. **MVP** (cut hard): the generic handler + `Wire`; auto-discovery replacing the hardcoded four;
    `serviceProviderSet`/`serviceProviderExpect` across all four vocabulary sites + `ScenarioResolver`
    type-gate; **delete** the four kinds (v2) + migrate every committed file; Modbus + PPC as the struct
@@ -300,8 +314,8 @@ struct codec, not by the handler (which reuses `ForwardToLogicBlocks` verbatim).
 - **Ambiguity:** exactly one handler per contract type (the singleton model). Two providers for one
   contract type is a hard load error (reuses the DF-19 multiplicity guard).
 - **Production safety:** there is **no** production code change in this design (the win over the earlier
-  retarget). The generic handler lives only in the DevHost; the SDK adds `Wire` (inert metadata) and the
-  `ServiceProviderWire` type. Confirm `Wire` is never read on the production hot path.
+  retarget). The generic handler + codec live only in the DevHost; the SDK adds the `[ScenarioWire]`
+  attribute (inert metadata). Confirm it is never read on the production hot path.
 - **`--export-config` / `--export-topology` fidelity:** the generalized contract set must already be in
   the exported config for `dale scenario validate` to type `serviceProviderSet` values; it reads the
   export, not the topology file.
@@ -310,9 +324,9 @@ struct codec, not by the handler (which reuses `ForwardToLogicBlocks` verbatim).
 
 Putting myself in the shoes of (a) a PPC author and (b) someone shipping a trivial digital input:
 
-- **The good.** The author writes their contract exactly as today plus **one explicit, type-checked line**
-  (`Wire = ServiceProviderWire.Inbound<...>()`), sitting right next to the `ContractHandlerActorName` they
-  already write. They author **no mock**, touch **no topology** (auto-discovery), and the consuming block
+- **The good.** The author writes their contract + handler exactly as today plus **one explicit,
+  type-checked attribute** (`[ScenarioWire(Inbound = typeof(...))]`) on the handler. They author **no mock**,
+  touch **no topology** (auto-discovery), and the consuming block
   is untouched. The scenario reads naturally and addresses the contract the same way for a `bool` input
   and a multi-field PPC struct. That clears the "is it usable" bar.
 - **The honest gaps the docs must close.** (1) Until DF-25's typed-value enrichment lands, the `value` for
