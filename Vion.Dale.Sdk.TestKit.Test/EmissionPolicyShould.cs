@@ -94,5 +94,26 @@ namespace Vion.Dale.Sdk.TestKit.Test
             // 1.0 (leading) + 3.0 (trailing flush) = 2 emissions; last value is 3.0.
             ctx.VerifyServicePropertyEmitted(lb => lb.Voltage, times: Times.Exactly(2));
         }
+
+        [TestMethod]
+        public void ForceEmitInitialPublishUnderForcedPolicy()
+        {
+            // Do not auto-start (which clears startup messages). Start manually and assert the
+            // initial publish for a throttled property emits exactly once (seed + force-emit),
+            // not held, under the forced policy.
+            var block = LogicBlockTestHelper.Create<ThrottledBlock>();
+            var ctx = block.CreateTestContext()
+                           .WithEmissionPolicy(EmissionPolicyMode.FromAttributes)
+                           .WithoutAutoStart()
+                           .Build();
+
+            block.Voltage = 7.0; // not started yet -> ignored by the _started guard
+
+            // Manually start: PublishInitialStateUpdates runs through the gate. The first Offer per
+            // property returns Emit (!HasEmitted), force-emitting and seeding the throttler.
+            block.HandleMessageAsync(new Vion.Dale.Sdk.Messages.StartLogicBlockRequest(), ctx).GetAwaiter().GetResult();
+
+            ctx.VerifyServicePropertyEmitted(lb => lb.Voltage, value => Assert.AreEqual(7.0, value), Times.Once());
+        }
     }
 }

@@ -238,6 +238,11 @@ namespace Vion.Dale.Sdk.Core
                 case StartLogicBlockRequest: // after initialization
                     Starting();
                     _started = true;
+
+                    // RFC 0004: the initial publish flows through Handle*ValueChanged with the gate
+                    // active. The first Throttler.Offer for each member returns Emit (!HasEmitted),
+                    // which force-emits and seeds lastEmitted/lastEmitAt — so the initial value is
+                    // never throttled and subsequent changes are measured from start time.
                     _serviceBinder.PublishInitialStateUpdates(_logger);
 
                     // Schedule periodic state saves
