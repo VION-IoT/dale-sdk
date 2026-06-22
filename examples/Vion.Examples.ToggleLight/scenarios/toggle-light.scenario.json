@@ -9,12 +9,12 @@
     { "set": "Light.ToggleMode", "value": "ToggleOnPressed" }
   ],
   "steps": [
-    { "label": "Press the button (digital input goes high)", "digitalInput": { "block": "Toggle", "contract": "DigitalInput" }, "value": true },
+    { "label": "Press the button (digital input goes high)", "serviceProviderSet": { "logicBlock": "Toggle", "contract": "DigitalInput" }, "value": true },
     { "label": "The light switches on", "waitUntil": { "property": "Light.On", "equals": true }, "timeoutSeconds": 5 },
     { "label": "…and counts exactly one switch-on", "expect": { "property": "Light.TimesSwitchedOn", "equals": 1 } },
     { "label": "Hold it on for 3 s of virtual time", "advance": { "seconds": 3 } },
     { "label": "The light is still on", "expect": { "property": "Light.On", "equals": true } },
-    { "label": "…and its digital output mirrors the On state", "digitalOutput": { "block": "Light", "contract": "DigitalOutput", "equals": true } }
+    { "label": "…and its digital output mirrors the On state", "serviceProviderExpect": { "logicBlock": "Light", "contract": "DigitalOutput", "equals": true } }
   ],
   "watch": [
     "Light.On",
