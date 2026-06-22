@@ -8,41 +8,6 @@ namespace Vion.Dale.Sdk.TestKit.Test
     [TestClass]
     public class EmissionPolicyShould
     {
-        // A block with a default-policy (250ms) throttled property.
-        private sealed class ThrottledBlock : LogicBlockBase
-        {
-            [ServiceProperty(MinInterval = "250ms")]
-            public double Voltage { get; set; }
-
-            public ThrottledBlock(ILogger logger) : base(logger)
-            {
-            }
-
-            protected override void Ready()
-            {
-            }
-        }
-
-        // A block with a throttled measuring point (read-only; written via a method).
-        private sealed class ThrottledMpBlock : LogicBlockBase
-        {
-            [ServiceMeasuringPoint(MinInterval = "250ms")]
-            public double Frequency { get; private set; }
-
-            public ThrottledMpBlock(ILogger logger) : base(logger)
-            {
-            }
-
-            public void SetFrequency(double value)
-            {
-                Frequency = value;
-            }
-
-            protected override void Ready()
-            {
-            }
-        }
-
         [TestMethod]
         public void NotThrottleUnderFakeClockWithoutOverride()
         {
@@ -88,6 +53,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
             ctx.AdvanceTime(TimeSpan.FromMilliseconds(250)); // clear the start-seed interval
 
             block.Voltage = 5.0; // leading edge -> emit
+
             // Metalama dedups exact-equal sets for value types, so re-assigning 5.0 raises no INPC;
             // the gate never even sees the duplicate. The single leading-edge emit is all that is seen.
             block.Voltage = 5.0; // no INPC (Metalama) — gate never sees it
@@ -122,16 +88,13 @@ namespace Vion.Dale.Sdk.TestKit.Test
             // initial publish for a throttled property emits exactly once (seed + force-emit),
             // not held, under the forced policy.
             var block = LogicBlockTestHelper.Create<ThrottledBlock>();
-            var ctx = block.CreateTestContext()
-                           .WithEmissionPolicy(EmissionPolicyMode.FromAttributes)
-                           .WithoutAutoStart()
-                           .Build();
+            var ctx = block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).WithoutAutoStart().Build();
 
             block.Voltage = 7.0; // not started yet -> ignored by the _started guard
 
             // Manually start: PublishInitialStateUpdates runs through the gate. The first Offer per
             // property returns Emit (!HasEmitted), force-emitting and seeding the throttler.
-            block.HandleMessageAsync(new Vion.Dale.Sdk.Messages.StartLogicBlockRequest(), ctx).GetAwaiter().GetResult();
+            block.HandleMessageAsync(new Messages.StartLogicBlockRequest(), ctx).GetAwaiter().GetResult();
 
             ctx.VerifyServicePropertyEmitted(lb => lb.Voltage, value => Assert.AreEqual(7.0, value), Times.Once());
         }
@@ -152,7 +115,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
             binder.ClearRetainedMessages(Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance);
 
             // The clear is emitted (bypassing the gate) ...
-            var cleared = ctx.GetSentMessagesOfTypePublic<Vion.Dale.Sdk.Messages.ServicePropertyValueCleared>();
+            var cleared = ctx.GetSentMessagesOfTypePublic<Messages.ServicePropertyValueCleared>();
             Assert.IsGreaterThanOrEqualTo(1, cleared.Count, "Cleared message must be emitted immediately, bypassing the throttler.");
 
             // ... and the previously-held flush is cancelled: advancing past the interval emits no held value.
@@ -176,7 +139,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
             // Stop without advancing time: the held 9.0 never flushed via the timer, but the
             // stop-drain must emit the exact current value (9.0) so the final retained state is exact.
-            block.HandleMessageAsync(new Vion.Dale.Sdk.Messages.StopLogicBlockRequest(), ctx).GetAwaiter().GetResult();
+            block.HandleMessageAsync(new Messages.StopLogicBlockRequest(), ctx).GetAwaiter().GetResult();
 
             ctx.VerifyServicePropertyEmitted(lb => lb.Voltage, value => Assert.AreEqual(9.0, value), Times.Once());
         }
@@ -201,12 +164,46 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
         // The TestKit's GetPrivateField extension is internal to the TestKit assembly; reach the
         // block's ServiceBinder via reflection here (ServiceBinder is a public SDK type).
-        private static Vion.Dale.Sdk.Configuration.Services.ServiceBinder GetServiceBinder(LogicBlockBase block)
+        private static Configuration.Services.ServiceBinder GetServiceBinder(LogicBlockBase block)
         {
-            var field = typeof(LogicBlockBase).GetField("_serviceBinder",
-                                                         System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
-                        ?? throw new System.InvalidOperationException("_serviceBinder field not found on LogicBlockBase.");
-            return (Vion.Dale.Sdk.Configuration.Services.ServiceBinder)field.GetValue(block)!;
+            var field = typeof(LogicBlockBase).GetField("_serviceBinder", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic) ??
+                        throw new InvalidOperationException("_serviceBinder field not found on LogicBlockBase.");
+            return (Configuration.Services.ServiceBinder)field.GetValue(block)!;
+        }
+
+        // A block with a default-policy (250ms) throttled property.
+        private sealed class ThrottledBlock : LogicBlockBase
+        {
+            [ServiceProperty(MinInterval = "250ms")]
+            public double Voltage { get; set; }
+
+            public ThrottledBlock(ILogger logger) : base(logger)
+            {
+            }
+
+            protected override void Ready()
+            {
+            }
+        }
+
+        // A block with a throttled measuring point (read-only; written via a method).
+        private sealed class ThrottledMpBlock : LogicBlockBase
+        {
+            [ServiceMeasuringPoint(MinInterval = "250ms")]
+            public double Frequency { get; private set; }
+
+            public ThrottledMpBlock(ILogger logger) : base(logger)
+            {
+            }
+
+            public void SetFrequency(double value)
+            {
+                Frequency = value;
+            }
+
+            protected override void Ready()
+            {
+            }
         }
     }
 }

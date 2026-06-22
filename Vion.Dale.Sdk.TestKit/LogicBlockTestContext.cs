@@ -74,6 +74,14 @@ namespace Vion.Dale.Sdk.TestKit
             get => TimeProvider.GetUtcNow().UtcDateTime;
         }
 
+        /// <summary>
+        ///     The service provider the block was initialized with. Set by the builder after
+        ///     <c>BuildServiceProvider</c> completes so tests can assert which registrations the
+        ///     builder applied (e.g. <see cref="Vion.Dale.Sdk.Emission.EmissionPolicyForceMarker" />
+        ///     when <c>WithEmissionPolicy(FromAttributes)</c> was called).
+        /// </summary>
+        public IServiceProvider? BuiltServiceProvider { get; internal set; }
+
         public LogicBlockTestContext() : this(DefaultAnchor)
         {
         }
@@ -192,9 +200,7 @@ namespace Vion.Dale.Sdk.TestKit
         ///     off it behaves identically to <see cref="VerifyServiceMeasuringPointChanged{TValue}" />.
         ///     <code>testContext.VerifyServiceMeasuringPointEmitted(lb => lb.Frequency, value => Assert.AreEqual(50.0, value));</code>
         /// </summary>
-        public void VerifyServiceMeasuringPointEmitted<TValue>(Expression<Func<TLogicBlock, TValue>> propertySelector,
-                                                               Action<TValue>? assertValue = null,
-                                                               Times? times = null)
+        public void VerifyServiceMeasuringPointEmitted<TValue>(Expression<Func<TLogicBlock, TValue>> propertySelector, Action<TValue>? assertValue = null, Times? times = null)
         {
             var propertyName = GetPropertyName(propertySelector);
             var messages = GetSentMessagesOfType<ServiceMeasuringPointValueChanged>().Where(m => m.MeasuringPointIdentifier == propertyName).ToList();
@@ -349,12 +355,14 @@ namespace Vion.Dale.Sdk.TestKit
         }
 
         /// <summary>
-        ///     The service provider the block was initialized with. Set by the builder after
-        ///     <c>BuildServiceProvider</c> completes so tests can assert which registrations the
-        ///     builder applied (e.g. <see cref="Vion.Dale.Sdk.Emission.EmissionPolicyForceMarker" />
-        ///     when <c>WithEmissionPolicy(FromAttributes)</c> was called).
+        ///     Returns every recorded message of <typeparamref name="TMessage" /> in send order. A public
+        ///     escape hatch for assertions that need a message type the typed <c>Verify*</c> helpers do
+        ///     not cover (e.g. <c>ServicePropertyValueCleared</c> for the RFC 0004 clear-bypass path).
         /// </summary>
-        public IServiceProvider? BuiltServiceProvider { get; internal set; }
+        public IReadOnlyList<TMessage> GetSentMessagesOfTypePublic<TMessage>()
+        {
+            return _sentMessages.Where(s => s.Message is TMessage).Select(s => (TMessage)s.Message).ToList();
+        }
 
         /// <summary>
         ///     Internal swap point used by <c>LogicBlockTestContextBuilder.WithTimeProvider</c> so
@@ -404,16 +412,6 @@ namespace Vion.Dale.Sdk.TestKit
         private IEnumerable<TMessage> GetSentMessagesOfType<TMessage>()
         {
             return _sentMessages.Where(s => s.Message is TMessage).Select(s => (TMessage)s.Message);
-        }
-
-        /// <summary>
-        ///     Returns every recorded message of <typeparamref name="TMessage" /> in send order. A public
-        ///     escape hatch for assertions that need a message type the typed <c>Verify*</c> helpers do
-        ///     not cover (e.g. <c>ServicePropertyValueCleared</c> for the RFC 0004 clear-bypass path).
-        /// </summary>
-        public IReadOnlyList<TMessage> GetSentMessagesOfTypePublic<TMessage>()
-        {
-            return _sentMessages.Where(s => s.Message is TMessage).Select(s => (TMessage)s.Message).ToList();
         }
 
         #region IActorContext implementation, explicit to hide in tests

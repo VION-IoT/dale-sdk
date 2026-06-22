@@ -37,6 +37,15 @@ namespace Vion.Dale.Sdk.Core
 
         private readonly ServiceBinder _serviceBinder = new();
 
+        // The policy each throttler was built from, kept so a value-clear can reconstruct a fresh
+        // throttler (the gate has no in-place cancel) — see ResetThrottlerPending.
+        private readonly Dictionary<(string ServiceIdentifier, string MemberIdentifier), ThrottlePolicy> _throttlerPolicies = [];
+
+        // One Throttler per bound service property + measuring point, keyed by (ServiceIdentifier,
+        // member identifier). Built after Configure() (BuildThrottlers). Empty until then, and never
+        // consulted when _emissionPolicyActive is false.
+        private readonly Dictionary<(string ServiceIdentifier, string MemberIdentifier), Throttler> _throttlers = [];
+
         private readonly Dictionary<string, (TimeSpan interval, Action callback)> _timerCallbacks = [];
 
         // RFC 0005 watchdog: raw per-[Timer] callback duration + scheduler jitter, reported to the vitals
@@ -44,6 +53,16 @@ namespace Vion.Dale.Sdk.Core
         private readonly Dictionary<string, long> _timerLastTickTimestamp = [];
 
         private IActorContext _actorContext = null!;
+
+        // RFC 0004 emission policy. The per-property gate is active when the clock is NOT a
+        // controllable (FakeTimeProvider-style) clock — i.e. production + free-run DevHost — OR
+        // when a TestKit override forces it on despite a controllable clock. Resolved once at
+        // InitializeLogicBlock and cached. When inactive, Handle*ValueChanged sends as before.
+        private bool _emissionPolicyActive;
+
+        // Set from an optional injected EmissionPolicyForceMarker (TestKit WithEmissionPolicy(FromAttributes)):
+        // forces the policy active even though the injected clock is controllable.
+        private bool _forcePolicyFromAttributes;
 
         private bool _initializeDeferred;
 
@@ -58,6 +77,11 @@ namespace Vion.Dale.Sdk.Core
         // bindings, causing every subsequent property/set to be silently dropped.
         private bool _runtimeActorsLinked;
 
+        // RFC 0004: tracks the deadline of the single outstanding flush timer (≤1 per block at a
+        // time). Null when no flush is armed. Set in ScheduleEmissionFlush; cleared at the top of
+        // OnEmissionFlushDue so the body can re-arm if further pending values remain.
+        private DateTimeOffset? _scheduledFlushDeadline;
+
         // Key: ServiceIdentifier, Value: ServiceIdentifier
         private Dictionary<string, ServiceIdentifier> _serviceIdLookup = [];
 
@@ -71,30 +95,6 @@ namespace Vion.Dale.Sdk.Core
         private bool _started;
 
         private TimeProvider _timeProvider = TimeProvider.System;
-
-        // RFC 0004 emission policy. The per-property gate is active when the clock is NOT a
-        // controllable (FakeTimeProvider-style) clock — i.e. production + free-run DevHost — OR
-        // when a TestKit override forces it on despite a controllable clock. Resolved once at
-        // InitializeLogicBlock and cached. When inactive, Handle*ValueChanged sends as before.
-        private bool _emissionPolicyActive;
-
-        // Set from an optional injected EmissionPolicyForceMarker (TestKit WithEmissionPolicy(FromAttributes)):
-        // forces the policy active even though the injected clock is controllable.
-        private bool _forcePolicyFromAttributes;
-
-        // One Throttler per bound service property + measuring point, keyed by (ServiceIdentifier,
-        // member identifier). Built after Configure() (BuildThrottlers). Empty until then, and never
-        // consulted when _emissionPolicyActive is false.
-        private readonly Dictionary<(string ServiceIdentifier, string MemberIdentifier), Throttler> _throttlers = [];
-
-        // The policy each throttler was built from, kept so a value-clear can reconstruct a fresh
-        // throttler (the gate has no in-place cancel) — see ResetThrottlerPending.
-        private readonly Dictionary<(string ServiceIdentifier, string MemberIdentifier), ThrottlePolicy> _throttlerPolicies = [];
-
-        // RFC 0004: tracks the deadline of the single outstanding flush timer (≤1 per block at a
-        // time). Null when no flush is armed. Set in ScheduleEmissionFlush; cleared at the top of
-        // OnEmissionFlushDue so the body can re-arm if further pending values remain.
-        private DateTimeOffset? _scheduledFlushDeadline;
 
         private string? _vitalsActorName;
 
@@ -483,8 +483,7 @@ namespace Vion.Dale.Sdk.Core
             BuildThrottlersFor(_serviceBinder.GetAllServiceMeasuringPointBindings());
         }
 
-        private void BuildThrottlersFor(
-            IReadOnlyDictionary<string, IReadOnlyDictionary<Type, IReadOnlyDictionary<string, ServiceBinding>>> bindings)
+        private void BuildThrottlersFor(IReadOnlyDictionary<string, IReadOnlyDictionary<Type, IReadOnlyDictionary<string, ServiceBinding>>> bindings)
         {
             foreach (var (serviceIdentifier, interfaceMap) in bindings)
             {
@@ -519,8 +518,8 @@ namespace Vion.Dale.Sdk.Core
 
             // The same PropertyInfo carries either [ServiceProperty] or [ServiceMeasuringPoint];
             // both implement IThrottleConfigured. Reflect whichever is present.
-            return (IThrottleConfigured?)property.GetCustomAttribute(typeof(ServicePropertyAttribute), true)
-                   ?? (IThrottleConfigured?)property.GetCustomAttribute(typeof(ServiceMeasuringPointAttribute), true);
+            return (IThrottleConfigured?)property.GetCustomAttribute(typeof(ServicePropertyAttribute), true) ??
+                   (IThrottleConfigured?)property.GetCustomAttribute(typeof(ServiceMeasuringPointAttribute), true);
         }
 
         /// <summary>
@@ -667,13 +666,11 @@ namespace Vion.Dale.Sdk.Core
                 return;
             }
 
-            DrainBindings(_serviceBinder.GetAllServicePropertyBindings(), isMeasuringPoint: false);
-            DrainBindings(_serviceBinder.GetAllServiceMeasuringPointBindings(), isMeasuringPoint: true);
+            DrainBindings(_serviceBinder.GetAllServicePropertyBindings(), false);
+            DrainBindings(_serviceBinder.GetAllServiceMeasuringPointBindings(), true);
         }
 
-        private void DrainBindings(
-            IReadOnlyDictionary<string, IReadOnlyDictionary<Type, IReadOnlyDictionary<string, ServiceBinding>>> bindings,
-            bool isMeasuringPoint)
+        private void DrainBindings(IReadOnlyDictionary<string, IReadOnlyDictionary<Type, IReadOnlyDictionary<string, ServiceBinding>>> bindings, bool isMeasuringPoint)
         {
             foreach (var (serviceIdentifier, interfaceMap) in bindings)
             {
@@ -795,7 +792,8 @@ namespace Vion.Dale.Sdk.Core
             switch (throttler.Offer(args.Value, _timeProvider.GetUtcNow()).Action)
             {
                 case EmitAction.Emit:
-                    _actorContext.SendTo(_serviceMeasuringPointHandlerActorRef, new ServiceMeasuringPointValueChanged(serviceIdentifier, args.MeasuringPointIdentifier, args.Value));
+                    _actorContext.SendTo(_serviceMeasuringPointHandlerActorRef,
+                                         new ServiceMeasuringPointValueChanged(serviceIdentifier, args.MeasuringPointIdentifier, args.Value));
                     break;
                 case EmitAction.Drop:
                     break;

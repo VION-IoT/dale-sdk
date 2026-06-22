@@ -26,8 +26,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
             var block = LogicBlockTestHelper.Create<ThrottledLogicBlock>();
             var ctx = block.CreateTestContext().Build();
 
-            Assert.IsNull(ctx.BuiltServiceProvider!.GetService(typeof(EmissionPolicyForceMarker)),
-                          "Default builder must NOT register the force marker.");
+            Assert.IsNull(ctx.BuiltServiceProvider!.GetService(typeof(EmissionPolicyForceMarker)), "Default builder must NOT register the force marker.");
         }
 
         [TestMethod]
@@ -37,8 +36,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
             var block = LogicBlockTestHelper.Create<ThrottledLogicBlock>();
             var ctx = block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.Off).Build();
 
-            Assert.IsNull(ctx.BuiltServiceProvider!.GetService(typeof(EmissionPolicyForceMarker)),
-                          "WithEmissionPolicy(Off) must not register the force marker.");
+            Assert.IsNull(ctx.BuiltServiceProvider!.GetService(typeof(EmissionPolicyForceMarker)), "WithEmissionPolicy(Off) must not register the force marker.");
         }
 
         [TestMethod]

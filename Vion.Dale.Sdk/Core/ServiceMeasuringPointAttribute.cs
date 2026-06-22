@@ -41,6 +41,14 @@ namespace Vion.Dale.Sdk.Core
         /// </summary>
         public MeasuringPointKind Kind { get; init; } = MeasuringPointKind.Measurement;
 
+        [Obsolete("Use Title instead. Will be removed in next major.")]
+        public string? DefaultName
+        {
+            get => Title;
+
+            init => Title = value;
+        }
+
         /// <summary>
         ///     Minimum spacing between two emitted values for this measuring point, as a duration string
         ///     (e.g. <c>"250ms"</c>, <c>"1s"</c>, <c>"500us"</c>, <c>"0"</c>). Drives the RFC 0004
@@ -61,13 +69,5 @@ namespace Vion.Dale.Sdk.Core
         ///     bypassing the interval and change gates. Defaults to <c>false</c>.
         /// </summary>
         public bool Immediate { get; init; }
-
-        [Obsolete("Use Title instead. Will be removed in next major.")]
-        public string? DefaultName
-        {
-            get => Title;
-
-            init => Title = value;
-        }
     }
 }

@@ -65,7 +65,7 @@ namespace Vion.Dale.Sdk.Test.Emission
         public void ThrowOnUnitOnlyTokenWithClearMessage()
         {
             // "ms" has no numeric part — should produce a clear FormatException, not a bare parse failure.
-            FormatException ex = Assert.ThrowsExactly<FormatException>(() => DurationParser.Parse("ms"));
+            var ex = Assert.ThrowsExactly<FormatException>(() => DurationParser.Parse("ms"));
             StringAssert.Contains(ex.Message, "ms");
             StringAssert.Contains(ex.Message, "no numeric part");
         }

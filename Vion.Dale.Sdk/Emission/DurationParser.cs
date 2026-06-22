@@ -4,11 +4,11 @@ using System.Globalization;
 namespace Vion.Dale.Sdk.Emission
 {
     /// <summary>
-    /// Parses the small duration grammar used by the emission policy's <c>MinInterval</c> and the
-    /// <see cref="TimeSpanChangeThreshold"/> token: a number followed by an optional unit suffix.
-    /// Supported units: <c>us</c> (microseconds), <c>ms</c> (milliseconds), <c>s</c> (seconds),
-    /// <c>m</c> (minutes), <c>h</c> (hours). A bare number (no suffix) is treated as milliseconds.
-    /// All parsing is invariant-culture and case-insensitive on the suffix.
+    ///     Parses the small duration grammar used by the emission policy's <c>MinInterval</c> and the
+    ///     <see cref="TimeSpanChangeThreshold" /> token: a number followed by an optional unit suffix.
+    ///     Supported units: <c>us</c> (microseconds), <c>ms</c> (milliseconds), <c>s</c> (seconds),
+    ///     <c>m</c> (minutes), <c>h</c> (hours). A bare number (no suffix) is treated as milliseconds.
+    ///     All parsing is invariant-culture and case-insensitive on the suffix.
     /// </summary>
     internal static class DurationParser
     {
@@ -19,18 +19,18 @@ namespace Vion.Dale.Sdk.Emission
                 throw new ArgumentNullException(nameof(token));
             }
 
-            string trimmed = token.Trim();
+            var trimmed = token.Trim();
             if (trimmed.Length == 0)
             {
                 throw new FormatException("Duration token is empty.");
             }
 
             // Split the numeric head from the (optional) alphabetic unit suffix.
-            int splitIndex = trimmed.Length;
-            for (int i = 0; i < trimmed.Length; i++)
+            var splitIndex = trimmed.Length;
+            for (var i = 0; i < trimmed.Length; i++)
             {
-                char c = trimmed[i];
-                bool isNumeric = (c >= '0' && c <= '9') || c == '.' || c == '+' || c == '-';
+                var c = trimmed[i];
+                var isNumeric = (c >= '0' && c <= '9') || c == '.' || c == '+' || c == '-';
                 if (!isNumeric)
                 {
                     splitIndex = i;
@@ -38,15 +38,15 @@ namespace Vion.Dale.Sdk.Emission
                 }
             }
 
-            string numberPart = trimmed.Substring(0, splitIndex);
-            string unitPart = trimmed.Substring(splitIndex).Trim().ToLowerInvariant();
+            var numberPart = trimmed.Substring(0, splitIndex);
+            var unitPart = trimmed.Substring(splitIndex).Trim().ToLowerInvariant();
 
             if (numberPart.Length == 0)
             {
                 throw new FormatException($"Duration token '{token}' has no numeric part.");
             }
 
-            double value = double.Parse(numberPart, NumberStyles.Float, CultureInfo.InvariantCulture);
+            var value = double.Parse(numberPart, NumberStyles.Float, CultureInfo.InvariantCulture);
 
             switch (unitPart)
             {

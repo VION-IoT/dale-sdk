@@ -39,6 +39,7 @@ namespace Vion.Dale.Sdk.Test.Emission
         public void ParseMicrosecondThresholdToken()
         {
             IChangeThreshold<TimeSpan> threshold = new TimeSpanChangeThreshold();
+
             // 500us == 5000 ticks (1 tick = 100ns).
             Assert.IsTrue(threshold.Exceeds(TimeSpan.Zero, TimeSpan.FromTicks(5000), "500us"));
             Assert.IsFalse(threshold.Exceeds(TimeSpan.Zero, TimeSpan.FromTicks(4999), "500us"));

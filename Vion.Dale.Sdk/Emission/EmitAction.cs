@@ -12,6 +12,6 @@ namespace Vion.Dale.Sdk.Emission
         Drop,
 
         /// <summary>Defer the value until the carried deadline (trailing-edge flush).</summary>
-        Hold
+        Hold,
     }
 }

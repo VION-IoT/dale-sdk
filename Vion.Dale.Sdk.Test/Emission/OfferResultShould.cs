@@ -25,7 +25,13 @@ namespace Vion.Dale.Sdk.Test.Emission
         [TestMethod]
         public void CarryTheDeadlineForHold()
         {
-            var deadline = new DateTimeOffset(2026, 6, 22, 10, 0, 0, TimeSpan.Zero);
+            var deadline = new DateTimeOffset(2026,
+                                              6,
+                                              22,
+                                              10,
+                                              0,
+                                              0,
+                                              TimeSpan.Zero);
 
             var result = OfferResult.Hold(deadline);
 

@@ -19,12 +19,7 @@ namespace Vion.Dale.Sdk.Emission
                 return false;
             }
 
-            var advance = timeProvider.GetType().GetMethod(
-                "Advance",
-                BindingFlags.Public | BindingFlags.Instance,
-                null,
-                new[] { typeof(TimeSpan) },
-                null);
+            var advance = timeProvider.GetType().GetMethod("Advance", BindingFlags.Public | BindingFlags.Instance, null, new[] { typeof(TimeSpan) }, null);
 
             return advance is { ReturnType: { } returnType } && returnType == typeof(void);
         }

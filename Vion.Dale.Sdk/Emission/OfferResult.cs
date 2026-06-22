@@ -18,9 +18,9 @@ namespace Vion.Dale.Sdk.Emission
 
         public DateTimeOffset Deadline { get; }
 
-        public static OfferResult Emit { get; } = new OfferResult(EmitAction.Emit, default);
+        public static OfferResult Emit { get; } = new(EmitAction.Emit, default);
 
-        public static OfferResult Drop { get; } = new OfferResult(EmitAction.Drop, default);
+        public static OfferResult Drop { get; } = new(EmitAction.Drop, default);
 
         public static OfferResult Hold(DateTimeOffset deadline)
         {

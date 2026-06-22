@@ -9,7 +9,7 @@ namespace Vion.Dale.Sdk.Test.Emission
         [TestMethod]
         public void ResolveBuiltInForDouble()
         {
-            bool resolved = ChangeThresholdRegistry.TryResolve(typeof(double), out IChangeThresholdAdapter adapter);
+            var resolved = ChangeThresholdRegistry.TryResolve(typeof(double), out var adapter);
             Assert.IsTrue(resolved);
             Assert.IsNotNull(adapter);
             Assert.IsTrue(adapter.Exceeds(10.0, 12.0, "2"));
@@ -19,7 +19,7 @@ namespace Vion.Dale.Sdk.Test.Emission
         [TestMethod]
         public void ResolveBuiltInForTimeSpan()
         {
-            bool resolved = ChangeThresholdRegistry.TryResolve(typeof(TimeSpan), out IChangeThresholdAdapter adapter);
+            var resolved = ChangeThresholdRegistry.TryResolve(typeof(TimeSpan), out var adapter);
             Assert.IsTrue(resolved);
             Assert.IsNotNull(adapter);
             Assert.IsTrue(adapter.Exceeds(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3), "2s"));
@@ -37,7 +37,7 @@ namespace Vion.Dale.Sdk.Test.Emission
         [TestMethod]
         public void NotResolveUnregisteredType()
         {
-            bool resolved = ChangeThresholdRegistry.TryResolve(typeof(string), out IChangeThresholdAdapter adapter);
+            var resolved = ChangeThresholdRegistry.TryResolve(typeof(string), out var adapter);
             Assert.IsFalse(resolved);
             Assert.IsNull(adapter);
         }
@@ -45,9 +45,9 @@ namespace Vion.Dale.Sdk.Test.Emission
         [TestMethod]
         public void RegisterCustomThresholdAndResolveIt()
         {
-            ChangeThresholdRegistry.Register<byte>(new ByteChangeThreshold());
+            ChangeThresholdRegistry.Register(new ByteChangeThreshold());
 
-            bool resolved = ChangeThresholdRegistry.TryResolve(typeof(byte), out IChangeThresholdAdapter adapter);
+            var resolved = ChangeThresholdRegistry.TryResolve(typeof(byte), out var adapter);
             Assert.IsTrue(resolved);
             Assert.IsNotNull(adapter);
             Assert.IsTrue(adapter.Exceeds((byte)10, (byte)20, "5"));
@@ -58,7 +58,7 @@ namespace Vion.Dale.Sdk.Test.Emission
         {
             public bool Exceeds(in byte lastEmitted, in byte candidate, string threshold)
             {
-                int minChange = int.Parse(threshold, System.Globalization.CultureInfo.InvariantCulture);
+                var minChange = int.Parse(threshold, System.Globalization.CultureInfo.InvariantCulture);
                 return Math.Abs(candidate - lastEmitted) >= minChange;
             }
         }

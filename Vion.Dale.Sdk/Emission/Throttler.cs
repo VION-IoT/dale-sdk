@@ -11,31 +11,27 @@ namespace Vion.Dale.Sdk.Emission
     {
         private readonly ThrottlePolicy _policy;
 
-        private bool _hasEmitted;
-        private object? _lastEmitted;
         private DateTimeOffset _lastEmitAt;
 
-        private bool _hasPending;
         private object? _pendingValue;
-        private DateTimeOffset _pendingDeadline;
+
+        public bool HasEmitted { get; private set; }
+
+        public object? LastEmitted { get; private set; }
+
+        public bool HasPending { get; private set; }
+
+        public DateTimeOffset PendingDeadline { get; private set; }
 
         public Throttler(ThrottlePolicy policy)
         {
             _policy = policy ?? throw new ArgumentNullException(nameof(policy));
         }
 
-        public bool HasEmitted => _hasEmitted;
-
-        public object? LastEmitted => _lastEmitted;
-
-        public bool HasPending => _hasPending;
-
-        public DateTimeOffset PendingDeadline => _pendingDeadline;
-
         public OfferResult Offer(object? value, DateTimeOffset now)
         {
             // 1. Value-equality floor: an offered value equal to the last emitted is always dropped.
-            if (_hasEmitted && object.Equals(_lastEmitted, value))
+            if (HasEmitted && Equals(LastEmitted, value))
             {
                 return OfferResult.Drop;
             }
@@ -48,30 +44,28 @@ namespace Vion.Dale.Sdk.Emission
             }
 
             // 3. Deadband: drop sub-threshold changes relative to the last emitted value.
-            if (_policy.Threshold != null
-                && _hasEmitted
-                && !_policy.Threshold.Exceeds(_lastEmitted, value, _policy.MinChange!))
+            if (_policy.Threshold != null && HasEmitted && !_policy.Threshold.Exceeds(LastEmitted, value, _policy.MinChange!))
             {
                 return OfferResult.Drop;
             }
 
             // 4. Leading edge: first emission ever, or the interval has elapsed.
-            if (!_hasEmitted || now - _lastEmitAt >= _policy.MinInterval)
+            if (!HasEmitted || now - _lastEmitAt >= _policy.MinInterval)
             {
                 MarkEmitted(value, now);
                 return OfferResult.Emit;
             }
 
             // 5. Within the interval: hold the latest value until the deadline (latest-wins).
-            _hasPending = true;
+            HasPending = true;
             _pendingValue = value;
-            _pendingDeadline = _lastEmitAt + _policy.MinInterval;
-            return OfferResult.Hold(_pendingDeadline);
+            PendingDeadline = _lastEmitAt + _policy.MinInterval;
+            return OfferResult.Hold(PendingDeadline);
         }
 
         public bool TryFlush(DateTimeOffset now, out object? value)
         {
-            if (_hasPending)
+            if (HasPending)
             {
                 value = _pendingValue;
                 MarkEmitted(_pendingValue, now);
@@ -84,12 +78,12 @@ namespace Vion.Dale.Sdk.Emission
 
         private void MarkEmitted(object? value, DateTimeOffset now)
         {
-            _hasEmitted = true;
-            _lastEmitted = value;
+            HasEmitted = true;
+            LastEmitted = value;
             _lastEmitAt = now;
-            _hasPending = false;
+            HasPending = false;
             _pendingValue = null;
-            _pendingDeadline = default;
+            PendingDeadline = default;
         }
     }
 }

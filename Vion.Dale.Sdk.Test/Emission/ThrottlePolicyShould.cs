@@ -7,13 +7,6 @@ namespace Vion.Dale.Sdk.Test.Emission
     [TestClass]
     public class ThrottlePolicyShould
     {
-        private sealed class FakeThrottleConfigured : IThrottleConfigured
-        {
-            public string MinInterval { get; set; } = "250ms";
-            public string? MinChange { get; set; }
-            public bool Immediate { get; set; }
-        }
-
         [TestMethod]
         public void ParseTheMinInterval()
         {
@@ -87,6 +80,15 @@ namespace Vion.Dale.Sdk.Test.Emission
             var policy = ThrottlePolicy.FromConfigured(cfg, typeof(string));
 
             Assert.IsNull(policy.Threshold);
+        }
+
+        private sealed class FakeThrottleConfigured : IThrottleConfigured
+        {
+            public string MinInterval { get; set; } = "250ms";
+
+            public string? MinChange { get; set; }
+
+            public bool Immediate { get; set; }
         }
     }
 }

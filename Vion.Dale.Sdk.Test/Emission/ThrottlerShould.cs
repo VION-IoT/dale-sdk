@@ -8,25 +8,13 @@ namespace Vion.Dale.Sdk.Test.Emission
     [TestClass]
     public class ThrottlerShould
     {
-        private static readonly DateTimeOffset T0 = new DateTimeOffset(2026, 6, 22, 0, 0, 0, TimeSpan.Zero);
-
-        private sealed class Cfg : IThrottleConfigured
-        {
-            public string MinInterval { get; set; } = "250ms";
-            public string? MinChange { get; set; }
-            public bool Immediate { get; set; }
-        }
-
-        private static ThrottlePolicy Policy(
-            string minInterval = "250ms",
-            string? minChange = null,
-            bool immediate = false,
-            Type? valueType = null)
-        {
-            return ThrottlePolicy.FromConfigured(
-                new Cfg { MinInterval = minInterval, MinChange = minChange, Immediate = immediate },
-                valueType ?? typeof(double));
-        }
+        private static readonly DateTimeOffset T0 = new(2026,
+                                                        6,
+                                                        22,
+                                                        0,
+                                                        0,
+                                                        0,
+                                                        TimeSpan.Zero);
 
         [TestMethod]
         public void EmitTheFirstChangeOnTheLeadingEdge()
@@ -41,12 +29,10 @@ namespace Vion.Dale.Sdk.Test.Emission
             Assert.IsFalse(throttler.HasPending);
         }
 
-        private sealed record Sample(int A, string B);
-
         [TestMethod]
         public void HoldWithinTheIntervalKeepingTheLatestValueThenFlushAtTheDeadline()
         {
-            var throttler = new Throttler(Policy("250ms"));
+            var throttler = new Throttler(Policy());
 
             // Leading-edge emit at T0.
             Assert.AreEqual(EmitAction.Emit, throttler.Offer(1.0d, T0).Action);
@@ -74,7 +60,7 @@ namespace Vion.Dale.Sdk.Test.Emission
         [TestMethod]
         public void DropAValueEqualToTheLastEmittedEvenAfterTheInterval()
         {
-            var throttler = new Throttler(Policy("250ms"));
+            var throttler = new Throttler(Policy());
 
             Assert.AreEqual(EmitAction.Emit, throttler.Offer(5.0d, T0).Action);
 
@@ -88,7 +74,7 @@ namespace Vion.Dale.Sdk.Test.Emission
         [TestMethod]
         public void DropARebuiltEqualRecordViaValueEquality()
         {
-            var throttler = new Throttler(Policy("250ms", valueType: typeof(Sample)));
+            var throttler = new Throttler(Policy(valueType: typeof(Sample)));
 
             var first = new Sample(1, "x");
             var rebuilt = new Sample(1, "x"); // reference-distinct, value-equal
@@ -104,7 +90,7 @@ namespace Vion.Dale.Sdk.Test.Emission
         public void DropASubThresholdChangeViaTheDeadband()
         {
             // MinChange 1.0 on a double property: |candidate-last| must be >= 1.0 to pass.
-            var throttler = new Throttler(Policy("250ms", minChange: "1.0"));
+            var throttler = new Throttler(Policy("250ms", "1.0"));
 
             Assert.AreEqual(EmitAction.Emit, throttler.Offer(10.0d, T0).Action);
 
@@ -117,7 +103,7 @@ namespace Vion.Dale.Sdk.Test.Emission
         [TestMethod]
         public void EmitAnAboveThresholdChangeAfterTheInterval()
         {
-            var throttler = new Throttler(Policy("250ms", minChange: "1.0"));
+            var throttler = new Throttler(Policy("250ms", "1.0"));
 
             Assert.AreEqual(EmitAction.Emit, throttler.Offer(10.0d, T0).Action);
 
@@ -131,7 +117,7 @@ namespace Vion.Dale.Sdk.Test.Emission
         [TestMethod]
         public void ImmediateEmitsWithinTheIntervalIgnoringThrottleAndDeadband()
         {
-            var throttler = new Throttler(Policy("250ms", minChange: "1.0", immediate: true));
+            var throttler = new Throttler(Policy("250ms", "1.0", true));
 
             Assert.AreEqual(EmitAction.Emit, throttler.Offer(10.0d, T0).Action);
 
@@ -146,7 +132,7 @@ namespace Vion.Dale.Sdk.Test.Emission
         [TestMethod]
         public void ImmediateStillHonorsTheValueEqualityFloor()
         {
-            var throttler = new Throttler(Policy("250ms", immediate: true));
+            var throttler = new Throttler(Policy(immediate: true));
 
             Assert.AreEqual(EmitAction.Emit, throttler.Offer(7.0d, T0).Action);
 
@@ -162,6 +148,7 @@ namespace Vion.Dale.Sdk.Test.Emission
             var throttler = new Throttler(Policy("0"));
 
             Assert.AreEqual(EmitAction.Emit, throttler.Offer(1.0d, T0).Action);
+
             // Same instant, distinct value -> interval (zero) elapsed -> Emit, never Hold.
             Assert.AreEqual(EmitAction.Emit, throttler.Offer(2.0d, T0).Action);
             Assert.AreEqual(EmitAction.Emit, throttler.Offer(3.0d, T0).Action);
@@ -174,6 +161,7 @@ namespace Vion.Dale.Sdk.Test.Emission
             var throttler = new Throttler(Policy("0"));
 
             Assert.AreEqual(EmitAction.Emit, throttler.Offer(1.0d, T0).Action);
+
             // Equal value -> floor drops even with throttling disabled.
             Assert.AreEqual(EmitAction.Drop, throttler.Offer(1.0d, T0).Action);
         }
@@ -181,9 +169,10 @@ namespace Vion.Dale.Sdk.Test.Emission
         [TestMethod]
         public void StillApplyTheDeadbandWhenMinIntervalIsZero()
         {
-            var throttler = new Throttler(Policy("0", minChange: "1.0"));
+            var throttler = new Throttler(Policy("0", "1.0"));
 
             Assert.AreEqual(EmitAction.Emit, throttler.Offer(10.0d, T0).Action);
+
             // Sub-threshold change -> deadband drops even with throttling disabled.
             Assert.AreEqual(EmitAction.Drop, throttler.Offer(10.2d, T0).Action);
         }
@@ -191,7 +180,7 @@ namespace Vion.Dale.Sdk.Test.Emission
         [TestMethod]
         public void ReturnFalseFromTryFlushWhenNothingIsPending()
         {
-            var throttler = new Throttler(Policy("250ms"));
+            var throttler = new Throttler(Policy());
 
             Assert.AreEqual(EmitAction.Emit, throttler.Offer(1.0d, T0).Action);
 
@@ -202,5 +191,21 @@ namespace Vion.Dale.Sdk.Test.Emission
             Assert.IsNull(value);
             Assert.AreEqual(1.0d, throttler.LastEmitted);
         }
+
+        private static ThrottlePolicy Policy(string minInterval = "250ms", string? minChange = null, bool immediate = false, Type? valueType = null)
+        {
+            return ThrottlePolicy.FromConfigured(new Cfg { MinInterval = minInterval, MinChange = minChange, Immediate = immediate }, valueType ?? typeof(double));
+        }
+
+        private sealed class Cfg : IThrottleConfigured
+        {
+            public string MinInterval { get; set; } = "250ms";
+
+            public string? MinChange { get; set; }
+
+            public bool Immediate { get; set; }
+        }
+
+        private sealed record Sample(int A, string B);
     }
 }

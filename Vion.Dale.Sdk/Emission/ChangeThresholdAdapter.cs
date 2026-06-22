@@ -3,8 +3,8 @@ using System;
 namespace Vion.Dale.Sdk.Emission
 {
     /// <summary>
-    /// Wraps a strongly-typed <see cref="IChangeThreshold{T}"/> and exposes it through the
-    /// non-generic <see cref="IChangeThresholdAdapter"/> contract by unboxing the supplied values.
+    ///     Wraps a strongly-typed <see cref="IChangeThreshold{T}" /> and exposes it through the
+    ///     non-generic <see cref="IChangeThresholdAdapter" /> contract by unboxing the supplied values.
     /// </summary>
     /// <typeparam name="T">The value type the inner threshold compares.</typeparam>
     internal sealed class ChangeThresholdAdapter<T> : IChangeThresholdAdapter
@@ -25,8 +25,8 @@ namespace Vion.Dale.Sdk.Emission
                 return true;
             }
 
-            T typedLast = (T)last;
-            T typedCandidate = (T)candidate;
+            var typedLast = (T)last;
+            var typedCandidate = (T)candidate;
             return _inner.Exceeds(typedLast, typedCandidate, threshold);
         }
     }
