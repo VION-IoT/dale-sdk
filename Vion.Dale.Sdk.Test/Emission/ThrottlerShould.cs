@@ -127,5 +127,33 @@ namespace Vion.Dale.Sdk.Test.Emission
             Assert.AreEqual(EmitAction.Emit, result.Action);
             Assert.AreEqual(12.0d, throttler.LastEmitted);
         }
+
+        [TestMethod]
+        public void ImmediateEmitsWithinTheIntervalIgnoringThrottleAndDeadband()
+        {
+            var throttler = new Throttler(Policy("250ms", minChange: "1.0", immediate: true));
+
+            Assert.AreEqual(EmitAction.Emit, throttler.Offer(10.0d, T0).Action);
+
+            // Within the interval AND sub-threshold (+0.1) -> Immediate still emits.
+            var result = throttler.Offer(10.1d, T0 + TimeSpan.FromMilliseconds(10));
+
+            Assert.AreEqual(EmitAction.Emit, result.Action);
+            Assert.AreEqual(10.1d, throttler.LastEmitted);
+            Assert.IsFalse(throttler.HasPending);
+        }
+
+        [TestMethod]
+        public void ImmediateStillHonorsTheValueEqualityFloor()
+        {
+            var throttler = new Throttler(Policy("250ms", immediate: true));
+
+            Assert.AreEqual(EmitAction.Emit, throttler.Offer(7.0d, T0).Action);
+
+            // Equal value -> floor runs before the Immediate bypass -> Drop.
+            var result = throttler.Offer(7.0d, T0 + TimeSpan.FromMilliseconds(10));
+
+            Assert.AreEqual(EmitAction.Drop, result.Action);
+        }
     }
 }
