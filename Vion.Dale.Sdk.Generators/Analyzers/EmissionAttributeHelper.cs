@@ -101,6 +101,53 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         }
 
         /// <summary>
+        ///     For a built-in numeric type or <c>TimeSpan</c>, checks whether <paramref name="minChange" />
+        ///     parses with that type's known format and, when it does not, yields the expected-format hint.
+        ///     Returns <c>false</c> (with a null hint) for types whose <c>MinChange</c> format is opaque
+        ///     (custom-threshold types), signalling "do not parse-check".
+        /// </summary>
+        internal static bool TryGetParseExpectation(ITypeSymbol valueType, string minChange, out bool parses, out string? expectationHint)
+        {
+            parses = true;
+            expectationHint = null;
+
+            switch (valueType.SpecialType)
+            {
+                case SpecialType.System_Int32:
+                case SpecialType.System_Int64:
+                    expectationHint = "An invariant-culture integer";
+                    parses = ParsesAsInteger(minChange);
+                    return true;
+                case SpecialType.System_Double:
+                case SpecialType.System_Single:
+                case SpecialType.System_Decimal:
+                    expectationHint = "An invariant-culture number";
+                    parses = ParsesAsFloat(minChange);
+                    return true;
+            }
+
+            if (valueType.ToDisplayString() == "System.TimeSpan")
+            {
+                expectationHint = "A duration (number with optional us/ms/s/m/h suffix)";
+                parses = TryParseDuration(minChange, out _);
+                return true;
+            }
+
+            // Opaque format (custom threshold) — not parse-checkable.
+            return false;
+        }
+
+        private static bool ParsesAsInteger(string token)
+        {
+            return long.TryParse(token, NumberStyles.Integer, CultureInfo.InvariantCulture, out _);
+        }
+
+        private static bool ParsesAsFloat(string token)
+        {
+            return double.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out _);
+        }
+
+        /// <summary>
         ///     <c>true</c> when the duration string is the throttle-disabling sentinel <c>"0"</c> /
         ///     <c>"0ms"</c> (case-insensitive on the suffix, whitespace tolerated).
         /// </summary>
