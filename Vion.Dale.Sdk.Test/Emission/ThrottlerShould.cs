@@ -41,6 +41,8 @@ namespace Vion.Dale.Sdk.Test.Emission
             Assert.IsFalse(throttler.HasPending);
         }
 
+        private sealed record Sample(int A, string B);
+
         [TestMethod]
         public void HoldWithinTheIntervalKeepingTheLatestValueThenFlushAtTheDeadline()
         {
@@ -67,6 +69,35 @@ namespace Vion.Dale.Sdk.Test.Emission
             Assert.AreEqual(3.0d, value);
             Assert.AreEqual(3.0d, throttler.LastEmitted);
             Assert.IsFalse(throttler.HasPending);
+        }
+
+        [TestMethod]
+        public void DropAValueEqualToTheLastEmittedEvenAfterTheInterval()
+        {
+            var throttler = new Throttler(Policy("250ms"));
+
+            Assert.AreEqual(EmitAction.Emit, throttler.Offer(5.0d, T0).Action);
+
+            // Equal value well past the interval -> floor still drops it.
+            var result = throttler.Offer(5.0d, T0 + TimeSpan.FromSeconds(10));
+
+            Assert.AreEqual(EmitAction.Drop, result.Action);
+            Assert.IsFalse(throttler.HasPending);
+        }
+
+        [TestMethod]
+        public void DropARebuiltEqualRecordViaValueEquality()
+        {
+            var throttler = new Throttler(Policy("250ms", valueType: typeof(Sample)));
+
+            var first = new Sample(1, "x");
+            var rebuilt = new Sample(1, "x"); // reference-distinct, value-equal
+
+            Assert.AreEqual(EmitAction.Emit, throttler.Offer(first, T0).Action);
+
+            var result = throttler.Offer(rebuilt, T0 + TimeSpan.FromSeconds(1));
+
+            Assert.AreEqual(EmitAction.Drop, result.Action);
         }
     }
 }
