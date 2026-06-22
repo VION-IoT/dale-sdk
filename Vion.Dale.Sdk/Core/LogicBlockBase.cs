@@ -10,6 +10,7 @@ using Vion.Dale.Sdk.Configuration.Interfaces;
 using Vion.Dale.Sdk.Configuration.Services;
 using Vion.Dale.Sdk.Configuration.Timers;
 using Vion.Dale.Sdk.Diagnostics;
+using Vion.Dale.Sdk.Emission;
 using Vion.Dale.Sdk.Messages;
 using Vion.Dale.Sdk.Persistence;
 using Vion.Dale.Sdk.Utils;
@@ -69,6 +70,21 @@ namespace Vion.Dale.Sdk.Core
         private bool _started;
 
         private TimeProvider _timeProvider = TimeProvider.System;
+
+        // RFC 0004 emission policy. The per-property gate is active when the clock is NOT a
+        // controllable (FakeTimeProvider-style) clock — i.e. production + free-run DevHost — OR
+        // when a TestKit override forces it on despite a controllable clock. Resolved once at
+        // InitializeLogicBlock and cached. When inactive, Handle*ValueChanged sends as before.
+        private bool _emissionPolicyActive;
+
+        // Set from an optional injected EmissionPolicyForceMarker (TestKit WithEmissionPolicy(FromAttributes)):
+        // forces the policy active even though the injected clock is controllable.
+        private bool _forcePolicyFromAttributes;
+
+        // One Throttler per bound service property + measuring point, keyed by (ServiceIdentifier,
+        // member identifier). Built after Configure() (BuildThrottlers). Empty until then, and never
+        // consulted when _emissionPolicyActive is false.
+        private readonly Dictionary<(string ServiceIdentifier, string MemberIdentifier), Throttler> _throttlers = [];
 
         private string? _vitalsActorName;
 
@@ -138,6 +154,12 @@ namespace Vion.Dale.Sdk.Core
                     _vitalsCollector = m.ServiceProvider.GetService(typeof(IActorVitalsCollector)) as IActorVitalsCollector;
                     _timeProvider = m.ServiceProvider.GetService(typeof(TimeProvider)) as TimeProvider ?? TimeProvider.System;
                     _vitalsActorName = LogicBlockUtils.CreateLogicBlockName(Name, Id);
+
+                    // RFC 0004: resolve emission-policy activation once. Force flag from an optional
+                    // injected marker (TestKit override); otherwise active iff the clock is not a
+                    // controllable (stepped / FakeTimeProvider) clock.
+                    _forcePolicyFromAttributes = m.ServiceProvider.GetService(typeof(EmissionPolicyForceMarker)) is EmissionPolicyForceMarker;
+                    _emissionPolicyActive = _forcePolicyFromAttributes || !ControllableClock.Detect(_timeProvider);
 
                     _logger.LogDebug("Initializing logic block '{LogicBlockName}' ({LogicBlockId}) with {ContractMappingCount} contract mappings",
                                      Name,
