@@ -452,10 +452,18 @@ export function describeExpect(expect) {
     return describeComparator(expect);
 }
 
-// Human-readable digitalOutput / analogOutput assertion — mirrors ScenarioRunner.DescribeOutputAssert (C#).
-// The comparator object carries the same above/below/equals(+tolerance)/notEquals/oneOf fields as expect.
+// Human-readable serviceProviderExpect / output assertion comparator (above/below/equals(+tolerance)/notEquals/oneOf).
 export function describeOutputAssert(output) {
     return describeComparator(output);
+}
+
+// The short badge for a wired service-provider contract in the wiring panel. The four built-in HAL
+// families map to their familiar DI/DO/AI/AO; every other [ServiceProviderContractType] value contract
+// (PPC and the like) is a generic 'SP' — NOT silently bucketed into 'AO' (the old bug that mislabeled
+// custom contracts and faked a 0 read-out). SP contracts are scenario-driven; the panel shows that
+// honestly rather than offering a control that cannot drive their (possibly struct) payload.
+export function contractTypeShort(type) {
+    return { DigitalInput: 'DI', DigitalOutput: 'DO', AnalogInput: 'AI', AnalogOutput: 'AO' }[type] || 'SP';
 }
 
 // Build the copy-paste verification report (markdown) from the scenario, the run report, and the

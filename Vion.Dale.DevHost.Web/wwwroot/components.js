@@ -6,7 +6,7 @@
 
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from './vue.esm-browser.prod.js';
 import {
-    buildVerificationReport, cssGroupKey, defaultOpen, describeExpect, describeOutputAssert, describeType, describeWaitUntil,
+    buildVerificationReport, contractTypeShort, cssGroupKey, defaultOpen, describeExpect, describeOutputAssert, describeType, describeWaitUntil,
     effectiveType, enumDisplay, enumMembers, formatTemporal, formatValue, gallerySamples,
     GROUP_LABELS, groupItems, isNullable, isWritable, matchesFilter, orderedGroupKeys, parseFilter,
     parseNamePath, presentationFacts, resolveAuthoredTitle, resolveDisplayName, resolveUnit, sampleJson, serviceMembers, severityFor,
@@ -772,7 +772,7 @@ export const WiringSection = {
             const type = info.matchingContractType;
             return {
                 id: cm.contractIdentifier, type,
-                short: type === 'DigitalInput' ? 'DI' : type === 'DigitalOutput' ? 'DO' : type === 'AnalogInput' ? 'AI' : 'AO',
+                short: contractTypeShort(type),
                 spId, svcId, cId, sharedWith,
             };
         }).filter(Boolean);
@@ -791,14 +791,15 @@ export const WiringSection = {
                 </span>
             </div>
             <div v-for="c in contracts" :key="c.spId + c.svcId + c.cId" class="io-row">
-                <span class="contract-type-badge" :class="c.short.toLowerCase()">{{ c.short }}</span>
+                <span class="contract-type-badge" :class="c.short.toLowerCase()" :title="c.type">{{ c.short }}</span>
                 <span class="mono io-name">{{ c.id }}</span>
                 <span v-if="c.sharedWith.length" class="shared-badge">shared with {{ c.sharedWith.join(', ') }}</span>
                 <span class="item-spacer"></span>
                 <input v-if="c.short === 'DI'" class="toggle" type="checkbox" :checked="!!halValue('di', c)" @change="onDi(c, $event)">
                 <input v-else-if="c.short === 'AI'" type="number" step="0.1" :value="halValue('ai', c) ?? 0"
                        @keydown.enter="onAi(c, $event); $event.target.blur()" @blur="onAi(c, $event)">
-                <span v-else class="value-chip">{{ fmt(halValue(c.short.toLowerCase(), c) ?? (c.short === 'DO' ? false : 0)) }}</span>
+                <span v-else-if="c.short === 'DO' || c.short === 'AO'" class="value-chip">{{ fmt(halValue(c.short.toLowerCase(), c) ?? (c.short === 'DO' ? false : 0)) }}</span>
+                <span v-else class="scenario-only" :title="c.type + ' — drive/assert from a scenario (serviceProviderSet / serviceProviderExpect)'">scenario-driven</span>
             </div>
         </details>
     `,
@@ -1044,8 +1045,8 @@ export const TopologyPanel = {
                 const info = infoMap[cm.contractIdentifier];
                 const type = info ? info.matchingContractType : '?';
                 return {
-                    id: cm.contractIdentifier,
-                    short: type === 'DigitalInput' ? 'DI' : type === 'DigitalOutput' ? 'DO' : type === 'AnalogInput' ? 'AI' : 'AO',
+                    id: cm.contractIdentifier, type,
+                    short: contractTypeShort(type),
                     endpoint: `${cm.mappedServiceProviderIdentifier} / ${cm.mappedServiceIdentifier} / ${cm.mappedContractIdentifier}`,
                 };
             });
