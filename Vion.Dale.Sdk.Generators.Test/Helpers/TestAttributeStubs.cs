@@ -46,6 +46,12 @@ namespace Vion.Dale.Sdk.Core
         public bool WriteOnly { get; init; }
 
         public bool ReadOnly { get; init; }
+
+        public string MinInterval { get; init; } = "250ms";
+
+        public string? MinChange { get; init; }
+
+        public bool Immediate { get; init; }
     }
 
     public enum Importance
@@ -95,6 +101,12 @@ namespace Vion.Dale.Sdk.Core
         public double Minimum { get; init; } = double.NegativeInfinity;
 
         public double Maximum { get; init; } = double.PositiveInfinity;
+
+        public string MinInterval { get; init; } = "250ms";
+
+        public string? MinChange { get; init; }
+
+        public bool Immediate { get; init; }
     }
 
     public static class PropertyGroup
@@ -202,5 +214,15 @@ namespace Vion.Dale.Sdk.Configuration.Contract
     [AttributeUsage(AttributeTargets.Interface)]
     public class ServiceProviderContractTypeAttribute : Attribute
     {
+    }
+}
+
+namespace Vion.Dale.Sdk.Emission
+{
+    // Mirrors the real IChangeThreshold<T> shape so test sources can declare a custom
+    // change-threshold implementation, which the MinChange analyzer must discover in the compilation.
+    public interface IChangeThreshold<T>
+    {
+        bool Exceeds(in T lastEmitted, in T candidate, string threshold);
     }
 }

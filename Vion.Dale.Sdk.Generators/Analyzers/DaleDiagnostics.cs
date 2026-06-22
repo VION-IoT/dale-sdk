@@ -393,5 +393,84 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                                                                                           Category,
                                                                                           DiagnosticSeverity.Warning,
                                                                                           true);
+
+        // --- Emission policy (RFC 0004) ---
+
+        /// <summary>
+        ///     <c>MinChange</c> (the deadband) is set on a <c>[ServiceProperty]</c> /
+        ///     <c>[ServiceMeasuringPoint]</c> whose value type has no resolvable
+        ///     <c>IChangeThreshold&lt;T&gt;</c>. The runtime ships built-ins for double, float, decimal,
+        ///     int, long, and <c>TimeSpan</c>; any other type needs an
+        ///     <c>IChangeThreshold&lt;ThatType&gt;</c> implementation visible in the compilation, else the
+        ///     deadband can never be resolved at start-up. <c>bool</c> is the clearest case — no magnitude
+        ///     to threshold — and is always an error.
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE034_MinChangeWithoutChangeThreshold = new("DALE034",
+                                                                                                  "MinChange has no resolvable IChangeThreshold<T>",
+                                                                                                  "Property '{0}' sets MinChange but type '{1}' has no built-in or registered IChangeThreshold<{1}>. Built-ins exist for double, float, decimal, int, long, TimeSpan; for any other type implement IChangeThreshold<{1}> (bool has no magnitude and is never valid).",
+                                                                                                  Category,
+                                                                                                  DiagnosticSeverity.Error,
+                                                                                                  true);
+
+        /// <summary>
+        ///     <c>MinChange</c> on a built-in numeric type or <c>TimeSpan</c> does not parse with that
+        ///     type's known format: numeric types need an invariant-culture number; a <c>TimeSpan</c>
+        ///     needs the duration grammar (<c>us</c>/<c>ms</c>/<c>s</c>/<c>m</c>/<c>h</c> suffix or a bare
+        ///     number = milliseconds). Custom-threshold types are not parse-checked — their format is opaque.
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE035_MinChangeUnparseable = new("DALE035",
+                                                                                       "MinChange is not parseable for the member's type",
+                                                                                       "Property '{0}' has MinChange = \"{1}\" which is not valid for type '{2}'. {3} is expected.",
+                                                                                       Category,
+                                                                                       DiagnosticSeverity.Error,
+                                                                                       true);
+
+        /// <summary>
+        ///     <c>MinInterval</c> does not parse with the duration grammar (error) or parses to a positive
+        ///     value below the 1 ms floor the emission gate can honour (warning). The sentinel
+        ///     <c>"0"</c> / <c>"0ms"</c> (throttle disabled) is valid and never reported.
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE036_MinIntervalInvalid = new("DALE036",
+                                                                                     "MinInterval is invalid",
+                                                                                     "Property '{0}' has MinInterval = \"{1}\" which is not a valid duration. Use a number with an optional us/ms/s/m/h suffix (bare number = milliseconds), or \"0\" to disable throttling.",
+                                                                                     Category,
+                                                                                     DiagnosticSeverity.Error,
+                                                                                     true);
+
+        /// <summary>
+        ///     <c>MinInterval</c> parses to a positive value below the 1 ms floor. The emission gate's
+        ///     trailing-edge flush rides the actor scheduler, which cannot meaningfully honour a sub-1ms
+        ///     interval — the value is effectively rounded up to the gate's resolution.
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE037_MinIntervalBelowFloor = new("DALE037",
+                                                                                        "MinInterval is below the 1 ms floor",
+                                                                                        "Property '{0}' has MinInterval = \"{1}\" which is below the 1 ms floor the emission gate can honour. Use a value >= 1 ms, or \"0\" to disable throttling.",
+                                                                                        Category,
+                                                                                        DiagnosticSeverity.Warning,
+                                                                                        true);
+
+        /// <summary>
+        ///     <c>Immediate = true</c> bypasses the throttle and the deadband, so a non-default
+        ///     <c>MinInterval</c> or any <c>MinChange</c> declared alongside it is silently ignored. Drop
+        ///     the ignored knob, or drop <c>Immediate</c> if throttling/deadband is intended.
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE038_ImmediateIgnoresThrottleKnobs = new("DALE038",
+                                                                                                "Immediate ignores MinInterval / MinChange",
+                                                                                                "Property '{0}' sets Immediate = true together with {1}. Immediate bypasses the throttle and the deadband, so that knob is ignored. Drop it, or drop Immediate if throttling/deadband is intended.",
+                                                                                                Category,
+                                                                                                DiagnosticSeverity.Warning,
+                                                                                                true);
+
+        /// <summary>
+        ///     <c>MinChange</c> (a deadband) is set while <c>MinInterval</c> is the disabling sentinel
+        ///     <c>"0"</c> / <c>"0ms"</c> — a valid deadband-only configuration (no time throttle, change
+        ///     gate still applies). Surfaced as information so the intent is explicit.
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE039_DeadbandWithoutThrottle = new("DALE039",
+                                                                                          "MinChange with throttling disabled (deadband only)",
+                                                                                          "Property '{0}' sets MinChange while MinInterval = \"{1}\" disables time-throttling. This is a valid deadband-only configuration — emission is gated by change magnitude alone.",
+                                                                                          Category,
+                                                                                          DiagnosticSeverity.Info,
+                                                                                          true);
     }
 }
