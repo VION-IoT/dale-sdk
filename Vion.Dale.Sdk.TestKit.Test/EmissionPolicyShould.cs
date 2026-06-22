@@ -141,6 +141,26 @@ namespace Vion.Dale.Sdk.TestKit.Test
             ctx.VerifyServicePropertyEmitted(lb => lb.Voltage, times: Times.Never());
         }
 
+        [TestMethod]
+        public void DrainExactCurrentValueOnStop()
+        {
+            var block = LogicBlockTestHelper.Create<ThrottledBlock>();
+            var ctx = block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).Build();
+
+            ctx.AdvanceTime(TimeSpan.FromMilliseconds(250)); // clear the start-seed interval
+
+            block.Voltage = 1.0; // emit (leading), lastEmitted = 1.0
+            block.Voltage = 9.0; // held within interval, NOT yet emitted
+
+            ctx.ClearRecordedMessages();
+
+            // Stop without advancing time: the held 9.0 never flushed via the timer, but the
+            // stop-drain must emit the exact current value (9.0) so the final retained state is exact.
+            block.HandleMessageAsync(new Vion.Dale.Sdk.Messages.StopLogicBlockRequest(), ctx).GetAwaiter().GetResult();
+
+            ctx.VerifyServicePropertyEmitted(lb => lb.Voltage, value => Assert.AreEqual(9.0, value), Times.Once());
+        }
+
         // The TestKit's GetPrivateField extension is internal to the TestKit assembly; reach the
         // block's ServiceBinder via reflection here (ServiceBinder is a public SDK type).
         private static Vion.Dale.Sdk.Configuration.Services.ServiceBinder GetServiceBinder(LogicBlockBase block)

@@ -275,6 +275,11 @@ namespace Vion.Dale.Sdk.Core
                         _logger.LogError(ex, "Exception in Stopping() for logic block '{LogicBlockName}' ({LogicBlockId}); continuing shutdown.", Name, Id);
                     }
 
+                    // RFC 0004: drain each throttler's exact current value before stopping, so the final
+                    // retained state is exact (the deadband suppresses sub-threshold changes only during
+                    // operation). Must run while _started is still true and bindings are live.
+                    DrainThrottlers();
+
                     _started = false;
                     _serviceBinder.ClearRetainedMessages(_logger);
                     _actorContext.RespondToSender(new StopLogicBlockResponse());
@@ -623,6 +628,74 @@ namespace Vion.Dale.Sdk.Core
             }
 
             return false;
+        }
+
+        /// <summary>
+        ///     RFC 0004: on stop, emit each throttled member's exact current value if it differs from the
+        ///     throttler's last-emitted value — bypassing throttle and deadband — so the final retained
+        ///     state is exact. Reads the current value straight from the binding getter.
+        /// </summary>
+        private void DrainThrottlers()
+        {
+            if (!_emissionPolicyActive)
+            {
+                return;
+            }
+
+            DrainBindings(_serviceBinder.GetAllServicePropertyBindings(), isMeasuringPoint: false);
+            DrainBindings(_serviceBinder.GetAllServiceMeasuringPointBindings(), isMeasuringPoint: true);
+        }
+
+        private void DrainBindings(
+            IReadOnlyDictionary<string, IReadOnlyDictionary<Type, IReadOnlyDictionary<string, ServiceBinding>>> bindings,
+            bool isMeasuringPoint)
+        {
+            foreach (var (serviceIdentifier, interfaceMap) in bindings)
+            {
+                if (!_serviceIdLookup.TryGetValue(serviceIdentifier, out var serviceId))
+                {
+                    continue;
+                }
+
+                foreach (var perInterface in interfaceMap.Values)
+                {
+                    foreach (var (memberIdentifier, binding) in perInterface)
+                    {
+                        if (!_throttlers.TryGetValue((serviceIdentifier, memberIdentifier), out var throttler))
+                        {
+                            continue;
+                        }
+
+                        object? current;
+                        try
+                        {
+                            current = binding.Getter(binding.Source);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning("Failed to read current value for drain of {ServiceIdentifier}.{MemberIdentifier}: {ExceptionMessage}",
+                                               serviceIdentifier,
+                                               memberIdentifier,
+                                               ex.Message);
+                            continue;
+                        }
+
+                        if (throttler.HasEmitted && Equals(throttler.LastEmitted, current))
+                        {
+                            continue;
+                        }
+
+                        if (isMeasuringPoint)
+                        {
+                            _actorContext.SendTo(_serviceMeasuringPointHandlerActorRef, new ServiceMeasuringPointValueChanged(serviceId, memberIdentifier, current));
+                        }
+                        else
+                        {
+                            _actorContext.SendTo(_servicePropertyHandlerActorRef, new ServicePropertyValueChanged(serviceId, memberIdentifier, current));
+                        }
+                    }
+                }
+            }
         }
 
         private void HandleSetServicePropertyValueRequest(IActorContext actorContext, SetServicePropertyValueRequest m)
