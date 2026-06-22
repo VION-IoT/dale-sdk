@@ -203,6 +203,9 @@ namespace Vion.Dale.DevHost.Scenarios
 
         public ScenarioContractRef? AnalogInput { get; init; }
 
+        /// <summary>Drives any <c>[ServiceProviderContractType]</c> value input contract from <c>value</c> (RFC 0010).</summary>
+        public ScenarioServiceProviderRef? ServiceProviderSet { get; init; }
+
         /// <summary>A deterministic, point-in-time auto-assertion on a mocked <c>IDigitalOutput</c> (step-only).</summary>
         public ScenarioOutputAssert? DigitalOutput { get; init; }
 
@@ -246,6 +249,11 @@ namespace Vion.Dale.DevHost.Scenarios
                 if (AnalogInput is not null)
                 {
                     return "analogInput";
+                }
+
+                if (ServiceProviderSet is not null)
+                {
+                    return "serviceProviderSet";
                 }
 
                 if (DigitalOutput is not null)
@@ -300,6 +308,11 @@ namespace Vion.Dale.DevHost.Scenarios
                 shapes++;
             }
 
+            if (ServiceProviderSet is not null)
+            {
+                shapes++;
+            }
+
             if (DigitalOutput is not null)
             {
                 shapes++;
@@ -337,7 +350,8 @@ namespace Vion.Dale.DevHost.Scenarios
 
             if (shapes != 1)
             {
-                yield return "a step is exactly one of set / digitalInput / analogInput / digitalOutput / analogOutput / waitUntil / expect / wait / advance / settle";
+                yield return
+                    "a step is exactly one of set / digitalInput / analogInput / serviceProviderSet / digitalOutput / analogOutput / waitUntil / expect / wait / advance / settle";
 
                 yield break;
             }
@@ -362,7 +376,7 @@ namespace Vion.Dale.DevHost.Scenarios
                     yield return "set requires value (use an explicit null to write null)";
                 }
             }
-            else if (Value.ValueKind != JsonValueKind.Undefined && DigitalInput is null && AnalogInput is null)
+            else if (Value.ValueKind != JsonValueKind.Undefined && DigitalInput is null && AnalogInput is null && ServiceProviderSet is null)
             {
                 yield return $"value is not valid on a {Kind} step";
             }
@@ -390,6 +404,19 @@ namespace Vion.Dale.DevHost.Scenarios
                 if (Value.ValueKind != JsonValueKind.Number)
                 {
                     yield return "analogInput requires a numeric value";
+                }
+            }
+
+            if (ServiceProviderSet is not null)
+            {
+                foreach (var error in ServiceProviderSet.StructuralErrors("serviceProviderSet"))
+                {
+                    yield return error;
+                }
+
+                if (Value.ValueKind == JsonValueKind.Undefined)
+                {
+                    yield return "serviceProviderSet requires value (the contract's wire value — a scalar for digital/analog, a JSON object for a struct contract)";
                 }
             }
 
@@ -482,6 +509,32 @@ namespace Vion.Dale.DevHost.Scenarios
             if (string.IsNullOrWhiteSpace(Block))
             {
                 yield return $"{shape}.block is required";
+            }
+
+            if (string.IsNullOrWhiteSpace(Contract))
+            {
+                yield return $"{shape}.contract is required";
+            }
+        }
+    }
+
+    /// <summary>
+    ///     A service-provider value-contract reference (<c>serviceProviderSet</c>, RFC 0010): the consuming
+    ///     logic block's name plus the contract identifier. Addresses any <c>[ServiceProviderContractType]</c>
+    ///     value contract uniformly — the four HAL contracts and third-party ones like PPC — replacing the
+    ///     per-family <c>digitalInput</c> / <c>analogInput</c> references.
+    /// </summary>
+    public sealed class ScenarioServiceProviderRef
+    {
+        public string? LogicBlock { get; init; }
+
+        public string? Contract { get; init; }
+
+        internal IEnumerable<string> StructuralErrors(string shape)
+        {
+            if (string.IsNullOrWhiteSpace(LogicBlock))
+            {
+                yield return $"{shape}.logicBlock is required";
             }
 
             if (string.IsNullOrWhiteSpace(Contract))

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -111,6 +112,18 @@ namespace Vion.Dale.DevHost.Control
 
         /// <summary>Set a mocked analog input value, routed to the linked logic blocks just like the web UI's HAL control.</summary>
         Task SetAnalogInputAsync(string serviceProviderId, string serviceId, string contractId, double value);
+
+        /// <summary>
+        ///     Drive any <c>[ServiceProviderContractType]</c> value <em>input</em> contract (RFC 0010
+        ///     <c>serviceProviderSet</c>): the generic complement of <see cref="SetDigitalInputAsync" /> /
+        ///     <see cref="SetAnalogInputAsync" /> — one path for digital, analog, and third-party struct
+        ///     contracts. Addressed by the generic stand-in's actor name (<paramref name="handlerName" />, the
+        ///     contract's <c>ContractHandlerActorName</c>) plus the mocked endpoint ids, with the wire value as
+        ///     JSON (a scalar for digital/analog, an object for a struct contract). The stand-in builds the exact
+        ///     contract message via its codec and forwards it to the linked logic blocks, deterministically under
+        ///     stepping (one hop, the contract plane — never a service-property setter).
+        /// </summary>
+        Task DriveServiceProviderContractAsync(string handlerName, string serviceProviderId, string serviceId, string contractId, JsonElement value);
 
         /// <summary>
         ///     Read the last value a logic block Set on a mocked <c>IDigitalOutput</c>, addressed by the mocked

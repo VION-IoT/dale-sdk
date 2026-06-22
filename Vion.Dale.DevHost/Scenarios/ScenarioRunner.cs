@@ -213,6 +213,7 @@ namespace Vion.Dale.DevHost.Scenarios
                                "set" => step.Set!,
                                "digitalInput" => $"{step.DigitalInput!.Block}.{step.DigitalInput.Contract}",
                                "analogInput" => $"{step.AnalogInput!.Block}.{step.AnalogInput.Contract}",
+                               "serviceProviderSet" => $"{step.ServiceProviderSet!.LogicBlock}.{step.ServiceProviderSet.Contract}",
                                "digitalOutput" => $"{step.DigitalOutput!.Block}.{step.DigitalOutput.Contract}",
                                "analogOutput" => $"{step.AnalogOutput!.Block}.{step.AnalogOutput.Contract}",
                                "waitUntil" => step.WaitUntil!.Property ?? string.Empty,
@@ -223,7 +224,7 @@ namespace Vion.Dale.DevHost.Scenarios
                            },
                            Argument = step.Kind switch
                            {
-                               "set" or "digitalInput" or "analogInput" => step.Value.ValueKind == JsonValueKind.Undefined ? null : step.Value.GetRawText(),
+                               "set" or "digitalInput" or "analogInput" or "serviceProviderSet" => step.Value.ValueKind == JsonValueKind.Undefined ? null : step.Value.GetRawText(),
                                "digitalOutput" => DescribeOutputAssert(step.DigitalOutput!),
                                "analogOutput" => DescribeOutputAssert(step.AnalogOutput!),
                                "waitUntil" => DescribeCondition(step),
@@ -461,6 +462,16 @@ namespace Vion.Dale.DevHost.Scenarios
                         await control.SetAnalogInputAsync(resolved.Contract!.ServiceProviderId, resolved.Contract.ServiceId, resolved.Contract.ContractId, step.Value.GetDouble())
                                      .ConfigureAwait(false);
                         result.Detail = "injected (inputs are fire-and-forget; pair with waitUntil to observe the effect)";
+                        break;
+
+                    case "serviceProviderSet":
+                        await control.DriveServiceProviderContractAsync(resolved.Contract!.HandlerName!,
+                                                                        resolved.Contract.ServiceProviderId,
+                                                                        resolved.Contract.ServiceId,
+                                                                        resolved.Contract.ContractId,
+                                                                        step.Value)
+                                     .ConfigureAwait(false);
+                        result.Detail = "driven (inputs are fire-and-forget; pair with waitUntil / settle to observe the effect)";
                         break;
 
                     case "digitalOutput":
