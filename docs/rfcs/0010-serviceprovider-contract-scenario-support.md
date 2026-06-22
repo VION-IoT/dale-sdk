@@ -121,9 +121,10 @@ in the message path; the generic handler calls `contract.Wire.MakeInbound(id, js
 result.
 
 > **Convention, not magic.** This one line is the author's only new obligation, and it is explicit and
-> type-checked. A future source generator can emit `Wire` from the `HandleContractMessage` switch to
-> reach *zero* author boilerplate (the contracts are already `partial` and generator-visible) — recorded
-> as a fast-follow, not MVP.
+> type-checked. A source generator *could* emit `Wire` from the `HandleContractMessage` switch to reach
+> *zero* author boilerplate — but that is **deliberately not pursued**: a whole generator, with its
+> build-time and debugging surface, to save one declared, type-checked line is a poor cost/benefit trade.
+> Revisit only if `Wire` ever grows past one line, or the per-contract boilerplate otherwise multiplies.
 
 ### 3. One generic step pair; the four HAL kinds are deleted (format v2)
 
@@ -318,5 +319,6 @@ Putting myself in the shoes of (a) a PPC author and (b) someone shipping a trivi
   direction rule (multiplicity ⇒ drivable vs assert-only) is implicit; the guide needs a one-liner so an
   author doesn't `serviceProviderSet` an output and get a confusing error.
 - **Verdict.** With the `Wire` convention + an authoring guide that states those three things, this is
-  usable by a contract author with no DevHost knowledge. The zero-boilerplate generator is a nice-to-have,
-  not a blocker — one declared line is an acceptable, explicit convention, and explicit beats magic here.
+  usable by a contract author with no DevHost knowledge. One declared, type-checked line is an acceptable,
+  explicit convention — a source generator to eliminate it is **deliberately out of scope** (a poor
+  cost/benefit for one line), and explicit beats magic here.
