@@ -217,6 +217,11 @@ namespace Vion.Dale.Sdk.Introspection
                                             annotations[LogicBlockWiringConventions.ConsumersAnnotationKey] = LinkMultiplicityWire.ToToken(attribute.Consumers);
                                         }
 
+                                        // The handler actor that services this contract — surfaced so the DevHost
+                                        // can address the generic stand-in registered under it when a scenario
+                                        // drives the contract (RFC 0010).
+                                        annotations[ServiceProviderContractAnnotations.ContractHandlerActorName] = i.Value.ContractHandlerActorName;
+
                                         return new LogicBlockIntrospectionResult.ContractInfo
                                                {
                                                    Identifier = i.Key,

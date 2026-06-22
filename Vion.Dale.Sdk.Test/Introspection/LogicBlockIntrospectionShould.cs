@@ -9,6 +9,7 @@ using Moq;
 using Vion.Contracts.Conventions;
 using Vion.Contracts.Introspection;
 using Vion.Dale.Sdk.AnalogIo.Input;
+using Vion.Dale.Sdk.Configuration.Contract;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.DigitalIo.Input;
 using Vion.Dale.Sdk.DigitalIo.Output;
@@ -521,6 +522,24 @@ namespace Vion.Dale.Sdk.Test.Introspection
             var temperature = result.Contracts.First(c => c.Identifier == "Temperature");
             Assert.IsFalse(temperature.Annotations.ContainsKey(LogicBlockWiringConventions.MultiplicityAnnotationKey));
             Assert.IsFalse(temperature.Annotations.ContainsKey(LogicBlockWiringConventions.ConsumersAnnotationKey));
+        }
+
+        [TestMethod]
+        public void IntrospectContractHandlerActorNameAnnotation()
+        {
+            // The contract's ContractHandlerActorName is surfaced so the DevHost can address the generic
+            // stand-in registered under it when a scenario drives the contract (RFC 0010).
+            var block = new ContractTestLogicBlock();
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            var button = result.Contracts.First(c => c.Identifier == "Button");
+            Assert.AreEqual("DigitalInputHandler", button.Annotations[ServiceProviderContractAnnotations.ContractHandlerActorName]);
+
+            var led = result.Contracts.First(c => c.Identifier == "LED");
+            Assert.AreEqual("DigitalOutputHandler", led.Annotations[ServiceProviderContractAnnotations.ContractHandlerActorName]);
+
+            var temperature = result.Contracts.First(c => c.Identifier == "Temperature");
+            Assert.AreEqual("AnalogInputHandler", temperature.Annotations[ServiceProviderContractAnnotations.ContractHandlerActorName]);
         }
 
         [TestMethod]
