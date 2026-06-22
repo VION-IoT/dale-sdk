@@ -99,5 +99,33 @@ namespace Vion.Dale.Sdk.Test.Emission
 
             Assert.AreEqual(EmitAction.Drop, result.Action);
         }
+
+        [TestMethod]
+        public void DropASubThresholdChangeViaTheDeadband()
+        {
+            // MinChange 1.0 on a double property: |candidate-last| must be >= 1.0 to pass.
+            var throttler = new Throttler(Policy("250ms", minChange: "1.0"));
+
+            Assert.AreEqual(EmitAction.Emit, throttler.Offer(10.0d, T0).Action);
+
+            // +0.4 past the interval: distinct value, interval elapsed, but deadband blocks it.
+            var result = throttler.Offer(10.4d, T0 + TimeSpan.FromSeconds(1));
+
+            Assert.AreEqual(EmitAction.Drop, result.Action);
+        }
+
+        [TestMethod]
+        public void EmitAnAboveThresholdChangeAfterTheInterval()
+        {
+            var throttler = new Throttler(Policy("250ms", minChange: "1.0"));
+
+            Assert.AreEqual(EmitAction.Emit, throttler.Offer(10.0d, T0).Action);
+
+            // +2.0 past the interval: passes deadband and interval -> Emit.
+            var result = throttler.Offer(12.0d, T0 + TimeSpan.FromSeconds(1));
+
+            Assert.AreEqual(EmitAction.Emit, result.Action);
+            Assert.AreEqual(12.0d, throttler.LastEmitted);
+        }
     }
 }
