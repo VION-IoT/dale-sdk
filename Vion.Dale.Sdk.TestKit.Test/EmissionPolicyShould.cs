@@ -115,5 +115,40 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
             ctx.VerifyServicePropertyEmitted(lb => lb.Voltage, value => Assert.AreEqual(7.0, value), Times.Once());
         }
+
+        [TestMethod]
+        public void EmitClearedImmediatelyAndCancelPendingFlush()
+        {
+            var block = LogicBlockTestHelper.Create<ThrottledBlock>();
+            var ctx = block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).Build();
+
+            ctx.AdvanceTime(TimeSpan.FromMilliseconds(250)); // clear the start-seed interval
+
+            block.Voltage = 1.0; // emit (leading)
+            block.Voltage = 2.0; // held
+
+            // Simulate the runtime stop-clear path: ClearRetainedMessages raises the Cleared events.
+            var binder = GetServiceBinder(block);
+            binder.ClearRetainedMessages(Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance);
+
+            // The clear is emitted (bypassing the gate) ...
+            var cleared = ctx.GetSentMessagesOfTypePublic<Vion.Dale.Sdk.Messages.ServicePropertyValueCleared>();
+            Assert.IsTrue(cleared.Count >= 1, "Cleared message must be emitted immediately, bypassing the throttler.");
+
+            // ... and the previously-held flush is cancelled: advancing past the interval emits no held value.
+            ctx.ClearRecordedMessages();
+            ctx.AdvanceTime(TimeSpan.FromMilliseconds(250));
+            ctx.VerifyServicePropertyEmitted(lb => lb.Voltage, times: Times.Never());
+        }
+
+        // The TestKit's GetPrivateField extension is internal to the TestKit assembly; reach the
+        // block's ServiceBinder via reflection here (ServiceBinder is a public SDK type).
+        private static Vion.Dale.Sdk.Configuration.Services.ServiceBinder GetServiceBinder(LogicBlockBase block)
+        {
+            var field = typeof(LogicBlockBase).GetField("_serviceBinder",
+                                                         System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                        ?? throw new System.InvalidOperationException("_serviceBinder field not found on LogicBlockBase.");
+            return (Vion.Dale.Sdk.Configuration.Services.ServiceBinder)field.GetValue(block)!;
+        }
     }
 }

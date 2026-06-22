@@ -87,6 +87,10 @@ namespace Vion.Dale.Sdk.Core
         // consulted when _emissionPolicyActive is false.
         private readonly Dictionary<(string ServiceIdentifier, string MemberIdentifier), Throttler> _throttlers = [];
 
+        // The policy each throttler was built from, kept so a value-clear can reconstruct a fresh
+        // throttler (the gate has no in-place cancel) — see ResetThrottlerPending.
+        private readonly Dictionary<(string ServiceIdentifier, string MemberIdentifier), ThrottlePolicy> _throttlerPolicies = [];
+
         private string? _vitalsActorName;
 
         private IActorVitalsCollector? _vitalsCollector;
@@ -485,6 +489,7 @@ namespace Vion.Dale.Sdk.Core
                         }
 
                         var policy = ThrottlePolicy.FromConfigured(configured, binding.TargetPropertyType);
+                        _throttlerPolicies[(serviceIdentifier, memberIdentifier)] = policy;
                         _throttlers[(serviceIdentifier, memberIdentifier)] = new Throttler(policy);
                     }
                 }
@@ -503,6 +508,19 @@ namespace Vion.Dale.Sdk.Core
             // both implement IThrottleConfigured. Reflect whichever is present.
             return (IThrottleConfigured?)property.GetCustomAttribute(typeof(ServicePropertyAttribute), true)
                    ?? (IThrottleConfigured?)property.GetCustomAttribute(typeof(ServiceMeasuringPointAttribute), true);
+        }
+
+        /// <summary>
+        ///     RFC 0004: discards a throttler's pending held flush (and its emitted state) on a value-clear,
+        ///     so the cleared edge is not undone by a later trailing flush. Reconstructs the gate from its
+        ///     stored policy via a fresh <see cref="Throttler" /> — there is no in-place cancel on the gate.
+        /// </summary>
+        private void ResetThrottlerPending((string ServiceIdentifier, string MemberIdentifier) key)
+        {
+            if (_throttlerPolicies.TryGetValue(key, out var policy))
+            {
+                _throttlers[key] = new Throttler(policy);
+            }
         }
 
         /// <summary>
@@ -697,6 +715,10 @@ namespace Vion.Dale.Sdk.Core
                 return;
             }
 
+            // RFC 0004: a clear is a state-significant edge — emit immediately (bypass the gate) and
+            // discard any pending held flush so the just-cleared value is not re-emitted afterwards.
+            ResetThrottlerPending((args.ServiceIdentifier, args.PropertyIdentifier));
+
             // Send empty retained message to clear
             _actorContext.SendTo(_servicePropertyHandlerActorRef, new ServicePropertyValueCleared(serviceIdentifier, args.PropertyIdentifier));
         }
@@ -708,6 +730,10 @@ namespace Vion.Dale.Sdk.Core
                 _logger.LogWarning("Unknown service identifier for identifier '{ServiceIdentifier}' in logic block '{Id}'.", args.ServiceIdentifier, Id);
                 return;
             }
+
+            // RFC 0004: same clear-edge semantics as the property path — emit immediately and discard
+            // any pending held flush for this measuring point.
+            ResetThrottlerPending((args.ServiceIdentifier, args.MeasuringPointIdentifier));
 
             // Send empty retained message to clear
             _actorContext.SendTo(_serviceMeasuringPointHandlerActorRef, new ServiceMeasuringPointValueCleared(serviceIdentifier, args.MeasuringPointIdentifier));

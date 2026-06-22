@@ -378,6 +378,16 @@ namespace Vion.Dale.Sdk.TestKit
             return _sentMessages.Where(s => s.Message is TMessage).Select(s => (TMessage)s.Message);
         }
 
+        /// <summary>
+        ///     Returns every recorded message of <typeparamref name="TMessage" /> in send order. A public
+        ///     escape hatch for assertions that need a message type the typed <c>Verify*</c> helpers do
+        ///     not cover (e.g. <c>ServicePropertyValueCleared</c> for the RFC 0004 clear-bypass path).
+        /// </summary>
+        public IReadOnlyList<TMessage> GetSentMessagesOfTypePublic<TMessage>()
+        {
+            return _sentMessages.Where(s => s.Message is TMessage).Select(s => (TMessage)s.Message).ToList();
+        }
+
         #region IActorContext implementation, explicit to hide in tests
 
         IReadOnlyDictionary<string, string>? IActorContext.Headers
