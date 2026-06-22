@@ -263,11 +263,11 @@ Sites to migrate in lockstep (the format lives in four parallel places + the doc
 
 ## Implementation & staging
 
-1. **This RFC**, then **a throwaway spike (~1 day)** that de-risks the one hard thing: register a generic
-   `ServiceProviderContractHandler` under `nameof(DigitalInputHandler)`, drive it from a `serviceProviderSet`,
-   and confirm (a) a digital input round-trips, (b) **PPC** round-trips to `DemandReceived` via the `Wire`
-   factory, and (c) the four HAL families still round-trip byte-for-byte (the regression golden). Confirm
-   the open question below before building on top.
+1. **This RFC. The de-risking spike is done (✅).** The wiring open question was answered from source
+   (see Risks), and a throwaway spike (`spike/serviceprovider-generic-handler`) proved the one new piece,
+   `ServiceProviderWire`, builds the exact closed `ContractMessage<T>` a consumer's `HandleContractMessage`
+   switch matches — from a scenario JSON value, for both a scalar HAL wire struct and a multi-field
+   PPC/Modbus struct — via one uniform decode. No surprises; the MVP is unblocked.
 2. **MVP** (cut hard): the generic handler + `Wire`; auto-discovery replacing the hardcoded four;
    `serviceProviderSet`/`serviceProviderExpect` across all four vocabulary sites + `ScenarioResolver`
    type-gate; **delete** the four kinds (v2) + migrate every committed file; Modbus + PPC as the struct
@@ -281,13 +281,18 @@ struct codec, not by the handler (which reuses `ForwardToLogicBlocks` verbatim).
 
 ## Risks & open questions
 
-- **OPEN (the spike answers it):** does `AutoCreateServiceProviders` already build the
-  `LinkLogicBlockContractActors` map entries for a *custom* contract (so a handler registered under its
-  name "just works"), or does the discovery loop also need to add the consumer↔contract map entry? The
-  HAL path proves the map is keyed by `ServiceProviderContractId` (not actor name), so the wiring should
-  drop out — but a custom contract's `AutoCreateServiceProviders` fabrication must be confirmed to
-  populate it, else the bridge links but silently drops (`SendToContractHandler` no-ops on an empty
-  mapping — `LogicBlockContractBase.cs:111-116`). Add a **positive round-trip** smoke, not a "no throw".
+- **RESOLVED (spike ✅):** does `AutoCreateServiceProviders` already build the
+  `LinkLogicBlockContractActors` map entries for a *custom* contract, so a handler registered under its
+  name "just works"? **Yes.** `AutoCreateServiceProviders` adds a `DevContractMapping` for **every**
+  `[ServiceProviderContractType]` contract unconditionally
+  ([`DevConfigurationBuilder.cs:443`](../../Vion.Dale.DevHost/DevConfigurationBuilder.cs#L443)), and
+  `LinkContractsWithMockHandlers` builds the link map from **all** contract mappings, unfiltered
+  ([`DevLogicSystemInitializer.cs:271-289`](../../Vion.Dale.DevHost/DevLogicSystemInitializer.cs#L271)) —
+  only the four-handler **create** and the four-`SendTo` **fan-out** (`:294-297`) are HAL-specific. So a
+  custom contract is already in the map; the MVP change is exactly to (a) create one generic handler per
+  discovered contract under its `ContractHandlerActorName` and (b) loop the fan-out over them. Still add a
+  **positive round-trip** smoke (not a "no throw") to guard the silent-drop trap
+  (`SendToContractHandler` no-ops on an empty mapping — `LogicBlockContractBase.cs:111-116`).
 - **Stepping determinism:** the bridge must publish via `ForwardToLogicBlocks` (one hop, the contract
   plane), **never** a `[ServiceProperty]` setter (a different async plane that never reaches contracts) —
   so a single `settle`/`advance` deterministically drains the delivery, exactly as `digitalInput` does
