@@ -9,8 +9,7 @@ namespace Vion.Dale.Sdk.Emission
         public bool Exceeds(in long lastEmitted, in long candidate, string threshold)
         {
             long minChange = long.Parse(threshold, NumberStyles.Integer, CultureInfo.InvariantCulture);
-            long delta = candidate - lastEmitted;
-            return Math.Abs(delta) >= minChange;
+            return Math.Abs((double)candidate - lastEmitted) >= minChange;
         }
     }
 }

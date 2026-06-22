@@ -41,6 +41,11 @@ namespace Vion.Dale.Sdk.Emission
             string numberPart = trimmed.Substring(0, splitIndex);
             string unitPart = trimmed.Substring(splitIndex).Trim().ToLowerInvariant();
 
+            if (numberPart.Length == 0)
+            {
+                throw new FormatException($"Duration token '{token}' has no numeric part.");
+            }
+
             double value = double.Parse(numberPart, NumberStyles.Float, CultureInfo.InvariantCulture);
 
             switch (unitPart)
