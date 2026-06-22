@@ -305,11 +305,69 @@
         "contract": { "type": "string" }
       }
     },
+    "serviceProviderRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["logicBlock", "contract"],
+      "description": "A service-provider value-contract reference: the consuming logic block name plus the contract identifier (RFC 0010).",
+      "properties": {
+        "logicBlock": { "type": "string" },
+        "contract": { "type": "string" }
+      }
+    },
+    "serviceProviderSetStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["serviceProviderSet", "value"],
+      "description": "Drives any [ServiceProviderContractType] value INPUT contract from its wire value — a scalar for digital/analog, a JSON object for a struct contract (PPC). The generic replacement for digitalInput / analogInput (RFC 0010).",
+      "properties": {
+        "label": { "$ref": "#/$defs/stepCommon/label" },
+        "spec": { "$ref": "#/$defs/stepCommon/spec" },
+        "serviceProviderSet": { "$ref": "#/$defs/serviceProviderRef" },
+        "value": { "$ref": "#/$defs/value" }
+      }
+    },
+    "serviceProviderExpectStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["serviceProviderExpect"],
+      "description": "A deterministic, point-in-time auto-assertion on the value a block last wrote on any [ServiceProviderContractType] value OUTPUT contract (CI-failing tier). The generic replacement for digitalOutput / analogOutput (RFC 0010).",
+      "properties": {
+        "label": { "$ref": "#/$defs/stepCommon/label" },
+        "spec": { "$ref": "#/$defs/stepCommon/spec" },
+        "serviceProviderExpect": { "$ref": "#/$defs/serviceProviderOutputAssert" }
+      }
+    },
+    "serviceProviderOutputAssert": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["logicBlock", "contract"],
+      "description": "A service-provider value-output contract reference (logicBlock + contract) plus exactly one comparator, checked against the value the block last wrote on that contract. Comparands are literals only (no relational { path } form).",
+      "properties": {
+        "logicBlock": { "type": "string" },
+        "contract": { "type": "string" },
+        "above": { "type": "number" },
+        "below": { "type": "number" },
+        "equals": { "$ref": "#/$defs/comparand" },
+        "notEquals": { "$ref": "#/$defs/comparand" },
+        "oneOf": { "$ref": "#/$defs/oneOfComparand" },
+        "tolerance": { "type": "number", "minimum": 0, "description": "Only with a numeric equals." }
+      },
+      "oneOf": [
+        { "required": ["above"] },
+        { "required": ["below"] },
+        { "required": ["equals"] },
+        { "required": ["notEquals"] },
+        { "required": ["oneOf"] }
+      ],
+      "dependentRequired": { "tolerance": ["equals"] }
+    },
     "setupEntry": {
       "oneOf": [
         { "$ref": "#/$defs/setStep" },
         { "$ref": "#/$defs/digitalInputStep" },
-        { "$ref": "#/$defs/analogInputStep" }
+        { "$ref": "#/$defs/analogInputStep" },
+        { "$ref": "#/$defs/serviceProviderSetStep" }
       ]
     },
     "step": {
@@ -317,6 +375,8 @@
         { "$ref": "#/$defs/setStep" },
         { "$ref": "#/$defs/digitalInputStep" },
         { "$ref": "#/$defs/analogInputStep" },
+        { "$ref": "#/$defs/serviceProviderSetStep" },
+        { "$ref": "#/$defs/serviceProviderExpectStep" },
         { "$ref": "#/$defs/digitalOutputStep" },
         { "$ref": "#/$defs/analogOutputStep" },
         { "$ref": "#/$defs/waitUntilStep" },

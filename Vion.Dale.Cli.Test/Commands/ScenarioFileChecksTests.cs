@@ -91,6 +91,37 @@ namespace Vion.Dale.Cli.Test.Commands
         }
 
         [TestMethod]
+        public void AcceptsServiceProviderSetAndExpect()
+        {
+            var outcome = ScenarioFileChecks.Validate("sp.scenario.json",
+                                                      """
+                                                      {
+                                                        "version": 1, "id": "sp", "topology": "demo",
+                                                        "steps": [
+                                                          { "serviceProviderSet": { "logicBlock": "Counter", "contract": "EnableInput" }, "value": true },
+                                                          { "serviceProviderExpect": { "logicBlock": "Counter", "contract": "EnableInput", "equals": true } }
+                                                        ]
+                                                      }
+                                                      """,
+                                                      Config);
+            Assert.AreEqual(0, outcome.Errors.Count, string.Join("; ", outcome.Errors));
+        }
+
+        [TestMethod]
+        public void RejectsServiceProviderSetWithoutValue_AndAnUnknownContract()
+        {
+            var noValue = ScenarioFileChecks.Validate("a.scenario.json",
+                                                      """{ "version": 1, "id": "a", "topology": "demo", "steps": [ { "serviceProviderSet": { "logicBlock": "Counter", "contract": "EnableInput" } } ] }""",
+                                                      Config);
+            Assert.IsTrue(noValue.Errors.Any(e => e.Contains("serviceProviderSet requires value")), string.Join("; ", noValue.Errors));
+
+            var unknown = ScenarioFileChecks.Validate("b.scenario.json",
+                                                      """{ "version": 1, "id": "b", "topology": "demo", "steps": [ { "serviceProviderSet": { "logicBlock": "Counter", "contract": "Nope" }, "value": true } ] }""",
+                                                      Config);
+            Assert.IsTrue(unknown.Errors.Any(e => e.Contains("has no contract 'Nope'")), string.Join("; ", unknown.Errors));
+        }
+
+        [TestMethod]
         public void RejectsAmbiguousTwoSegmentPaths_ListingQualifiedCandidates()
         {
             var outcome = ScenarioFileChecks.Validate("amb.scenario.json",

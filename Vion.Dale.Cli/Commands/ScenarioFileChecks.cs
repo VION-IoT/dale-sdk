@@ -286,16 +286,20 @@ namespace Vion.Dale.Cli.Commands
                 }
 
                 var shapes =
-                    new[] { "set", "digitalInput", "analogInput", "digitalOutput", "analogOutput", "waitUntil", "expect", "wait", "advance", "settle" }
+                    new[]
+                        {
+                            "set", "digitalInput", "analogInput", "serviceProviderSet", "serviceProviderExpect", "digitalOutput", "analogOutput", "waitUntil", "expect",
+                            "wait", "advance", "settle",
+                        }
                         .Count(k => step.ContainsKey(k));
                 if (shapes != 1)
                 {
-                    errors.Add($"{where}: a step is exactly one of set / digitalInput / analogInput / digitalOutput / analogOutput / waitUntil / expect / wait / advance / settle");
+                    errors.Add($"{where}: a step is exactly one of set / digitalInput / analogInput / serviceProviderSet / serviceProviderExpect / digitalOutput / analogOutput / waitUntil / expect / wait / advance / settle");
                     continue;
                 }
 
-                if (setupOnlyShapes && (step.ContainsKey("waitUntil") || step.ContainsKey("expect") || step.ContainsKey("digitalOutput") || step.ContainsKey("analogOutput") ||
-                                        step.ContainsKey("wait") || step.ContainsKey("advance") || step.ContainsKey("settle")))
+                if (setupOnlyShapes && (step.ContainsKey("waitUntil") || step.ContainsKey("expect") || step.ContainsKey("serviceProviderExpect") || step.ContainsKey("digitalOutput") ||
+                                        step.ContainsKey("analogOutput") || step.ContainsKey("wait") || step.ContainsKey("advance") || step.ContainsKey("settle")))
                 {
                     errors.Add($"{where}: setup entries stage state — waits, expects, output asserts, and time steps belong in steps");
                     continue;
@@ -329,6 +333,38 @@ namespace Vion.Dale.Cli.Commands
                     if (config is not null)
                     {
                         ResolveContract(step[kind], digital ? "DigitalInput" : "AnalogInput", config, where, errors);
+                    }
+                }
+                else if (step.ContainsKey("serviceProviderSet"))
+                {
+                    // The generic value-input drive (RFC 0010): a logicBlock + contract ref and a wire value of
+                    // any shape. Direction (this must be a drivable input) is the runner's authoritative check;
+                    // the lite validator just confirms the contract exists and a value is present.
+                    if (!step.ContainsKey("value"))
+                    {
+                        errors.Add($"{where}: serviceProviderSet requires value (the contract's wire value)");
+                    }
+
+                    if (config is not null)
+                    {
+                        ResolveServiceProviderContract(step["serviceProviderSet"], config, where, errors);
+                    }
+                }
+                else if (step.ContainsKey("serviceProviderExpect"))
+                {
+                    // The generic value-output assert (RFC 0010): a logicBlock + contract ref plus one comparator
+                    // (literals only). Direction is the runner's authoritative check.
+                    if (step["serviceProviderExpect"] is JsonObject assert)
+                    {
+                        ValidateComparators("serviceProviderExpect", assert, false, where, errors);
+                        if (config is not null)
+                        {
+                            ResolveServiceProviderContract(assert, config, where, errors);
+                        }
+                    }
+                    else
+                    {
+                        errors.Add($"{where}: serviceProviderExpect must be an object");
                     }
                 }
                 else if (step.ContainsKey("digitalOutput") || step.ContainsKey("analogOutput"))
@@ -727,6 +763,34 @@ namespace Vion.Dale.Cli.Commands
             if (contract["matchingContractType"]?.GetValue<string>() != expectedType)
             {
                 errors.Add($"{where}: contract '{contractId}' is a {contract["matchingContractType"]}, not a {expectedType}");
+            }
+        }
+
+        // The lite resolution for a generic serviceProviderSet / serviceProviderExpect reference (RFC 0010):
+        // any [ServiceProviderContractType] contract on the block is addressable, so only existence is checked
+        // here (block + contract). Direction — a set must be a drivable input, an expect an assertable output —
+        // is enforced authoritatively by the runner / ScenarioResolver.
+        private static void ResolveServiceProviderContract(JsonNode? reference, JsonNode config, string where, List<string> errors)
+        {
+            var blockName = reference?["logicBlock"]?.GetValue<string>();
+            var contractId = reference?["contract"]?.GetValue<string>();
+            if (blockName is null || contractId is null)
+            {
+                errors.Add($"{where}: logicBlock and contract are required");
+                return;
+            }
+
+            var block = (config["logicBlocks"] as JsonArray ?? new JsonArray()).FirstOrDefault(b => b?["name"]?.GetValue<string>() == blockName);
+            if (block is null)
+            {
+                errors.Add($"{where}: no logic block named '{blockName}' in this topology");
+                return;
+            }
+
+            var contract = (block["contracts"] as JsonArray ?? new JsonArray()).FirstOrDefault(c => c?["identifier"]?.GetValue<string>() == contractId);
+            if (contract is null)
+            {
+                errors.Add($"{where}: block '{blockName}' has no contract '{contractId}'");
             }
         }
 
