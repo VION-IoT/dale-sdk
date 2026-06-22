@@ -187,5 +187,20 @@ namespace Vion.Dale.Sdk.Test.Emission
             // Sub-threshold change -> deadband drops even with throttling disabled.
             Assert.AreEqual(EmitAction.Drop, throttler.Offer(10.2d, T0).Action);
         }
+
+        [TestMethod]
+        public void ReturnFalseFromTryFlushWhenNothingIsPending()
+        {
+            var throttler = new Throttler(Policy("250ms"));
+
+            Assert.AreEqual(EmitAction.Emit, throttler.Offer(1.0d, T0).Action);
+
+            // No held value -> TryFlush is a no-op, LastEmitted unchanged.
+            var flushed = throttler.TryFlush(T0 + TimeSpan.FromSeconds(1), out var value);
+
+            Assert.IsFalse(flushed);
+            Assert.IsNull(value);
+            Assert.AreEqual(1.0d, throttler.LastEmitted);
+        }
     }
 }
