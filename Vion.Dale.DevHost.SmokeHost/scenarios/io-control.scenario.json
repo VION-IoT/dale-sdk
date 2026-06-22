@@ -3,17 +3,17 @@
   "id": "io-control",
   "topology": "default",
   "title": "HAL control — drive mocked inputs, observe the full round-trip to the outputs",
-  "description": "Injects a digital and an analog HAL input, waits for the IoBlock to observe them, asserts the values reached its service properties, then advances one virtual second so the block's [Timer(1)] mirrors them onto the mocked outputs and ASSERTS those outputs. Exercises the digitalInput / analogInput / waitUntil / digitalOutput / analogOutput scenario step types and the complete HAL loop: mocked input -> block -> observable property -> mocked output.",
+  "description": "Injects a digital and an analog HAL input, waits for the IoBlock to observe them, asserts the values reached its service properties, then advances one virtual second so the block's [Timer(1)] mirrors them onto the mocked outputs and ASSERTS those outputs. Exercises the serviceProviderSet / waitUntil / serviceProviderExpect scenario step types and the complete HAL loop: mocked input -> block -> observable property -> mocked output.",
   "specs": ["smoke", "hal", "step-types"],
   "watch": ["IoBlock.IsEnabled", "IoBlock.CurrentLevel"],
   "steps": [
-    { "digitalInput": { "block": "IoBlock", "contract": "EnableInput" }, "value": true, "label": "drive the digital input high" },
-    { "analogInput": { "block": "IoBlock", "contract": "LevelInput" }, "value": 3.3, "label": "drive the analog input to 3.3" },
+    { "serviceProviderSet": { "logicBlock": "IoBlock", "contract": "EnableInput" }, "value": true, "label": "drive the digital input high" },
+    { "serviceProviderSet": { "logicBlock": "IoBlock", "contract": "LevelInput" }, "value": 3.3, "label": "drive the analog input to 3.3" },
     { "waitUntil": { "property": "IoBlock.IsEnabled", "equals": true }, "timeoutSeconds": 5, "label": "wait until the block observes the digital input" },
     { "expect": { "property": "IoBlock.IsEnabled", "equals": true }, "label": "the digital input reached the block", "spec": "hal" },
     { "expect": { "property": "IoBlock.CurrentLevel", "equals": 3.3, "tolerance": 0.001 }, "label": "the analog input reached the block", "spec": "hal" },
     { "advance": { "seconds": 1 }, "label": "fire the [Timer(1)] so the block mirrors the inputs onto the outputs" },
-    { "digitalOutput": { "block": "IoBlock", "contract": "ActiveOutput", "equals": true }, "label": "the digital output mirrors IsEnabled", "spec": "hal" },
-    { "analogOutput": { "block": "IoBlock", "contract": "EchoOutput", "equals": 3.3, "tolerance": 0.001 }, "label": "the analog output mirrors CurrentLevel", "spec": "hal" }
+    { "serviceProviderExpect": { "logicBlock": "IoBlock", "contract": "ActiveOutput", "equals": true }, "label": "the digital output mirrors IsEnabled", "spec": "hal" },
+    { "serviceProviderExpect": { "logicBlock": "IoBlock", "contract": "EchoOutput", "equals": 3.3, "tolerance": 0.001 }, "label": "the analog output mirrors CurrentLevel", "spec": "hal" }
   ]
 }

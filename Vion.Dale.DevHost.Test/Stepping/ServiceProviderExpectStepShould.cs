@@ -47,6 +47,33 @@ namespace Vion.Dale.DevHost.Test.Stepping
         }
 
         [TestMethod]
+        public async Task SupportEveryComparator_OnOutputs()
+        {
+            await using var host = BuildSteppedIoHost();
+            await host.StartAsync();
+
+            var scenario = ScenarioFile.Parse("""
+                                              {
+                                                "version": 1, "id": "sp-expect-cmp", "topology": "io",
+                                                "steps": [
+                                                  { "serviceProviderSet": { "logicBlock": "io", "contract": "EnableInput" }, "value": true },
+                                                  { "serviceProviderSet": { "logicBlock": "io", "contract": "LevelInput" }, "value": 3.3 },
+                                                  { "waitUntil": { "property": "io.IsEnabled", "equals": true }, "timeoutSeconds": 5 },
+                                                  { "advance": { "seconds": 1 } },
+                                                  { "serviceProviderExpect": { "logicBlock": "io", "contract": "ActiveOutput", "notEquals": false } },
+                                                  { "serviceProviderExpect": { "logicBlock": "io", "contract": "ActiveOutput", "oneOf": [true] } },
+                                                  { "serviceProviderExpect": { "logicBlock": "io", "contract": "EchoOutput", "above": 3 } },
+                                                  { "serviceProviderExpect": { "logicBlock": "io", "contract": "EchoOutput", "below": 4 } }
+                                                ]
+                                              }
+                                              """);
+
+            var report = await ScenarioRunner.RunAsync(scenario, host.Control);
+
+            Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
+        }
+
+        [TestMethod]
         public async Task FailLoudly_WhenTheOutputDoesNotHold()
         {
             await using var host = BuildSteppedIoHost();

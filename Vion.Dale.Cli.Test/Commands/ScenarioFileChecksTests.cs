@@ -77,7 +77,7 @@ namespace Vion.Dale.Cli.Test.Commands
                                                         "setup": [ { "set": "Counter.Counter", "value": 1 } ],
                                                         "steps": [
                                                           { "set": "DualPoint.PointA.Limit", "value": 2.5 },
-                                                          { "digitalInput": { "block": "Counter", "contract": "EnableInput" }, "value": true },
+                                                          { "serviceProviderSet": { "logicBlock": "Counter", "contract": "EnableInput" }, "value": true },
                                                           { "waitUntil": { "property": "Counter.CounterDoubled", "above": 1 }, "timeoutSeconds": 5 },
                                                           { "wait": { "seconds": 0.5 } }
                                                         ],
@@ -158,7 +158,7 @@ namespace Vion.Dale.Cli.Test.Commands
                                                         "steps": [
                                                           { "set": "Nope.Counter", "value": 1 },
                                                           { "set": "Counter.Nope", "value": 1 },
-                                                          { "digitalInput": { "block": "Counter", "contract": "Nope" }, "value": true }
+                                                          { "serviceProviderSet": { "logicBlock": "Counter", "contract": "Nope" }, "value": true }
                                                         ] }
                                                       """,
                                                       Config);
@@ -190,7 +190,7 @@ namespace Vion.Dale.Cli.Test.Commands
                                                         "steps": [
                                                           { "set": "Counter.Counter", "value": 1, "wait": { "seconds": 1 } },
                                                           { "waitUntil": { "property": "Counter.Counter", "above": 1, "below": 2 } },
-                                                          { "digitalInput": { "block": "Counter", "contract": "EnableInput" }, "value": 7 },
+                                                          { "serviceProviderSet": { "logicBlock": "Counter", "contract": "EnableInput" } },
                                                           { "wait": { "seconds": 0 } }
                                                         ] }
                                                       """,
@@ -198,7 +198,7 @@ namespace Vion.Dale.Cli.Test.Commands
             Assert.IsTrue(outcome.Errors.Any(e => e.Contains("setup entries stage state")), string.Join("; ", outcome.Errors));
             Assert.IsTrue(outcome.Errors.Any(e => e.Contains("exactly one of set")), string.Join("; ", outcome.Errors));
             Assert.IsTrue(outcome.Errors.Any(e => e.Contains("exactly one of above")), string.Join("; ", outcome.Errors));
-            Assert.IsTrue(outcome.Errors.Any(e => e.Contains("boolean value")), string.Join("; ", outcome.Errors));
+            Assert.IsTrue(outcome.Errors.Any(e => e.Contains("serviceProviderSet requires value")), string.Join("; ", outcome.Errors));
             Assert.IsTrue(outcome.Errors.Any(e => e.Contains("wait.seconds")), string.Join("; ", outcome.Errors));
         }
 
@@ -281,63 +281,16 @@ namespace Vion.Dale.Cli.Test.Commands
         }
 
         [TestMethod]
-        public void AcceptsOutputAsserts_AndRejectsANonOutputContract()
+        public void RejectsServiceProviderExpectStructuralProblems()
         {
-            // digitalOutput / analogOutput are the read half of HAL — a contract-ref + comparator, resolved
-            // like digitalInput / analogInput but against an output contract type. The lite validator must
-            // agree with the runner: accept a well-formed output assert, reject a non-output contract.
-            var config = JsonNode.Parse("""
-                                        {
-                                          "topologyName": "demo",
-                                          "logicBlocks": [
-                                            {
-                                              "name": "Io",
-                                              "services": [ { "identifier": "Io", "serviceProperties": [], "serviceMeasuringPoints": [] } ],
-                                              "contracts": [
-                                                { "identifier": "ActiveOutput", "matchingContractType": "DigitalOutput" },
-                                                { "identifier": "EchoOutput", "matchingContractType": "AnalogOutput" },
-                                                { "identifier": "EnableInput", "matchingContractType": "DigitalInput" }
-                                              ],
-                                              "contractMappings": []
-                                            }
-                                          ]
-                                        }
-                                        """)!;
-
-            var ok = ScenarioFileChecks.Validate("io-out.scenario.json",
-                                                 """
-                                                 {
-                                                   "version": 1, "id": "io-out", "topology": "demo",
-                                                   "steps": [
-                                                     { "digitalOutput": { "block": "Io", "contract": "ActiveOutput", "equals": true } },
-                                                     { "analogOutput": { "block": "Io", "contract": "EchoOutput", "equals": 3.3, "tolerance": 0.001 } },
-                                                     { "analogOutput": { "block": "Io", "contract": "EchoOutput", "above": 3 } }
-                                                   ]
-                                                 }
-                                                 """,
-                                                 config);
-            Assert.AreEqual(0, ok.Errors.Count, string.Join("; ", ok.Errors));
-
-            var wrong = ScenarioFileChecks.Validate("io-wrong.scenario.json",
-                                                    """
-                                                    { "version": 1, "id": "io-wrong", "topology": "demo",
-                                                      "steps": [ { "digitalOutput": { "block": "Io", "contract": "EnableInput", "equals": true } } ] }
-                                                    """,
-                                                    config);
-            Assert.IsTrue(wrong.Errors.Any(e => e.Contains("DigitalInput") && e.Contains("DigitalOutput")), string.Join("; ", wrong.Errors));
-        }
-
-        [TestMethod]
-        public void RejectsOutputAssertStructuralProblems()
-        {
-            // Topology "elsewhere" skips path/contract resolution, isolating the structural checks: output
-            // asserts are step-only, and take exactly one comparator.
+            // serviceProviderExpect (RFC 0010) is step-only and takes exactly one comparator (topology
+            // "elsewhere" skips path/contract resolution, isolating the structural checks).
             var outcome = ScenarioFileChecks.Validate("bad-out.scenario.json",
                                                       """
                                                       {
                                                         "version": 1, "id": "bad-out", "topology": "elsewhere",
-                                                        "setup": [ { "digitalOutput": { "block": "Io", "contract": "ActiveOutput", "equals": true } } ],
-                                                        "steps": [ { "analogOutput": { "block": "Io", "contract": "EchoOutput", "above": 1, "below": 2 } } ]
+                                                        "setup": [ { "serviceProviderExpect": { "logicBlock": "Io", "contract": "ActiveOutput", "equals": true } } ],
+                                                        "steps": [ { "serviceProviderExpect": { "logicBlock": "Io", "contract": "EchoOutput", "above": 1, "below": 2 } } ]
                                                       }
                                                       """,
                                                       Config);

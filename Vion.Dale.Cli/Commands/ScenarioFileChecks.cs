@@ -286,20 +286,16 @@ namespace Vion.Dale.Cli.Commands
                 }
 
                 var shapes =
-                    new[]
-                        {
-                            "set", "digitalInput", "analogInput", "serviceProviderSet", "serviceProviderExpect", "digitalOutput", "analogOutput", "waitUntil", "expect",
-                            "wait", "advance", "settle",
-                        }
+                    new[] { "set", "serviceProviderSet", "serviceProviderExpect", "waitUntil", "expect", "wait", "advance", "settle" }
                         .Count(k => step.ContainsKey(k));
                 if (shapes != 1)
                 {
-                    errors.Add($"{where}: a step is exactly one of set / digitalInput / analogInput / serviceProviderSet / serviceProviderExpect / digitalOutput / analogOutput / waitUntil / expect / wait / advance / settle");
+                    errors.Add($"{where}: a step is exactly one of set / serviceProviderSet / serviceProviderExpect / waitUntil / expect / wait / advance / settle");
                     continue;
                 }
 
-                if (setupOnlyShapes && (step.ContainsKey("waitUntil") || step.ContainsKey("expect") || step.ContainsKey("serviceProviderExpect") || step.ContainsKey("digitalOutput") ||
-                                        step.ContainsKey("analogOutput") || step.ContainsKey("wait") || step.ContainsKey("advance") || step.ContainsKey("settle")))
+                if (setupOnlyShapes && (step.ContainsKey("waitUntil") || step.ContainsKey("expect") || step.ContainsKey("serviceProviderExpect") || step.ContainsKey("wait") ||
+                                        step.ContainsKey("advance") || step.ContainsKey("settle")))
                 {
                     errors.Add($"{where}: setup entries stage state — waits, expects, output asserts, and time steps belong in steps");
                     continue;
@@ -316,23 +312,6 @@ namespace Vion.Dale.Cli.Commands
                     if (path is not null && config is not null)
                     {
                         ResolvePath(path, config, where, true, errors);
-                    }
-                }
-                else if (step.ContainsKey("digitalInput") || step.ContainsKey("analogInput"))
-                {
-                    var digital = step.ContainsKey("digitalInput");
-                    var kind = digital ? "digitalInput" : "analogInput";
-                    var expectedValueKind = digital ? "boolean" : "number";
-                    var valueKind = step["value"]?.GetValueKind();
-                    var valueOk = digital ? valueKind is JsonValueKind.True or JsonValueKind.False : valueKind == JsonValueKind.Number;
-                    if (!valueOk)
-                    {
-                        errors.Add($"{where}: {kind} requires a {expectedValueKind} value");
-                    }
-
-                    if (config is not null)
-                    {
-                        ResolveContract(step[kind], digital ? "DigitalInput" : "AnalogInput", config, where, errors);
                     }
                 }
                 else if (step.ContainsKey("serviceProviderSet"))
@@ -365,26 +344,6 @@ namespace Vion.Dale.Cli.Commands
                     else
                     {
                         errors.Add($"{where}: serviceProviderExpect must be an object");
-                    }
-                }
-                else if (step.ContainsKey("digitalOutput") || step.ContainsKey("analogOutput"))
-                {
-                    // The read half of HAL: a contract-ref + comparator on a mocked output, resolved like the
-                    // input drive steps but against an output contract type. Comparands are literals only
-                    // (allowPathComparand: false) — the relational { path } form is expect-only.
-                    var digital = step.ContainsKey("digitalOutput");
-                    var kind = digital ? "digitalOutput" : "analogOutput";
-                    if (step[kind] is JsonObject assert)
-                    {
-                        ValidateComparators(kind, assert, false, where, errors);
-                        if (config is not null)
-                        {
-                            ResolveContract(assert, digital ? "DigitalOutput" : "AnalogOutput", config, where, errors);
-                        }
-                    }
-                    else
-                    {
-                        errors.Add($"{where}: {kind} must be an object");
                     }
                 }
                 else if (step.ContainsKey("waitUntil"))
@@ -734,36 +693,6 @@ namespace Vion.Dale.Cli.Commands
             }
 
             return null;
-        }
-
-        private static void ResolveContract(JsonNode? reference, string expectedType, JsonNode config, string where, List<string> errors)
-        {
-            var blockName = reference?["block"]?.GetValue<string>();
-            var contractId = reference?["contract"]?.GetValue<string>();
-            if (blockName is null || contractId is null)
-            {
-                errors.Add($"{where}: block and contract are required");
-                return;
-            }
-
-            var block = (config["logicBlocks"] as JsonArray ?? new JsonArray()).FirstOrDefault(b => b?["name"]?.GetValue<string>() == blockName);
-            if (block is null)
-            {
-                errors.Add($"{where}: no logic block named '{blockName}' in this topology");
-                return;
-            }
-
-            var contract = (block["contracts"] as JsonArray ?? new JsonArray()).FirstOrDefault(c => c?["identifier"]?.GetValue<string>() == contractId);
-            if (contract is null)
-            {
-                errors.Add($"{where}: block '{blockName}' has no contract '{contractId}'");
-                return;
-            }
-
-            if (contract["matchingContractType"]?.GetValue<string>() != expectedType)
-            {
-                errors.Add($"{where}: contract '{contractId}' is a {contract["matchingContractType"]}, not a {expectedType}");
-            }
         }
 
         // The lite resolution for a generic serviceProviderSet / serviceProviderExpect reference (RFC 0010):

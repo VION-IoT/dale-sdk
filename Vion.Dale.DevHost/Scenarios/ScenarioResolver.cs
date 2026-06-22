@@ -128,23 +128,11 @@ namespace Vion.Dale.DevHost.Scenarios
                     return new ResolvedStep(property, null, resolvedComparand);
                 }
 
-                case "digitalInput":
-                    return new ResolvedStep(null, ResolveContract(step.DigitalInput!.Block, step.DigitalInput.Contract, "DigitalInput", where, errors));
-
-                case "analogInput":
-                    return new ResolvedStep(null, ResolveContract(step.AnalogInput!.Block, step.AnalogInput.Contract, "AnalogInput", where, errors));
-
                 case "serviceProviderSet":
                     return new ResolvedStep(null, ResolveServiceProviderContract(step.ServiceProviderSet!.LogicBlock, step.ServiceProviderSet.Contract, true, where, errors));
 
                 case "serviceProviderExpect":
                     return new ResolvedStep(null, ResolveServiceProviderContract(step.ServiceProviderExpect!.LogicBlock, step.ServiceProviderExpect.Contract, false, where, errors));
-
-                case "digitalOutput":
-                    return new ResolvedStep(null, ResolveContract(step.DigitalOutput!.Block, step.DigitalOutput.Contract, "DigitalOutput", where, errors));
-
-                case "analogOutput":
-                    return new ResolvedStep(null, ResolveContract(step.AnalogOutput!.Block, step.AnalogOutput.Contract, "AnalogOutput", where, errors));
 
                 default: // wait — nothing to resolve
                     return new ResolvedStep(null, null);
@@ -364,42 +352,6 @@ namespace Vion.Dale.DevHost.Scenarios
             return true;
         }
 
-        // Resolves a hardware-contract reference (block name + contract identifier) to its mocked endpoint,
-        // enforcing the expected contract type ("DigitalInput"/"AnalogInput" for drive steps,
-        // "DigitalOutput"/"AnalogOutput" for output asserts). Shared by digitalInput/analogInput and
-        // digitalOutput/analogOutput — the addressing is identical; only the expected type differs.
-        private ResolvedContract? ResolveContract(string? blockName, string? contractId, string expectedType, string where, List<string> errors)
-        {
-            var block = _configuration.LogicBlocks.FirstOrDefault(b => b.Name == blockName);
-            if (block is null)
-            {
-                errors.Add($"{where}: no logic block named '{blockName}' in this topology" + Suggest(blockName!, _configuration.LogicBlocks.Select(b => b.Name)));
-                return null;
-            }
-
-            var contract = block.Contracts.FirstOrDefault(c => c.Identifier == contractId);
-            if (contract is null)
-            {
-                errors.Add($"{where}: block '{blockName}' has no contract '{contractId}'" + Suggest(contractId!, block.Contracts.Select(c => c.Identifier)));
-                return null;
-            }
-
-            if (contract.MatchingContractType != expectedType)
-            {
-                errors.Add($"{where}: contract '{contractId}' is a {contract.MatchingContractType}, not a {expectedType}");
-                return null;
-            }
-
-            var mapping = block.ContractMappings.FirstOrDefault(m => m.ContractIdentifier == contractId);
-            if (mapping is null)
-            {
-                errors.Add($"{where}: contract '{contractId}' has no mocked endpoint mapping in this topology");
-                return null;
-            }
-
-            return new ResolvedContract(mapping.MappedServiceProviderIdentifier, mapping.MappedServiceIdentifier, mapping.MappedContractIdentifier);
-        }
-
         // Resolves a generic service-provider value-contract reference (serviceProviderSet / serviceProviderExpect,
         // RFC 0010). Any [ServiceProviderContractType] contract on the block is addressable; direction is read off
         // the contract's Consumers multiplicity — ZeroOrOne (single-writer, surfaced as the Consumers annotation)
@@ -564,21 +516,6 @@ namespace Vion.Dale.DevHost.Scenarios
     internal static class ScenarioConditions
     {
         public static bool IsSatisfied(ScenarioWaitUntil condition, object? live)
-        {
-            return Evaluate(condition.Above,
-                            condition.Below,
-                            condition.EqualTo,
-                            condition.NotEquals,
-                            condition.OneOf,
-                            condition.Tolerance,
-                            live,
-                            null,
-                            false);
-        }
-
-        // The digitalOutput / analogOutput assert — the same comparator semantics as waitUntil/expect, against
-        // the value the block last Set on the mocked output (literals only, so no relational comparand).
-        public static bool IsSatisfied(ScenarioOutputAssert condition, object? live)
         {
             return Evaluate(condition.Above,
                             condition.Below,

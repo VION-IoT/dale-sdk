@@ -1357,12 +1357,8 @@ export const PlayerPanel = {
             return raw.map((s, i) => ({
                 index: i,
                 kind: s.set !== undefined ? 'set'
-                    : s.digitalInput ? 'digitalInput'
-                    : s.analogInput ? 'analogInput'
                     : s.serviceProviderSet ? 'serviceProviderSet'
                     : s.serviceProviderExpect ? 'serviceProviderExpect'
-                    : s.digitalOutput ? 'digitalOutput'
-                    : s.analogOutput ? 'analogOutput'
                     : s.waitUntil ? 'waitUntil'
                     : s.expect ? 'expect'
                     : s.advance ? 'advance'
@@ -1371,20 +1367,14 @@ export const PlayerPanel = {
                 label: s.label,
                 spec: s.spec,
                 target: s.set !== undefined ? s.set
-                    : s.digitalInput ? `${s.digitalInput.block}.${s.digitalInput.contract}`
-                    : s.analogInput ? `${s.analogInput.block}.${s.analogInput.contract}`
                     : s.serviceProviderSet ? `${s.serviceProviderSet.logicBlock}.${s.serviceProviderSet.contract}`
                     : s.serviceProviderExpect ? `${s.serviceProviderExpect.logicBlock}.${s.serviceProviderExpect.contract}`
-                    : s.digitalOutput ? `${s.digitalOutput.block}.${s.digitalOutput.contract}`
-                    : s.analogOutput ? `${s.analogOutput.block}.${s.analogOutput.contract}`
                     : s.waitUntil ? s.waitUntil.property
                     : s.expect ? s.expect.property
                     : s.advance ? ''
                     : s.settle !== undefined ? (s.settle.until ? `until ${s.settle.until.join(', ')}` : 'until stable')
                     : s.wait ? `${s.wait.seconds} s` : '?',
                 argument: s.serviceProviderExpect ? describeOutputAssert(s.serviceProviderExpect)
-                    : s.digitalOutput ? describeOutputAssert(s.digitalOutput)
-                    : s.analogOutput ? describeOutputAssert(s.analogOutput)
                     : 'value' in s ? JSON.stringify(s.value)
                     : s.waitUntil ? describeWaitUntil(s.waitUntil, s.timeoutSeconds)
                     : s.expect ? describeExpect(s.expect)
