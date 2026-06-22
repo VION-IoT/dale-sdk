@@ -151,6 +151,7 @@ namespace Vion.Dale.DevHost
             _logger.LogDebug("Discovering service-provider handlers (the same IServiceProviderHandlerActor scan the runtime uses)...");
 
             var events = _serviceProvider.GetRequiredService<DevHostEvents>();
+            var outputCache = _serviceProvider.GetRequiredService<Control.ServiceProviderOutputCache>();
             var loggerFactory = _serviceProvider.GetRequiredService<ILoggerFactory>();
 
             // Mirror the runtime: scan the loaded assemblies for service-provider handler types. By this point
@@ -164,7 +165,7 @@ namespace Vion.Dale.DevHost
                 // Registered under the handler's class name — the name the consumer's contract
                 // ContractHandlerActorName already looks up, so no production path changes.
                 var logger = loggerFactory.CreateLogger($"{nameof(ServiceProviderContractHandler)}({handlerType.Name})");
-                _actorSystem.CreateRootActorFor(() => new ServiceProviderContractHandler(logger, events, codec), handlerType.Name, logger);
+                _actorSystem.CreateRootActorFor(() => new ServiceProviderContractHandler(logger, events, codec, outputCache), handlerType.Name, logger);
                 _serviceProviderHandlerNames.Add(handlerType.Name);
                 _logger.LogDebug("Created service-provider stand-in for {Handler}", handlerType.Name);
             }

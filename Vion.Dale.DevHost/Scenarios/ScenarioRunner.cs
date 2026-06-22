@@ -214,6 +214,7 @@ namespace Vion.Dale.DevHost.Scenarios
                                "digitalInput" => $"{step.DigitalInput!.Block}.{step.DigitalInput.Contract}",
                                "analogInput" => $"{step.AnalogInput!.Block}.{step.AnalogInput.Contract}",
                                "serviceProviderSet" => $"{step.ServiceProviderSet!.LogicBlock}.{step.ServiceProviderSet.Contract}",
+                               "serviceProviderExpect" => $"{step.ServiceProviderExpect!.LogicBlock}.{step.ServiceProviderExpect.Contract}",
                                "digitalOutput" => $"{step.DigitalOutput!.Block}.{step.DigitalOutput.Contract}",
                                "analogOutput" => $"{step.AnalogOutput!.Block}.{step.AnalogOutput.Contract}",
                                "waitUntil" => step.WaitUntil!.Property ?? string.Empty,
@@ -225,6 +226,7 @@ namespace Vion.Dale.DevHost.Scenarios
                            Argument = step.Kind switch
                            {
                                "set" or "digitalInput" or "analogInput" or "serviceProviderSet" => step.Value.ValueKind == JsonValueKind.Undefined ? null : step.Value.GetRawText(),
+                               "serviceProviderExpect" => DescribeServiceProviderExpect(step.ServiceProviderExpect!),
                                "digitalOutput" => DescribeOutputAssert(step.DigitalOutput!),
                                "analogOutput" => DescribeOutputAssert(step.AnalogOutput!),
                                "waitUntil" => DescribeCondition(step),
@@ -497,6 +499,24 @@ namespace Vion.Dale.DevHost.Scenarios
                         var contract = resolved.Contract!;
                         var live = control.GetAnalogOutput(contract.ServiceProviderId, contract.ServiceId, contract.ContractId);
                         if (!OutputAssertStep(step.AnalogOutput!, live, result))
+                        {
+                            Fail(result,
+                                 report,
+                                 progress,
+                                 stopwatch,
+                                 control,
+                                 virtualStart);
+                            return false;
+                        }
+
+                        break;
+                    }
+
+                    case "serviceProviderExpect":
+                    {
+                        var contract = resolved.Contract!;
+                        var live = control.GetServiceProviderOutput(contract.ServiceProviderId, contract.ServiceId, contract.ContractId);
+                        if (!ServiceProviderExpectStep(step.ServiceProviderExpect!, live, result))
                         {
                             Fail(result,
                                  report,
@@ -826,6 +846,69 @@ namespace Vion.Dale.DevHost.Scenarios
                                       assert.NotEquals,
                                       assert.OneOf,
                                       assert.Tolerance);
+        }
+
+        // The serviceProviderExpect assertion (RFC 0010): a point-in-time check of the value the block last wrote
+        // on a service-provider output contract, read from the generic output cache. Mirrors OutputAssertStep.
+        private static bool ServiceProviderExpectStep(ScenarioServiceProviderAssert assert, object? live, ScenarioStepResult result)
+        {
+            var target = $"{assert.LogicBlock}.{assert.Contract}";
+            if (ScenarioConditions.IsSatisfied(assert, live))
+            {
+                result.Detail = $"output held: {target} {DescribeServiceProviderExpect(assert)} (value {Display(live)})";
+                return true;
+            }
+
+            result.Detail = ComparatorFailureDetail(target, assert.Above, assert.Below, assert.EqualTo, assert.NotEquals, assert.OneOf, assert.Tolerance, live);
+            return false;
+        }
+
+        private static string DescribeServiceProviderExpect(ScenarioServiceProviderAssert assert)
+        {
+            return DescribeComparator(assert.Above,
+                                      assert.Below,
+                                      assert.EqualTo,
+                                      assert.NotEquals,
+                                      assert.OneOf,
+                                      assert.Tolerance);
+        }
+
+        // The failing comparator detail for a named target — "expected T to equal X, but was Y" / "value W is not
+        // one of […]". Shared shape with OutputFailureDetail (literals only, no relational comparand).
+        private static string ComparatorFailureDetail(string target,
+                                                      JsonElement above,
+                                                      JsonElement below,
+                                                      JsonElement equalTo,
+                                                      JsonElement notEquals,
+                                                      JsonElement oneOf,
+                                                      double? tolerance,
+                                                      object? live)
+        {
+            var actual = Display(live);
+
+            if (oneOf.ValueKind == JsonValueKind.Array)
+            {
+                var options = string.Join(", ", oneOf.EnumerateArray().Select(e => e.GetRawText()));
+                return $"expected {target} to be one of [{options}], but was {actual}";
+            }
+
+            if (above.ValueKind != JsonValueKind.Undefined)
+            {
+                return $"expected {target} above {above.GetRawText()}, but was {actual}";
+            }
+
+            if (below.ValueKind != JsonValueKind.Undefined)
+            {
+                return $"expected {target} below {below.GetRawText()}, but was {actual}";
+            }
+
+            if (equalTo.ValueKind != JsonValueKind.Undefined)
+            {
+                var withTolerance = tolerance is { } t ? $" (±{t.ToString(CultureInfo.InvariantCulture)})" : "";
+                return $"expected {target} to equal {equalTo.GetRawText()}{withTolerance}, but was {actual}";
+            }
+
+            return $"expected {target} to not equal {notEquals.GetRawText()}, but was {actual}";
         }
 
         private static string Display(object? value)

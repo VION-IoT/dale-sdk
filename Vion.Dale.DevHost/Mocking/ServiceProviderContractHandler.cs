@@ -42,6 +42,8 @@ namespace Vion.Dale.DevHost.Mocking
 
         private readonly DevHostEvents _events;
 
+        private readonly Control.ServiceProviderOutputCache _outputCache;
+
         // Last driven / written value per contract, replayed on MockPublishAllStatesMessage so a late web
         // subscriber sees current HAL state (the four mock handlers' PublishAllStates behaviour).
         private readonly Dictionary<ServiceProviderContractId, JsonElement> _lastInbound = new();
@@ -52,11 +54,12 @@ namespace Vion.Dale.DevHost.Mocking
 
         private Dictionary<ServiceProviderContractId, Dictionary<LogicBlockContractId, IActorReference>> _contractLogicBlockActorReferences = new();
 
-        public ServiceProviderContractHandler(ILogger logger, DevHostEvents events, ScenarioWireCodec codec)
+        public ServiceProviderContractHandler(ILogger logger, DevHostEvents events, ScenarioWireCodec codec, Control.ServiceProviderOutputCache outputCache)
         {
             _logger = logger;
             _events = events;
             _codec = codec;
+            _outputCache = outputCache;
         }
 
         public Task HandleMessageAsync(object message, IActorContext actorContext)
@@ -128,6 +131,7 @@ namespace Vion.Dale.DevHost.Mocking
 
                 var value = _codec.ReadCommand(message);
                 _lastOutbound[contract] = value;
+                _outputCache.Record(contract, value); // The generic read source for serviceProviderExpect (any value contract).
                 RaiseOutputChanged(contract, value);
                 EchoOutputConfirmation(blocks, value, actorContext);
                 return;

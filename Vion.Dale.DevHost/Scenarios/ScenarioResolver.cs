@@ -137,6 +137,9 @@ namespace Vion.Dale.DevHost.Scenarios
                 case "serviceProviderSet":
                     return new ResolvedStep(null, ResolveServiceProviderContract(step.ServiceProviderSet!.LogicBlock, step.ServiceProviderSet.Contract, true, where, errors));
 
+                case "serviceProviderExpect":
+                    return new ResolvedStep(null, ResolveServiceProviderContract(step.ServiceProviderExpect!.LogicBlock, step.ServiceProviderExpect.Contract, false, where, errors));
+
                 case "digitalOutput":
                     return new ResolvedStep(null, ResolveContract(step.DigitalOutput!.Block, step.DigitalOutput.Contract, "DigitalOutput", where, errors));
 
@@ -576,6 +579,21 @@ namespace Vion.Dale.DevHost.Scenarios
         // The digitalOutput / analogOutput assert — the same comparator semantics as waitUntil/expect, against
         // the value the block last Set on the mocked output (literals only, so no relational comparand).
         public static bool IsSatisfied(ScenarioOutputAssert condition, object? live)
+        {
+            return Evaluate(condition.Above,
+                            condition.Below,
+                            condition.EqualTo,
+                            condition.NotEquals,
+                            condition.OneOf,
+                            condition.Tolerance,
+                            live,
+                            null,
+                            false);
+        }
+
+        // The serviceProviderExpect assert (RFC 0010) — identical comparator semantics, against the value the
+        // block last wrote on a service-provider output contract (literals only).
+        public static bool IsSatisfied(ScenarioServiceProviderAssert condition, object? live)
         {
             return Evaluate(condition.Above,
                             condition.Below,

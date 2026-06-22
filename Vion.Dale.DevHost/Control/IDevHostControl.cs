@@ -144,6 +144,15 @@ namespace Vion.Dale.DevHost.Control
         double? GetAnalogOutput(string serviceProviderId, string serviceId, string contractId);
 
         /// <summary>
+        ///     Read the last value a logic block wrote on any <c>[ServiceProviderContractType]</c> value
+        ///     <em>output</em> contract (RFC 0010 <c>serviceProviderExpect</c>) — the generic complement of
+        ///     <see cref="GetDigitalOutput" /> / <see cref="GetAnalogOutput" />, working for the four HAL outputs
+        ///     and third-party scalar ones. Returns the captured value projected to a comparable scalar (bool,
+        ///     double, string), or <c>null</c> if the output has never been Set.
+        /// </summary>
+        object? GetServiceProviderOutput(string serviceProviderId, string serviceId, string contractId);
+
+        /// <summary>
         ///     Ask every mock handler to re-publish its current state — used by the web UI on (re)connect to
         ///     prime a fresh client. In-process callers rarely need this (the value cache is already warm).
         /// </summary>

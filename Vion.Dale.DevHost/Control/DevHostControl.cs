@@ -52,6 +52,10 @@ namespace Vion.Dale.DevHost.Control
         // Event-stream fan-out + pending WaitForAsync waiters share one lock — both touched from actor threads.
         private readonly object _gate = new();
 
+        // The generic captured-output store the service-provider stand-ins write; read by GetServiceProviderOutput
+        // (serviceProviderExpect). Works for any value contract, unlike the typed _digitalOutputs/_analogOutputs.
+        private readonly ServiceProviderOutputCache _outputCache;
+
         private readonly DevHostIntrospection _introspection;
 
         private readonly DevHostLogSink _logSink;
@@ -94,10 +98,12 @@ namespace Vion.Dale.DevHost.Control
                               RuntimeVitals vitals,
                               InFlightActivityMonitor activityMonitor,
                               VirtualSchedule schedule,
-                              TimeProvider timeProvider)
+                              TimeProvider timeProvider,
+                              ServiceProviderOutputCache outputCache)
         {
             _configuration = configuration;
             _events = events;
+            _outputCache = outputCache;
             _logSink = logSink;
             _introspection = introspection;
             _actorSystem = actorSystem;
@@ -357,6 +363,26 @@ namespace Vion.Dale.DevHost.Control
         public double? GetAnalogOutput(string serviceProviderId, string serviceId, string contractId)
         {
             return _analogOutputs.TryGetValue((serviceProviderId, serviceId, contractId), out var value) ? value : null;
+        }
+
+        public object? GetServiceProviderOutput(string serviceProviderId, string serviceId, string contractId)
+        {
+            return _outputCache.TryGet(new ServiceProviderContractId(serviceProviderId, serviceId, contractId), out var value) ? JsonElementToComparable(value) : null;
+        }
+
+        // Project a captured wire value to the comparable CLR scalar the comparators evaluate against — bool,
+        // double, string (enums round-trip by name). A struct/array payload has no scalar leaf in v1, so it reads
+        // as null (a serviceProviderExpect on a struct output is edge-of-vocabulary, like a struct expect).
+        private static object? JsonElementToComparable(JsonElement value)
+        {
+            return value.ValueKind switch
+                   {
+                       JsonValueKind.True => true,
+                       JsonValueKind.False => false,
+                       JsonValueKind.Number => value.GetDouble(),
+                       JsonValueKind.String => value.GetString(),
+                       _ => null,
+                   };
         }
 
         public void PublishAllStates()

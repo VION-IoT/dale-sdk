@@ -152,6 +152,10 @@ namespace Vion.Dale.DevHost
             // Register DevHostEvents as singleton
             _services.AddSingleton<DevHostEvents>();
 
+            // The generic service-provider output cache the stand-ins write and serviceProviderExpect reads
+            // (RFC 0010) — one per host generation, reset on recycle.
+            _services.AddSingleton<Control.ServiceProviderOutputCache>();
+
             // Headless control surface (RFC 0003): a log sink + ILoggerProvider that captures the
             // DevHost's log output (additive — alongside the console provider, which is unchanged), and
             // the IDevHostControl facade for tests / agents. All additive; the web UI is unaffected.

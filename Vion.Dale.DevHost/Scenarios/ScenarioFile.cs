@@ -206,6 +206,9 @@ namespace Vion.Dale.DevHost.Scenarios
         /// <summary>Drives any <c>[ServiceProviderContractType]</c> value input contract from <c>value</c> (RFC 0010).</summary>
         public ScenarioServiceProviderRef? ServiceProviderSet { get; init; }
 
+        /// <summary>Asserts the value a block last wrote on any <c>[ServiceProviderContractType]</c> value output contract (RFC 0010, step-only).</summary>
+        public ScenarioServiceProviderAssert? ServiceProviderExpect { get; init; }
+
         /// <summary>A deterministic, point-in-time auto-assertion on a mocked <c>IDigitalOutput</c> (step-only).</summary>
         public ScenarioOutputAssert? DigitalOutput { get; init; }
 
@@ -254,6 +257,11 @@ namespace Vion.Dale.DevHost.Scenarios
                 if (ServiceProviderSet is not null)
                 {
                     return "serviceProviderSet";
+                }
+
+                if (ServiceProviderExpect is not null)
+                {
+                    return "serviceProviderExpect";
                 }
 
                 if (DigitalOutput is not null)
@@ -313,6 +321,11 @@ namespace Vion.Dale.DevHost.Scenarios
                 shapes++;
             }
 
+            if (ServiceProviderExpect is not null)
+            {
+                shapes++;
+            }
+
             if (DigitalOutput is not null)
             {
                 shapes++;
@@ -351,15 +364,15 @@ namespace Vion.Dale.DevHost.Scenarios
             if (shapes != 1)
             {
                 yield return
-                    "a step is exactly one of set / digitalInput / analogInput / serviceProviderSet / digitalOutput / analogOutput / waitUntil / expect / wait / advance / settle";
+                    "a step is exactly one of set / digitalInput / analogInput / serviceProviderSet / serviceProviderExpect / digitalOutput / analogOutput / waitUntil / expect / wait / advance / settle";
 
                 yield break;
             }
 
-            if (setupOnlyShapes && (WaitUntil is not null || Expect is not null || DigitalOutput is not null || AnalogOutput is not null || Wait is not null ||
-                                    Advance is not null || Settle is not null))
+            if (setupOnlyShapes && (WaitUntil is not null || Expect is not null || ServiceProviderExpect is not null || DigitalOutput is not null || AnalogOutput is not null ||
+                                    Wait is not null || Advance is not null || Settle is not null))
             {
-                yield return "setup entries stage state (set / digitalInput / analogInput) — waits, expects, output asserts, and time steps belong in steps";
+                yield return "setup entries stage state (set / digitalInput / analogInput / serviceProviderSet) — waits, expects, output asserts, and time steps belong in steps";
 
                 yield break;
             }
@@ -417,6 +430,14 @@ namespace Vion.Dale.DevHost.Scenarios
                 if (Value.ValueKind == JsonValueKind.Undefined)
                 {
                     yield return "serviceProviderSet requires value (the contract's wire value — a scalar for digital/analog, a JSON object for a struct contract)";
+                }
+            }
+
+            if (ServiceProviderExpect is not null)
+            {
+                foreach (var error in ServiceProviderExpect.StructuralErrors("serviceProviderExpect"))
+                {
+                    yield return error;
                 }
             }
 
@@ -540,6 +561,58 @@ namespace Vion.Dale.DevHost.Scenarios
             if (string.IsNullOrWhiteSpace(Contract))
             {
                 yield return $"{shape}.contract is required";
+            }
+        }
+    }
+
+    /// <summary>
+    ///     A <c>serviceProviderExpect</c> auto-assertion (RFC 0010): a service-provider value <em>output</em>
+    ///     contract reference (<c>logicBlock</c> + <c>contract</c>) plus exactly one comparator, checked against
+    ///     the value the block last wrote on that contract. The generic replacement for <c>digitalOutput</c> /
+    ///     <c>analogOutput</c>; comparators and literal-only comparands are identical to those (no relational
+    ///     <c>{path}</c> form).
+    /// </summary>
+    public sealed class ScenarioServiceProviderAssert
+    {
+        public string? LogicBlock { get; init; }
+
+        public string? Contract { get; init; }
+
+        public JsonElement Above { get; init; }
+
+        public JsonElement Below { get; init; }
+
+        [JsonPropertyName("equals")]
+        public JsonElement EqualTo { get; init; }
+
+        public JsonElement NotEquals { get; init; }
+
+        public JsonElement OneOf { get; init; }
+
+        public double? Tolerance { get; init; }
+
+        internal IEnumerable<string> StructuralErrors(string shape)
+        {
+            if (string.IsNullOrWhiteSpace(LogicBlock))
+            {
+                yield return $"{shape}.logicBlock is required";
+            }
+
+            if (string.IsNullOrWhiteSpace(Contract))
+            {
+                yield return $"{shape}.contract is required";
+            }
+
+            foreach (var error in ScenarioComparators.StructuralErrors(shape,
+                                                                       Above,
+                                                                       Below,
+                                                                       EqualTo,
+                                                                       NotEquals,
+                                                                       OneOf,
+                                                                       Tolerance,
+                                                                       false))
+            {
+                yield return error;
             }
         }
     }

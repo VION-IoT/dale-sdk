@@ -134,7 +134,7 @@ namespace Vion.Dale.DevHost.Test
         private static ServiceProviderContractHandler NewHandler(Type wireHandlerType, DevHostEvents? events = null)
         {
             var codec = ScenarioWireCodec.ForHandler(wireHandlerType)!;
-            return new ServiceProviderContractHandler(NullLogger.Instance, events ?? new DevHostEvents(), codec);
+            return new ServiceProviderContractHandler(NullLogger.Instance, events ?? new DevHostEvents(), codec, new Control.ServiceProviderOutputCache());
         }
 
         private static void Link(ServiceProviderContractHandler handler, IActorContext context, IActorReference consumer)
