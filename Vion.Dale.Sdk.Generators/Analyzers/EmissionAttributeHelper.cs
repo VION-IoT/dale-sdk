@@ -22,8 +22,8 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         /// </summary>
         internal static bool IsBuiltInThresholdType(ITypeSymbol type)
         {
-            return type.SpecialType is SpecialType.System_Double or SpecialType.System_Single or SpecialType.System_Decimal or SpecialType.System_Int32 or SpecialType.System_Int64
-                       || type.ToDisplayString() == "System.TimeSpan";
+            return type.SpecialType is SpecialType.System_Double or SpecialType.System_Single or SpecialType.System_Decimal or SpecialType.System_Int32
+                       or SpecialType.System_Int64 || type.ToDisplayString() == "System.TimeSpan";
         }
 
         /// <summary>
@@ -32,8 +32,8 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         /// </summary>
         internal static AttributeData? GetEmissionAttribute(IPropertySymbol property)
         {
-            return AnalyzerHelper.GetAttribute(property, AnalyzerHelper.ServicePropertyAttribute)
-                       ?? AnalyzerHelper.GetAttribute(property, AnalyzerHelper.ServiceMeasuringPointAttribute);
+            return AnalyzerHelper.GetAttribute(property, AnalyzerHelper.ServicePropertyAttribute) ??
+                   AnalyzerHelper.GetAttribute(property, AnalyzerHelper.ServiceMeasuringPointAttribute);
         }
 
         /// <summary>
@@ -140,21 +140,6 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
 
             // Opaque format (custom threshold) — not parse-checkable.
             return false;
-        }
-
-        private static bool ParsesAsInteger(string token)
-        {
-            return long.TryParse(token, NumberStyles.Integer, CultureInfo.InvariantCulture, out _);
-        }
-
-        private static bool ParsesAsFloat(string token)
-        {
-            return double.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out _);
-        }
-
-        private static bool ParsesAsDecimal(string token)
-        {
-            return decimal.TryParse(token, NumberStyles.Number, CultureInfo.InvariantCulture, out _);
         }
 
         /// <summary>
@@ -276,6 +261,21 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             }
 
             return false;
+        }
+
+        private static bool ParsesAsInteger(string token)
+        {
+            return long.TryParse(token, NumberStyles.Integer, CultureInfo.InvariantCulture, out _);
+        }
+
+        private static bool ParsesAsFloat(string token)
+        {
+            return double.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out _);
+        }
+
+        private static bool ParsesAsDecimal(string token)
+        {
+            return decimal.TryParse(token, NumberStyles.Number, CultureInfo.InvariantCulture, out _);
         }
 
         private static IEnumerable<INamedTypeSymbol> EnumerateNamedTypes(INamespaceSymbol ns)

@@ -51,20 +51,14 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
 
             if (!EmissionAttributeHelper.TryParseDuration(minInterval, out var ticks))
             {
-                context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE036_MinIntervalInvalid,
-                                                           property.Locations.FirstOrDefault(),
-                                                           property.Name,
-                                                           minInterval));
+                context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE036_MinIntervalInvalid, property.Locations.FirstOrDefault(), property.Name, minInterval));
                 return;
             }
 
             // ticks == 0 is the throttle-disabling sentinel ("0" / "0ms") — valid, no diagnostic.
             if (ticks > 0 && ticks < OneMillisecondInTicks)
             {
-                context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE037_MinIntervalBelowFloor,
-                                                           property.Locations.FirstOrDefault(),
-                                                           property.Name,
-                                                           minInterval));
+                context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE037_MinIntervalBelowFloor, property.Locations.FirstOrDefault(), property.Name, minInterval));
             }
         }
     }
