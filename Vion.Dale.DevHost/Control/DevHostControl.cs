@@ -324,16 +324,24 @@ namespace Vion.Dale.DevHost.Control
 
         public Task SetDigitalInputAsync(string serviceProviderId, string serviceId, string contractId, bool value)
         {
-            var handler = _actorSystem.LookupByName(nameof(DigitalInputHandler));
-            _actorSystem.SendTo(handler, new MockSetDigitalInputMessage(serviceProviderId, serviceId, contractId, value));
+            DriveServiceProviderInput(serviceProviderId, serviceId, contractId, JsonSerializer.SerializeToElement(value));
             return Task.CompletedTask;
         }
 
         public Task SetAnalogInputAsync(string serviceProviderId, string serviceId, string contractId, double value)
         {
-            var handler = _actorSystem.LookupByName(nameof(AnalogInputHandler));
-            _actorSystem.SendTo(handler, new MockSetAnalogInputMessage(serviceProviderId, serviceId, contractId, value));
+            DriveServiceProviderInput(serviceProviderId, serviceId, contractId, JsonSerializer.SerializeToElement(value));
             return Task.CompletedTask;
+        }
+
+        // Drive an input contract through its generic stand-in (RFC 0010): the stand-in is registered under the
+        // contract's handler name. The digital/analog HAL contracts keep their well-known handler names; both
+        // SetDigitalInputAsync and SetAnalogInputAsync funnel through one generic value-drive.
+        private void DriveServiceProviderInput(string serviceProviderId, string serviceId, string contractId, JsonElement value)
+        {
+            var handlerName = value.ValueKind == JsonValueKind.Number ? nameof(AnalogInputHandler) : nameof(DigitalInputHandler);
+            var handler = _actorSystem.LookupByName(handlerName);
+            _actorSystem.SendTo(handler, new MockSetServiceProviderInputMessage(new ServiceProviderContractId(serviceProviderId, serviceId, contractId), value));
         }
 
         public bool? GetDigitalOutput(string serviceProviderId, string serviceId, string contractId)

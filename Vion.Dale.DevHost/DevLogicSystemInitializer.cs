@@ -2,14 +2,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Vion.Dale.DevHost.Mocking;
 using Vion.Dale.Sdk.Abstractions;
-using Vion.Dale.Sdk.AnalogIo.Input;
-using Vion.Dale.Sdk.AnalogIo.Output;
 using Vion.Dale.Sdk.Core;
-using Vion.Dale.Sdk.DigitalIo.Input;
-using Vion.Dale.Sdk.DigitalIo.Output;
 using Vion.Dale.Sdk.Messages;
 using Vion.Dale.Sdk.Utils;
 
@@ -80,6 +77,10 @@ namespace Vion.Dale.DevHost
 
         private readonly IServiceProvider _serviceProvider;
 
+        // The names the generic service-provider stand-ins were registered under (one per discovered
+        // [ScenarioWire] handler) — the contract link map is fanned out to exactly these (RFC 0010).
+        private readonly List<string> _serviceProviderHandlerNames = [];
+
         public DevLogicSystemInitializer(IActorSystem actorSystem, IServiceProvider serviceProvider, ILogger<DevLogicSystemInitializer> logger)
         {
             _actorSystem = actorSystem;
@@ -95,8 +96,9 @@ namespace Vion.Dale.DevHost
             {
                 _logger.LogInformation("Initializing development logic system with {Count} LogicBlocks...", configuration.LogicBlocks.Count);
 
-                // Step 1: Create mock HAL handlers (for I/O simulation)
-                CreateMockHalHandlers();
+                // Step 1: Create a generic stand-in per discovered service-provider handler (RFC 0010 — the
+                // convention scan that replaces the hardcoded four HAL mocks).
+                CreateServiceProviderHandlers();
 
                 // Step 2: Create mock service handlers (for service property/measuring point visibility)
                 CreateMockServiceHandlers();
@@ -144,13 +146,28 @@ namespace Vion.Dale.DevHost
             _logger.LogInformation("LogicBlocks started");
         }
 
-        private void CreateMockHalHandlers()
+        private void CreateServiceProviderHandlers()
         {
-            _logger.LogDebug("Creating mock HAL handlers...");
-            _actorSystem.CreateRootActorFromDi<MockHalDigitalInputHandler>(nameof(DigitalInputHandler));
-            _actorSystem.CreateRootActorFromDi<MockHalDigitalOutputHandler>(nameof(DigitalOutputHandler));
-            _actorSystem.CreateRootActorFromDi<MockHalAnalogInputHandler>(nameof(AnalogInputHandler));
-            _actorSystem.CreateRootActorFromDi<MockHalAnalogOutputHandler>(nameof(AnalogOutputHandler));
+            _logger.LogDebug("Discovering service-provider handlers (the same IServiceProviderHandlerActor scan the runtime uses)...");
+
+            var events = _serviceProvider.GetRequiredService<DevHostEvents>();
+            var loggerFactory = _serviceProvider.GetRequiredService<ILoggerFactory>();
+
+            // Mirror the runtime: scan the loaded assemblies for service-provider handler types. By this point
+            // introspection has loaded every block — and so the I/O / plugin assemblies that declare the
+            // handlers (DigitalInputHandler … a consumer's PowerPlantControlGridHandler). Only handlers that
+            // declare a [ScenarioWire] (value contracts) yield a codec and a stand-in.
+            var assemblies = AppDomain.CurrentDomain.GetAssemblies().Where(assembly => !assembly.IsDynamic).ToArray();
+
+            foreach (var (handlerType, codec) in ServiceProviderContractHandlerScan.Discover(assemblies))
+            {
+                // Registered under the handler's class name — the name the consumer's contract
+                // ContractHandlerActorName already looks up, so no production path changes.
+                var logger = loggerFactory.CreateLogger($"{nameof(ServiceProviderContractHandler)}({handlerType.Name})");
+                _actorSystem.CreateRootActorFor(() => new ServiceProviderContractHandler(logger, events, codec), handlerType.Name, logger);
+                _serviceProviderHandlerNames.Add(handlerType.Name);
+                _logger.LogDebug("Created service-provider stand-in for {Handler}", handlerType.Name);
+            }
         }
 
         private void CreateMockServiceHandlers()
@@ -227,8 +244,8 @@ namespace Vion.Dale.DevHost
                 // Link logic blocks with runtime actors
                 LinkLogicBlocksWithMockHandlers(configuration);
 
-                // Link contracts with mock HAL handlers
-                LinkContractsWithMockHandlers(configuration);
+                // Link contracts with the generic service-provider stand-ins
+                LinkContractsWithServiceProviderHandlers(configuration);
 
                 // Link interfaces between LogicBlocks
                 LinkInterfaces(configuration);
@@ -262,9 +279,9 @@ namespace Vion.Dale.DevHost
             }
         }
 
-        private void LinkContractsWithMockHandlers(DevConfiguration configuration)
+        private void LinkContractsWithServiceProviderHandlers(DevConfiguration configuration)
         {
-            _logger.LogDebug("Linking contracts with mock HAL handlers...");
+            _logger.LogDebug("Linking contracts with the generic service-provider stand-ins...");
 
             var allMappings = new List<(LogicBlockContractId LogicBlockContractId, IActorReference ActorRef, ServiceProviderContractId ServiceProviderContractId)>();
 
@@ -290,13 +307,14 @@ namespace Vion.Dale.DevHost
 
                 var linkMessage = new LinkLogicBlockContractActors(map);
 
-                // Send to all mock HAL handlers
-                _actorSystem.SendTo(_actorSystem.LookupByName(nameof(DigitalInputHandler)), linkMessage);
-                _actorSystem.SendTo(_actorSystem.LookupByName(nameof(DigitalOutputHandler)), linkMessage);
-                _actorSystem.SendTo(_actorSystem.LookupByName(nameof(AnalogInputHandler)), linkMessage);
-                _actorSystem.SendTo(_actorSystem.LookupByName(nameof(AnalogOutputHandler)), linkMessage);
+                // Fan the full link map to every generic stand-in (each forwards only for the contracts it
+                // serves). Custom contracts come for free — the map is built from all contract mappings.
+                foreach (var handlerName in _serviceProviderHandlerNames)
+                {
+                    _actorSystem.SendTo(_actorSystem.LookupByName(handlerName), linkMessage);
+                }
 
-                _logger.LogInformation("Linked {Count} contract mappings with mock HAL handlers", allMappings.Count);
+                _logger.LogInformation("Linked {Count} contract mappings to {Handlers} service-provider stand-ins", allMappings.Count, _serviceProviderHandlerNames.Count);
             }
         }
 

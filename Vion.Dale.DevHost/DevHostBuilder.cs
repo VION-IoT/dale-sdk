@@ -143,11 +143,8 @@ namespace Vion.Dale.DevHost
             // Register Proto.Actor system (real actor system!)
             _services.AddProtoActorSystem();
 
-            // Register mock HAL/Service handlers
-            _services.AddTransient<MockHalDigitalInputHandler>();
-            _services.AddTransient<MockHalDigitalOutputHandler>();
-            _services.AddTransient<MockHalAnalogInputHandler>();
-            _services.AddTransient<MockHalAnalogOutputHandler>();
+            // Register mock service handlers. The service-provider contract stand-ins are NOT registered here:
+            // they are discovered by convention scan and created per-handler-type with their codec (RFC 0010).
             _services.AddTransient<MockServicePropertyHandler>();
             _services.AddTransient<MockServiceMeasuringPointHandler>();
             _services.AddTransient<MockPersistentDataHandler>();
