@@ -293,6 +293,14 @@ namespace Vion.Dale.Sdk.TestKit
         }
 
         /// <summary>
+        ///     The service provider the block was initialized with. Set by the builder after
+        ///     <c>BuildServiceProvider</c> completes so tests can assert which registrations the
+        ///     builder applied (e.g. <see cref="Vion.Dale.Sdk.Emission.EmissionPolicyForceMarker" />
+        ///     when <c>WithEmissionPolicy(FromAttributes)</c> was called).
+        /// </summary>
+        public IServiceProvider? BuiltServiceProvider { get; internal set; }
+
+        /// <summary>
         ///     Internal swap point used by <c>LogicBlockTestContextBuilder.WithTimeProvider</c> so
         ///     the same FakeTimeProvider can be passed to the block's constructor and then bound to
         ///     the test context, instead of the two clocks drifting independently.
