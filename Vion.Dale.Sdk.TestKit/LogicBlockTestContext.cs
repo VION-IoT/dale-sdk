@@ -135,6 +135,34 @@ namespace Vion.Dale.Sdk.TestKit
         }
 
         /// <summary>
+        ///     Assert on the <em>emitted</em> service-property values — the messages that survived
+        ///     the RFC 0004 emission policy. Same shape and underlying stream as
+        ///     <see cref="VerifyServicePropertyChanged{TValue}" /> (it reads the recorded
+        ///     <c>ServicePropertyValueChanged</c> messages), but its name documents intent: under
+        ///     <see cref="EmissionPolicyMode.FromAttributes" /> a held assignment is not an
+        ///     emission until its throttle interval elapses (drive that with
+        ///     <see cref="AdvanceTime" />), and a sub-threshold assignment never emits at all. With
+        ///     the policy off it behaves identically to <see cref="VerifyServicePropertyChanged{TValue}" />.
+        ///     <code>testContext.VerifyServicePropertyEmitted(lb => lb.Power, value => Assert.AreEqual(3.5, value));</code>
+        /// </summary>
+        public void VerifyServicePropertyEmitted<TValue>(Expression<Func<TLogicBlock, TValue>> propertySelector, Action<TValue>? assertValue = null, Times? times = null)
+        {
+            var propertyName = GetPropertyName(propertySelector);
+            var messages = GetSentMessagesOfType<ServicePropertyValueChanged>().Where(m => m.PropertyIdentifier == propertyName).ToList();
+
+            times ??= Times.Once();
+            times.Value.AssertCount(messages.Count, $"ServicePropertyEmitted verification failed for property '{propertyName}'");
+
+            if (assertValue != null)
+            {
+                foreach (var message in messages)
+                {
+                    assertValue((TValue)message.Value!);
+                }
+            }
+        }
+
+        /// <summary>
         ///     Assert that a service measuring point change was recorded for the specified property.
         ///     <code>testContext.VerifyServiceMeasuringPointChanged(lb => lb.Temperature, value => Assert.AreEqual(22.5, value));</code>
         /// </summary>
