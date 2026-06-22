@@ -57,8 +57,7 @@ namespace Vion.Dale.DevHost.Test
             var consumer = new FakeActorReference();
 
             Link(handler, context, consumer);
-            handler.HandleMessageAsync(new MockSetServiceProviderInputMessage(Sp, Json("""{ "valid": true, "scope": "PerPhase", "activePowerW": 1500 }""")),
-                                       context);
+            handler.HandleMessageAsync(new MockSetServiceProviderInputMessage(Sp, Json("""{ "valid": true, "scope": "PerPhase", "activePowerW": 1500 }""")), context);
 
             var demand = ((ContractMessage<DemandChanged>)context.Sent.Single().Message).Data;
             Assert.IsTrue(demand.Valid);

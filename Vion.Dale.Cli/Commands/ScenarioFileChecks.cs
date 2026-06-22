@@ -285,9 +285,7 @@ namespace Vion.Dale.Cli.Commands
                     continue;
                 }
 
-                var shapes =
-                    new[] { "set", "serviceProviderSet", "serviceProviderExpect", "waitUntil", "expect", "wait", "advance", "settle" }
-                        .Count(k => step.ContainsKey(k));
+                var shapes = new[] { "set", "serviceProviderSet", "serviceProviderExpect", "waitUntil", "expect", "wait", "advance", "settle" }.Count(k => step.ContainsKey(k));
                 if (shapes != 1)
                 {
                     errors.Add($"{where}: a step is exactly one of set / serviceProviderSet / serviceProviderExpect / waitUntil / expect / wait / advance / settle");

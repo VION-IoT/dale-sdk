@@ -746,7 +746,14 @@ namespace Vion.Dale.DevHost.Scenarios
                 return true;
             }
 
-            result.Detail = ComparatorFailureDetail(target, assert.Above, assert.Below, assert.EqualTo, assert.NotEquals, assert.OneOf, assert.Tolerance, live);
+            result.Detail = ComparatorFailureDetail(target,
+                                                    assert.Above,
+                                                    assert.Below,
+                                                    assert.EqualTo,
+                                                    assert.NotEquals,
+                                                    assert.OneOf,
+                                                    assert.Tolerance,
+                                                    live);
             return false;
         }
 

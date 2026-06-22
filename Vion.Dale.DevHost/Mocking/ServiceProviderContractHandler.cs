@@ -25,15 +25,14 @@ namespace Vion.Dale.DevHost.Mocking
     ///         publish messages, and nothing casts a looked-up handler to <see cref="IServiceProviderHandlerActor" />.
     ///     </para>
     ///     <para>
-    ///         <b>Transitional HAL bridge.</b> For the four built-in HAL contracts (single scalar values) it
-    ///         additionally raises the typed <see cref="DevHostEvents" /> (the Tier 1 output cache + the SPA I/O
-    ///         panel both read these) and echoes the output-confirmation back to the block (output-confirmation
-    ///         consumers subscribe to it) — discriminating digital from analog by JSON value kind. That keeps the
-    ///         four <c>digitalInput</c>/<c>analogInput</c>/<c>digitalOutput</c>/<c>analogOutput</c> step kinds
-    ///         behaviourally identical until the generic <c>serviceProviderSet</c>/<c>serviceProviderExpect</c>
-    ///         path (RFC 0010 increment 3) and format v2 (increment 5) replace them. A custom value contract
-    ///         (object/array payload) is forwarded fire-and-forget with no typed event or echo, which is the
-    ///         value-contract model.
+    ///         <b>HAL bridge.</b> For the four built-in scalar HAL contracts it additionally raises the typed
+    ///         <see cref="DevHostEvents" /> (which feed the manual I/O panel in the SPA + the typed
+    ///         <c>GetDigitalOutput</c>/<c>GetAnalogOutput</c> caches) and echoes the output-confirmation back to
+    ///         the block (output-confirmation consumers subscribe to it) — discriminating digital from analog by
+    ///         JSON value kind. This serves the interactive I/O affordance, which is orthogonal to the committed
+    ///         scenario format (scenarios drive/assert through <c>serviceProviderSet</c>/<c>serviceProviderExpect</c>
+    ///         and the generic output cache). A custom value contract (object/array payload) is forwarded
+    ///         fire-and-forget with no typed event or echo, which is the value-contract model.
     ///     </para>
     /// </summary>
     internal sealed class ServiceProviderContractHandler : IActorReceiver
@@ -42,8 +41,6 @@ namespace Vion.Dale.DevHost.Mocking
 
         private readonly DevHostEvents _events;
 
-        private readonly Control.ServiceProviderOutputCache _outputCache;
-
         // Last driven / written value per contract, replayed on MockPublishAllStatesMessage so a late web
         // subscriber sees current HAL state (the four mock handlers' PublishAllStates behaviour).
         private readonly Dictionary<ServiceProviderContractId, JsonElement> _lastInbound = new();
@@ -51,6 +48,8 @@ namespace Vion.Dale.DevHost.Mocking
         private readonly Dictionary<ServiceProviderContractId, JsonElement> _lastOutbound = new();
 
         private readonly ILogger _logger;
+
+        private readonly Control.ServiceProviderOutputCache _outputCache;
 
         private Dictionary<ServiceProviderContractId, Dictionary<LogicBlockContractId, IActorReference>> _contractLogicBlockActorReferences = new();
 
@@ -151,9 +150,10 @@ namespace Vion.Dale.DevHost.Mocking
             }
         }
 
-        // ── Transitional HAL bridge ──────────────────────────────────────────────────────────────────────
-        // The typed DevHostEvents + output echo for the four built-in scalar HAL contracts. Removed when the
-        // generic serviceProviderSet/serviceProviderExpect path supersedes the four step kinds (RFC 0010).
+        // ── HAL bridge ─────────────────────────────────────────────────────────────────────────────────
+        // The typed DevHostEvents + output echo for the four built-in scalar HAL contracts — feeds the manual
+        // I/O panel + the typed Get{Digital,Analog}Output caches + the example output-confirmation consumers
+        // (orthogonal to the scenario format, which uses the generic output cache).
 
         private void RaiseInputChanged(ServiceProviderContractId contract, JsonElement value)
         {
@@ -186,12 +186,11 @@ namespace Vion.Dale.DevHost.Mocking
             foreach (var (logicBlockContractId, logicBlockActorRef) in blocks)
             {
                 object? confirmation = value.ValueKind switch
-                                       {
-                                           JsonValueKind.True or JsonValueKind.False => new ContractMessage<DigitalOutputChanged>(logicBlockContractId,
-                                                                                            new DigitalOutputChanged(value.GetBoolean())),
-                                           JsonValueKind.Number => new ContractMessage<AnalogOutputChanged>(logicBlockContractId, new AnalogOutputChanged(value.GetDouble())),
-                                           _ => null,
-                                       };
+                {
+                    JsonValueKind.True or JsonValueKind.False => new ContractMessage<DigitalOutputChanged>(logicBlockContractId, new DigitalOutputChanged(value.GetBoolean())),
+                    JsonValueKind.Number => new ContractMessage<AnalogOutputChanged>(logicBlockContractId, new AnalogOutputChanged(value.GetDouble())),
+                    _ => null,
+                };
 
                 if (confirmation is not null)
                 {

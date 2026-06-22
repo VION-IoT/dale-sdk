@@ -202,7 +202,10 @@ namespace Vion.Dale.DevHost.Scenarios
         /// <summary>Drives any <c>[ServiceProviderContractType]</c> value input contract from <c>value</c> (RFC 0010).</summary>
         public ScenarioServiceProviderRef? ServiceProviderSet { get; init; }
 
-        /// <summary>Asserts the value a block last wrote on any <c>[ServiceProviderContractType]</c> value output contract (RFC 0010, step-only).</summary>
+        /// <summary>
+        ///     Asserts the value a block last wrote on any <c>[ServiceProviderContractType]</c> value output contract (RFC
+        ///     0010, step-only).
+        /// </summary>
         public ScenarioServiceProviderAssert? ServiceProviderExpect { get; init; }
 
         public ScenarioWaitUntil? WaitUntil { get; init; }
@@ -313,13 +316,13 @@ namespace Vion.Dale.DevHost.Scenarios
 
             if (shapes != 1)
             {
-                yield return
-                    "a step is exactly one of set / serviceProviderSet / serviceProviderExpect / waitUntil / expect / wait / advance / settle";
+                yield return "a step is exactly one of set / serviceProviderSet / serviceProviderExpect / waitUntil / expect / wait / advance / settle";
 
                 yield break;
             }
 
-            if (setupOnlyShapes && (WaitUntil is not null || Expect is not null || ServiceProviderExpect is not null || Wait is not null || Advance is not null || Settle is not null))
+            if (setupOnlyShapes && (WaitUntil is not null || Expect is not null || ServiceProviderExpect is not null || Wait is not null || Advance is not null ||
+                                    Settle is not null))
             {
                 yield return "setup entries stage state (set / serviceProviderSet) — waits, expects, output asserts, and time steps belong in steps";
 

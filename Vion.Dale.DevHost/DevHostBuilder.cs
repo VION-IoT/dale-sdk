@@ -154,7 +154,7 @@ namespace Vion.Dale.DevHost
 
             // The generic service-provider output cache the stand-ins write and serviceProviderExpect reads
             // (RFC 0010) — one per host generation, reset on recycle.
-            _services.AddSingleton<Control.ServiceProviderOutputCache>();
+            _services.AddSingleton<ServiceProviderOutputCache>();
 
             // Headless control surface (RFC 0003): a log sink + ILoggerProvider that captures the
             // DevHost's log output (additive — alongside the console provider, which is unchanged), and

@@ -132,7 +132,8 @@ namespace Vion.Dale.DevHost.Scenarios
                     return new ResolvedStep(null, ResolveServiceProviderContract(step.ServiceProviderSet!.LogicBlock, step.ServiceProviderSet.Contract, true, where, errors));
 
                 case "serviceProviderExpect":
-                    return new ResolvedStep(null, ResolveServiceProviderContract(step.ServiceProviderExpect!.LogicBlock, step.ServiceProviderExpect.Contract, false, where, errors));
+                    return new ResolvedStep(null,
+                                            ResolveServiceProviderContract(step.ServiceProviderExpect!.LogicBlock, step.ServiceProviderExpect.Contract, false, where, errors));
 
                 default: // wait — nothing to resolve
                     return new ResolvedStep(null, null);
