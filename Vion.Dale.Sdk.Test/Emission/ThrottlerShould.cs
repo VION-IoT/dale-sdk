@@ -155,5 +155,37 @@ namespace Vion.Dale.Sdk.Test.Emission
 
             Assert.AreEqual(EmitAction.Drop, result.Action);
         }
+
+        [TestMethod]
+        public void EmitEveryDistinctChangeWhenMinIntervalIsZero()
+        {
+            var throttler = new Throttler(Policy("0"));
+
+            Assert.AreEqual(EmitAction.Emit, throttler.Offer(1.0d, T0).Action);
+            // Same instant, distinct value -> interval (zero) elapsed -> Emit, never Hold.
+            Assert.AreEqual(EmitAction.Emit, throttler.Offer(2.0d, T0).Action);
+            Assert.AreEqual(EmitAction.Emit, throttler.Offer(3.0d, T0).Action);
+            Assert.IsFalse(throttler.HasPending);
+        }
+
+        [TestMethod]
+        public void StillApplyTheFloorWhenMinIntervalIsZero()
+        {
+            var throttler = new Throttler(Policy("0"));
+
+            Assert.AreEqual(EmitAction.Emit, throttler.Offer(1.0d, T0).Action);
+            // Equal value -> floor drops even with throttling disabled.
+            Assert.AreEqual(EmitAction.Drop, throttler.Offer(1.0d, T0).Action);
+        }
+
+        [TestMethod]
+        public void StillApplyTheDeadbandWhenMinIntervalIsZero()
+        {
+            var throttler = new Throttler(Policy("0", minChange: "1.0"));
+
+            Assert.AreEqual(EmitAction.Emit, throttler.Offer(10.0d, T0).Action);
+            // Sub-threshold change -> deadband drops even with throttling disabled.
+            Assert.AreEqual(EmitAction.Drop, throttler.Offer(10.2d, T0).Action);
+        }
     }
 }
