@@ -307,6 +307,8 @@ body {
 .contract-type-badge.do { background: var(--vion-warning-bg-def-primary); color: var(--vion-warning-fg-def-primary); }
 .contract-type-badge.ai { background: var(--vion-success-bg-def-primary); color: var(--vion-success-fg-def-primary); }
 .contract-type-badge.ao { background: var(--vion-error-bg-def-primary); color: var(--vion-error-fg-def-primary); }
+.contract-type-badge.sp { background: var(--vion-bg-def-tertiary); color: var(--vion-fg-def-secondary); }
+.scenario-only { font-size: 11px; font-style: italic; color: var(--vion-fg-def-tertiary); }
 .shared-badge { font-size: 10px; color: var(--vion-warning-fg-def-tertiary); }
 
 /* ── groups ──────────────────────────────────────────────────────────────── */

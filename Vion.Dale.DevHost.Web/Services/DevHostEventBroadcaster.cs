@@ -22,10 +22,7 @@ namespace Vion.Dale.DevHost.Web.Services
 
             _devHostEvents.ServicePropertyChanged += OnServicePropertyChanged;
             _devHostEvents.ServiceMeasuringPointChanged += OnServiceMeasuringPointChanged;
-            _devHostEvents.DigitalInputChanged += OnDigitalInputChanged;
-            _devHostEvents.DigitalOutputChanged += OnDigitalOutputChanged;
-            _devHostEvents.AnalogInputChanged += OnAnalogInputChanged;
-            _devHostEvents.AnalogOutputChanged += OnAnalogOutputChanged;
+            _devHostEvents.ServiceProviderContractChanged += OnServiceProviderContractChanged;
         }
 
         private void OnServicePropertyChanged(object? sender, ServicePropertyChangedEventArgs e)
@@ -50,45 +47,11 @@ namespace Vion.Dale.DevHost.Web.Services
                                });
         }
 
-        private void OnDigitalInputChanged(object? sender, DigitalInputChangedEventArgs e)
+        private void OnServiceProviderContractChanged(object? sender, ServiceProviderContractChangedEventArgs e)
         {
-            _ = BroadcastAsync("DigitalInputChanged",
-                               new
-                               {
-                                   serviceProviderIdentifier = e.ServiceProviderIdentifier,
-                                   serviceIdentifier = e.ServiceIdentifier,
-                                   contractIdentifier = e.ContractIdentifier,
-                                   value = e.Value,
-                               });
-        }
-
-        private void OnDigitalOutputChanged(object? sender, DigitalOutputChangedEventArgs e)
-        {
-            _ = BroadcastAsync("DigitalOutputChanged",
-                               new
-                               {
-                                   serviceProviderIdentifier = e.ServiceProviderIdentifier,
-                                   serviceIdentifier = e.ServiceIdentifier,
-                                   contractIdentifier = e.ContractIdentifier,
-                                   value = e.Value,
-                               });
-        }
-
-        private void OnAnalogInputChanged(object? sender, AnalogInputChangedEventArgs e)
-        {
-            _ = BroadcastAsync("AnalogInputChanged",
-                               new
-                               {
-                                   serviceProviderIdentifier = e.ServiceProviderIdentifier,
-                                   serviceIdentifier = e.ServiceIdentifier,
-                                   contractIdentifier = e.ContractIdentifier,
-                                   value = e.Value,
-                               });
-        }
-
-        private void OnAnalogOutputChanged(object? sender, AnalogOutputChangedEventArgs e)
-        {
-            _ = BroadcastAsync("AnalogOutputChanged",
+            // One event for every value contract — the SPA keys by (sp, svc, contract) and renders the JSON
+            // value per the contract's own type. JsonElement serializes to its underlying JSON over the wire.
+            _ = BroadcastAsync("ServiceProviderContractChanged",
                                new
                                {
                                    serviceProviderIdentifier = e.ServiceProviderIdentifier,

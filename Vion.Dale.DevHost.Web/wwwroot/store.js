@@ -75,8 +75,8 @@ export function valueKey(serviceId, identifier) {
     return `${serviceId}/${identifier}`;
 }
 
-export function halKey(kind, spId, svcId, contractId) {
-    return `${kind}/${spId}/${svcId}/${contractId}`;
+export function halKey(spId, svcId, contractId) {
+    return `${spId}/${svcId}/${contractId}`;
 }
 
 export function liveValue(serviceId, identifier) {
@@ -250,29 +250,19 @@ export async function setProperty(serviceId, propertyId, value) {
     }
 }
 
-export async function setDigitalInput(spId, svcId, contractId, value) {
+// Drive any value-contract input (RFC 0010): one generic endpoint for every contract type. The caller builds
+// the wire `value` from the rendered control — a bool for a digital toggle, a number for an analog field — and
+// `handlerName` is the contract's stand-in actor name (its contractHandlerActorName annotation).
+export async function driveContract(handlerName, spId, svcId, contractId, value) {
     try {
-        const response = await fetch(`/api/hal/di/${spId}/${svcId}/${contractId}`, {
+        const response = await fetch(`/api/contracts/drive/${handlerName}/${spId}/${svcId}/${contractId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ value }),
         });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
     } catch (err) {
-        showError(`Failed to set digital input: ${err.message ?? err}`);
-    }
-}
-
-export async function setAnalogInput(spId, svcId, contractId, value) {
-    try {
-        const response = await fetch(`/api/hal/ai/${spId}/${svcId}/${contractId}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ value: parseFloat(value) }),
-        });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    } catch (err) {
-        showError(`Failed to set analog input: ${err.message ?? err}`);
+        showError(`Failed to drive contract: ${err.message ?? err}`);
     }
 }
 
@@ -435,8 +425,8 @@ function queueValue(serviceId, identifier, value) {
     scheduleFlush();
 }
 
-function queueHal(kind, spId, svcId, contractId, value) {
-    pendingHal.set(halKey(kind, spId, svcId, contractId), value);
+function queueHal(spId, svcId, contractId, value) {
+    pendingHal.set(halKey(spId, svcId, contractId), value);
     scheduleFlush();
 }
 
@@ -537,10 +527,7 @@ async function connectHub() {
 
     connection.on('PropertyValueChanged', d => queueValue(d.serviceIdentifier, d.propertyIdentifier, d.value));
     connection.on('MeasuringPointValueChanged', d => queueValue(d.serviceIdentifier, d.measuringPointIdentifier, d.value));
-    connection.on('DigitalInputChanged', d => queueHal('di', d.serviceProviderIdentifier, d.serviceIdentifier, d.contractIdentifier, d.value));
-    connection.on('DigitalOutputChanged', d => queueHal('do', d.serviceProviderIdentifier, d.serviceIdentifier, d.contractIdentifier, d.value));
-    connection.on('AnalogInputChanged', d => queueHal('ai', d.serviceProviderIdentifier, d.serviceIdentifier, d.contractIdentifier, d.value));
-    connection.on('AnalogOutputChanged', d => queueHal('ao', d.serviceProviderIdentifier, d.serviceIdentifier, d.contractIdentifier, d.value));
+    connection.on('ServiceProviderContractChanged', d => queueHal(d.serviceProviderIdentifier, d.serviceIdentifier, d.contractIdentifier, d.value));
 
     try {
         await connection.start();

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Text.Json;
 
 namespace Vion.Dale.DevHost
 {
@@ -11,13 +12,7 @@ namespace Vion.Dale.DevHost
 
         public event EventHandler<ServiceMeasuringPointChangedEventArgs>? ServiceMeasuringPointChanged;
 
-        public event EventHandler<DigitalInputChangedEventArgs>? DigitalInputChanged;
-
-        public event EventHandler<DigitalOutputChangedEventArgs>? DigitalOutputChanged;
-
-        public event EventHandler<AnalogInputChangedEventArgs>? AnalogInputChanged;
-
-        public event EventHandler<AnalogOutputChangedEventArgs>? AnalogOutputChanged;
+        public event EventHandler<ServiceProviderContractChangedEventArgs>? ServiceProviderContractChanged;
 
         /// <summary>
         ///     A service-property write completed its round trip: the block applied the value and replied.
@@ -41,24 +36,9 @@ namespace Vion.Dale.DevHost
             ServiceMeasuringPointChanged?.Invoke(this, new ServiceMeasuringPointChangedEventArgs(serviceIdentifier, measuringPointIdentifier, value));
         }
 
-        public void RaiseDigitalInputChanged(string serviceProviderIdentifier, string serviceIdentifier, string contractIdentifier, bool value)
+        public void RaiseServiceProviderContractChanged(string serviceProviderIdentifier, string serviceIdentifier, string contractIdentifier, JsonElement value)
         {
-            DigitalInputChanged?.Invoke(this, new DigitalInputChangedEventArgs(serviceProviderIdentifier, serviceIdentifier, contractIdentifier, value));
-        }
-
-        public void RaiseDigitalOutputChanged(string serviceProviderIdentifier, string serviceIdentifier, string contractIdentifier, bool value)
-        {
-            DigitalOutputChanged?.Invoke(this, new DigitalOutputChangedEventArgs(serviceProviderIdentifier, serviceIdentifier, contractIdentifier, value));
-        }
-
-        public void RaiseAnalogInputChanged(string serviceProviderIdentifier, string serviceIdentifier, string contractIdentifier, double value)
-        {
-            AnalogInputChanged?.Invoke(this, new AnalogInputChangedEventArgs(serviceProviderIdentifier, serviceIdentifier, contractIdentifier, value));
-        }
-
-        public void RaiseAnalogOutputChanged(string serviceProviderIdentifier, string serviceIdentifier, string contractIdentifier, double value)
-        {
-            AnalogOutputChanged?.Invoke(this, new AnalogOutputChangedEventArgs(serviceProviderIdentifier, serviceIdentifier, contractIdentifier, value));
+            ServiceProviderContractChanged?.Invoke(this, new ServiceProviderContractChangedEventArgs(serviceProviderIdentifier, serviceIdentifier, contractIdentifier, value));
         }
     }
 

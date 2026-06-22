@@ -11,6 +11,7 @@ namespace Vion.Dale.Sdk.DigitalIo.Input
     /// <summary>
     ///     Handles communication between logic block digital inputs and the HAL via MQTT.
     /// </summary>
+    [ScenarioWire(Inbound = typeof(DigitalInputChanged))]
     public partial class DigitalInputHandler : ServiceProviderHandlerBase
     {
         private readonly ILogger _logger;

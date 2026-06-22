@@ -9,6 +9,7 @@
     "Vion.Dale.Sdk.Modbus.Tcp"
   ],
   "types": [
+    "Vion.Dale.Sdk.Abstractions.ScenarioWireAttribute",
     "Vion.Dale.Sdk.Abstractions.ServiceProviderHandlerBase",
     "Vion.Dale.Sdk.Abstractions.ServiceProviderMqttMessage",
     "Vion.Dale.Sdk.AnalogIo.Input.IAnalogInput",

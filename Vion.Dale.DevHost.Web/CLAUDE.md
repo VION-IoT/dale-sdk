@@ -63,7 +63,7 @@ feature. Two tiers:
 
 1. **Tier 1 (headless, CI):** `dotnet test Vion.Dale.DevHost.Test --filter "TestCategory=Smoke"` —
    boots real web hosts and sweeps the HTTP/runtime surface (introspection, read, writable set,
-   read-only-reject, stepping, scenario run incl. a HAL `digitalInput`/`analogInput`/`waitUntil`
+   read-only-reject, stepping, scenario run incl. a HAL `serviceProviderSet`/`waitUntil`/`serviceProviderExpect`
    round-trip, recycle-on-run, topology switch). Runs in the normal `dotnet test` CI pass.
 2. **Tier 2 (live UI):** unit tests can't execute the page's JS, so boot the committed
    `Vion.Dale.DevHost.SmokeHost` (project-referenced — a real server against local source, **no

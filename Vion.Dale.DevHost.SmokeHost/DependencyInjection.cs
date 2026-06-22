@@ -11,6 +11,7 @@ namespace Vion.Dale.DevHost.SmokeHost
         {
             serviceCollection.AddTransient<ShowcaseBlock>();
             serviceCollection.AddTransient<IoBlock>();
+            serviceCollection.AddTransient<GridBlock>();
             serviceCollection.AddTransient<SignalSourceBlock>();
             serviceCollection.AddTransient<SignalSinkBlock>();
         }

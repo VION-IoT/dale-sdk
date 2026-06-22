@@ -143,17 +143,18 @@ namespace Vion.Dale.DevHost
             // Register Proto.Actor system (real actor system!)
             _services.AddProtoActorSystem();
 
-            // Register mock HAL/Service handlers
-            _services.AddTransient<MockHalDigitalInputHandler>();
-            _services.AddTransient<MockHalDigitalOutputHandler>();
-            _services.AddTransient<MockHalAnalogInputHandler>();
-            _services.AddTransient<MockHalAnalogOutputHandler>();
+            // Register mock service handlers. The service-provider contract stand-ins are NOT registered here:
+            // they are discovered by convention scan and created per-handler-type with their codec (RFC 0010).
             _services.AddTransient<MockServicePropertyHandler>();
             _services.AddTransient<MockServiceMeasuringPointHandler>();
             _services.AddTransient<MockPersistentDataHandler>();
 
             // Register DevHostEvents as singleton
             _services.AddSingleton<DevHostEvents>();
+
+            // The generic service-provider output cache the stand-ins write and serviceProviderExpect reads
+            // (RFC 0010) — one per host generation, reset on recycle.
+            _services.AddSingleton<ServiceProviderOutputCache>();
 
             // Headless control surface (RFC 0003): a log sink + ILoggerProvider that captures the
             // DevHost's log output (additive — alongside the console provider, which is unchanged), and

@@ -4,7 +4,9 @@ using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Vion.Contracts.Conventions;
 using Vion.Dale.DevHost.Control;
+using Vion.Dale.Sdk.Configuration.Contract;
 
 namespace Vion.Dale.DevHost.Scenarios
 {
@@ -23,8 +25,13 @@ namespace Vion.Dale.DevHost.Scenarios
         bool IsMeasuringPoint,
         IReadOnlyList<string>? FieldPath = null);
 
-    /// <summary>A contract reference resolved to its mocked endpoint (service provider / service / contract ids).</summary>
-    internal sealed record ResolvedContract(string ServiceProviderId, string ServiceId, string ContractId);
+    /// <summary>
+    ///     A contract reference resolved to its mocked endpoint (service provider / service / contract ids).
+    ///     <see cref="HandlerName" /> is the generic stand-in's actor name (the contract's
+    ///     <c>ContractHandlerActorName</c>) for the RFC 0010 <c>serviceProviderSet</c> drive; null for the
+    ///     legacy HAL steps, which address their well-known handlers by value type.
+    /// </summary>
+    internal sealed record ResolvedContract(string ServiceProviderId, string ServiceId, string ContractId, string? HandlerName = null);
 
     /// <summary>
     ///     The resolved addressing for one step — exactly one of <see cref="Property" /> / <see cref="Contract" />
@@ -121,17 +128,12 @@ namespace Vion.Dale.DevHost.Scenarios
                     return new ResolvedStep(property, null, resolvedComparand);
                 }
 
-                case "digitalInput":
-                    return new ResolvedStep(null, ResolveContract(step.DigitalInput!.Block, step.DigitalInput.Contract, "DigitalInput", where, errors));
+                case "serviceProviderSet":
+                    return new ResolvedStep(null, ResolveServiceProviderContract(step.ServiceProviderSet!.LogicBlock, step.ServiceProviderSet.Contract, true, where, errors));
 
-                case "analogInput":
-                    return new ResolvedStep(null, ResolveContract(step.AnalogInput!.Block, step.AnalogInput.Contract, "AnalogInput", where, errors));
-
-                case "digitalOutput":
-                    return new ResolvedStep(null, ResolveContract(step.DigitalOutput!.Block, step.DigitalOutput.Contract, "DigitalOutput", where, errors));
-
-                case "analogOutput":
-                    return new ResolvedStep(null, ResolveContract(step.AnalogOutput!.Block, step.AnalogOutput.Contract, "AnalogOutput", where, errors));
+                case "serviceProviderExpect":
+                    return new ResolvedStep(null,
+                                            ResolveServiceProviderContract(step.ServiceProviderExpect!.LogicBlock, step.ServiceProviderExpect.Contract, false, where, errors));
 
                 default: // wait — nothing to resolve
                     return new ResolvedStep(null, null);
@@ -351,11 +353,12 @@ namespace Vion.Dale.DevHost.Scenarios
             return true;
         }
 
-        // Resolves a hardware-contract reference (block name + contract identifier) to its mocked endpoint,
-        // enforcing the expected contract type ("DigitalInput"/"AnalogInput" for drive steps,
-        // "DigitalOutput"/"AnalogOutput" for output asserts). Shared by digitalInput/analogInput and
-        // digitalOutput/analogOutput — the addressing is identical; only the expected type differs.
-        private ResolvedContract? ResolveContract(string? blockName, string? contractId, string expectedType, string where, List<string> errors)
+        // Resolves a generic service-provider value-contract reference (serviceProviderSet / serviceProviderExpect,
+        // RFC 0010). Any [ServiceProviderContractType] contract on the block is addressable; direction is read off
+        // the contract's Consumers multiplicity — ZeroOrOne (single-writer, surfaced as the Consumers annotation)
+        // is an output (assert only); the omitted default ZeroOrMore is an input (drivable). The resolved
+        // ContractHandlerActorName names the generic stand-in the drive addresses.
+        private ResolvedContract? ResolveServiceProviderContract(string? blockName, string? contractId, bool forDrive, string where, List<string> errors)
         {
             var block = _configuration.LogicBlocks.FirstOrDefault(b => b.Name == blockName);
             if (block is null)
@@ -371,9 +374,17 @@ namespace Vion.Dale.DevHost.Scenarios
                 return null;
             }
 
-            if (contract.MatchingContractType != expectedType)
+            var isOutput = contract.Annotations.TryGetValue(LogicBlockWiringConventions.ConsumersAnnotationKey, out var consumers) &&
+                           consumers as string == LogicBlockWiringConventions.ZeroOrOne;
+            if (forDrive && isOutput)
             {
-                errors.Add($"{where}: contract '{contractId}' is a {contract.MatchingContractType}, not a {expectedType}");
+                errors.Add($"{where}: contract '{contractId}' is an output (single-writer) — assert it with serviceProviderExpect; it cannot be driven with serviceProviderSet");
+                return null;
+            }
+
+            if (!forDrive && !isOutput)
+            {
+                errors.Add($"{where}: contract '{contractId}' is an input — drive it with serviceProviderSet; only an output (single-writer) is assertable with serviceProviderExpect");
                 return null;
             }
 
@@ -384,7 +395,9 @@ namespace Vion.Dale.DevHost.Scenarios
                 return null;
             }
 
-            return new ResolvedContract(mapping.MappedServiceProviderIdentifier, mapping.MappedServiceIdentifier, mapping.MappedContractIdentifier);
+            var handlerName = contract.Annotations.TryGetValue(ServiceProviderContractAnnotations.ContractHandlerActorName, out var handler) ? handler as string : null;
+
+            return new ResolvedContract(mapping.MappedServiceProviderIdentifier, mapping.MappedServiceIdentifier, mapping.MappedContractIdentifier, handlerName);
         }
 
         private bool IsReadOnly(ResolvedProperty property)
@@ -516,9 +529,9 @@ namespace Vion.Dale.DevHost.Scenarios
                             false);
         }
 
-        // The digitalOutput / analogOutput assert — the same comparator semantics as waitUntil/expect, against
-        // the value the block last Set on the mocked output (literals only, so no relational comparand).
-        public static bool IsSatisfied(ScenarioOutputAssert condition, object? live)
+        // The serviceProviderExpect assert (RFC 0010) — identical comparator semantics, against the value the
+        // block last wrote on a service-provider output contract (literals only).
+        public static bool IsSatisfied(ScenarioServiceProviderAssert condition, object? live)
         {
             return Evaluate(condition.Above,
                             condition.Below,

@@ -11,6 +11,7 @@ namespace Vion.Dale.Sdk.AnalogIo.Input
     /// <summary>
     ///     Handles communication between logic block analog inputs and the HAL via MQTT.
     /// </summary>
+    [ScenarioWire(Inbound = typeof(AnalogInputChanged))]
     public partial class AnalogInputHandler : ServiceProviderHandlerBase
     {
         private readonly ILogger _logger;

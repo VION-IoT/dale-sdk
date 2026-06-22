@@ -6,7 +6,7 @@
 
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from './vue.esm-browser.prod.js';
 import {
-    buildVerificationReport, cssGroupKey, defaultOpen, describeExpect, describeOutputAssert, describeType, describeWaitUntil,
+    buildVerificationReport, contractTypeShort, cssGroupKey, defaultOpen, describeExpect, describeOutputAssert, describeType, describeWaitUntil,
     effectiveType, enumDisplay, enumMembers, formatTemporal, formatValue, gallerySamples,
     GROUP_LABELS, groupItems, isNullable, isWritable, matchesFilter, orderedGroupKeys, parseFilter,
     parseNamePath, presentationFacts, resolveAuthoredTitle, resolveDisplayName, resolveUnit, sampleJson, serviceMembers, severityFor,
@@ -15,8 +15,8 @@ import {
 import {
     applyScenario, baselineDelta, buildSharedContractLookup, changedCountForBlock,
     changedSinceBaseline, clearBaseline, clearPins, closeScenario, collapseKey, connectionsForLb,
-    advanceHost, halKey, historyFor, isPinned, judgeKey, loadTopologies, openScenario, pauseHost, resetHost, resumeHost, stepHost,
-    setAnalogInput, setBaseline, setDigitalInput, setJudgeTick, setProperty, showError, store,
+    advanceHost, driveContract, halKey, historyFor, isPinned, judgeKey, loadTopologies, openScenario, pauseHost, resetHost, resumeHost, stepHost,
+    setBaseline, setJudgeTick, setProperty, showError, store,
     switchTopology, toggleCollapsed, togglePin, valueKey,
 } from './store.js';
 
@@ -772,14 +772,17 @@ export const WiringSection = {
             const type = info.matchingContractType;
             return {
                 id: cm.contractIdentifier, type,
-                short: type === 'DigitalInput' ? 'DI' : type === 'DigitalOutput' ? 'DO' : type === 'AnalogInput' ? 'AI' : 'AO',
+                short: contractTypeShort(type),
+                handler: info.annotations && info.annotations.contractHandlerActorName,
                 spId, svcId, cId, sharedWith,
             };
         }).filter(Boolean);
 
-        const halValue = (kindShort, c) => store.hal[halKey(kindShort.toLowerCase(), c.spId, c.svcId, c.cId)];
-        const onDi = (c, e) => setDigitalInput(c.spId, c.svcId, c.cId, e.target.checked);
-        const onAi = (c, e) => setAnalogInput(c.spId, c.svcId, c.cId, e.target.value);
+        // The live value of any contract, keyed by (sp, svc, contract) — fed by the one generic
+        // ServiceProviderContractChanged event. The control type (toggle / field / read-out) comes from c.short.
+        const halValue = (c) => store.hal[halKey(c.spId, c.svcId, c.cId)];
+        const onDi = (c, e) => driveContract(c.handler, c.spId, c.svcId, c.cId, e.target.checked);
+        const onAi = (c, e) => driveContract(c.handler, c.spId, c.svcId, c.cId, parseFloat(e.target.value) || 0);
         return { connections, contracts, halValue, onDi, onAi, fmt: formatValue };
     },
     template: `
@@ -791,14 +794,15 @@ export const WiringSection = {
                 </span>
             </div>
             <div v-for="c in contracts" :key="c.spId + c.svcId + c.cId" class="io-row">
-                <span class="contract-type-badge" :class="c.short.toLowerCase()">{{ c.short }}</span>
+                <span class="contract-type-badge" :class="c.short.toLowerCase()" :title="c.type">{{ c.short }}</span>
                 <span class="mono io-name">{{ c.id }}</span>
                 <span v-if="c.sharedWith.length" class="shared-badge">shared with {{ c.sharedWith.join(', ') }}</span>
                 <span class="item-spacer"></span>
-                <input v-if="c.short === 'DI'" class="toggle" type="checkbox" :checked="!!halValue('di', c)" @change="onDi(c, $event)">
-                <input v-else-if="c.short === 'AI'" type="number" step="0.1" :value="halValue('ai', c) ?? 0"
+                <input v-if="c.short === 'DI'" class="toggle" type="checkbox" :checked="!!halValue(c)" @change="onDi(c, $event)">
+                <input v-else-if="c.short === 'AI'" type="number" step="0.1" :value="halValue(c) ?? 0"
                        @keydown.enter="onAi(c, $event); $event.target.blur()" @blur="onAi(c, $event)">
-                <span v-else class="value-chip">{{ fmt(halValue(c.short.toLowerCase(), c) ?? (c.short === 'DO' ? false : 0)) }}</span>
+                <span v-else-if="c.short === 'DO' || c.short === 'AO'" class="value-chip">{{ fmt(halValue(c) ?? (c.short === 'DO' ? false : 0)) }}</span>
+                <span v-else class="scenario-only" :title="c.type + ' — drive/assert from a scenario (serviceProviderSet / serviceProviderExpect)'">scenario-driven</span>
             </div>
         </details>
     `,
@@ -1044,8 +1048,8 @@ export const TopologyPanel = {
                 const info = infoMap[cm.contractIdentifier];
                 const type = info ? info.matchingContractType : '?';
                 return {
-                    id: cm.contractIdentifier,
-                    short: type === 'DigitalInput' ? 'DI' : type === 'DigitalOutput' ? 'DO' : type === 'AnalogInput' ? 'AI' : 'AO',
+                    id: cm.contractIdentifier, type,
+                    short: contractTypeShort(type),
                     endpoint: `${cm.mappedServiceProviderIdentifier} / ${cm.mappedServiceIdentifier} / ${cm.mappedContractIdentifier}`,
                 };
             });
@@ -1357,10 +1361,8 @@ export const PlayerPanel = {
             return raw.map((s, i) => ({
                 index: i,
                 kind: s.set !== undefined ? 'set'
-                    : s.digitalInput ? 'digitalInput'
-                    : s.analogInput ? 'analogInput'
-                    : s.digitalOutput ? 'digitalOutput'
-                    : s.analogOutput ? 'analogOutput'
+                    : s.serviceProviderSet ? 'serviceProviderSet'
+                    : s.serviceProviderExpect ? 'serviceProviderExpect'
                     : s.waitUntil ? 'waitUntil'
                     : s.expect ? 'expect'
                     : s.advance ? 'advance'
@@ -1369,17 +1371,14 @@ export const PlayerPanel = {
                 label: s.label,
                 spec: s.spec,
                 target: s.set !== undefined ? s.set
-                    : s.digitalInput ? `${s.digitalInput.block}.${s.digitalInput.contract}`
-                    : s.analogInput ? `${s.analogInput.block}.${s.analogInput.contract}`
-                    : s.digitalOutput ? `${s.digitalOutput.block}.${s.digitalOutput.contract}`
-                    : s.analogOutput ? `${s.analogOutput.block}.${s.analogOutput.contract}`
+                    : s.serviceProviderSet ? `${s.serviceProviderSet.logicBlock}.${s.serviceProviderSet.contract}`
+                    : s.serviceProviderExpect ? `${s.serviceProviderExpect.logicBlock}.${s.serviceProviderExpect.contract}`
                     : s.waitUntil ? s.waitUntil.property
                     : s.expect ? s.expect.property
                     : s.advance ? ''
                     : s.settle !== undefined ? (s.settle.until ? `until ${s.settle.until.join(', ')}` : 'until stable')
                     : s.wait ? `${s.wait.seconds} s` : '?',
-                argument: s.digitalOutput ? describeOutputAssert(s.digitalOutput)
-                    : s.analogOutput ? describeOutputAssert(s.analogOutput)
+                argument: s.serviceProviderExpect ? describeOutputAssert(s.serviceProviderExpect)
                     : 'value' in s ? JSON.stringify(s.value)
                     : s.waitUntil ? describeWaitUntil(s.waitUntil, s.timeoutSeconds)
                     : s.expect ? describeExpect(s.expect)

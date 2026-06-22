@@ -21,9 +21,10 @@ namespace Vion.Dale.DevHost.Xunit.Test
 
             var byId = rows.ToDictionary(r => (string)r.GetData()[0]!, r => (string)r.GetData()[1]!);
 
-            CollectionAssert.AreEquivalent(new[] { "showcase-tour", "io-control", "minimal-subset" }, byId.Keys.ToList());
+            CollectionAssert.AreEquivalent(new[] { "showcase-tour", "io-control", "grid-demand", "minimal-subset" }, byId.Keys.ToList());
             Assert.AreEqual("default", byId["showcase-tour"]);
             Assert.AreEqual("default", byId["io-control"]);
+            Assert.AreEqual("default", byId["grid-demand"]);
             Assert.AreEqual("minimal", byId["minimal-subset"]);
         }
 
@@ -42,7 +43,7 @@ namespace Vion.Dale.DevHost.Xunit.Test
         public async Task Filter_to_a_single_topology_when_requested()
         {
             var defaultRows = await Discover("default");
-            CollectionAssert.AreEquivalent(new[] { "showcase-tour", "io-control" }, defaultRows.Select(r => (string)r.GetData()[0]!).ToList());
+            CollectionAssert.AreEquivalent(new[] { "showcase-tour", "io-control", "grid-demand" }, defaultRows.Select(r => (string)r.GetData()[0]!).ToList());
 
             var minimalRows = await Discover("minimal");
             Assert.HasCount(1, minimalRows);

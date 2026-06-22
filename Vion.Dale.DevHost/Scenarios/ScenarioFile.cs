@@ -199,15 +199,14 @@ namespace Vion.Dale.DevHost.Scenarios
 
         public JsonElement Value { get; init; }
 
-        public ScenarioContractRef? DigitalInput { get; init; }
+        /// <summary>Drives any <c>[ServiceProviderContractType]</c> value input contract from <c>value</c> (RFC 0010).</summary>
+        public ScenarioServiceProviderRef? ServiceProviderSet { get; init; }
 
-        public ScenarioContractRef? AnalogInput { get; init; }
-
-        /// <summary>A deterministic, point-in-time auto-assertion on a mocked <c>IDigitalOutput</c> (step-only).</summary>
-        public ScenarioOutputAssert? DigitalOutput { get; init; }
-
-        /// <summary>A deterministic, point-in-time auto-assertion on a mocked <c>IAnalogOutput</c> (step-only).</summary>
-        public ScenarioOutputAssert? AnalogOutput { get; init; }
+        /// <summary>
+        ///     Asserts the value a block last wrote on any <c>[ServiceProviderContractType]</c> value output contract (RFC
+        ///     0010, step-only).
+        /// </summary>
+        public ScenarioServiceProviderAssert? ServiceProviderExpect { get; init; }
 
         public ScenarioWaitUntil? WaitUntil { get; init; }
 
@@ -238,24 +237,14 @@ namespace Vion.Dale.DevHost.Scenarios
                     return "set";
                 }
 
-                if (DigitalInput is not null)
+                if (ServiceProviderSet is not null)
                 {
-                    return "digitalInput";
+                    return "serviceProviderSet";
                 }
 
-                if (AnalogInput is not null)
+                if (ServiceProviderExpect is not null)
                 {
-                    return "analogInput";
-                }
-
-                if (DigitalOutput is not null)
-                {
-                    return "digitalOutput";
-                }
-
-                if (AnalogOutput is not null)
-                {
-                    return "analogOutput";
+                    return "serviceProviderExpect";
                 }
 
                 if (WaitUntil is not null)
@@ -290,22 +279,12 @@ namespace Vion.Dale.DevHost.Scenarios
                 shapes++;
             }
 
-            if (DigitalInput is not null)
+            if (ServiceProviderSet is not null)
             {
                 shapes++;
             }
 
-            if (AnalogInput is not null)
-            {
-                shapes++;
-            }
-
-            if (DigitalOutput is not null)
-            {
-                shapes++;
-            }
-
-            if (AnalogOutput is not null)
+            if (ServiceProviderExpect is not null)
             {
                 shapes++;
             }
@@ -337,15 +316,15 @@ namespace Vion.Dale.DevHost.Scenarios
 
             if (shapes != 1)
             {
-                yield return "a step is exactly one of set / digitalInput / analogInput / digitalOutput / analogOutput / waitUntil / expect / wait / advance / settle";
+                yield return "a step is exactly one of set / serviceProviderSet / serviceProviderExpect / waitUntil / expect / wait / advance / settle";
 
                 yield break;
             }
 
-            if (setupOnlyShapes && (WaitUntil is not null || Expect is not null || DigitalOutput is not null || AnalogOutput is not null || Wait is not null ||
-                                    Advance is not null || Settle is not null))
+            if (setupOnlyShapes && (WaitUntil is not null || Expect is not null || ServiceProviderExpect is not null || Wait is not null || Advance is not null ||
+                                    Settle is not null))
             {
-                yield return "setup entries stage state (set / digitalInput / analogInput) — waits, expects, output asserts, and time steps belong in steps";
+                yield return "setup entries stage state (set / serviceProviderSet) — waits, expects, output asserts, and time steps belong in steps";
 
                 yield break;
             }
@@ -362,48 +341,27 @@ namespace Vion.Dale.DevHost.Scenarios
                     yield return "set requires value (use an explicit null to write null)";
                 }
             }
-            else if (Value.ValueKind != JsonValueKind.Undefined && DigitalInput is null && AnalogInput is null)
+            else if (Value.ValueKind != JsonValueKind.Undefined && ServiceProviderSet is null)
             {
                 yield return $"value is not valid on a {Kind} step";
             }
 
-            if (DigitalInput is not null)
+            if (ServiceProviderSet is not null)
             {
-                foreach (var error in DigitalInput.StructuralErrors("digitalInput"))
+                foreach (var error in ServiceProviderSet.StructuralErrors("serviceProviderSet"))
                 {
                     yield return error;
                 }
 
-                if (Value.ValueKind != JsonValueKind.True && Value.ValueKind != JsonValueKind.False)
+                if (Value.ValueKind == JsonValueKind.Undefined)
                 {
-                    yield return "digitalInput requires a boolean value";
+                    yield return "serviceProviderSet requires value (the contract's wire value — a scalar for digital/analog, a JSON object for a struct contract)";
                 }
             }
 
-            if (AnalogInput is not null)
+            if (ServiceProviderExpect is not null)
             {
-                foreach (var error in AnalogInput.StructuralErrors("analogInput"))
-                {
-                    yield return error;
-                }
-
-                if (Value.ValueKind != JsonValueKind.Number)
-                {
-                    yield return "analogInput requires a numeric value";
-                }
-            }
-
-            if (DigitalOutput is not null)
-            {
-                foreach (var error in DigitalOutput.StructuralErrors("digitalOutput"))
-                {
-                    yield return error;
-                }
-            }
-
-            if (AnalogOutput is not null)
-            {
-                foreach (var error in AnalogOutput.StructuralErrors("analogOutput"))
+                foreach (var error in ServiceProviderExpect.StructuralErrors("serviceProviderExpect"))
                 {
                     yield return error;
                 }
@@ -468,20 +426,22 @@ namespace Vion.Dale.DevHost.Scenarios
     }
 
     /// <summary>
-    ///     A hardware-contract reference (<c>digitalInput</c> / <c>analogInput</c>): the block name plus its contract
-    ///     identifier.
+    ///     A service-provider value-contract reference (<c>serviceProviderSet</c>, RFC 0010): the consuming
+    ///     logic block's name plus the contract identifier. Addresses any <c>[ServiceProviderContractType]</c>
+    ///     value contract uniformly — the four HAL contracts and third-party ones like PPC — replacing the
+    ///     per-family <c>digitalInput</c> / <c>analogInput</c> references.
     /// </summary>
-    public sealed class ScenarioContractRef
+    public sealed class ScenarioServiceProviderRef
     {
-        public string? Block { get; init; }
+        public string? LogicBlock { get; init; }
 
         public string? Contract { get; init; }
 
         internal IEnumerable<string> StructuralErrors(string shape)
         {
-            if (string.IsNullOrWhiteSpace(Block))
+            if (string.IsNullOrWhiteSpace(LogicBlock))
             {
-                yield return $"{shape}.block is required";
+                yield return $"{shape}.logicBlock is required";
             }
 
             if (string.IsNullOrWhiteSpace(Contract))
@@ -492,17 +452,15 @@ namespace Vion.Dale.DevHost.Scenarios
     }
 
     /// <summary>
-    ///     A <c>digitalOutput</c> / <c>analogOutput</c> auto-assertion (RFC 0006 "Assert tier", HAL outputs):
-    ///     a hardware-contract reference (block + contract identifier) plus exactly one comparator, checked
-    ///     against the value the block last Set on that mocked output. The read half of HAL, symmetric with
-    ///     <c>digitalInput</c> / <c>analogInput</c> (drive). Comparators are the same as <c>expect</c>
-    ///     (<c>above</c>/<c>below</c>/<c>equals</c>+<c>tolerance</c>/<c>notEquals</c>/<c>oneOf</c>) — for a
-    ///     boolean digital output only <c>equals</c>/<c>notEquals</c>/<c>oneOf</c> are sensible, but that is not
-    ///     a hard error. Unlike <c>expect</c>, comparands are literals only (no relational <c>{path}</c> form).
+    ///     A <c>serviceProviderExpect</c> auto-assertion (RFC 0010): a service-provider value <em>output</em>
+    ///     contract reference (<c>logicBlock</c> + <c>contract</c>) plus exactly one comparator, checked against
+    ///     the value the block last wrote on that contract. The generic replacement for <c>digitalOutput</c> /
+    ///     <c>analogOutput</c>; comparators and literal-only comparands are identical to those (no relational
+    ///     <c>{path}</c> form).
     /// </summary>
-    public sealed class ScenarioOutputAssert
+    public sealed class ScenarioServiceProviderAssert
     {
-        public string? Block { get; init; }
+        public string? LogicBlock { get; init; }
 
         public string? Contract { get; init; }
 
@@ -521,9 +479,9 @@ namespace Vion.Dale.DevHost.Scenarios
 
         internal IEnumerable<string> StructuralErrors(string shape)
         {
-            if (string.IsNullOrWhiteSpace(Block))
+            if (string.IsNullOrWhiteSpace(LogicBlock))
             {
-                yield return $"{shape}.block is required";
+                yield return $"{shape}.logicBlock is required";
             }
 
             if (string.IsNullOrWhiteSpace(Contract))
@@ -531,8 +489,6 @@ namespace Vion.Dale.DevHost.Scenarios
                 yield return $"{shape}.contract is required";
             }
 
-            // Output comparands are literals only — allowPathComparand: false, so a {path} object is rejected
-            // (the relational comparand is an expect-only feature against another property).
             foreach (var error in ScenarioComparators.StructuralErrors(shape,
                                                                        Above,
                                                                        Below,
