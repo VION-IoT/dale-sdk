@@ -500,10 +500,106 @@ namespace Vion.Dale.Sdk.Core
                    ?? (IThrottleConfigured?)property.GetCustomAttribute(typeof(ServiceMeasuringPointAttribute), true);
         }
 
-        // Fully implemented in T25 (trailing-edge flush). Stubbed here so the gate compiles; Hold
-        // values are flushed once the self-scheduled flush path lands in the next task.
+        /// <summary>
+        ///     RFC 0004: ensures one trailing-edge flush is scheduled at the earliest pending deadline
+        ///     across all throttlers. Mirrors <see cref="ScheduleNextTimerTick" /> — a single idiomatic
+        ///     self-send via the pause-gated / stepper-aware self-scheduling path. The flush body
+        ///     (<see cref="OnEmissionFlushDue" />) coalesces and reschedules the next-earliest, so an
+        ///     extra wakeup at worst finds nothing due and reschedules.
+        ///     <para>
+        ///         The flush is dispatched as an <c>InvokeSynchronized</c> action rather than a bespoke
+        ///         self-message: the action wrapper is what both the production actor loop and the
+        ///         TestKit's virtual clock (AdvanceTime / FlushPendingActions) actually pump, so the
+        ///         trailing flush is observable under deterministic tests. A raw self-message would be
+        ///         delivered in production but silently dropped by the TestKit, which never re-dispatches
+        ///         non-action self-messages.
+        ///     </para>
+        /// </summary>
         private void ScheduleEmissionFlush(DateTimeOffset earliestDeadline)
         {
+            var delay = earliestDeadline - _timeProvider.GetUtcNow();
+            if (delay < TimeSpan.Zero)
+            {
+                delay = TimeSpan.Zero;
+            }
+
+            InvokeSynchronizedAfter(OnEmissionFlushDue, delay);
+        }
+
+        /// <summary>
+        ///     RFC 0004: flushes every throttler whose hold deadline has elapsed, emitting its pending
+        ///     value, then reschedules a single wakeup for the earliest still-pending deadline (if any).
+        /// </summary>
+        private void OnEmissionFlushDue()
+        {
+            if (!_started)
+            {
+                return;
+            }
+
+            var now = _timeProvider.GetUtcNow();
+            var nextDeadline = DateTimeOffset.MaxValue;
+            var hasNext = false;
+
+            foreach (var ((serviceIdentifier, memberIdentifier), throttler) in _throttlers)
+            {
+                if (throttler.HasPending && throttler.PendingDeadline <= now)
+                {
+                    if (throttler.TryFlush(now, out var value))
+                    {
+                        EmitFlushedValue(serviceIdentifier, memberIdentifier, value);
+                    }
+                }
+
+                if (throttler.HasPending && throttler.PendingDeadline < nextDeadline)
+                {
+                    nextDeadline = throttler.PendingDeadline;
+                    hasNext = true;
+                }
+            }
+
+            if (hasNext)
+            {
+                ScheduleEmissionFlush(nextDeadline);
+            }
+        }
+
+        /// <summary>
+        ///     Emits a flushed value to the correct handler. A key in <see cref="_throttlers" /> may be a
+        ///     service property or a measuring point; resolve which by membership in the binder's maps so
+        ///     the value reaches the right central handler.
+        /// </summary>
+        private void EmitFlushedValue(string serviceIdentifier, string memberIdentifier, object? value)
+        {
+            if (!_serviceIdLookup.TryGetValue(serviceIdentifier, out var serviceId))
+            {
+                return;
+            }
+
+            if (IsMeasuringPoint(serviceIdentifier, memberIdentifier))
+            {
+                _actorContext.SendTo(_serviceMeasuringPointHandlerActorRef, new ServiceMeasuringPointValueChanged(serviceId, memberIdentifier, value));
+            }
+            else
+            {
+                _actorContext.SendTo(_servicePropertyHandlerActorRef, new ServicePropertyValueChanged(serviceId, memberIdentifier, value));
+            }
+        }
+
+        private bool IsMeasuringPoint(string serviceIdentifier, string memberIdentifier)
+        {
+            if (_serviceBinder.GetAllServiceMeasuringPointBindings().TryGetValue(serviceIdentifier, out var interfaceMap))
+            {
+                foreach (var perInterface in interfaceMap.Values)
+                {
+                    if (perInterface.ContainsKey(memberIdentifier))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
         }
 
         private void HandleSetServicePropertyValueRequest(IActorContext actorContext, SetServicePropertyValueRequest m)

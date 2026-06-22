@@ -74,5 +74,25 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
             ctx.VerifyServicePropertyEmitted(lb => lb.Voltage, value => Assert.AreEqual(5.0, value), Times.Once());
         }
+
+        [TestMethod]
+        public void FlushHeldValueAfterMinInterval()
+        {
+            // Leading edge emits 1.0; 2.0 then 3.0 are held within the 250ms window; after the
+            // interval elapses the latest held value (3.0) flushes exactly once (trailing edge).
+            var block = LogicBlockTestHelper.Create<ThrottledBlock>();
+            var ctx = block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).Build();
+
+            ctx.AdvanceTime(TimeSpan.FromMilliseconds(250)); // clear the start-seed interval
+
+            block.Voltage = 1.0; // emit
+            block.Voltage = 2.0; // held
+            block.Voltage = 3.0; // held (latest wins)
+
+            ctx.AdvanceTime(TimeSpan.FromMilliseconds(250));
+
+            // 1.0 (leading) + 3.0 (trailing flush) = 2 emissions; last value is 3.0.
+            ctx.VerifyServicePropertyEmitted(lb => lb.Voltage, times: Times.Exactly(2));
+        }
     }
 }
