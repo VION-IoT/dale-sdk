@@ -91,6 +91,11 @@ namespace Vion.Dale.Sdk.Core
         // throttler (the gate has no in-place cancel) — see ResetThrottlerPending.
         private readonly Dictionary<(string ServiceIdentifier, string MemberIdentifier), ThrottlePolicy> _throttlerPolicies = [];
 
+        // RFC 0004: tracks the deadline of the single outstanding flush timer (≤1 per block at a
+        // time). Null when no flush is armed. Set in ScheduleEmissionFlush; cleared at the top of
+        // OnEmissionFlushDue so the body can re-arm if further pending values remain.
+        private DateTimeOffset? _scheduledFlushDeadline;
+
         private string? _vitalsActorName;
 
         private IActorVitalsCollector? _vitalsCollector;
@@ -503,6 +508,9 @@ namespace Vion.Dale.Sdk.Core
 
         private static IThrottleConfigured? ResolveThrottleConfigured(ServiceBinding binding)
         {
+            // Throttle attributes are read from the bound source (impl) property (RootSourcePropertyInfo),
+            // so [ServiceProperty(MinInterval=…)] must be declared on the impl property — consistent with
+            // how all other bind attributes (deadband, etc.) are resolved; interface members are not checked.
             var property = binding.RootSourcePropertyInfo;
             if (property == null)
             {
@@ -545,12 +553,25 @@ namespace Vion.Dale.Sdk.Core
         /// </summary>
         private void ScheduleEmissionFlush(DateTimeOffset earliestDeadline)
         {
-            var delay = earliestDeadline - _timeProvider.GetUtcNow();
+            // RFC 0004 invariant: at most one outstanding flush per block. Skip arming a new timer
+            // when one is already scheduled for the same or an earlier deadline — the common case
+            // for a burst of holds sharing _lastEmitAt + MinInterval as their deadline. Only arm
+            // (or re-arm) when the new deadline is strictly earlier than the in-flight one, which
+            // replaces it (InvokeSynchronizedAfter cannot be cancelled; the earlier wakeup wins and
+            // the late one fires into an idempotent no-op or a same-deadline reschedule).
+            if (_scheduledFlushDeadline is not null && earliestDeadline >= _scheduledFlushDeadline.Value)
+            {
+                return;
+            }
+
+            var now = _timeProvider.GetUtcNow();
+            var delay = earliestDeadline - now;
             if (delay < TimeSpan.Zero)
             {
                 delay = TimeSpan.Zero;
             }
 
+            _scheduledFlushDeadline = earliestDeadline;
             InvokeSynchronizedAfter(OnEmissionFlushDue, delay);
         }
 
@@ -564,6 +585,10 @@ namespace Vion.Dale.Sdk.Core
             {
                 return;
             }
+
+            // Clear the outstanding-flush sentinel first, before any work, so that the reschedule
+            // call below (if further pending values remain) correctly re-arms rather than no-ops.
+            _scheduledFlushDeadline = null;
 
             var now = _timeProvider.GetUtcNow();
             var nextDeadline = DateTimeOffset.MaxValue;
