@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://vion.swiss/dale/scenario.schema.json",
   "title": "Dale DevHost scenario file (RFC 0006, vocabulary v1)",
-  "description": "A git-committed description of a manual-test scenario: setup, ordered stimuli, watch list, human judgments. The generic structural schema shipped with Vion.Dale.DevHost; 'dale scenario schema' (R4) emits a per-project variant enriched with the topology's actual block names and property identifiers.",
+  "description": "A git-committed description of a manual-test scenario: setup, ordered stimuli, watch list, human judgments. The generic structural schema shipped with Vion.Dale.DevHost; \u0027dale scenario schema\u0027 (R4) emits a per-project variant enriched with the topology\u0027s actual block names and property identifiers.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -21,7 +21,7 @@
     "id": {
       "type": "string",
       "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
-      "description": "URL-safe slug; must match the file name (<id>.scenario.json). Deep-link route: #/scenario/{id}."
+      "description": "URL-safe slug; must match the file name (\u003Cid\u003E.scenario.json). Deep-link route: #/scenario/{id}."
     },
     "title": {
       "type": "string"
@@ -31,7 +31,7 @@
     },
     "topology": {
       "type": "string",
-      "description": "The topology id this scenario expects (a C# preset's declared name or a topology file id). Mismatch blocks the run."
+      "description": "The topology id this scenario expects (a C# preset\u0027s declared name or a topology file id). Mismatch blocks the run."
     },
     "specs": {
       "type": "array",
@@ -85,8 +85,65 @@
   "$defs": {
     "namePath": {
       "type": "string",
-      "pattern": "^[^.]+\\.[^.]+(\\.[^.]+)?$",
-      "description": "Block.Property (when unambiguous within the block) or Block.Service.Property (the qualified form for multi-service blocks)."
+      "description": "Block.Property (when unambiguous within the block) or Block.Service.Property (the qualified form for multi-service blocks).",
+      "enum": [
+        "PresentationDemo.ActivePower",
+        "PresentationDemo.ApiKey",
+        "PresentationDemo.AvgResponseTime",
+        "PresentationDemo.BootedAt",
+        "PresentationDemo.CalibrationsTriggered",
+        "PresentationDemo.DelaySetpoint",
+        "PresentationDemo.EnergyImported",
+        "PresentationDemo.FirmwareVersion",
+        "PresentationDemo.InstanceId",
+        "PresentationDemo.InternalMode",
+        "PresentationDemo.LastSampleAt",
+        "PresentationDemo.Link",
+        "PresentationDemo.MaximumPower",
+        "PresentationDemo.MgmtIp",
+        "PresentationDemo.Model",
+        "PresentationDemo.Notes",
+        "PresentationDemo.Plant",
+        "PresentationDemo.Power",
+        "PresentationDemo.PresentationDemo.ActivePower",
+        "PresentationDemo.PresentationDemo.ApiKey",
+        "PresentationDemo.PresentationDemo.AvgResponseTime",
+        "PresentationDemo.PresentationDemo.BootedAt",
+        "PresentationDemo.PresentationDemo.CalibrationsTriggered",
+        "PresentationDemo.PresentationDemo.DelaySetpoint",
+        "PresentationDemo.PresentationDemo.EnergyImported",
+        "PresentationDemo.PresentationDemo.FirmwareVersion",
+        "PresentationDemo.PresentationDemo.InstanceId",
+        "PresentationDemo.PresentationDemo.InternalMode",
+        "PresentationDemo.PresentationDemo.LastSampleAt",
+        "PresentationDemo.PresentationDemo.Link",
+        "PresentationDemo.PresentationDemo.MaximumPower",
+        "PresentationDemo.PresentationDemo.MgmtIp",
+        "PresentationDemo.PresentationDemo.Model",
+        "PresentationDemo.PresentationDemo.Notes",
+        "PresentationDemo.PresentationDemo.Plant",
+        "PresentationDemo.PresentationDemo.Power",
+        "PresentationDemo.PresentationDemo.RecentLoad",
+        "PresentationDemo.PresentationDemo.ResponseTime",
+        "PresentationDemo.PresentationDemo.RestartCount",
+        "PresentationDemo.PresentationDemo.ScheduledAt",
+        "PresentationDemo.PresentationDemo.SerialNumber",
+        "PresentationDemo.PresentationDemo.StartCalibration",
+        "PresentationDemo.PresentationDemo.StoredEnergy",
+        "PresentationDemo.PresentationDemo.TargetStateOfCharge",
+        "PresentationDemo.PresentationDemo.Uptime",
+        "PresentationDemo.PresentationDemo.Voltage",
+        "PresentationDemo.RecentLoad",
+        "PresentationDemo.ResponseTime",
+        "PresentationDemo.RestartCount",
+        "PresentationDemo.ScheduledAt",
+        "PresentationDemo.SerialNumber",
+        "PresentationDemo.StartCalibration",
+        "PresentationDemo.StoredEnergy",
+        "PresentationDemo.TargetStateOfCharge",
+        "PresentationDemo.Uptime",
+        "PresentationDemo.Voltage"
+      ]
     },
     "value": {
       "description": "A scalar, an enum member name (case-sensitive string), a complete struct/array literal, or null (nullable properties)."
@@ -98,7 +155,7 @@
           "array"
         ]
       },
-      "description": "A scalar, enum member name, or null — structs/arrays are not comparable in v1."
+      "description": "A scalar, enum member name, or null \u2014 structs/arrays are not comparable in v1."
     },
     "pathComparand": {
       "type": "object",
@@ -111,7 +168,7 @@
           "$ref": "#/$defs/namePath"
         }
       },
-      "description": "A relational comparand resolved to another path's current value at assert time (expect only)."
+      "description": "A relational comparand resolved to another path\u0027s current value at assert time (expect only)."
     },
     "relationalComparand": {
       "oneOf": [
@@ -146,7 +203,7 @@
           ]
         }
       },
-      "description": "A non-empty array of scalars/enum names; value ∈ this set satisfies the comparator."
+      "description": "A non-empty array of scalars/enum names; value \u2208 this set satisfies the comparator."
     },
     "stepCommon": {
       "label": {
@@ -177,50 +234,6 @@
         },
         "value": {
           "$ref": "#/$defs/value"
-        }
-      }
-    },
-    "digitalInputStep": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "digitalInput",
-        "value"
-      ],
-      "properties": {
-        "label": {
-          "$ref": "#/$defs/stepCommon/label"
-        },
-        "spec": {
-          "$ref": "#/$defs/stepCommon/spec"
-        },
-        "digitalInput": {
-          "$ref": "#/$defs/contractRef"
-        },
-        "value": {
-          "type": "boolean"
-        }
-      }
-    },
-    "analogInputStep": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "analogInput",
-        "value"
-      ],
-      "properties": {
-        "label": {
-          "$ref": "#/$defs/stepCommon/label"
-        },
-        "spec": {
-          "$ref": "#/$defs/stepCommon/spec"
-        },
-        "analogInput": {
-          "$ref": "#/$defs/contractRef"
-        },
-        "value": {
-          "type": "number"
         }
       }
     },
@@ -294,7 +307,12 @@
                 "oneOf"
               ]
             }
-          ]
+          ],
+          "dependentRequired": {
+            "tolerance": [
+              "equals"
+            ]
+          }
         },
         "timeoutSeconds": {
           "type": "number",
@@ -374,7 +392,12 @@
                 "oneOf"
               ]
             }
-          ]
+          ],
+          "dependentRequired": {
+            "tolerance": [
+              "equals"
+            ]
+          }
         }
       }
     },
@@ -430,7 +453,7 @@
             "seconds": {
               "type": "number",
               "exclusiveMinimum": 0,
-              "description": "Virtual seconds to advance the stepped host's clock."
+              "description": "Virtual seconds to advance the stepped host\u0027s clock."
             }
           }
         }
@@ -460,7 +483,7 @@
               "items": {
                 "$ref": "#/$defs/namePath"
               },
-              "description": "Explicit target paths that must stabilize for convergence; omit to settle over the whole watch list. A large watch set is for observability — scope settle to the specific values meant to settle so a volatile tile (free-running counter / clock-derived value / noisy sensor) does not burn the budget."
+              "description": "Explicit target paths that must stabilize for convergence; omit to settle over the whole watch list. A large watch set is for observability \u2014 scope settle to the specific values meant to settle so a volatile tile (free-running counter / clock-derived value / noisy sensor) does not burn the budget."
             },
             "maxSeconds": {
               "type": "number",
@@ -473,20 +496,132 @@
       },
       "description": "Advance hop-by-hop until the targeted signals stop changing (stepped host only). The targeted set is settle.until when given, else the whole watch list. Converges when no targeted value changed across one hop; FAILS the step if the maxSeconds budget elapses while a target is still changing."
     },
-    "contractRef": {
+    "serviceProviderRef": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "block",
+        "logicBlock",
         "contract"
       ],
+      "description": "A service-provider value-contract reference: the consuming logic block name plus the contract identifier (RFC 0010).",
       "properties": {
-        "block": {
+        "logicBlock": {
           "type": "string"
         },
         "contract": {
           "type": "string"
         }
+      }
+    },
+    "serviceProviderSetStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "serviceProviderSet",
+        "value"
+      ],
+      "description": "Drives any [ServiceProviderContractType] value INPUT contract from its wire value \u2014 a scalar for digital/analog, a JSON object for a struct contract (PPC). The generic replacement for digitalInput / analogInput (RFC 0010).",
+      "properties": {
+        "label": {
+          "$ref": "#/$defs/stepCommon/label"
+        },
+        "spec": {
+          "$ref": "#/$defs/stepCommon/spec"
+        },
+        "serviceProviderSet": {
+          "$ref": "#/$defs/serviceProviderRef"
+        },
+        "value": {
+          "$ref": "#/$defs/value"
+        }
+      }
+    },
+    "serviceProviderExpectStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "serviceProviderExpect"
+      ],
+      "description": "A deterministic, point-in-time auto-assertion on the value a block last wrote on any [ServiceProviderContractType] value OUTPUT contract (CI-failing tier). The generic replacement for digitalOutput / analogOutput (RFC 0010).",
+      "properties": {
+        "label": {
+          "$ref": "#/$defs/stepCommon/label"
+        },
+        "spec": {
+          "$ref": "#/$defs/stepCommon/spec"
+        },
+        "serviceProviderExpect": {
+          "$ref": "#/$defs/serviceProviderOutputAssert"
+        }
+      }
+    },
+    "serviceProviderOutputAssert": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "logicBlock",
+        "contract"
+      ],
+      "description": "A service-provider value-output contract reference (logicBlock \u002B contract) plus exactly one comparator, checked against the value the block last wrote on that contract. Comparands are literals only (no relational { path } form).",
+      "properties": {
+        "logicBlock": {
+          "type": "string"
+        },
+        "contract": {
+          "type": "string"
+        },
+        "above": {
+          "type": "number"
+        },
+        "below": {
+          "type": "number"
+        },
+        "equals": {
+          "$ref": "#/$defs/comparand"
+        },
+        "notEquals": {
+          "$ref": "#/$defs/comparand"
+        },
+        "oneOf": {
+          "$ref": "#/$defs/oneOfComparand"
+        },
+        "tolerance": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Only with a numeric equals."
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "above"
+          ]
+        },
+        {
+          "required": [
+            "below"
+          ]
+        },
+        {
+          "required": [
+            "equals"
+          ]
+        },
+        {
+          "required": [
+            "notEquals"
+          ]
+        },
+        {
+          "required": [
+            "oneOf"
+          ]
+        }
+      ],
+      "dependentRequired": {
+        "tolerance": [
+          "equals"
+        ]
       }
     },
     "setupEntry": {
@@ -495,10 +630,7 @@
           "$ref": "#/$defs/setStep"
         },
         {
-          "$ref": "#/$defs/digitalInputStep"
-        },
-        {
-          "$ref": "#/$defs/analogInputStep"
+          "$ref": "#/$defs/serviceProviderSetStep"
         }
       ]
     },
@@ -508,10 +640,10 @@
           "$ref": "#/$defs/setStep"
         },
         {
-          "$ref": "#/$defs/digitalInputStep"
+          "$ref": "#/$defs/serviceProviderSetStep"
         },
         {
-          "$ref": "#/$defs/analogInputStep"
+          "$ref": "#/$defs/serviceProviderExpectStep"
         },
         {
           "$ref": "#/$defs/waitUntilStep"

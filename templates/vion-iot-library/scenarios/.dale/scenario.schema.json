@@ -2,38 +2,63 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://vion.swiss/dale/scenario.schema.json",
   "title": "Dale DevHost scenario file (RFC 0006, vocabulary v1)",
-  "description": "A git-committed description of a manual-test scenario: setup, ordered stimuli, watch list, human judgments. The generic structural schema shipped with Vion.Dale.DevHost; 'dale scenario schema' (R4) emits a per-project variant enriched with the topology's actual block names and property identifiers.",
+  "description": "A git-committed description of a manual-test scenario: setup, ordered stimuli, watch list, human judgments. The generic structural schema shipped with Vion.Dale.DevHost; \u0027dale scenario schema\u0027 (R4) emits a per-project variant enriched with the topology\u0027s actual block names and property identifiers.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "id", "topology"],
+  "required": [
+    "version",
+    "id",
+    "topology"
+  ],
   "properties": {
-    "$schema": { "type": "string" },
-    "version": { "const": 1, "description": "Vocabulary version. Runners reject unknown versions loudly; evolution is by version bump." },
+    "$schema": {
+      "type": "string"
+    },
+    "version": {
+      "const": 1,
+      "description": "Vocabulary version. Runners reject unknown versions loudly; evolution is by version bump."
+    },
     "id": {
       "type": "string",
       "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
-      "description": "URL-safe slug; must match the file name (<id>.scenario.json). Deep-link route: #/scenario/{id}."
+      "description": "URL-safe slug; must match the file name (\u003Cid\u003E.scenario.json). Deep-link route: #/scenario/{id}."
     },
-    "title": { "type": "string" },
-    "description": { "type": "string" },
+    "title": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
     "topology": {
       "type": "string",
-      "description": "The topology id this scenario expects (a C# preset's declared name or a topology file id). Mismatch blocks the run."
+      "description": "The topology id this scenario expects (a C# preset\u0027s declared name or a topology file id). Mismatch blocks the run."
     },
-    "specs": { "type": "array", "items": { "type": "string" }, "description": "Free-form trace ids for the scenario as a whole (consumer policy, e.g. AC-EM-23)." },
+    "specs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Free-form trace ids for the scenario as a whole (consumer policy, e.g. AC-EM-23)."
+    },
     "setup": {
       "type": "array",
       "description": "Staging entries, applied in file order before steps; keep them order-independent and idempotent. No waits.",
-      "items": { "$ref": "#/$defs/setupEntry" }
+      "items": {
+        "$ref": "#/$defs/setupEntry"
+      }
     },
     "steps": {
       "type": "array",
       "description": "Ordered stimuli and outcome waits; order is semantically significant.",
-      "items": { "$ref": "#/$defs/step" }
+      "items": {
+        "$ref": "#/$defs/step"
+      }
     },
     "watch": {
       "type": "array",
-      "items": { "$ref": "#/$defs/namePath" },
+      "items": {
+        "$ref": "#/$defs/namePath"
+      },
       "description": "Name paths the Player pins as live tiles; validated up front on every run (a watch-only scenario smokes renames)."
     },
     "judge": {
@@ -42,10 +67,17 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["text"],
+        "required": [
+          "text"
+        ],
         "properties": {
-          "text": { "type": "string", "minLength": 1 },
-          "spec": { "type": "string" }
+          "text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "spec": {
+            "type": "string"
+          }
         }
       }
     }
@@ -53,155 +85,300 @@
   "$defs": {
     "namePath": {
       "type": "string",
-      "pattern": "^[^.]+\\.[^.]+(\\.[^.]+)?$",
-      "description": "Block.Property (when unambiguous within the block) or Block.Service.Property (the qualified form for multi-service blocks)."
+      "description": "Block.Property (when unambiguous within the block) or Block.Service.Property (the qualified form for multi-service blocks).",
+      "enum": [
+        "Thermostat.CurrentTemperature",
+        "Thermostat.EnergyUsedKwh",
+        "Thermostat.Mode",
+        "Thermostat.Status",
+        "Thermostat.TargetTemperature",
+        "Thermostat.Thermostat.CurrentTemperature",
+        "Thermostat.Thermostat.EnergyUsedKwh",
+        "Thermostat.Thermostat.Mode",
+        "Thermostat.Thermostat.Status",
+        "Thermostat.Thermostat.TargetTemperature"
+      ]
     },
     "value": {
       "description": "A scalar, an enum member name (case-sensitive string), a complete struct/array literal, or null (nullable properties)."
     },
     "comparand": {
-      "not": { "type": ["object", "array"] },
-      "description": "A scalar, enum member name, or null — structs/arrays are not comparable in v1."
+      "not": {
+        "type": [
+          "object",
+          "array"
+        ]
+      },
+      "description": "A scalar, enum member name, or null \u2014 structs/arrays are not comparable in v1."
     },
     "pathComparand": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["path"],
-      "properties": { "path": { "$ref": "#/$defs/namePath" } },
-      "description": "A relational comparand resolved to another path's current value at assert time (expect only)."
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/namePath"
+        }
+      },
+      "description": "A relational comparand resolved to another path\u0027s current value at assert time (expect only)."
     },
     "relationalComparand": {
       "oneOf": [
-        { "$ref": "#/$defs/comparand" },
-        { "$ref": "#/$defs/pathComparand" }
+        {
+          "$ref": "#/$defs/comparand"
+        },
+        {
+          "$ref": "#/$defs/pathComparand"
+        }
       ],
       "description": "A literal scalar/enum/null, or a { path } object resolved at assert time (expect only)."
     },
     "numericComparand": {
       "oneOf": [
-        { "type": "number" },
-        { "$ref": "#/$defs/pathComparand" }
+        {
+          "type": "number"
+        },
+        {
+          "$ref": "#/$defs/pathComparand"
+        }
       ],
       "description": "A literal number, or a { path } object resolved to a numeric leaf at assert time (expect only)."
     },
     "oneOfComparand": {
       "type": "array",
       "minItems": 1,
-      "items": { "not": { "type": ["object", "array"] } },
-      "description": "A non-empty array of scalars/enum names; value ∈ this set satisfies the comparator."
+      "items": {
+        "not": {
+          "type": [
+            "object",
+            "array"
+          ]
+        }
+      },
+      "description": "A non-empty array of scalars/enum names; value \u2208 this set satisfies the comparator."
     },
     "stepCommon": {
-      "label": { "type": "string", "description": "Shown in the Player and in reports." },
-      "spec": { "type": "string", "description": "Free-form trace id for this step." }
+      "label": {
+        "type": "string",
+        "description": "Shown in the Player and in reports."
+      },
+      "spec": {
+        "type": "string",
+        "description": "Free-form trace id for this step."
+      }
     },
     "setStep": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["set", "value"],
+      "required": [
+        "set",
+        "value"
+      ],
       "properties": {
-        "label": { "$ref": "#/$defs/stepCommon/label" },
-        "spec": { "$ref": "#/$defs/stepCommon/spec" },
-        "set": { "$ref": "#/$defs/namePath" },
-        "value": { "$ref": "#/$defs/value" }
-      }
-    },
-    "digitalInputStep": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["digitalInput", "value"],
-      "properties": {
-        "label": { "$ref": "#/$defs/stepCommon/label" },
-        "spec": { "$ref": "#/$defs/stepCommon/spec" },
-        "digitalInput": { "$ref": "#/$defs/contractRef" },
-        "value": { "type": "boolean" }
-      }
-    },
-    "analogInputStep": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["analogInput", "value"],
-      "properties": {
-        "label": { "$ref": "#/$defs/stepCommon/label" },
-        "spec": { "$ref": "#/$defs/stepCommon/spec" },
-        "analogInput": { "$ref": "#/$defs/contractRef" },
-        "value": { "type": "number" }
+        "label": {
+          "$ref": "#/$defs/stepCommon/label"
+        },
+        "spec": {
+          "$ref": "#/$defs/stepCommon/spec"
+        },
+        "set": {
+          "$ref": "#/$defs/namePath"
+        },
+        "value": {
+          "$ref": "#/$defs/value"
+        }
       }
     },
     "waitUntilStep": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["waitUntil"],
+      "required": [
+        "waitUntil"
+      ],
       "properties": {
-        "label": { "$ref": "#/$defs/stepCommon/label" },
-        "spec": { "$ref": "#/$defs/stepCommon/spec" },
+        "label": {
+          "$ref": "#/$defs/stepCommon/label"
+        },
+        "spec": {
+          "$ref": "#/$defs/stepCommon/spec"
+        },
         "waitUntil": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["property"],
+          "required": [
+            "property"
+          ],
           "properties": {
-            "property": { "$ref": "#/$defs/namePath" },
-            "above": { "type": "number" },
-            "below": { "type": "number" },
-            "equals": { "$ref": "#/$defs/comparand" },
-            "notEquals": { "$ref": "#/$defs/comparand" },
-            "oneOf": { "$ref": "#/$defs/oneOfComparand" },
-            "tolerance": { "type": "number", "minimum": 0, "description": "Only with a numeric equals." }
+            "property": {
+              "$ref": "#/$defs/namePath"
+            },
+            "above": {
+              "type": "number"
+            },
+            "below": {
+              "type": "number"
+            },
+            "equals": {
+              "$ref": "#/$defs/comparand"
+            },
+            "notEquals": {
+              "$ref": "#/$defs/comparand"
+            },
+            "oneOf": {
+              "$ref": "#/$defs/oneOfComparand"
+            },
+            "tolerance": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Only with a numeric equals."
+            }
           },
           "oneOf": [
-            { "required": ["above"] },
-            { "required": ["below"] },
-            { "required": ["equals"] },
-            { "required": ["notEquals"] },
-            { "required": ["oneOf"] }
-          ]
+            {
+              "required": [
+                "above"
+              ]
+            },
+            {
+              "required": [
+                "below"
+              ]
+            },
+            {
+              "required": [
+                "equals"
+              ]
+            },
+            {
+              "required": [
+                "notEquals"
+              ]
+            },
+            {
+              "required": [
+                "oneOf"
+              ]
+            }
+          ],
+          "dependentRequired": {
+            "tolerance": [
+              "equals"
+            ]
+          }
         },
-        "timeoutSeconds": { "type": "number", "exclusiveMinimum": 0, "default": 20 }
+        "timeoutSeconds": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "default": 20
+        }
       }
     },
     "expectStep": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["expect"],
+      "required": [
+        "expect"
+      ],
       "description": "A deterministic, point-in-time auto-assertion on the current value (CI-failing tier). Read once; fail the run if the comparator does not hold.",
       "properties": {
-        "label": { "$ref": "#/$defs/stepCommon/label" },
-        "spec": { "$ref": "#/$defs/stepCommon/spec" },
+        "label": {
+          "$ref": "#/$defs/stepCommon/label"
+        },
+        "spec": {
+          "$ref": "#/$defs/stepCommon/spec"
+        },
         "expect": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["property"],
+          "required": [
+            "property"
+          ],
           "properties": {
-            "property": { "$ref": "#/$defs/namePath" },
-            "above": { "$ref": "#/$defs/numericComparand" },
-            "below": { "$ref": "#/$defs/numericComparand" },
-            "equals": { "$ref": "#/$defs/relationalComparand" },
-            "notEquals": { "$ref": "#/$defs/relationalComparand" },
-            "oneOf": { "$ref": "#/$defs/oneOfComparand" },
-            "tolerance": { "type": "number", "minimum": 0, "description": "Only with a numeric equals." }
+            "property": {
+              "$ref": "#/$defs/namePath"
+            },
+            "above": {
+              "$ref": "#/$defs/numericComparand"
+            },
+            "below": {
+              "$ref": "#/$defs/numericComparand"
+            },
+            "equals": {
+              "$ref": "#/$defs/relationalComparand"
+            },
+            "notEquals": {
+              "$ref": "#/$defs/relationalComparand"
+            },
+            "oneOf": {
+              "$ref": "#/$defs/oneOfComparand"
+            },
+            "tolerance": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Only with a numeric equals."
+            }
           },
           "oneOf": [
-            { "required": ["above"] },
-            { "required": ["below"] },
-            { "required": ["equals"] },
-            { "required": ["notEquals"] },
-            { "required": ["oneOf"] }
-          ]
+            {
+              "required": [
+                "above"
+              ]
+            },
+            {
+              "required": [
+                "below"
+              ]
+            },
+            {
+              "required": [
+                "equals"
+              ]
+            },
+            {
+              "required": [
+                "notEquals"
+              ]
+            },
+            {
+              "required": [
+                "oneOf"
+              ]
+            }
+          ],
+          "dependentRequired": {
+            "tolerance": [
+              "equals"
+            ]
+          }
         }
       }
     },
     "waitStep": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["wait"],
+      "required": [
+        "wait"
+      ],
       "properties": {
-        "label": { "$ref": "#/$defs/stepCommon/label" },
-        "spec": { "$ref": "#/$defs/stepCommon/spec" },
+        "label": {
+          "$ref": "#/$defs/stepCommon/label"
+        },
+        "spec": {
+          "$ref": "#/$defs/stepCommon/spec"
+        },
         "wait": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["seconds"],
+          "required": [
+            "seconds"
+          ],
           "properties": {
-            "seconds": { "type": "number", "exclusiveMinimum": 0 }
+            "seconds": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
           }
         }
       },
@@ -210,16 +387,28 @@
     "advanceStep": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["advance"],
+      "required": [
+        "advance"
+      ],
       "properties": {
-        "label": { "$ref": "#/$defs/stepCommon/label" },
-        "spec": { "$ref": "#/$defs/stepCommon/spec" },
+        "label": {
+          "$ref": "#/$defs/stepCommon/label"
+        },
+        "spec": {
+          "$ref": "#/$defs/stepCommon/spec"
+        },
         "advance": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["seconds"],
+          "required": [
+            "seconds"
+          ],
           "properties": {
-            "seconds": { "type": "number", "exclusiveMinimum": 0, "description": "Virtual seconds to advance the stepped host's clock." }
+            "seconds": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Virtual seconds to advance the stepped host\u0027s clock."
+            }
           }
         }
       },
@@ -228,10 +417,16 @@
     "settleStep": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["settle"],
+      "required": [
+        "settle"
+      ],
       "properties": {
-        "label": { "$ref": "#/$defs/stepCommon/label" },
-        "spec": { "$ref": "#/$defs/stepCommon/spec" },
+        "label": {
+          "$ref": "#/$defs/stepCommon/label"
+        },
+        "spec": {
+          "$ref": "#/$defs/stepCommon/spec"
+        },
         "settle": {
           "type": "object",
           "additionalProperties": false,
@@ -239,41 +434,186 @@
             "until": {
               "type": "array",
               "minItems": 1,
-              "items": { "$ref": "#/$defs/namePath" },
-              "description": "Explicit target paths that must stabilize for convergence; omit to settle over the whole watch list. A large watch set is for observability — scope settle to the specific values meant to settle so a volatile tile (free-running counter / clock-derived value / noisy sensor) does not burn the budget."
+              "items": {
+                "$ref": "#/$defs/namePath"
+              },
+              "description": "Explicit target paths that must stabilize for convergence; omit to settle over the whole watch list. A large watch set is for observability \u2014 scope settle to the specific values meant to settle so a volatile tile (free-running counter / clock-derived value / noisy sensor) does not burn the budget."
             },
-            "maxSeconds": { "type": "number", "exclusiveMinimum": 0, "default": 60, "description": "Maximum virtual seconds to spend waiting for convergence." }
+            "maxSeconds": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "default": 60,
+              "description": "Maximum virtual seconds to spend waiting for convergence."
+            }
           }
         }
       },
       "description": "Advance hop-by-hop until the targeted signals stop changing (stepped host only). The targeted set is settle.until when given, else the whole watch list. Converges when no targeted value changed across one hop; FAILS the step if the maxSeconds budget elapses while a target is still changing."
     },
-    "contractRef": {
+    "serviceProviderRef": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["block", "contract"],
+      "required": [
+        "logicBlock",
+        "contract"
+      ],
+      "description": "A service-provider value-contract reference: the consuming logic block name plus the contract identifier (RFC 0010).",
       "properties": {
-        "block": { "type": "string" },
-        "contract": { "type": "string" }
+        "logicBlock": {
+          "type": "string"
+        },
+        "contract": {
+          "type": "string"
+        }
+      }
+    },
+    "serviceProviderSetStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "serviceProviderSet",
+        "value"
+      ],
+      "description": "Drives any [ServiceProviderContractType] value INPUT contract from its wire value \u2014 a scalar for digital/analog, a JSON object for a struct contract (PPC). The generic replacement for digitalInput / analogInput (RFC 0010).",
+      "properties": {
+        "label": {
+          "$ref": "#/$defs/stepCommon/label"
+        },
+        "spec": {
+          "$ref": "#/$defs/stepCommon/spec"
+        },
+        "serviceProviderSet": {
+          "$ref": "#/$defs/serviceProviderRef"
+        },
+        "value": {
+          "$ref": "#/$defs/value"
+        }
+      }
+    },
+    "serviceProviderExpectStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "serviceProviderExpect"
+      ],
+      "description": "A deterministic, point-in-time auto-assertion on the value a block last wrote on any [ServiceProviderContractType] value OUTPUT contract (CI-failing tier). The generic replacement for digitalOutput / analogOutput (RFC 0010).",
+      "properties": {
+        "label": {
+          "$ref": "#/$defs/stepCommon/label"
+        },
+        "spec": {
+          "$ref": "#/$defs/stepCommon/spec"
+        },
+        "serviceProviderExpect": {
+          "$ref": "#/$defs/serviceProviderOutputAssert"
+        }
+      }
+    },
+    "serviceProviderOutputAssert": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "logicBlock",
+        "contract"
+      ],
+      "description": "A service-provider value-output contract reference (logicBlock \u002B contract) plus exactly one comparator, checked against the value the block last wrote on that contract. Comparands are literals only (no relational { path } form).",
+      "properties": {
+        "logicBlock": {
+          "type": "string"
+        },
+        "contract": {
+          "type": "string"
+        },
+        "above": {
+          "type": "number"
+        },
+        "below": {
+          "type": "number"
+        },
+        "equals": {
+          "$ref": "#/$defs/comparand"
+        },
+        "notEquals": {
+          "$ref": "#/$defs/comparand"
+        },
+        "oneOf": {
+          "$ref": "#/$defs/oneOfComparand"
+        },
+        "tolerance": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Only with a numeric equals."
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "above"
+          ]
+        },
+        {
+          "required": [
+            "below"
+          ]
+        },
+        {
+          "required": [
+            "equals"
+          ]
+        },
+        {
+          "required": [
+            "notEquals"
+          ]
+        },
+        {
+          "required": [
+            "oneOf"
+          ]
+        }
+      ],
+      "dependentRequired": {
+        "tolerance": [
+          "equals"
+        ]
       }
     },
     "setupEntry": {
       "oneOf": [
-        { "$ref": "#/$defs/setStep" },
-        { "$ref": "#/$defs/digitalInputStep" },
-        { "$ref": "#/$defs/analogInputStep" }
+        {
+          "$ref": "#/$defs/setStep"
+        },
+        {
+          "$ref": "#/$defs/serviceProviderSetStep"
+        }
       ]
     },
     "step": {
       "oneOf": [
-        { "$ref": "#/$defs/setStep" },
-        { "$ref": "#/$defs/digitalInputStep" },
-        { "$ref": "#/$defs/analogInputStep" },
-        { "$ref": "#/$defs/waitUntilStep" },
-        { "$ref": "#/$defs/expectStep" },
-        { "$ref": "#/$defs/waitStep" },
-        { "$ref": "#/$defs/advanceStep" },
-        { "$ref": "#/$defs/settleStep" }
+        {
+          "$ref": "#/$defs/setStep"
+        },
+        {
+          "$ref": "#/$defs/serviceProviderSetStep"
+        },
+        {
+          "$ref": "#/$defs/serviceProviderExpectStep"
+        },
+        {
+          "$ref": "#/$defs/waitUntilStep"
+        },
+        {
+          "$ref": "#/$defs/expectStep"
+        },
+        {
+          "$ref": "#/$defs/waitStep"
+        },
+        {
+          "$ref": "#/$defs/advanceStep"
+        },
+        {
+          "$ref": "#/$defs/settleStep"
+        }
       ]
     }
   }
