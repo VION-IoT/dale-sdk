@@ -107,48 +107,24 @@ namespace Vion.Dale.DevHost.Control
         /// </summary>
         Task SetServicePropertyValueAsync(string serviceId, string propertyName, object? value);
 
-        /// <summary>Set a mocked digital input value, routed to the linked logic blocks just like the web UI's HAL control.</summary>
-        Task SetDigitalInputAsync(string serviceProviderId, string serviceId, string contractId, bool value);
-
-        /// <summary>Set a mocked analog input value, routed to the linked logic blocks just like the web UI's HAL control.</summary>
-        Task SetAnalogInputAsync(string serviceProviderId, string serviceId, string contractId, double value);
-
         /// <summary>
         ///     Drive any <c>[ServiceProviderContractType]</c> value <em>input</em> contract (RFC 0010
-        ///     <c>serviceProviderSet</c>): the generic complement of <see cref="SetDigitalInputAsync" /> /
-        ///     <see cref="SetAnalogInputAsync" /> — one path for digital, analog, and third-party struct
-        ///     contracts. Addressed by the generic stand-in's actor name (<paramref name="handlerName" />, the
-        ///     contract's <c>ContractHandlerActorName</c>) plus the mocked endpoint ids, with the wire value as
-        ///     JSON (a scalar for digital/analog, an object for a struct contract). The stand-in builds the exact
-        ///     contract message via its codec and forwards it to the linked logic blocks, deterministically under
-        ///     stepping (one hop, the contract plane — never a service-property setter).
+        ///     <c>serviceProviderSet</c>): one path for digital, analog, and third-party struct contracts, with
+        ///     no type-specific entry points. Addressed by the generic stand-in's actor name
+        ///     (<paramref name="handlerName" />, the contract's <c>ContractHandlerActorName</c>) plus the mocked
+        ///     endpoint ids, with the wire value as JSON (a scalar for digital/analog, an object for a struct
+        ///     contract). The stand-in builds the exact contract message via its codec and forwards it to the
+        ///     linked logic blocks, deterministically under stepping (one hop, the contract plane — never a
+        ///     service-property setter). The web UI's manual HAL controls call this with the value they build
+        ///     from the rendered control (a bool for a toggle, a number for a field).
         /// </summary>
         Task DriveServiceProviderContractAsync(string handlerName, string serviceProviderId, string serviceId, string contractId, JsonElement value);
 
         /// <summary>
-        ///     Read the last value a logic block Set on a mocked <c>IDigitalOutput</c>, addressed by the mocked
-        ///     endpoint's service-provider / service / contract identifiers (the mapping in
-        ///     <see cref="GetConfiguration" />). This is the symmetric read complement of
-        ///     <see cref="SetDigitalInputAsync" /> — the cached value the mock output handler last published via
-        ///     <c>DigitalOutputChanged</c>, exactly what the web UI shows. Returns <c>null</c> if the output has
-        ///     never been Set (no actor round-trip — the value is served from the event cache).
-        /// </summary>
-        bool? GetDigitalOutput(string serviceProviderId, string serviceId, string contractId);
-
-        /// <summary>
-        ///     Read the last value a logic block Set on a mocked <c>IAnalogOutput</c>, addressed by the mocked
-        ///     endpoint's service-provider / service / contract identifiers (the mapping in
-        ///     <see cref="GetConfiguration" />). The analog complement of <see cref="GetDigitalOutput" />.
-        ///     Returns <c>null</c> if the output has never been Set.
-        /// </summary>
-        double? GetAnalogOutput(string serviceProviderId, string serviceId, string contractId);
-
-        /// <summary>
         ///     Read the last value a logic block wrote on any <c>[ServiceProviderContractType]</c> value
-        ///     <em>output</em> contract (RFC 0010 <c>serviceProviderExpect</c>) — the generic complement of
-        ///     <see cref="GetDigitalOutput" /> / <see cref="GetAnalogOutput" />, working for the four HAL outputs
-        ///     and third-party scalar ones. Returns the captured value projected to a comparable scalar (bool,
-        ///     double, string), or <c>null</c> if the output has never been Set.
+        ///     <em>output</em> contract (RFC 0010 <c>serviceProviderExpect</c>) — one path for the four HAL
+        ///     outputs and third-party scalar ones. Returns the captured value projected to a comparable scalar
+        ///     (bool, double, string), or <c>null</c> if the output has never been Set.
         /// </summary>
         object? GetServiceProviderOutput(string serviceProviderId, string serviceId, string contractId);
 

@@ -15,8 +15,8 @@ import {
 import {
     applyScenario, baselineDelta, buildSharedContractLookup, changedCountForBlock,
     changedSinceBaseline, clearBaseline, clearPins, closeScenario, collapseKey, connectionsForLb,
-    advanceHost, halKey, historyFor, isPinned, judgeKey, loadTopologies, openScenario, pauseHost, resetHost, resumeHost, stepHost,
-    setAnalogInput, setBaseline, setDigitalInput, setJudgeTick, setProperty, showError, store,
+    advanceHost, driveContract, halKey, historyFor, isPinned, judgeKey, loadTopologies, openScenario, pauseHost, resetHost, resumeHost, stepHost,
+    setBaseline, setJudgeTick, setProperty, showError, store,
     switchTopology, toggleCollapsed, togglePin, valueKey,
 } from './store.js';
 
@@ -773,13 +773,16 @@ export const WiringSection = {
             return {
                 id: cm.contractIdentifier, type,
                 short: contractTypeShort(type),
+                handler: info.annotations && info.annotations.contractHandlerActorName,
                 spId, svcId, cId, sharedWith,
             };
         }).filter(Boolean);
 
-        const halValue = (kindShort, c) => store.hal[halKey(kindShort.toLowerCase(), c.spId, c.svcId, c.cId)];
-        const onDi = (c, e) => setDigitalInput(c.spId, c.svcId, c.cId, e.target.checked);
-        const onAi = (c, e) => setAnalogInput(c.spId, c.svcId, c.cId, e.target.value);
+        // The live value of any contract, keyed by (sp, svc, contract) — fed by the one generic
+        // ServiceProviderContractChanged event. The control type (toggle / field / read-out) comes from c.short.
+        const halValue = (c) => store.hal[halKey(c.spId, c.svcId, c.cId)];
+        const onDi = (c, e) => driveContract(c.handler, c.spId, c.svcId, c.cId, e.target.checked);
+        const onAi = (c, e) => driveContract(c.handler, c.spId, c.svcId, c.cId, parseFloat(e.target.value) || 0);
         return { connections, contracts, halValue, onDi, onAi, fmt: formatValue };
     },
     template: `
@@ -795,10 +798,10 @@ export const WiringSection = {
                 <span class="mono io-name">{{ c.id }}</span>
                 <span v-if="c.sharedWith.length" class="shared-badge">shared with {{ c.sharedWith.join(', ') }}</span>
                 <span class="item-spacer"></span>
-                <input v-if="c.short === 'DI'" class="toggle" type="checkbox" :checked="!!halValue('di', c)" @change="onDi(c, $event)">
-                <input v-else-if="c.short === 'AI'" type="number" step="0.1" :value="halValue('ai', c) ?? 0"
+                <input v-if="c.short === 'DI'" class="toggle" type="checkbox" :checked="!!halValue(c)" @change="onDi(c, $event)">
+                <input v-else-if="c.short === 'AI'" type="number" step="0.1" :value="halValue(c) ?? 0"
                        @keydown.enter="onAi(c, $event); $event.target.blur()" @blur="onAi(c, $event)">
-                <span v-else-if="c.short === 'DO' || c.short === 'AO'" class="value-chip">{{ fmt(halValue(c.short.toLowerCase(), c) ?? (c.short === 'DO' ? false : 0)) }}</span>
+                <span v-else-if="c.short === 'DO' || c.short === 'AO'" class="value-chip">{{ fmt(halValue(c) ?? (c.short === 'DO' ? false : 0)) }}</span>
                 <span v-else class="scenario-only" :title="c.type + ' — drive/assert from a scenario (serviceProviderSet / serviceProviderExpect)'">scenario-driven</span>
             </div>
         </details>

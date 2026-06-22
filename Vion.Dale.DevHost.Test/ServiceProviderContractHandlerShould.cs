@@ -9,18 +9,17 @@ using Vion.Dale.DevHost.Mocking;
 using Vion.Dale.DevHost.Scenarios;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Core;
-using Vion.Dale.Sdk.DigitalIo.Output;
 using Vion.Dale.Sdk.Messages;
 using Vion.Dale.Sdk.Utils;
 
 namespace Vion.Dale.DevHost.Test
 {
     /// <summary>
-    ///     The generic DevHost stand-in (RFC 0010 increment 2): one handler, discovered by convention scan,
-    ///     replaces the four hardcoded <c>MockHal*Handler</c> classes. It drives any <c>[ScenarioWire]</c>
-    ///     value contract into its consuming block via the codec — the DF-27 unblock — and keeps the four HAL
-    ///     contracts behaviourally identical (typed <see cref="DevHostEvents" /> + output echo) so Tier 1 / the
-    ///     SPA stay green.
+    ///     The generic DevHost stand-in (RFC 0010): one handler, discovered by convention scan, replaces the
+    ///     four hardcoded <c>MockHal*Handler</c> classes. It drives any <c>[ScenarioWire]</c> value contract
+    ///     into its consuming block via the codec — the DF-27 unblock — and captures outbound commands, raising
+    ///     the one generic <see cref="DevHostEvents.ServiceProviderContractChanged" /> event for the live UI and
+    ///     the <c>serviceProviderExpect</c> read source. No type-specific events, no output echo.
     /// </summary>
     [TestClass]
     public class ServiceProviderContractHandlerShould
@@ -90,29 +89,28 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public void Capture_an_output_command_raising_the_typed_event_and_echoing_it_back()
+        public void Capture_an_output_command_raising_the_generic_event_without_echoing()
         {
-            // The HAL-compat bridge: a bool-valued outbound command raises the digital-output DevHostEvent
-            // (Tier 1 output cache + the SPA I/O panel) and echoes the confirmation back to the block (the
-            // output-confirmation example blocks subscribe to).
+            // An outbound command a block Set raises the one generic ServiceProviderContractChanged event (the
+            // SPA read-out + the serviceProviderExpect read source). The DevHost does NOT synthesize a typed
+            // output-confirmation back to the block — the real upstream confirms over MQTT, not the simulation.
             var events = new DevHostEvents();
             var handler = NewHandler(typeof(ScalarOutputHandlerStub), events);
             var context = new RecordingActorContext();
             var consumer = new FakeActorReference();
 
-            DigitalOutputChangedEventArgs? raised = null;
-            events.DigitalOutputChanged += (_, e) => raised = e;
+            ServiceProviderContractChangedEventArgs? raised = null;
+            events.ServiceProviderContractChanged += (_, e) => raised = e;
 
             Link(handler, context, consumer);
             handler.HandleMessageAsync(new ContractMessage<SetScalar>(Lb, new SetScalar(true)), context);
 
-            Assert.IsNotNull(raised, "An outbound bool command must raise the digital-output DevHostEvent.");
-            Assert.IsTrue(raised!.Value);
-            Assert.AreEqual(Sp.ServiceProviderIdentifier, raised.ServiceProviderIdentifier);
+            Assert.IsNotNull(raised, "An outbound command must raise the generic ServiceProviderContractChanged event.");
+            Assert.AreEqual(Sp.ServiceProviderIdentifier, raised!.ServiceProviderIdentifier);
+            Assert.AreEqual(Sp.ContractIdentifier, raised.ContractIdentifier);
+            Assert.IsTrue(raised.Value.GetBoolean());
 
-            var echo = (ContractMessage<DigitalOutputChanged>)context.Sent.Single(s => s.Message is ContractMessage<DigitalOutputChanged>).Message;
-            Assert.IsTrue(echo.Data.Value);
-            Assert.AreEqual(Lb, echo.LogicBlockContractId);
+            Assert.IsEmpty(context.Sent, "Capture must not echo a confirmation back to the block.");
         }
 
         [TestMethod]

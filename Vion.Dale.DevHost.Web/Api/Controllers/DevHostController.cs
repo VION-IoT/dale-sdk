@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Vion.Dale.DevHost.Control;
@@ -35,44 +36,22 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
             return Ok(_control.GetConfiguration());
         }
 
-        [HttpPost("hal/di/{serviceProviderIdentifier}/{serviceIdentifier}/{contractIdentifier}")]
-        public async Task<ActionResult> SetDigitalInputValue(string serviceProviderIdentifier,
-                                                             string serviceIdentifier,
-                                                             string contractIdentifier,
-                                                             [FromBody] SetValueInput<bool> input)
-        {
-            await _control.SetDigitalInputAsync(serviceProviderIdentifier, serviceIdentifier, contractIdentifier, input.Value);
-            return Ok();
-        }
-
-        [HttpPost("hal/ai/{serviceProviderIdentifier}/{serviceIdentifier}/{contractIdentifier}")]
-        public async Task<ActionResult> SetAnalogInputValue(string serviceProviderIdentifier,
-                                                            string serviceIdentifier,
-                                                            string contractIdentifier,
-                                                            [FromBody] SetValueInput<double> input)
-        {
-            await _control.SetAnalogInputAsync(serviceProviderIdentifier, serviceIdentifier, contractIdentifier, input.Value);
-            return Ok();
-        }
-
         /// <summary>
-        ///     The last value a block Set on a mocked digital output (the read complement of the
-        ///     <c>hal/di</c> POST) — <c>{ value }</c> is the cached bool, or null if the output was never Set.
+        ///     Drive any service-provider value <em>input</em> contract (RFC 0010) — the one manual-drive endpoint
+        ///     behind the web UI's HAL controls. The UI builds the wire value from the rendered control (a bool
+        ///     for a toggle, a number for an analog field, an object for a struct contract) and posts it as
+        ///     <c>{ value }</c>; <paramref name="handlerName" /> is the contract's stand-in actor name from the
+        ///     configuration (its <c>contractHandlerActorName</c> annotation).
         /// </summary>
-        [HttpGet("hal/do/{serviceProviderIdentifier}/{serviceIdentifier}/{contractIdentifier}")]
-        public ActionResult GetDigitalOutputValue(string serviceProviderIdentifier, string serviceIdentifier, string contractIdentifier)
+        [HttpPost("contracts/drive/{handlerName}/{serviceProviderIdentifier}/{serviceIdentifier}/{contractIdentifier}")]
+        public async Task<ActionResult> DriveContract(string handlerName,
+                                                      string serviceProviderIdentifier,
+                                                      string serviceIdentifier,
+                                                      string contractIdentifier,
+                                                      [FromBody] SetValueInput<JsonElement> input)
         {
-            return Ok(new { value = _control.GetDigitalOutput(serviceProviderIdentifier, serviceIdentifier, contractIdentifier) });
-        }
-
-        /// <summary>
-        ///     The last value a block Set on a mocked analog output (the read complement of the <c>hal/ai</c>
-        ///     POST) — <c>{ value }</c> is the cached double, or null if the output was never Set.
-        /// </summary>
-        [HttpGet("hal/ao/{serviceProviderIdentifier}/{serviceIdentifier}/{contractIdentifier}")]
-        public ActionResult GetAnalogOutputValue(string serviceProviderIdentifier, string serviceIdentifier, string contractIdentifier)
-        {
-            return Ok(new { value = _control.GetAnalogOutput(serviceProviderIdentifier, serviceIdentifier, contractIdentifier) });
+            await _control.DriveServiceProviderContractAsync(handlerName, serviceProviderIdentifier, serviceIdentifier, contractIdentifier, input.Value);
+            return Ok();
         }
 
         [HttpPost("dale/property/{serviceIdentifier}/{propertyIdentifier}")]

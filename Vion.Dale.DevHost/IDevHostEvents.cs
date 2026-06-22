@@ -1,9 +1,10 @@
-﻿using System;
+using System;
+using System.Text.Json;
 
 namespace Vion.Dale.DevHost
 {
     /// <summary>
-    ///     Events raised by the DevHost that external subscribers (like Web UI) can listen to
+    ///     Events raised by the DevHost that external subscribers (like the Web UI) can listen to.
     /// </summary>
     public interface IDevHostEvents
     {
@@ -11,13 +12,14 @@ namespace Vion.Dale.DevHost
 
         event EventHandler<ServiceMeasuringPointChangedEventArgs>? ServiceMeasuringPointChanged;
 
-        event EventHandler<DigitalInputChangedEventArgs>? DigitalInputChanged;
-
-        event EventHandler<DigitalOutputChangedEventArgs>? DigitalOutputChanged;
-
-        event EventHandler<AnalogInputChangedEventArgs>? AnalogInputChanged;
-
-        event EventHandler<AnalogOutputChangedEventArgs>? AnalogOutputChanged;
+        /// <summary>
+        ///     A service-provider value contract's current value changed — an input was driven or an output was
+        ///     written. Generic over every <c>[ServiceProviderContractType]</c> value contract (the four HAL
+        ///     families and third-party struct contracts alike); the value is the contract's wire JSON, and the
+        ///     subscriber (the SPA wiring panel) renders it per the contract's own type. Replaces the former
+        ///     digital/analog input/output-specific events (RFC 0010).
+        /// </summary>
+        event EventHandler<ServiceProviderContractChangedEventArgs>? ServiceProviderContractChanged;
     }
 
     public class ServicePropertyChangedEventArgs : EventArgs
@@ -52,7 +54,12 @@ namespace Vion.Dale.DevHost
         }
     }
 
-    public class DigitalInputChangedEventArgs : EventArgs
+    /// <summary>
+    ///     The current value of a service-provider value contract (its wire JSON), keyed by the mocked endpoint's
+    ///     service-provider / service / contract identifiers. Direction-agnostic — the consumer knows whether the
+    ///     contract is an input or output from the configuration.
+    /// </summary>
+    public class ServiceProviderContractChangedEventArgs : EventArgs
     {
         public string ServiceProviderIdentifier { get; }
 
@@ -60,66 +67,9 @@ namespace Vion.Dale.DevHost
 
         public string ContractIdentifier { get; }
 
-        public bool Value { get; }
+        public JsonElement Value { get; }
 
-        public DigitalInputChangedEventArgs(string serviceProviderIdentifier, string serviceIdentifier, string contractIdentifier, bool value)
-        {
-            ServiceProviderIdentifier = serviceProviderIdentifier;
-            ServiceIdentifier = serviceIdentifier;
-            ContractIdentifier = contractIdentifier;
-            Value = value;
-        }
-    }
-
-    public class DigitalOutputChangedEventArgs : EventArgs
-    {
-        public string ServiceProviderIdentifier { get; }
-
-        public string ServiceIdentifier { get; }
-
-        public string ContractIdentifier { get; }
-
-        public bool Value { get; }
-
-        public DigitalOutputChangedEventArgs(string serviceProviderIdentifier, string serviceIdentifier, string contractIdentifier, bool value)
-        {
-            ServiceProviderIdentifier = serviceProviderIdentifier;
-            ServiceIdentifier = serviceIdentifier;
-            ContractIdentifier = contractIdentifier;
-            Value = value;
-        }
-    }
-
-    public class AnalogInputChangedEventArgs : EventArgs
-    {
-        public string ServiceProviderIdentifier { get; }
-
-        public string ServiceIdentifier { get; }
-
-        public string ContractIdentifier { get; }
-
-        public double Value { get; }
-
-        public AnalogInputChangedEventArgs(string serviceProviderIdentifier, string serviceIdentifier, string contractIdentifier, double value)
-        {
-            ServiceProviderIdentifier = serviceProviderIdentifier;
-            ServiceIdentifier = serviceIdentifier;
-            ContractIdentifier = contractIdentifier;
-            Value = value;
-        }
-    }
-
-    public class AnalogOutputChangedEventArgs : EventArgs
-    {
-        public string ServiceProviderIdentifier { get; }
-
-        public string ServiceIdentifier { get; }
-
-        public string ContractIdentifier { get; }
-
-        public double Value { get; }
-
-        public AnalogOutputChangedEventArgs(string serviceProviderIdentifier, string serviceIdentifier, string contractIdentifier, double value)
+        public ServiceProviderContractChangedEventArgs(string serviceProviderIdentifier, string serviceIdentifier, string contractIdentifier, JsonElement value)
         {
             ServiceProviderIdentifier = serviceProviderIdentifier;
             ServiceIdentifier = serviceIdentifier;

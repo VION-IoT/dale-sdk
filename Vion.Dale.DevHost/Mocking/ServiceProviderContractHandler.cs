@@ -4,8 +4,6 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Vion.Dale.DevHost.Scenarios;
 using Vion.Dale.Sdk.Abstractions;
-using Vion.Dale.Sdk.AnalogIo.Output;
-using Vion.Dale.Sdk.DigitalIo.Output;
 using Vion.Dale.Sdk.Messages;
 using Vion.Dale.Sdk.Utils;
 
@@ -74,7 +72,7 @@ namespace Vion.Dale.DevHost.Mocking
                     break;
 
                 case IContractMessage m: // An output command a block Set on this contract.
-                    Capture(m, actorContext);
+                    Capture(m);
                     break;
 
                 case MockPublishAllStatesMessage: // Replay current HAL state for a late web subscriber.
@@ -97,7 +95,7 @@ namespace Vion.Dale.DevHost.Mocking
             }
 
             _lastInbound[contract] = value;
-            RaiseInputChanged(contract, value);
+            RaiseContractChanged(contract, value);
 
             if (!_contractLogicBlockActorReferences.TryGetValue(contract, out var blocks))
             {
@@ -111,9 +109,10 @@ namespace Vion.Dale.DevHost.Mocking
             }
         }
 
-        // Decode the command a block wrote (so serviceProviderExpect / GetDigitalOutput can read it back),
-        // and — for HAL scalar contracts — echo the confirmation to the block exactly as the mock did.
-        private void Capture(IContractMessage message, IActorContext actorContext)
+        // Decode the command a block wrote so serviceProviderExpect can read it back, and raise the generic
+        // value-changed event for the live UI. No HAL-specific echo: the real upstream confirms over MQTT; the
+        // DevHost does not synthesize a typed output-confirmation.
+        private void Capture(IContractMessage message)
         {
             if (!_codec.CanAssert)
             {
@@ -130,9 +129,8 @@ namespace Vion.Dale.DevHost.Mocking
 
                 var value = _codec.ReadCommand(message);
                 _lastOutbound[contract] = value;
-                _outputCache.Record(contract, value); // The generic read source for serviceProviderExpect (any value contract).
-                RaiseOutputChanged(contract, value);
-                EchoOutputConfirmation(blocks, value, actorContext);
+                _outputCache.Record(contract, value); // The read source for serviceProviderExpect (any value contract).
+                RaiseContractChanged(contract, value);
                 return;
             }
         }
@@ -141,62 +139,20 @@ namespace Vion.Dale.DevHost.Mocking
         {
             foreach (var (contract, value) in _lastInbound)
             {
-                RaiseInputChanged(contract, value);
+                RaiseContractChanged(contract, value);
             }
 
             foreach (var (contract, value) in _lastOutbound)
             {
-                RaiseOutputChanged(contract, value);
+                RaiseContractChanged(contract, value);
             }
         }
 
-        // ── HAL bridge ─────────────────────────────────────────────────────────────────────────────────
-        // The typed DevHostEvents + output echo for the four built-in scalar HAL contracts — feeds the manual
-        // I/O panel + the typed Get{Digital,Analog}Output caches + the example output-confirmation consumers
-        // (orthogonal to the scenario format, which uses the generic output cache).
-
-        private void RaiseInputChanged(ServiceProviderContractId contract, JsonElement value)
+        // Raise the one generic value-changed event (RFC 0010) for any value contract — the SPA wiring panel
+        // renders the JSON value per the contract's own type. No digital/analog discrimination here.
+        private void RaiseContractChanged(ServiceProviderContractId contract, JsonElement value)
         {
-            switch (value.ValueKind)
-            {
-                case JsonValueKind.True or JsonValueKind.False:
-                    _events.RaiseDigitalInputChanged(contract.ServiceProviderIdentifier, contract.ServiceIdentifier, contract.ContractIdentifier, value.GetBoolean());
-                    break;
-                case JsonValueKind.Number:
-                    _events.RaiseAnalogInputChanged(contract.ServiceProviderIdentifier, contract.ServiceIdentifier, contract.ContractIdentifier, value.GetDouble());
-                    break;
-            }
-        }
-
-        private void RaiseOutputChanged(ServiceProviderContractId contract, JsonElement value)
-        {
-            switch (value.ValueKind)
-            {
-                case JsonValueKind.True or JsonValueKind.False:
-                    _events.RaiseDigitalOutputChanged(contract.ServiceProviderIdentifier, contract.ServiceIdentifier, contract.ContractIdentifier, value.GetBoolean());
-                    break;
-                case JsonValueKind.Number:
-                    _events.RaiseAnalogOutputChanged(contract.ServiceProviderIdentifier, contract.ServiceIdentifier, contract.ContractIdentifier, value.GetDouble());
-                    break;
-            }
-        }
-
-        private static void EchoOutputConfirmation(Dictionary<LogicBlockContractId, IActorReference> blocks, JsonElement value, IActorContext actorContext)
-        {
-            foreach (var (logicBlockContractId, logicBlockActorRef) in blocks)
-            {
-                object? confirmation = value.ValueKind switch
-                {
-                    JsonValueKind.True or JsonValueKind.False => new ContractMessage<DigitalOutputChanged>(logicBlockContractId, new DigitalOutputChanged(value.GetBoolean())),
-                    JsonValueKind.Number => new ContractMessage<AnalogOutputChanged>(logicBlockContractId, new AnalogOutputChanged(value.GetDouble())),
-                    _ => null,
-                };
-
-                if (confirmation is not null)
-                {
-                    actorContext.SendTo(logicBlockActorRef, confirmation);
-                }
-            }
+            _events.RaiseServiceProviderContractChanged(contract.ServiceProviderIdentifier, contract.ServiceIdentifier, contract.ContractIdentifier, value);
         }
     }
 }

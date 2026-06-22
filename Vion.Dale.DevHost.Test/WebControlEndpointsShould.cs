@@ -448,12 +448,14 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task HalOutputGetRoutes_ReadTheLastSetValue_AfterTheTimerMirrorsInputs()
+        public async Task ContractsDriveRoute_DrivesAMockedInput_ObservableInBlockState()
         {
-            // The HTTP read complement of POST /api/hal/di + /ai: GET /api/hal/do + /ao serve the value a block
-            // last Set on a mocked output (for the SPA's HAL tiles and headless symmetry). Drive the SmokeHost
-            // IoBlock's inputs over HTTP, advance the stepped clock to fire OnTick, then read the mirrored
-            // outputs back — value null until the block actually Sets them.
+            // POST /api/contracts/drive is the one manual-drive endpoint (RFC 0010) behind the SPA's HAL
+            // controls — generic over every value contract, with no type-specific routes. Drive the SmokeHost
+            // IoBlock's digital + analog inputs over HTTP (each addressed by its stand-in handler name from the
+            // configuration's contractHandlerActorName annotation), advance the stepped clock to quiesce, then
+            // read the block's driven state back over HTTP. The mocked-output read-back is covered headlessly by
+            // GetServiceProviderOutput.
             var port = FreePort();
             var config = DevConfigurationBuilder.Create().WithTopologyName("io").AddLogicBlock<SmokeHost.LogicBlocks.IoBlock>("io").Build();
             await using var host = DevHostBuilder.Create().WithDi<SmokeHost.DependencyInjection>().WithConfiguration(config).WithWebUi(port, true).Build();
@@ -463,27 +465,25 @@ namespace Vion.Dale.DevHost.Test
 
             var enable = await Mapping(client, "EnableInput");
             var level = await Mapping(client, "LevelInput");
-            var active = await Mapping(client, "ActiveOutput");
-            var echo = await Mapping(client, "EchoOutput");
+            var enableHandler = await HandlerName(client, "EnableInput");
+            var levelHandler = await HandlerName(client, "LevelInput");
 
-            // Never Set yet -> value null.
-            var before = JsonDocument.Parse(await client.GetStringAsync($"/api/hal/do/{active.Sp}/{active.Svc}/{active.Contract}")).RootElement;
-            Assert.AreEqual(JsonValueKind.Null, before.GetProperty("value").ValueKind, "An un-Set digital output must read value null.");
-
-            // Drive the inputs over HTTP, then advance one virtual second so OnTick mirrors them onto the outputs.
-            Assert.AreEqual(HttpStatusCode.OK, (await client.PostAsJsonAsync($"/api/hal/di/{enable.Sp}/{enable.Svc}/{enable.Contract}", new { value = true })).StatusCode);
-            Assert.AreEqual(HttpStatusCode.OK, (await client.PostAsJsonAsync($"/api/hal/ai/{level.Sp}/{level.Svc}/{level.Contract}", new { value = 3.3 })).StatusCode);
+            // Drive the inputs over the generic endpoint, then advance one virtual second to quiesce.
+            Assert.AreEqual(HttpStatusCode.OK,
+                            (await client.PostAsJsonAsync($"/api/contracts/drive/{enableHandler}/{enable.Sp}/{enable.Svc}/{enable.Contract}", new { value = true })).StatusCode);
+            Assert.AreEqual(HttpStatusCode.OK,
+                            (await client.PostAsJsonAsync($"/api/contracts/drive/{levelHandler}/{level.Sp}/{level.Svc}/{level.Contract}", new { value = 3.3 })).StatusCode);
             Assert.AreEqual(HttpStatusCode.OK, (await client.PostAsync("/api/control/advance?seconds=1", null)).StatusCode);
 
-            var digital = JsonDocument.Parse(await client.GetStringAsync($"/api/hal/do/{active.Sp}/{active.Svc}/{active.Contract}")).RootElement;
-            Assert.IsTrue(digital.GetProperty("value").GetBoolean(), "ActiveOutput must read true after the timer mirrored IsEnabled.");
+            var enabled = JsonDocument.Parse(await client.GetStringAsync("/api/state/io/IsEnabled")).RootElement;
+            Assert.IsTrue(enabled.GetProperty("value").GetBoolean(), "The EnableInput drive must reach the block (IsEnabled=true).");
 
-            var analog = JsonDocument.Parse(await client.GetStringAsync($"/api/hal/ao/{echo.Sp}/{echo.Svc}/{echo.Contract}")).RootElement;
-            Assert.AreEqual(3.3, analog.GetProperty("value").GetDouble(), 0.001, "EchoOutput must read 3.3 after the timer mirrored CurrentLevel.");
+            var currentLevel = JsonDocument.Parse(await client.GetStringAsync("/api/state/io/CurrentLevel")).RootElement;
+            Assert.AreEqual(3.3, currentLevel.GetProperty("value").GetDouble(), 0.001, "The LevelInput drive must reach the block (CurrentLevel=3.3).");
         }
 
         // The mocked endpoint ids for a contract, read from /api/configuration (the addressing the SPA and the
-        // HAL routes use).
+        // drive route use).
         private static async Task<(string Sp, string Svc, string Contract)> Mapping(HttpClient client, string contractIdentifier)
         {
             using var doc = JsonDocument.Parse(await client.GetStringAsync("/api/configuration"));
@@ -491,6 +491,16 @@ namespace Vion.Dale.DevHost.Test
             var mapping = io.GetProperty("contractMappings").EnumerateArray().Single(m => m.GetProperty("contractIdentifier").GetString() == contractIdentifier);
             return (mapping.GetProperty("mappedServiceProviderIdentifier").GetString()!, mapping.GetProperty("mappedServiceIdentifier").GetString()!,
                        mapping.GetProperty("mappedContractIdentifier").GetString()!);
+        }
+
+        // A contract's stand-in actor name, read from its contractHandlerActorName annotation in /api/configuration
+        // — the routing key the SPA passes to POST /api/contracts/drive.
+        private static async Task<string> HandlerName(HttpClient client, string contractIdentifier)
+        {
+            using var doc = JsonDocument.Parse(await client.GetStringAsync("/api/configuration"));
+            var io = doc.RootElement.GetProperty("logicBlocks").EnumerateArray().Single(b => b.GetProperty("name").GetString() == "io");
+            var contract = io.GetProperty("contracts").EnumerateArray().Single(c => c.GetProperty("identifier").GetString() == contractIdentifier);
+            return contract.GetProperty("annotations").GetProperty("contractHandlerActorName").GetString()!;
         }
 
         private static async Task<DateTimeOffset> VirtualTime(HttpClient client)

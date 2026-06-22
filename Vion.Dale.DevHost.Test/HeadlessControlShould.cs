@@ -1,8 +1,10 @@
 using System;
 using System.Linq;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Vion.Dale.DevHost.Control;
+using Vion.Dale.Sdk.Configuration.Contract;
 using Vion.Dale.Sdk.Messages;
 
 namespace Vion.Dale.DevHost.Test
@@ -270,14 +272,14 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task GetDigitalAndAnalogOutput_AreNullUntilSet_ThenCarryTheLastMirroredValue()
+        public async Task GetServiceProviderOutput_IsNullUntilSet_ThenCarriesTheLastMirroredValue()
         {
-            // The read half of HAL (the symmetric complement of SetDigitalInput/SetAnalogInput): the mock
-            // output handlers record what a block Sets and raise *OutputChanged; the control surface caches
-            // those (from the same events it already republishes) so a scenario can ASSERT an output. The
-            // SmokeHost IoBlock's [Timer(1)] OnTick mirrors IsEnabled -> ActiveOutput and CurrentLevel ->
-            // EchoOutput. Before any Set the getters return null (the member never produced a value — distinct
-            // from a Set false / 0); after driving the inputs and firing the timer they carry the mirrored value.
+            // The generic read half (the complement of DriveServiceProviderContractAsync): the stand-in records
+            // what a block Sets and the control surface serves it via GetServiceProviderOutput, so a scenario can
+            // ASSERT an output. The SmokeHost IoBlock's [Timer(1)] OnTick mirrors IsEnabled -> ActiveOutput and
+            // CurrentLevel -> EchoOutput. Before any Set the getter returns null (the member never produced a
+            // value — distinct from a Set false / 0); after driving the inputs and firing the timer it carries
+            // the mirrored value.
             await using var host = BuildSteppedIoHost();
             await host.StartAsync();
 
@@ -285,23 +287,38 @@ namespace Vion.Dale.DevHost.Test
             var active = io.ContractMappings.Single(m => m.ContractIdentifier == "ActiveOutput");
             var echo = io.ContractMappings.Single(m => m.ContractIdentifier == "EchoOutput");
 
+            // Resolve each input contract's stand-in actor name the same way the web UI does — from the
+            // contract's ContractHandlerActorName annotation — so the drive carries no hardcoded HAL handler name.
+            string HandlerFor(string contractId)
+            {
+                return io.Contracts.Single(c => c.Identifier == contractId).Annotations[ServiceProviderContractAnnotations.ContractHandlerActorName].ToString()!;
+            }
+
             // Never Set yet -> null.
-            Assert.IsNull(host.Control.GetDigitalOutput(active.MappedServiceProviderIdentifier, active.MappedServiceIdentifier, active.MappedContractIdentifier),
+            Assert.IsNull(host.Control.GetServiceProviderOutput(active.MappedServiceProviderIdentifier, active.MappedServiceIdentifier, active.MappedContractIdentifier),
                           "A digital output that has never been Set must read null.");
-            Assert.IsNull(host.Control.GetAnalogOutput(echo.MappedServiceProviderIdentifier, echo.MappedServiceIdentifier, echo.MappedContractIdentifier),
+            Assert.IsNull(host.Control.GetServiceProviderOutput(echo.MappedServiceProviderIdentifier, echo.MappedServiceIdentifier, echo.MappedContractIdentifier),
                           "An analog output that has never been Set must read null.");
 
             // Drive the inputs, then advance one virtual second so OnTick fires and mirrors them onto the outputs.
             var enable = io.ContractMappings.Single(m => m.ContractIdentifier == "EnableInput");
             var level = io.ContractMappings.Single(m => m.ContractIdentifier == "LevelInput");
-            await host.Control.SetDigitalInputAsync(enable.MappedServiceProviderIdentifier, enable.MappedServiceIdentifier, enable.MappedContractIdentifier, true);
-            await host.Control.SetAnalogInputAsync(level.MappedServiceProviderIdentifier, level.MappedServiceIdentifier, level.MappedContractIdentifier, 3.3);
+            await host.Control.DriveServiceProviderContractAsync(HandlerFor("EnableInput"),
+                                                                 enable.MappedServiceProviderIdentifier,
+                                                                 enable.MappedServiceIdentifier,
+                                                                 enable.MappedContractIdentifier,
+                                                                 JsonSerializer.SerializeToElement(true));
+            await host.Control.DriveServiceProviderContractAsync(HandlerFor("LevelInput"),
+                                                                 level.MappedServiceProviderIdentifier,
+                                                                 level.MappedServiceIdentifier,
+                                                                 level.MappedContractIdentifier,
+                                                                 JsonSerializer.SerializeToElement(3.3));
             await host.Control.AdvanceAsync(TimeSpan.FromSeconds(1));
 
-            Assert.IsTrue(host.Control.GetDigitalOutput(active.MappedServiceProviderIdentifier, active.MappedServiceIdentifier, active.MappedContractIdentifier) ?? false,
+            Assert.IsTrue((bool)host.Control.GetServiceProviderOutput(active.MappedServiceProviderIdentifier, active.MappedServiceIdentifier, active.MappedContractIdentifier)!,
                           "ActiveOutput must mirror IsEnabled=true after the timer fired.");
             Assert.AreEqual(3.3,
-                            host.Control.GetAnalogOutput(echo.MappedServiceProviderIdentifier, echo.MappedServiceIdentifier, echo.MappedContractIdentifier)!.Value,
+                            (double)host.Control.GetServiceProviderOutput(echo.MappedServiceProviderIdentifier, echo.MappedServiceIdentifier, echo.MappedContractIdentifier)!,
                             0.001,
                             "EchoOutput must mirror CurrentLevel=3.3 after the timer fired.");
         }

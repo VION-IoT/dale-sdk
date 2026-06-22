@@ -32,20 +32,12 @@ namespace Vion.Dale.DevHost.Control
 
         private readonly IActorSystem _actorSystem;
 
-        private readonly ConcurrentDictionary<(string ServiceProviderId, string ServiceId, string ContractId), double> _analogOutputs = new();
-
         // The virtual clock at construction — the per-generation clean baseline. On a stepped host the clock
         // only moves via explicit advance/step, so VirtualTimeUtc > this means the generation has been dirtied
         // (a prior run or manual stepping) and is no longer reproducible from a clean slate.
         private readonly DateTimeOffset _baselineUtc;
 
         private readonly DevConfiguration _configuration;
-
-        // Last-known mocked-output value per (serviceProviderId, serviceId, contractId) — fed by the
-        // DigitalOutputChanged / AnalogOutputChanged events the mock output handlers raise (the same events
-        // republished to subscribers), read by GetDigitalOutput / GetAnalogOutput. The output read-cache
-        // mirroring the _values service-property cache; an absent key means the output was never Set.
-        private readonly ConcurrentDictionary<(string ServiceProviderId, string ServiceId, string ContractId), bool> _digitalOutputs = new();
 
         private readonly DevHostEvents _events;
 
@@ -121,10 +113,7 @@ namespace Vion.Dale.DevHost.Control
             _events.ServicePropertyChanged += OnServiceProperty;
             _events.ServicePropertyWriteAcknowledged += OnWriteAcknowledged;
             _events.ServiceMeasuringPointChanged += OnMeasuringPoint;
-            _events.DigitalInputChanged += OnDigitalInput;
-            _events.DigitalOutputChanged += OnDigitalOutput;
-            _events.AnalogInputChanged += OnAnalogInput;
-            _events.AnalogOutputChanged += OnAnalogOutput;
+            _events.ServiceProviderContractChanged += OnServiceProviderContract;
         }
 
         /// <inheritdoc />
@@ -328,32 +317,11 @@ namespace Vion.Dale.DevHost.Control
             await applied.ConfigureAwait(false);
         }
 
-        public Task SetDigitalInputAsync(string serviceProviderId, string serviceId, string contractId, bool value)
-        {
-            DriveServiceProviderInput(nameof(DigitalInputHandler), serviceProviderId, serviceId, contractId, JsonSerializer.SerializeToElement(value));
-            return Task.CompletedTask;
-        }
-
-        public Task SetAnalogInputAsync(string serviceProviderId, string serviceId, string contractId, double value)
-        {
-            DriveServiceProviderInput(nameof(AnalogInputHandler), serviceProviderId, serviceId, contractId, JsonSerializer.SerializeToElement(value));
-            return Task.CompletedTask;
-        }
-
         public Task DriveServiceProviderContractAsync(string handlerName, string serviceProviderId, string serviceId, string contractId, JsonElement value)
         {
-            DriveServiceProviderInput(handlerName, serviceProviderId, serviceId, contractId, value);
+            var handler = _actorSystem.LookupByName(handlerName);
+            _actorSystem.SendTo(handler, new MockSetServiceProviderInputMessage(new ServiceProviderContractId(serviceProviderId, serviceId, contractId), value));
             return Task.CompletedTask;
-        }
-
-        public bool? GetDigitalOutput(string serviceProviderId, string serviceId, string contractId)
-        {
-            return _digitalOutputs.TryGetValue((serviceProviderId, serviceId, contractId), out var value) ? value : null;
-        }
-
-        public double? GetAnalogOutput(string serviceProviderId, string serviceId, string contractId)
-        {
-            return _analogOutputs.TryGetValue((serviceProviderId, serviceId, contractId), out var value) ? value : null;
         }
 
         public object? GetServiceProviderOutput(string serviceProviderId, string serviceId, string contractId)
@@ -468,19 +436,7 @@ namespace Vion.Dale.DevHost.Control
             _events.ServicePropertyChanged -= OnServiceProperty;
             _events.ServicePropertyWriteAcknowledged -= OnWriteAcknowledged;
             _events.ServiceMeasuringPointChanged -= OnMeasuringPoint;
-            _events.DigitalInputChanged -= OnDigitalInput;
-            _events.DigitalOutputChanged -= OnDigitalOutput;
-            _events.AnalogInputChanged -= OnAnalogInput;
-            _events.AnalogOutputChanged -= OnAnalogOutput;
-        }
-
-        // Drive an input contract through its generic stand-in (RFC 0010): the stand-in is registered under the
-        // contract's handler name. The digital/analog HAL contracts keep their well-known handler names; the
-        // generic serviceProviderSet passes the resolved ContractHandlerActorName.
-        private void DriveServiceProviderInput(string handlerName, string serviceProviderId, string serviceId, string contractId, JsonElement value)
-        {
-            var handler = _actorSystem.LookupByName(handlerName);
-            _actorSystem.SendTo(handler, new MockSetServiceProviderInputMessage(new ServiceProviderContractId(serviceProviderId, serviceId, contractId), value));
+            _events.ServiceProviderContractChanged -= OnServiceProviderContract;
         }
 
         // Project a captured wire value to the comparable CLR scalar the comparators evaluate against — bool,
@@ -615,26 +571,9 @@ namespace Vion.Dale.DevHost.Control
             Publish(new ServiceMeasuringPointChanged(LogicBlockNameFor(e.ServiceIdentifier), e.ServiceIdentifier, e.MeasuringPointIdentifier, e.Value));
         }
 
-        private void OnDigitalInput(object? sender, DigitalInputChangedEventArgs e)
+        private void OnServiceProviderContract(object? sender, ServiceProviderContractChangedEventArgs e)
         {
-            Publish(new DigitalInputChanged(e.ServiceProviderIdentifier, e.ServiceIdentifier, e.ContractIdentifier, e.Value));
-        }
-
-        private void OnDigitalOutput(object? sender, DigitalOutputChangedEventArgs e)
-        {
-            _digitalOutputs[(e.ServiceProviderIdentifier, e.ServiceIdentifier, e.ContractIdentifier)] = e.Value;
-            Publish(new DigitalOutputChanged(e.ServiceProviderIdentifier, e.ServiceIdentifier, e.ContractIdentifier, e.Value));
-        }
-
-        private void OnAnalogInput(object? sender, AnalogInputChangedEventArgs e)
-        {
-            Publish(new AnalogInputChanged(e.ServiceProviderIdentifier, e.ServiceIdentifier, e.ContractIdentifier, e.Value));
-        }
-
-        private void OnAnalogOutput(object? sender, AnalogOutputChangedEventArgs e)
-        {
-            _analogOutputs[(e.ServiceProviderIdentifier, e.ServiceIdentifier, e.ContractIdentifier)] = e.Value;
-            Publish(new AnalogOutputChanged(e.ServiceProviderIdentifier, e.ServiceIdentifier, e.ContractIdentifier, e.Value));
+            Publish(new ServiceProviderContractChanged(e.ServiceProviderIdentifier, e.ServiceIdentifier, e.ContractIdentifier, e.Value));
         }
 
         private void Publish(DevHostEvent e)
