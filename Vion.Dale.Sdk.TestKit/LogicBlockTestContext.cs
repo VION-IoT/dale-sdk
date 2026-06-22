@@ -183,6 +183,34 @@ namespace Vion.Dale.Sdk.TestKit
             }
         }
 
+        /// <summary>
+        ///     Assert on the <em>emitted</em> service-measuring-point values — the measuring-point analogue
+        ///     of <see cref="VerifyServicePropertyEmitted{TValue}" />. Reads the post-policy
+        ///     <c>ServiceMeasuringPointValueChanged</c> stream, so under
+        ///     <see cref="EmissionPolicyMode.FromAttributes" /> a held assignment is not an emission until
+        ///     its throttle interval elapses (drive that with <see cref="AdvanceTime" />). With the policy
+        ///     off it behaves identically to <see cref="VerifyServiceMeasuringPointChanged{TValue}" />.
+        ///     <code>testContext.VerifyServiceMeasuringPointEmitted(lb => lb.Frequency, value => Assert.AreEqual(50.0, value));</code>
+        /// </summary>
+        public void VerifyServiceMeasuringPointEmitted<TValue>(Expression<Func<TLogicBlock, TValue>> propertySelector,
+                                                               Action<TValue>? assertValue = null,
+                                                               Times? times = null)
+        {
+            var propertyName = GetPropertyName(propertySelector);
+            var messages = GetSentMessagesOfType<ServiceMeasuringPointValueChanged>().Where(m => m.MeasuringPointIdentifier == propertyName).ToList();
+
+            times ??= Times.Once();
+            times.Value.AssertCount(messages.Count, $"ServiceMeasuringPointEmitted verification failed for property '{propertyName}'");
+
+            if (assertValue != null)
+            {
+                foreach (var message in messages)
+                {
+                    assertValue((TValue)message.Value!);
+                }
+            }
+        }
+
         public void VerifyContractMessageSent<TData>(string messageKind, string? contractIdentifier = null, Func<TData, bool>? verifyMessage = null, Times? times = null)
             where TData : struct
         {

@@ -23,6 +23,26 @@ namespace Vion.Dale.Sdk.TestKit.Test
             }
         }
 
+        // A block with a throttled measuring point (read-only; written via a method).
+        private sealed class ThrottledMpBlock : LogicBlockBase
+        {
+            [ServiceMeasuringPoint(MinInterval = "250ms")]
+            public double Frequency { get; private set; }
+
+            public ThrottledMpBlock(ILogger logger) : base(logger)
+            {
+            }
+
+            public void SetFrequency(double value)
+            {
+                Frequency = value;
+            }
+
+            protected override void Ready()
+            {
+            }
+        }
+
         [TestMethod]
         public void NotThrottleUnderFakeClockWithoutOverride()
         {
@@ -133,7 +153,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
             // The clear is emitted (bypassing the gate) ...
             var cleared = ctx.GetSentMessagesOfTypePublic<Vion.Dale.Sdk.Messages.ServicePropertyValueCleared>();
-            Assert.IsTrue(cleared.Count >= 1, "Cleared message must be emitted immediately, bypassing the throttler.");
+            Assert.IsGreaterThanOrEqualTo(1, cleared.Count, "Cleared message must be emitted immediately, bypassing the throttler.");
 
             // ... and the previously-held flush is cancelled: advancing past the interval emits no held value.
             ctx.ClearRecordedMessages();
@@ -159,6 +179,24 @@ namespace Vion.Dale.Sdk.TestKit.Test
             block.HandleMessageAsync(new Vion.Dale.Sdk.Messages.StopLogicBlockRequest(), ctx).GetAwaiter().GetResult();
 
             ctx.VerifyServicePropertyEmitted(lb => lb.Voltage, value => Assert.AreEqual(9.0, value), Times.Once());
+        }
+
+        [TestMethod]
+        public void ThrottleMeasuringPointLeadingEdgeAndFlush()
+        {
+            var block = LogicBlockTestHelper.Create<ThrottledMpBlock>();
+            var ctx = block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).Build();
+
+            ctx.AdvanceTime(TimeSpan.FromMilliseconds(250)); // clear the start-seed interval
+
+            block.SetFrequency(50.0); // leading edge -> emit
+            block.SetFrequency(50.1); // held
+            block.SetFrequency(50.2); // held (latest wins)
+
+            ctx.AdvanceTime(TimeSpan.FromMilliseconds(250));
+
+            // leading (50.0) + trailing flush (50.2) = 2 measuring-point emissions.
+            ctx.VerifyServiceMeasuringPointEmitted(lb => lb.Frequency, times: Times.Exactly(2));
         }
 
         // The TestKit's GetPrivateField extension is internal to the TestKit assembly; reach the
