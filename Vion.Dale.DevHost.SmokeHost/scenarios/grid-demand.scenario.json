@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "id": "grid-demand",
+  "topology": "default",
+  "title": "Struct contract — drive a multi-field, nested-struct payload end to end (RFC 0010 / DF-27)",
+  "description": "serviceProviderSet drives a GridDemand wire struct (a bool, an enum-by-name, and a 1-level nested PowerLimits struct) into GridBlock through the real generic contract path. The block observes it and surfaces every field — including the nested ones — as service properties, asserted with expect. The non-HAL case the four old HAL step kinds could never address.",
+  "specs": ["smoke", "struct", "df-27"],
+  "watch": ["GridBlock.DemandValid", "GridBlock.ActivePowerW"],
+  "steps": [
+    { "serviceProviderSet": { "logicBlock": "GridBlock", "contract": "Demand" },
+      "value": { "valid": true, "scope": "PerPhase", "limits": { "activePowerW": 1500, "reactivePowerVar": 200 } },
+      "label": "drive the grid demand (nested struct payload)" },
+    { "waitUntil": { "property": "GridBlock.DemandValid", "equals": true }, "timeoutSeconds": 5, "label": "wait until the block observes the demand" },
+    { "expect": { "property": "GridBlock.Scope", "equals": "PerPhase" }, "label": "the enum field deserialized by name", "spec": "struct" },
+    { "expect": { "property": "GridBlock.ActivePowerW", "equals": 1500, "tolerance": 0.01 }, "label": "a nested-struct field reached the block", "spec": "struct" },
+    { "expect": { "property": "GridBlock.ReactivePowerVar", "equals": 200, "tolerance": 0.01 }, "label": "the other nested-struct field reached the block", "spec": "struct" }
+  ]
+}

@@ -11,6 +11,10 @@
       "name": "IoBlock"
     },
     {
+      "typeFullName": "Vion.Dale.DevHost.SmokeHost.LogicBlocks.GridBlock",
+      "name": "GridBlock"
+    },
+    {
       "typeFullName": "Vion.Dale.DevHost.SmokeHost.LogicBlocks.SignalSourceBlock",
       "name": "SignalSourceBlock"
     },
