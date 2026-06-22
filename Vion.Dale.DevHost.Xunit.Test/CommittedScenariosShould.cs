@@ -38,7 +38,7 @@ namespace Vion.Dale.DevHost.Xunit.Test
                 ran++;
             }
 
-            Assert.AreEqual(3, ran);
+            Assert.AreEqual(4, ran);
         }
     }
 }
