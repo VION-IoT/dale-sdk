@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
@@ -103,6 +104,49 @@ namespace Vion.Dale.DevHost.Test
             Assert.AreEqual(HttpStatusCode.OK, advance.StatusCode, "Manual advance must succeed on a stepped host with no active run.");
             Assert.IsTrue(await PollAsync(async () => await GetPropertyIntAsync(client, "ticker", "Ticks") > ticksBefore, TimeSpan.FromSeconds(10)),
                           "Advancing the virtual clock must fire the timer further.");
+        }
+
+        [TestMethod]
+        [TestCategory("Smoke")]
+        public async Task Smoke_RunReport_CarriesAWatchTrace_TheTraceViewerConsumes()
+        {
+            var dir = NewScenarioDir();
+            File.WriteAllText(Path.Combine(dir, "trace.scenario.json"),
+                              """
+                              {
+                                "version": 1, "id": "trace", "topology": "smoke", "watch": ["counter.Counter", "ticker.Ticks"],
+                                "setup": [ { "set": "counter.Counter", "value": 7 } ],
+                                "steps": [ { "advance": { "seconds": 3 } }, { "expect": { "property": "ticker.Ticks", "equals": 3 } } ]
+                              }
+                              """);
+
+            var port = FreePort();
+            var config = DevConfigurationBuilder.Create()
+                                                .WithTopologyName("smoke")
+                                                .WithScenarios(dir)
+                                                .AddLogicBlock<CounterBlock>("counter")
+                                                .AddLogicBlock<TickerBlock>("ticker")
+                                                .Build();
+            await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithDeterministicStepping().WithWebUi(port).Build();
+            await host.StartAsync();
+
+            using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
+            var apply = await client.PostAsync("/api/scenarios/trace/apply", null);
+            Assert.AreEqual(HttpStatusCode.Accepted, apply.StatusCode, apply.StatusCode.ToString());
+            var report = await PollRunUntilDoneAsync(client, "trace", TimeSpan.FromSeconds(30));
+            Assert.AreEqual("succeeded", report.GetProperty("status").GetString(), report.GetRawText());
+
+            // The trace viewer joins watch[] to watchTrace[].values by camelCased name path; each sample carries
+            // a stepIndex + a deterministic virtualElapsedMs. Lock that contract.
+            var trace = report.GetProperty("watchTrace");
+            Assert.AreEqual(JsonValueKind.Array, trace.ValueKind, "watchTrace must be an array.");
+            Assert.IsTrue(trace.GetArrayLength() >= 2, "watchTrace must have a start sample plus per-step samples.");
+            var start = trace[0];
+            Assert.AreEqual(-1, start.GetProperty("stepIndex").GetInt32(), "The first sample is the start sample (stepIndex -1).");
+            Assert.IsTrue(start.TryGetProperty("virtualElapsedMs", out _), "Each sample carries virtualElapsedMs.");
+            var values = start.GetProperty("values");
+            var hasCounter = values.EnumerateObject().Any(p => string.Equals(p.Name, "counter.Counter", StringComparison.OrdinalIgnoreCase));
+            Assert.IsTrue(hasCounter, "watchTrace samples must contain the watched name path: " + values.GetRawText());
         }
 
         [TestMethod]
