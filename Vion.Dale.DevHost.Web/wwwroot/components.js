@@ -68,6 +68,23 @@ function badgeList(item) {
     if (presentation.decimals !== undefined && presentation.decimals !== null) push('decimals', `${presentation.decimals} dp`);
     if (presentation.order !== undefined && presentation.order !== null) push('order', `order=${presentation.order}`);
     if (presentation.format) push('decimals', `format=${presentation.format}`);
+
+    // RFC 0004: runtime emission policy (throttle/deadband/immediate) + persistence.
+    const runtime = item.runtime || {};
+    if (runtime.persistent) push('persistent', 'persistent', 'value survives a runtime restart');
+    const t = runtime.throttle;
+    if (t) {
+        if (t.immediate) {
+            push('throttle', 'immediate', 'RFC 0004: emitted on every change (throttle & deadband bypassed)');
+        } else {
+            const hasInterval = t.minInterval && t.minInterval !== '0' && t.minInterval !== '0ms';
+            const bits = [];
+            if (hasInterval) bits.push(t.minInterval);
+            if (t.minChange) bits.push('Δ' + t.minChange);
+            const label = hasInterval ? 'throttle' : 'deadband';
+            push('throttle', bits.length ? `${label} ${bits.join(' · ')}` : 'throttle', 'RFC 0004 emission policy');
+        }
+    }
     return badges;
 }
 
