@@ -1441,6 +1441,64 @@ const TraceLaneState = {
     `,
 };
 
+const ScenarioTrace = {
+    components: { TraceStepRibbon, TraceLaneNumeric, TraceLaneState, ScenarioWatchTile },
+    // props: run = the report (with steps + watchTrace), paths = scenario.watch (the declared order).
+    props: ['run', 'paths'],
+    setup(props) {
+        const geometry = computed(() => stepRibbonGeometry((props.run && props.run.steps) || [], { minFrac: 0.05 }));
+        // The scrubber index walks the watchTrace samples (0 = start, then one per step reached).
+        const samples = computed(() => (props.run && props.run.watchTrace) || []);
+        const scrub = ref(0);
+        watch(samples, s => { scrub.value = Math.max(0, s.length - 1); }, { immediate: true });
+        const maxScrub = computed(() => Math.max(0, samples.value.length - 1));
+        const activeStepIndex = computed(() => {
+            const s = samples.value[scrub.value];
+            return s ? s.stepIndex : -1;
+        });
+
+        // One row per declared watch path: its series, lane kind, resolved item (for struct/units), and
+        // the value at the scrubbed sample (the readout).
+        const rows = computed(() => (props.paths || []).map(path => {
+            const series = traceSeriesFor(samples.value, path);
+            const resolved = resolveNamePath(path);
+            const schema = resolved && resolved.item ? (resolved.item.schema || null) : null;
+            const firstNonNull = (series.find(s => s.value !== null && s.value !== undefined) || {}).value;
+            const kind = traceLaneKind(schema, firstNonNull);
+            const at = series[Math.min(scrub.value, series.length - 1)] || {};
+            return { path, series, kind, resolved, unit: schema ? resolveUnit(schema) : null, current: at.value };
+        }));
+
+        const selectStep = stepIndex => {
+            const i = samples.value.findIndex(s => s.stepIndex === stepIndex);
+            if (i >= 0) scrub.value = i;
+        };
+        const readout = row => {
+            if (row.current === null || row.current === undefined) return '∅';
+            if (typeof row.current === 'number') return formatValue(row.current) + (row.unit ? ' ' + row.unit : '');
+            return String(row.current);
+        };
+        const tone = row => row.kind === 'numeric' ? 'tone-' + signTone(row.current) : '';
+        return { geometry, samples, scrub, maxScrub, activeStepIndex, rows, selectStep, readout, tone };
+    },
+    template: `
+        <div class="scenario-trace">
+            <TraceStepRibbon :geometry="geometry" :active-index="activeStepIndex" @select="selectStep"/>
+            <div v-for="row in rows" :key="row.path" class="trace-row">
+                <div class="trace-row-label">
+                    <span class="mono">{{ row.path }}</span>
+                    <span class="trace-readout mono" :class="tone(row)">{{ readout(row) }}</span>
+                </div>
+                <TraceLaneNumeric v-if="row.kind === 'numeric'" :series="row.series" :geometry="geometry" :unit="row.unit"/>
+                <TraceLaneState v-else-if="row.kind === 'state'" :series="row.series" :geometry="geometry"/>
+                <ScenarioWatchTile v-else :path="row.path"/>
+            </div>
+            <input class="trace-scrubber" type="range" min="0" :max="maxScrub" step="1" v-model.number="scrub"
+                   :title="'sample ' + scrub + ' of ' + maxScrub"/>
+        </div>
+    `,
+};
+
 export const PlayerPanel = {
     components: { PlayerStep, ScenarioWatchTile },
     setup() {
