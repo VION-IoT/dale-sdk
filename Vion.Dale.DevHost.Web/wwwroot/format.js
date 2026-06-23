@@ -709,7 +709,7 @@ export function traceNumericBand(series) {
 // Merge a state (enum/boolean/string) series into ribbon-aligned band segments [{ x0, x1, value }],
 // collapsing consecutive equal values. Positions come from sampleX over the geometry.
 export function traceStateBands(series, geometry) {
-    const pts = (series || []).map(s => ({ x: sampleX(geometry, s.stepIndex), value: s.value }));
+    const pts = (series || []).map(s => ({ x: sampleX(geometry, s && s.stepIndex), value: s && s.value }));
     if (!pts.length) return [];
     const bands = [];
     let cur = { x0: pts[0].x, x1: pts[0].x, value: pts[0].value };
