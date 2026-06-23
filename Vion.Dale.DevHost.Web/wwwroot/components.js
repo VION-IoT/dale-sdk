@@ -10,6 +10,7 @@ import {
     effectiveType, enumDisplay, enumMembers, formatTemporal, formatValue, gallerySamples,
     GROUP_LABELS, groupItems, isNullable, isWritable, matchesFilter, orderedGroupKeys, parseFilter,
     parseNamePath, presentationFacts, resolveAuthoredTitle, resolveDisplayName, resolveUnit, sampleJson, serviceMembers, severityFor,
+    sampleX, signTone, stepRibbonGeometry, traceLaneKind, traceNumericBand, traceSeriesFor, traceStateBands,
     STEP_GLYPHS,
 } from './format.js';
 import {
@@ -1343,6 +1344,37 @@ const PlayerStep = {
             <span v-if="step.detail" class="step-detail" :title="step.detail">{{ step.detail }}</span>
             <span v-if="elapsed" class="step-elapsed">{{ elapsed }}</span>
         </div>
+    `,
+};
+
+// ── Scenario trace viewer (RFC 0012 §5, form C) ─────────────────────────────────
+// One shared virtual-time axis: a step ribbon (segments ∝ duration, colored by status, captioned by
+// label) over time-aligned signal lanes, with a draggable playhead. Geometry is pure (format.js); the
+// components below are thin SVG/template projections. Coordinate space is 0..1 in x; the view width is
+// fixed by CSS and the viewBox is 0..1000 so 1 unit = 0.1%.
+
+const RIBBON_W = 1000;
+
+const TraceStepRibbon = {
+    props: ['geometry', 'activeIndex'],
+    emits: ['select'],
+    setup(props, { emit }) {
+        const segs = computed(() => (props.geometry.steps || []).map(s => ({
+            ...s,
+            x: s.x0 * RIBBON_W,
+            w: Math.max(2, (s.x1 - s.x0) * RIBBON_W),
+        })));
+        const pick = i => emit('select', i);
+        return { segs, pick, RIBBON_W };
+    },
+    template: `
+        <svg class="trace-ribbon" :viewBox="'0 0 ' + RIBBON_W + ' 26'" preserveAspectRatio="none" width="100%" height="26">
+            <g v-for="s in segs" :key="s.index">
+                <rect class="ribbon-seg" :class="[s.status, { active: s.index === activeIndex }]"
+                      :x="s.x + 1" y="2" :width="Math.max(1, s.w - 2)" height="22" rx="2"
+                      @click="pick(s.index)"><title>{{ s.kind }} · {{ s.label }}</title></rect>
+            </g>
+        </svg>
     `,
 };
 
