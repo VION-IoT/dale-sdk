@@ -602,3 +602,49 @@ export function groupItems(service) {
 
     return itemsByGroup;
 }
+
+// ── Scenario trace policy (RFC 0012) ────────────────────────────────────────────
+// Pure helpers behind the trace viewer (form C). The trace is the run report's `watchTrace`
+// (a WatchSample[] sampled at step boundaries) joined to the scenario's `watch` paths. The wire
+// serializer camelCases the first path segment (e.g. RefGridMeter -> refGridMeter), so every join
+// is case-insensitive (the same rule as enumLabelFor / primeInitialValues).
+
+// One watched signal's time series from a run report's watchTrace, in sample order:
+// [{ stepIndex, virtualElapsedMs, value }]. `value` is undefined when the path isn't in the sample.
+export function traceSeriesFor(watchTrace, path) {
+    if (!Array.isArray(watchTrace)) return [];
+    const lower = String(path).toLowerCase();
+    return watchTrace.map(sample => {
+        const values = (sample && sample.values) || {};
+        let value;
+        if (Object.prototype.hasOwnProperty.call(values, path)) {
+            value = values[path];
+        } else {
+            const key = Object.keys(values).find(k => k.toLowerCase() === lower);
+            value = key !== undefined ? values[key] : undefined;
+        }
+        return { stepIndex: sample ? sample.stepIndex : null, virtualElapsedMs: sample ? sample.virtualElapsedMs : null, value };
+    });
+}
+
+// Sign tone for sign-aware numeric coloring (+import/+charge vs −export/−discharge): 'pos'|'neg'|'zero'.
+export function signTone(value) {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value === 0) return 'zero';
+    return value > 0 ? 'pos' : 'neg';
+}
+
+// Lane renderer kind for a watched signal: 'numeric' (stairstep line), 'state' (enum/boolean band),
+// or 'struct' (expander). Prefers the resolved schema; falls back to the first non-null sample value
+// when the path doesn't resolve (e.g. a struct field-path the introspection name-path can't address).
+export function traceLaneKind(schema, sampleValue) {
+    const t = schema ? effectiveType(schema) : null;
+    if (t === 'number' || t === 'integer') return 'numeric';
+    if (t === 'boolean') return 'state';
+    if (enumMembers(schema)) return 'state';
+    if (t === 'object' || t === 'array') return 'struct';
+    if (t === 'string') return 'state';
+    if (typeof sampleValue === 'number' && Number.isFinite(sampleValue)) return 'numeric';
+    if (typeof sampleValue === 'boolean' || typeof sampleValue === 'string') return 'state';
+    if (sampleValue !== null && typeof sampleValue === 'object') return 'struct';
+    return 'state';
+}
