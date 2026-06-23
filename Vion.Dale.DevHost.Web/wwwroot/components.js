@@ -1379,7 +1379,7 @@ const TraceStepRibbon = {
 };
 
 const TraceLaneNumeric = {
-    props: ['series', 'geometry', 'unit'],
+    props: ['series', 'geometry', 'unit', 'playhead'],
     setup(props) {
         const band = computed(() => traceNumericBand(props.series));
         // Honest stairstep: hold each sample's value until the next sample's x, then step. y is inverted
@@ -1387,7 +1387,8 @@ const TraceLaneNumeric = {
         const yOf = v => {
             const { min, max } = band.value;
             const t = (v - min) / (max - min || 1);
-            return (1 - t) * 100;
+            const pad = 6;
+            return pad + (1 - t) * (100 - 2 * pad);
         };
         const path = computed(() => {
             const pts = (props.series || []).map(s => ({ x: sampleX(props.geometry, s.stepIndex) * 1000, v: s.value }));
@@ -1407,15 +1408,16 @@ const TraceLaneNumeric = {
         return { band, path, zeroY };
     },
     template: `
-        <svg class="trace-lane numeric" viewBox="0 0 1000 100" preserveAspectRatio="none" width="100%" height="44">
+        <svg class="trace-lane numeric" viewBox="0 0 1000 100" preserveAspectRatio="none" width="100%" height="40">
             <line class="lane-zero" x1="0" :y1="zeroY" x2="1000" :y2="zeroY"/>
             <path v-if="path" class="lane-line" :d="path" fill="none" vector-effect="non-scaling-stroke"/>
+            <line v-if="playhead != null" class="lane-playhead" :x1="playhead * 1000" :x2="playhead * 1000" y1="0" y2="100"/>
         </svg>
     `,
 };
 
 const TraceLaneState = {
-    props: ['series', 'geometry'],
+    props: ['series', 'geometry', 'playhead'],
     setup(props) {
         // Distinct values get distinct tones cycling a small token-driven palette; booleans read as
         // on/off. Each band is one segment; the label shows when the segment is wide enough.
@@ -1437,6 +1439,7 @@ const TraceLaneState = {
                 <rect class="state-band" :class="b.tone" :x="b.x" y="2" :width="Math.max(1, b.w)" height="20" rx="2"/>
                 <text v-if="b.w > 70" class="state-label" :x="b.x + 6" y="16">{{ b.label }}</text>
             </g>
+            <line v-if="playhead != null" class="lane-playhead" :x1="playhead * 1000" :x2="playhead * 1000" y1="0" y2="24"/>
         </svg>
     `,
 };
@@ -1450,7 +1453,9 @@ const ScenarioTrace = {
         // The scrubber index walks the watchTrace samples (0 = start, then one per step reached).
         const samples = computed(() => (props.run && props.run.watchTrace) || []);
         const scrub = ref(0);
-        watch(samples, s => { scrub.value = Math.max(0, s.length - 1); }, { immediate: true });
+        // Snap to the end-state only when a NEW run lands (runId changes) — NOT on every idle re-poll of
+        // the same run, so a scrubbed position holds while the Player keeps polling the report.
+        watch(() => props.run && props.run.runId, () => { scrub.value = Math.max(0, samples.value.length - 1); }, { immediate: true });
         const maxScrub = computed(() => Math.max(0, samples.value.length - 1));
         const activeStepIndex = computed(() => {
             const s = samples.value[scrub.value];
@@ -1480,22 +1485,30 @@ const ScenarioTrace = {
             return String(row.current);
         };
         const tone = row => row.kind === 'numeric' && row.current !== null && row.current !== undefined ? 'tone-' + signTone(row.current) : '';
-        return { geometry, samples, scrub, maxScrub, activeStepIndex, rows, selectStep, readout, tone };
+        // The playhead x (0..1) of the scrubbed sample — a vertical cursor drawn across every lane.
+        const playheadX = computed(() => sampleX(geometry.value, activeStepIndex.value));
+        return { geometry, samples, scrub, maxScrub, activeStepIndex, rows, selectStep, readout, tone, playheadX };
     },
     template: `
         <div class="scenario-trace">
-            <TraceStepRibbon :geometry="geometry" :active-index="activeStepIndex" @select="selectStep"/>
+            <div class="trace-row trace-axis">
+                <span></span>
+                <TraceStepRibbon :geometry="geometry" :active-index="activeStepIndex" @select="selectStep"/>
+            </div>
+            <div class="trace-row trace-axis">
+                <span></span>
+                <input class="trace-scrubber" type="range" min="0" :max="maxScrub" step="1" v-model.number="scrub"
+                       :title="'sample ' + scrub + ' of ' + maxScrub"/>
+            </div>
             <div v-for="row in rows" :key="row.path" class="trace-row">
                 <div class="trace-row-label">
                     <span class="mono">{{ row.path }}</span>
                     <span class="trace-readout mono" :class="tone(row)">{{ readout(row) }}</span>
                 </div>
-                <TraceLaneNumeric v-if="row.kind === 'numeric'" :series="row.series" :geometry="geometry" :unit="row.unit"/>
-                <TraceLaneState v-else-if="row.kind === 'state'" :series="row.series" :geometry="geometry"/>
+                <TraceLaneNumeric v-if="row.kind === 'numeric'" :series="row.series" :geometry="geometry" :unit="row.unit" :playhead="playheadX"/>
+                <TraceLaneState v-else-if="row.kind === 'state'" :series="row.series" :geometry="geometry" :playhead="playheadX"/>
                 <ScenarioWatchTile v-else :path="row.path"/>
             </div>
-            <input class="trace-scrubber" type="range" min="0" :max="maxScrub" step="1" v-model.number="scrub"
-                   :title="'sample ' + scrub + ' of ' + maxScrub"/>
         </div>
     `,
 };

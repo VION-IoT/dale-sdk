@@ -1083,6 +1083,7 @@ button { cursor: pointer; font-family: inherit; }
 .ribbon-seg.skipped { fill: var(--vion-bg-def-tertiary); opacity: 0.6; }
 .ribbon-seg.active { stroke: var(--accent); stroke-width: 2; }
 .trace-row { display: grid; grid-template-columns: 220px 1fr; align-items: center; gap: 10px; padding: 2px 0; }
+.trace-axis { padding: 0; }
 .trace-row-label { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 12px; }
 .trace-row-label .mono { color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .trace-readout { font-size: 12.5px; color: var(--text); }
@@ -1091,10 +1092,12 @@ button { cursor: pointer; font-family: inherit; }
 .trace-lane { display: block; width: 100%; }
 .lane-zero { stroke: var(--border); stroke-dasharray: 3 3; stroke-width: 1; }
 .lane-line { stroke: var(--accent); stroke-width: 2; }
+.lane-playhead { stroke: var(--accent); stroke-width: 1.5; opacity: 0.85; pointer-events: none; }
 .state-band { stroke: none; }
-.state-band.tone-0 { fill: var(--vion-acc-bg-def-secondary); }
-.state-band.tone-1 { fill: var(--vion-info-bg-def-secondary); }
-.state-band.tone-2 { fill: var(--vion-warning-bg-def-secondary); }
-.state-band.tone-3 { fill: var(--vion-bg-def-tertiary); }
-.state-label { font-family: var(--mono); font-size: 11px; fill: var(--text); }
-.trace-scrubber { width: 100%; margin-top: 6px; }
+.state-band.tone-0 { fill: var(--vion-color-jagged-ice-200); }
+.state-band.tone-1 { fill: var(--vion-color-jordy-blue-200); }
+.state-band.tone-2 { fill: var(--vion-color-amber-200); }
+.state-band.tone-3 { fill: var(--vion-color-carrara-300); }
+/* Bands use fixed LIGHT primitive tints (stable across light/dark) so a fixed dark label always reads. */
+.state-label { font-family: var(--mono); font-size: 11px; fill: var(--vion-color-wild-sand-950); }
+.trace-scrubber { width: 100%; margin: 2px 0; }
