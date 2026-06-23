@@ -89,6 +89,9 @@ namespace Vion.Dale.DevHost.Control
 
             /// <summary>Optional UI presentation hints. Null when the measuring point has no presentation metadata.</summary>
             public JsonNode? Presentation { get; set; }
+
+            /// <summary>Optional dale-runtime behavior hints. Null when the measuring point has no runtime metadata.</summary>
+            public JsonNode? Runtime { get; set; }
         }
 
         public class LogicBlockContract

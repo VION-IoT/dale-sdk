@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Abstractions;
@@ -10,6 +11,7 @@ using Vion.Dale.Sdk.Configuration.Interfaces;
 using Vion.Dale.Sdk.Configuration.Services;
 using Vion.Dale.Sdk.Configuration.Timers;
 using Vion.Dale.Sdk.Diagnostics;
+using Vion.Dale.Sdk.Emission;
 using Vion.Dale.Sdk.Messages;
 using Vion.Dale.Sdk.Persistence;
 using Vion.Dale.Sdk.Utils;
@@ -35,6 +37,15 @@ namespace Vion.Dale.Sdk.Core
 
         private readonly ServiceBinder _serviceBinder = new();
 
+        // The policy each throttler was built from, kept so a value-clear can reconstruct a fresh
+        // throttler (the gate has no in-place cancel) — see ResetThrottlerPending.
+        private readonly Dictionary<(string ServiceIdentifier, string MemberIdentifier), ThrottlePolicy> _throttlerPolicies = [];
+
+        // One Throttler per bound service property + measuring point, keyed by (ServiceIdentifier,
+        // member identifier). Built after Configure() (BuildThrottlers). Empty until then, and never
+        // consulted when _emissionPolicyActive is false.
+        private readonly Dictionary<(string ServiceIdentifier, string MemberIdentifier), Throttler> _throttlers = [];
+
         private readonly Dictionary<string, (TimeSpan interval, Action callback)> _timerCallbacks = [];
 
         // RFC 0005 watchdog: raw per-[Timer] callback duration + scheduler jitter, reported to the vitals
@@ -42,6 +53,16 @@ namespace Vion.Dale.Sdk.Core
         private readonly Dictionary<string, long> _timerLastTickTimestamp = [];
 
         private IActorContext _actorContext = null!;
+
+        // RFC 0004 emission policy. The per-property gate is active when the clock is NOT a
+        // controllable (FakeTimeProvider-style) clock — i.e. production + free-run DevHost — OR
+        // when a TestKit override forces it on despite a controllable clock. Resolved once at
+        // InitializeLogicBlock and cached. When inactive, Handle*ValueChanged sends as before.
+        private bool _emissionPolicyActive;
+
+        // Set from an optional injected EmissionPolicyForceMarker (TestKit WithEmissionPolicy(FromAttributes)):
+        // forces the policy active even though the injected clock is controllable.
+        private bool _forcePolicyFromAttributes;
 
         private bool _initializeDeferred;
 
@@ -55,6 +76,11 @@ namespace Vion.Dale.Sdk.Core
         // _servicePropertyHandlerActorRef and the ServicePropertyHandler never learns the
         // bindings, causing every subsequent property/set to be silently dropped.
         private bool _runtimeActorsLinked;
+
+        // RFC 0004: tracks the deadline of the single outstanding flush timer (≤1 per block at a
+        // time). Null when no flush is armed. Set in ScheduleEmissionFlush; cleared at the top of
+        // OnEmissionFlushDue so the body can re-arm if further pending values remain.
+        private DateTimeOffset? _scheduledFlushDeadline;
 
         // Key: ServiceIdentifier, Value: ServiceIdentifier
         private Dictionary<string, ServiceIdentifier> _serviceIdLookup = [];
@@ -139,6 +165,12 @@ namespace Vion.Dale.Sdk.Core
                     _timeProvider = m.ServiceProvider.GetService(typeof(TimeProvider)) as TimeProvider ?? TimeProvider.System;
                     _vitalsActorName = LogicBlockUtils.CreateLogicBlockName(Name, Id);
 
+                    // RFC 0004: resolve emission-policy activation once. Force flag from an optional
+                    // injected marker (TestKit override); otherwise active iff the clock is not a
+                    // controllable (stepped / FakeTimeProvider) clock.
+                    _forcePolicyFromAttributes = m.ServiceProvider.GetService(typeof(EmissionPolicyForceMarker)) is EmissionPolicyForceMarker;
+                    _emissionPolicyActive = _forcePolicyFromAttributes || !ControllableClock.Detect(_timeProvider);
+
                     _logger.LogDebug("Initializing logic block '{LogicBlockName}' ({LogicBlockId}) with {ContractMappingCount} contract mappings",
                                      Name,
                                      Id,
@@ -151,6 +183,12 @@ namespace Vion.Dale.Sdk.Core
                                                                  actorContext,
                                                                  ScheduleNextTimerTick,
                                                                  m.ServiceProvider));
+
+                    // RFC 0004: build one Throttler per bound service property + measuring point,
+                    // resolved from each binding's attribute + CLR value type. Cheap no-op state when
+                    // the policy is inactive (the gate bypasses), but always built so the override path
+                    // and production share one construction site.
+                    BuildThrottlers();
 
                     foreach (var (identifier, logicBlockContractId) in m.LogicBlockContractIdLookup)
                     {
@@ -209,6 +247,11 @@ namespace Vion.Dale.Sdk.Core
                 case StartLogicBlockRequest: // after initialization
                     Starting();
                     _started = true;
+
+                    // RFC 0004: the initial publish flows through Handle*ValueChanged with the gate
+                    // active. The first Throttler.Offer for each member returns Emit (!HasEmitted),
+                    // which force-emits and seeds lastEmitted/lastEmitAt — so the initial value is
+                    // never throttled and subsequent changes are measured from start time.
                     _serviceBinder.PublishInitialStateUpdates(_logger);
 
                     // Schedule periodic state saves
@@ -236,6 +279,11 @@ namespace Vion.Dale.Sdk.Core
                     {
                         _logger.LogError(ex, "Exception in Stopping() for logic block '{LogicBlockName}' ({LogicBlockId}); continuing shutdown.", Name, Id);
                     }
+
+                    // RFC 0004: drain each throttler's exact current value before stopping, so the final
+                    // retained state is exact (the deadband suppresses sub-threshold changes only during
+                    // operation). Must run while _started is still true and bindings are live.
+                    DrainThrottlers();
 
                     _started = false;
                     _serviceBinder.ClearRetainedMessages(_logger);
@@ -421,6 +469,257 @@ namespace Vion.Dale.Sdk.Core
             DeclarativeTimerBinder.BindTimersFromAttributes(this, configurationBuilder.Timers);
         }
 
+        /// <summary>
+        ///     RFC 0004: constructs one <see cref="Throttler" /> per bound service property and measuring
+        ///     point from its declarative emission attributes. Keyed by (ServiceIdentifier, member name)
+        ///     so <see cref="HandleServicePropertyValueChanged" /> / the measuring-point handler can look
+        ///     up the gate on each change. The attribute (an <see cref="IThrottleConfigured" />) is read off
+        ///     the binding's root source <see cref="System.Reflection.PropertyInfo" />; the value type comes
+        ///     from <see cref="ServiceBinding.TargetPropertyType" />.
+        /// </summary>
+        private void BuildThrottlers()
+        {
+            BuildThrottlersFor(_serviceBinder.GetAllServicePropertyBindings());
+            BuildThrottlersFor(_serviceBinder.GetAllServiceMeasuringPointBindings());
+        }
+
+        private void BuildThrottlersFor(IReadOnlyDictionary<string, IReadOnlyDictionary<Type, IReadOnlyDictionary<string, ServiceBinding>>> bindings)
+        {
+            foreach (var (serviceIdentifier, interfaceMap) in bindings)
+            {
+                foreach (var perInterface in interfaceMap.Values)
+                {
+                    foreach (var (memberIdentifier, binding) in perInterface)
+                    {
+                        var configured = ResolveThrottleConfigured(binding);
+                        if (configured == null)
+                        {
+                            continue;
+                        }
+
+                        var policy = ThrottlePolicy.FromConfigured(configured, binding.TargetPropertyType);
+                        _throttlerPolicies[(serviceIdentifier, memberIdentifier)] = policy;
+                        _throttlers[(serviceIdentifier, memberIdentifier)] = new Throttler(policy);
+                    }
+                }
+            }
+        }
+
+        private static IThrottleConfigured? ResolveThrottleConfigured(ServiceBinding binding)
+        {
+            // Throttle attributes are read from the bound source (impl) property (RootSourcePropertyInfo),
+            // so [ServiceProperty(MinInterval=…)] must be declared on the impl property — consistent with
+            // how all other bind attributes (deadband, etc.) are resolved; interface members are not checked.
+            var property = binding.RootSourcePropertyInfo;
+            if (property == null)
+            {
+                return null;
+            }
+
+            // The same PropertyInfo carries either [ServiceProperty] or [ServiceMeasuringPoint];
+            // both implement IThrottleConfigured. Reflect whichever is present.
+            return (IThrottleConfigured?)property.GetCustomAttribute(typeof(ServicePropertyAttribute), true) ??
+                   (IThrottleConfigured?)property.GetCustomAttribute(typeof(ServiceMeasuringPointAttribute), true);
+        }
+
+        /// <summary>
+        ///     RFC 0004: discards a throttler's pending held flush (and its emitted state) on a value-clear,
+        ///     so the cleared edge is not undone by a later trailing flush. Reconstructs the gate from its
+        ///     stored policy via a fresh <see cref="Throttler" /> — there is no in-place cancel on the gate.
+        /// </summary>
+        private void ResetThrottlerPending((string ServiceIdentifier, string MemberIdentifier) key)
+        {
+            if (_throttlerPolicies.TryGetValue(key, out var policy))
+            {
+                _throttlers[key] = new Throttler(policy);
+            }
+        }
+
+        /// <summary>
+        ///     RFC 0004: ensures one trailing-edge flush is scheduled at the earliest pending deadline
+        ///     across all throttlers. Mirrors <see cref="ScheduleNextTimerTick" /> — a single idiomatic
+        ///     self-send via the pause-gated / stepper-aware self-scheduling path. The flush body
+        ///     (<see cref="OnEmissionFlushDue" />) coalesces and reschedules the next-earliest, so an
+        ///     extra wakeup at worst finds nothing due and reschedules.
+        ///     <para>
+        ///         The flush is dispatched as an <c>InvokeSynchronized</c> action rather than a bespoke
+        ///         self-message: the action wrapper is what both the production actor loop and the
+        ///         TestKit's virtual clock (AdvanceTime / FlushPendingActions) actually pump, so the
+        ///         trailing flush is observable under deterministic tests. A raw self-message would be
+        ///         delivered in production but silently dropped by the TestKit, which never re-dispatches
+        ///         non-action self-messages.
+        ///     </para>
+        /// </summary>
+        private void ScheduleEmissionFlush(DateTimeOffset earliestDeadline)
+        {
+            // RFC 0004 invariant: at most one outstanding flush per block. Skip arming a new timer
+            // when one is already scheduled for the same or an earlier deadline — the common case
+            // for a burst of holds sharing _lastEmitAt + MinInterval as their deadline. Only arm
+            // (or re-arm) when the new deadline is strictly earlier than the in-flight one, which
+            // replaces it (InvokeSynchronizedAfter cannot be cancelled; the earlier wakeup wins and
+            // the late one fires into an idempotent no-op or a same-deadline reschedule).
+            if (_scheduledFlushDeadline is not null && earliestDeadline >= _scheduledFlushDeadline.Value)
+            {
+                return;
+            }
+
+            var now = _timeProvider.GetUtcNow();
+            var delay = earliestDeadline - now;
+            if (delay < TimeSpan.Zero)
+            {
+                delay = TimeSpan.Zero;
+            }
+
+            _scheduledFlushDeadline = earliestDeadline;
+            InvokeSynchronizedAfter(OnEmissionFlushDue, delay);
+        }
+
+        /// <summary>
+        ///     RFC 0004: flushes every throttler whose hold deadline has elapsed, emitting its pending
+        ///     value, then reschedules a single wakeup for the earliest still-pending deadline (if any).
+        /// </summary>
+        private void OnEmissionFlushDue()
+        {
+            if (!_started)
+            {
+                return;
+            }
+
+            // Clear the outstanding-flush sentinel first, before any work, so that the reschedule
+            // call below (if further pending values remain) correctly re-arms rather than no-ops.
+            _scheduledFlushDeadline = null;
+
+            var now = _timeProvider.GetUtcNow();
+            var nextDeadline = DateTimeOffset.MaxValue;
+            var hasNext = false;
+
+            foreach (var ((serviceIdentifier, memberIdentifier), throttler) in _throttlers)
+            {
+                if (throttler.HasPending && throttler.PendingDeadline <= now)
+                {
+                    if (throttler.TryFlush(now, out var value))
+                    {
+                        EmitFlushedValue(serviceIdentifier, memberIdentifier, value);
+                    }
+                }
+
+                if (throttler.HasPending && throttler.PendingDeadline < nextDeadline)
+                {
+                    nextDeadline = throttler.PendingDeadline;
+                    hasNext = true;
+                }
+            }
+
+            if (hasNext)
+            {
+                ScheduleEmissionFlush(nextDeadline);
+            }
+        }
+
+        /// <summary>
+        ///     Emits a flushed value to the correct handler. A key in <see cref="_throttlers" /> may be a
+        ///     service property or a measuring point; resolve which by membership in the binder's maps so
+        ///     the value reaches the right central handler.
+        /// </summary>
+        private void EmitFlushedValue(string serviceIdentifier, string memberIdentifier, object? value)
+        {
+            if (!_serviceIdLookup.TryGetValue(serviceIdentifier, out var serviceId))
+            {
+                return;
+            }
+
+            if (IsMeasuringPoint(serviceIdentifier, memberIdentifier))
+            {
+                _actorContext.SendTo(_serviceMeasuringPointHandlerActorRef, new ServiceMeasuringPointValueChanged(serviceId, memberIdentifier, value));
+            }
+            else
+            {
+                _actorContext.SendTo(_servicePropertyHandlerActorRef, new ServicePropertyValueChanged(serviceId, memberIdentifier, value));
+            }
+        }
+
+        private bool IsMeasuringPoint(string serviceIdentifier, string memberIdentifier)
+        {
+            if (_serviceBinder.GetAllServiceMeasuringPointBindings().TryGetValue(serviceIdentifier, out var interfaceMap))
+            {
+                foreach (var perInterface in interfaceMap.Values)
+                {
+                    if (perInterface.ContainsKey(memberIdentifier))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        ///     RFC 0004: on stop, emit each throttled member's exact current value if it differs from the
+        ///     throttler's last-emitted value — bypassing throttle and deadband — so the final retained
+        ///     state is exact. Reads the current value straight from the binding getter.
+        /// </summary>
+        private void DrainThrottlers()
+        {
+            if (!_emissionPolicyActive)
+            {
+                return;
+            }
+
+            DrainBindings(_serviceBinder.GetAllServicePropertyBindings(), false);
+            DrainBindings(_serviceBinder.GetAllServiceMeasuringPointBindings(), true);
+        }
+
+        private void DrainBindings(IReadOnlyDictionary<string, IReadOnlyDictionary<Type, IReadOnlyDictionary<string, ServiceBinding>>> bindings, bool isMeasuringPoint)
+        {
+            foreach (var (serviceIdentifier, interfaceMap) in bindings)
+            {
+                if (!_serviceIdLookup.TryGetValue(serviceIdentifier, out var serviceId))
+                {
+                    continue;
+                }
+
+                foreach (var perInterface in interfaceMap.Values)
+                {
+                    foreach (var (memberIdentifier, binding) in perInterface)
+                    {
+                        if (!_throttlers.TryGetValue((serviceIdentifier, memberIdentifier), out var throttler))
+                        {
+                            continue;
+                        }
+
+                        object? current;
+                        try
+                        {
+                            current = binding.Getter(binding.Source);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning("Failed to read current value for drain of {ServiceIdentifier}.{MemberIdentifier}: {ExceptionMessage}",
+                                               serviceIdentifier,
+                                               memberIdentifier,
+                                               ex.Message);
+                            continue;
+                        }
+
+                        if (throttler.HasEmitted && Equals(throttler.LastEmitted, current))
+                        {
+                            continue;
+                        }
+
+                        if (isMeasuringPoint)
+                        {
+                            _actorContext.SendTo(_serviceMeasuringPointHandlerActorRef, new ServiceMeasuringPointValueChanged(serviceId, memberIdentifier, current));
+                        }
+                        else
+                        {
+                            _actorContext.SendTo(_servicePropertyHandlerActorRef, new ServicePropertyValueChanged(serviceId, memberIdentifier, current));
+                        }
+                    }
+                }
+            }
+        }
+
         private void HandleSetServicePropertyValueRequest(IActorContext actorContext, SetServicePropertyValueRequest m)
         {
             if (!_serviceIdentifierLookup.TryGetValue(m.ServiceIdentifier, out var serviceIdentifier))
@@ -448,7 +747,25 @@ namespace Vion.Dale.Sdk.Core
                 return;
             }
 
-            _actorContext.SendTo(_servicePropertyHandlerActorRef, new ServicePropertyValueChanged(serviceIdentifier, args.PropertyIdentifier, args.Value));
+            // RFC 0004: when the policy is inactive (controllable clock without override), or no
+            // throttler exists for this member, send as before. Otherwise gate via the throttler.
+            if (!_emissionPolicyActive || !_throttlers.TryGetValue((args.ServiceIdentifier, args.PropertyIdentifier), out var throttler))
+            {
+                _actorContext.SendTo(_servicePropertyHandlerActorRef, new ServicePropertyValueChanged(serviceIdentifier, args.PropertyIdentifier, args.Value));
+                return;
+            }
+
+            switch (throttler.Offer(args.Value, _timeProvider.GetUtcNow()).Action)
+            {
+                case EmitAction.Emit:
+                    _actorContext.SendTo(_servicePropertyHandlerActorRef, new ServicePropertyValueChanged(serviceIdentifier, args.PropertyIdentifier, args.Value));
+                    break;
+                case EmitAction.Drop:
+                    break;
+                case EmitAction.Hold:
+                    ScheduleEmissionFlush(throttler.PendingDeadline);
+                    break;
+            }
         }
 
         private void HandleServiceMeasuringPointValueChanged(object sender, ServiceMeasuringPointChangedEventArgs args)
@@ -465,7 +782,25 @@ namespace Vion.Dale.Sdk.Core
                 return;
             }
 
-            _actorContext.SendTo(_serviceMeasuringPointHandlerActorRef, new ServiceMeasuringPointValueChanged(serviceIdentifier, args.MeasuringPointIdentifier, args.Value));
+            // RFC 0004: same gate as the service-property path, keyed by measuring-point identifier.
+            if (!_emissionPolicyActive || !_throttlers.TryGetValue((args.ServiceIdentifier, args.MeasuringPointIdentifier), out var throttler))
+            {
+                _actorContext.SendTo(_serviceMeasuringPointHandlerActorRef, new ServiceMeasuringPointValueChanged(serviceIdentifier, args.MeasuringPointIdentifier, args.Value));
+                return;
+            }
+
+            switch (throttler.Offer(args.Value, _timeProvider.GetUtcNow()).Action)
+            {
+                case EmitAction.Emit:
+                    _actorContext.SendTo(_serviceMeasuringPointHandlerActorRef,
+                                         new ServiceMeasuringPointValueChanged(serviceIdentifier, args.MeasuringPointIdentifier, args.Value));
+                    break;
+                case EmitAction.Drop:
+                    break;
+                case EmitAction.Hold:
+                    ScheduleEmissionFlush(throttler.PendingDeadline);
+                    break;
+            }
         }
 
         private void HandleServicePropertyCleared(object sender, ServicePropertyClearedEventArgs args)
@@ -475,6 +810,10 @@ namespace Vion.Dale.Sdk.Core
                 _logger.LogWarning("Unknown service identifier for identifier '{ServiceIdentifier}' in logic block '{Id}'.", args.ServiceIdentifier, Id);
                 return;
             }
+
+            // RFC 0004: a clear is a state-significant edge — emit immediately (bypass the gate) and
+            // discard any pending held flush so the just-cleared value is not re-emitted afterwards.
+            ResetThrottlerPending((args.ServiceIdentifier, args.PropertyIdentifier));
 
             // Send empty retained message to clear
             _actorContext.SendTo(_servicePropertyHandlerActorRef, new ServicePropertyValueCleared(serviceIdentifier, args.PropertyIdentifier));
@@ -487,6 +826,10 @@ namespace Vion.Dale.Sdk.Core
                 _logger.LogWarning("Unknown service identifier for identifier '{ServiceIdentifier}' in logic block '{Id}'.", args.ServiceIdentifier, Id);
                 return;
             }
+
+            // RFC 0004: same clear-edge semantics as the property path — emit immediately and discard
+            // any pending held flush for this measuring point.
+            ResetThrottlerPending((args.ServiceIdentifier, args.MeasuringPointIdentifier));
 
             // Send empty retained message to clear
             _actorContext.SendTo(_serviceMeasuringPointHandlerActorRef, new ServiceMeasuringPointValueCleared(serviceIdentifier, args.MeasuringPointIdentifier));

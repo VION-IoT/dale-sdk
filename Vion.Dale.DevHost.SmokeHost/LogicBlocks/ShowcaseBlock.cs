@@ -42,7 +42,9 @@ namespace Vion.Dale.DevHost.SmokeHost.LogicBlocks
 
         // ── Metric (read-only counters) ─────────────────────────────────────────────
 
-        [ServiceMeasuringPoint(Description = "Lifetime tick count — never resets.", Kind = MeasuringPointKind.TotalIncreasing)]
+        [ServiceMeasuringPoint(Description = "Lifetime tick count — never resets. RFC 0004: emitted on every change (Immediate).",
+                               Kind = MeasuringPointKind.TotalIncreasing,
+                               Immediate = true)]
         [Presentation(Group = PropertyGroup.Metric)]
         public long Cycles { get; private set; }
 
@@ -56,9 +58,12 @@ namespace Vion.Dale.DevHost.SmokeHost.LogicBlocks
                          Unit = "kW",
                          Minimum = 0,
                          Maximum = 100,
+                         MinInterval = "1s",
+                         MinChange = "0.1",
                          Description =
-                             "Operator setpoint — a bounded numeric input (Min/Max). Carries an advisory uiHint=slider chip; the current dashboard renders it as a number field, not a range slider.")]
+                             "Operator setpoint — a bounded numeric input (Min/Max). Carries an advisory uiHint=slider chip; the current dashboard renders it as a number field, not a range slider. RFC 0004: throttled (1s) + deadband (Δ0.1), and persisted across restarts.")]
         [Presentation(Group = PropertyGroup.Configuration, UiHint = UiHints.Slider, Decimals = 1)]
+        [Persistent]
         public double Setpoint { get; set; } = 25.0;
 
         [ServiceProperty(Title = "Abtastintervall", Description = "Sampling interval (Duration; ISO-8601 on the wire).")]

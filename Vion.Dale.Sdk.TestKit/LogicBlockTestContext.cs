@@ -74,6 +74,14 @@ namespace Vion.Dale.Sdk.TestKit
             get => TimeProvider.GetUtcNow().UtcDateTime;
         }
 
+        /// <summary>
+        ///     The service provider the block was initialized with. Set by the builder after
+        ///     <c>BuildServiceProvider</c> completes so tests can assert which registrations the
+        ///     builder applied (e.g. <see cref="Vion.Dale.Sdk.Emission.EmissionPolicyForceMarker" />
+        ///     when <c>WithEmissionPolicy(FromAttributes)</c> was called).
+        /// </summary>
+        public IServiceProvider? BuiltServiceProvider { get; internal set; }
+
         public LogicBlockTestContext() : this(DefaultAnchor)
         {
         }
@@ -135,6 +143,34 @@ namespace Vion.Dale.Sdk.TestKit
         }
 
         /// <summary>
+        ///     Assert on the <em>emitted</em> service-property values — the messages that survived
+        ///     the RFC 0004 emission policy. Same shape and underlying stream as
+        ///     <see cref="VerifyServicePropertyChanged{TValue}" /> (it reads the recorded
+        ///     <c>ServicePropertyValueChanged</c> messages), but its name documents intent: under
+        ///     <see cref="EmissionPolicyMode.FromAttributes" /> a held assignment is not an
+        ///     emission until its throttle interval elapses (drive that with
+        ///     <see cref="AdvanceTime" />), and a sub-threshold assignment never emits at all. With
+        ///     the policy off it behaves identically to <see cref="VerifyServicePropertyChanged{TValue}" />.
+        ///     <code>testContext.VerifyServicePropertyEmitted(lb => lb.Power, value => Assert.AreEqual(3.5, value));</code>
+        /// </summary>
+        public void VerifyServicePropertyEmitted<TValue>(Expression<Func<TLogicBlock, TValue>> propertySelector, Action<TValue>? assertValue = null, Times? times = null)
+        {
+            var propertyName = GetPropertyName(propertySelector);
+            var messages = GetSentMessagesOfType<ServicePropertyValueChanged>().Where(m => m.PropertyIdentifier == propertyName).ToList();
+
+            times ??= Times.Once();
+            times.Value.AssertCount(messages.Count, $"ServicePropertyEmitted verification failed for property '{propertyName}'");
+
+            if (assertValue != null)
+            {
+                foreach (var message in messages)
+                {
+                    assertValue((TValue)message.Value!);
+                }
+            }
+        }
+
+        /// <summary>
         ///     Assert that a service measuring point change was recorded for the specified property.
         ///     <code>testContext.VerifyServiceMeasuringPointChanged(lb => lb.Temperature, value => Assert.AreEqual(22.5, value));</code>
         /// </summary>
@@ -145,6 +181,32 @@ namespace Vion.Dale.Sdk.TestKit
 
             times ??= Times.Once();
             times.Value.AssertCount(messages.Count, $"ServiceMeasuringPointChanged verification failed for property '{propertyName}'");
+
+            if (assertValue != null)
+            {
+                foreach (var message in messages)
+                {
+                    assertValue((TValue)message.Value!);
+                }
+            }
+        }
+
+        /// <summary>
+        ///     Assert on the <em>emitted</em> service-measuring-point values — the measuring-point analogue
+        ///     of <see cref="VerifyServicePropertyEmitted{TValue}" />. Reads the post-policy
+        ///     <c>ServiceMeasuringPointValueChanged</c> stream, so under
+        ///     <see cref="EmissionPolicyMode.FromAttributes" /> a held assignment is not an emission until
+        ///     its throttle interval elapses (drive that with <see cref="AdvanceTime" />). With the policy
+        ///     off it behaves identically to <see cref="VerifyServiceMeasuringPointChanged{TValue}" />.
+        ///     <code>testContext.VerifyServiceMeasuringPointEmitted(lb => lb.Frequency, value => Assert.AreEqual(50.0, value));</code>
+        /// </summary>
+        public void VerifyServiceMeasuringPointEmitted<TValue>(Expression<Func<TLogicBlock, TValue>> propertySelector, Action<TValue>? assertValue = null, Times? times = null)
+        {
+            var propertyName = GetPropertyName(propertySelector);
+            var messages = GetSentMessagesOfType<ServiceMeasuringPointValueChanged>().Where(m => m.MeasuringPointIdentifier == propertyName).ToList();
+
+            times ??= Times.Once();
+            times.Value.AssertCount(messages.Count, $"ServiceMeasuringPointEmitted verification failed for property '{propertyName}'");
 
             if (assertValue != null)
             {
@@ -290,6 +352,16 @@ namespace Vion.Dale.Sdk.TestKit
             {
                 _dispatching = false;
             }
+        }
+
+        /// <summary>
+        ///     Returns every recorded message of <typeparamref name="TMessage" /> in send order. A public
+        ///     escape hatch for assertions that need a message type the typed <c>Verify*</c> helpers do
+        ///     not cover (e.g. <c>ServicePropertyValueCleared</c> for the RFC 0004 clear-bypass path).
+        /// </summary>
+        public IReadOnlyList<TMessage> GetSentMessagesOfTypePublic<TMessage>()
+        {
+            return _sentMessages.Where(s => s.Message is TMessage).Select(s => (TMessage)s.Message).ToList();
         }
 
         /// <summary>

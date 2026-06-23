@@ -8,7 +8,7 @@ namespace Vion.Dale.Sdk.Core
     /// </summary>
     [PublicApi]
     [AttributeUsage(AttributeTargets.Property)]
-    public class ServicePropertyAttribute : Attribute
+    public class ServicePropertyAttribute : Attribute, IThrottleConfigured
     {
         public string? Title { get; init; }
 
@@ -73,5 +73,32 @@ namespace Vion.Dale.Sdk.Core
 
             init => Maximum = value;
         }
+
+        /// <summary>
+        ///     Minimum spacing between two emitted values for this property, as a duration string
+        ///     (e.g. <c>"250ms"</c>, <c>"1s"</c>, <c>"500us"</c>) — a number with an optional
+        ///     <c>us</c>/<c>ms</c>/<c>s</c>/<c>m</c>/<c>h</c> suffix; a bare number is milliseconds. Drives
+        ///     the RFC 0004 emission gate. <c>"0"</c> / <c>"0ms"</c> disables interval throttling. Defaults
+        ///     to <c>"250ms"</c>. Validated by analyzers DALE036 (format) / DALE037 (1&#160;ms floor).
+        /// </summary>
+        public string MinInterval { get; init; } = "250ms";
+
+        /// <summary>
+        ///     Optional deadband: the minimum change a new value must clear (relative to the last emitted
+        ///     value) before it is emitted. <b>The format depends on the property's type</b> — for the
+        ///     built-in numeric types (<c>double</c>, <c>float</c>, <c>decimal</c>, <c>int</c>, <c>long</c>)
+        ///     it is an invariant-culture number (e.g. <c>"0.1"</c>); for <c>TimeSpan</c> it is a duration
+        ///     (e.g. <c>"1s"</c>). Any other type must register an <c>IChangeThreshold&lt;T&gt;</c> that
+        ///     defines its format; <c>bool</c> has no magnitude and is not supported. <c>null</c> (the
+        ///     default) means no deadband — only the value-equality dedup floor runs. Validated by analyzers
+        ///     DALE034 (type) / DALE035 (format).
+        /// </summary>
+        public string? MinChange { get; init; }
+
+        /// <summary>
+        ///     When <c>true</c>, every observed change of this property is emitted immediately, bypassing
+        ///     the interval and change gates. Defaults to <c>false</c>.
+        /// </summary>
+        public bool Immediate { get; init; }
     }
 }

@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.CodeGeneration;
+using Vion.Dale.Sdk.Emission;
 using Vion.Dale.Sdk.Configuration.Contract;
 using Vion.Dale.Sdk.Configuration.Interfaces;
 using Vion.Dale.Sdk.Configuration.Services;
@@ -37,6 +38,8 @@ namespace Vion.Dale.Sdk.TestKit
         private readonly List<Action<IServiceCollection>> _serviceConfigurators = [];
 
         private bool _autoStart = true;
+
+        private EmissionPolicyMode _emissionPolicyMode = EmissionPolicyMode.Off;
 
         private IServiceProvider? _serviceProvider;
 
@@ -142,6 +145,30 @@ namespace Vion.Dale.Sdk.TestKit
         }
 
         /// <summary>
+        ///     Controls whether the RFC 0004 emission policy runs under the TestKit's fake clock.
+        ///     By default (<see cref="EmissionPolicyMode.Off" />) the policy is gated off so every
+        ///     assignment surfaces as a change. Pass <see cref="EmissionPolicyMode.FromAttributes" />
+        ///     to force the policy on from the block's throttle attributes — the builder registers a
+        ///     marker the block reads at init (<c>_forcePolicyFromAttributes</c>), so
+        ///     <see cref="LogicBlockTestContext{TLogicBlock}.AdvanceTime" /> drives the throttling
+        ///     deterministically.
+        ///     <code>
+        ///     var ctx = block.CreateTestContext()
+        ///         .WithEmissionPolicy(EmissionPolicyMode.FromAttributes)
+        ///         .Build();
+        ///     block.Power = 1.0;                       // first emit seeds the throttler
+        ///     block.Power = 1.5;                       // held by the 250 ms min-interval
+        ///     ctx.AdvanceTime(TimeSpan.FromMilliseconds(250)); // flushes the held value
+        ///     ctx.VerifyServicePropertyEmitted(lb => lb.Power, times: Times.Exactly(2));
+        ///     </code>
+        /// </summary>
+        public LogicBlockTestContextBuilder<TLogicBlock> WithEmissionPolicy(EmissionPolicyMode mode)
+        {
+            _emissionPolicyMode = mode;
+            return this;
+        }
+
+        /// <summary>
         ///     Initialize the logic block and apply any linked interfaces mapping.
         ///     After this returns the logic block's Configure(...), Ready(), and Starting() will have been executed
         ///     and the block is ready to process messages. Use <see cref="WithoutAutoStart" /> to skip starting.
@@ -196,6 +223,7 @@ namespace Vion.Dale.Sdk.TestKit
         private void InitializeLogicBlock()
         {
             _serviceProvider ??= BuildServiceProvider();
+            _logicBlockTestContext.BuiltServiceProvider = _serviceProvider;
             var serviceIdLookup = DiscoverServiceIds();
             var contractIdLookup = DiscoverContractIds();
             var initializeLogicBlock = new InitializeLogicBlock(Constants.LogicBlockId, Constants.LogicBlockName, serviceIdLookup, contractIdLookup, _serviceProvider);
@@ -231,6 +259,15 @@ namespace Vion.Dale.Sdk.TestKit
             // see the same UtcNow that AdvanceTime advances. Tests can still override by adding a
             // different registration via WithServices, in which case the last registration wins.
             services.AddSingleton<TimeProvider>(_logicBlockTestContext.TimeProvider);
+
+            // RFC 0004: when the test opts into the emission policy under the fake clock, register
+            // the force-marker the block reads at InitializeLogicBlock so _forcePolicyFromAttributes
+            // becomes true and the throttle gate runs despite the controllable clock.
+            if (_emissionPolicyMode == EmissionPolicyMode.FromAttributes)
+            {
+                services.AddSingleton(new EmissionPolicyForceMarker());
+            }
+
             RegisterContractAssemblyServices(services);
             foreach (var configure in _serviceConfigurators)
             {

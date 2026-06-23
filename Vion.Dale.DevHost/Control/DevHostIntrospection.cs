@@ -349,6 +349,7 @@ namespace Vion.Dale.DevHost.Control
                                                                               Identifier = smp.Identifier,
                                                                               Schema = smp.Schema,
                                                                               Presentation = smp.Presentation,
+                                                                              Runtime = smp.Runtime,
                                                                           })
                                                            .ToList(),
                    };
