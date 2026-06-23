@@ -76,6 +76,17 @@ test('stepRibbonGeometry falls back to equal columns with no timing', () => {
     assert.ok(Math.abs((g.steps[1].x1 - g.steps[1].x0) - (g.steps[0].x1 - g.steps[0].x0)) < 1e-9);
 });
 
+test('stepRibbonGeometry fills 0..1 with equal columns when every step is instant', () => {
+    const g = stepRibbonGeometry([
+        { index: 0, virtualElapsedMs: 0 }, { index: 1, virtualElapsedMs: 0 }, { index: 2, virtualElapsedMs: 0 },
+    ], { minFrac: 0.05 });
+    assert.equal(g.axis, 'virtual');
+    assert.equal(g.steps[0].x0, 0);
+    assert.ok(Math.abs(g.steps[2].x1 - 1) < 1e-9, 'segments fill 0..1');
+    const w = s => s.x1 - s.x0;
+    assert.ok(Math.abs(w(g.steps[0]) - w(g.steps[1])) < 1e-9, 'equal widths when no duration signal');
+});
+
 test('sampleX maps a watchTrace sample stepIndex to an x position', () => {
     const g = stepRibbonGeometry(steps, { minFrac: 0.1 });
     assert.equal(sampleX(g, -1), 0);

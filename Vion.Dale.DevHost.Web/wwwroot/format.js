@@ -666,22 +666,22 @@ export function stepRibbonGeometry(steps, options = {}) {
         return 1;
     };
     const raw = list.map(durationOf);
-    const total = raw.reduce((a, b) => a + b, 0) || list.length || 1;
-    // Compute final 0..1 fractions: natural proportion, then floor to minFrac.
-    // Clamped steps consume minFrac each; the remaining budget is distributed proportionally
-    // among un-clamped steps so all fractions sum exactly to 1.
-    const natural = raw.map(d => d / total);
-    const clamped = natural.map(f => f < minFrac);
-    const clampBudget = clamped.filter(Boolean).length * minFrac;
-    const freeSum = natural.reduce((a, f, i) => clamped[i] ? a : a + f, 0) || 1;
-    const fracs = natural.map((f, i) => clamped[i] ? minFrac : (f / freeSum) * (1 - clampBudget));
+    const total = raw.reduce((a, b) => a + b, 0);
+    const n = list.length;
+    // Final 0..1 fractions that BOTH fill the axis exactly AND give each segment at least minFrac
+    // (so instant steps stay clickable): a minFrac floor plus a duration-proportional share of the
+    // leftover. Falls back to equal columns when there is no duration signal (all-instant) or the
+    // floors would exceed the axis.
+    const floor = n * minFrac <= 1 ? minFrac : 1 / n;
+    const leftover = 1 - floor * n;
+    const fracs = list.map((s, i) => total > 0 ? floor + leftover * (raw[i] / total) : 1 / (n || 1));
     let cursor = 0;
     const stepsOut = list.map((s, i) => {
         const x0 = cursor;
         cursor += fracs[i];
         return { index: (s && s.index) ?? i, x0, x1: cursor, status: s && s.status, kind: s && s.kind, label: s && s.label, spec: s && s.spec };
     });
-    return { axis, total, steps: stepsOut };
+    return { axis, total: total || n, steps: stepsOut };
 }
 
 // X position (0..1) of a watchTrace sample given the ribbon geometry: the start sample (stepIndex -1)
