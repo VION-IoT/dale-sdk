@@ -1501,7 +1501,7 @@ const ScenarioTrace = {
 };
 
 export const PlayerPanel = {
-    components: { PlayerStep, ScenarioWatchTile },
+    components: { PlayerStep, ScenarioWatchTile, ScenarioTrace },
     setup() {
         const entries = computed(() => (store.scenarios && store.scenarios.scenarios) || []);
         const directory = computed(() => (store.scenarios && store.scenarios.directory) || '');
@@ -1680,8 +1680,9 @@ export const PlayerPanel = {
                         <PlayerStep v-for="s in steps" :key="'st' + s.index" :step="s"/>
                     </template>
                     <template v-if="scenario.watch">
-                        <h3 class="topo-section">watch</h3>
-                        <div class="player-watch">
+                        <h3 class="topo-section">trace</h3>
+                        <ScenarioTrace v-if="run && run.watchTrace && run.watchTrace.length" :run="run" :paths="scenario.watch"/>
+                        <div v-else class="player-watch">
                             <ScenarioWatchTile v-for="w in scenario.watch" :key="w" :path="w"/>
                         </div>
                     </template>
