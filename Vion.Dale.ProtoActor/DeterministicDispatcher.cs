@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Proto.Mailbox;
+using Vion.Dale.Sdk.Abstractions;
 
 namespace Vion.Dale.ProtoActor
 {
@@ -30,11 +31,21 @@ namespace Vion.Dale.ProtoActor
     {
         private const int DefaultThroughput = 300;
 
+        // Optional in-flight monitor (DevHost, stepped only). Bracketing each RUN here — not just the user
+        // handler in the middleware — is what makes the quiescence barrier robust under load: a run owns the
+        // whole dequeue → handler → reschedule → publish sequence, and the enter is recorded synchronously at
+        // Schedule time (before the mailbox is even touched), so from the instant an actor is made runnable
+        // until its run fully drains, inFlight is > 0. The barrier (Σ depth == 0 AND inFlight == 0) therefore
+        // cannot observe a transient idle between "message scheduled/dequeued" and "handler entered", which the
+        // handler-only bracket left open and which surfaced as off-by-one stepped samples on a loaded CI runner.
+        private readonly IActorActivityMonitor? _activity;
+
         private readonly TaskScheduler _scheduler;
 
-        public DeterministicDispatcher(TaskScheduler scheduler, int throughput = DefaultThroughput)
+        public DeterministicDispatcher(TaskScheduler scheduler, IActorActivityMonitor? activity = null, int throughput = DefaultThroughput)
         {
             _scheduler = scheduler ?? throw new ArgumentNullException(nameof(scheduler));
+            _activity = activity;
             Throughput = throughput;
         }
 
@@ -42,10 +53,25 @@ namespace Vion.Dale.ProtoActor
 
         public void Schedule(Func<Task> runner)
         {
-            // Queue the mailbox run on the shared exclusive scheduler: it runs runners one at a time, in the
-            // FIFO order they were scheduled, so the whole stepped actor system processes on a single
-            // serialized timeline rather than fanning out across the thread pool.
-            _ = Task.Factory.StartNew(runner, CancellationToken.None, TaskCreationOptions.DenyChildAttach, _scheduler).Unwrap();
+            // Record the run as in-flight synchronously, before it is queued, so there is no window between
+            // "made runnable" and "counted". Mirrored by an Exit in RunAsync's finally on every path.
+            _activity?.EnterHandler();
+            _ = RunAsync(runner);
+        }
+
+        // Queue the mailbox run on the shared exclusive scheduler (runs runners one at a time, FIFO, so the
+        // whole stepped actor system processes on a single serialized timeline rather than fanning out across
+        // the thread pool), then release the in-flight bracket once the run has fully drained.
+        private async Task RunAsync(Func<Task> runner)
+        {
+            try
+            {
+                await Task.Factory.StartNew(runner, CancellationToken.None, TaskCreationOptions.DenyChildAttach, _scheduler).Unwrap().ConfigureAwait(false);
+            }
+            finally
+            {
+                _activity?.ExitHandler();
+            }
         }
     }
 }
