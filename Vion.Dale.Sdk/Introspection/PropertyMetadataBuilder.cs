@@ -322,8 +322,33 @@ namespace Vion.Dale.Sdk.Introspection
             var persistentAttr = property.GetCustomAttribute<PersistentAttribute>();
             var persistent = persistentAttr is not null && !persistentAttr.Exclude;
 
-            var runtime = new RuntimeMetadata { Persistent = persistent };
+            var runtime = new RuntimeMetadata { Persistent = persistent, Throttle = ExtractThrottle(property) };
             return runtime.IsEmpty ? RuntimeMetadata.None : runtime;
+        }
+
+        // The effective RFC 0004 emission policy (throttle / deadband / immediate), read from the
+        // [ServiceProperty] / [ServiceMeasuringPoint] knobs. Surfaced only when it deviates from the
+        // default (MinInterval 250ms, no deadband, not immediate) to keep introspection lean; when
+        // surfaced the *effective* MinInterval is carried, so a consumer needs no knowledge of the default.
+        private static ThrottleMetadata? ExtractThrottle(PropertyInfo property)
+        {
+            var cfg = (IThrottleConfigured?)property.GetCustomAttribute<ServicePropertyAttribute>() ?? property.GetCustomAttribute<ServiceMeasuringPointAttribute>();
+            if (cfg is null)
+            {
+                return null;
+            }
+
+            if (cfg.MinInterval == "250ms" && cfg.MinChange is null && !cfg.Immediate)
+            {
+                return null;
+            }
+
+            return new ThrottleMetadata
+                   {
+                       MinInterval = cfg.MinInterval,
+                       MinChange = cfg.MinChange,
+                       Immediate = cfg.Immediate,
+                   };
         }
     }
 }
