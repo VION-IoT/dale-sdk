@@ -1378,6 +1378,42 @@ const TraceStepRibbon = {
     `,
 };
 
+const TraceLaneNumeric = {
+    props: ['series', 'geometry', 'unit'],
+    setup(props) {
+        const band = computed(() => traceNumericBand(props.series));
+        // Honest stairstep: hold each sample's value until the next sample's x, then step. y is inverted
+        // (0 = top). null/undefined samples break the line (no segment drawn across a gap).
+        const yOf = v => {
+            const { min, max } = band.value;
+            const t = (v - min) / (max - min || 1);
+            return (1 - t) * 100;
+        };
+        const path = computed(() => {
+            const pts = (props.series || []).map(s => ({ x: sampleX(props.geometry, s.stepIndex) * 1000, v: s.value }));
+            let d = '';
+            let prev = null;
+            pts.forEach((p, i) => {
+                const has = typeof p.v === 'number' && Number.isFinite(p.v);
+                if (!has) { prev = null; return; }
+                const y = yOf(p.v);
+                if (prev === null) { d += ` M ${p.x.toFixed(1)} ${y.toFixed(1)}`; }
+                else { d += ` H ${p.x.toFixed(1)} V ${y.toFixed(1)}`; }
+                prev = p;
+            });
+            return d.trim() || null;
+        });
+        const zeroY = computed(() => yOf(0));
+        return { band, path, zeroY };
+    },
+    template: `
+        <svg class="trace-lane numeric" viewBox="0 0 1000 100" preserveAspectRatio="none" width="100%" height="44">
+            <line class="lane-zero" x1="0" :y1="zeroY" x2="1000" :y2="zeroY"/>
+            <path v-if="path" class="lane-line" :d="path" fill="none" vector-effect="non-scaling-stroke"/>
+        </svg>
+    `,
+};
+
 export const PlayerPanel = {
     components: { PlayerStep, ScenarioWatchTile },
     setup() {
