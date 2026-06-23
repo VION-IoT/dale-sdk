@@ -1101,3 +1101,4 @@ button { cursor: pointer; font-family: inherit; }
 /* Bands use fixed LIGHT primitive tints (stable across light/dark) so a fixed dark label always reads. */
 .state-label { font-family: var(--mono); font-size: 11px; fill: var(--vion-color-wild-sand-950); }
 .trace-scrubber { width: 100%; margin: 2px 0; }
+.trace-struct { font-size: 11.5px; color: var(--text-dim); white-space: nowrap; overflow-x: auto; padding: 2px 0; }

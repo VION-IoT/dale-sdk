@@ -1379,7 +1379,7 @@ const TraceStepRibbon = {
 };
 
 const TraceLaneNumeric = {
-    props: ['series', 'geometry', 'unit', 'playhead'],
+    props: ['series', 'geometry', 'playhead'],
     setup(props) {
         const band = computed(() => traceNumericBand(props.series));
         // Honest stairstep: hold each sample's value until the next sample's x, then step. y is inverted
@@ -1445,7 +1445,7 @@ const TraceLaneState = {
 };
 
 const ScenarioTrace = {
-    components: { TraceStepRibbon, TraceLaneNumeric, TraceLaneState, ScenarioWatchTile },
+    components: { TraceStepRibbon, TraceLaneNumeric, TraceLaneState },
     // props: run = the report (with steps + watchTrace), paths = scenario.watch (the declared order).
     props: ['run', 'paths'],
     setup(props) {
@@ -1462,32 +1462,37 @@ const ScenarioTrace = {
             return s ? s.stepIndex : -1;
         });
 
-        // One row per declared watch path: its series, lane kind, resolved item (for struct/units), and
-        // the value at the scrubbed sample (the readout).
+        // One row per declared watch path — STATIC per run (series + lane kind + unit): independent of the
+        // scrub position, so dragging the playhead does NOT recompute series or re-resolve schemas. This
+        // keeps scrubbing O(rows) cheap even for many watch items, long traces, or large topologies.
         const rows = computed(() => (props.paths || []).map(path => {
             const series = traceSeriesFor(samples.value, path);
             const resolved = resolveNamePath(path);
             const schema = resolved && resolved.item ? (resolved.item.schema || null) : null;
             const firstNonNull = (series.find(s => s.value !== null && s.value !== undefined) || {}).value;
-            const kind = traceLaneKind(schema, firstNonNull);
-            const at = series[Math.min(scrub.value, series.length - 1)] || {};
-            return { path, series, kind, resolved, unit: schema ? resolveUnit(schema) : null, current: at.value };
+            return { path, series, kind: traceLaneKind(schema, firstNonNull), unit: schema ? resolveUnit(schema) : null };
         }));
+        // The only scrub-dependent read: the value of a row at the scrubbed sample (cheap O(1) lookup).
+        const currentOf = row => (row.series[Math.min(scrub.value, row.series.length - 1)] || {}).value;
 
         const selectStep = stepIndex => {
             const i = samples.value.findIndex(s => s.stepIndex === stepIndex);
             if (i >= 0) scrub.value = i;
         };
         const readout = row => {
-            if (row.current === null || row.current === undefined) return '∅';
-            if (typeof row.current === 'number') return formatValue(row.current) + (row.unit ? ' ' + row.unit : '');
-            if (typeof row.current === 'object') return '{ … }';
-            return String(row.current);
+            const v = currentOf(row);
+            if (v === null || v === undefined) return '∅';
+            if (typeof v === 'number') return formatValue(v) + (row.unit ? ' ' + row.unit : '');
+            if (typeof v === 'object') return '{ … }';
+            return String(v);
         };
-        const tone = row => row.kind === 'numeric' && row.current !== null && row.current !== undefined ? 'tone-' + signTone(row.current) : '';
+        // Struct/array lanes show the scrubbed sample's value (JSON), NOT the block's live value — so a
+        // struct lane snapshots to the playhead like every other lane (RFC 0012 §5).
+        const structJson = row => formatValue(currentOf(row));
+        const tone = row => { const v = currentOf(row); return row.kind === 'numeric' && v !== null && v !== undefined ? 'tone-' + signTone(v) : ''; };
         // The playhead x (0..1) of the scrubbed sample — a vertical cursor drawn across every lane.
         const playheadX = computed(() => sampleX(geometry.value, activeStepIndex.value));
-        return { geometry, samples, scrub, maxScrub, activeStepIndex, rows, selectStep, readout, tone, playheadX };
+        return { geometry, samples, scrub, maxScrub, activeStepIndex, rows, selectStep, readout, structJson, tone, playheadX };
     },
     template: `
         <div class="scenario-trace">
@@ -1505,9 +1510,9 @@ const ScenarioTrace = {
                     <span class="mono">{{ row.path }}</span>
                     <span class="trace-readout mono" :class="tone(row)">{{ readout(row) }}</span>
                 </div>
-                <TraceLaneNumeric v-if="row.kind === 'numeric'" :series="row.series" :geometry="geometry" :unit="row.unit" :playhead="playheadX"/>
+                <TraceLaneNumeric v-if="row.kind === 'numeric'" :series="row.series" :geometry="geometry" :playhead="playheadX"/>
                 <TraceLaneState v-else-if="row.kind === 'state'" :series="row.series" :geometry="geometry" :playhead="playheadX"/>
-                <ScenarioWatchTile v-else :path="row.path"/>
+                <div v-else class="trace-struct mono">{{ structJson(row) }}</div>
             </div>
         </div>
     `,
