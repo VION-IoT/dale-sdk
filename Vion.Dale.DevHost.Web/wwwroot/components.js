@@ -1476,9 +1476,10 @@ const ScenarioTrace = {
         const readout = row => {
             if (row.current === null || row.current === undefined) return '∅';
             if (typeof row.current === 'number') return formatValue(row.current) + (row.unit ? ' ' + row.unit : '');
+            if (typeof row.current === 'object') return '{ … }';
             return String(row.current);
         };
-        const tone = row => row.kind === 'numeric' ? 'tone-' + signTone(row.current) : '';
+        const tone = row => row.kind === 'numeric' && row.current !== null && row.current !== undefined ? 'tone-' + signTone(row.current) : '';
         return { geometry, samples, scrub, maxScrub, activeStepIndex, rows, selectStep, readout, tone };
     },
     template: `
