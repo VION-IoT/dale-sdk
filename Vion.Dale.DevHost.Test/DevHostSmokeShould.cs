@@ -140,7 +140,7 @@ namespace Vion.Dale.DevHost.Test
             // a stepIndex + a deterministic virtualElapsedMs. Lock that contract.
             var trace = report.GetProperty("watchTrace");
             Assert.AreEqual(JsonValueKind.Array, trace.ValueKind, "watchTrace must be an array.");
-            Assert.IsTrue(trace.GetArrayLength() >= 2, "watchTrace must have a start sample plus per-step samples.");
+            Assert.IsGreaterThanOrEqualTo(2, trace.GetArrayLength(), "watchTrace must have a start sample plus per-step samples.");
             var start = trace[0];
             Assert.AreEqual(-1, start.GetProperty("stepIndex").GetInt32(), "The first sample is the start sample (stepIndex -1).");
             Assert.IsTrue(start.TryGetProperty("virtualElapsedMs", out _), "Each sample carries virtualElapsedMs.");
