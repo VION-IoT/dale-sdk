@@ -34,6 +34,16 @@ namespace Vion.Dale.DevHost.Control
     ///         still live — a single observation is true quiescence. No stability window is needed.
     ///     </para>
     ///     <para>
+    ///         In stepped mode the in-flight bracket is widened from the user handler to the whole mailbox
+    ///         RUN: the <c>DeterministicDispatcher</c> records in-flight at the synchronous schedule (before
+    ///         the run touches the mailbox) and releases it at run completion. This shadows the
+    ///         dequeue-to-handler-enter sub-window (depth already dropped, the handler bracket not yet
+    ///         entered) under <c>inFlight &gt; 0</c>. Without it, a runner preempted in that sub-window under
+    ///         load let the poll observe a transient false idle, surfacing as off-by-one stepped samples (a
+    ///         watched value read from the change-event cache before the cascade's last publish landed) only
+    ///         on a loaded CI runner.
+    ///     </para>
+    ///     <para>
     ///         The barrier still polls on the REAL wall clock (<see cref="Task.Delay(int)" />) — that is
     ///         orchestration, not simulation; only the <em>simulated</em> time is the fake clock the stepper
     ///         advances. The poll merely re-evaluates an exact predicate; it does not rely on timing. A timeout
