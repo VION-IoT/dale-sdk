@@ -1073,3 +1073,28 @@ button { cursor: pointer; font-family: inherit; }
 ::-webkit-scrollbar { width: 9px; height: 9px; }
 ::-webkit-scrollbar-track { background: var(--bg-page); }
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 5px; }
+
+/* ── Scenario trace (RFC 0012 §5, form C; scope aesthetic per §13) ──────────────── */
+.scenario-trace { margin: 8px 0 4px; }
+.trace-ribbon { display: block; width: 100%; }
+.ribbon-seg { fill: var(--vion-bg-def-tertiary); stroke: var(--border); stroke-width: 1; cursor: pointer; }
+.ribbon-seg.ok { fill: var(--vion-success-bg-def-secondary); }
+.ribbon-seg.failed { fill: var(--vion-error-bg-def-secondary); }
+.ribbon-seg.skipped { fill: var(--vion-bg-def-tertiary); opacity: 0.6; }
+.ribbon-seg.active { stroke: var(--accent); stroke-width: 2; }
+.trace-row { display: grid; grid-template-columns: 220px 1fr; align-items: center; gap: 10px; padding: 2px 0; }
+.trace-row-label { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 12px; }
+.trace-row-label .mono { color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trace-readout { font-size: 12.5px; color: var(--text); }
+.trace-readout.tone-pos { color: var(--vion-success-fg-def-primary); }
+.trace-readout.tone-neg { color: var(--vion-error-fg-def-primary); }
+.trace-lane { display: block; width: 100%; }
+.lane-zero { stroke: var(--border); stroke-dasharray: 3 3; stroke-width: 1; }
+.lane-line { stroke: var(--accent); stroke-width: 2; }
+.state-band { stroke: none; }
+.state-band.tone-0 { fill: var(--vion-acc-bg-def-secondary); }
+.state-band.tone-1 { fill: var(--vion-info-bg-def-secondary); }
+.state-band.tone-2 { fill: var(--vion-warning-bg-def-secondary); }
+.state-band.tone-3 { fill: var(--vion-bg-def-tertiary); }
+.state-label { font-family: var(--mono); font-size: 11px; fill: var(--text); }
+.trace-scrubber { width: 100%; margin-top: 6px; }
