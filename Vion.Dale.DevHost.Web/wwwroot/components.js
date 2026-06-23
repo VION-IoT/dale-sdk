@@ -1414,6 +1414,33 @@ const TraceLaneNumeric = {
     `,
 };
 
+const TraceLaneState = {
+    props: ['series', 'geometry'],
+    setup(props) {
+        // Distinct values get distinct tones cycling a small token-driven palette; booleans read as
+        // on/off. Each band is one segment; the label shows when the segment is wide enough.
+        const bands = computed(() => {
+            const raw = traceStateBands(props.series, props.geometry);
+            const distinct = [...new Set(raw.map(b => String(b.value)))];
+            return raw.map(b => ({
+                x: b.x0 * 1000,
+                w: Math.max(0, (b.x1 - b.x0) * 1000),
+                label: b.value === null || b.value === undefined ? '∅' : String(b.value),
+                tone: 'tone-' + (distinct.indexOf(String(b.value)) % 4),
+            }));
+        });
+        return { bands };
+    },
+    template: `
+        <svg class="trace-lane state" viewBox="0 0 1000 24" preserveAspectRatio="none" width="100%" height="24">
+            <g v-for="(b, i) in bands" :key="i">
+                <rect class="state-band" :class="b.tone" :x="b.x" y="2" :width="Math.max(1, b.w)" height="20" rx="2"/>
+                <text v-if="b.w > 70" class="state-label" :x="b.x + 6" y="16">{{ b.label }}</text>
+            </g>
+        </svg>
+    `,
+};
+
 export const PlayerPanel = {
     components: { PlayerStep, ScenarioWatchTile },
     setup() {
