@@ -615,7 +615,8 @@ export function traceSeriesFor(watchTrace, path) {
     if (!Array.isArray(watchTrace)) return [];
     const lower = String(path).toLowerCase();
     return watchTrace.map(sample => {
-        const values = (sample && sample.values) || {};
+        if (!sample) return { stepIndex: undefined, virtualElapsedMs: undefined, value: undefined };
+        const values = sample.values || {};
         let value;
         if (Object.prototype.hasOwnProperty.call(values, path)) {
             value = values[path];
@@ -623,7 +624,7 @@ export function traceSeriesFor(watchTrace, path) {
             const key = Object.keys(values).find(k => k.toLowerCase() === lower);
             value = key !== undefined ? values[key] : undefined;
         }
-        return { stepIndex: sample ? sample.stepIndex : null, virtualElapsedMs: sample ? sample.virtualElapsedMs : null, value };
+        return { stepIndex: sample.stepIndex, virtualElapsedMs: sample.virtualElapsedMs, value };
     });
 }
 

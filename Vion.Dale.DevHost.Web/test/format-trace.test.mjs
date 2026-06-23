@@ -25,6 +25,11 @@ test('traceSeriesFor tolerates a missing/empty trace', () => {
     assert.deepEqual(traceSeriesFor([], 'X.Y'), []);
 });
 
+test('traceSeriesFor prefers an exact key over a case-variant', () => {
+    const trace = [{ stepIndex: 0, virtualElapsedMs: 0, values: { 'a.B': 1, 'A.B': 2 } }];
+    assert.equal(traceSeriesFor(trace, 'A.B')[0].value, 2);
+});
+
 test('signTone classifies positive, negative, and zero/non-numeric', () => {
     assert.equal(signTone(2.86), 'pos');
     assert.equal(signTone(-1.9), 'neg');
