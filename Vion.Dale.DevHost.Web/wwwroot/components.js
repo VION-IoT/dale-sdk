@@ -1329,7 +1329,13 @@ const PlayerStep = {
             }
         });
         const toggleArg = () => { expanded.value = !expanded.value; };
-        return { glyph, elapsed, expanded, argText, toggleArg };
+        // A failed step is a MECHANICAL failure the runner detected (mockup 05) — distinct from a human
+        // "judged not ok" verdict. Point at the file to fix; scenario edits hot-reload, so the loop is
+        // edit JSON → re-run, no restart.
+        const remediation = computed(() => store.scenarioId
+            ? `fix scenarios/${store.scenarioId}.scenario.json · edits reload automatically`
+            : 'edits reload automatically');
+        return { glyph, elapsed, expanded, argText, toggleArg, remediation };
     },
     template: `
         <div class="player-step" :class="step.status">
@@ -1343,6 +1349,7 @@ const PlayerStep = {
             <span class="item-spacer"></span>
             <span v-if="step.detail" class="step-detail" :title="step.detail">{{ step.detail }}</span>
             <span v-if="elapsed" class="step-elapsed">{{ elapsed }}</span>
+            <div v-if="step.status === 'failed'" class="step-remediation">↳ {{ remediation }}</div>
         </div>
     `,
 };
@@ -1706,12 +1713,14 @@ export const PlayerPanel = {
                     </template>
                     <template v-if="judge.length">
                         <h3 class="topo-section">judge</h3>
-                        <div v-for="(j, i) in judge" :key="i" class="judge-row">
+                        <div v-for="(j, i) in judge" :key="i" class="judge-row"
+                             :class="{ 'judged-ok': tickState(i) === 'ok', 'judged-notok': tickState(i) === 'notOk' }">
                             <button type="button" class="judge-btn ok" :class="{ active: tickState(i) === 'ok' }"
                                     :disabled="!run" title="looks right" @click="tick(i, 'ok')">✓</button>
                             <button type="button" class="judge-btn notok" :class="{ active: tickState(i) === 'notOk' }"
-                                    :disabled="!run" title="not ok" @click="tick(i, 'notOk')">✗</button>
+                                    :disabled="!run" title="your call: not ok (a human verdict, not a runner failure)" @click="tick(i, 'notOk')">✗</button>
                             <span class="judge-text">{{ j.text }}</span>
+                            <span v-if="tickState(i) === 'notOk'" class="judge-verdict-tag">your verdict</span>
                             <code v-if="j.spec" class="spec-chip">{{ j.spec }}</code>
                         </div>
                     </template>

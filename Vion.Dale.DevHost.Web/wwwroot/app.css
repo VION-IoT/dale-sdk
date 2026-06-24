@@ -966,7 +966,10 @@ button { cursor: pointer; font-family: inherit; }
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-.player-step.failed .step-detail { color: var(--vion-error-fg-def-tertiary); }
+/* Red register (mockup 05): a mechanical failure the runner caught — loud, fully legible, points at the file. */
+.player-step.failed { border-left: 3px solid var(--vion-error-brd-def-primary); padding-left: 7px; }
+.player-step.failed .step-detail { color: var(--vion-error-fg-def-primary); white-space: normal; max-width: none; }
+.step-remediation { flex-basis: 100%; margin-left: 26px; font-family: var(--mono); font-size: 11px; color: var(--vion-error-fg-def-secondary); }
 .step-elapsed { font-size: 11px; color: var(--text-faint); white-space: nowrap; }
 
 .spec-chip {
@@ -993,8 +996,17 @@ button { cursor: pointer; font-family: inherit; }
 }
 .judge-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .judge-btn.ok.active { background: var(--vion-success-bg-def-primary); color: var(--vion-success-fg-def-primary); border-color: var(--vion-success-brd-def-primary); }
-.judge-btn.notok.active { background: var(--vion-error-bg-def-primary); color: var(--vion-error-fg-def-primary); border-color: var(--vion-error-brd-def-primary); }
+/* Amber register (mockup 05): "not ok" is a HUMAN verdict — warning family, NOT the runner's error red. */
+.judge-btn.notok.active { background: var(--vion-warning-bg-def-primary); color: var(--vion-warning-fg-def-primary); border-color: var(--vion-warning-brd-def-primary); }
 .judge-text { font-size: 12.5px; color: var(--text); }
+.judge-row.judged-ok { border-left: 3px solid var(--vion-success-brd-def-primary); padding-left: 7px; }
+.judge-row.judged-notok { border-left: 3px solid var(--vion-warning-brd-def-primary); padding-left: 7px; }
+.judge-verdict-tag {
+    font-size: 10px; font-weight: var(--vion-font-weight-emphasized);
+    text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--vion-warning-fg-def-primary); background: var(--vion-warning-bg-def-primary);
+    border-radius: 999px; padding: 1px 8px;
+}
 
 .player-actions { margin-top: 12px; display: flex; gap: 8px; }
 
