@@ -197,7 +197,7 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
         {
             if (!_control.TryRequestReset())
             {
-                return Conflict(new { error = "Host is not supervised — pass a host factory to DevHostWebRunner.RunAsync to enable reset." });
+                return Conflict(new { error = "Host is not supervised — pass a host factory to DevHostWebRunner.RunAsync to enable reset.", reason = "notSupervised" });
             }
 
             return Accepted();

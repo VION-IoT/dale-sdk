@@ -1333,7 +1333,7 @@ const PlayerStep = {
         // "judged not ok" verdict. Point at the file to fix; scenario edits hot-reload, so the loop is
         // edit JSON → re-run, no restart.
         const remediation = computed(() => store.scenarioId
-            ? `fix scenarios/${store.scenarioId}.scenario.json · edits reload automatically`
+            ? `scenarios/${store.scenarioId}.scenario.json · edits reload automatically`
             : 'edits reload automatically');
         return { glyph, elapsed, expanded, argText, toggleArg, remediation };
     },
@@ -1883,14 +1883,16 @@ export const App = {
         onMounted(() => window.addEventListener('keydown', onKeydown));
         onUnmounted(() => window.removeEventListener('keydown', onKeydown));
 
-        // Four top-level views; each button toggles its view against the explorer default. The player
-        // additionally keeps the deep-link hash (RFC 0006 #/scenario/{id}) in sync.
+        // setView toggles a context view (topology, gallery) against the 'explorer' default — used by the
+        // context-zone chips, not the primary nav. (Explore / Verify are goExplore / goVerify below.)
         const setView = v => { store.view = store.view === v ? 'explorer' : v; };
         // Two-zone nav (RFC 0012 §3): Explore and Verify are the two activities. Verify is the scenario
         // player (keeps the #/scenario deep link); Explore is the default browse surface. Topology and
         // gallery are reached from the context chip / overflow, not the primary nav.
         const goExplore = () => {
-            if (store.view === 'player' && location.hash) location.hash = '';
+            // Clear any #/scenario deep link whenever returning to Explore — including via a topology/gallery
+            // detour (where store.view is no longer 'player') — so a reload doesn't silently restore Verify.
+            if (location.hash) location.hash = '';
             store.view = 'explorer';
         };
         const goVerify = () => {

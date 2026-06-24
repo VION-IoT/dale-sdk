@@ -161,6 +161,7 @@ namespace Vion.Dale.DevHost.Test
             {
                 generations++;
                 var config = DevConfigurationBuilder.Create().WithTopologyName("clock-topo").AddLogicBlock<CounterBlock>("counter").Build();
+
                 // Generation 1 is stepped; after the clock-mode switch the env var is set to "0" and
                 // DevHostBuilderExtensions.WithWebUi reads it — so generation 2 is real.
                 var builder = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithWebUi(port);
@@ -186,8 +187,11 @@ namespace Vion.Dale.DevHost.Test
                 Assert.IsTrue(body.TryGetProperty("recycling", out var recycling) && recycling.GetBoolean(), "202 body must carry { recycling: true }.");
                 Assert.IsTrue(body.TryGetProperty("stepped", out var stepped) && !stepped.GetBoolean(), "202 body must echo the requested clock mode (false = real).");
 
-                // Wait for generation 2 to come up.
-                Assert.IsTrue(await PollCanResetAsync(client, TimeSpan.FromSeconds(30)), "Generation 2 should come up after the recycle.");
+                // Generation 2 must come up AND be real-clock (stepped=false) — proving the env-var-mediated
+                // flip took effect, not merely that a recycle happened. Polling on the mode is unambiguous:
+                // generation 1 is stepped=true, so observing stepped=false means the real-clock generation serves.
+                Assert.IsTrue(await PollSteppedAsync(client, false, TimeSpan.FromSeconds(30)),
+                              "Generation 2 must come up real-clock — the clock-mode switch must flip the mode, not just recycle.");
                 Assert.AreEqual(2, generations, "The factory must have been called twice (two generations).");
             }
             finally
@@ -198,30 +202,6 @@ namespace Vion.Dale.DevHost.Test
 
             cts.Cancel();
             await runner;
-        }
-
-        private static async Task<bool> PollCanResetAsync(HttpClient client, TimeSpan timeout)
-        {
-            var deadline = DateTime.UtcNow + timeout;
-            while (DateTime.UtcNow < deadline)
-            {
-                try
-                {
-                    var status = JsonDocument.Parse(await client.GetStringAsync("/api/control/status")).RootElement;
-                    if (status.GetProperty("canReset").GetBoolean())
-                    {
-                        return true;
-                    }
-                }
-                catch
-                {
-                    // Host (re)starting — keep polling.
-                }
-
-                await Task.Delay(250);
-            }
-
-            return false;
         }
 
         [TestMethod]
@@ -265,6 +245,54 @@ namespace Vion.Dale.DevHost.Test
 
             cts.Cancel();
             await runner;
+        }
+
+        private static async Task<bool> PollCanResetAsync(HttpClient client, TimeSpan timeout)
+        {
+            var deadline = DateTime.UtcNow + timeout;
+            while (DateTime.UtcNow < deadline)
+            {
+                try
+                {
+                    var status = JsonDocument.Parse(await client.GetStringAsync("/api/control/status")).RootElement;
+                    if (status.GetProperty("canReset").GetBoolean())
+                    {
+                        return true;
+                    }
+                }
+                catch
+                {
+                    // Host (re)starting — keep polling.
+                }
+
+                await Task.Delay(250);
+            }
+
+            return false;
+        }
+
+        private static async Task<bool> PollSteppedAsync(HttpClient client, bool expected, TimeSpan timeout)
+        {
+            var deadline = DateTime.UtcNow + timeout;
+            while (DateTime.UtcNow < deadline)
+            {
+                try
+                {
+                    var status = JsonDocument.Parse(await client.GetStringAsync("/api/control/status")).RootElement;
+                    if (status.GetProperty("canReset").GetBoolean() && status.GetProperty("stepped").GetBoolean() == expected)
+                    {
+                        return true;
+                    }
+                }
+                catch
+                {
+                    // Host (re)starting — keep polling.
+                }
+
+                await Task.Delay(250);
+            }
+
+            return false;
         }
 
         private static int TickCount(IDevHost host)

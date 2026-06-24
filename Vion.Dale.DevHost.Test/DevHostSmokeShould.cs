@@ -222,6 +222,38 @@ namespace Vion.Dale.DevHost.Test
             Assert.AreEqual("succeeded", report.GetProperty("status").GetString(), report.GetRawText());
         }
 
+        [TestMethod]
+        [TestCategory("Smoke")]
+        public async Task Smoke_ControlStatus_HasRunActive_And409sCarryReasonCodes()
+        {
+            // (1) A NON-stepped host: manual step is refused with reason "notStepped".
+            var portA = FreePort();
+            var configA = DevConfigurationBuilder.Create().WithTopologyName("smoke").AddLogicBlock<CounterBlock>("counter").AddLogicBlock<TickerBlock>("ticker").Build();
+            await using (var hostA = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(configA).WithWebUi(portA).Build())
+            {
+                await hostA.StartAsync();
+                using var clientA = new HttpClient { BaseAddress = new Uri($"http://localhost:{portA}"), Timeout = TimeSpan.FromSeconds(30) };
+                var statusA = JsonDocument.Parse(await GetStringAsync(clientA, "/api/control/status")).RootElement;
+                Assert.IsFalse(statusA.GetProperty("stepped").GetBoolean(), "Host A is not stepped.");
+                Assert.IsFalse(statusA.GetProperty("runActive").GetBoolean(), "No run is active on a fresh host.");
+                var stepA = await clientA.PostAsync("/api/control/step", null);
+                Assert.AreEqual(HttpStatusCode.Conflict, stepA.StatusCode, "Stepping a non-stepped host must 409.");
+                var bodyA = JsonDocument.Parse(await stepA.Content.ReadAsStringAsync()).RootElement;
+                Assert.AreEqual("notStepped", bodyA.GetProperty("reason").GetString(), "409 must carry a machine-readable reason.");
+            }
+
+            // (2) A stepped host: runActive is present and false on a clean host; manual step works (no run owns the clock).
+            var portB = FreePort();
+            var configB = DevConfigurationBuilder.Create().WithTopologyName("smoke").AddLogicBlock<CounterBlock>("counter").AddLogicBlock<TickerBlock>("ticker").Build();
+            await using var hostB = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(configB).WithDeterministicStepping().WithWebUi(portB).Build();
+            await hostB.StartAsync();
+            using var clientB = new HttpClient { BaseAddress = new Uri($"http://localhost:{portB}"), Timeout = TimeSpan.FromSeconds(30) };
+            var statusB = JsonDocument.Parse(await GetStringAsync(clientB, "/api/control/status")).RootElement;
+            Assert.AreEqual(JsonValueKind.False, statusB.GetProperty("runActive").ValueKind, "runActive must be present and false on a clean stepped host.");
+            var stepB = await clientB.PostAsync("/api/control/step", null);
+            Assert.AreEqual(HttpStatusCode.OK, stepB.StatusCode, "Stepping a clean stepped host with no active run must succeed.");
+        }
+
         private static async Task<string> GetStringAsync(HttpClient client, string path)
         {
             var response = await client.GetAsync(path);
@@ -299,40 +331,6 @@ namespace Vion.Dale.DevHost.Test
             var port = ((IPEndPoint)listener.LocalEndpoint).Port;
             listener.Stop();
             return port;
-        }
-
-        [TestMethod]
-        [TestCategory("Smoke")]
-        public async Task Smoke_ControlStatus_HasRunActive_And409sCarryReasonCodes()
-        {
-            // (1) A NON-stepped host: manual step is refused with reason "notStepped".
-            var portA = FreePort();
-            var configA = DevConfigurationBuilder.Create().WithTopologyName("smoke")
-                                                 .AddLogicBlock<CounterBlock>("counter").AddLogicBlock<TickerBlock>("ticker").Build();
-            await using (var hostA = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(configA).WithWebUi(portA).Build())
-            {
-                await hostA.StartAsync();
-                using var clientA = new HttpClient { BaseAddress = new Uri($"http://localhost:{portA}"), Timeout = TimeSpan.FromSeconds(30) };
-                var statusA = JsonDocument.Parse(await GetStringAsync(clientA, "/api/control/status")).RootElement;
-                Assert.IsFalse(statusA.GetProperty("stepped").GetBoolean(), "Host A is not stepped.");
-                Assert.IsFalse(statusA.GetProperty("runActive").GetBoolean(), "No run is active on a fresh host.");
-                var stepA = await clientA.PostAsync("/api/control/step", null);
-                Assert.AreEqual(HttpStatusCode.Conflict, stepA.StatusCode, "Stepping a non-stepped host must 409.");
-                var bodyA = JsonDocument.Parse(await stepA.Content.ReadAsStringAsync()).RootElement;
-                Assert.AreEqual("notStepped", bodyA.GetProperty("reason").GetString(), "409 must carry a machine-readable reason.");
-            }
-
-            // (2) A stepped host: runActive is present and false on a clean host; manual step works (no run owns the clock).
-            var portB = FreePort();
-            var configB = DevConfigurationBuilder.Create().WithTopologyName("smoke")
-                                                 .AddLogicBlock<CounterBlock>("counter").AddLogicBlock<TickerBlock>("ticker").Build();
-            await using var hostB = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(configB).WithDeterministicStepping().WithWebUi(portB).Build();
-            await hostB.StartAsync();
-            using var clientB = new HttpClient { BaseAddress = new Uri($"http://localhost:{portB}"), Timeout = TimeSpan.FromSeconds(30) };
-            var statusB = JsonDocument.Parse(await GetStringAsync(clientB, "/api/control/status")).RootElement;
-            Assert.AreEqual(JsonValueKind.False, statusB.GetProperty("runActive").ValueKind, "runActive must be present and false on a clean stepped host.");
-            var stepB = await clientB.PostAsync("/api/control/step", null);
-            Assert.AreEqual(HttpStatusCode.OK, stepB.StatusCode, "Stepping a clean stepped host with no active run must succeed.");
         }
     }
 }
