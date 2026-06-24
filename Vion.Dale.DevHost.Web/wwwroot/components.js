@@ -1028,7 +1028,7 @@ export const WatchPanel = {
                 <div class="watch-header">
                     <span>watch · {{ store.pins.length }}</span>
                     <span class="item-spacer"></span>
-                    <button type="button" class="watch-clear" title="unpin everything" @click="clearAll">✕ clear</button>
+                    <button type="button" class="watch-clear" title="unpin everything (c)" @click="clearAll">✕ clear</button>
                 </div>
                 <button v-if="missing.length" type="button" class="watch-prune"
                         title="unpin everything the current topology does not resolve"
@@ -1685,7 +1685,7 @@ export const PlayerPanel = {
             </section>
             <section v-else class="block-card">
                 <div class="block-header">
-                    <button type="button" class="theme-toggle" title="all scenarios" @click="close">←</button>
+                    <button type="button" class="theme-toggle" title="back to the scenario list (Esc)" @click="close">←</button>
                     <h2>{{ heading }}</h2>
                     <code class="icon-chip">{{ store.scenarioId }}</code>
                     <span class="item-spacer"></span>
@@ -2050,14 +2050,14 @@ export const App = {
                 <span class="brand">DALE DevHost</span>
                 <nav class="nav-seg">
                     <button type="button" class="nav-tab" :class="{ active: store.view !== 'player' }"
-                            title="Explore — browse blocks, drive values, watch live state" @click="goExplore">Explore</button>
+                            title="Explore — browse blocks, drive values, watch live state (e)" @click="goExplore">Explore</button>
                     <button type="button" class="nav-tab" :class="{ active: store.view === 'player' }"
-                            title="Verify — run a scenario and review its trace" @click="goVerify">Verify</button>
+                            title="Verify — run a scenario and review its trace (v)" @click="goVerify">Verify</button>
                 </nav>
                 <div class="context-zone">
                     <button v-if="store.topologyName" type="button" class="topology-chip-btn" :class="{ active: store.view === 'topology', recycling: store.recycling }"
                             :disabled="store.recycling"
-                            :title="store.recycling ? 'recycling the host — please wait' : (store.view === 'topology' ? 'close the topology view' : 'topology ' + store.topologyName + ' — view blocks/links and switch')"
+                            :title="store.recycling ? 'recycling the host — please wait' : (store.view === 'topology' ? 'close the topology view (t)' : 'topology ' + store.topologyName + ' — view blocks/links and switch (t)')"
                             @click="setView('topology')">
                         <span v-if="store.recycling"><span class="recycling-spin">♻</span> recycling…</span>
                         <span v-else>⛁ {{ store.topologyName }} ▾</span>
@@ -2071,10 +2071,10 @@ export const App = {
                             :title="store.stepped ? 'switch to a real-clock host — live wall-clock timers (recycles the host)' : 'switch to a stepped host — deterministic virtual clock (recycles the host)'"
                             @click="switchClockMode(!store.stepped)">⏱ {{ store.stepped ? 'stepped' : 'real-clock' }}</button>
                     <button v-if="!store.paused" type="button" class="theme-toggle"
-                            title="pause time-driven activity — timers hold, writes still work" @click="pauseHost">⏸</button>
+                            title="pause time-driven activity — timers hold, writes still work (p)" @click="pauseHost">⏸</button>
                     <span v-else class="paused-chip">
                         <span>⏸ paused</span>
-                        <button type="button" title="resume — held timers replay" @click="resumeHost">▶</button>
+                        <button type="button" title="resume — held timers replay (p)" @click="resumeHost">▶</button>
                     </span>
                     <button type="button" class="theme-toggle" :disabled="!store.canReset"
                             :title="store.canReset ? 'recycle the host — fresh start without leaving the browser' : 'reset needs a supervised host (DevHostWebRunner.RunAsync with a host factory)'"
@@ -2095,6 +2095,7 @@ export const App = {
                 <span class="filter-wrap">
                     <input ref="filterEl" type="text" class="filter-input" :value="store.filter"
                            placeholder="filter · name:value · >50"
+                           title="filter properties — press / to focus"
                            @input="store.filter = $event.target.value">
                     <span v-if="matches" class="filter-count">{{ matches.matched }} of {{ matches.total }}</span>
                     <kbd v-else>/</kbd>
@@ -2109,8 +2110,8 @@ export const App = {
                 <span class="counts">{{ totals.blocks }} blocks · {{ totals.props }} properties</span>
                 <span class="ws-spacer"></span>
                 <span v-if="store.stepped && !store.runActive" class="step-controls">
-                    <button type="button" title="advance the virtual clock to the next scheduled event" @click="stepHost">↦ step</button>
-                    <button type="button" title="advance the virtual clock 1 second" @click="advanceHost(1)">+1s</button>
+                    <button type="button" title="advance the virtual clock to the next scheduled event (s)" @click="stepHost">↦ step</button>
+                    <button type="button" title="advance the virtual clock 1 second (.)" @click="advanceHost(1)">+1s</button>
                     <button type="button" title="advance the virtual clock 10 seconds" @click="advanceHost(10)">+10s</button>
                 </span>
             </div>
