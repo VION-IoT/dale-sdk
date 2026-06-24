@@ -640,6 +640,7 @@ export function closeScenario() {
     store.scenarioFileHash = null;
     store.scenarioError = null;
     store.run = null;
+    store.runActive = false;
     loadScenarios();
     if (location.hash.startsWith('#/scenario/')) location.hash = '#/scenarios';
 }
