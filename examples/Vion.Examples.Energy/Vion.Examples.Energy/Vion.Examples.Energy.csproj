@@ -19,11 +19,25 @@
         <CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)Generated</CompilerGeneratedFilesOutputPath>
     </PropertyGroup>
 
-    <ItemGroup>
+    <!-- SDK refs: the published packages by default. `dotnet build -p:DaleLocalSource=true` swaps them for
+         local project refs (incl. the source generator + Metalama, which don't flow through a project ref) so
+         you can test working-tree SDK / DevHost changes against this example without editing the csproj. -->
+    <ItemGroup Condition="'$(DaleLocalSource)' != 'true'">
         <PackageReference Include="Vion.Dale.Sdk" Version="0.9.0-preview.6"/>
         <PackageReference Include="Vion.Dale.Sdk.AnalogIo" Version="0.9.0-preview.6"/>
         <PackageReference Include="Vion.Dale.Sdk.DigitalIo" Version="0.9.0-preview.6"/>
         <PackageReference Include="Vion.Dale.Sdk.Http" Version="0.9.0-preview.6"/>
+    </ItemGroup>
+    <ItemGroup Condition="'$(DaleLocalSource)' == 'true'">
+        <ProjectReference Include="..\..\..\Vion.Dale.Sdk\Vion.Dale.Sdk.csproj"/>
+        <ProjectReference Include="..\..\..\Vion.Dale.Sdk.AnalogIo\Vion.Dale.Sdk.AnalogIo.csproj"/>
+        <ProjectReference Include="..\..\..\Vion.Dale.Sdk.DigitalIo\Vion.Dale.Sdk.DigitalIo.csproj"/>
+        <ProjectReference Include="..\..\..\Vion.Dale.Sdk.Http\Vion.Dale.Sdk.Http.csproj"/>
+        <ProjectReference Include="..\..\..\Vion.Dale.Sdk.Generators\Vion.Dale.Sdk.Generators.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer"/>
+        <PackageReference Include="Metalama.Patterns.Observability" Version="2026.1.18"/>
+    </ItemGroup>
+
+    <ItemGroup>
         <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.0"/>
         <PackageReference Include="System.Text.Json" Version="10.0.7"/>
         <!--shim to be able to use readonly record structs in netstandard2.1-->

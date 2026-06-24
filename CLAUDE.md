@@ -105,9 +105,11 @@ single source of truth is **`scripts/cleanup-code.ps1`**: it restores the pinned
 calls `publish-nuget.yml` with `gate: true`, which runs `scripts/cleanup-code.ps1 -Verify` (the
 `dotnet-gate` composite) before packing — so local and CI can't diverge.
 
-**Before opening a PR: run `pwsh scripts/cleanup-code.ps1` (or the `/cleanup` slash command),
+**Before opening a PR: run `pwsh scripts/cleanup-code.ps1 -Changed` (or the `/cleanup` slash command),
 review `git diff`, and commit any changes** — this keeps the CI style gate from failing the PR.
-**Agents: do this automatically before `gh pr create`.** Do NOT run cleanup with
+`-Changed` scopes the cleanup to the `.cs` your branch touched and skips in ~0.5s when none did (the
+fast dev-loop path); the full-solution run (drop `-Changed`) and the CI `-Verify` gate stay the
+authoritative backstop. **Agents: do this automatically before `gh pr create`.** Do NOT run cleanup with
 `--profile="Built-in: Reformat Code"` — it differs from the DotSettings profile and fights
 cleanup-on-save.
 
