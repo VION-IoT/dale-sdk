@@ -285,15 +285,15 @@ namespace Vion.Dale.Cli.Commands
                     continue;
                 }
 
-                var shapes = new[] { "set", "serviceProviderSet", "serviceProviderExpect", "waitUntil", "expect", "wait", "advance", "settle" }.Count(k => step.ContainsKey(k));
+                var shapes = new[] { "set", "serviceProviderSet", "serviceProviderExpect", "waitUntil", "expect", "advance", "settle" }.Count(k => step.ContainsKey(k));
                 if (shapes != 1)
                 {
-                    errors.Add($"{where}: a step is exactly one of set / serviceProviderSet / serviceProviderExpect / waitUntil / expect / wait / advance / settle");
+                    errors.Add($"{where}: a step is exactly one of set / serviceProviderSet / serviceProviderExpect / waitUntil / expect / advance / settle");
                     continue;
                 }
 
-                if (setupOnlyShapes && (step.ContainsKey("waitUntil") || step.ContainsKey("expect") || step.ContainsKey("serviceProviderExpect") || step.ContainsKey("wait") ||
-                                        step.ContainsKey("advance") || step.ContainsKey("settle")))
+                if (setupOnlyShapes && (step.ContainsKey("waitUntil") || step.ContainsKey("expect") || step.ContainsKey("serviceProviderExpect") || step.ContainsKey("advance") ||
+                                        step.ContainsKey("settle")))
                 {
                     errors.Add($"{where}: setup entries stage state — waits, expects, output asserts, and time steps belong in steps");
                     continue;
@@ -400,10 +400,6 @@ namespace Vion.Dale.Cli.Commands
                             }
                         }
                     }
-                }
-                else if (step["wait"]?["seconds"]?.GetValueKind() != JsonValueKind.Number || step["wait"]!["seconds"]!.GetValue<double>() <= 0)
-                {
-                    errors.Add($"{where}: wait.seconds must be a positive number");
                 }
             }
         }

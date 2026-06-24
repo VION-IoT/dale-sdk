@@ -198,6 +198,18 @@ namespace Vion.Dale.DevHost.Control
             get => _runControl.RequestedTopology;
         }
 
+        /// <inheritdoc />
+        public bool? RequestedClockMode
+        {
+            get => _runControl.RequestedClockMode;
+        }
+
+        /// <inheritdoc />
+        public bool TryRequestClockMode(bool stepped)
+        {
+            return _runControl.TryRequestClockMode(stepped);
+        }
+
         public IReadOnlyList<LogicBlockInfo> ListLogicBlocks()
         {
             return _configuration.LogicBlocks.Select(b => new LogicBlockInfo(b.Id, b.Name, b.LogicBlockType.Name, b.Services.Select(s => s.Id).ToList())).ToList();

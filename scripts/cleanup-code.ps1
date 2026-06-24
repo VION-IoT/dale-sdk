@@ -24,9 +24,20 @@
   Skip `dotnet build` (use when the solution is already built, e.g. in CI where a
   prior step built it). cleanupcode needs up-to-date build output.
 
+.PARAMETER Changed
+  Dev-loop fast mode: scope cleanupcode to the .cs files this branch changed (vs
+  origin/main) plus the working tree, and skip entirely when no .cs changed. The
+  'Full Cleanup (excl. optimize usings)' profile is per-file (no cross-file edits),
+  so a scoped pass is equivalent for the changed files. Run this once right before a
+  PR; the full-solution default and the CI gate (-Verify) stay the authoritative backstop.
+
 .EXAMPLE
   pwsh scripts/cleanup-code.ps1
   Clean the whole solution, then review `git diff` and commit the result.
+
+.EXAMPLE
+  pwsh scripts/cleanup-code.ps1 -Changed
+  Clean only the .cs this branch touched (fast). Review `git diff` and commit.
 
 .EXAMPLE
   pwsh scripts/cleanup-code.ps1 -Verify -NoBuild
@@ -35,7 +46,8 @@
 [CmdletBinding()]
 param(
     [switch]$Verify,
-    [switch]$NoBuild
+    [switch]$NoBuild,
+    [switch]$Changed
 )
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
@@ -49,6 +61,27 @@ $excludePaths = 'Vion.Dale.DevHost.Web/wwwroot/**'
 
 Push-Location $repoRoot
 try {
+    # -Changed scopes the (slow) full-solution cleanup to just the .cs this branch touched (vs origin/main +
+    # the working tree). The profile is per-file, so the result is identical for those files — the dev-loop
+    # fast path. Detect FIRST: when no .cs changed, skip restore+build+cleanup entirely. CI stays full (-Verify).
+    $includeArgs = @()
+    if ($Changed) {
+        $csFiles = @(
+            (git diff --name-only 'origin/main...HEAD' 2>$null)
+            (git diff --name-only 2>$null)
+            (git diff --name-only --cached 2>$null)
+        ) | Where-Object { $_ -and $_.EndsWith('.cs') } | Sort-Object -Unique
+        if ($csFiles.Count -eq 0) {
+            Write-Host 'No changed .cs files (vs origin/main + working tree) - skipping cleanupcode.'
+            exit 0
+        }
+
+        # --include resolves against the .sln directory; the solution sits at the repo root, so git's
+        # repo-relative paths are already solution-relative.
+        $includeArgs = @("--include=$($csFiles -join ';')")
+        Write-Host "Cleanup scoped to $($csFiles.Count) changed .cs file(s)."
+    }
+
     dotnet tool restore
     if ($LASTEXITCODE -ne 0) { Write-Host 'dotnet tool restore failed.'; exit 1 }
 
@@ -57,7 +90,7 @@ try {
         if ($LASTEXITCODE -ne 0) { Write-Host 'dotnet build failed.'; exit 1 }
     }
 
-    $output = & dotnet jb cleanupcode --no-build --verbosity=ERROR "--profile=$cleanupProfile" "--exclude=$excludePaths" $solution 2>&1
+    $output = & dotnet jb cleanupcode --no-build --verbosity=ERROR "--profile=$cleanupProfile" "--exclude=$excludePaths" @includeArgs $solution 2>&1
     if ($LASTEXITCODE -ne 0) {
         Write-Host 'cleanupcode failed to run:'
         $output

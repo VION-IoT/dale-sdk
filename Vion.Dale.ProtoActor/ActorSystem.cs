@@ -72,7 +72,7 @@ namespace Vion.Dale.ProtoActor
             // actors serialize onto the SAME timeline.
             if (IsSteppedClock(_timeProvider))
             {
-                _deterministicDispatcher = new DeterministicDispatcher(new ConcurrentExclusiveSchedulerPair().ExclusiveScheduler);
+                _deterministicDispatcher = new DeterministicDispatcher(new ConcurrentExclusiveSchedulerPair().ExclusiveScheduler, _activityMonitor);
             }
 
             _actorSystem = serviceProvider.GetService<Proto.ActorSystem>() ?? throw new InvalidOperationException("Actor system is not registered in the service provider.");

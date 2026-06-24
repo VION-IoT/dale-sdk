@@ -159,6 +159,7 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
             {
                 return Conflict(new
                                 {
+                                    reason = "runAlreadyActive",
                                     error = $"a run is already active (scenario '{result.ActiveScenarioId}') — pass ?restart=true to cancel it",
                                     activeRunId = result.RunId,
                                     activeScenarioId = result.ActiveScenarioId,

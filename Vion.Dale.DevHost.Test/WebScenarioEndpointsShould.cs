@@ -39,7 +39,7 @@ namespace Vion.Dale.DevHost.Test
                                                         "version": 1,
                                                         "id": "slow",
                                                         "topology": "counter-topology",
-                                                        "steps": [ { "label": "dwell", "wait": { "seconds": 8 } } ]
+                                                        "steps": [ { "label": "dwell", "advance": { "seconds": 8 } } ]
                                                       }
                                                       """;
 

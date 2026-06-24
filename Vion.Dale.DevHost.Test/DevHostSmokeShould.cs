@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
@@ -107,6 +108,49 @@ namespace Vion.Dale.DevHost.Test
 
         [TestMethod]
         [TestCategory("Smoke")]
+        public async Task Smoke_RunReport_CarriesAWatchTrace_TheTraceViewerConsumes()
+        {
+            var dir = NewScenarioDir();
+            File.WriteAllText(Path.Combine(dir, "trace.scenario.json"),
+                              """
+                              {
+                                "version": 1, "id": "trace", "topology": "smoke", "watch": ["counter.Counter", "ticker.Ticks"],
+                                "setup": [ { "set": "counter.Counter", "value": 7 } ],
+                                "steps": [ { "advance": { "seconds": 3 } }, { "expect": { "property": "ticker.Ticks", "equals": 3 } } ]
+                              }
+                              """);
+
+            var port = FreePort();
+            var config = DevConfigurationBuilder.Create()
+                                                .WithTopologyName("smoke")
+                                                .WithScenarios(dir)
+                                                .AddLogicBlock<CounterBlock>("counter")
+                                                .AddLogicBlock<TickerBlock>("ticker")
+                                                .Build();
+            await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithDeterministicStepping().WithWebUi(port).Build();
+            await host.StartAsync();
+
+            using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
+            var apply = await client.PostAsync("/api/scenarios/trace/apply", null);
+            Assert.AreEqual(HttpStatusCode.Accepted, apply.StatusCode, apply.StatusCode.ToString());
+            var report = await PollRunUntilDoneAsync(client, "trace", TimeSpan.FromSeconds(30));
+            Assert.AreEqual("succeeded", report.GetProperty("status").GetString(), report.GetRawText());
+
+            // The trace viewer joins watch[] to watchTrace[].values by camelCased name path; each sample carries
+            // a stepIndex + a deterministic virtualElapsedMs. Lock that contract.
+            var trace = report.GetProperty("watchTrace");
+            Assert.AreEqual(JsonValueKind.Array, trace.ValueKind, "watchTrace must be an array.");
+            Assert.IsGreaterThanOrEqualTo(2, trace.GetArrayLength(), "watchTrace must have a start sample plus per-step samples.");
+            var start = trace[0];
+            Assert.AreEqual(-1, start.GetProperty("stepIndex").GetInt32(), "The first sample is the start sample (stepIndex -1).");
+            Assert.IsTrue(start.TryGetProperty("virtualElapsedMs", out _), "Each sample carries virtualElapsedMs.");
+            var values = start.GetProperty("values");
+            var hasCounter = values.EnumerateObject().Any(p => string.Equals(p.Name, "counter.Counter", StringComparison.OrdinalIgnoreCase));
+            Assert.IsTrue(hasCounter, "watchTrace samples must contain the watched name path: " + values.GetRawText());
+        }
+
+        [TestMethod]
+        [TestCategory("Smoke")]
         public async Task Smoke_HalInputScenario_DrivesTheSmokeHostIoBlock()
         {
             // Covers the serviceProviderSet / waitUntil scenario step types + the HAL round-trip in CI
@@ -176,6 +220,38 @@ namespace Vion.Dale.DevHost.Test
             Assert.AreEqual(HttpStatusCode.Accepted, apply.StatusCode, "Applying the HAL output scenario must start a run.");
             var report = await PollRunUntilDoneAsync(client, "io-out", TimeSpan.FromSeconds(30));
             Assert.AreEqual("succeeded", report.GetProperty("status").GetString(), report.GetRawText());
+        }
+
+        [TestMethod]
+        [TestCategory("Smoke")]
+        public async Task Smoke_ControlStatus_HasRunActive_And409sCarryReasonCodes()
+        {
+            // (1) A NON-stepped host: manual step is refused with reason "notStepped".
+            var portA = FreePort();
+            var configA = DevConfigurationBuilder.Create().WithTopologyName("smoke").AddLogicBlock<CounterBlock>("counter").AddLogicBlock<TickerBlock>("ticker").Build();
+            await using (var hostA = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(configA).WithWebUi(portA).Build())
+            {
+                await hostA.StartAsync();
+                using var clientA = new HttpClient { BaseAddress = new Uri($"http://localhost:{portA}"), Timeout = TimeSpan.FromSeconds(30) };
+                var statusA = JsonDocument.Parse(await GetStringAsync(clientA, "/api/control/status")).RootElement;
+                Assert.IsFalse(statusA.GetProperty("stepped").GetBoolean(), "Host A is not stepped.");
+                Assert.IsFalse(statusA.GetProperty("runActive").GetBoolean(), "No run is active on a fresh host.");
+                var stepA = await clientA.PostAsync("/api/control/step", null);
+                Assert.AreEqual(HttpStatusCode.Conflict, stepA.StatusCode, "Stepping a non-stepped host must 409.");
+                var bodyA = JsonDocument.Parse(await stepA.Content.ReadAsStringAsync()).RootElement;
+                Assert.AreEqual("notStepped", bodyA.GetProperty("reason").GetString(), "409 must carry a machine-readable reason.");
+            }
+
+            // (2) A stepped host: runActive is present and false on a clean host; manual step works (no run owns the clock).
+            var portB = FreePort();
+            var configB = DevConfigurationBuilder.Create().WithTopologyName("smoke").AddLogicBlock<CounterBlock>("counter").AddLogicBlock<TickerBlock>("ticker").Build();
+            await using var hostB = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(configB).WithDeterministicStepping().WithWebUi(portB).Build();
+            await hostB.StartAsync();
+            using var clientB = new HttpClient { BaseAddress = new Uri($"http://localhost:{portB}"), Timeout = TimeSpan.FromSeconds(30) };
+            var statusB = JsonDocument.Parse(await GetStringAsync(clientB, "/api/control/status")).RootElement;
+            Assert.AreEqual(JsonValueKind.False, statusB.GetProperty("runActive").ValueKind, "runActive must be present and false on a clean stepped host.");
+            var stepB = await clientB.PostAsync("/api/control/step", null);
+            Assert.AreEqual(HttpStatusCode.OK, stepB.StatusCode, "Stepping a clean stepped host with no active run must succeed.");
         }
 
         private static async Task<string> GetStringAsync(HttpClient client, string path)

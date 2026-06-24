@@ -35,7 +35,7 @@ namespace Vion.Dale.DevHost.Test
             var twoShapes = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse("""
                                                                                                    {
                                                                                                      "version": 1, "id": "x", "topology": "t",
-                                                                                                     "steps": [ { "set": "A.B", "value": 1, "wait": { "seconds": 1 } } ]
+                                                                                                     "steps": [ { "set": "A.B", "value": 1, "advance": { "seconds": 1 } } ]
                                                                                                    }
                                                                                                    """));
             Assert.IsTrue(twoShapes.Errors.Any(m => m.Contains("exactly one of")), string.Join("; ", twoShapes.Errors));
@@ -54,7 +54,7 @@ namespace Vion.Dale.DevHost.Test
             Assert.IsTrue(twoComparators.Errors.Any(m => m.Contains("exactly one of above")), string.Join("; ", twoComparators.Errors));
 
             var waitInSetup = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse("""
-                                                                                                     { "version": 1, "id": "x", "topology": "t", "setup": [ { "wait": { "seconds": 1 } } ] }
+                                                                                                     { "version": 1, "id": "x", "topology": "t", "setup": [ { "advance": { "seconds": 1 } } ] }
                                                                                                      """));
             Assert.IsTrue(waitInSetup.Errors.Any(m => m.Contains("setup entries stage state")), string.Join("; ", waitInSetup.Errors));
         }
@@ -144,7 +144,7 @@ namespace Vion.Dale.DevHost.Test
                                                 "steps": [
                                                   { "label": "raise", "set": "Counter.Counter", "value": 21 },
                                                   { "label": "doubled follows", "waitUntil": { "property": "Counter.CounterDoubled", "above": 40 }, "timeoutSeconds": 10 },
-                                                  { "label": "pace", "wait": { "seconds": 0.1 } },
+                                                  { "label": "pace", "advance": { "seconds": 0.1 } },
                                                   { "label": "exact", "waitUntil": { "property": "Counter.Counter", "equals": 21 }, "timeoutSeconds": 5 }
                                                 ],
                                                 "watch": [ "Counter.CounterDoubled" ],
@@ -200,7 +200,7 @@ namespace Vion.Dale.DevHost.Test
                                                 "version": 1, "id": "timeout", "topology": "scenario-topology",
                                                 "steps": [
                                                   { "label": "never", "waitUntil": { "property": "Counter.Counter", "above": 999999 }, "timeoutSeconds": 1 },
-                                                  { "label": "unreached", "wait": { "seconds": 0.1 } }
+                                                  { "label": "unreached", "advance": { "seconds": 0.1 } }
                                                 ]
                                               }
                                               """);

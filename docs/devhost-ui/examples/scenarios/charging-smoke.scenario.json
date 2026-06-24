@@ -16,7 +16,7 @@
     { "label": "Point 1 draws power",
       "waitUntil": { "property": "ChargingStationMultiPoint.ChargingPoint1.ActivePowerConsuming", "above": 0 },
       "timeoutSeconds": 30 },
-    { "label": "Let it settle", "wait": { "seconds": 1 } }
+    { "label": "Let it settle", "advance": { "seconds": 1 } }
   ],
   "watch": [
     "ChargingStationMultiPoint.ChargingPoint1.ActivePowerConsuming",

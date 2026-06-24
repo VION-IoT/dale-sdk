@@ -35,6 +35,12 @@ namespace Vion.Dale.DevHost.Control
         string? RequestedTopology { get; }
 
         /// <summary>
+        ///     The clock mode (true = deterministic stepping, false = real wall-clock) the latest clock-mode
+        ///     switch requested — read by the supervisor when the reset fires. Null means keep the current mode.
+        /// </summary>
+        bool? RequestedClockMode { get; }
+
+        /// <summary>
         ///     The registered <see cref="TimeProvider" />'s current virtual time. Useful for tracking elapsed
         ///     virtual time during a <c>settle</c> loop. Returns the real UTC clock value when no
         ///     <c>FakeTimeProvider</c> is registered (e.g. on a non-stepped host).
@@ -227,6 +233,13 @@ namespace Vion.Dale.DevHost.Control
         ///     attached.
         /// </summary>
         bool TryRequestTopologySwitch(string topologyId);
+
+        /// <summary>
+        ///     Request a recycle into a different clock mode (RFC 0012 §4) — rides the reset signal; the
+        ///     supervisor reads <see cref="RequestedClockMode" /> and rebuilds the next generation stepped or
+        ///     real. Returns false when no supervisor is attached.
+        /// </summary>
+        bool TryRequestClockMode(bool stepped);
     }
 
     /// <summary>Topology entry for <see cref="IDevHostControl.ListLogicBlocks" />.</summary>

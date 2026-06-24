@@ -602,3 +602,127 @@ export function groupItems(service) {
 
     return itemsByGroup;
 }
+
+// ── Scenario trace policy (RFC 0012) ────────────────────────────────────────────
+// Pure helpers behind the trace viewer (form C). The trace is the run report's `watchTrace`
+// (a WatchSample[] sampled at step boundaries) joined to the scenario's `watch` paths. The wire
+// serializer camelCases the first path segment (e.g. RefGridMeter -> refGridMeter), so every join
+// is case-insensitive (the same rule as enumLabelFor / primeInitialValues).
+
+// One watched signal's time series from a run report's watchTrace, in sample order:
+// [{ stepIndex, virtualElapsedMs, value }]. `value` is undefined when the path isn't in the sample.
+export function traceSeriesFor(watchTrace, path) {
+    if (!Array.isArray(watchTrace)) return [];
+    const lower = String(path).toLowerCase();
+    return watchTrace.map(sample => {
+        if (!sample) return { stepIndex: undefined, virtualElapsedMs: undefined, value: undefined };
+        const values = sample.values || {};
+        let value;
+        if (Object.prototype.hasOwnProperty.call(values, path)) {
+            value = values[path];
+        } else {
+            const key = Object.keys(values).find(k => k.toLowerCase() === lower);
+            value = key !== undefined ? values[key] : undefined;
+        }
+        return { stepIndex: sample.stepIndex, virtualElapsedMs: sample.virtualElapsedMs, value };
+    });
+}
+
+// Sign tone for sign-aware numeric coloring (+import/+charge vs −export/−discharge): 'pos'|'neg'|'zero'.
+export function signTone(value) {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value === 0) return 'zero';
+    return value > 0 ? 'pos' : 'neg';
+}
+
+// Lane renderer kind for a watched signal: 'numeric' (stairstep line), 'state' (enum/boolean band),
+// or 'struct' (expander). Prefers the resolved schema; falls back to the first non-null sample value
+// when the path doesn't resolve (e.g. a struct field-path the introspection name-path can't address).
+export function traceLaneKind(schema, sampleValue) {
+    const t = schema ? effectiveType(schema) : null;
+    if (t === 'number' || t === 'integer') return 'numeric';
+    if (t === 'boolean') return 'state';
+    if (enumMembers(schema)) return 'state';
+    if (t === 'object' || t === 'array') return 'struct';
+    if (t === 'string') return 'state';
+    if (typeof sampleValue === 'number' && Number.isFinite(sampleValue)) return 'numeric';
+    if (typeof sampleValue === 'boolean' || typeof sampleValue === 'string') return 'state';
+    if (sampleValue !== null && typeof sampleValue === 'object') return 'struct';
+    return 'state';
+}
+
+// Geometry for the step ribbon and the shared time axis. Each step becomes an [x0,x1] segment in a
+// 0..1 space whose width is proportional to its virtual duration; instant (0 ms) steps get a minimum
+// width so they stay labelable/clickable. Axis: 'virtual' (deterministic, preferred), else wall-clock
+// 'wall' (real-clock host), else equal 'index' columns. The view scales 0..1 to pixels.
+export function stepRibbonGeometry(steps, options = {}) {
+    const minFrac = options.minFrac ?? 0.04;
+    const list = Array.isArray(steps) ? steps : [];
+    const hasVirtual = list.some(s => s && s.virtualElapsedMs !== null && s.virtualElapsedMs !== undefined);
+    const hasWall = list.some(s => s && s.elapsedMs !== null && s.elapsedMs !== undefined);
+    const axis = hasVirtual ? 'virtual' : hasWall ? 'wall' : 'index';
+    const durationOf = s => {
+        if (axis === 'virtual') return Math.max(0, (s && s.virtualElapsedMs) || 0);
+        if (axis === 'wall') return Math.max(0, (s && s.elapsedMs) || 0);
+        return 1;
+    };
+    const raw = list.map(durationOf);
+    const total = raw.reduce((a, b) => a + b, 0);
+    const n = list.length;
+    // Final 0..1 fractions that BOTH fill the axis exactly AND give each segment at least minFrac
+    // (so instant steps stay clickable): a minFrac floor plus a duration-proportional share of the
+    // leftover. Falls back to equal columns when there is no duration signal (all-instant) or the
+    // floors would exceed the axis.
+    const floor = n * minFrac <= 1 ? minFrac : 1 / n;
+    const leftover = 1 - floor * n;
+    const fracs = list.map((s, i) => total > 0 ? floor + leftover * (raw[i] / total) : 1 / (n || 1));
+    let cursor = 0;
+    const stepsOut = list.map((s, i) => {
+        const x0 = cursor;
+        cursor += fracs[i];
+        return { index: (s && s.index) ?? i, x0, x1: cursor, status: s && s.status, kind: s && s.kind, label: s && s.label, spec: s && s.spec };
+    });
+    return { axis, total: total || n, steps: stepsOut };
+}
+
+// X position (0..1) of a watchTrace sample given the ribbon geometry: the start sample (stepIndex -1)
+// is the origin; sample after step k sits at that step's right edge; out-of-range clamps to the ends.
+export function sampleX(geometry, stepIndex) {
+    if (stepIndex === null || stepIndex === undefined || stepIndex < 0) return 0;
+    const steps = (geometry && geometry.steps) || [];
+    if (!steps.length) return 0;
+    const seg = steps.find(s => s.index === stepIndex);
+    if (seg) return seg.x1;
+    return 1;
+}
+
+// The numeric value band for a signal's series, always including zero so the baseline is sign-aware.
+// Non-finite samples are ignored; an all-equal series is widened so a flat line renders mid-lane.
+export function traceNumericBand(series) {
+    const nums = (series || []).map(s => s && s.value).filter(v => typeof v === 'number' && Number.isFinite(v));
+    if (!nums.length) return { min: 0, max: 1, zero: 0 };
+    let min = Math.min(0, ...nums);
+    let max = Math.max(0, ...nums);
+    if (min === max) { min -= 1; max += 1; }
+    return { min, max, zero: 0 };
+}
+
+// Merge a state (enum/boolean/string) series into ribbon-aligned band segments [{ x0, x1, value }],
+// collapsing consecutive equal values. Positions come from sampleX over the geometry.
+export function traceStateBands(series, geometry) {
+    const pts = (series || []).map(s => ({ x: sampleX(geometry, s && s.stepIndex), value: s && s.value }));
+    if (!pts.length) return [];
+    const bands = [];
+    let cur = { x0: pts[0].x, x1: pts[0].x, value: pts[0].value };
+    for (let i = 1; i < pts.length; i++) {
+        if (pts[i].value === cur.value) {
+            cur.x1 = pts[i].x;
+        } else {
+            cur.x1 = pts[i].x;
+            bands.push(cur);
+            cur = { x0: pts[i].x, x1: pts[i].x, value: pts[i].value };
+        }
+    }
+    if (cur.x1 <= cur.x0) cur.x1 = 1;
+    bands.push(cur);
+    return bands;
+}
