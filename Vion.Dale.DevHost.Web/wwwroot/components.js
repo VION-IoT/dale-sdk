@@ -24,6 +24,12 @@ import {
 // Filter tokens, shared by every component that narrows to matches.
 const filterTokens = computed(() => parseFilter(store.filter));
 
+// Platform-aware modifier label: most users are on Windows/Linux (Ctrl), so don't show the mac ⌘ glyph
+// to them. The Ctrl+K handler already accepts both ctrlKey and metaKey — this only affects the labels.
+const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || '');
+const MOD_KEY = IS_MAC ? '⌘' : 'Ctrl';
+const PALETTE_KEY_LABEL = IS_MAC ? '⌘K' : 'Ctrl K';
+
 function itemMatches(service, item) {
     return matchesFilter(filterTokens.value, item, store.values[valueKey(service.id, item.identifier)]);
 }
@@ -1499,7 +1505,18 @@ const ScenarioTrace = {
         const tone = row => { const v = currentOf(row); return row.kind === 'numeric' && v !== null && v !== undefined ? 'tone-' + signTone(v) : ''; };
         // The playhead x (0..1) of the scrubbed sample — a vertical cursor drawn across every lane.
         const playheadX = computed(() => sampleX(geometry.value, activeStepIndex.value));
-        return { geometry, samples, scrub, maxScrub, activeStepIndex, rows, selectStep, readout, structJson, tone, playheadX };
+        // The virtual time at the scrubbed sample (deterministic stepping). Null on a real clock — there we
+        // fall back to the phase / step label so the readout is never blank.
+        const scrubTime = computed(() => {
+            const s = samples.value[scrub.value];
+            if (!s) return '';
+            if (s.virtualElapsedMs === null || s.virtualElapsedMs === undefined) {
+                return s.phase === 'start' || s.stepIndex < 0 ? 'start' : `step ${s.stepIndex + 1}`;
+            }
+            const ms = s.virtualElapsedMs;
+            return 't+' + (ms >= 1000 ? `${(ms / 1000).toFixed(ms % 1000 === 0 ? 0 : 1)} s` : `${Math.round(ms)} ms`);
+        });
+        return { geometry, samples, scrub, maxScrub, activeStepIndex, rows, selectStep, readout, structJson, tone, playheadX, scrubTime };
     },
     template: `
         <div class="scenario-trace">
@@ -1508,14 +1525,14 @@ const ScenarioTrace = {
                 <TraceStepRibbon :geometry="geometry" :active-index="activeStepIndex" @select="selectStep"/>
             </div>
             <div class="trace-row trace-axis">
-                <span></span>
+                <span class="trace-time mono" :title="'virtual time at the playhead'">{{ scrubTime }}</span>
                 <input class="trace-scrubber" type="range" min="0" :max="maxScrub" step="1" v-model.number="scrub"
-                       :title="'sample ' + scrub + ' of ' + maxScrub"/>
+                       :title="'sample ' + scrub + ' of ' + maxScrub + (scrubTime ? ' · ' + scrubTime : '')"/>
             </div>
             <div v-for="row in rows" :key="row.path" class="trace-row">
                 <div class="trace-row-label">
-                    <span class="mono">{{ row.path }}</span>
-                    <span class="trace-readout mono" :class="tone(row)">{{ readout(row) }}</span>
+                    <span class="trace-name mono" :title="row.path">{{ row.path }}</span>
+                    <span class="trace-readout mono" :class="tone(row)" :title="readout(row)">{{ readout(row) }}</span>
                 </div>
                 <TraceLaneNumeric v-if="row.kind === 'numeric'" :series="row.series" :geometry="geometry" :playhead="playheadX"/>
                 <TraceLaneState v-else-if="row.kind === 'state'" :series="row.series" :geometry="geometry" :playhead="playheadX"/>
@@ -1784,7 +1801,9 @@ export const Palette = {
             else if (e.key === 'Enter') {
                 const entry = entries.value[selected.value];
                 if (entry) {
-                    if (e.ctrlKey || e.metaKey) pinEntry(entry);
+                    // Pin (Ctrl/⌘+Enter) only means something in Explore — it pins to the watch panel, which
+                    // Verify doesn't show. There, Ctrl+Enter just jumps like plain Enter.
+                    if ((e.ctrlKey || e.metaKey) && store.view === 'explorer') pinEntry(entry);
                     else jump(entry);
                 }
             } else if (e.key === 'Escape') {
@@ -1795,7 +1814,7 @@ export const Palette = {
         const valuePreview = entry => formatValue(
             store.values[valueKey(entry.service.id, entry.item.identifier)],
             (entry.item.presentation || {}).decimals ?? null);
-        return { query, selected, entries, inputEl, onKey, jump, pinEntry, pinnedEntry, close, valuePreview };
+        return { query, selected, entries, inputEl, onKey, jump, pinEntry, pinnedEntry, close, valuePreview, store, modKey: MOD_KEY };
     },
     template: `
         <div class="palette-backdrop" @click.self="close">
@@ -1814,7 +1833,7 @@ export const Palette = {
                     </div>
                     <div v-if="!entries.length" class="palette-empty">no matches</div>
                 </div>
-                <div class="palette-hint"><kbd>↵</kbd> jump · <kbd>ctrl ↵</kbd> pin · <kbd>esc</kbd> close</div>
+                <div class="palette-hint"><kbd>↵</kbd> jump<template v-if="store.view === 'explorer'"> · <kbd>{{ modKey }} ↵</kbd> pin</template> · <kbd>esc</kbd> close</div>
             </div>
         </div>
     `,
@@ -1913,7 +1932,7 @@ export const App = {
         return {
             store, blocks, sharedLookup, totals, theme, toggleTheme, matches, changedTotal,
             baselineClock, filterEl, setBaseline, clearBaseline, pauseHost, resumeHost,
-            confirmReset, setView, goExplore, goVerify, stepHost, advanceHost, switchClockMode, steppedClock,
+            confirmReset, setView, goExplore, goVerify, stepHost, advanceHost, switchClockMode, steppedClock, paletteKeyLabel: PALETTE_KEY_LABEL,
         };
     },
     template: `
@@ -1951,7 +1970,7 @@ export const App = {
                     <button type="button" class="theme-toggle" :disabled="!store.canReset"
                             :title="store.canReset ? 'recycle the host — fresh start without leaving the browser' : 'reset needs a supervised host (DevHostWebRunner.RunAsync with a host factory)'"
                             @click="confirmReset">↻</button>
-                    <button type="button" class="theme-toggle" title="jump to a scenario / block / topology (Ctrl/⌘ K)" @click="store.paletteOpen = true">⌘K</button>
+                    <button type="button" class="theme-toggle" :title="'jump to a property (' + paletteKeyLabel + ')'" @click="store.paletteOpen = true">{{ paletteKeyLabel }}</button>
                     <button type="button" class="theme-toggle" :class="{ 'view-active': store.view === 'gallery' }"
                             :title="store.view === 'gallery' ? 'close the gallery' : 'gallery — how authored presentation renders, on sample values'"
                             @click="setView('gallery')">▦</button>
