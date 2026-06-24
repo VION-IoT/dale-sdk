@@ -24,10 +24,25 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         {
             context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
             context.EnableConcurrentExecution();
-            context.RegisterSymbolAction(AnalyzeProperty, SymbolKind.Property);
+
+            // Collect the resolvable custom-threshold types once per compilation (a scan across the source
+            // and referenced assemblies), then reuse it for every property — instead of re-scanning per
+            // property symbol.
+            context.RegisterCompilationStartAction(start =>
+                                                   {
+                                                       var ichangeThreshold = start.Compilation.GetTypeByMetadataName(EmissionAttributeHelper.IChangeThresholdMetadataName);
+                                                       if (ichangeThreshold == null)
+                                                       {
+                                                           // The SDK isn't referenced (no [ServiceProperty] can exist) — nothing to analyze.
+                                                           return;
+                                                       }
+
+                                                       var customThresholdTypes = EmissionAttributeHelper.CollectCustomChangeThresholdTypes(start.Compilation, ichangeThreshold);
+                                                       start.RegisterSymbolAction(symbolContext => AnalyzeProperty(symbolContext, customThresholdTypes), SymbolKind.Property);
+                                                   });
         }
 
-        private static void AnalyzeProperty(SymbolAnalysisContext context)
+        private static void AnalyzeProperty(SymbolAnalysisContext context, ImmutableHashSet<ITypeSymbol> customThresholdTypes)
         {
             var property = (IPropertySymbol)context.Symbol;
 
@@ -53,7 +68,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                 return;
             }
 
-            if (EmissionAttributeHelper.HasChangeThresholdFor(context.Compilation, valueType))
+            if (customThresholdTypes.Contains(valueType))
             {
                 return;
             }
