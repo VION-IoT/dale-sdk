@@ -10,6 +10,7 @@ import {
     effectiveType, enumDisplay, enumMembers, formatTemporal, formatValue, gallerySamples,
     GROUP_LABELS, groupItems, isNullable, isWritable, matchesFilter, orderedGroupKeys, parseFilter,
     parseNamePath, presentationFacts, resolveAuthoredTitle, resolveDisplayName, resolveUnit, sampleJson, serviceMembers, severityFor,
+    sampleX, signTone, stepRibbonGeometry, traceLaneKind, traceNumericBand, traceSeriesFor, traceStateBands,
     STEP_GLYPHS,
 } from './format.js';
 import {
@@ -17,11 +18,17 @@ import {
     changedSinceBaseline, clearBaseline, clearPins, closeScenario, collapseKey, connectionsForLb,
     advanceHost, driveContract, halKey, historyFor, isPinned, judgeKey, loadTopologies, openScenario, pauseHost, resetHost, resumeHost, stepHost,
     setBaseline, setJudgeTick, setProperty, showError, store,
-    switchTopology, toggleCollapsed, togglePin, valueKey,
+    switchClockMode, switchTopology, toggleCollapsed, togglePin, valueKey,
 } from './store.js';
 
 // Filter tokens, shared by every component that narrows to matches.
 const filterTokens = computed(() => parseFilter(store.filter));
+
+// Platform-aware modifier label: most users are on Windows/Linux (Ctrl), so don't show the mac ⌘ glyph
+// to them. The Ctrl+K handler already accepts both ctrlKey and metaKey — this only affects the labels.
+const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || '');
+const MOD_KEY = IS_MAC ? '⌘' : 'Ctrl';
+const PALETTE_KEY_LABEL = IS_MAC ? '⌘K' : 'Ctrl K';
 
 function itemMatches(service, item) {
     return matchesFilter(filterTokens.value, item, store.values[valueKey(service.id, item.identifier)]);
@@ -1328,7 +1335,13 @@ const PlayerStep = {
             }
         });
         const toggleArg = () => { expanded.value = !expanded.value; };
-        return { glyph, elapsed, expanded, argText, toggleArg };
+        // A failed step is a MECHANICAL failure the runner detected (mockup 05) — distinct from a human
+        // "judged not ok" verdict. Point at the file to fix; scenario edits hot-reload, so the loop is
+        // edit JSON → re-run, no restart.
+        const remediation = computed(() => store.scenarioId
+            ? `scenarios/${store.scenarioId}.scenario.json · edits reload automatically`
+            : 'edits reload automatically');
+        return { glyph, elapsed, expanded, argText, toggleArg, remediation };
     },
     template: `
         <div class="player-step" :class="step.status">
@@ -1342,12 +1355,195 @@ const PlayerStep = {
             <span class="item-spacer"></span>
             <span v-if="step.detail" class="step-detail" :title="step.detail">{{ step.detail }}</span>
             <span v-if="elapsed" class="step-elapsed">{{ elapsed }}</span>
+            <div v-if="step.status === 'failed'" class="step-remediation">↳ {{ remediation }}</div>
+        </div>
+    `,
+};
+
+// ── Scenario trace viewer (RFC 0012 §5, form C) ─────────────────────────────────
+// One shared virtual-time axis: a step ribbon (segments ∝ duration, colored by status, captioned by
+// label) over time-aligned signal lanes, with a draggable playhead. Geometry is pure (format.js); the
+// components below are thin SVG/template projections. Coordinate space is 0..1 in x; the view width is
+// fixed by CSS and the viewBox is 0..1000 so 1 unit = 0.1%.
+
+const RIBBON_W = 1000;
+
+const TraceStepRibbon = {
+    props: ['geometry', 'activeIndex'],
+    emits: ['select'],
+    setup(props, { emit }) {
+        const segs = computed(() => (props.geometry.steps || []).map(s => ({
+            ...s,
+            x: s.x0 * RIBBON_W,
+            w: Math.max(2, (s.x1 - s.x0) * RIBBON_W),
+        })));
+        const pick = i => emit('select', i);
+        return { segs, pick, RIBBON_W };
+    },
+    template: `
+        <svg class="trace-ribbon" :viewBox="'0 0 ' + RIBBON_W + ' 26'" preserveAspectRatio="none" width="100%" height="26">
+            <g v-for="s in segs" :key="s.index">
+                <rect class="ribbon-seg" :class="[s.status, { active: s.index === activeIndex }]"
+                      :x="s.x + 1" y="2" :width="Math.max(1, s.w - 2)" height="22" rx="2"
+                      @click="pick(s.index)"><title>{{ s.kind }} · {{ s.label }}</title></rect>
+            </g>
+        </svg>
+    `,
+};
+
+const TraceLaneNumeric = {
+    props: ['series', 'geometry', 'playhead'],
+    setup(props) {
+        const band = computed(() => traceNumericBand(props.series));
+        // Honest stairstep: hold each sample's value until the next sample's x, then step. y is inverted
+        // (0 = top). null/undefined samples break the line (no segment drawn across a gap).
+        const yOf = v => {
+            const { min, max } = band.value;
+            const t = (v - min) / (max - min || 1);
+            const pad = 6;
+            return pad + (1 - t) * (100 - 2 * pad);
+        };
+        const path = computed(() => {
+            const pts = (props.series || []).map(s => ({ x: sampleX(props.geometry, s.stepIndex) * 1000, v: s.value }));
+            let d = '';
+            let prev = null;
+            pts.forEach((p, i) => {
+                const has = typeof p.v === 'number' && Number.isFinite(p.v);
+                if (!has) { prev = null; return; }
+                const y = yOf(p.v);
+                if (prev === null) { d += ` M ${p.x.toFixed(1)} ${y.toFixed(1)}`; }
+                else { d += ` H ${p.x.toFixed(1)} V ${y.toFixed(1)}`; }
+                prev = p;
+            });
+            return d.trim() || null;
+        });
+        const zeroY = computed(() => yOf(0));
+        return { band, path, zeroY };
+    },
+    template: `
+        <svg class="trace-lane numeric" viewBox="0 0 1000 100" preserveAspectRatio="none" width="100%" height="40">
+            <line class="lane-zero" x1="0" :y1="zeroY" x2="1000" :y2="zeroY"/>
+            <path v-if="path" class="lane-line" :d="path" fill="none" vector-effect="non-scaling-stroke"/>
+            <line v-if="playhead != null" class="lane-playhead" :x1="playhead * 1000" :x2="playhead * 1000" y1="0" y2="100"/>
+        </svg>
+    `,
+};
+
+const TraceLaneState = {
+    props: ['series', 'geometry', 'playhead'],
+    setup(props) {
+        // Distinct values get distinct tones cycling a small token-driven palette; booleans read as
+        // on/off. Each band is one segment; the label shows when the segment is wide enough.
+        const bands = computed(() => {
+            const raw = traceStateBands(props.series, props.geometry);
+            const distinct = [...new Set(raw.map(b => String(b.value)))];
+            return raw.map(b => ({
+                x: b.x0 * 1000,
+                w: Math.max(0, (b.x1 - b.x0) * 1000),
+                label: b.value === null || b.value === undefined ? '∅' : String(b.value),
+                tone: 'tone-' + (distinct.indexOf(String(b.value)) % 4),
+            }));
+        });
+        return { bands };
+    },
+    template: `
+        <svg class="trace-lane state" viewBox="0 0 1000 24" preserveAspectRatio="none" width="100%" height="24">
+            <g v-for="(b, i) in bands" :key="i">
+                <rect class="state-band" :class="b.tone" :x="b.x" y="2" :width="Math.max(1, b.w)" height="20" rx="2"/>
+                <text v-if="b.w > 70" class="state-label" :x="b.x + 6" y="16">{{ b.label }}</text>
+            </g>
+            <line v-if="playhead != null" class="lane-playhead" :x1="playhead * 1000" :x2="playhead * 1000" y1="0" y2="24"/>
+        </svg>
+    `,
+};
+
+const ScenarioTrace = {
+    components: { TraceStepRibbon, TraceLaneNumeric, TraceLaneState },
+    // props: run = the report (with steps + watchTrace), paths = scenario.watch (the declared order).
+    props: ['run', 'paths'],
+    setup(props) {
+        const geometry = computed(() => stepRibbonGeometry((props.run && props.run.steps) || [], { minFrac: 0.05 }));
+        // The scrubber index walks the watchTrace samples (0 = start, then one per step reached).
+        const samples = computed(() => (props.run && props.run.watchTrace) || []);
+        const scrub = ref(0);
+        // Snap to the end-state only when a NEW run lands (runId changes) — NOT on every idle re-poll of
+        // the same run, so a scrubbed position holds while the Player keeps polling the report.
+        watch(() => props.run && props.run.runId, () => { scrub.value = Math.max(0, samples.value.length - 1); }, { immediate: true });
+        const maxScrub = computed(() => Math.max(0, samples.value.length - 1));
+        const activeStepIndex = computed(() => {
+            const s = samples.value[scrub.value];
+            return s ? s.stepIndex : -1;
+        });
+
+        // One row per declared watch path — STATIC per run (series + lane kind + unit): independent of the
+        // scrub position, so dragging the playhead does NOT recompute series or re-resolve schemas. This
+        // keeps scrubbing O(rows) cheap even for many watch items, long traces, or large topologies.
+        const rows = computed(() => (props.paths || []).map(path => {
+            const series = traceSeriesFor(samples.value, path);
+            const resolved = resolveNamePath(path);
+            const schema = resolved && resolved.item ? (resolved.item.schema || null) : null;
+            const firstNonNull = (series.find(s => s.value !== null && s.value !== undefined) || {}).value;
+            return { path, series, kind: traceLaneKind(schema, firstNonNull), unit: schema ? resolveUnit(schema) : null };
+        }));
+        // The only scrub-dependent read: the value of a row at the scrubbed sample (cheap O(1) lookup).
+        const currentOf = row => (row.series[Math.min(scrub.value, row.series.length - 1)] || {}).value;
+
+        const selectStep = stepIndex => {
+            const i = samples.value.findIndex(s => s.stepIndex === stepIndex);
+            if (i >= 0) scrub.value = i;
+        };
+        const readout = row => {
+            const v = currentOf(row);
+            if (v === null || v === undefined) return '∅';
+            if (typeof v === 'number') return formatValue(v) + (row.unit ? ' ' + row.unit : '');
+            if (typeof v === 'object') return '{ … }';
+            return String(v);
+        };
+        // Struct/array lanes show the scrubbed sample's value (JSON), NOT the block's live value — so a
+        // struct lane snapshots to the playhead like every other lane (RFC 0012 §5).
+        const structJson = row => formatValue(currentOf(row));
+        const tone = row => { const v = currentOf(row); return row.kind === 'numeric' && v !== null && v !== undefined ? 'tone-' + signTone(v) : ''; };
+        // The playhead x (0..1) of the scrubbed sample — a vertical cursor drawn across every lane.
+        const playheadX = computed(() => sampleX(geometry.value, activeStepIndex.value));
+        // The virtual time at the scrubbed sample (deterministic stepping). Null on a real clock — there we
+        // fall back to the phase / step label so the readout is never blank.
+        const scrubTime = computed(() => {
+            const s = samples.value[scrub.value];
+            if (!s) return '';
+            if (s.virtualElapsedMs === null || s.virtualElapsedMs === undefined) {
+                return s.phase === 'start' || s.stepIndex < 0 ? 'start' : `step ${s.stepIndex + 1}`;
+            }
+            const ms = s.virtualElapsedMs;
+            return 't+' + (ms >= 1000 ? `${(ms / 1000).toFixed(ms % 1000 === 0 ? 0 : 1)} s` : `${Math.round(ms)} ms`);
+        });
+        return { geometry, samples, scrub, maxScrub, activeStepIndex, rows, selectStep, readout, structJson, tone, playheadX, scrubTime };
+    },
+    template: `
+        <div class="scenario-trace">
+            <div class="trace-row trace-axis">
+                <span></span>
+                <TraceStepRibbon :geometry="geometry" :active-index="activeStepIndex" @select="selectStep"/>
+            </div>
+            <div class="trace-row trace-axis">
+                <span class="trace-time mono" :title="'virtual time at the playhead'">{{ scrubTime }}</span>
+                <input class="trace-scrubber" type="range" min="0" :max="maxScrub" step="1" v-model.number="scrub"
+                       :title="'sample ' + scrub + ' of ' + maxScrub + (scrubTime ? ' · ' + scrubTime : '')"/>
+            </div>
+            <div v-for="row in rows" :key="row.path" class="trace-row">
+                <div class="trace-row-label">
+                    <span class="trace-name mono" :title="row.path">{{ row.path }}</span>
+                    <span class="trace-readout mono" :class="tone(row)" :title="readout(row)">{{ readout(row) }}</span>
+                </div>
+                <TraceLaneNumeric v-if="row.kind === 'numeric'" :series="row.series" :geometry="geometry" :playhead="playheadX"/>
+                <TraceLaneState v-else-if="row.kind === 'state'" :series="row.series" :geometry="geometry" :playhead="playheadX"/>
+                <div v-else class="trace-struct mono">{{ structJson(row) }}</div>
+            </div>
         </div>
     `,
 };
 
 export const PlayerPanel = {
-    components: { PlayerStep, ScenarioWatchTile },
+    components: { PlayerStep, ScenarioWatchTile, ScenarioTrace },
     setup() {
         const entries = computed(() => (store.scenarios && store.scenarios.scenarios) || []);
         const directory = computed(() => (store.scenarios && store.scenarios.directory) || '');
@@ -1383,8 +1579,7 @@ export const PlayerPanel = {
                     : s.waitUntil ? 'waitUntil'
                     : s.expect ? 'expect'
                     : s.advance ? 'advance'
-                    : s.settle !== undefined ? 'settle'
-                    : s.wait ? 'wait' : 'unknown',
+                    : s.settle !== undefined ? 'settle' : 'unknown',
                 label: s.label,
                 spec: s.spec,
                 target: s.set !== undefined ? s.set
@@ -1393,8 +1588,7 @@ export const PlayerPanel = {
                     : s.waitUntil ? s.waitUntil.property
                     : s.expect ? s.expect.property
                     : s.advance ? ''
-                    : s.settle !== undefined ? (s.settle.until ? `until ${s.settle.until.join(', ')}` : 'until stable')
-                    : s.wait ? `${s.wait.seconds} s` : '?',
+                    : s.settle !== undefined ? (s.settle.until ? `until ${s.settle.until.join(', ')}` : 'until stable') : '?',
                 argument: s.serviceProviderExpect ? describeOutputAssert(s.serviceProviderExpect)
                     : 'value' in s ? JSON.stringify(s.value)
                     : s.waitUntil ? describeWaitUntil(s.waitUntil, s.timeoutSeconds)
@@ -1526,19 +1720,22 @@ export const PlayerPanel = {
                         <PlayerStep v-for="s in steps" :key="'st' + s.index" :step="s"/>
                     </template>
                     <template v-if="scenario.watch">
-                        <h3 class="topo-section">watch</h3>
-                        <div class="player-watch">
+                        <h3 class="topo-section">trace</h3>
+                        <ScenarioTrace v-if="run && run.watchTrace && run.watchTrace.length" :run="run" :paths="scenario.watch"/>
+                        <div v-else class="player-watch">
                             <ScenarioWatchTile v-for="w in scenario.watch" :key="w" :path="w"/>
                         </div>
                     </template>
                     <template v-if="judge.length">
                         <h3 class="topo-section">judge</h3>
-                        <div v-for="(j, i) in judge" :key="i" class="judge-row">
+                        <div v-for="(j, i) in judge" :key="i" class="judge-row"
+                             :class="{ 'judged-ok': tickState(i) === 'ok', 'judged-notok': tickState(i) === 'notOk' }">
                             <button type="button" class="judge-btn ok" :class="{ active: tickState(i) === 'ok' }"
                                     :disabled="!run" title="looks right" @click="tick(i, 'ok')">✓</button>
                             <button type="button" class="judge-btn notok" :class="{ active: tickState(i) === 'notOk' }"
-                                    :disabled="!run" title="not ok" @click="tick(i, 'notOk')">✗</button>
+                                    :disabled="!run" title="your call: not ok (a human verdict, not a runner failure)" @click="tick(i, 'notOk')">✗</button>
                             <span class="judge-text">{{ j.text }}</span>
+                            <span v-if="tickState(i) === 'notOk'" class="judge-verdict-tag">your verdict</span>
                             <code v-if="j.spec" class="spec-chip">{{ j.spec }}</code>
                         </div>
                     </template>
@@ -1602,7 +1799,9 @@ export const Palette = {
             else if (e.key === 'Enter') {
                 const entry = entries.value[selected.value];
                 if (entry) {
-                    if (e.ctrlKey || e.metaKey) pinEntry(entry);
+                    // Pin (Ctrl/⌘+Enter) only means something in Explore — it pins to the watch panel, which
+                    // Verify doesn't show. There, Ctrl+Enter just jumps like plain Enter.
+                    if ((e.ctrlKey || e.metaKey) && store.view === 'explorer') pinEntry(entry);
                     else jump(entry);
                 }
             } else if (e.key === 'Escape') {
@@ -1613,7 +1812,7 @@ export const Palette = {
         const valuePreview = entry => formatValue(
             store.values[valueKey(entry.service.id, entry.item.identifier)],
             (entry.item.presentation || {}).decimals ?? null);
-        return { query, selected, entries, inputEl, onKey, jump, pinEntry, pinnedEntry, close, valuePreview };
+        return { query, selected, entries, inputEl, onKey, jump, pinEntry, pinnedEntry, close, valuePreview, store, modKey: MOD_KEY };
     },
     template: `
         <div class="palette-backdrop" @click.self="close">
@@ -1632,7 +1831,7 @@ export const Palette = {
                     </div>
                     <div v-if="!entries.length" class="palette-empty">no matches</div>
                 </div>
-                <div class="palette-hint"><kbd>↵</kbd> jump · <kbd>ctrl ↵</kbd> pin · <kbd>esc</kbd> close</div>
+                <div class="palette-hint"><kbd>↵</kbd> jump<template v-if="store.view === 'explorer'"> · <kbd>{{ modKey }} ↵</kbd> pin</template> · <kbd>esc</kbd> close</div>
             </div>
         </div>
     `,
@@ -1701,15 +1900,20 @@ export const App = {
         onMounted(() => window.addEventListener('keydown', onKeydown));
         onUnmounted(() => window.removeEventListener('keydown', onKeydown));
 
-        // Four top-level views; each button toggles its view against the explorer default. The player
-        // additionally keeps the deep-link hash (RFC 0006 #/scenario/{id}) in sync.
+        // setView toggles a context view (topology, gallery) against the 'explorer' default — used by the
+        // context-zone chips, not the primary nav. (Explore / Verify are goExplore / goVerify below.)
         const setView = v => { store.view = store.view === v ? 'explorer' : v; };
-        const toggleScenarios = () => {
-            if (store.view === 'player') {
-                store.view = 'explorer';
-                if (location.hash) location.hash = '';
-                return;
-            }
+        // Two-zone nav (RFC 0012 §3): Explore and Verify are the two activities. Verify is the scenario
+        // player (keeps the #/scenario deep link); Explore is the default browse surface. Topology and
+        // gallery are reached from the context chip / overflow, not the primary nav.
+        const goExplore = () => {
+            // Clear any #/scenario deep link whenever returning to Explore — including via a topology/gallery
+            // detour (where store.view is no longer 'player') — so a reload doesn't silently restore Verify.
+            if (location.hash) location.hash = '';
+            store.view = 'explorer';
+        };
+        const goVerify = () => {
+            if (store.view === 'player') return;
             store.view = 'player';
             location.hash = store.scenarioId ? `#/scenario/${store.scenarioId}` : '#/scenarios';
         };
@@ -1726,15 +1930,56 @@ export const App = {
         return {
             store, blocks, sharedLookup, totals, theme, toggleTheme, matches, changedTotal,
             baselineClock, filterEl, setBaseline, clearBaseline, pauseHost, resumeHost,
-            confirmReset, setView, toggleScenarios, stepHost, advanceHost, steppedClock,
+            confirmReset, setView, goExplore, goVerify, stepHost, advanceHost, switchClockMode, steppedClock, paletteKeyLabel: PALETTE_KEY_LABEL,
         };
     },
     template: `
         <div class="app">
             <header class="topbar">
                 <span class="brand">DALE DevHost</span>
-                <code v-if="store.topologyName" class="topology-chip">{{ store.topologyName }}</code>
-                <span class="counts">{{ totals.blocks }} blocks · {{ totals.props }} properties</span>
+                <nav class="nav-seg">
+                    <button type="button" class="nav-tab" :class="{ active: store.view !== 'player' }"
+                            title="Explore — browse blocks, drive values, watch live state" @click="goExplore">Explore</button>
+                    <button type="button" class="nav-tab" :class="{ active: store.view === 'player' }"
+                            title="Verify — run a scenario and review its trace" @click="goVerify">Verify</button>
+                </nav>
+                <div class="context-zone">
+                    <button v-if="store.topologyName" type="button" class="topology-chip-btn" :class="{ active: store.view === 'topology', recycling: store.recycling }"
+                            :disabled="store.recycling"
+                            :title="store.recycling ? 'recycling the host — please wait' : (store.view === 'topology' ? 'close the topology view' : 'topology ' + store.topologyName + ' — view blocks/links and switch')"
+                            @click="setView('topology')">
+                        <span v-if="store.recycling"><span class="recycling-spin">♻</span> recycling…</span>
+                        <span v-else>⛁ {{ store.topologyName }} ▾</span>
+                    </button>
+                    <span v-if="store.stepped" class="stepped-chip" :class="{ 'run-owned': store.runActive }"
+                          :title="store.runActive ? 'a scenario run owns the virtual clock — manual stepping is paused until the run finishes' : 'deterministic stepping (dale dev --stepped) — the virtual clock advances only when you step it (in Explore) or a scenario runs.'">
+                        <span class="stepped-clock" title="virtual clock">⏱ t={{ steppedClock }}</span>
+                        <span v-if="store.runActive" class="run-owned-note" title="manual stepping is paused while a scenario run drives the clock">▶ run owns the clock</span>
+                    </span>
+                    <button v-if="store.canReset" type="button" class="theme-toggle clock-mode-toggle" :disabled="store.recycling"
+                            :title="store.stepped ? 'switch to a real-clock host — live wall-clock timers (recycles the host)' : 'switch to a stepped host — deterministic virtual clock (recycles the host)'"
+                            @click="switchClockMode(!store.stepped)">{{ store.stepped ? 'stepped' : 'real' }} ⇄</button>
+                    <button v-if="!store.paused" type="button" class="theme-toggle"
+                            title="pause time-driven activity — timers hold, writes still work" @click="pauseHost">⏸</button>
+                    <span v-else class="paused-chip">
+                        <span>⏸ paused</span>
+                        <button type="button" title="resume — held timers replay" @click="resumeHost">▶</button>
+                    </span>
+                    <button type="button" class="theme-toggle" :disabled="!store.canReset"
+                            :title="store.canReset ? 'recycle the host — fresh start without leaving the browser' : 'reset needs a supervised host (DevHostWebRunner.RunAsync with a host factory)'"
+                            @click="confirmReset">↻</button>
+                    <button type="button" class="theme-toggle" :title="'jump to a property (' + paletteKeyLabel + ')'" @click="store.paletteOpen = true">{{ paletteKeyLabel }}</button>
+                    <button type="button" class="theme-toggle" :class="{ 'view-active': store.view === 'gallery' }"
+                            :title="store.view === 'gallery' ? 'close the gallery' : 'gallery — how authored presentation renders, on sample values'"
+                            @click="setView('gallery')">▦</button>
+                    <span class="conn" :class="store.connected ? 'connected' : 'disconnected'">
+                        <span class="conn-dot"></span>{{ store.connected ? 'live' : 'disconnected' }}
+                    </span>
+                    <button type="button" class="theme-toggle" :title="'switch to ' + (theme === 'dark' ? 'light' : 'dark')"
+                            @click="toggleTheme">{{ theme === 'dark' ? '☾' : '☀' }}</button>
+                </div>
+            </header>
+            <div v-if="store.view === 'explorer'" class="workspace-bar">
                 <span class="filter-wrap">
                     <input ref="filterEl" type="text" class="filter-input" :value="store.filter"
                            placeholder="filter · name:value · >50"
@@ -1749,39 +1994,14 @@ export const App = {
                     <button type="button" title="re-snapshot (b)" @click="setBaseline">↺</button>
                     <button type="button" title="clear baseline" @click="clearBaseline">✕</button>
                 </span>
-                <span v-if="store.stepped" class="stepped-chip"
-                      title="deterministic stepping (dale dev --stepped) — the virtual clock advances only when you step it or a scenario runs, so runs are exact and reproducible.">
-                    <span>⏱ stepped</span>
-                    <span class="stepped-clock" title="virtual clock">t={{ steppedClock }}</span>
-                    <button type="button" title="advance to the next scheduled event" @click="stepHost">↦</button>
-                    <button type="button" title="advance 1 virtual second" @click="advanceHost(1)">+1s</button>
-                    <button type="button" title="advance 10 virtual seconds" @click="advanceHost(10)">+10s</button>
+                <span class="counts">{{ totals.blocks }} blocks · {{ totals.props }} properties</span>
+                <span class="ws-spacer"></span>
+                <span v-if="store.stepped && !store.runActive" class="step-controls">
+                    <button type="button" title="advance the virtual clock to the next scheduled event" @click="stepHost">↦ step</button>
+                    <button type="button" title="advance the virtual clock 1 second" @click="advanceHost(1)">+1s</button>
+                    <button type="button" title="advance the virtual clock 10 seconds" @click="advanceHost(10)">+10s</button>
                 </span>
-                <button v-if="!store.paused" type="button" class="theme-toggle"
-                        title="pause time-driven activity — timers hold, writes still work"
-                        @click="pauseHost">⏸ pause</button>
-                <span v-else class="paused-chip">
-                    <span>⏸ paused</span>
-                    <button type="button" title="resume — held timers replay" @click="resumeHost">▶</button>
-                </span>
-                <button type="button" class="theme-toggle" :disabled="!store.canReset"
-                        :title="store.canReset ? 'recycle the host — fresh start without leaving the browser' : 'reset needs a supervised host (DevHostWebRunner.RunAsync with a host factory)'"
-                        @click="confirmReset">↻ reset</button>
-                <button type="button" class="theme-toggle" :class="{ 'view-active': store.view === 'topology' }"
-                        :title="store.view === 'topology' ? 'back to the explorer' : 'topology — blocks, links, mocked IO'"
-                        @click="setView('topology')">⛁ topology</button>
-                <button type="button" class="theme-toggle" :class="{ 'view-active': store.view === 'gallery' }"
-                        :title="store.view === 'gallery' ? 'back to the explorer' : 'gallery — how authored presentation renders, on sample values'"
-                        @click="setView('gallery')">▦ gallery</button>
-                <button type="button" class="theme-toggle" :class="{ 'view-active': store.view === 'player' }"
-                        :title="store.view === 'player' ? 'back to the explorer' : 'scenarios — staged verification runs (RFC 0006)'"
-                        @click="toggleScenarios">▶ scenarios</button>
-                <span class="conn" :class="store.connected ? 'connected' : 'disconnected'">
-                    <span class="conn-dot"></span>{{ store.connected ? 'live' : 'disconnected' }}
-                </span>
-                <button type="button" class="theme-toggle" :title="'switch to ' + (theme === 'dark' ? 'light' : 'dark')"
-                        @click="toggleTheme">{{ theme === 'dark' ? '☾' : '☀' }}</button>
-            </header>
+            </div>
             <div v-if="store.error" class="error-toast">{{ store.error }}</div>
             <div v-if="store.loading" class="loading">Loading configuration…</div>
             <div v-else-if="store.view === 'topology'" class="layout">
@@ -1806,6 +2026,9 @@ export const App = {
                     <BlockCard v-for="lb in blocks" :key="lb.id" :lb="lb" :sharedLookup="sharedLookup"/>
                 </main>
                 <WatchPanel/>
+            </div>
+            <div v-if="store.recycling" class="recycling-overlay">
+                <div class="recycling-card"><span class="recycling-spin">♻</span> recycling the host… <span class="recycling-sub">rebuilding the network on a fresh clock</span></div>
             </div>
             <Palette v-if="store.paletteOpen"/>
         </div>

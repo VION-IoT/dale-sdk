@@ -169,24 +169,6 @@
         }
       }
     },
-    "waitStep": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["wait"],
-      "properties": {
-        "label": { "$ref": "#/$defs/stepCommon/label" },
-        "spec": { "$ref": "#/$defs/stepCommon/spec" },
-        "wait": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["seconds"],
-          "properties": {
-            "seconds": { "type": "number", "exclusiveMinimum": 0 }
-          }
-        }
-      },
-      "description": "Fixed wall-clock pause for stimulus pacing (non-deterministic). Prefer advance on a stepped host."
-    },
     "advanceStep": {
       "type": "object",
       "additionalProperties": false,
@@ -199,11 +181,11 @@
           "additionalProperties": false,
           "required": ["seconds"],
           "properties": {
-            "seconds": { "type": "number", "exclusiveMinimum": 0, "description": "Virtual seconds to advance the stepped host's clock." }
+            "seconds": { "type": "number", "exclusiveMinimum": 0, "description": "Seconds of time to let elapse — virtual on a stepped host, real wall-clock on a real-clock host." }
           }
         }
       },
-      "description": "Deterministic virtual-time advance (stepped host only). Fires every scheduled timer event within the budget."
+      "description": "Let time elapse by a fixed budget. Host-adaptive: a stepped host advances the virtual clock instantly and deterministically (firing every scheduled timer within the budget); a real-clock host waits the same span of real wall-clock time, during which real timers fire."
     },
     "settleStep": {
       "type": "object",
@@ -222,11 +204,11 @@
               "items": { "$ref": "#/$defs/namePath" },
               "description": "Explicit target paths that must stabilize for convergence; omit to settle over the whole watch list. A large watch set is for observability — scope settle to the specific values meant to settle so a volatile tile (free-running counter / clock-derived value / noisy sensor) does not burn the budget."
             },
-            "maxSeconds": { "type": "number", "exclusiveMinimum": 0, "default": 60, "description": "Maximum virtual seconds to spend waiting for convergence." }
+            "maxSeconds": { "type": "number", "exclusiveMinimum": 0, "default": 60, "description": "Maximum seconds (virtual on a stepped host, real on a real-clock host) to spend waiting for convergence." }
           }
         }
       },
-      "description": "Advance hop-by-hop until the targeted signals stop changing (stepped host only). The targeted set is settle.until when given, else the whole watch list. Converges when no targeted value changed across one hop; FAILS the step if the maxSeconds budget elapses while a target is still changing."
+      "description": "Let the targeted signals run until they stop changing. Host-adaptive: a stepped host advances hop-by-hop; a real-clock host polls until the targets hold steady across a short quiet window. The targeted set is settle.until when given, else the whole watch list. FAILS the step if the maxSeconds budget elapses while a target is still changing."
     },
     "serviceProviderRef": {
       "type": "object",
@@ -298,7 +280,6 @@
         { "$ref": "#/$defs/serviceProviderExpectStep" },
         { "$ref": "#/$defs/waitUntilStep" },
         { "$ref": "#/$defs/expectStep" },
-        { "$ref": "#/$defs/waitStep" },
         { "$ref": "#/$defs/advanceStep" },
         { "$ref": "#/$defs/settleStep" }
       ]

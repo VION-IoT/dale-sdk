@@ -35,7 +35,7 @@ namespace Vion.Dale.DevHost.Scenarios
 
     /// <summary>
     ///     The resolved addressing for one step — exactly one of <see cref="Property" /> / <see cref="Contract" />
-    ///     is set (wait / advance / settle steps have neither). For an <c>expect</c> with a relational
+    ///     is set (advance / settle steps have neither). For an <c>expect</c> with a relational
     ///     <c>{path}</c> comparand, <see cref="Comparand" /> additionally carries that path's resolution.
     /// </summary>
     internal sealed record ResolvedStep(ResolvedProperty? Property, ResolvedContract? Contract, ResolvedProperty? Comparand = null);
@@ -135,7 +135,7 @@ namespace Vion.Dale.DevHost.Scenarios
                     return new ResolvedStep(null,
                                             ResolveServiceProviderContract(step.ServiceProviderExpect!.LogicBlock, step.ServiceProviderExpect.Contract, false, where, errors));
 
-                default: // wait — nothing to resolve
+                default: // advance / settle — no name path to resolve
                     return new ResolvedStep(null, null);
             }
         }

@@ -126,6 +126,7 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
                           canReset = _control.CanReset,
                           stepped = _control.IsStepped,
                           virtualTimeUtc = _control.VirtualTimeUtc,
+                          runActive = _runs.HasActiveRun,
                       });
         }
 
@@ -196,10 +197,25 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
         {
             if (!_control.TryRequestReset())
             {
-                return Conflict(new { error = "Host is not supervised — pass a host factory to DevHostWebRunner.RunAsync to enable reset." });
+                return Conflict(new { error = "Host is not supervised — pass a host factory to DevHostWebRunner.RunAsync to enable reset.", reason = "notSupervised" });
             }
 
             return Accepted();
+        }
+
+        /// <summary>
+        ///     Switch the host's clock mode (RFC 0012 §4): rebuild the host stepped (deterministic) or real
+        ///     (wall-clock). Rides the recycle — 202 when a supervisor picked it up, 409 when unsupervised.
+        /// </summary>
+        [HttpPost("control/clock-mode")]
+        public ActionResult ClockMode([FromQuery] bool stepped)
+        {
+            if (!_control.TryRequestClockMode(stepped))
+            {
+                return Conflict(new { error = "Host is not supervised — clock-mode switching needs DevHostWebRunner.RunAsync with a host factory.", reason = "notSupervised" });
+            }
+
+            return Accepted(new { recycling = true, stepped });
         }
 
         /// <summary>Inter-block messages captured by the tap, optionally filtered to a logic block (by name or id).</summary>
@@ -223,12 +239,12 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
         {
             if (!_control.IsStepped)
             {
-                return Conflict(new { error = "not a stepped host — start it with `dale dev --stepped` to step the virtual clock by hand" });
+                return Conflict(new { error = "not a stepped host — start it with `dale dev --stepped` to step the virtual clock by hand", reason = "notStepped" });
             }
 
             if (_runs.HasActiveRun)
             {
-                return Conflict(new { error = "a scenario run is driving the clock — stepping is unavailable until it finishes" });
+                return Conflict(new { error = "a scenario run is driving the clock — stepping is unavailable until it finishes", reason = "runActive" });
             }
 
             return null;

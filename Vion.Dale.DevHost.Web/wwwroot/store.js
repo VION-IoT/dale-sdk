@@ -9,6 +9,9 @@ export const store = reactive({
     loading: true,
     error: null,
     connected: false,
+    // A host recycle (topology switch / reset / recycle-on-run) is in flight — the workspace shows a
+    // determinate "recycling…" busy state until the fresh generation answers (cleared in reinitClientState).
+    recycling: false,
     config: null,
     topologyName: null,
     // `${serviceId}/${identifier}` -> last published property / measuring-point value
@@ -41,6 +44,9 @@ export const store = reactive({
     paused: false,
     canReset: false,
     stepped: false,
+    // True while a scenario run owns the virtual clock (stepped mode only); clears when the run
+    // reaches a terminal status or fetchControlStatus resyncs. Manual stepping is blocked while true.
+    runActive: false,
     // The host's virtual clock (ISO string), shown in the stepped-mode control cluster.
     virtualTime: null,
     // Top-level view: 'explorer' (default), 'topology', 'gallery', or 'player' (scenarios, RFC 0006).
@@ -277,6 +283,7 @@ async function fetchControlStatus() {
         store.canReset = !!status.canReset;
         store.stepped = !!status.stepped;
         store.virtualTime = status.virtualTimeUtc ?? null;
+        store.runActive = !!status.runActive;
     } catch (err) {
         console.warn('Could not fetch control status', err);
     }
@@ -339,6 +346,7 @@ export async function resetHost() {
         }
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         store.connected = false;
+        store.recycling = true;
         // The fresh generation has no run history — reflect "as if not run" immediately instead of
         // waiting for the reconnect to re-discover it.
         store.run = null;
@@ -399,6 +407,7 @@ async function reinitClientState() {
         return false;
     } finally {
         reinitInFlight = false;
+        store.recycling = false;
     }
 }
 
@@ -562,9 +571,29 @@ export async function switchTopology(id) {
         }
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         store.connected = false;
+        store.recycling = true;
         store.run = null;
     } catch (err) {
         showError(`Failed to switch topology: ${err.message ?? err}`);
+    }
+}
+
+// Switch the host's clock mode (stepped ⇄ real, RFC 0012 §4): rebuilds the host in the other mode,
+// riding the same recycle as a topology switch (the reconnect path rebuilds the client state).
+export async function switchClockMode(stepped) {
+    try {
+        const response = await fetch(`/api/control/clock-mode?stepped=${stepped}`, { method: 'POST' });
+        if (response.status === 409) {
+            const body = await response.json().catch(() => ({}));
+            showError(body.error || 'Clock-mode switching needs a supervised host.');
+            return;
+        }
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        store.connected = false;
+        store.recycling = true;
+        store.run = null;
+    } catch (err) {
+        showError(`Failed to switch clock mode: ${err.message ?? err}`);
     }
 }
 
@@ -636,6 +665,7 @@ export function closeScenario() {
     store.scenarioFileHash = null;
     store.scenarioError = null;
     store.run = null;
+    store.runActive = false;
     loadScenarios();
     if (location.hash.startsWith('#/scenario/')) location.hash = '#/scenarios';
 }
@@ -646,7 +676,10 @@ async function refreshRun(id) {
         if (response.status === 404) return;
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const report = await response.json();
-        if (store.scenarioId === id) store.run = report;
+        if (store.scenarioId === id) {
+            store.run = report;
+            store.runActive = report.status === 'running';
+        }
     } catch (err) {
         console.warn('Could not fetch run status', err);
     }
@@ -696,9 +729,11 @@ export async function applyScenario(id, { restart = false } = {}) {
             store.pendingScenarioRun = { id, restart };
             store.run = null;
             store.connected = false;
+            store.recycling = true;
             return;
         }
 
+        store.runActive = true;
         await refreshRun(id);
         pollRun(id);
     } catch (err) {
