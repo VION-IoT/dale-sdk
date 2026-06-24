@@ -509,31 +509,36 @@ namespace Vion.Dale.DevHost.Test.Stepping
         }
 
         /// <summary>
-        ///     <c>advance</c> on a real-clock host fails the step with a clear, author-facing message that
-        ///     guides to stepped mode. It is pre-empted before the stepper runs, so the detail does NOT leak
-        ///     the FakeTimeProvider / TimeProvider internals (it is read by scenario authors, not just devs).
+        ///     <c>advance</c> on a real-clock host is host-adaptive (RFC 0006): rather than failing, it waits the
+        ///     requested span of real wall-clock time, during which the host's real timers fire — so the step
+        ///     succeeds and the world actually moved (the Ticker's [Timer(1)] ticks at least once over 1.5 s).
         /// </summary>
         [TestMethod]
-        public async Task AdvanceStep_OnRealClockHost_FailsStepWithHelpfulMessage()
+        public async Task AdvanceStep_OnRealClockHost_WaitsRealTime_AndTimersFire()
         {
             // Build WITHOUT registering a FakeTimeProvider — the real TimeProvider.System is in place.
             var config = DevConfigurationBuilder.Create().WithTopologyName("stepping-topology").AddLogicBlock<TickerBlock>("Ticker").Build();
             await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).Build();
             await host.StartAsync();
+            Assert.IsFalse(host.Control.IsStepped, "precondition: a real-clock host (no FakeTimeProvider).");
 
             var scenario = ScenarioFile.Parse("""
                                               {
                                                 "version": 1, "id": "advance-real-clock", "topology": "stepping-topology",
-                                                "steps": [ { "advance": { "seconds": 1 } } ]
+                                                "watch": ["Ticker.Ticks"],
+                                                "steps": [ { "advance": { "seconds": 1.5 } } ]
                                               }
                                               """);
 
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
-            Assert.AreEqual(ScenarioRunStatus.Failed, report.Status, Join(report));
-            var detail = report.Steps[0].Detail ?? string.Empty;
-            StringAssert.Contains(detail, "stepped mode", $"Detail should guide the author to stepped mode. Got: {detail}");
-            Assert.AreEqual(-1, detail.IndexOf("FakeTimeProvider", StringComparison.Ordinal), $"Detail must not leak clock internals. Got: {detail}");
+            Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
+            Assert.AreEqual(ScenarioStepStatus.Ok, report.Steps[0].Status, Join(report));
+
+            // The advance waited real wall-clock time, so the Ticker's real [Timer(1)] fired during it — the
+            // world moved rather than freezing (the old wait-in-stepped trap, inverted onto the real clock).
+            var ticks = (int)host.Control.GetProperty("Ticker", "Ticks")!;
+            Assert.IsGreaterThanOrEqualTo(1, ticks, $"the real timer should have ticked during the real-time advance (got {ticks}).");
         }
 
         // ── report rendering ──────────────────────────────────────────────────────────────────────────

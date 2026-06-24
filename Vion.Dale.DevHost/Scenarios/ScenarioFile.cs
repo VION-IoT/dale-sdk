@@ -186,7 +186,7 @@ namespace Vion.Dale.DevHost.Scenarios
 
     /// <summary>
     ///     One setup entry or step — exactly one of the closed shapes (<c>set</c>, <c>digitalInput</c> /
-    ///     <c>analogInput</c>, <c>waitUntil</c>, <c>expect</c>, <c>wait</c>, <c>advance</c>, <c>settle</c>),
+    ///     <c>analogInput</c>, <c>waitUntil</c>, <c>expect</c>, <c>advance</c>, <c>settle</c>),
     ///     each with optional <c>label</c> and <c>spec</c>.
     /// </summary>
     public sealed class ScenarioStep
@@ -215,14 +215,15 @@ namespace Vion.Dale.DevHost.Scenarios
 
         public double? TimeoutSeconds { get; init; }
 
-        public ScenarioWaitStep? Wait { get; init; }
-
-        /// <summary>Advances the host's virtual clock by a deterministic time budget (stepped-host only).</summary>
+        /// <summary>
+        ///     Lets time elapse by a fixed budget — virtual on a stepped host (instant, deterministic), real wall-clock on a
+        ///     real-clock host.
+        /// </summary>
         public ScenarioAdvance? Advance { get; init; }
 
         /// <summary>
-        ///     Advance hop-by-hop until the watched signals stop changing (or the virtual-time budget is
-        ///     exhausted). Stepped-host only.
+        ///     Let the watched signals run until they stop changing (or the budget is exhausted) — virtual
+        ///     hop-by-hop on a stepped host, real-time polling on a real-clock host.
         /// </summary>
         public ScenarioSettle? Settle { get; init; }
 
@@ -267,7 +268,7 @@ namespace Vion.Dale.DevHost.Scenarios
                     return "settle";
                 }
 
-                return "wait";
+                return "unknown";
             }
         }
 
@@ -299,11 +300,6 @@ namespace Vion.Dale.DevHost.Scenarios
                 shapes++;
             }
 
-            if (Wait is not null)
-            {
-                shapes++;
-            }
-
             if (Advance is not null)
             {
                 shapes++;
@@ -316,13 +312,12 @@ namespace Vion.Dale.DevHost.Scenarios
 
             if (shapes != 1)
             {
-                yield return "a step is exactly one of set / serviceProviderSet / serviceProviderExpect / waitUntil / expect / wait / advance / settle";
+                yield return "a step is exactly one of set / serviceProviderSet / serviceProviderExpect / waitUntil / expect / advance / settle";
 
                 yield break;
             }
 
-            if (setupOnlyShapes && (WaitUntil is not null || Expect is not null || ServiceProviderExpect is not null || Wait is not null || Advance is not null ||
-                                    Settle is not null))
+            if (setupOnlyShapes && (WaitUntil is not null || Expect is not null || ServiceProviderExpect is not null || Advance is not null || Settle is not null))
             {
                 yield return "setup entries stage state (set / serviceProviderSet) — waits, expects, output asserts, and time steps belong in steps";
 
@@ -390,11 +385,6 @@ namespace Vion.Dale.DevHost.Scenarios
                 {
                     yield return error;
                 }
-            }
-
-            if (Wait is not null && Wait.Seconds <= 0)
-            {
-                yield return "wait.seconds must be positive";
             }
 
             if (Advance is not null && Advance.Seconds <= 0)
@@ -725,16 +715,11 @@ namespace Vion.Dale.DevHost.Scenarios
         }
     }
 
-    /// <summary>A fixed pause for stimulus pacing (<c>wait</c>) — shaping inputs over time, never awaiting outcomes.</summary>
-    public sealed class ScenarioWaitStep
-    {
-        public double Seconds { get; init; }
-    }
-
     /// <summary>
-    ///     Deterministic virtual-time advance (<c>advance</c>) — advances the host's virtual clock by exactly
-    ///     <see cref="Seconds" /> of simulated time, firing every scheduled event due within the budget.
-    ///     Requires a stepped host (<c>FakeTimeProvider</c>).
+    ///     Let time elapse by a fixed budget (<c>advance</c>) — host-adaptive: on a stepped host it advances
+    ///     the virtual clock by exactly <see cref="Seconds" /> of simulated time (instant, deterministic,
+    ///     firing every scheduled event due within the budget); on a real-clock host it waits
+    ///     <see cref="Seconds" /> of real wall-clock time, during which the host's real timers fire.
     /// </summary>
     public sealed class ScenarioAdvance
     {
@@ -742,9 +727,11 @@ namespace Vion.Dale.DevHost.Scenarios
     }
 
     /// <summary>
-    ///     Settle until the targeted paths stop changing (<c>settle</c>) — advances hop-by-hop via
-    ///     <c>AdvanceToNextEventAsync</c> until every targeted value is stable across one hop, or until
-    ///     <see cref="MaxSeconds" /> of virtual time elapse (default 60 s). The targeted set is
+    ///     Settle until the targeted paths stop changing (<c>settle</c>) — host-adaptive: on a stepped host it
+    ///     advances hop-by-hop via <c>AdvanceToNextEventAsync</c> until every targeted value is stable across
+    ///     one hop; on a real-clock host it polls on a fixed cadence until the targets hold steady across a
+    ///     short quiet window. Fails if <see cref="MaxSeconds" /> (default 60 s) elapses while a target still
+    ///     moves. The targeted set is
     ///     <see cref="Until" /> when given, else the scenario's <c>watch</c> list — a large watch set is for
     ///     observability and need not all settle (RFC 0008 §8.6). Non-convergence FAILS the step, naming the
     ///     still-changing target. Requires a stepped host.

@@ -79,7 +79,7 @@ namespace Vion.Dale.Cli.Test.Commands
                                                           { "set": "DualPoint.PointA.Limit", "value": 2.5 },
                                                           { "serviceProviderSet": { "logicBlock": "Counter", "contract": "EnableInput" }, "value": true },
                                                           { "waitUntil": { "property": "Counter.CounterDoubled", "above": 1 }, "timeoutSeconds": 5 },
-                                                          { "wait": { "seconds": 0.5 } }
+                                                          { "advance": { "seconds": 0.5 } }
                                                         ],
                                                         "watch": [ "Counter.Counter" ],
                                                         "judge": [ { "text": "looks right" } ]
@@ -186,12 +186,12 @@ namespace Vion.Dale.Cli.Test.Commands
             var outcome = ScenarioFileChecks.Validate("steps.scenario.json",
                                                       """
                                                       { "version": 1, "id": "steps", "topology": "demo",
-                                                        "setup": [ { "wait": { "seconds": 1 } } ],
+                                                        "setup": [ { "advance": { "seconds": 1 } } ],
                                                         "steps": [
-                                                          { "set": "Counter.Counter", "value": 1, "wait": { "seconds": 1 } },
+                                                          { "set": "Counter.Counter", "value": 1, "advance": { "seconds": 1 } },
                                                           { "waitUntil": { "property": "Counter.Counter", "above": 1, "below": 2 } },
                                                           { "serviceProviderSet": { "logicBlock": "Counter", "contract": "EnableInput" } },
-                                                          { "wait": { "seconds": 0 } }
+                                                          { "advance": { "seconds": 0 } }
                                                         ] }
                                                       """,
                                                       Config);
@@ -199,7 +199,7 @@ namespace Vion.Dale.Cli.Test.Commands
             Assert.IsTrue(outcome.Errors.Any(e => e.Contains("exactly one of set")), string.Join("; ", outcome.Errors));
             Assert.IsTrue(outcome.Errors.Any(e => e.Contains("exactly one of above")), string.Join("; ", outcome.Errors));
             Assert.IsTrue(outcome.Errors.Any(e => e.Contains("serviceProviderSet requires value")), string.Join("; ", outcome.Errors));
-            Assert.IsTrue(outcome.Errors.Any(e => e.Contains("wait.seconds")), string.Join("; ", outcome.Errors));
+            Assert.IsTrue(outcome.Errors.Any(e => e.Contains("advance.seconds")), string.Join("; ", outcome.Errors));
         }
 
         [TestMethod]

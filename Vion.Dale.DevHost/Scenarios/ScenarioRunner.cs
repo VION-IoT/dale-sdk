@@ -217,7 +217,7 @@ namespace Vion.Dale.DevHost.Scenarios
                                "expect" => step.Expect!.Property ?? string.Empty,
                                "advance" => string.Empty,
                                "settle" => step.Settle!.Until is { } until ? $"until {string.Join(", ", until)}" : "until stable",
-                               _ => $"{step.Wait!.Seconds.ToString(CultureInfo.InvariantCulture)} s",
+                               _ => string.Empty,
                            },
                            Argument = step.Kind switch
                            {
@@ -505,36 +505,24 @@ namespace Vion.Dale.DevHost.Scenarios
                         break;
 
                     case "advance":
-                        if (!control.IsStepped)
+                        // Host-adaptive (RFC 0006): a stepped host jumps virtual time deterministically and
+                        // instantly; a real-clock host waits the same span of real wall-clock time, during which
+                        // its real timers fire. Either way the step means "let N seconds of time elapse".
+                        if (control.IsStepped)
                         {
-                            result.Detail =
-                                "the 'advance' step fast-forwards the virtual clock, which a real-clock host does not have — run this scenario in stepped mode (dale dev --stepped), or use a 'wait' step for a real-time delay";
-                            Fail(result,
-                                 report,
-                                 progress,
-                                 stopwatch,
-                                 control,
-                                 virtualStart);
-                            return false;
+                            await control.AdvanceAsync(TimeSpan.FromSeconds(step.Advance!.Seconds), cancellationToken).ConfigureAwait(false);
+                        }
+                        else
+                        {
+                            result.Detail = "real wall-clock wait (non-deterministic on a real clock)";
+                            await Task.Delay(TimeSpan.FromSeconds(step.Advance!.Seconds), cancellationToken).ConfigureAwait(false);
                         }
 
-                        await control.AdvanceAsync(TimeSpan.FromSeconds(step.Advance!.Seconds), cancellationToken).ConfigureAwait(false);
                         break;
 
                     case "settle":
-                        if (!control.IsStepped)
-                        {
-                            result.Detail =
-                                "the 'settle' step advances the virtual clock hop-by-hop, which a real-clock host does not have — run this scenario in stepped mode, or use 'waitUntil' to wait on a condition in real time";
-                            Fail(result,
-                                 report,
-                                 progress,
-                                 stopwatch,
-                                 control,
-                                 virtualStart);
-                            return false;
-                        }
-
+                        // Host-adaptive: SettleAsync advances virtual hop-by-hop on a stepped host, or polls in
+                        // real time until the targets hold steady on a real-clock host.
                         if (!await SettleAsync(step, watchPaths, control, result, cancellationToken).ConfigureAwait(false))
                         {
                             Fail(result,
@@ -548,10 +536,9 @@ namespace Vion.Dale.DevHost.Scenarios
 
                         break;
 
-                    default: // wait
-                        result.Detail = "wall-clock delay (non-deterministic) — prefer advance for stepped hosts";
-                        await Task.Delay(TimeSpan.FromSeconds(step.Wait!.Seconds), cancellationToken).ConfigureAwait(false);
-                        break;
+                    default:
+                        // Unreachable: step.Kind is always one of the validated shapes above (EnsureStructurallyValid).
+                        throw new InvalidOperationException($"unhandled scenario step kind '{step.Kind}'");
                 }
             }
             catch (OperationCanceledException)
@@ -895,9 +882,62 @@ namespace Vion.Dale.DevHost.Scenarios
                 return -1;
             }
 
+            // control.VirtualTimeUtc is the provider's "now": virtual time on a stepped host, real wall-clock
+            // time on a real-clock host — so the budget arithmetic below works in either mode.
             var virtualStart = control.VirtualTimeUtc;
             var deadline = virtualStart + budget;
             var hops = 0;
+
+            if (!control.IsStepped)
+            {
+                // Real-clock settle: no virtual hops to jump, so poll the targets on a fixed cadence and treat
+                // them as settled only once they hold steady across a short quiet window (a few consecutive
+                // polls) — otherwise a signal that updates slower than the poll would look stable after a single
+                // quiet tick. Fail if the real-time budget elapses while a target still moves.
+                var pollInterval = TimeSpan.FromMilliseconds(100);
+                const int requiredStablePolls = 3;
+                var stable = 0;
+                var prev = Snapshot();
+                var lastChangedIndex = -1;
+                object? lastFrom = null;
+                object? lastTo = null;
+
+                while (true)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    await Task.Delay(pollInterval, cancellationToken).ConfigureAwait(false);
+                    hops++;
+                    var now = Snapshot();
+                    var changed = FirstChanged(prev, now);
+                    var elapsed = (control.VirtualTimeUtc - virtualStart).TotalSeconds;
+
+                    if (changed < 0)
+                    {
+                        if (++stable >= requiredStablePolls)
+                        {
+                            result.Detail = $"converged after {hops} poll{(hops == 1 ? "" : "s")} / {elapsed.ToString("0.###", CultureInfo.InvariantCulture)} s";
+                            return true;
+                        }
+                    }
+                    else
+                    {
+                        stable = 0;
+                        lastChangedIndex = changed;
+                        lastFrom = prev[changed];
+                        lastTo = now[changed];
+                    }
+
+                    prev = now;
+
+                    if (control.VirtualTimeUtc >= deadline)
+                    {
+                        var who = lastChangedIndex >= 0 ? lastChangedIndex : 0;
+                        result.Detail =
+                            $"did not converge within {maxSeconds.ToString(CultureInfo.InvariantCulture)} s — {targetPaths[who]} still changing ({Display(lastFrom)} → {Display(lastTo)}) after {hops} poll{(hops == 1 ? "" : "s")} / {elapsed.ToString("0.###", CultureInfo.InvariantCulture)} s";
+                        return false;
+                    }
+                }
+            }
 
             while (true)
             {

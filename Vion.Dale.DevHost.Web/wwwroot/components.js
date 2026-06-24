@@ -1579,8 +1579,7 @@ export const PlayerPanel = {
                     : s.waitUntil ? 'waitUntil'
                     : s.expect ? 'expect'
                     : s.advance ? 'advance'
-                    : s.settle !== undefined ? 'settle'
-                    : s.wait ? 'wait' : 'unknown',
+                    : s.settle !== undefined ? 'settle' : 'unknown',
                 label: s.label,
                 spec: s.spec,
                 target: s.set !== undefined ? s.set
@@ -1589,8 +1588,7 @@ export const PlayerPanel = {
                     : s.waitUntil ? s.waitUntil.property
                     : s.expect ? s.expect.property
                     : s.advance ? ''
-                    : s.settle !== undefined ? (s.settle.until ? `until ${s.settle.until.join(', ')}` : 'until stable')
-                    : s.wait ? `${s.wait.seconds} s` : '?',
+                    : s.settle !== undefined ? (s.settle.until ? `until ${s.settle.until.join(', ')}` : 'until stable') : '?',
                 argument: s.serviceProviderExpect ? describeOutputAssert(s.serviceProviderExpect)
                     : 'value' in s ? JSON.stringify(s.value)
                     : s.waitUntil ? describeWaitUntil(s.waitUntil, s.timeoutSeconds)
@@ -1625,22 +1623,7 @@ export const PlayerPanel = {
             const entry = entries2.find(e => e.id === store.scenarioId);
             return entry ? entry.error : null;
         });
-        // 'advance' / 'settle' steps fast-forward the deterministic virtual clock — they only exist on a
-        // stepped host (RFC 0008). On a real-clock host they can't run, so detect them and block the run
-        // (with a one-click switch to stepped) instead of letting it start and fail mid-scenario.
-        const requiresStepping = computed(() => {
-            const s = scenario.value;
-            if (!s) return false;
-            return [...(s.setup || []), ...(s.steps || [])].some(step => step && (step.advance !== undefined || step.settle !== undefined));
-        });
-        const steppingBlocked = computed(() => requiresStepping.value && !store.stepped);
-        // Don't stack the topology-mismatch note on top of the stepping block — the stepping block is the
-        // hard stop (no point recycling onto a topology you can't run the scenario on anyway).
-        const showMismatchNote = computed(() => mismatch.value && !steppingBlocked.value);
-        const start = () => {
-            if (steppingBlocked.value) return;
-            applyScenario(store.scenarioId, { restart: running.value });
-        };
+        const start = () => applyScenario(store.scenarioId, { restart: running.value });
         const tick = (index, verdict) => {
             if (run.value) setJudgeTick(run.value.runId, index, verdict);
         };
@@ -1670,7 +1653,7 @@ export const PlayerPanel = {
             store, entries, directory, scenario, run, running, mismatch, mismatchText, setupSteps,
             steps, judge, statusClass, staleRun, runLabel, heading, entryError, start, tick,
             tickState, copyReport, reload, open: openScenario, close: closeScenario,
-            tagFilter, allTags, filteredEntries, toggleTag, requiresStepping, steppingBlocked, showMismatchNote, switchClockMode,
+            tagFilter, allTags, filteredEntries, toggleTag,
         };
     },
     template: `
@@ -1709,8 +1692,8 @@ export const PlayerPanel = {
                     <span v-if="staleRun" class="stale-chip" title="the file on disk no longer matches the file this run executed — the report below is about the older version">file changed since this run</span>
                     <span v-if="run" class="run-status" :class="statusClass">{{ run.status }}</span>
                     <button type="button" class="theme-toggle" title="re-read the file from disk" @click="reload">⟳</button>
-                    <button type="button" class="trigger-button" :disabled="steppingBlocked"
-                            :title="steppingBlocked ? 'this scenario advances the virtual clock — switch to stepped mode to run it' : (running ? 'cancel the active run and start over' : 'run this scenario')"
+                    <button type="button" class="trigger-button"
+                            :title="running ? 'cancel the active run and start over' : 'run this scenario'"
                             @click="start()">{{ runLabel }}</button>
                 </div>
                 <div v-if="store.scenarioError" class="player-empty">{{ store.scenarioError }}</div>
@@ -1722,11 +1705,7 @@ export const PlayerPanel = {
                     <details class="scenario-file"><summary>{ } scenario file</summary>
                         <pre class="mono">{{ store.scenarioRaw }}</pre>
                     </details>
-                    <div v-if="steppingBlocked" class="player-interstitial stepping-blocked">
-                        <span>⚠ This scenario advances the virtual clock, which a real-clock host doesn't have — it needs stepped mode.</span>
-                        <button type="button" class="theme-toggle" @click="switchClockMode(true)">⇄ switch to stepped</button>
-                    </div>
-                    <div v-if="showMismatchNote" class="player-interstitial">
+                    <div v-if="mismatch" class="player-interstitial">
                         <span>⚠ {{ mismatchText }}</span>
                     </div>
                     <div v-if="run" class="player-validation">

@@ -475,10 +475,6 @@ namespace Vion.Dale.Cli.Commands
                 {
                     body = $"waitUntil {waitUntil["property"]?.GetValue<string>()} {DescribeComparator(waitUntil)}";
                 }
-                else if (step["wait"] is JsonObject wait)
-                {
-                    body = $"wait {wait["seconds"]}s";
-                }
                 else
                 {
                     body = "(step)";
