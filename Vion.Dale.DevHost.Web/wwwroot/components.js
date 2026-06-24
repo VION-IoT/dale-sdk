@@ -1916,9 +1916,13 @@ export const App = {
                             title="Verify — run a scenario and review its trace" @click="goVerify">Verify</button>
                 </nav>
                 <div class="context-zone">
-                    <button v-if="store.topologyName" type="button" class="topology-chip-btn" :class="{ active: store.view === 'topology' }"
-                            :title="store.view === 'topology' ? 'close the topology view' : 'topology ' + store.topologyName + ' — view blocks/links and switch'"
-                            @click="setView('topology')">⛁ {{ store.topologyName }} ▾</button>
+                    <button v-if="store.topologyName" type="button" class="topology-chip-btn" :class="{ active: store.view === 'topology', recycling: store.recycling }"
+                            :disabled="store.recycling"
+                            :title="store.recycling ? 'recycling the host — please wait' : (store.view === 'topology' ? 'close the topology view' : 'topology ' + store.topologyName + ' — view blocks/links and switch')"
+                            @click="setView('topology')">
+                        <span v-if="store.recycling"><span class="recycling-spin">♻</span> recycling…</span>
+                        <span v-else>⛁ {{ store.topologyName }} ▾</span>
+                    </button>
                     <span v-if="store.stepped" class="stepped-chip" :class="{ 'run-owned': store.runActive }"
                           :title="store.runActive ? 'a scenario run owns the virtual clock — manual stepping is paused until the run finishes' : 'deterministic stepping (dale dev --stepped) — the virtual clock advances only when you step it (in Explore) or a scenario runs.'">
                         <span class="stepped-clock" title="virtual clock">⏱ t={{ steppedClock }}</span>
@@ -1991,6 +1995,9 @@ export const App = {
                     <BlockCard v-for="lb in blocks" :key="lb.id" :lb="lb" :sharedLookup="sharedLookup"/>
                 </main>
                 <WatchPanel/>
+            </div>
+            <div v-if="store.recycling" class="recycling-overlay">
+                <div class="recycling-card"><span class="recycling-spin">♻</span> recycling the host… <span class="recycling-sub">rebuilding the network on a fresh clock</span></div>
             </div>
             <Palette v-if="store.paletteOpen"/>
         </div>

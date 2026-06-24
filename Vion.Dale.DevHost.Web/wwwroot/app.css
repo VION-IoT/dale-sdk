@@ -180,6 +180,19 @@ body {
 }
 .step-controls button:hover { background: var(--bg-raised); }
 
+/* ── recycle progress (RFC 0012 §6, PP4): a determinate host-busy state for switch / reset / recycle-on-run ── */
+.topology-chip-btn.recycling { color: var(--vion-warning-fg-def-primary); border-color: var(--vion-warning-brd-def-primary); background: var(--vion-warning-bg-def-primary); }
+.recycling-overlay { position: fixed; inset: 0; z-index: 30; display: flex; align-items: flex-start; justify-content: center; padding-top: 22vh; background: rgba(0, 0, 0, 0.35); }
+.recycling-card {
+    display: inline-flex; align-items: center; gap: 10px;
+    background: var(--bg-card); color: var(--text);
+    border: 1px solid var(--border-strong); border-radius: var(--vion-border-radius-lg);
+    padding: 14px 22px; font-size: 14px; font-weight: var(--vion-font-weight-emphasized);
+}
+.recycling-sub { font-size: 12px; color: var(--text-dim); font-weight: var(--vion-font-weight-normal); }
+.recycling-spin { display: inline-block; animation: dale-spin 1.4s linear infinite; }
+@keyframes dale-spin { to { transform: rotate(360deg); } }
+
 .theme-toggle:disabled { opacity: 0.4; cursor: not-allowed; }
 .theme-toggle.view-active { color: var(--accent); border-color: var(--accent); }
 

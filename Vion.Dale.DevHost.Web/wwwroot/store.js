@@ -9,6 +9,9 @@ export const store = reactive({
     loading: true,
     error: null,
     connected: false,
+    // A host recycle (topology switch / reset / recycle-on-run) is in flight — the workspace shows a
+    // determinate "recycling…" busy state until the fresh generation answers (cleared in reinitClientState).
+    recycling: false,
     config: null,
     topologyName: null,
     // `${serviceId}/${identifier}` -> last published property / measuring-point value
@@ -343,6 +346,7 @@ export async function resetHost() {
         }
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         store.connected = false;
+        store.recycling = true;
         // The fresh generation has no run history — reflect "as if not run" immediately instead of
         // waiting for the reconnect to re-discover it.
         store.run = null;
@@ -403,6 +407,7 @@ async function reinitClientState() {
         return false;
     } finally {
         reinitInFlight = false;
+        store.recycling = false;
     }
 }
 
@@ -566,6 +571,7 @@ export async function switchTopology(id) {
         }
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         store.connected = false;
+        store.recycling = true;
         store.run = null;
     } catch (err) {
         showError(`Failed to switch topology: ${err.message ?? err}`);
@@ -704,6 +710,7 @@ export async function applyScenario(id, { restart = false } = {}) {
             store.pendingScenarioRun = { id, restart };
             store.run = null;
             store.connected = false;
+            store.recycling = true;
             return;
         }
 
