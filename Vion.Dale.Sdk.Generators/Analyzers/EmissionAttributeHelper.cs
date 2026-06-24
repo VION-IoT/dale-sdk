@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Globalization;
 using System.Linq;
 using Microsoft.CodeAnalysis;
@@ -225,35 +226,66 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         }
 
         /// <summary>
-        ///     <c>true</c> when the compilation contains a non-interface, instantiable type that implements
-        ///     <c>IChangeThreshold&lt;targetType&gt;</c> for the exact <paramref name="targetType" />. Used as
-        ///     the compile-time approximation of the runtime <c>ChangeThresholdRegistry</c> for custom types.
+        ///     Collects every value type <c>T</c> for which a non-interface, instantiable
+        ///     <c>IChangeThreshold&lt;T&gt;</c> implementation is visible in the compilation closure — the
+        ///     compilation's own assembly plus the referenced assemblies that reference the SDK (a shared
+        ///     foundation library that declares the threshold). This is the compile-time mirror of the runtime
+        ///     <c>ChangeThresholdRegistry</c> assembly scan, so a passing compile implies a working runtime
+        ///     deadband even when the threshold lives in a referenced library. Built once per compilation.
         /// </summary>
-        internal static bool HasChangeThresholdFor(Compilation compilation, ITypeSymbol targetType)
+        internal static ImmutableHashSet<ITypeSymbol> CollectCustomChangeThresholdTypes(Compilation compilation, INamedTypeSymbol ichangeThreshold)
         {
-            var ichangeThreshold = compilation.GetTypeByMetadataName(IChangeThresholdMetadataName);
-            if (ichangeThreshold == null)
-            {
-                // The SDK isn't referenced (shouldn't happen in a real consumer build). Be conservative:
-                // claim a threshold exists so we never false-positive when we cannot see the interface.
-                return true;
-            }
+            var sdkAssembly = ichangeThreshold.ContainingAssembly;
+            var builder = ImmutableHashSet.CreateBuilder<ITypeSymbol>(SymbolEqualityComparer.Default);
 
-            foreach (var type in EnumerateNamedTypes(compilation.Assembly.GlobalNamespace))
+            foreach (var assembly in RelevantAssemblies(compilation, sdkAssembly))
             {
-                if (type.TypeKind == TypeKind.Interface || type.IsAbstract)
+                foreach (var type in EnumerateNamedTypes(assembly.GlobalNamespace))
                 {
-                    continue;
-                }
-
-                foreach (var iface in type.AllInterfaces)
-                {
-                    if (!SymbolEqualityComparer.Default.Equals(iface.OriginalDefinition, ichangeThreshold))
+                    if (type.TypeKind == TypeKind.Interface || type.IsAbstract)
                     {
                         continue;
                     }
 
-                    if (iface.TypeArguments.Length == 1 && SymbolEqualityComparer.Default.Equals(iface.TypeArguments[0], targetType))
+                    foreach (var iface in type.AllInterfaces)
+                    {
+                        if (SymbolEqualityComparer.Default.Equals(iface.OriginalDefinition, ichangeThreshold) && iface.TypeArguments.Length == 1)
+                        {
+                            builder.Add(iface.TypeArguments[0]);
+                        }
+                    }
+                }
+            }
+
+            return builder.ToImmutable();
+        }
+
+        /// <summary>
+        ///     The compilation's own assembly plus referenced assemblies that reference the SDK — only those
+        ///     can declare an <c>IChangeThreshold&lt;T&gt;</c>. Skipping the rest (framework, unrelated NuGet)
+        ///     keeps the one-time scan cheap; skipping the SDK itself avoids re-scanning the built-ins.
+        /// </summary>
+        private static IEnumerable<IAssemblySymbol> RelevantAssemblies(Compilation compilation, IAssemblySymbol sdkAssembly)
+        {
+            yield return compilation.Assembly;
+
+            foreach (var reference in compilation.References)
+            {
+                if (compilation.GetAssemblyOrModuleSymbol(reference) is IAssemblySymbol referenced && !SymbolEqualityComparer.Default.Equals(referenced, sdkAssembly) &&
+                    ReferencesAssembly(referenced, sdkAssembly))
+                {
+                    yield return referenced;
+                }
+            }
+        }
+
+        private static bool ReferencesAssembly(IAssemblySymbol assembly, IAssemblySymbol target)
+        {
+            foreach (var module in assembly.Modules)
+            {
+                foreach (var referenced in module.ReferencedAssemblySymbols)
+                {
+                    if (SymbolEqualityComparer.Default.Equals(referenced, target))
                     {
                         return true;
                     }

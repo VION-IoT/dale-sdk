@@ -82,6 +82,20 @@ namespace Vion.Dale.Sdk.Test.Emission
             Assert.IsNull(policy.Threshold);
         }
 
+        [TestMethod]
+        public void ResolveTheBuiltInThresholdThroughANullableWrapper()
+        {
+            // double? must resolve the double built-in — matches the DALE034 analyzer, which unwraps
+            // Nullable<T> before checking for a threshold. Without the unwrap a deadband on a nullable
+            // numeric property silently no-ops at runtime even though the analyzer accepts it.
+            var cfg = new FakeThrottleConfigured { MinInterval = "250ms", MinChange = "0.5" };
+
+            var policy = ThrottlePolicy.FromConfigured(cfg, typeof(double?));
+
+            Assert.IsNotNull(policy.Threshold);
+            Assert.IsTrue(policy.Threshold!.Exceeds(1.0, 2.0, "0.5"));
+        }
+
         private sealed class FakeThrottleConfigured : IThrottleConfigured
         {
             public string MinInterval { get; set; } = "250ms";

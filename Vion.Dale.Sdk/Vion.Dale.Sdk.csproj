@@ -62,6 +62,10 @@
         <PackageReference Include="Microsoft.Bcl.TimeProvider" Version="10.0.0" />
         <PackageReference Include="Vion.Contracts" Version="2.1.0" />
         <PackageReference Include="System.Text.Json" Version="10.0.7" />
+        <!-- AssemblyLoadContext for resolving a custom IChangeThreshold<T> from a sibling assembly in the
+             declaring block's load context (RFC 0004). A netstandard2.1 compile-time facade that
+             type-forwards to the in-box runtime implementation on the net10.0 host. -->
+        <PackageReference Include="System.Runtime.Loader" Version="4.3.0" />
     </ItemGroup>
 
     <!-- Include the LogicBlockParser executable in the tools folder -->
