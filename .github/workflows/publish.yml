@@ -100,7 +100,7 @@ jobs:
         if: steps.version.outputs.is_release == 'false'
         run: |
           node scripts/generate-api-reference.cjs \
-            --root . --exclude "*.Test" --exclude "*.TestKit" \
+            --root . --exclude "*.Test" \
             --out api-reference.md \
             --manifest /tmp/publicapi-current.json
 
