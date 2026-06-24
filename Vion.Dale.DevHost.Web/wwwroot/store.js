@@ -39,6 +39,8 @@ export const store = reactive({
     baselineSeconds: 0,
     // Ctrl+K command palette (jump / pin).
     paletteOpen: false,
+    // The '?' keyboard-shortcuts help overlay.
+    helpOpen: false,
     // Run control: paused (timer/delayed fires held), canReset (supervisor attached),
     // stepped (deterministic virtual clock — scenario runs step exactly; `dale dev --stepped`).
     paused: false,

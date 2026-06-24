@@ -1788,6 +1788,10 @@ export const Palette = {
                     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     el.classList.add('jump-flash');
                     setTimeout(() => el.classList.remove('jump-flash'), 1600);
+                    // Land focus on a trivial writable input (number / text) so you can type a value right
+                    // away — the common "jump here to set it" intent. Skipped for read-only / struct rows.
+                    const input = el.querySelector('input[type="number"]:not([disabled]), input[type="text"]:not([disabled])');
+                    if (input) { input.focus(); input.select && input.select(); }
                 }
             }, 50));
         };
@@ -1837,8 +1841,45 @@ export const Palette = {
     `,
 };
 
+// ── Keyboard shortcuts: the '?' help overlay + the global keymap (handled in App.onKeydown) ──────────
+const KEYBINDINGS = [
+    { keys: [PALETTE_KEY_LABEL], desc: 'command palette — jump to a property' },
+    { keys: ['e'], desc: 'Explore' },
+    { keys: ['v'], desc: 'Verify' },
+    { keys: ['t'], desc: 'topology view' },
+    { keys: ['[', ']'], desc: 'previous / next — scenario in Verify, topology in Explore' },
+    { keys: ['/'], desc: 'focus the filter' },
+    { keys: ['b'], desc: 'set baseline (mark the current values)' },
+    { keys: ['c'], desc: 'clear all watches' },
+    { keys: ['p'], desc: 'pause / resume time' },
+    { keys: ['s'], desc: 'step to the next event (stepped clock)' },
+    { keys: ['.'], desc: 'advance the clock 1 s (stepped clock)' },
+    { keys: ['?'], desc: 'this shortcuts help' },
+    { keys: ['Esc'], desc: 'close overlays / clear the filter' },
+];
+
+const KeybindingsHelp = {
+    setup() {
+        return { store, bindings: KEYBINDINGS, close: () => { store.helpOpen = false; } };
+    },
+    template: `
+        <div class="palette-backdrop" @click.self="close">
+            <div class="keyhelp">
+                <div class="keyhelp-title">Keyboard shortcuts</div>
+                <div class="keyhelp-rows">
+                    <div v-for="(b, i) in bindings" :key="i" class="keyhelp-row">
+                        <span class="keyhelp-keys"><kbd v-for="k in b.keys" :key="k">{{ k }}</kbd></span>
+                        <span class="keyhelp-desc">{{ b.desc }}</span>
+                    </div>
+                </div>
+                <div class="keyhelp-foot">single keys work when you're not typing in a field</div>
+            </div>
+        </div>
+    `,
+};
+
 export const App = {
-    components: { Rail, BlockCard, WatchPanel, Palette, TopologyPanel, GalleryCard, PlayerPanel },
+    components: { Rail, BlockCard, WatchPanel, Palette, TopologyPanel, GalleryCard, PlayerPanel, KeybindingsHelp },
     setup() {
         const blocks = computed(() => (store.config && store.config.logicBlocks) || []);
         const sharedLookup = computed(() => buildSharedContractLookup());
@@ -1876,25 +1917,50 @@ export const App = {
 
         // Keyboard: '/' focuses the filter, 'b' (re)sets the baseline, Escape clears the filter.
         const filterEl = ref(null);
+        // Cycle the primary list of the current activity: scenarios in Verify, topologies in Explore.
+        const cyclePrimary = dir => {
+            if (store.view === 'player') {
+                const list = (store.scenarios && store.scenarios.scenarios) || [];
+                if (!list.length) return;
+                const i = list.findIndex(s => s.id === store.scenarioId);
+                const next = list[(((i < 0 ? 0 : i) + dir) % list.length + list.length) % list.length];
+                if (next) openScenario(next.id);
+            } else {
+                const list = (store.topologies && store.topologies.topologies) || [];
+                if (list.length < 2 || !store.canReset || store.recycling) return;
+                const i = list.findIndex(tp => tp.id === store.topologyName);
+                const next = list[(((i < 0 ? 0 : i) + dir) % list.length + list.length) % list.length];
+                if (next && next.id !== store.topologyName) switchTopology(next.id);
+            }
+        };
         const onKeydown = e => {
             const t = e.target;
             const editing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT');
-            if (e.key === 'Escape' && t === filterEl.value) {
-                store.filter = '';
-                filterEl.value.blur();
-                return;
+            if (e.key === 'Escape') {
+                if (store.helpOpen) { store.helpOpen = false; return; }
+                if (t === filterEl.value) { store.filter = ''; filterEl.value.blur(); return; }
             }
             if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
                 e.preventDefault();
                 store.paletteOpen = !store.paletteOpen;
                 return;
             }
-            if (editing) return;
-            if (e.key === '/') {
-                e.preventDefault();
-                filterEl.value && filterEl.value.focus();
-            } else if (e.key === 'b') {
-                setBaseline();
+            // Single-key shortcuts: only when not typing in a field and no Ctrl/⌘/Alt held (Shift is fine —
+            // '?' is Shift+/). Discoverable via the '?' overlay.
+            if (editing || e.ctrlKey || e.metaKey || e.altKey) return;
+            switch (e.key) {
+                case '?': e.preventDefault(); store.helpOpen = !store.helpOpen; break;
+                case '/': e.preventDefault(); filterEl.value && filterEl.value.focus(); break;
+                case 'e': goExplore(); break;
+                case 'v': goVerify(); break;
+                case 't': setView('topology'); break;
+                case 'b': setBaseline(); break;
+                case 'c': clearPins(); break;
+                case 'p': store.paused ? resumeHost() : pauseHost(); break;
+                case 's': if (store.stepped && !store.runActive) stepHost(); break;
+                case '.': if (store.stepped && !store.runActive) advanceHost(1); break;
+                case '[': cyclePrimary(-1); break;
+                case ']': cyclePrimary(1); break;
             }
         };
         onMounted(() => window.addEventListener('keydown', onKeydown));
@@ -1969,6 +2035,7 @@ export const App = {
                             :title="store.canReset ? 'recycle the host — fresh start without leaving the browser' : 'reset needs a supervised host (DevHostWebRunner.RunAsync with a host factory)'"
                             @click="confirmReset">↻</button>
                     <button type="button" class="theme-toggle" :title="'jump to a property (' + paletteKeyLabel + ')'" @click="store.paletteOpen = true">{{ paletteKeyLabel }}</button>
+                    <button type="button" class="theme-toggle" title="keyboard shortcuts (press ?)" @click="store.helpOpen = true">?</button>
                     <button type="button" class="theme-toggle" :class="{ 'view-active': store.view === 'gallery' }"
                             :title="store.view === 'gallery' ? 'close the gallery' : 'gallery — how authored presentation renders, on sample values'"
                             @click="setView('gallery')">▦</button>
@@ -2031,6 +2098,7 @@ export const App = {
                 <div class="recycling-card"><span class="recycling-spin">♻</span> recycling the host… <span class="recycling-sub">rebuilding the network on a fresh clock</span></div>
             </div>
             <Palette v-if="store.paletteOpen"/>
+            <KeybindingsHelp v-if="store.helpOpen"/>
         </div>
     `,
 };
