@@ -491,13 +491,32 @@ namespace Vion.Dale.Sdk.Core
                 {
                     foreach (var (memberIdentifier, binding) in perInterface)
                     {
-                        var configured = ResolveThrottleConfigured(binding);
+                        var configured = ResolveThrottleConfigured(binding, out var configuredSource);
                         if (configured == null)
                         {
                             continue;
                         }
 
-                        var policy = ThrottlePolicy.FromConfigured(configured, binding.TargetPropertyType);
+                        // The custom-threshold scan (DF-34) probes the assembly that DECLARES the property the
+                        // knobs were read from — the same compilation DALE034 validated against. For a knob
+                        // inherited from a shared [ServiceInterface] (DF-33), that is the interface library's
+                        // assembly (where a shared custom IChangeThreshold<T> lives), not the block's assembly.
+                        var declaringAssembly = configuredSource?.DeclaringType?.Assembly ?? binding.Source?.GetType().Assembly;
+                        var policy = ThrottlePolicy.FromConfigured(configured, binding.TargetPropertyType, declaringAssembly);
+
+                        // DF-34: a configured MinChange that resolves to no IChangeThreshold<T> is a
+                        // misconfiguration, not a silent no-op. Fail fast at start. DALE034 already errors at
+                        // compile time, so this only fires when that gate was bypassed or the impl is not
+                        // instantiable.
+                        if (!string.IsNullOrEmpty(configured.MinChange) && policy.Threshold == null)
+                        {
+                            var valueTypeName = (Nullable.GetUnderlyingType(binding.TargetPropertyType) ?? binding.TargetPropertyType).Name;
+                            throw new InvalidOperationException($"Service member '{memberIdentifier}' on service '{serviceIdentifier}' sets MinChange='{configured.MinChange}', " +
+                                                                $"but no IChangeThreshold<{valueTypeName}> is built-in or discoverable in assembly " +
+                                                                $"'{declaringAssembly?.GetName().Name}'. Implement IChangeThreshold<{valueTypeName}> in that assembly (with a " +
+                                                                "parameterless constructor), or remove MinChange.");
+                        }
+
                         _throttlerPolicies[(serviceIdentifier, memberIdentifier)] = policy;
                         _throttlers[(serviceIdentifier, memberIdentifier)] = new Throttler(policy);
                     }
@@ -505,12 +524,29 @@ namespace Vion.Dale.Sdk.Core
             }
         }
 
-        private static IThrottleConfigured? ResolveThrottleConfigured(ServiceBinding binding)
+        private static IThrottleConfigured? ResolveThrottleConfigured(ServiceBinding binding, out PropertyInfo? source)
         {
-            // Throttle attributes are read from the bound source (impl) property (RootSourcePropertyInfo),
-            // so [ServiceProperty(MinInterval=…)] must be declared on the impl property — consistent with
-            // how all other bind attributes (deadband, etc.) are resolved; interface members are not checked.
-            var property = binding.RootSourcePropertyInfo;
+            // DF-33: the emission knobs follow the schema-from-interface precedent (PropertyMetadataBuilder.
+            // BuildSplit). The impl property wins if it declares its own [ServiceProperty]/[ServiceMeasuringPoint];
+            // otherwise the knobs are inherited from the [ServiceInterface] property the schema is declared on.
+            // This lets a family of blocks sharing a [ServiceInterface] declare emission policy once (DRY),
+            // the same way it declares the schema once. For a non-interface (extra) property the schema source
+            // is the impl property itself, so this collapses to "read from the impl property".
+            // `source` is the property the knobs were actually read from — used to probe the right assembly
+            // for a custom IChangeThreshold<T> (DF-34).
+            var implConfigured = ConfiguredFrom(binding.RootSourcePropertyInfo);
+            if (implConfigured != null)
+            {
+                source = binding.RootSourcePropertyInfo;
+                return implConfigured;
+            }
+
+            source = binding.SchemaSourcePropertyInfo;
+            return ConfiguredFrom(binding.SchemaSourcePropertyInfo);
+        }
+
+        private static IThrottleConfigured? ConfiguredFrom(PropertyInfo? property)
+        {
             if (property == null)
             {
                 return null;
