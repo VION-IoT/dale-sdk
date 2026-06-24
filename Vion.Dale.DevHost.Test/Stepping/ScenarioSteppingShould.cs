@@ -509,9 +509,9 @@ namespace Vion.Dale.DevHost.Test.Stepping
         }
 
         /// <summary>
-        ///     <c>advance</c> on a real-clock host surfaces as a clear step failure (not a hang or NRE).
-        ///     The underlying <see cref="InvalidOperationException" /> from the stepper must be captured
-        ///     as step detail.
+        ///     <c>advance</c> on a real-clock host fails the step with a clear, author-facing message that
+        ///     guides to stepped mode. It is pre-empted before the stepper runs, so the detail does NOT leak
+        ///     the FakeTimeProvider / TimeProvider internals (it is read by scenario authors, not just devs).
         /// </summary>
         [TestMethod]
         public async Task AdvanceStep_OnRealClockHost_FailsStepWithHelpfulMessage()
@@ -532,7 +532,8 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
             Assert.AreEqual(ScenarioRunStatus.Failed, report.Status, Join(report));
             var detail = report.Steps[0].Detail ?? string.Empty;
-            StringAssert.Contains(detail, "FakeTimeProvider", $"Detail should mention FakeTimeProvider. Got: {detail}");
+            StringAssert.Contains(detail, "stepped mode", $"Detail should guide the author to stepped mode. Got: {detail}");
+            Assert.AreEqual(-1, detail.IndexOf("FakeTimeProvider", StringComparison.Ordinal), $"Detail must not leak clock internals. Got: {detail}");
         }
 
         // ── report rendering ──────────────────────────────────────────────────────────────────────────

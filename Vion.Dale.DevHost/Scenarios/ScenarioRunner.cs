@@ -505,10 +505,36 @@ namespace Vion.Dale.DevHost.Scenarios
                         break;
 
                     case "advance":
+                        if (!control.IsStepped)
+                        {
+                            result.Detail =
+                                "the 'advance' step fast-forwards the virtual clock, which a real-clock host does not have — run this scenario in stepped mode (dale dev --stepped), or use a 'wait' step for a real-time delay";
+                            Fail(result,
+                                 report,
+                                 progress,
+                                 stopwatch,
+                                 control,
+                                 virtualStart);
+                            return false;
+                        }
+
                         await control.AdvanceAsync(TimeSpan.FromSeconds(step.Advance!.Seconds), cancellationToken).ConfigureAwait(false);
                         break;
 
                     case "settle":
+                        if (!control.IsStepped)
+                        {
+                            result.Detail =
+                                "the 'settle' step advances the virtual clock hop-by-hop, which a real-clock host does not have — run this scenario in stepped mode, or use 'waitUntil' to wait on a condition in real time";
+                            Fail(result,
+                                 report,
+                                 progress,
+                                 stopwatch,
+                                 control,
+                                 virtualStart);
+                            return false;
+                        }
+
                         if (!await SettleAsync(step, watchPaths, control, result, cancellationToken).ConfigureAwait(false))
                         {
                             Fail(result,
