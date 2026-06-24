@@ -578,6 +578,25 @@ export async function switchTopology(id) {
     }
 }
 
+// Switch the host's clock mode (stepped ⇄ real, RFC 0012 §4): rebuilds the host in the other mode,
+// riding the same recycle as a topology switch (the reconnect path rebuilds the client state).
+export async function switchClockMode(stepped) {
+    try {
+        const response = await fetch(`/api/control/clock-mode?stepped=${stepped}`, { method: 'POST' });
+        if (response.status === 409) {
+            const body = await response.json().catch(() => ({}));
+            showError(body.error || 'Clock-mode switching needs a supervised host.');
+            return;
+        }
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        store.connected = false;
+        store.recycling = true;
+        store.run = null;
+    } catch (err) {
+        showError(`Failed to switch clock mode: ${err.message ?? err}`);
+    }
+}
+
 // ── Scenarios / Player (RFC 0006) ───────────────────────────────────────────────
 
 const JUDGE_STORAGE_KEY = 'dale.devhost.judge';

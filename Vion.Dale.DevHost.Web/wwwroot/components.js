@@ -18,7 +18,7 @@ import {
     changedSinceBaseline, clearBaseline, clearPins, closeScenario, collapseKey, connectionsForLb,
     advanceHost, driveContract, halKey, historyFor, isPinned, judgeKey, loadTopologies, openScenario, pauseHost, resetHost, resumeHost, stepHost,
     setBaseline, setJudgeTick, setProperty, showError, store,
-    switchTopology, toggleCollapsed, togglePin, valueKey,
+    switchClockMode, switchTopology, toggleCollapsed, togglePin, valueKey,
 } from './store.js';
 
 // Filter tokens, shared by every component that narrows to matches.
@@ -1902,7 +1902,7 @@ export const App = {
         return {
             store, blocks, sharedLookup, totals, theme, toggleTheme, matches, changedTotal,
             baselineClock, filterEl, setBaseline, clearBaseline, pauseHost, resumeHost,
-            confirmReset, setView, goExplore, goVerify, stepHost, advanceHost, steppedClock,
+            confirmReset, setView, goExplore, goVerify, stepHost, advanceHost, switchClockMode, steppedClock,
         };
     },
     template: `
@@ -1928,6 +1928,9 @@ export const App = {
                         <span class="stepped-clock" title="virtual clock">⏱ t={{ steppedClock }}</span>
                         <span v-if="store.runActive" class="run-owned-note" title="manual stepping is paused while a scenario run drives the clock">▶ run owns the clock</span>
                     </span>
+                    <button v-if="store.canReset" type="button" class="theme-toggle clock-mode-toggle" :disabled="store.recycling"
+                            :title="store.stepped ? 'switch to a real-clock host — live wall-clock timers (recycles the host)' : 'switch to a stepped host — deterministic virtual clock (recycles the host)'"
+                            @click="switchClockMode(!store.stepped)">{{ store.stepped ? 'stepped' : 'real' }} ⇄</button>
                     <button v-if="!store.paused" type="button" class="theme-toggle"
                             title="pause time-driven activity — timers hold, writes still work" @click="pauseHost">⏸</button>
                     <span v-else class="paused-chip">
