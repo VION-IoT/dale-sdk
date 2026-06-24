@@ -41,6 +41,9 @@ export const store = reactive({
     paused: false,
     canReset: false,
     stepped: false,
+    // True while a scenario run owns the virtual clock (stepped mode only); clears when the run
+    // reaches a terminal status or fetchControlStatus resyncs. Manual stepping is blocked while true.
+    runActive: false,
     // The host's virtual clock (ISO string), shown in the stepped-mode control cluster.
     virtualTime: null,
     // Top-level view: 'explorer' (default), 'topology', 'gallery', or 'player' (scenarios, RFC 0006).
@@ -277,6 +280,7 @@ async function fetchControlStatus() {
         store.canReset = !!status.canReset;
         store.stepped = !!status.stepped;
         store.virtualTime = status.virtualTimeUtc ?? null;
+        store.runActive = !!status.runActive;
     } catch (err) {
         console.warn('Could not fetch control status', err);
     }
@@ -646,7 +650,10 @@ async function refreshRun(id) {
         if (response.status === 404) return;
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const report = await response.json();
-        if (store.scenarioId === id) store.run = report;
+        if (store.scenarioId === id) {
+            store.run = report;
+            store.runActive = report.status === 'running';
+        }
     } catch (err) {
         console.warn('Could not fetch run status', err);
     }
@@ -699,6 +706,7 @@ export async function applyScenario(id, { restart = false } = {}) {
             return;
         }
 
+        store.runActive = true;
         await refreshRun(id);
         pollRun(id);
     } catch (err) {

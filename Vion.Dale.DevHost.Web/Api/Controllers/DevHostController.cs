@@ -126,6 +126,7 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
                           canReset = _control.CanReset,
                           stepped = _control.IsStepped,
                           virtualTimeUtc = _control.VirtualTimeUtc,
+                          runActive = _runs.HasActiveRun,
                       });
         }
 
@@ -223,12 +224,12 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
         {
             if (!_control.IsStepped)
             {
-                return Conflict(new { error = "not a stepped host — start it with `dale dev --stepped` to step the virtual clock by hand" });
+                return Conflict(new { error = "not a stepped host — start it with `dale dev --stepped` to step the virtual clock by hand", reason = "notStepped" });
             }
 
             if (_runs.HasActiveRun)
             {
-                return Conflict(new { error = "a scenario run is driving the clock — stepping is unavailable until it finishes" });
+                return Conflict(new { error = "a scenario run is driving the clock — stepping is unavailable until it finishes", reason = "runActive" });
             }
 
             return null;

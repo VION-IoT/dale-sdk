@@ -1922,13 +1922,16 @@ export const App = {
                     <button type="button" title="re-snapshot (b)" @click="setBaseline">↺</button>
                     <button type="button" title="clear baseline" @click="clearBaseline">✕</button>
                 </span>
-                <span v-if="store.stepped" class="stepped-chip"
-                      title="deterministic stepping (dale dev --stepped) — the virtual clock advances only when you step it or a scenario runs, so runs are exact and reproducible.">
+                <span v-if="store.stepped" class="stepped-chip" :class="{ 'run-owned': store.runActive }"
+                      :title="store.runActive ? 'a scenario run owns the virtual clock — manual stepping is paused until the run finishes' : 'deterministic stepping (dale dev --stepped) — the virtual clock advances only when you step it or a scenario runs, so runs are exact and reproducible.'">
                     <span>⏱ stepped</span>
                     <span class="stepped-clock" title="virtual clock">t={{ steppedClock }}</span>
-                    <button type="button" title="advance to the next scheduled event" @click="stepHost">↦</button>
-                    <button type="button" title="advance 1 virtual second" @click="advanceHost(1)">+1s</button>
-                    <button type="button" title="advance 10 virtual seconds" @click="advanceHost(10)">+10s</button>
+                    <span v-if="store.runActive" class="run-owned-note" title="manual stepping is paused while a scenario run drives the clock">▶ run owns the clock</span>
+                    <template v-else>
+                        <button type="button" title="advance to the next scheduled event" @click="stepHost">↦</button>
+                        <button type="button" title="advance 1 virtual second" @click="advanceHost(1)">+1s</button>
+                        <button type="button" title="advance 10 virtual seconds" @click="advanceHost(10)">+10s</button>
+                    </template>
                 </span>
                 <button v-if="!store.paused" type="button" class="theme-toggle"
                         title="pause time-driven activity — timers hold, writes still work"

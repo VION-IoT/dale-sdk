@@ -154,6 +154,8 @@ body {
     padding: 0 3px;
 }
 .stepped-clock { font-family: var(--mono); color: var(--text-faint); }
+.stepped-chip.run-owned { border-color: var(--vion-acc-brd-def-secondary); }
+.run-owned-note { font-size: 11px; color: var(--accent); padding: 0 2px; white-space: nowrap; }
 
 .theme-toggle:disabled { opacity: 0.4; cursor: not-allowed; }
 .theme-toggle.view-active { color: var(--accent); border-color: var(--accent); }
