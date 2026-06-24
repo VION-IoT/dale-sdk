@@ -55,6 +55,24 @@ Rules that keep it working:
 - **Rendering policy lives in `format.js`**, view wiring in `components.js`. A change to "how is a
   value displayed / grouped / ordered" goes in format.js so the Player (R3) reuses it.
 
+## Keyboard shortcuts are a first-class feature
+
+The SPA has a discoverable global keymap — treat it as part of the surface, not an afterthought. **When
+you add an interactive affordance (a new mode, a navigation target, a clock / host action), add a
+keybinding for it** and surface it in the help.
+
+- **One keymap, one source of truth.** Global keys live in `App.onKeydown` (`components.js`); the
+  human-readable list is the `KEYBINDINGS` array, rendered by the `KeybindingsHelp` overlay (the `?`
+  key / the `?` header button). **Adding a binding = a `case` in `onKeydown` + a row in `KEYBINDINGS`** —
+  if they drift, the help lies, so keep them in lockstep.
+- **Single keys are gated to "not typing in a field"** (the `editing` guard: INPUT / TEXTAREA / SELECT)
+  and to no Ctrl/⌘/Alt held (Shift is fine — `?` is Shift+/). Modifier combos (⌘K) are handled before
+  the guard. Never add a single-key binding that would fire while someone edits a value.
+- **Platform-aware labels:** show `Ctrl` on Windows/Linux, `⌘` on macOS via `MOD_KEY` /
+  `PALETTE_KEY_LABEL` — never hard-code the mac glyph.
+- The **⌘K palette is "go to anything"** (property / scenario / topology); when a new navigable thing
+  appears, extend its typed `entries` + the `jump` dispatch rather than inventing a separate picker.
+
 ## Verify loop — run the `devhost-smoke` skill
 
 **After any change here (or under `Vion.Dale.DevHost` / the scenario runner / stepping), run the

@@ -1748,17 +1748,33 @@ export const PlayerPanel = {
     `,
 };
 
-// ── Ctrl+K palette: type to find any property, Enter jumps to it, Ctrl+Enter pins it ───────────
+// ── ⌘K palette: go to any property / scenario / topology. Enter acts (jump / open / switch); for a
+//    property in Explore, Ctrl+Enter pins it to the watch panel instead. ───────────────────────────
 
 export const Palette = {
     setup() {
         const query = ref('');
         const selected = ref(0);
         const inputEl = ref(null);
+        // Nav targets (scenario / topology) sort ahead of properties on a score tie — they're fewer and the
+        // headline "go to anything" use; properties are the long tail.
+        const typeRank = t => (t === 'scenario' ? 0 : t === 'topology' ? 1 : 2);
         const entries = computed(() => {
             const tokens = parseFilter(query.value);
             const q = query.value.trim().toLowerCase();
             const out = [];
+            // Scenarios — open them in Verify. Topologies — switch the host to them in Explore.
+            ((store.scenarios && store.scenarios.scenarios) || []).forEach(s => {
+                const label = s.title || s.id;
+                if (!q || s.id.toLowerCase().includes(q) || label.toLowerCase().includes(q)) {
+                    out.push({ type: 'scenario', key: 'scn:' + s.id, id: s.id, name: s.id, where: label === s.id ? '' : label, score: s.id.toLowerCase().includes(q) ? 0 : 1 });
+                }
+            });
+            ((store.topologies && store.topologies.topologies) || []).forEach(tp => {
+                if (!q || tp.id.toLowerCase().includes(q)) {
+                    out.push({ type: 'topology', key: 'top:' + tp.id, id: tp.id, name: tp.id, where: (tp.blocks != null ? tp.blocks + ' blocks' : '') + (tp.id === store.topologyName ? ' · current' : ''), score: tp.id.toLowerCase().includes(q) ? 0 : 1 });
+                }
+            });
             ((store.config && store.config.logicBlocks) || []).forEach(lb => (lb.services || []).forEach(service => {
                 serviceMembers(service).forEach(item => {
                     if (matchesFilter(tokens, item, store.values[valueKey(service.id, item.identifier)])) {
@@ -1766,16 +1782,29 @@ export const Palette = {
                         const id = item.identifier.toLowerCase();
                         const score = q === '' || id.includes(q) ? 0
                             : `${resolveDisplayName(item)}`.toLowerCase().includes(q) ? 1 : 2;
-                        out.push({ lb, service, item, score, multiService: (lb.services || []).length > 1 });
+                        out.push({ type: 'property', key: 'prop:' + service.id + ':' + item.identifier, lb, service, item, score, multiService: (lb.services || []).length > 1 });
                     }
                 });
             }));
-            out.sort((a, b) => a.score - b.score);
+            out.sort((a, b) => (a.score - b.score) || (typeRank(a.type) - typeRank(b.type)));
             return out.slice(0, 40);
         });
         watch(query, () => { selected.value = 0; });
         const close = () => { store.paletteOpen = false; };
         const jump = entry => {
+            if (entry.type === 'scenario') {
+                close();
+                store.view = 'player';
+                openScenario(entry.id);
+                location.hash = `#/scenario/${entry.id}`;
+                return;
+            }
+            if (entry.type === 'topology') {
+                close();
+                if (entry.id === store.topologyName) { store.view = 'topology'; return; }
+                if (store.canReset && !store.recycling) switchTopology(entry.id);
+                return;
+            }
             const groupKey = (entry.item.presentation && entry.item.presentation.group) || '';
             store.collapsed[collapseKey(entry.lb.name, entry.service.identifier, groupKey)] = false;
             store.filter = '';
@@ -1803,16 +1832,21 @@ export const Palette = {
             else if (e.key === 'Enter') {
                 const entry = entries.value[selected.value];
                 if (entry) {
-                    // Pin (Ctrl/⌘+Enter) only means something in Explore — it pins to the watch panel, which
-                    // Verify doesn't show. There, Ctrl+Enter just jumps like plain Enter.
-                    if ((e.ctrlKey || e.metaKey) && store.view === 'explorer') pinEntry(entry);
+                    // Pin (Ctrl/⌘+Enter) only means something for a property in Explore — it pins to the watch
+                    // panel. Otherwise (Verify, or a scenario/topology entry) Ctrl+Enter just acts like Enter.
+                    if ((e.ctrlKey || e.metaKey) && store.view === 'explorer' && entry.type === 'property') pinEntry(entry);
                     else jump(entry);
                 }
             } else if (e.key === 'Escape') {
                 close();
             }
         };
-        onMounted(() => inputEl.value && inputEl.value.focus());
+        onMounted(() => {
+            inputEl.value && inputEl.value.focus();
+            // Ensure the scenario / topology lists are present so the palette can offer them from anywhere
+            // (init loads them, but the palette may open before that settles).
+            if (!(store.topologies && store.topologies.topologies)) loadTopologies();
+        });
         const valuePreview = entry => formatValue(
             store.values[valueKey(entry.service.id, entry.item.identifier)],
             (entry.item.presentation || {}).decimals ?? null);
@@ -1821,21 +1855,30 @@ export const Palette = {
     template: `
         <div class="palette-backdrop" @click.self="close">
             <div class="palette" @keydown="onKey">
-                <input ref="inputEl" type="text" class="palette-input" placeholder="jump to property — name · name:value · >50"
+                <input ref="inputEl" type="text" class="palette-input" placeholder="go to a property, scenario, or topology — name · name:value · >50"
                        :value="query" @input="query = $event.target.value">
                 <div class="palette-results">
-                    <div v-for="(e, i) in entries" :key="e.service.id + e.item.identifier"
+                    <div v-for="(e, i) in entries" :key="e.key"
                          class="palette-row" :class="{ selected: i === selected }"
                          @click="jump(e)" @mouseenter="selected = i">
-                        <span class="mono palette-name">{{ e.item.identifier }}</span>
-                        <span class="palette-where">{{ e.lb.name }}<template v-if="e.multiService"> · {{ e.service.identifier }}</template><template v-if="e.item.presentation?.group"> · {{ e.item.presentation.group }}</template></span>
-                        <span class="item-spacer"></span>
-                        <span v-if="pinnedEntry(e)" class="palette-pinned">◆</span>
-                        <span class="mono palette-value">{{ valuePreview(e) }}</span>
+                        <span class="palette-kind" :class="'kind-' + e.type" :title="e.type">{{ e.type === 'scenario' ? '▶' : e.type === 'topology' ? '⛁' : '◦' }}</span>
+                        <template v-if="e.type === 'property'">
+                            <span class="mono palette-name">{{ e.item.identifier }}</span>
+                            <span class="palette-where">{{ e.lb.name }}<template v-if="e.multiService"> · {{ e.service.identifier }}</template><template v-if="e.item.presentation?.group"> · {{ e.item.presentation.group }}</template></span>
+                            <span class="item-spacer"></span>
+                            <span v-if="pinnedEntry(e)" class="palette-pinned">◆</span>
+                            <span class="mono palette-value">{{ valuePreview(e) }}</span>
+                        </template>
+                        <template v-else>
+                            <span class="mono palette-name">{{ e.name }}</span>
+                            <span class="palette-where">{{ e.where }}</span>
+                            <span class="item-spacer"></span>
+                            <span class="palette-type-tag">{{ e.type }}</span>
+                        </template>
                     </div>
                     <div v-if="!entries.length" class="palette-empty">no matches</div>
                 </div>
-                <div class="palette-hint"><kbd>↵</kbd> jump<template v-if="store.view === 'explorer'"> · <kbd>{{ modKey }} ↵</kbd> pin</template> · <kbd>esc</kbd> close</div>
+                <div class="palette-hint"><kbd>↵</kbd> go<template v-if="store.view === 'explorer'"> · <kbd>{{ modKey }} ↵</kbd> pin property</template> · <kbd>esc</kbd> close</div>
             </div>
         </div>
     `,
@@ -1843,7 +1886,7 @@ export const Palette = {
 
 // ── Keyboard shortcuts: the '?' help overlay + the global keymap (handled in App.onKeydown) ──────────
 const KEYBINDINGS = [
-    { keys: [PALETTE_KEY_LABEL], desc: 'command palette — jump to a property' },
+    { keys: [PALETTE_KEY_LABEL], desc: 'command palette — go to a property, scenario, or topology' },
     { keys: ['e'], desc: 'Explore' },
     { keys: ['v'], desc: 'Verify' },
     { keys: ['t'], desc: 'topology view' },
@@ -1855,7 +1898,7 @@ const KEYBINDINGS = [
     { keys: ['s'], desc: 'step to the next event (stepped clock)' },
     { keys: ['.'], desc: 'advance the clock 1 s (stepped clock)' },
     { keys: ['?'], desc: 'this shortcuts help' },
-    { keys: ['Esc'], desc: 'close overlays / clear the filter' },
+    { keys: ['Esc'], desc: 'close overlays / clear filter / back to the scenario list' },
 ];
 
 const KeybindingsHelp = {
@@ -1939,6 +1982,8 @@ export const App = {
             if (e.key === 'Escape') {
                 if (store.helpOpen) { store.helpOpen = false; return; }
                 if (t === filterEl.value) { store.filter = ''; filterEl.value.blur(); return; }
+                // In Verify with a scenario open, Esc backs out to the scenario list (same as the ← button).
+                if (store.view === 'player' && store.scenarioId && !editing) { closeScenario(); return; }
             }
             if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
                 e.preventDefault();
@@ -2024,7 +2069,7 @@ export const App = {
                     </span>
                     <button v-if="store.canReset" type="button" class="theme-toggle clock-mode-toggle" :disabled="store.recycling"
                             :title="store.stepped ? 'switch to a real-clock host — live wall-clock timers (recycles the host)' : 'switch to a stepped host — deterministic virtual clock (recycles the host)'"
-                            @click="switchClockMode(!store.stepped)">{{ store.stepped ? 'stepped' : 'real' }} ⇄</button>
+                            @click="switchClockMode(!store.stepped)">⏱ {{ store.stepped ? 'stepped' : 'real-clock' }}</button>
                     <button v-if="!store.paused" type="button" class="theme-toggle"
                             title="pause time-driven activity — timers hold, writes still work" @click="pauseHost">⏸</button>
                     <span v-else class="paused-chip">
@@ -2034,7 +2079,7 @@ export const App = {
                     <button type="button" class="theme-toggle" :disabled="!store.canReset"
                             :title="store.canReset ? 'recycle the host — fresh start without leaving the browser' : 'reset needs a supervised host (DevHostWebRunner.RunAsync with a host factory)'"
                             @click="confirmReset">↻</button>
-                    <button type="button" class="theme-toggle" :title="'jump to a property (' + paletteKeyLabel + ')'" @click="store.paletteOpen = true">{{ paletteKeyLabel }}</button>
+                    <button type="button" class="theme-toggle" :title="'go to a property, scenario, or topology (' + paletteKeyLabel + ')'" @click="store.paletteOpen = true">{{ paletteKeyLabel }}</button>
                     <button type="button" class="theme-toggle" title="keyboard shortcuts (press ?)" @click="store.helpOpen = true">?</button>
                     <button type="button" class="theme-toggle" :class="{ 'view-active': store.view === 'gallery' }"
                             :title="store.view === 'gallery' ? 'close the gallery' : 'gallery — how authored presentation renders, on sample values'"
