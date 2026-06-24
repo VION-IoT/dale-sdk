@@ -157,6 +157,29 @@ body {
 .stepped-chip.run-owned { border-color: var(--vion-acc-brd-def-secondary); }
 .run-owned-note { font-size: 11px; color: var(--accent); padding: 0 2px; white-space: nowrap; }
 
+/* ── two-zone shell (RFC 0012 §3): Explore|Verify nav · shared context · Explore workspace toolbar ── */
+.nav-seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: var(--vion-border-radius-sm); overflow: hidden; }
+.nav-tab { background: none; border: none; color: var(--text-dim); font-size: 12px; font-weight: var(--vion-font-weight-emphasized); font-family: inherit; padding: 4px 16px; cursor: pointer; }
+.nav-tab:hover { color: var(--text); background: var(--bg-raised); }
+.nav-tab.active { background: var(--vion-acc-bg-def-primary); color: var(--vion-acc-fg-def-primary); }
+.nav-tab + .nav-tab { border-left: 1px solid var(--border-strong); }
+.context-zone { display: inline-flex; align-items: center; gap: 10px; margin-left: auto; }
+.context-zone .conn { margin-left: 0; }
+.topology-chip-btn {
+    font-family: var(--mono); font-size: 11px;
+    background: var(--vion-acc-bg-def-primary); color: var(--vion-acc-fg-def-primary);
+    border: 1px solid var(--vion-acc-brd-def-primary); padding: 2px 10px; border-radius: 999px; cursor: pointer;
+}
+.topology-chip-btn:hover, .topology-chip-btn.active { border-color: var(--accent); }
+.workspace-bar { display: flex; align-items: center; gap: 12px; padding: 6px 16px; background: var(--bg-page); border-bottom: 1px solid var(--border); }
+.ws-spacer { margin-left: auto; }
+.step-controls { display: inline-flex; align-items: center; gap: 4px; }
+.step-controls button {
+    background: none; border: 1px solid var(--accent); color: var(--accent);
+    border-radius: var(--vion-border-radius-sm); font-family: var(--mono); font-size: 11px; padding: 2px 8px; cursor: pointer;
+}
+.step-controls button:hover { background: var(--bg-raised); }
+
 .theme-toggle:disabled { opacity: 0.4; cursor: not-allowed; }
 .theme-toggle.view-active { color: var(--accent); border-color: var(--accent); }
 

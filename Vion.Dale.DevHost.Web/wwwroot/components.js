@@ -1877,12 +1877,15 @@ export const App = {
         // Four top-level views; each button toggles its view against the explorer default. The player
         // additionally keeps the deep-link hash (RFC 0006 #/scenario/{id}) in sync.
         const setView = v => { store.view = store.view === v ? 'explorer' : v; };
-        const toggleScenarios = () => {
-            if (store.view === 'player') {
-                store.view = 'explorer';
-                if (location.hash) location.hash = '';
-                return;
-            }
+        // Two-zone nav (RFC 0012 §3): Explore and Verify are the two activities. Verify is the scenario
+        // player (keeps the #/scenario deep link); Explore is the default browse surface. Topology and
+        // gallery are reached from the context chip / overflow, not the primary nav.
+        const goExplore = () => {
+            if (store.view === 'player' && location.hash) location.hash = '';
+            store.view = 'explorer';
+        };
+        const goVerify = () => {
+            if (store.view === 'player') return;
             store.view = 'player';
             location.hash = store.scenarioId ? `#/scenario/${store.scenarioId}` : '#/scenarios';
         };
@@ -1899,15 +1902,49 @@ export const App = {
         return {
             store, blocks, sharedLookup, totals, theme, toggleTheme, matches, changedTotal,
             baselineClock, filterEl, setBaseline, clearBaseline, pauseHost, resumeHost,
-            confirmReset, setView, toggleScenarios, stepHost, advanceHost, steppedClock,
+            confirmReset, setView, goExplore, goVerify, stepHost, advanceHost, steppedClock,
         };
     },
     template: `
         <div class="app">
             <header class="topbar">
                 <span class="brand">DALE DevHost</span>
-                <code v-if="store.topologyName" class="topology-chip">{{ store.topologyName }}</code>
-                <span class="counts">{{ totals.blocks }} blocks · {{ totals.props }} properties</span>
+                <nav class="nav-seg">
+                    <button type="button" class="nav-tab" :class="{ active: store.view !== 'player' }"
+                            title="Explore — browse blocks, drive values, watch live state" @click="goExplore">Explore</button>
+                    <button type="button" class="nav-tab" :class="{ active: store.view === 'player' }"
+                            title="Verify — run a scenario and review its trace" @click="goVerify">Verify</button>
+                </nav>
+                <div class="context-zone">
+                    <button v-if="store.topologyName" type="button" class="topology-chip-btn" :class="{ active: store.view === 'topology' }"
+                            :title="store.view === 'topology' ? 'close the topology view' : 'topology ' + store.topologyName + ' — view blocks/links and switch'"
+                            @click="setView('topology')">⛁ {{ store.topologyName }} ▾</button>
+                    <span v-if="store.stepped" class="stepped-chip" :class="{ 'run-owned': store.runActive }"
+                          :title="store.runActive ? 'a scenario run owns the virtual clock — manual stepping is paused until the run finishes' : 'deterministic stepping (dale dev --stepped) — the virtual clock advances only when you step it (in Explore) or a scenario runs.'">
+                        <span class="stepped-clock" title="virtual clock">⏱ t={{ steppedClock }}</span>
+                        <span v-if="store.runActive" class="run-owned-note" title="manual stepping is paused while a scenario run drives the clock">▶ run owns the clock</span>
+                    </span>
+                    <button v-if="!store.paused" type="button" class="theme-toggle"
+                            title="pause time-driven activity — timers hold, writes still work" @click="pauseHost">⏸</button>
+                    <span v-else class="paused-chip">
+                        <span>⏸ paused</span>
+                        <button type="button" title="resume — held timers replay" @click="resumeHost">▶</button>
+                    </span>
+                    <button type="button" class="theme-toggle" :disabled="!store.canReset"
+                            :title="store.canReset ? 'recycle the host — fresh start without leaving the browser' : 'reset needs a supervised host (DevHostWebRunner.RunAsync with a host factory)'"
+                            @click="confirmReset">↻</button>
+                    <button type="button" class="theme-toggle" title="jump to a scenario / block / topology (Ctrl/⌘ K)" @click="store.paletteOpen = true">⌘K</button>
+                    <button type="button" class="theme-toggle" :class="{ 'view-active': store.view === 'gallery' }"
+                            :title="store.view === 'gallery' ? 'close the gallery' : 'gallery — how authored presentation renders, on sample values'"
+                            @click="setView('gallery')">▦</button>
+                    <span class="conn" :class="store.connected ? 'connected' : 'disconnected'">
+                        <span class="conn-dot"></span>{{ store.connected ? 'live' : 'disconnected' }}
+                    </span>
+                    <button type="button" class="theme-toggle" :title="'switch to ' + (theme === 'dark' ? 'light' : 'dark')"
+                            @click="toggleTheme">{{ theme === 'dark' ? '☾' : '☀' }}</button>
+                </div>
+            </header>
+            <div v-if="store.view === 'explorer'" class="workspace-bar">
                 <span class="filter-wrap">
                     <input ref="filterEl" type="text" class="filter-input" :value="store.filter"
                            placeholder="filter · name:value · >50"
@@ -1922,42 +1959,14 @@ export const App = {
                     <button type="button" title="re-snapshot (b)" @click="setBaseline">↺</button>
                     <button type="button" title="clear baseline" @click="clearBaseline">✕</button>
                 </span>
-                <span v-if="store.stepped" class="stepped-chip" :class="{ 'run-owned': store.runActive }"
-                      :title="store.runActive ? 'a scenario run owns the virtual clock — manual stepping is paused until the run finishes' : 'deterministic stepping (dale dev --stepped) — the virtual clock advances only when you step it or a scenario runs, so runs are exact and reproducible.'">
-                    <span>⏱ stepped</span>
-                    <span class="stepped-clock" title="virtual clock">t={{ steppedClock }}</span>
-                    <span v-if="store.runActive" class="run-owned-note" title="manual stepping is paused while a scenario run drives the clock">▶ run owns the clock</span>
-                    <template v-else>
-                        <button type="button" title="advance to the next scheduled event" @click="stepHost">↦</button>
-                        <button type="button" title="advance 1 virtual second" @click="advanceHost(1)">+1s</button>
-                        <button type="button" title="advance 10 virtual seconds" @click="advanceHost(10)">+10s</button>
-                    </template>
+                <span class="counts">{{ totals.blocks }} blocks · {{ totals.props }} properties</span>
+                <span class="ws-spacer"></span>
+                <span v-if="store.stepped && !store.runActive" class="step-controls">
+                    <button type="button" title="advance the virtual clock to the next scheduled event" @click="stepHost">↦ step</button>
+                    <button type="button" title="advance the virtual clock 1 second" @click="advanceHost(1)">+1s</button>
+                    <button type="button" title="advance the virtual clock 10 seconds" @click="advanceHost(10)">+10s</button>
                 </span>
-                <button v-if="!store.paused" type="button" class="theme-toggle"
-                        title="pause time-driven activity — timers hold, writes still work"
-                        @click="pauseHost">⏸ pause</button>
-                <span v-else class="paused-chip">
-                    <span>⏸ paused</span>
-                    <button type="button" title="resume — held timers replay" @click="resumeHost">▶</button>
-                </span>
-                <button type="button" class="theme-toggle" :disabled="!store.canReset"
-                        :title="store.canReset ? 'recycle the host — fresh start without leaving the browser' : 'reset needs a supervised host (DevHostWebRunner.RunAsync with a host factory)'"
-                        @click="confirmReset">↻ reset</button>
-                <button type="button" class="theme-toggle" :class="{ 'view-active': store.view === 'topology' }"
-                        :title="store.view === 'topology' ? 'back to the explorer' : 'topology — blocks, links, mocked IO'"
-                        @click="setView('topology')">⛁ topology</button>
-                <button type="button" class="theme-toggle" :class="{ 'view-active': store.view === 'gallery' }"
-                        :title="store.view === 'gallery' ? 'back to the explorer' : 'gallery — how authored presentation renders, on sample values'"
-                        @click="setView('gallery')">▦ gallery</button>
-                <button type="button" class="theme-toggle" :class="{ 'view-active': store.view === 'player' }"
-                        :title="store.view === 'player' ? 'back to the explorer' : 'scenarios — staged verification runs (RFC 0006)'"
-                        @click="toggleScenarios">▶ scenarios</button>
-                <span class="conn" :class="store.connected ? 'connected' : 'disconnected'">
-                    <span class="conn-dot"></span>{{ store.connected ? 'live' : 'disconnected' }}
-                </span>
-                <button type="button" class="theme-toggle" :title="'switch to ' + (theme === 'dark' ? 'light' : 'dark')"
-                        @click="toggleTheme">{{ theme === 'dark' ? '☾' : '☀' }}</button>
-            </header>
+            </div>
             <div v-if="store.error" class="error-toast">{{ store.error }}</div>
             <div v-if="store.loading" class="loading">Loading configuration…</div>
             <div v-else-if="store.view === 'topology'" class="layout">
