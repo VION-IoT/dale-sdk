@@ -163,6 +163,14 @@ namespace Vion.Dale.DevHost.Web
                 // A topology switch rides the reset signal; a plain reset keeps the current selection.
                 topologyId = host.Control.RequestedTopology ?? topologyId;
 
+                // Clock-mode switch (RFC 0012 §4): a requested mode rides the reset. Set the env var the next
+                // generation's WithWebUi reads, so the rebuilt host boots stepped or real as asked. Persists
+                // across later recycles until toggled again. (No-op for custom factories that don't read it.)
+                if (host.Control.RequestedClockMode is { } requestedStepped)
+                {
+                    Environment.SetEnvironmentVariable(SteppedEnvVar, requestedStepped ? "1" : "0");
+                }
+
                 Console.WriteLine($"Reset requested — recycling host (generation {generation + 1})...");
 
                 // `await using` disposes the old host at the end of this iteration; the brief delay lets

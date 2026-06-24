@@ -26,6 +26,8 @@ namespace Vion.Dale.DevHost.Control
 
         private bool _paused;
 
+        private bool? _requestedClockMode;
+
         private string? _requestedTopology;
 
         private Action? _resetHandler;
@@ -50,6 +52,22 @@ namespace Vion.Dale.DevHost.Control
                 lock (_gate)
                 {
                     return _resetHandler is not null;
+                }
+            }
+        }
+
+        /// <summary>
+        ///     The clock mode (true = deterministic stepping, false = real wall-clock) the latest clock-mode
+        ///     switch requested, for the supervisor to read when the reset fires — null means keep the current
+        ///     mode.
+        /// </summary>
+        public bool? RequestedClockMode
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _requestedClockMode;
                 }
             }
         }
@@ -143,6 +161,27 @@ namespace Vion.Dale.DevHost.Control
 
             handler();
             return true;
+        }
+
+        /// <summary>
+        ///     Request a recycle into a different clock mode (RFC 0012 §4) — rides the same reset signal; the
+        ///     supervisor (<c>DevHostWebRunner.RunAsync(Func&lt;string?, IDevHost&gt;, …)</c>) reads
+        ///     <see cref="RequestedClockMode" /> and rebuilds the next generation stepped or real. Returns false
+        ///     when no supervisor is attached.
+        /// </summary>
+        public bool TryRequestClockMode(bool stepped)
+        {
+            lock (_gate)
+            {
+                if (_resetHandler is null)
+                {
+                    return false;
+                }
+
+                _requestedClockMode = stepped;
+            }
+
+            return TryRequestReset();
         }
 
         /// <summary>

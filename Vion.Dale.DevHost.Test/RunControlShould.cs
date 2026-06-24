@@ -128,6 +128,104 @@ namespace Vion.Dale.DevHost.Test
 
         [TestMethod]
         [TestCategory("Smoke")]
+        public async Task ClockModeEndpoint_OnUnsupervisedHost_Returns409WithReason()
+        {
+            // An unsupervised host (built with WithConfiguration, no host factory → CanReset false) must
+            // reject a clock-mode switch with 409 + reason "notSupervised" (RFC 0012 §4).
+            var port = FreePort();
+            var config = DevConfigurationBuilder.Create().AddLogicBlock<CounterBlock>("counter").Build();
+            await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithWebUi(port).Build();
+            await host.StartAsync();
+
+            using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
+
+            var status = JsonDocument.Parse(await client.GetStringAsync("/api/control/status"));
+            Assert.IsFalse(status.RootElement.GetProperty("canReset").GetBoolean(), "No supervisor attached — canReset must be false.");
+
+            var response = await client.PostAsync("/api/control/clock-mode?stepped=false", null);
+            Assert.AreEqual(HttpStatusCode.Conflict, response.StatusCode, "Clock-mode switch on an unsupervised host must return 409.");
+            var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+            Assert.AreEqual("notSupervised", body.GetProperty("reason").GetString(), "409 must carry reason 'notSupervised'.");
+        }
+
+        [TestMethod]
+        [TestCategory("Smoke")]
+        public async Task ClockModeEndpoint_OnSupervisedHost_Returns202AndRecycles()
+        {
+            // A supervised host must accept a clock-mode switch with 202 + { recycling, stepped } and
+            // rebuild (RFC 0012 §4). We switch from stepped to real and confirm the next generation is real.
+            var port = FreePort();
+            var generations = 0;
+
+            IDevHost Factory(string? _)
+            {
+                generations++;
+                var config = DevConfigurationBuilder.Create().WithTopologyName("clock-topo").AddLogicBlock<CounterBlock>("counter").Build();
+                // Generation 1 is stepped; after the clock-mode switch the env var is set to "0" and
+                // DevHostBuilderExtensions.WithWebUi reads it — so generation 2 is real.
+                var builder = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithWebUi(port);
+                return builder.Build();
+            }
+
+            Environment.SetEnvironmentVariable(DevHostWebRunner.SteppedEnvVar, "1");
+            Environment.SetEnvironmentVariable(DevHostWebRunner.NoBrowserEnvVar, "1");
+            using var cts = new CancellationTokenSource();
+            Task runner;
+            try
+            {
+                runner = DevHostWebRunner.RunAsync(Factory, port, cts.Token);
+
+                using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(10) };
+
+                // Wait for the first generation to be up and supervised.
+                Assert.IsTrue(await PollCanResetAsync(client, TimeSpan.FromSeconds(30)), "Generation 1 should come up supervised.");
+
+                var response = await client.PostAsync("/api/control/clock-mode?stepped=false", null);
+                Assert.AreEqual(HttpStatusCode.Accepted, response.StatusCode, "Clock-mode switch on a supervised host must return 202.");
+                var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+                Assert.IsTrue(body.TryGetProperty("recycling", out var recycling) && recycling.GetBoolean(), "202 body must carry { recycling: true }.");
+                Assert.IsTrue(body.TryGetProperty("stepped", out var stepped) && !stepped.GetBoolean(), "202 body must echo the requested clock mode (false = real).");
+
+                // Wait for generation 2 to come up.
+                Assert.IsTrue(await PollCanResetAsync(client, TimeSpan.FromSeconds(30)), "Generation 2 should come up after the recycle.");
+                Assert.AreEqual(2, generations, "The factory must have been called twice (two generations).");
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable(DevHostWebRunner.SteppedEnvVar, null);
+                Environment.SetEnvironmentVariable(DevHostWebRunner.NoBrowserEnvVar, null);
+            }
+
+            cts.Cancel();
+            await runner;
+        }
+
+        private static async Task<bool> PollCanResetAsync(HttpClient client, TimeSpan timeout)
+        {
+            var deadline = DateTime.UtcNow + timeout;
+            while (DateTime.UtcNow < deadline)
+            {
+                try
+                {
+                    var status = JsonDocument.Parse(await client.GetStringAsync("/api/control/status")).RootElement;
+                    if (status.GetProperty("canReset").GetBoolean())
+                    {
+                        return true;
+                    }
+                }
+                catch
+                {
+                    // Host (re)starting — keep polling.
+                }
+
+                await Task.Delay(250);
+            }
+
+            return false;
+        }
+
+        [TestMethod]
+        [TestCategory("Smoke")]
         public async Task SupervisedRunner_RecyclesTheHost_OnResetRequest_SamePort()
         {
             var port = FreePort();

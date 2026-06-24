@@ -203,6 +203,21 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
             return Accepted();
         }
 
+        /// <summary>
+        ///     Switch the host's clock mode (RFC 0012 §4): rebuild the host stepped (deterministic) or real
+        ///     (wall-clock). Rides the recycle — 202 when a supervisor picked it up, 409 when unsupervised.
+        /// </summary>
+        [HttpPost("control/clock-mode")]
+        public ActionResult ClockMode([FromQuery] bool stepped)
+        {
+            if (!_control.TryRequestClockMode(stepped))
+            {
+                return Conflict(new { error = "Host is not supervised — clock-mode switching needs DevHostWebRunner.RunAsync with a host factory.", reason = "notSupervised" });
+            }
+
+            return Accepted(new { recycling = true, stepped });
+        }
+
         /// <summary>Inter-block messages captured by the tap, optionally filtered to a logic block (by name or id).</summary>
         [HttpGet("messages")]
         public ActionResult GetMessages([FromQuery] string? logicBlock = null)
