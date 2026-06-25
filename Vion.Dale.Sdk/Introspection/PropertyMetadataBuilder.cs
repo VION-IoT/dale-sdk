@@ -68,7 +68,7 @@ namespace Vion.Dale.Sdk.Introspection
             var classPresentation = ExtractPresentation(presentationSource, sp, mp, hasIdentityTitle);
             var presentation = MergePresentation(classPresentation, interfacePresentation);
 
-            var runtime = ExtractRuntime(presentationSource);
+            var runtime = ExtractRuntimeSplit(presentationSource, schemaSource);
 
             return new PropertyMetadata(schema, presentation, runtime);
         }
@@ -324,6 +324,28 @@ namespace Vion.Dale.Sdk.Introspection
 
             var runtime = new RuntimeMetadata { Persistent = persistent, Throttle = ExtractThrottle(property) };
             return runtime.IsEmpty ? RuntimeMetadata.None : runtime;
+        }
+
+        // Runtime metadata for an interface-bound property. Persistence stays an impl concern (it is
+        // declared on the logic-block property), but the RFC 0004 throttle is surfaced from whichever
+        // property the runtime gate actually reads it from: the impl wins when it declares its own
+        // [ServiceProperty]/[ServiceMeasuringPoint], otherwise the knobs are inherited from the
+        // [ServiceInterface]. This mirrors LogicBlockBase.ResolveThrottleConfigured exactly (DF-33/DF-35),
+        // so the UI throttle chip matches the policy the gate enforces — including the §8.12 DRY pattern
+        // where the impl carries only presentation and the knobs live on the interface.
+        private static RuntimeMetadata ExtractRuntimeSplit(PropertyInfo presentationSource, PropertyInfo schemaSource)
+        {
+            var persistentAttr = presentationSource.GetCustomAttribute<PersistentAttribute>();
+            var persistent = persistentAttr is not null && !persistentAttr.Exclude;
+
+            var throttleSource = HasEmissionAttribute(presentationSource) ? presentationSource : schemaSource;
+            var runtime = new RuntimeMetadata { Persistent = persistent, Throttle = ExtractThrottle(throttleSource) };
+            return runtime.IsEmpty ? RuntimeMetadata.None : runtime;
+        }
+
+        private static bool HasEmissionAttribute(PropertyInfo property)
+        {
+            return property.GetCustomAttribute<ServicePropertyAttribute>() is not null || property.GetCustomAttribute<ServiceMeasuringPointAttribute>() is not null;
         }
 
         // The effective RFC 0004 emission policy (throttle / deadband / immediate), read from the
