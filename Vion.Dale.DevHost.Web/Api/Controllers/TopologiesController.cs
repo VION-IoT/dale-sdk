@@ -87,7 +87,7 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
             }
             catch (InvalidDataException e)
             {
-                return UnprocessableEntity(new { valid = false, errors = e.Message.Split("; ") });
+                return InvalidTopology(e);
             }
         }
 
@@ -108,7 +108,7 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
             }
             catch (InvalidDataException e)
             {
-                return UnprocessableEntity(new { valid = false, errors = e.Message.Split("; ") });
+                return InvalidTopology(e);
             }
         }
 
@@ -133,6 +133,16 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
             }
 
             return Accepted(new { switching = id });
+        }
+
+        // DevTopologyFile.Parse / DevTopologyLoader.Build report every problem in one InvalidDataException
+        // whose Message joins them with "; " (the topology subsystem's convention), so we split it back into
+        // the {valid,errors} list. This couples the consumer to that exact separator.
+        // TODO(RFC 0013 follow-up): give the topology subsystem a structured exception carrying an
+        // IReadOnlyList<string> Errors (like ScenarioFormatException) and drop the split.
+        private IActionResult InvalidTopology(InvalidDataException e)
+        {
+            return UnprocessableEntity(new { valid = false, errors = e.Message.Split("; ") });
         }
     }
 }

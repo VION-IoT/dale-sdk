@@ -74,8 +74,10 @@ namespace Vion.Dale.DevHost.Topologies
             // Interface mappings come from the file verbatim — the dev profile declares wiring
             // explicitly rather than re-running auto-discovery, so a file is reproducible by content.
             // Each authored mapping is also checked against the frozen MatchingInterface relation (RFC 0013
-            // decision 1): an incompatible pair is recorded and reported, but the mapping is still applied so
-            // the behaviour stays additive (the runtime tolerates it; the editor/validate flags it).
+            // decision 1): every incompatible pair is recorded and the build then FAILS with all of them at
+            // once, so Save / validate / a topology switch reject the file. The mapping is added to the
+            // configuration above only so this single pass collects every problem — the configuration is
+            // discarded on throw.
             var mappingErrors = new List<string>();
             foreach (var mapping in topology.InterfaceMappings ?? Array.Empty<TopologyInterfaceMapping>())
             {
