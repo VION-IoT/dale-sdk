@@ -61,11 +61,17 @@ export const store = reactive({
     topologyDraft: null,
     topologyDraftDirty: false,
     topologyDraftErrors: [],
-    // Whether the topology editor is open — the single source of truth for view⇄edit, read at render
-    // time by TopologyPanel (NOT a local ref). A store flag (not a mount-time watch) so an external
-    // requester (⌘K palette / Shift+T) that sets it BEFORE the panel mounts still opens the editor: the
-    // panel reads the flag when it renders, regardless of mount order. The requester sets the view first.
-    topologyEditing: false,
+    // Topology panel screen state (RFC 0013): a scenario-style master→detail→editor router. One of
+    // 'list' (the file picker), 'detail' (a read-only render of a selected file), or 'editor' (the
+    // draft editor). Lives in the STORE (not a local ref) so an external requester (⌘K palette /
+    // Shift+T) that navigates BEFORE the panel mounts still lands on the right screen — the panel reads
+    // the state at render time, mount-order-independent. The requester sets the view first.
+    topologyScreen: 'list',
+    // The file id the Detail screen is showing / the Editor was opened from (so closing the editor
+    // returns to that file's Detail). Null on the List screen and for a brand-new draft.
+    topologySelectedId: null,
+    // The fetched topology file object (GET /api/topologies/{id}) rendered read-only on the Detail screen.
+    topologyDetail: null,
     // Scenario surface (RFC 0006): the discovery payload, the opened scenario (parsed file), and the
     // latest run report. Run state lives SERVER-side (F5-safe, agent-visible) — the client only polls.
     scenarios: null,
@@ -607,11 +613,69 @@ export async function validateTopologyDraft() {
 export async function saveTopologyDraft() {
     if (!store.topologyDraft || !store.topologyDraft.id) { store.topologyDraftErrors = ['id is required']; return false; }
     try {
-        const res = await fetch(`/api/topologies/${encodeURIComponent(store.topologyDraft.id)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(store.topologyDraft) });
-        if (res.ok) { store.topologyDraftDirty = false; store.topologyDraftErrors = []; await loadTopologies(); return true; }
+        const savedId = store.topologyDraft.id;
+        const res = await fetch(`/api/topologies/${encodeURIComponent(savedId)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(store.topologyDraft) });
+        if (res.ok) {
+            store.topologyDraftDirty = false; store.topologyDraftErrors = [];
+            // Land on the just-saved file's Detail screen (loadTopologies runs inside openTopologyDetail) —
+            // so a fresh save is immediately reviewable, with an Edit button right there.
+            await openTopologyDetail(savedId);
+            return true;
+        }
         if (res.status === 403) { const b = await res.json().catch(() => ({})); showError(b.error || 'topology saving is disabled'); return false; }
         const body = await res.json().catch(() => ({})); store.topologyDraftErrors = body.errors || ['save failed']; return false;
     } catch (err) { store.topologyDraftErrors = [String(err.message ?? err)]; return false; }
+}
+
+// ── Topology panel navigation (RFC 0013): the list → detail → editor master-detail flow ──────────
+// All screen transitions + their I/O live here so the components are pure renders of store state.
+
+export async function openTopologyList() {
+    store.topologyScreen = 'list';
+    store.topologySelectedId = null;
+    await loadTopologies();
+}
+
+// Fetch a file and show it read-only on the Detail screen. loadTopologies first so the "running"
+// marker + read-only gate the screen reads are current.
+export async function openTopologyDetail(id) {
+    await loadTopologies();
+    try {
+        const res = await fetch(`/api/topologies/${encodeURIComponent(id)}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        store.topologyDetail = await res.json();
+        store.topologySelectedId = id;
+        store.topologyScreen = 'detail';
+    } catch (err) {
+        showError(`Could not load topology '${id}': ${err.message ?? err}`);
+    }
+}
+
+// Edit a file in place: clone its body into the draft under the SAME id, so Save overwrites the file.
+export async function editTopology(id) {
+    await cloneTopologyDraft(id);
+    store.topologyScreen = 'editor';
+}
+
+// Clone a file into a NEW file: same body, blank id — Save creates a new file once the author names it.
+export async function cloneTopology(id) {
+    await cloneTopologyDraft(id);
+    if (store.topologyDraft) store.topologyDraft.id = '';
+    store.topologyDraftDirty = true;
+    store.topologyScreen = 'editor';
+}
+
+// Author a fresh, empty topology.
+export function newTopology() {
+    newTopologyDraft();
+    store.topologySelectedId = null;
+    store.topologyScreen = 'editor';
+}
+
+// Leave the editor: back to the file's Detail if one was selected (edit/clone-in-place), else the list.
+export function closeTopologyEditor() {
+    if (store.topologySelectedId) openTopologyDetail(store.topologySelectedId);
+    else openTopologyList();
 }
 
 // Switching rides the reset: the server parks the topology id and recycles; the existing
