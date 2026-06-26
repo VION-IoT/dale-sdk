@@ -575,6 +575,40 @@ export async function loadDefinitions() {
     } catch (err) { console.warn('Could not list logic-block definitions', err); }
 }
 
+export function newTopologyDraft() {
+    store.topologyDraft = { id: '', logicBlockInstances: [], interfaceMappings: [], contractMappings: [] };
+    store.topologyDraftDirty = false; store.topologyDraftErrors = [];
+    loadDefinitions();
+}
+export async function cloneTopologyDraft(id) {
+    await loadDefinitions();
+    try {
+        const res = await fetch(`/api/topologies/${encodeURIComponent(id)}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const file = await res.json();
+        store.topologyDraft = { id: file.id || id, logicBlockInstances: file.logicBlockInstances || [], interfaceMappings: file.interfaceMappings || [], contractMappings: file.contractMappings || [] };
+        store.topologyDraftDirty = false; store.topologyDraftErrors = [];
+    } catch (err) { showError(`Could not load topology '${id}': ${err.message ?? err}`); }
+}
+export async function validateTopologyDraft() {
+    if (!store.topologyDraft) return false;
+    try {
+        const res = await fetch('/api/topologies/validate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(store.topologyDraft) });
+        if (res.ok) { store.topologyDraftErrors = []; return true; }
+        const body = await res.json().catch(() => ({}));
+        store.topologyDraftErrors = body.errors || ['validation failed']; return false;
+    } catch (err) { store.topologyDraftErrors = [String(err.message ?? err)]; return false; }
+}
+export async function saveTopologyDraft() {
+    if (!store.topologyDraft || !store.topologyDraft.id) { store.topologyDraftErrors = ['id is required']; return false; }
+    try {
+        const res = await fetch(`/api/topologies/${encodeURIComponent(store.topologyDraft.id)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(store.topologyDraft) });
+        if (res.ok) { store.topologyDraftDirty = false; store.topologyDraftErrors = []; await loadTopologies(); return true; }
+        if (res.status === 403) { const b = await res.json().catch(() => ({})); showError(b.error || 'topology saving is disabled'); return false; }
+        const body = await res.json().catch(() => ({})); store.topologyDraftErrors = body.errors || ['save failed']; return false;
+    } catch (err) { store.topologyDraftErrors = [String(err.message ?? err)]; return false; }
+}
+
 // Switching rides the reset: the server parks the topology id and recycles; the existing
 // reconnect path rebuilds the whole client state against the new generation.
 export async function switchTopology(id) {
