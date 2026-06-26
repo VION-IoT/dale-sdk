@@ -61,6 +61,10 @@ export const store = reactive({
     topologyDraft: null,
     topologyDraftDirty: false,
     topologyDraftErrors: [],
+    // A monotonically-increasing "open the topology editor" request from an external requester (the ⌘K
+    // palette / keybinding). TopologyPanel watches it and flips its local mode to 'edit'; a counter (not
+    // a bool) so repeated requests re-trigger the watch. The requester sets the topology view first.
+    topologyEditRequest: 0,
     // Scenario surface (RFC 0006): the discovery payload, the opened scenario (parsed file), and the
     // latest run report. Run state lives SERVER-side (F5-safe, agent-visible) — the client only polls.
     scenarios: null,

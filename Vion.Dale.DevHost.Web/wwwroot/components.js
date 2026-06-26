@@ -1327,6 +1327,11 @@ export const TopologyPanel = {
         const canEdit = computed(() => !(store.topologies && store.topologies.readOnly));
         const startNew = () => { newTopologyDraft(); mode.value = 'edit'; };
         const startClone = id => { cloneTopologyDraft(id); mode.value = 'edit'; };
+        // An external requester (the ⌘K palette / keybinding) opens the editor by bumping
+        // store.topologyEditRequest after setting the topology view; the panel reacts by flipping into
+        // edit mode. The requester has already primed the draft (new/clone). Not immediate — the counter
+        // starts at 0 and must only act on a genuine change.
+        watch(() => store.topologyEditRequest, () => { mode.value = 'edit'; });
 
         // Topology files (R5): refreshed on every panel open; switching rides the reset recovery.
         loadTopologies();
@@ -2041,14 +2046,34 @@ export const PlayerPanel = {
 // ── ⌘K palette: go to any property / scenario / topology. Enter acts (jump / open / switch); for a
 //    property in Explore, Ctrl+Enter pins it to the watch panel instead. ───────────────────────────
 
+// Open the topology editor from anywhere (⌘K palette / keybinding): show the topology view, prime the
+// draft (new or cloned), then bump the request counter so a mounted TopologyPanel flips to edit mode.
+// `mode` is local to TopologyPanel; topologyEditRequest is the minimal cross-component signal that
+// carries the "open the editor" intent. Both honor the read-only gate (no editing on a read-only host).
+const topologyEditable = () => !(store.topologies && store.topologies.readOnly);
+function openNewTopologyEditor() {
+    if (!topologyEditable()) return;
+    store.view = 'topology';
+    newTopologyDraft();
+    store.topologyEditRequest++;
+}
+function openCloneTopologyEditor(id) {
+    if (!topologyEditable()) return;
+    store.view = 'topology';
+    cloneTopologyDraft(id);
+    store.topologyEditRequest++;
+}
+
 export const Palette = {
     setup() {
         const query = ref('');
         const selected = ref(0);
         const inputEl = ref(null);
         // Nav targets (scenario / topology) sort ahead of properties on a score tie — they're fewer and the
-        // headline "go to anything" use; properties are the long tail.
-        const typeRank = t => (t === 'scenario' ? 0 : t === 'topology' ? 1 : 2);
+        // headline "go to anything" use; authoring verbs follow them; properties are the long tail.
+        const typeRank = t => (t === 'scenario' ? 0 : t === 'topology' ? 1 : t === 'newtopology' || t === 'edittopology' ? 2 : 3);
+        // Authoring verbs are offered only on a writable topology workspace (mirrors TopologyPanel.canEdit).
+        const canAuthor = computed(() => !(store.topologies && store.topologies.readOnly));
         const entries = computed(() => {
             const tokens = parseFilter(query.value);
             const q = query.value.trim().toLowerCase();
@@ -2065,6 +2090,20 @@ export const Palette = {
                     out.push({ type: 'topology', key: 'top:' + tp.id, id: tp.id, name: tp.id, where: (tp.blocks != null ? tp.blocks + ' blocks' : '') + (tp.id === store.topologyName ? ' · current' : ''), score: tp.id.toLowerCase().includes(q) ? 0 : 1 });
                 }
             });
+            // Authoring verbs (RFC 0013) — only on a writable topology workspace (mirrors the panel's
+            // canEdit gate). "new topology" is always offered; one "edit topology: <id>" per file clones it
+            // into the editor. Both open the topology view + the editor via openNew/CloneTopologyEditor.
+            if (canAuthor.value) {
+                if (!q || 'new topology'.includes(q)) {
+                    out.push({ type: 'newtopology', key: 'top:new', name: 'new topology', where: 'author a topology', score: 'new topology'.includes(q) ? 0 : 1 });
+                }
+                ((store.topologies && store.topologies.topologies) || []).forEach(tp => {
+                    const label = 'edit topology: ' + tp.id;
+                    if (!q || tp.id.toLowerCase().includes(q) || label.includes(q)) {
+                        out.push({ type: 'edittopology', key: 'edit:' + tp.id, id: tp.id, name: label, where: 'clone into editor', score: tp.id.toLowerCase().includes(q) ? 0 : 1 });
+                    }
+                });
+            }
             ((store.config && store.config.logicBlocks) || []).forEach(lb => (lb.services || []).forEach(service => {
                 serviceMembers(service).forEach(item => {
                     if (matchesFilter(tokens, item, store.values[valueKey(service.id, item.identifier)])) {
@@ -2093,6 +2132,16 @@ export const Palette = {
                 close();
                 if (entry.id === store.topologyName) { store.view = 'topology'; return; }
                 if (store.canReset && !store.recycling) switchTopology(entry.id);
+                return;
+            }
+            if (entry.type === 'newtopology') {
+                close();
+                openNewTopologyEditor();
+                return;
+            }
+            if (entry.type === 'edittopology') {
+                close();
+                openCloneTopologyEditor(entry.id);
                 return;
             }
             const groupKey = (entry.item.presentation && entry.item.presentation.group) || '';
@@ -2151,7 +2200,7 @@ export const Palette = {
                     <div v-for="(e, i) in entries" :key="e.key"
                          class="palette-row" :class="{ selected: i === selected }"
                          @click="jump(e)" @mouseenter="selected = i">
-                        <span class="palette-kind" :class="'kind-' + e.type" :title="e.type">{{ e.type === 'scenario' ? '▶' : e.type === 'topology' ? '⛁' : '◦' }}</span>
+                        <span class="palette-kind" :class="'kind-' + e.type" :title="e.type">{{ e.type === 'scenario' ? '▶' : e.type === 'topology' ? '⛁' : e.type === 'newtopology' ? '＋' : e.type === 'edittopology' ? '✎' : '◦' }}</span>
                         <template v-if="e.type === 'property'">
                             <span class="mono palette-name">{{ e.item.identifier }}</span>
                             <span class="palette-where">{{ e.lb.name }}<template v-if="e.multiService"> · {{ e.service.identifier }}</template><template v-if="e.item.presentation?.group"> · {{ e.item.presentation.group }}</template></span>
@@ -2180,6 +2229,7 @@ const KEYBINDINGS = [
     { keys: ['e'], desc: 'Explore' },
     { keys: ['v'], desc: 'Verify' },
     { keys: ['t'], desc: 'topology view' },
+    { keys: ['⇧', 'T'], desc: 'new topology editor' },
     { keys: ['[', ']'], desc: 'previous / next — scenario in Verify, topology in Explore' },
     { keys: ['/'], desc: 'focus the filter' },
     { keys: ['b'], desc: 'set baseline (mark the current values)' },
@@ -2289,6 +2339,7 @@ export const App = {
                 case 'e': goExplore(); break;
                 case 'v': goVerify(); break;
                 case 't': setView('topology'); break;
+                case 'T': openNewTopologyEditor(); break;
                 case 'b': setBaseline(); break;
                 case 'c': clearPins(); break;
                 case 'p': store.paused ? resumeHost() : pauseHost(); break;
