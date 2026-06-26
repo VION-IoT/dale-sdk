@@ -15,8 +15,8 @@ import {
 } from './format.js';
 import {
     applyScenario, baselineDelta, buildSharedContractLookup, changedCountForBlock,
-    changedSinceBaseline, clearBaseline, clearPins, cloneTopologyDraft, closeScenario, collapseKey, connectionsForLb,
-    advanceHost, driveContract, halKey, historyFor, isPinned, judgeKey, loadTopologies, newTopologyDraft, openScenario, pauseHost, resetHost, resumeHost, stepHost,
+    changedSinceBaseline, clearBaseline, clearPins, cloneTopology, closeScenario, closeTopologyEditor, collapseKey, connectionsForLb,
+    advanceHost, driveContract, editTopology, halKey, historyFor, isPinned, judgeKey, loadTopologies, newTopology, openScenario, openTopologyDetail, openTopologyList, pauseHost, resetHost, resumeHost, stepHost,
     saveTopologyDraft, setBaseline, setJudgeTick, setProperty, showError, store,
     switchClockMode, switchTopology, toggleCollapsed, togglePin, validateTopologyDraft, valueKey,
 } from './store.js';
@@ -1153,12 +1153,13 @@ const ResidueRow = {
 
 const TopologyEditor = {
     components: { BlockPicker, WiringRow, ResidueRow },
-    setup(props, { emit }) {
+    setup() {
         const draft = computed(() => store.topologyDraft);
         const instances = computed(() => (draft.value && draft.value.logicBlockInstances) || []);
         const mappings = computed(() => (draft.value && draft.value.interfaceMappings) || []);
         const onIdInput = () => { store.topologyDraftDirty = true; };
-        const close = () => emit('done');
+        // Leaving the editor is store-driven (back to the source file's Detail, or the List) — no emit.
+        const close = () => closeTopologyEditor();
         // Removing a block also drops any interface mappings that reference its name on either end — a
         // dangling wire would fail validation, so keep the draft internally consistent as blocks go.
         const removeBlock = index => {
@@ -1223,11 +1224,11 @@ const TopologyEditor = {
         const save = async () => { validated.value = false; await saveTopologyDraft(); };
         const saveAndSwitch = async () => {
             validated.value = false;
+            // saveTopologyDraft navigates to the saved file's Detail; capture the id first (the draft may
+            // be replaced by then) and recycle the host onto it.
+            const id = draft.value && draft.value.id;
             const ok = await saveTopologyDraft();
-            if (ok) {
-                switchTopology(draft.value.id);
-                emit('done');
-            }
+            if (ok && id) switchTopology(id);
         };
         // Any draft mutation invalidates a prior validate verdict.
         watch([instances, mappings, () => draft.value && draft.value.id], () => { validated.value = false; }, { deep: true });
@@ -1242,6 +1243,7 @@ const TopologyEditor = {
     template: `
         <div class="topo-panel" v-if="draft">
             <div class="topo-row topo-editor-head">
+                <button type="button" class="theme-toggle" title="back — close the editor" @click="close">← back</button>
                 <div class="editor-tabs">
                     <button type="button" :class="{ active: tab === 'form' }" @click="showForm">form</button>
                     <button type="button" :class="{ active: tab === 'raw' }" @click="showRaw">{ } raw</button>
@@ -1312,115 +1314,152 @@ const TopologyEditor = {
     `,
 };
 
-// ── topology panel: the read-only setup view — what runs, how it is wired, where IO lands ──────
+// ── topology panel (RFC 0013): a scenario-style master → detail → editor flow ───────────────────
+// One panel, three screens driven by store.topologyScreen: a file List, a read-only Detail of one
+// file, and the draft Editor. Navigation + I/O live in the store actions; these components are pure
+// renders. The screen state lives in the store (not local refs) so an external requester (⌘K palette
+// / Shift+T) that navigates before the panel mounts lands on the right screen.
 
-export const TopologyPanel = {
-    components: { TopologyEditor },
+// List screen: the topology files, each clickable into Detail, plus ＋New. Editing is gated to a
+// writable workspace (readOnly hides ＋New); the running file gets a chip.
+const TopologyList = {
     setup() {
-        const blocks = computed(() => (store.config && store.config.logicBlocks) || []);
-        const links = computed(() => (store.config && store.config.interfaceMappings) || []);
-        const providers = computed(() => (store.config && store.config.serviceProviders) || []);
-
-        // view ⇄ edit sub-mode (RFC 0013): the read-only setup view, or the topology editor on a draft.
-        // The open/closed state lives in the STORE (store.topologyEditing), not a local ref, so an
-        // external requester (⌘K palette / Shift+T) that opens the editor BEFORE this panel mounts still
-        // works — the panel reads the flag at render time, mount-order-independent. Editing is gated to
-        // writable topology workspaces (a read-only host can still observe).
+        // Refreshed on entry; switching/saving keep the discovery payload current via the store actions.
         const canEdit = computed(() => !(store.topologies && store.topologies.readOnly));
-        const startNew = () => { newTopologyDraft(); store.topologyEditing = true; };
-        const startClone = id => { cloneTopologyDraft(id); store.topologyEditing = true; };
-
-        // Topology files (R5): refreshed on every panel open; switching rides the reset recovery.
-        loadTopologies();
-        const topologyFiles = computed(() => (store.topologies && store.topologies.topologies) || []);
-        const canSwitch = computed(() => !!(store.topologies && store.topologies.canSwitch));
-        // The live config's name leads — the discovery payload can be a generation behind right
-        // after a switch, before reinit re-fetches it.
+        // The live config's name leads — the discovery payload can be a generation behind right after a
+        // switch, before reinit re-fetches it.
         const currentTopology = computed(() => store.topologyName || (store.topologies && store.topologies.current));
-        const doSwitch = id => switchTopology(id);
-        const counts = lb => {
-            let writable = 0, total = 0;
-            (lb.services || []).forEach(s => {
-                serviceMembers(s).forEach(m => { total++; if (m._kind === 'property' && isWritable(m)) writable++; });
-            });
-            return `${total} properties · ${writable} writable`;
+        // Precompute each row's display (running flag + meta text) so the template stays operator-free.
+        const rows = computed(() => ((store.topologies && store.topologies.topologies) || []).map(t => ({
+            id: t.id,
+            invalid: !!t.error,
+            error: t.error || '',
+            meta: t.error ? '' : `${t.blocks} blocks`,
+            running: t.id === currentTopology.value,
+        })));
+        const hasFiles = computed(() => rows.value.length > 0);
+        const open = id => openTopologyDetail(id);
+        const create = () => newTopology();
+        return { canEdit, rows, hasFiles, open, create };
+    },
+    template: `
+        <section class="block-card">
+            <div class="block-header">
+                <h2>topologies</h2>
+                <span class="item-spacer"></span>
+                <button v-if="canEdit" type="button" class="theme-toggle" title="author a new topology"
+                        @click="create">＋ new</button>
+            </div>
+            <div v-if="!hasFiles" class="topo-meta">
+                no topology files — export this preset with <code>dale dev --export-topology topologies/&lt;id&gt;.topology.json</code>
+            </div>
+            <button v-for="t in rows" :key="t.id" type="button" class="topo-row topo-row-button" @click="open(t.id)">
+                <span class="mono topo-name">{{ t.id }}</span>
+                <span v-if="t.invalid" class="scenario-error" :title="t.error">invalid</span>
+                <span v-else class="topo-meta">{{ t.meta }}</span>
+                <span class="item-spacer"></span>
+                <code v-if="t.running" class="topology-chip">● running</code>
+            </button>
+        </section>
+    `,
+};
+
+// Detail screen: a read-only render of one fetched topology file, with the act toolbar (Switch & run /
+// Edit / Clone) and a back button. Body renders blocks + links (+ contracts when present).
+const TopologyDetail = {
+    setup() {
+        const canEdit = computed(() => !(store.topologies && store.topologies.readOnly));
+        const canSwitch = computed(() => !!(store.topologies && store.topologies.canSwitch));
+        const id = computed(() => store.topologySelectedId);
+        const detail = computed(() => store.topologyDetail);
+        const currentTopology = computed(() => store.topologyName || (store.topologies && store.topologies.current));
+        const isRunning = computed(() => !!id.value && id.value === currentTopology.value);
+        const switchTitle = computed(() => canSwitch.value
+            ? 'recycle the host into this topology'
+            : 'switching needs a topology-aware supervisor (DevHostWebRunner.RunAsync with a Func<string?, IDevHost> factory)');
+
+        const blockRows = computed(() => ((detail.value && detail.value.logicBlockInstances) || []).map(b => ({
+            name: b.name,
+            short: shortTypeName(b.typeFullName),
+        })));
+        const linkRows = computed(() => ((detail.value && detail.value.interfaceMappings) || []).map(m => ({
+            source: m.sourceLogicBlockName,
+            target: m.targetLogicBlockName,
+            ifaces: `${m.sourceInterfaceIdentifier} ↔ ${m.targetInterfaceIdentifier}`,
+        })));
+        const contractRows = computed(() => ((detail.value && detail.value.contractMappings) || []).map(cm => ({
+            block: cm.logicBlockName,
+            contract: cm.contractIdentifier,
+            endpoint: `${cm.mappedServiceProviderIdentifier} / ${cm.mappedServiceIdentifier} / ${cm.mappedContractIdentifier}`,
+        })));
+        const hasBlocks = computed(() => blockRows.value.length > 0);
+        const hasLinks = computed(() => linkRows.value.length > 0);
+        const hasContracts = computed(() => contractRows.value.length > 0);
+
+        const back = () => openTopologyList();
+        const doSwitch = () => switchTopology(id.value);
+        const doEdit = () => editTopology(id.value);
+        const doClone = () => cloneTopology(id.value);
+        return {
+            canEdit, canSwitch, id, isRunning, switchTitle,
+            blockRows, linkRows, contractRows, hasBlocks, hasLinks, hasContracts,
+            back, doSwitch, doEdit, doClone,
         };
-        const contractRows = lb => {
-            const infoMap = {};
-            (lb.contracts || []).forEach(c => { infoMap[c.identifier] = c; });
-            return (lb.contractMappings || []).map(cm => {
-                const info = infoMap[cm.contractIdentifier];
-                const type = info ? info.matchingContractType : '?';
-                return {
-                    id: cm.contractIdentifier, type,
-                    short: contractTypeShort(type),
-                    endpoint: `${cm.mappedServiceProviderIdentifier} / ${cm.mappedServiceIdentifier} / ${cm.mappedContractIdentifier}`,
-                };
-            });
-        };
-        return { store, blocks, links, providers, counts, contractRows, topologyFiles, canSwitch, currentTopology, doSwitch, canEdit, startNew, startClone };
+    },
+    template: `
+        <section class="block-card">
+            <div class="block-header">
+                <button type="button" class="theme-toggle" title="back to the topology list" @click="back">← back</button>
+                <h2 class="mono">{{ id }}</h2>
+                <code v-if="isRunning" class="topology-chip">● running</code>
+                <span class="item-spacer"></span>
+                <button type="button" class="trigger-button" :disabled="!canSwitch" :title="switchTitle"
+                        @click="doSwitch">⇄ switch &amp; run</button>
+                <button v-if="canEdit" type="button" class="theme-toggle" title="edit this topology in place" @click="doEdit">✎ edit</button>
+                <button v-if="canEdit" type="button" class="theme-toggle" title="clone this topology into a new file" @click="doClone">⧉ clone</button>
+            </div>
+            <h3 class="topo-section">blocks</h3>
+            <div v-if="!hasBlocks" class="topo-meta">no blocks</div>
+            <div v-for="b in blockRows" :key="b.name" class="topo-row">
+                <span class="mono topo-name">{{ b.name }}</span>
+                <span class="item-spacer"></span>
+                <span class="topo-meta mono">{{ b.short }}</span>
+            </div>
+            <h3 class="topo-section">links</h3>
+            <div v-if="!hasLinks" class="topo-meta">no inter-block links</div>
+            <div v-for="(m, i) in linkRows" :key="i" class="topo-row">
+                <span class="mono topo-name">{{ m.source }}</span>
+                <span class="topo-arrow">→</span>
+                <span class="mono topo-name">{{ m.target }}</span>
+                <span class="item-spacer"></span>
+                <span class="topo-meta mono">{{ m.ifaces }}</span>
+            </div>
+            <template v-if="hasContracts">
+                <h3 class="topo-section">hardware contracts</h3>
+                <div v-for="(c, i) in contractRows" :key="i" class="topo-row">
+                    <span class="mono topo-name">{{ c.block }}.{{ c.contract }}</span>
+                    <span class="item-spacer"></span>
+                    <span class="topo-meta mono">{{ c.endpoint }}</span>
+                </div>
+            </template>
+        </section>
+    `,
+};
+
+// The panel is a thin router over the three screens — store.topologyScreen picks exactly one.
+export const TopologyPanel = {
+    components: { TopologyList, TopologyDetail, TopologyEditor },
+    setup() {
+        // Refresh the file list whenever the panel mounts on the List screen (entering the topology view).
+        if (store.topologyScreen === 'list') loadTopologies();
+        const screen = computed(() => store.topologyScreen);
+        return { screen };
     },
     template: `
         <div class="topology-panel">
-            <template v-if="!store.topologyEditing">
-            <section class="block-card">
-                <div class="block-header">
-                    <h2>topology</h2>
-                    <code v-if="store.topologyName" class="topology-chip">{{ store.topologyName }}</code>
-                    <span class="item-spacer"></span>
-                    <span class="block-counts">{{ blocks.length }} blocks · {{ links.length }} links · {{ providers.length }} mock providers</span>
-                </div>
-                <h3 class="topo-section">blocks</h3>
-                <div v-for="lb in blocks" :key="lb.id" class="topo-row">
-                    <span class="mono topo-name">{{ lb.name }}</span>
-                    <code v-if="lb.annotations?.Icon" class="icon-chip">{{ lb.annotations.Icon }}</code>
-                    <span class="item-spacer"></span>
-                    <span class="topo-meta">{{ counts(lb) }}</span>
-                </div>
-                <h3 class="topo-section">links</h3>
-                <div v-for="(m, i) in links" :key="i" class="topo-row">
-                    <span class="mono topo-name">{{ m.sourceLogicBlockName }}</span>
-                    <span class="topo-arrow">→</span>
-                    <span class="mono topo-name">{{ m.targetLogicBlockName }}</span>
-                    <span class="item-spacer"></span>
-                    <span class="topo-meta mono">{{ m.sourceInterfaceIdentifier }} ↔ {{ m.targetInterfaceIdentifier }}</span>
-                </div>
-                <div v-if="!links.length" class="topo-meta">no inter-block links</div>
-                <h3 class="topo-section">hardware contracts (mocked)</h3>
-                <template v-for="lb in blocks" :key="'c' + lb.id">
-                    <div v-for="c in contractRows(lb)" :key="lb.id + c.id" class="topo-row">
-                        <span class="contract-type-badge" :class="c.short.toLowerCase()">{{ c.short }}</span>
-                        <span class="mono topo-name">{{ lb.name }}.{{ c.id }}</span>
-                        <span class="item-spacer"></span>
-                        <span class="topo-meta mono">{{ c.endpoint }}</span>
-                    </div>
-                </template>
-                <div class="topo-section-head">
-                    <h3 class="topo-section">topology files</h3>
-                    <span class="item-spacer"></span>
-                    <button v-if="canEdit" type="button" class="theme-toggle" title="author a new topology"
-                            @click="startNew">+ new</button>
-                </div>
-                <div v-if="!topologyFiles.length" class="topo-meta">
-                    no topology files — export this preset with <code>dale dev --export-topology topologies/&lt;id&gt;.topology.json</code>
-                </div>
-                <div v-for="t in topologyFiles" :key="t.id" class="topo-row">
-                    <span class="mono topo-name">{{ t.id }}</span>
-                    <span v-if="t.error" class="scenario-error" :title="t.error">invalid</span>
-                    <span v-else class="topo-meta">{{ t.blocks }} blocks</span>
-                    <span class="item-spacer"></span>
-                    <button v-if="canEdit" type="button" class="theme-toggle" title="clone this topology into the editor"
-                            @click="startClone(t.id)">✎ clone</button>
-                    <code v-if="t.id === currentTopology" class="topology-chip">running</code>
-                    <button v-else type="button" class="theme-toggle" :disabled="!canSwitch"
-                            :title="canSwitch ? 'recycle the host into this topology' : 'switching needs a topology-aware supervisor (DevHostWebRunner.RunAsync with a Func<string?, IDevHost> factory)'"
-                            @click="doSwitch(t.id)">⇄ switch</button>
-                </div>
-            </section>
-            </template>
-            <template v-else>
-                <TopologyEditor @done="store.topologyEditing = false"/>
-            </template>
+            <TopologyList v-if="screen === 'list'"/>
+            <TopologyDetail v-else-if="screen === 'detail'"/>
+            <TopologyEditor v-else/>
         </div>
     `,
 };
@@ -2043,22 +2082,21 @@ export const PlayerPanel = {
 // ── ⌘K palette: go to any property / scenario / topology. Enter acts (jump / open / switch); for a
 //    property in Explore, Ctrl+Enter pins it to the watch panel instead. ───────────────────────────
 
-// Open the topology editor from anywhere (⌘K palette / keybinding): show the topology view, prime the
-// draft (new or cloned), then set store.topologyEditing so TopologyPanel renders the editor. The flag is
-// the single source of truth (no local mode ref), so this works even though TopologyPanel mounts AFTER
-// the view switch — the panel reads the flag at render time. Both honor the read-only gate.
+// Open the topology editor from anywhere (⌘K palette / keybinding): show the topology view, then prime
+// the draft + flip topologyScreen to 'editor' via the store actions. The screen state is the single
+// source of truth (no local mode ref), so this works even though TopologyPanel mounts AFTER the view
+// switch — the panel reads the state at render time. Both honor the read-only gate. The "edit topology"
+// palette verb EDITS the file in place (same id → Save overwrites it).
 const topologyEditable = () => !(store.topologies && store.topologies.readOnly);
 function openNewTopologyEditor() {
     if (!topologyEditable()) return;
     store.view = 'topology';
-    newTopologyDraft();
-    store.topologyEditing = true;
+    newTopology();
 }
 function openCloneTopologyEditor(id) {
     if (!topologyEditable()) return;
     store.view = 'topology';
-    cloneTopologyDraft(id);
-    store.topologyEditing = true;
+    editTopology(id);
 }
 
 export const Palette = {
@@ -2127,7 +2165,7 @@ export const Palette = {
             }
             if (entry.type === 'topology') {
                 close();
-                if (entry.id === store.topologyName) { store.view = 'topology'; return; }
+                if (entry.id === store.topologyName) { store.view = 'topology'; openTopologyList(); return; }
                 if (store.canReset && !store.recycling) switchTopology(entry.id);
                 return;
             }
@@ -2335,7 +2373,7 @@ export const App = {
                 case '/': e.preventDefault(); filterEl.value && filterEl.value.focus(); break;
                 case 'e': goExplore(); break;
                 case 'v': goVerify(); break;
-                case 't': setView('topology'); break;
+                case 't': goTopology(); break;
                 case 'T': openNewTopologyEditor(); break;
                 case 'b': setBaseline(); break;
                 case 'c': clearPins(); break;
@@ -2352,6 +2390,13 @@ export const App = {
         // setView toggles a context view (topology, gallery) against the 'explorer' default — used by the
         // context-zone chips, not the primary nav. (Explore / Verify are goExplore / goVerify below.)
         const setView = v => { store.view = store.view === v ? 'explorer' : v; };
+        // The topology chip / 't' key toggles the topology view and, when opening it, lands on the file
+        // List (not whatever screen the panel was last left on — e.g. a half-finished editor session).
+        const goTopology = () => {
+            const opening = store.view !== 'topology';
+            setView('topology');
+            if (opening) openTopologyList();
+        };
         // Two-zone nav (RFC 0012 §3): Explore and Verify are the two activities. Verify is the scenario
         // player (keeps the #/scenario deep link); Explore is the default browse surface. Topology and
         // gallery are reached from the context chip / overflow, not the primary nav.
@@ -2379,7 +2424,7 @@ export const App = {
         return {
             store, blocks, sharedLookup, totals, theme, toggleTheme, matches, changedTotal,
             baselineClock, filterEl, setBaseline, clearBaseline, pauseHost, resumeHost,
-            confirmReset, setView, goExplore, goVerify, stepHost, advanceHost, switchClockMode, steppedClock, paletteKeyLabel: PALETTE_KEY_LABEL,
+            confirmReset, setView, goTopology, goExplore, goVerify, stepHost, advanceHost, switchClockMode, steppedClock, paletteKeyLabel: PALETTE_KEY_LABEL,
         };
     },
     template: `
@@ -2396,7 +2441,7 @@ export const App = {
                     <button v-if="store.topologyName" type="button" class="topology-chip-btn" :class="{ active: store.view === 'topology', recycling: store.recycling }"
                             :disabled="store.recycling"
                             :title="store.recycling ? 'recycling the host — please wait' : (store.view === 'topology' ? 'close the topology view (t)' : 'topology ' + store.topologyName + ' — view blocks/links and switch (t)')"
-                            @click="setView('topology')">
+                            @click="goTopology">
                         <span v-if="store.recycling"><span class="recycling-spin">♻</span> recycling…</span>
                         <span v-else>⛁ {{ store.topologyName }} ▾</span>
                     </button>

@@ -221,6 +221,17 @@ body {
 .topo-arrow { color: var(--accent); font-weight: var(--vion-font-weight-emphasized); }
 .topo-meta { font-size: 11px; color: var(--text-faint); }
 
+/* A topo row rendered as a clickable button (the file List → Detail master-detail affordance). */
+.topo-row-button {
+    width: 100%;
+    background: none;
+    color: inherit;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+.topo-row-button:hover { background: var(--bg-raised); }
+
 /* topology editor (RFC 0013): the edit sub-mode reuses the panel's row vocabulary */
 .topo-panel { display: block; }
 .topo-editor-head { gap: 8px; }
