@@ -61,10 +61,11 @@ export const store = reactive({
     topologyDraft: null,
     topologyDraftDirty: false,
     topologyDraftErrors: [],
-    // A monotonically-increasing "open the topology editor" request from an external requester (the ⌘K
-    // palette / keybinding). TopologyPanel watches it and flips its local mode to 'edit'; a counter (not
-    // a bool) so repeated requests re-trigger the watch. The requester sets the topology view first.
-    topologyEditRequest: 0,
+    // Whether the topology editor is open — the single source of truth for view⇄edit, read at render
+    // time by TopologyPanel (NOT a local ref). A store flag (not a mount-time watch) so an external
+    // requester (⌘K palette / Shift+T) that sets it BEFORE the panel mounts still opens the editor: the
+    // panel reads the flag when it renders, regardless of mount order. The requester sets the view first.
+    topologyEditing: false,
     // Scenario surface (RFC 0006): the discovery payload, the opened scenario (parsed file), and the
     // latest run report. Run state lives SERVER-side (F5-safe, agent-visible) — the client only polls.
     scenarios: null,

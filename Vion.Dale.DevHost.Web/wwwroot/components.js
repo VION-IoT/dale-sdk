@@ -1322,16 +1322,13 @@ export const TopologyPanel = {
         const providers = computed(() => (store.config && store.config.serviceProviders) || []);
 
         // view ⇄ edit sub-mode (RFC 0013): the read-only setup view, or the topology editor on a draft.
-        // Editing is gated to writable topology workspaces (a read-only host can still observe).
-        const mode = ref('view');
+        // The open/closed state lives in the STORE (store.topologyEditing), not a local ref, so an
+        // external requester (⌘K palette / Shift+T) that opens the editor BEFORE this panel mounts still
+        // works — the panel reads the flag at render time, mount-order-independent. Editing is gated to
+        // writable topology workspaces (a read-only host can still observe).
         const canEdit = computed(() => !(store.topologies && store.topologies.readOnly));
-        const startNew = () => { newTopologyDraft(); mode.value = 'edit'; };
-        const startClone = id => { cloneTopologyDraft(id); mode.value = 'edit'; };
-        // An external requester (the ⌘K palette / keybinding) opens the editor by bumping
-        // store.topologyEditRequest after setting the topology view; the panel reacts by flipping into
-        // edit mode. The requester has already primed the draft (new/clone). Not immediate — the counter
-        // starts at 0 and must only act on a genuine change.
-        watch(() => store.topologyEditRequest, () => { mode.value = 'edit'; });
+        const startNew = () => { newTopologyDraft(); store.topologyEditing = true; };
+        const startClone = id => { cloneTopologyDraft(id); store.topologyEditing = true; };
 
         // Topology files (R5): refreshed on every panel open; switching rides the reset recovery.
         loadTopologies();
@@ -1361,11 +1358,11 @@ export const TopologyPanel = {
                 };
             });
         };
-        return { store, blocks, links, providers, counts, contractRows, topologyFiles, canSwitch, currentTopology, doSwitch, mode, canEdit, startNew, startClone };
+        return { store, blocks, links, providers, counts, contractRows, topologyFiles, canSwitch, currentTopology, doSwitch, canEdit, startNew, startClone };
     },
     template: `
         <div class="topology-panel">
-            <template v-if="mode === 'view'">
+            <template v-if="!store.topologyEditing">
             <section class="block-card">
                 <div class="block-header">
                     <h2>topology</h2>
@@ -1422,7 +1419,7 @@ export const TopologyPanel = {
             </section>
             </template>
             <template v-else>
-                <TopologyEditor @done="mode = 'view'"/>
+                <TopologyEditor @done="store.topologyEditing = false"/>
             </template>
         </div>
     `,
@@ -2047,21 +2044,21 @@ export const PlayerPanel = {
 //    property in Explore, Ctrl+Enter pins it to the watch panel instead. ───────────────────────────
 
 // Open the topology editor from anywhere (⌘K palette / keybinding): show the topology view, prime the
-// draft (new or cloned), then bump the request counter so a mounted TopologyPanel flips to edit mode.
-// `mode` is local to TopologyPanel; topologyEditRequest is the minimal cross-component signal that
-// carries the "open the editor" intent. Both honor the read-only gate (no editing on a read-only host).
+// draft (new or cloned), then set store.topologyEditing so TopologyPanel renders the editor. The flag is
+// the single source of truth (no local mode ref), so this works even though TopologyPanel mounts AFTER
+// the view switch — the panel reads the flag at render time. Both honor the read-only gate.
 const topologyEditable = () => !(store.topologies && store.topologies.readOnly);
 function openNewTopologyEditor() {
     if (!topologyEditable()) return;
     store.view = 'topology';
     newTopologyDraft();
-    store.topologyEditRequest++;
+    store.topologyEditing = true;
 }
 function openCloneTopologyEditor(id) {
     if (!topologyEditable()) return;
     store.view = 'topology';
     cloneTopologyDraft(id);
-    store.topologyEditRequest++;
+    store.topologyEditing = true;
 }
 
 export const Palette = {
