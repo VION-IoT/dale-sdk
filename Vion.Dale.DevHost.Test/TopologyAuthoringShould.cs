@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -148,6 +149,64 @@ namespace Vion.Dale.DevHost.Test
 
             var demand = definition.Contracts.Single(c => c.Identifier == "Demand");
             Assert.AreEqual("GridDemand", demand.MatchingContractType, "Demand's MatchingContractType must be the [ServiceProviderContractType] token.");
+        }
+
+        [TestMethod]
+        public void TopologyStore_Save_RejectsIncompatibleMapping()
+        {
+            // RFC 0013 decision 1: Save now runs the compatibility check (DevTopologyLoader.Build). The mapping
+            // wires ISource -> ISource, which is NOT in DiscoverMatchingInterfaces (ISource matches ISink), so
+            // Save must throw rather than persist an incompatible wiring.
+            var dir = NewTopologyDir();
+            var json = $$"""
+                         {
+                           "id": "bad",
+                           "logicBlockInstances": [
+                             { "typeFullName": "{{typeof(SourceBlock).FullName}}", "name": "source" },
+                             { "typeFullName": "{{typeof(SinkBlock).FullName}}", "name": "sink" }
+                           ],
+                           "interfaceMappings": [
+                             { "sourceLogicBlockName": "source", "sourceInterfaceIdentifier": "ISource",
+                               "targetLogicBlockName": "sink", "targetInterfaceIdentifier": "ISource" }
+                           ]
+                         }
+                         """;
+
+            var e = Assert.ThrowsExactly<InvalidDataException>(() => new DevTopologyStore(dir).Save("bad", json));
+            StringAssert.Contains(e.Message, "not compatible");
+            Assert.IsFalse(File.Exists(Path.Combine(dir, "bad" + DevTopologyFile.FileSuffix)), "an incompatible topology must not be persisted");
+        }
+
+        [TestMethod]
+        public void TopologyStore_Save_PersistsCompatibleMapping()
+        {
+            // The valid counterpart: ISource <-> ISink is a reciprocal MatchingInterface pair (the PollLink
+            // contract), so the compatibility check passes and the file is written.
+            var dir = NewTopologyDir();
+            var json = $$"""
+                         {
+                           "id": "good",
+                           "logicBlockInstances": [
+                             { "typeFullName": "{{typeof(SourceBlock).FullName}}", "name": "source" },
+                             { "typeFullName": "{{typeof(SinkBlock).FullName}}", "name": "sink" }
+                           ],
+                           "interfaceMappings": [
+                             { "sourceLogicBlockName": "source", "sourceInterfaceIdentifier": "ISource",
+                               "targetLogicBlockName": "sink", "targetInterfaceIdentifier": "ISink" }
+                           ]
+                         }
+                         """;
+
+            var path = new DevTopologyStore(dir).Save("good", json);
+            Assert.AreEqual(Path.Combine(dir, "good" + DevTopologyFile.FileSuffix), path);
+            Assert.IsTrue(File.Exists(path), "a compatible topology must be persisted");
+        }
+
+        private static string NewTopologyDir()
+        {
+            var dir = Path.Combine(Path.GetTempPath(), "dale-topologies-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(dir);
+            return dir;
         }
 
         private static int FreePort()

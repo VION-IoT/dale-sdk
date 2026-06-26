@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Loader;
+using System.Text.RegularExpressions;
 using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.DevHost.Topologies
@@ -40,6 +41,7 @@ namespace Vion.Dale.DevHost.Topologies
             var errors = new List<string>();
             var builder = DevConfigurationBuilder.Create().WithTopologyName(topology.Id!);
             var handles = new Dictionary<string, LogicBlockHandle>(StringComparer.Ordinal);
+            var types = new Dictionary<string, Type>(StringComparer.Ordinal);
 
             foreach (var instance in topology.LogicBlockInstances!)
             {
@@ -58,6 +60,7 @@ namespace Vion.Dale.DevHost.Topologies
 
                 builder.AddLogicBlock(type, out var handle, instance.Name);
                 handles[instance.Name!] = handle;
+                types[instance.Name!] = type;
             }
 
             if (errors.Count > 0)
@@ -70,6 +73,10 @@ namespace Vion.Dale.DevHost.Topologies
 
             // Interface mappings come from the file verbatim — the dev profile declares wiring
             // explicitly rather than re-running auto-discovery, so a file is reproducible by content.
+            // Each authored mapping is also checked against the frozen MatchingInterface relation (RFC 0013
+            // decision 1): an incompatible pair is recorded and reported, but the mapping is still applied so
+            // the behaviour stays additive (the runtime tolerates it; the editor/validate flags it).
+            var mappingErrors = new List<string>();
             foreach (var mapping in topology.InterfaceMappings ?? Array.Empty<TopologyInterfaceMapping>())
             {
                 var source = handles[mapping.SourceLogicBlockName!];
@@ -83,6 +90,19 @@ namespace Vion.Dale.DevHost.Topologies
                                                         TargetLogicBlockName = target.Name,
                                                         TargetInterfaceIdentifier = mapping.TargetInterfaceIdentifier!,
                                                     });
+
+                // DiscoverMatchingInterfaces returns (source-interface-id, target-interface-id) pairs for
+                // (sourceType, targetType); the names are guaranteed declared by DevTopologyFile.Parse.
+                var pairs = DevConfigurationBuilder.DiscoverMatchingInterfaces(types[mapping.SourceLogicBlockName!], types[mapping.TargetLogicBlockName!]);
+                if (!pairs.Contains((mapping.SourceInterfaceIdentifier!, mapping.TargetInterfaceIdentifier!)))
+                {
+                    mappingErrors.Add($"interfaceMappings: '{mapping.SourceLogicBlockName}.{mapping.SourceInterfaceIdentifier}' is not compatible with '{mapping.TargetLogicBlockName}.{mapping.TargetInterfaceIdentifier}'");
+                }
+            }
+
+            if (mappingErrors.Count > 0)
+            {
+                throw new InvalidDataException(string.Join("; ", mappingErrors));
             }
 
             // Explicit contract mappings override the auto-created defaults per (block, contract) —
@@ -191,10 +211,24 @@ namespace Vion.Dale.DevHost.Topologies
         }
     }
 
-    /// <summary>Discovery over <c>{cwd}/topologies/*.topology.json</c> for the switching UI (rescan-on-read, like scenarios).</summary>
+    /// <summary>
+    ///     Discovery and persistence over <c>{cwd}/topologies/*.topology.json</c> for the switching UI and the
+    ///     topology editor (RFC 0013) — rescan-on-read, like scenarios. Saving is path-confined to the directory
+    ///     and disabled by <c>DALE_DEVHOST_READONLY_TOPOLOGIES=1</c>.
+    /// </summary>
     public sealed class DevTopologyStore
     {
+        /// <summary>Set to <c>1</c> to reject saves (<c>PUT /api/topologies/{id}</c>) — CI / locked-down checkouts.</summary>
+        public const string ReadOnlyEnvVar = "DALE_DEVHOST_READONLY_TOPOLOGIES";
+
+        private static readonly Regex IdSlug = new("^[A-Za-z0-9][A-Za-z0-9._-]*$", RegexOptions.Compiled);
+
         public string Directory { get; }
+
+        public static bool IsReadOnly
+        {
+            get => Environment.GetEnvironmentVariable(ReadOnlyEnvVar) == "1";
+        }
 
         public DevTopologyStore(string? directory = null)
         {
@@ -227,6 +261,90 @@ namespace Vion.Dale.DevHost.Topologies
                                      }
                                  })
                          .ToList();
+        }
+
+        /// <summary>The raw file content for an id, or null when no such topology exists.</summary>
+        public string? ReadRaw(string id)
+        {
+            if (!TryGetPath(id, out var path) || !ExistsExactCase(path))
+            {
+                return null;
+            }
+
+            try
+            {
+                return File.ReadAllText(path);
+            }
+            catch (Exception e) when (e is FileNotFoundException or DirectoryNotFoundException)
+            {
+                // Deleted between the existence check and the read — absent, not an error.
+                return null;
+            }
+        }
+
+        /// <summary>
+        ///     Save a topology from the editor (RFC 0013): the body is structurally parsed, the embedded id must
+        ///     match, the catalog + interface-compatibility check (<see cref="DevTopologyLoader.Build" />) must
+        ///     pass, and the write is confined to the topologies directory. Throws
+        ///     <see cref="InvalidOperationException" /> when saving is disabled via <see cref="ReadOnlyEnvVar" />,
+        ///     <see cref="InvalidDataException" /> for invalid content. Returns the absolute path written.
+        /// </summary>
+        public string Save(string id, string rawJson)
+        {
+            if (IsReadOnly)
+            {
+                throw new InvalidOperationException($"Topology saving is disabled ({ReadOnlyEnvVar}=1).");
+            }
+
+            var file = DevTopologyFile.Parse(rawJson); // structural
+            if (!string.Equals(file.Id, id, StringComparison.Ordinal))
+            {
+                throw new InvalidDataException($"id '{file.Id}' does not match the requested id '{id}'");
+            }
+
+            DevTopologyLoader.Build(file); // catalog + compatibility; throws InvalidDataException on any problem
+            if (!TryGetPath(id, out var path))
+            {
+                throw new InvalidDataException($"'{id}' is not a valid topology id");
+            }
+
+            System.IO.Directory.CreateDirectory(Directory);
+            File.WriteAllText(path, rawJson);
+            return path;
+        }
+
+        // Windows file systems match names case-insensitively: without this check, 'Default' would load
+        // default.topology.json locally and then 404 on Linux CI. Ordinal-exact name matching everywhere.
+        private static bool ExistsExactCase(string path)
+        {
+            if (!File.Exists(path))
+            {
+                return false;
+            }
+
+            var directory = Path.GetDirectoryName(path);
+            var name = Path.GetFileName(path);
+            return directory is not null && System.IO.Directory.EnumerateFiles(directory, name).Any(f => string.Equals(Path.GetFileName(f), name, StringComparison.Ordinal));
+        }
+
+        // Confinement: the id must be a slug (no separators, no dot-dot), and the combined path must stay
+        // under the topologies directory — belt and suspenders against traversal.
+        private bool TryGetPath(string id, out string path)
+        {
+            path = string.Empty;
+            if (string.IsNullOrEmpty(id) || !IdSlug.IsMatch(id) || id.Contains(".."))
+            {
+                return false;
+            }
+
+            var candidate = Path.GetFullPath(Path.Combine(Directory, id + DevTopologyFile.FileSuffix));
+            if (!candidate.StartsWith(Directory + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            path = candidate;
+            return true;
         }
     }
 
