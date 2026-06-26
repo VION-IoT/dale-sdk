@@ -15,8 +15,8 @@ import {
 } from './format.js';
 import {
     applyScenario, baselineDelta, buildSharedContractLookup, changedCountForBlock,
-    changedSinceBaseline, clearBaseline, clearPins, closeScenario, collapseKey, connectionsForLb,
-    advanceHost, driveContract, halKey, historyFor, isPinned, judgeKey, loadTopologies, openScenario, pauseHost, resetHost, resumeHost, stepHost,
+    changedSinceBaseline, clearBaseline, clearPins, cloneTopologyDraft, closeScenario, collapseKey, connectionsForLb,
+    advanceHost, driveContract, halKey, historyFor, isPinned, judgeKey, loadTopologies, newTopologyDraft, openScenario, pauseHost, resetHost, resumeHost, stepHost,
     setBaseline, setJudgeTick, setProperty, showError, store,
     switchClockMode, switchTopology, toggleCollapsed, togglePin, valueKey,
 } from './store.js';
@@ -1143,10 +1143,18 @@ const TopologyEditor = {
 // ── topology panel: the read-only setup view — what runs, how it is wired, where IO lands ──────
 
 export const TopologyPanel = {
+    components: { TopologyEditor },
     setup() {
         const blocks = computed(() => (store.config && store.config.logicBlocks) || []);
         const links = computed(() => (store.config && store.config.interfaceMappings) || []);
         const providers = computed(() => (store.config && store.config.serviceProviders) || []);
+
+        // view ⇄ edit sub-mode (RFC 0013): the read-only setup view, or the topology editor on a draft.
+        // Editing is gated to writable topology workspaces (a read-only host can still observe).
+        const mode = ref('view');
+        const canEdit = computed(() => !(store.topologies && store.topologies.readOnly));
+        const startNew = () => { newTopologyDraft(); mode.value = 'edit'; };
+        const startClone = id => { cloneTopologyDraft(id); mode.value = 'edit'; };
 
         // Topology files (R5): refreshed on every panel open; switching rides the reset recovery.
         loadTopologies();
@@ -1176,10 +1184,11 @@ export const TopologyPanel = {
                 };
             });
         };
-        return { store, blocks, links, providers, counts, contractRows, topologyFiles, canSwitch, currentTopology, doSwitch };
+        return { store, blocks, links, providers, counts, contractRows, topologyFiles, canSwitch, currentTopology, doSwitch, mode, canEdit, startNew, startClone };
     },
     template: `
         <div class="topology-panel">
+            <template v-if="mode === 'view'">
             <section class="block-card">
                 <div class="block-header">
                     <h2>topology</h2>
@@ -1212,7 +1221,12 @@ export const TopologyPanel = {
                         <span class="topo-meta mono">{{ c.endpoint }}</span>
                     </div>
                 </template>
-                <h3 class="topo-section">topology files</h3>
+                <div class="topo-section-head">
+                    <h3 class="topo-section">topology files</h3>
+                    <span class="item-spacer"></span>
+                    <button v-if="canEdit" type="button" class="theme-toggle" title="author a new topology"
+                            @click="startNew">+ new</button>
+                </div>
                 <div v-if="!topologyFiles.length" class="topo-meta">
                     no topology files — export this preset with <code>dale dev --export-topology topologies/&lt;id&gt;.topology.json</code>
                 </div>
@@ -1221,12 +1235,18 @@ export const TopologyPanel = {
                     <span v-if="t.error" class="scenario-error" :title="t.error">invalid</span>
                     <span v-else class="topo-meta">{{ t.blocks }} blocks</span>
                     <span class="item-spacer"></span>
+                    <button v-if="canEdit" type="button" class="theme-toggle" title="clone this topology into the editor"
+                            @click="startClone(t.id)">✎ clone</button>
                     <code v-if="t.id === currentTopology" class="topology-chip">running</code>
                     <button v-else type="button" class="theme-toggle" :disabled="!canSwitch"
                             :title="canSwitch ? 'recycle the host into this topology' : 'switching needs a topology-aware supervisor (DevHostWebRunner.RunAsync with a Func<string?, IDevHost> factory)'"
                             @click="doSwitch(t.id)">⇄ switch</button>
                 </div>
             </section>
+            </template>
+            <template v-else>
+                <TopologyEditor @done="mode = 'view'"/>
+            </template>
         </div>
     `,
 };
