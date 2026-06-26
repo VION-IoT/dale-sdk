@@ -271,6 +271,37 @@ namespace Vion.Dale.DevHost
             return result;
         }
 
+        // The service-provider contracts declared on a block type's writable properties, by reflection over
+        // the Type (no instantiation): each property whose PropertyType carries a [ServiceProviderContractType]
+        // yields (identifier, the provider-side contract-type token). The catalog DTO (RFC 0013) reuses this —
+        // the token here is exactly what LogicBlockIntrospection records as ContractInfo.MatchingContractType.
+        internal static List<(string Identifier, string ContractType)> GetContractProperties(Type type)
+        {
+            var result = new List<(string, string)>();
+            var properties = ReflectionHelper.GetProperties(type, true);
+
+            foreach (var property in properties)
+            {
+                if (!property.CanWrite)
+                {
+                    continue;
+                }
+
+                var contractTypeAttr = property.PropertyType.GetCustomAttribute<ServiceProviderContractTypeAttribute>();
+                if (contractTypeAttr == null)
+                {
+                    continue;
+                }
+
+                var contractAttr = property.GetCustomAttribute<ServiceProviderContractBindingAttribute>();
+                var identifier = contractAttr?.Identifier ?? property.Name;
+
+                result.Add((identifier, contractTypeAttr.ServiceProviderContractType));
+            }
+
+            return result;
+        }
+
         private LogicBlockHandle CreateHandle<T>(string? name, string? id)
             where T : LogicBlockBase
         {
@@ -487,33 +518,6 @@ namespace Vion.Dale.DevHost
                                                   });
                 }
             }
-        }
-
-        private static List<(string Identifier, string ContractType)> GetContractProperties(Type type)
-        {
-            var result = new List<(string, string)>();
-            var properties = ReflectionHelper.GetProperties(type, true);
-
-            foreach (var property in properties)
-            {
-                if (!property.CanWrite)
-                {
-                    continue;
-                }
-
-                var contractTypeAttr = property.PropertyType.GetCustomAttribute<ServiceProviderContractTypeAttribute>();
-                if (contractTypeAttr == null)
-                {
-                    continue;
-                }
-
-                var contractAttr = property.GetCustomAttribute<ServiceProviderContractBindingAttribute>();
-                var identifier = contractAttr?.Identifier ?? property.Name;
-
-                result.Add((identifier, contractTypeAttr.ServiceProviderContractType));
-            }
-
-            return result;
         }
     }
 }

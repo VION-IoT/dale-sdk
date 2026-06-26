@@ -6,6 +6,7 @@ using System.Net.Sockets;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Vion.Dale.DevHost.Topologies;
 using Vion.Dale.DevHost.Web;
 
 namespace Vion.Dale.DevHost.Test
@@ -60,6 +61,31 @@ namespace Vion.Dale.DevHost.Test
             var sourceMatches = sourceInterface.GetProperty("matchingInterfaceTypeFullNames").EnumerateArray().Select(n => n.GetString()).ToList();
             Assert.IsTrue(sourceMatches.Any(n => n is not null && n.Contains("ISink", StringComparison.Ordinal)),
                           "ISource's matchingInterfaceTypeFullNames must name ISink: " + string.Join(", ", sourceMatches));
+        }
+
+        [TestMethod]
+        public void LogicBlockDefinition_FromType_CarriesInterfaceMatchingMetadata()
+        {
+            // Built purely by reflection over the Type (no host build, no instantiation): the catalog DTO a
+            // later client matcher reads to compute wiring. SourceBlock implements ISource, whose
+            // [LogicInterface] names ISink as its MatchingInterface (the PollLink contract makes them reciprocal).
+            var definition = LogicBlockDefinition.FromType(typeof(SourceBlock));
+
+            Assert.AreEqual(typeof(SourceBlock).FullName, definition.TypeFullName, "TypeFullName must be the block's CLR full name.");
+            Assert.IsNotEmpty(definition.Interfaces, "SourceBlock exposes at least its ISource logic interface.");
+
+            foreach (var iface in definition.Interfaces)
+            {
+                Assert.IsNotEmpty(iface.InterfaceTypeFullNames, "Every interface entry must carry a non-empty interfaceTypeFullNames: " + iface.Identifier);
+            }
+
+            var anyMatch = definition.Interfaces.Any(i => i.MatchingInterfaceTypeFullNames.Count > 0 && i.MatchingInterfaceTypeFullNames.All(n => !string.IsNullOrEmpty(n)));
+            Assert.IsTrue(anyMatch, "At least one interface (ISource) must carry a non-empty matchingInterfaceTypeFullNames back-reference.");
+
+            // The back-reference must round-trip: the ISource entry must name ISink as its match.
+            var source = definition.Interfaces.Single(i => i.Identifier == "ISource");
+            Assert.IsTrue(source.MatchingInterfaceTypeFullNames.Any(n => n.Contains("ISink", StringComparison.Ordinal)),
+                          "ISource's matchingInterfaceTypeFullNames must name ISink: " + string.Join(", ", source.MatchingInterfaceTypeFullNames));
         }
 
         private static int FreePort()
