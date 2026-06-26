@@ -109,7 +109,7 @@ Extend `DevTopologyStore` with `ReadRaw(id)`, `Save(id, rawJson)`, `TryGetPath` 
 ### 8.3 Endpoints (on `TopologiesController`, mirroring `ScenariosController`)
 
 - `GET /api/topologies/{id}` (NEW) → `Content(store.ReadRaw(id), "application/json")`; 404 if absent. Byte-for-byte.
-- `PUT /api/topologies/{id}` (NEW) — body = raw `*.topology.json`. → `store.Save`; 200 `{saved, directory}`; 403 on the read-only gate; 422 `{error, errors[]}` on validation failure.
+- `PUT /api/topologies/{id}` (NEW) — body = raw `*.topology.json`. → `store.Save`; 200 `{saved, directory}`; 403 on the read-only gate; 422 `{error, errors[]}` on validation failure. **Save persists a complete, self-contained file** (see decision 4): the auto-mocked `contractMappings` are made explicit and the JSON is canonicalized (`$schema` + pretty-printed), so the saved file does not depend on load-time auto-fill.
 - `POST /api/topologies/validate` (NEW, **id-less**) — body = a draft (possibly un-named). Dry-run, writes nothing. → 200 `{valid:true}` | 422 `{valid:false, errors[]}`. (The client already holds the draft, so the success body is just the pass/fail — no echoed block/service counts.)
 - `POST /api/topologies/{id}/switch` (EXISTS) — reused to recycle onto the just-saved file (no watcher needed; discovery is rescan-on-read).
 
@@ -123,6 +123,7 @@ Extend `DevTopologyStore` with `ReadRaw(id)`, `Save(id, rawJson)`, `TryGetPath` 
 - (1) **`validate` and `save` run the compatibility check (3) too** — so a hand-edited or imported file cannot smuggle an incompatible mapping. Same frozen relation the client uses; advisory-strength is fine because the runtime tolerates it, but the editor/validate flags it.
 - (2) **Route shape:** id-less `POST /api/topologies/validate` (a brand-new draft has no id yet) for validate-as-you-type, plus `PUT` re-validating on save.
 - (3) **Save runs the full catalog `Build`** (rejects unloadable types at save), not just structural `Parse`. Save also enforces embedded-`id` == path-`id` (Parse does not).
+- (4) **Save completes `contractMappings`** (added during build): the editor authors only blocks + interface wiring (principle 7 — contracts stay auto-mocked), but the *saved file* must be self-contained and reviewable, like the `default` preset / a dashboard export — not a `[]` that silently relies on the loader's per-block auto-mock. `Save` therefore projects the built `DevConfiguration`'s contract mappings (auto-created defaults `sp_lb_N`/`svc_lb_N` + any explicit overrides) back into the persisted JSON. Re-applying them on load is idempotent (the explicit mapping sets the same values the auto-mock would), so the file round-trips. This is a deliberate trade against byte-faithful *save* (principle 6): the **`GET` round-trip stays byte-for-byte of the stored file**, but `Save` canonicalizes the draft rather than echoing it verbatim — completeness wins over preserving a hand-author's exact bytes. (The `DefaultTopologyGenerator` boot/CLI-export fallback still emits `[]`; only the interactive save completes them.)
 
 Type-not-referenced (`ResolveType` returns null → "the DevHost project must reference the library that declares it") must surface as an actionable **per-instance** diagnostic naming the missing `packageId@version`, not a concatenated string.
 
