@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -200,6 +201,46 @@ namespace Vion.Dale.DevHost.Test
             var path = new DevTopologyStore(dir).Save("good", json);
             Assert.AreEqual(Path.Combine(dir, "good" + DevTopologyFile.FileSuffix), path);
             Assert.IsTrue(File.Exists(path), "a compatible topology must be persisted");
+        }
+
+        [TestMethod]
+        [TestCategory("Smoke")]
+        public async Task Topology_PutGetValidate_RoundTrips()
+        {
+            var dir = NewTopologyDir();
+            var port = FreePort();
+            var config = DevConfigurationBuilder.Create().WithTopologyName("rig").WithTopologies(dir).AddLogicBlock<SourceBlock>("source").AddLogicBlock<SinkBlock>("sink").Build();
+            await using var host = DevHostBuilder.Create().WithDi<CrossBlockDependencyInjection>().WithConfiguration(config).WithWebUi(port).Build();
+            await host.StartAsync();
+
+            using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
+
+            var body = $$"""
+                         {
+                           "id": "rig",
+                           "logicBlockInstances": [
+                             { "typeFullName": "{{typeof(SourceBlock).FullName}}", "name": "source" },
+                             { "typeFullName": "{{typeof(SinkBlock).FullName}}", "name": "sink" }
+                           ],
+                           "interfaceMappings": [
+                             { "sourceLogicBlockName": "source", "sourceInterfaceIdentifier": "ISource",
+                               "targetLogicBlockName": "sink", "targetInterfaceIdentifier": "ISink" }
+                           ]
+                         }
+                         """;
+
+            var saved = await client.PutAsync("/api/topologies/rig", new StringContent(body, Encoding.UTF8, "application/json"));
+            Assert.AreEqual(HttpStatusCode.OK, saved.StatusCode, await saved.Content.ReadAsStringAsync());
+
+            var fetched = await client.GetAsync("/api/topologies/rig");
+            Assert.AreEqual(HttpStatusCode.OK, fetched.StatusCode);
+            Assert.AreEqual(body, await fetched.Content.ReadAsStringAsync(), "GET must serve the saved file byte-for-byte");
+
+            // A structurally-broken draft (no instances) must be rejected by validate with valid:false.
+            var validated = await client.PostAsync("/api/topologies/validate", new StringContent("""{ "id": "rig" }""", Encoding.UTF8, "application/json"));
+            Assert.AreEqual(HttpStatusCode.UnprocessableEntity, validated.StatusCode);
+            using var doc = JsonDocument.Parse(await validated.Content.ReadAsStringAsync());
+            Assert.IsFalse(doc.RootElement.GetProperty("valid").GetBoolean(), "a structurally-broken draft must report valid:false");
         }
 
         private static string NewTopologyDir()
