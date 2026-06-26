@@ -10,7 +10,7 @@ import {
     effectiveType, enumDisplay, enumMembers, formatTemporal, formatValue, gallerySamples,
     GROUP_LABELS, groupItems, isNullable, isWritable, matchesFilter, orderedGroupKeys, parseFilter,
     parseNamePath, presentationFacts, resolveAuthoredTitle, resolveDisplayName, resolveUnit, sampleJson, serviceMembers, severityFor,
-    sampleX, signTone, stepRibbonGeometry, traceLaneKind, traceNumericBand, traceSeriesFor, traceStateBands,
+    sampleX, shortTypeName, signTone, stepRibbonGeometry, traceLaneKind, traceNumericBand, traceSeriesFor, traceStateBands,
     STEP_GLYPHS,
 } from './format.js';
 import {
@@ -1039,6 +1039,104 @@ export const WatchPanel = {
                 <WatchTile v-for="p in observe" :key="p.block + '/' + p.service + '/' + p.item" :entry="p"/>
             </template>
         </aside>
+    `,
+};
+
+// ── topology editor (RFC 0013): the edit sub-mode of the topology panel ─────────────────────────
+// Mutates store.topologyDraft (the draft + dirty discipline). Phase 2 covers the block list and the
+// catalog picker; wiring / validate / save land in later tasks.
+
+// Add a logic-block instance from the definition catalog: pick a type, name it, add. Names must be
+// non-empty, unique within the draft, and dotless (the server rejects dots in instance names) — an
+// invalid name shows an inline hint and is not added.
+const BlockPicker = {
+    setup() {
+        const selectedType = ref('');
+        const name = ref('');
+        const definitions = computed(() => store.definitions || []);
+        const options = computed(() => definitions.value.map(d => ({
+            typeFullName: d.typeFullName,
+            short: shortTypeName(d.typeFullName),
+        })));
+        const instances = computed(() => (store.topologyDraft && store.topologyDraft.logicBlockInstances) || []);
+        const trimmedName = computed(() => name.value.trim());
+        const nameHasDot = computed(() => trimmedName.value.indexOf('.') >= 0);
+        const nameTaken = computed(() => instances.value.some(b => b.name === trimmedName.value));
+        // The inline hint explains why "add" is blocked; empty name is the resting state (no hint, just
+        // a disabled button) so the picker doesn't nag before the user has typed anything.
+        const hint = computed(() => {
+            if (!trimmedName.value) return '';
+            if (nameHasDot.value) return 'name cannot contain a dot';
+            if (nameTaken.value) return 'name already used in this draft';
+            return '';
+        });
+        const canAdd = computed(() => {
+            if (!store.topologyDraft) return false;
+            if (!selectedType.value) return false;
+            if (!trimmedName.value) return false;
+            return !nameHasDot.value && !nameTaken.value;
+        });
+        const add = () => {
+            if (!canAdd.value) return;
+            store.topologyDraft.logicBlockInstances.push({ typeFullName: selectedType.value, name: trimmedName.value });
+            store.topologyDraftDirty = true;
+            name.value = '';
+        };
+        return { selectedType, name, options, hint, canAdd, add };
+    },
+    template: `
+        <div class="topo-row topo-picker">
+            <select v-model="selectedType">
+                <option value="" disabled>add block…</option>
+                <option v-for="o in options" :key="o.typeFullName" :value="o.typeFullName">{{ o.short }}</option>
+            </select>
+            <input type="text" placeholder="name" v-model="name" @keyup.enter="add"/>
+            <button type="button" class="theme-toggle" :disabled="!canAdd" @click="add">+ add</button>
+            <span v-if="hint" class="topo-hint">{{ hint }}</span>
+        </div>
+    `,
+};
+
+const TopologyEditor = {
+    components: { BlockPicker },
+    setup(props, { emit }) {
+        const draft = computed(() => store.topologyDraft);
+        const instances = computed(() => (draft.value && draft.value.logicBlockInstances) || []);
+        const onIdInput = () => { store.topologyDraftDirty = true; };
+        const close = () => emit('done');
+        // Removing a block also drops any interface mappings that reference its name on either end — a
+        // dangling wire would fail validation, so keep the draft internally consistent as blocks go.
+        const removeBlock = index => {
+            const d = draft.value;
+            if (!d) return;
+            const removed = d.logicBlockInstances[index];
+            if (!removed) return;
+            d.logicBlockInstances.splice(index, 1);
+            d.interfaceMappings = (d.interfaceMappings || []).filter(m => m.source !== removed.name && m.target !== removed.name);
+            store.topologyDraftDirty = true;
+        };
+        const shortFor = typeFullName => shortTypeName(typeFullName);
+        return { draft, instances, onIdInput, close, removeBlock, shortFor };
+    },
+    template: `
+        <div class="topo-panel" v-if="draft">
+            <div class="topo-row topo-editor-head">
+                <span class="topo-meta">id</span>
+                <input type="text" class="topo-id-input" placeholder="topology id" v-model="draft.id" @input="onIdInput"/>
+                <span class="item-spacer"></span>
+                <button type="button" class="theme-toggle" title="close the editor" @click="close">✕</button>
+            </div>
+            <h3 class="topo-section">blocks</h3>
+            <div v-if="!instances.length" class="topo-meta">no blocks yet — add one below</div>
+            <div v-for="(b, i) in instances" :key="b.name" class="topo-row">
+                <span class="mono topo-name">{{ b.name }}</span>
+                <span class="item-spacer"></span>
+                <span class="topo-meta mono">{{ shortFor(b.typeFullName) }}</span>
+                <button type="button" class="theme-toggle" title="remove this block" @click="removeBlock(i)">✕</button>
+            </div>
+            <BlockPicker/>
+            <!-- wiring list / validate / save land in later tasks -->
+        </div>
     `,
 };
 

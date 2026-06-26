@@ -466,6 +466,14 @@ export function contractTypeShort(type) {
     return { DigitalInput: 'DI', DigitalOutput: 'DO', AnalogInput: 'AI', AnalogOutput: 'AO' }[type] || 'SP';
 }
 
+// Readable short name for a fully-qualified type: the last dotted segment (Namespace.Foo -> Foo). Used by
+// the topology editor's block picker / block list so the catalog reads as type names, not full paths.
+export function shortTypeName(typeFullName) {
+    const name = String(typeFullName || '');
+    const dot = name.lastIndexOf('.');
+    return dot >= 0 ? name.slice(dot + 1) : name;
+}
+
 // Build the copy-paste verification report (markdown) from the scenario, the run report, and the
 // human's judgment ticks ('ok' | 'notOk' keyed `${runId}/${index}`). What lands in the PR.
 export function buildVerificationReport(scenario, run, judgeTicks) {

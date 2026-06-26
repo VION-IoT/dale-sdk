@@ -221,6 +221,13 @@ body {
 .topo-arrow { color: var(--accent); font-weight: var(--vion-font-weight-emphasized); }
 .topo-meta { font-size: 11px; color: var(--text-faint); }
 
+/* topology editor (RFC 0013): the edit sub-mode reuses the panel's row vocabulary */
+.topo-panel { display: block; }
+.topo-editor-head { gap: 8px; }
+.topo-id-input { width: 220px; }
+.topo-picker { gap: 8px; flex-wrap: wrap; }
+.topo-hint { font-size: 11px; color: var(--vion-error-fg-def-tertiary); }
+
 .error-toast {
     position: fixed;
     top: 52px;
