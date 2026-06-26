@@ -2370,6 +2370,9 @@ const TopologyMenu = {
         };
         const onDocKey = e => { if (e.key === 'Escape') close(); };
         onMounted(() => {
+            // Refresh the file list each time the popover opens — the chip lives in the shell, so the
+            // panel (which otherwise loads topologies) may never have been opened in this session.
+            loadTopologies();
             document.addEventListener('click', onDocClick, true);
             document.addEventListener('keydown', onDocKey, true);
         });
