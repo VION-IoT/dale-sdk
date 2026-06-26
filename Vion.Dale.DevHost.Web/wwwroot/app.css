@@ -277,6 +277,24 @@ body {
 .topo-error-row { border-top: none; }
 .topo-raw { width: 100%; margin-top: 8px; resize: vertical; }
 
+/* Block rows: a two-column grid (name | type) with the remove ✕ hugging the right, so names and
+   types line up down the list instead of being flung apart by an item-spacer. */
+.topo-block-row {
+    display: grid;
+    grid-template-columns: minmax(120px, 1fr) minmax(120px, 1.4fr) auto;
+    gap: 8px;
+    align-items: center;
+}
+.topo-block-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topo-block-type { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topo-row-x { justify-self: end; }
+
+/* Block picker: the type select and the name input share a comfortable, equal-ish width; the +add
+   button hugs its label. flex-wrap (on .topo-picker) lets the inline hint drop below on narrow panels. */
+.topo-pick-type { flex: 1 1 160px; min-width: 140px; }
+.topo-pick-name { flex: 1 1 160px; min-width: 120px; }
+.topo-pick-add { flex: 0 0 auto; }
+
 .error-toast {
     position: fixed;
     top: 52px;

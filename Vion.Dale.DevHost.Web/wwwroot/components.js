@@ -1114,12 +1114,12 @@ const BlockPicker = {
     },
     template: `
         <div class="topo-row topo-picker">
-            <select v-model="selectedType">
+            <select class="topo-pick-type" v-model="selectedType">
                 <option value="" disabled>add block…</option>
                 <option v-for="o in options" :key="o.typeFullName" :value="o.typeFullName">{{ o.short }}</option>
             </select>
-            <input type="text" placeholder="name" v-model="name" @input="onNameInput" @keyup.enter="add"/>
-            <button type="button" class="theme-toggle" :disabled="!canAdd" @click="add">+ add</button>
+            <input class="topo-pick-name" type="text" placeholder="name" v-model="name" @input="onNameInput" @keyup.enter="add"/>
+            <button type="button" class="theme-toggle topo-pick-add" :disabled="!canAdd" @click="add">+ add</button>
             <span v-if="hint" class="topo-hint">{{ hint }}</span>
         </div>
     `,
@@ -1286,11 +1286,10 @@ const TopologyEditor = {
                 </div>
                 <h3 class="topo-section">blocks</h3>
                 <div v-if="!instances.length" class="topo-meta">no blocks yet — add one below</div>
-                <div v-for="(b, i) in instances" :key="b.name" class="topo-row">
-                    <span class="mono topo-name">{{ b.name }}</span>
-                    <span class="item-spacer"></span>
-                    <span class="topo-meta mono">{{ shortFor(b.typeFullName) }}</span>
-                    <button type="button" class="theme-toggle" title="remove this block" @click="removeBlock(i)">✕</button>
+                <div v-for="(b, i) in instances" :key="b.name" class="topo-row topo-block-row">
+                    <span class="mono topo-name topo-block-name">{{ b.name }}</span>
+                    <span class="topo-meta mono topo-block-type">{{ shortFor(b.typeFullName) }}</span>
+                    <button type="button" class="theme-toggle topo-row-x" title="remove this block" @click="removeBlock(i)">✕</button>
                 </div>
                 <BlockPicker/>
 
