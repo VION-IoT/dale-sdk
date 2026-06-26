@@ -27,11 +27,7 @@ namespace Vion.Dale.DevHost.Test
             // and ISink each declare the other as its MatchingInterface, so introspection carries a non-empty
             // matchingInterfaceTypeFullNames on each block's interface entry.
             var port = FreePort();
-            var config = DevConfigurationBuilder.Create()
-                                                .WithTopologyName("matching")
-                                                .AddLogicBlock<SourceBlock>("source")
-                                                .AddLogicBlock<SinkBlock>("sink")
-                                                .Build();
+            var config = DevConfigurationBuilder.Create().WithTopologyName("matching").AddLogicBlock<SourceBlock>("source").AddLogicBlock<SinkBlock>("sink").Build();
             await using var host = DevHostBuilder.Create().WithDi<CrossBlockDependencyInjection>().WithConfiguration(config).WithWebUi(port).Build();
             await host.StartAsync();
 
@@ -42,10 +38,7 @@ namespace Vion.Dale.DevHost.Test
 
             using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
 
-            var interfaces = doc.RootElement.GetProperty("logicBlocks")
-                                .EnumerateArray()
-                                .SelectMany(lb => lb.GetProperty("interfaces").EnumerateArray())
-                                .ToList();
+            var interfaces = doc.RootElement.GetProperty("logicBlocks").EnumerateArray().SelectMany(lb => lb.GetProperty("interfaces").EnumerateArray()).ToList();
 
             Assert.IsNotEmpty(interfaces, "The wired Source/Sink network must expose logic-block interfaces.");
 
