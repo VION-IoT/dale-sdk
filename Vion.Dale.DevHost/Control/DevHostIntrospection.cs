@@ -304,7 +304,13 @@ namespace Vion.Dale.DevHost.Control
                        Services = lb.Services.Select(s => BuildService(meta, s)).ToList(),
                        Interfaces = meta.Interfaces
                                         .Select(i => new ConfigurationOutput.LogicBlockInterface
-                                                     { Identifier = i.Identifier, Annotations = i.Annotations })
+                                                     {
+                                                         Identifier = i.Identifier,
+                                                         Annotations = i.Annotations,
+                                                         InterfaceTypeFullNames = i.InterfaceTypeFullNames,
+                                                         MatchingInterfaceTypeFullNames =
+                                                             i.MatchingInterfaceTypeFullNames,
+                                                     })
                                         .ToList(),
                        Contracts = meta.Contracts
                                        .Select(c => new ConfigurationOutput.LogicBlockContract
