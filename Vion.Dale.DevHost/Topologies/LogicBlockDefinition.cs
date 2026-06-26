@@ -86,7 +86,10 @@ namespace Vion.Dale.DevHost.Topologies
         /// </summary>
         public required IReadOnlyList<string> MatchingInterfaceTypeFullNames { get; set; }
 
-        /// <summary>The consumer-side link multiplicity declared on this block's binding for the interface (defaults to ZeroOrMore).</summary>
+        /// <summary>
+        ///     The consumer-side link multiplicity declared on this block's binding for the interface (defaults to
+        ///     ZeroOrMore).
+        /// </summary>
         public required LinkMultiplicity Multiplicity { get; set; }
     }
 

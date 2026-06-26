@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Vion.Dale.DevHost.Topologies;
 using Vion.Dale.DevHost.Web;
+using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.DevHost.Test
 {
@@ -128,6 +129,25 @@ namespace Vion.Dale.DevHost.Test
             var source = definition.Interfaces.Single(i => i.Identifier == "ISource");
             Assert.IsTrue(source.MatchingInterfaceTypeFullNames.Any(n => n.Contains("ISink", StringComparison.Ordinal)),
                           "ISource's matchingInterfaceTypeFullNames must name ISink: " + string.Join(", ", source.MatchingInterfaceTypeFullNames));
+
+            // And the declared consumer-side multiplicity must surface: SourceBlock binds ISource
+            // [LogicBlockInterfaceBinding(typeof(ISource), Multiplicity = ExactlyOne)].
+            Assert.AreEqual(LinkMultiplicity.ExactlyOne, source.Multiplicity, "ISource's binding declares Multiplicity = ExactlyOne.");
+        }
+
+        [TestMethod]
+        public void LogicBlockDefinition_FromType_CarriesContractMatchingType()
+        {
+            // Pins the Contracts branch of FromType by reflection alone: GridBlock declares a contract property
+            // Demand typed as IGridDemand, whose [ServiceProviderContractType("GridDemand")] is the token
+            // introspection records as MatchingContractType. The binding sets no Identifier, so the property name
+            // ("Demand") is the identifier. (GridBlock lives in the referenced SmokeHost project.)
+            var definition = LogicBlockDefinition.FromType(typeof(SmokeHost.LogicBlocks.GridBlock));
+
+            Assert.IsNotEmpty(definition.Contracts, "GridBlock's catalog entry must carry its IGridDemand contract.");
+
+            var demand = definition.Contracts.Single(c => c.Identifier == "Demand");
+            Assert.AreEqual("GridDemand", demand.MatchingContractType, "Demand's MatchingContractType must be the [ServiceProviderContractType] token.");
         }
 
         private static int FreePort()
