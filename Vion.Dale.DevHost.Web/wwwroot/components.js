@@ -1054,12 +1054,33 @@ const BlockPicker = {
     setup() {
         const selectedType = ref('');
         const name = ref('');
+        // nameTouched: the user has typed in the name field, so stop auto-suggesting (don't clobber their
+        // edit). Set on @input, reset after add so the next type selection re-suggests.
+        const nameTouched = ref(false);
         const definitions = computed(() => store.definitions || []);
         const options = computed(() => definitions.value.map(d => ({
             typeFullName: d.typeFullName,
             short: shortTypeName(d.typeFullName),
         })));
         const instances = computed(() => (store.topologyDraft && store.topologyDraft.logicBlockInstances) || []);
+        // A sensible default instance name for a type: shortTypeName lower-cased (reads well next to the
+        // existing names, which are lower-cased instance names), de-duplicated against the draft by suffixing
+        // 2, 3, … so a second EnergyManager becomes energyManager2.
+        const suggestName = typeFullName => {
+            const base = shortTypeName(typeFullName);
+            const lower = base ? base.charAt(0).toLowerCase() + base.slice(1) : base;
+            const taken = candidate => instances.value.some(b => b.name === candidate);
+            if (!taken(lower)) return lower;
+            let n = 2;
+            while (taken(lower + n)) n++;
+            return lower + n;
+        };
+        // Auto-fill the name on type selection — but only while the user hasn't manually edited it, so we
+        // never clobber a typed name. Picking a different type after a typed name leaves their text alone.
+        watch(selectedType, t => {
+            if (!t || nameTouched.value) return;
+            name.value = suggestName(t);
+        });
         const trimmedName = computed(() => name.value.trim());
         const nameHasDot = computed(() => trimmedName.value.indexOf('.') >= 0);
         const nameTaken = computed(() => instances.value.some(b => b.name === trimmedName.value));
@@ -1081,9 +1102,15 @@ const BlockPicker = {
             if (!canAdd.value) return;
             store.topologyDraft.logicBlockInstances.push({ typeFullName: selectedType.value, name: trimmedName.value });
             store.topologyDraftDirty = true;
+            // Clear the name and re-arm the suggestion so the next type pick (or a re-suggest for the same
+            // type, now that a name is taken) fills a fresh deduped default.
             name.value = '';
+            nameTouched.value = false;
+            if (selectedType.value) name.value = suggestName(selectedType.value);
         };
-        return { selectedType, name, options, hint, canAdd, add };
+        // @input marks the name as user-owned (stop auto-suggesting). v-model still flows the text in.
+        const onNameInput = () => { nameTouched.value = true; };
+        return { selectedType, name, options, hint, canAdd, add, onNameInput };
     },
     template: `
         <div class="topo-row topo-picker">
@@ -1091,7 +1118,7 @@ const BlockPicker = {
                 <option value="" disabled>add block…</option>
                 <option v-for="o in options" :key="o.typeFullName" :value="o.typeFullName">{{ o.short }}</option>
             </select>
-            <input type="text" placeholder="name" v-model="name" @keyup.enter="add"/>
+            <input type="text" placeholder="name" v-model="name" @input="onNameInput" @keyup.enter="add"/>
             <button type="button" class="theme-toggle" :disabled="!canAdd" @click="add">+ add</button>
             <span v-if="hint" class="topo-hint">{{ hint }}</span>
         </div>
