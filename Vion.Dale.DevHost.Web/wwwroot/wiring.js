@@ -46,6 +46,61 @@ export function residueOf(definitions, instances, mappings) {
     }
     return res;
 }
+// Continuous, client-side WIRED-but-wrong detection over the draft — what the user sees before the
+// server's authoritative validate. Returns [{ mappingIndex, kind, message }]:
+//   incompatible — a mapping whose two endpoints' interface descriptors do not bidirectionally match
+//                  (mirrors the server's per-pair predicate, just fixed to one-source-to-many).
+//   overwired    — a single-writer endpoint (multiplicity disallows multiple) referenced by >1 mapping;
+//                  every offending mapping on that endpoint is flagged (the "consumer wired to two
+//                  managers" case — the consumer side is single-writer).
+// Pure: resolves interface descriptors by identifier via interfacesOf; guards unknown ids/blocks so an
+// in-progress draft (a block just removed, a stale mapping) never throws.
+export function problemsOf(definitions, instances, mappings) {
+    const problems = [];
+    const list = mappings || [];
+    const ifaceOf = (blockName, ifaceId) => {
+        const inst = (instances || []).find(i => i.name === blockName);
+        if (!inst) return null;
+        return interfacesOf(definitions, inst).find(i => i.identifier === ifaceId) || null;
+    };
+
+    // incompatible — both endpoints resolve and do NOT match. Unresolved endpoints are left to residue /
+    // the server (a dangling name isn't an "incompatible" wire), so we only flag genuine type mismatches.
+    list.forEach((m, i) => {
+        const srcIface = ifaceOf(m.sourceLogicBlockName, m.sourceInterfaceIdentifier);
+        const tgtIface = ifaceOf(m.targetLogicBlockName, m.targetInterfaceIdentifier);
+        if (srcIface && tgtIface && !interfacesMatch(srcIface, tgtIface)) {
+            problems.push({
+                mappingIndex: i, kind: 'incompatible',
+                message: `${m.sourceLogicBlockName}.${m.sourceInterfaceIdentifier} is not compatible with ${m.targetLogicBlockName}.${m.targetInterfaceIdentifier}`,
+            });
+        }
+    });
+
+    // overwired — group mappings by the endpoints they touch (both ends), then for each endpoint whose
+    // multiplicity is single-writer and which >1 mapping references, flag every mapping on it.
+    const endpoints = new Map();
+    const touch = (blockName, ifaceId, mappingIndex) => {
+        const key = `${blockName} ${ifaceId}`;
+        if (!endpoints.has(key)) endpoints.set(key, { blockName, ifaceId, indices: [] });
+        endpoints.get(key).indices.push(mappingIndex);
+    };
+    list.forEach((m, i) => {
+        touch(m.sourceLogicBlockName, m.sourceInterfaceIdentifier, i);
+        touch(m.targetLogicBlockName, m.targetInterfaceIdentifier, i);
+    });
+    for (const ep of endpoints.values()) {
+        if (ep.indices.length <= 1) continue;
+        const iface = ifaceOf(ep.blockName, ep.ifaceId);
+        if (!iface || allowsMultiple(iface.multiplicity)) continue;
+        ep.indices.forEach(i => problems.push({
+            mappingIndex: i, kind: 'overwired',
+            message: `${ep.blockName}.${ep.ifaceId} is single-writer but wired ${ep.indices.length} times`,
+        }));
+    }
+
+    return problems;
+}
 export function autoConnect(definitions, instances, mappings) {
     const next = mappings.slice();
     const has = (sn, si, tn, ti) => next.some(m =>

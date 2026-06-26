@@ -20,7 +20,7 @@ import {
     saveTopologyDraft, setBaseline, setJudgeTick, setProperty, showError, store,
     switchClockMode, switchTopology, toggleCollapsed, togglePin, validateTopologyDraft, valueKey,
 } from './store.js';
-import { allowsMultiple, autoConnect, residueOf } from './wiring.js';
+import { allowsMultiple, autoConnect, problemsOf, residueOf } from './wiring.js';
 
 // Filter tokens, shared by every component that narrows to matches.
 const filterTokens = computed(() => parseFilter(store.filter));
@@ -1125,18 +1125,23 @@ const BlockPicker = {
     `,
 };
 
-// One existing interface mapping rendered as `src.iface → tgt.iface` with an unwire button.
+// One existing interface mapping rendered as `src.iface → tgt.iface` with an unwire button. When the
+// editor passes a `problem` (this row's mapping is wired-but-wrong: incompatible / over-wired), the row
+// gets a red left-border accent + an inline note so the conflict reads continuously, before validate.
 const WiringRow = {
-    props: ['mapping', 'index'],
+    props: ['mapping', 'index', 'problem'],
     setup(props, { emit }) {
         const remove = () => emit('unwire', props.index);
-        return { remove };
+        const hasProblem = computed(() => !!props.problem);
+        const problemMessage = computed(() => props.problem ? props.problem.message : '');
+        return { remove, hasProblem, problemMessage };
     },
     template: `
-        <div class="topo-row">
+        <div class="topo-row topo-wire-row" :class="{ 'topo-wire-bad': hasProblem }" :title="problemMessage">
             <span class="mono topo-name">{{ mapping.sourceLogicBlockName }}.{{ mapping.sourceInterfaceIdentifier }}</span>
             <span class="topo-arrow">→</span>
             <span class="mono topo-name">{{ mapping.targetLogicBlockName }}.{{ mapping.targetInterfaceIdentifier }}</span>
+            <span v-if="hasProblem" class="topo-wire-note">{{ problemMessage }}</span>
             <span class="item-spacer"></span>
             <button type="button" class="theme-toggle" title="remove this wire" @click="remove">✕</button>
         </div>
@@ -1204,6 +1209,13 @@ const TopologyEditor = {
         // residueOf is pure (wiring.js) over the live draft — the un/under-wired required interfaces and
         // the contested single-writer ones the author still has to resolve.
         const residue = computed(() => residueOf(store.definitions, (draft.value && draft.value.logicBlockInstances) || [], (draft.value && draft.value.interfaceMappings) || []));
+        // Continuous WIRED-but-wrong detection (pure, wiring.js): incompatible + over-wired. Recomputes on
+        // every draft mutation so conflicts surface before the server validate. The first problem per
+        // mapping index drives that row's accent; the full list feeds the footer summary.
+        const problems = computed(() => problemsOf(store.definitions, instances.value, mappings.value));
+        const problemFor = index => problems.value.find(p => p.mappingIndex === index) || null;
+        const hasProblems = computed(() => problems.value.length > 0);
+        const problemMessages = computed(() => problems.value.map(p => p.message));
         const wire = (srcName, srcIface, tgtName, tgtIface) => {
             if (!draft.value) return;
             draft.value.interfaceMappings.push({ sourceLogicBlockName: srcName, sourceInterfaceIdentifier: srcIface, targetLogicBlockName: tgtName, targetInterfaceIdentifier: tgtIface });
@@ -1263,6 +1275,7 @@ const TopologyEditor = {
         return {
             draft, instances, mappings, onIdInput, close, removeBlock, shortFor,
             residue, wire, unwire, runAutoConnect,
+            problems, problemFor, hasProblems, problemMessages,
             tab, rawText, showRaw, showForm, commitRaw,
             errors, hasErrors, showValid, validate, dirty, save, saveAndSwitch,
         };
@@ -1301,12 +1314,17 @@ const TopologyEditor = {
                             @click="runAutoConnect">⚡ AutoConnect</button>
                 </div>
                 <div v-if="!mappings.length" class="topo-meta">no wires yet — AutoConnect, or pick from residue below</div>
-                <WiringRow v-for="(m, i) in mappings" :key="i" :mapping="m" :index="i" @unwire="unwire"/>
+                <WiringRow v-for="(m, i) in mappings" :key="i" :mapping="m" :index="i" :problem="problemFor(i)" @unwire="unwire"/>
 
                 <template v-if="residue.length">
                     <h3 class="topo-section">residue</h3>
                     <ResidueRow v-for="(e, i) in residue" :key="i" :entry="e" @wire="wire"/>
                 </template>
+
+                <div v-if="hasProblems" class="topo-problems">
+                    <span class="topo-problems-head">⚠ {{ problems.length }} issue(s)</span>
+                    <span v-for="(msg, i) in problemMessages" :key="i" class="topo-problem-msg">{{ msg }}</span>
+                </div>
 
                 <div class="topo-row topo-footer">
                     <button type="button" class="theme-toggle" @click="validate">validate</button>
