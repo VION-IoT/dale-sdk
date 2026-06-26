@@ -252,10 +252,15 @@ body {
 .topo-arrow { color: var(--accent); font-weight: var(--vion-font-weight-emphasized); }
 .topo-meta { font-size: 11px; color: var(--text-faint); }
 
-/* A topo row rendered as a clickable button (the file List → Detail master-detail affordance). */
+/* A topo row rendered as a clickable button (the file List → Detail master-detail affordance).
+   Matches .scenario-row exactly so the two master lists read identically: reset the default <button>
+   border (otherwise the UA's dark outline boxes every row — wrong in dark mode) and rely on
+   .topo-row's themed border-top divider; the comfortable padding mirrors the scenario list. */
 .topo-row-button {
     width: 100%;
     background: none;
+    border: none;
+    padding: 8px 10px;
     color: inherit;
     font-family: inherit;
     text-align: left;
