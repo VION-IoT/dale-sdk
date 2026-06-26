@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Loader;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Vion.Dale.Sdk.Core;
 
@@ -308,14 +309,40 @@ namespace Vion.Dale.DevHost.Topologies
                 throw new InvalidDataException($"id '{file.Id}' does not match the requested id '{id}'");
             }
 
-            DevTopologyLoader.Build(file); // catalog + compatibility; throws InvalidDataException on any problem
+            var configuration = DevTopologyLoader.Build(file); // catalog + compatibility; throws InvalidDataException on any problem
             if (!TryGetPath(id, out var path))
             {
                 throw new InvalidDataException($"'{id}' is not a valid topology id");
             }
 
+            // Persist a COMPLETE, self-contained file. The editor authors blocks + interface wiring but
+            // leaves contractMappings empty, relying on the loader's per-block auto-mock; make that explicit
+            // in the saved JSON (like the `default` preset / a dashboard export) so a topology file is
+            // reviewable and portable rather than dependent on load-time auto-fill. Build already populated
+            // configuration.LogicBlocks[].ContractMappings (auto-created defaults + any explicit overrides
+            // from the draft) — project them back to file shape. Re-applying them on load is idempotent
+            // (the explicit override sets the same values the auto-mock would), so the file round-trips.
+            var completed = new DevTopologyFile
+                            {
+                                Schema = file.Schema ?? DevTopologyFile.SchemaRef,
+                                Id = file.Id,
+                                LogicBlockInstances = file.LogicBlockInstances,
+                                InterfaceMappings = file.InterfaceMappings,
+                                ContractMappings = configuration.LogicBlocks
+                                                                .SelectMany(lb => lb.ContractMappings.Select(cm => new TopologyContractMapping
+                                                                                                                   {
+                                                                                                                       LogicBlockName = lb.Name,
+                                                                                                                       ContractIdentifier = cm.ContractIdentifier,
+                                                                                                                       MappedServiceProviderIdentifier =
+                                                                                                                           cm.ServiceProviderIdentifier,
+                                                                                                                       MappedServiceIdentifier = cm.ServiceIdentifier,
+                                                                                                                       MappedContractIdentifier = cm.ContractEndpointIdentifier,
+                                                                                                                   }))
+                                                                .ToList(),
+                            };
+
             System.IO.Directory.CreateDirectory(Directory);
-            File.WriteAllText(path, rawJson);
+            File.WriteAllText(path, JsonSerializer.Serialize(completed, DevTopologyFile.SerializerOptions));
             return path;
         }
 

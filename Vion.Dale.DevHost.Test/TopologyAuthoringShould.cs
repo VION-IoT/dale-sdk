@@ -204,6 +204,34 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        public void TopologyStore_Save_MakesAutoMockedContractMappingsExplicit()
+        {
+            // The editor authors blocks + interface wiring but leaves contractMappings empty, relying on the
+            // loader's per-block auto-mock. Save must persist a COMPLETE, self-contained file — the auto-mocked
+            // mappings made explicit (like the `default` preset / a dashboard export) — not [] dependent on
+            // load-time fill. GridBlock declares one [ServiceProviderContractType] contract (Demand), so its
+            // saved file must carry a contract mapping for it even though the input JSON omitted contractMappings.
+            var dir = NewTopologyDir();
+            var json = $$"""
+                         {
+                           "id": "grid",
+                           "logicBlockInstances": [
+                             { "typeFullName": "{{typeof(SmokeHost.LogicBlocks.GridBlock).FullName}}", "name": "grid" }
+                           ],
+                           "interfaceMappings": []
+                         }
+                         """;
+
+            var path = new DevTopologyStore(dir).Save("grid", json);
+
+            var saved = DevTopologyFile.Parse(File.ReadAllText(path));
+            Assert.IsNotNull(saved.ContractMappings);
+            Assert.IsNotEmpty(saved.ContractMappings, "the saved file must make the auto-mocked contract mappings explicit, not persist []");
+            var demand = saved.ContractMappings.Single(m => m.LogicBlockName == "grid" && m.ContractIdentifier == "Demand");
+            Assert.IsFalse(string.IsNullOrEmpty(demand.MappedServiceProviderIdentifier), "the persisted mapping must name its service-provider stand-in");
+        }
+
+        [TestMethod]
         public void Build_AcceptsOneSourceInterfaceMappedToManyTargets()
         {
             // Regression (RFC 0013 Phase 1): ONE source interface that legitimately matches SEVERAL targets must
@@ -262,9 +290,13 @@ namespace Vion.Dale.DevHost.Test
             var saved = await client.PutAsync("/api/topologies/rig", new StringContent(body, Encoding.UTF8, "application/json"));
             Assert.AreEqual(HttpStatusCode.OK, saved.StatusCode, await saved.Content.ReadAsStringAsync());
 
+            // Save normalizes the draft into a complete, self-contained file (pretty-printed, $schema added,
+            // auto-mocked contractMappings made explicit), so GET no longer echoes the raw PUT body — it must
+            // serve what is ON DISK byte-for-byte.
+            var onDisk = File.ReadAllText(Path.Combine(dir, "rig" + DevTopologyFile.FileSuffix));
             var fetched = await client.GetAsync("/api/topologies/rig");
             Assert.AreEqual(HttpStatusCode.OK, fetched.StatusCode);
-            Assert.AreEqual(body, await fetched.Content.ReadAsStringAsync(), "GET must serve the saved file byte-for-byte");
+            Assert.AreEqual(onDisk, await fetched.Content.ReadAsStringAsync(), "GET must serve the saved file byte-for-byte");
 
             // A structurally-broken draft (no instances) must be rejected by validate with valid:false.
             var validated = await client.PostAsync("/api/topologies/validate", new StringContent("""{ "id": "rig" }""", Encoding.UTF8, "application/json"));
