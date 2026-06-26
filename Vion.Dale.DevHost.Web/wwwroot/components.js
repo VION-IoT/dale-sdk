@@ -1112,7 +1112,7 @@ const TopologyEditor = {
             const removed = d.logicBlockInstances[index];
             if (!removed) return;
             d.logicBlockInstances.splice(index, 1);
-            d.interfaceMappings = (d.interfaceMappings || []).filter(m => m.source !== removed.name && m.target !== removed.name);
+            d.interfaceMappings = (d.interfaceMappings || []).filter(m => m.sourceLogicBlockName !== removed.name && m.targetLogicBlockName !== removed.name);
             store.topologyDraftDirty = true;
         };
         const shortFor = typeFullName => shortTypeName(typeFullName);
