@@ -55,7 +55,8 @@ namespace Vion.Dale.DevHost.Test
             Assert.IsTrue(anyMatch, "At least one interface entry must carry a non-empty matchingInterfaceTypeFullNames back-reference.");
 
             // And the actual back-reference must round-trip: the Source's ISource interface must name ISink as its match.
-            var sourceInterface = interfaces.First(iface => iface.GetProperty("identifier").GetString() == "ISource");
+            var sourceInterface = interfaces.FirstOrDefault(iface => iface.GetProperty("identifier").GetString() == "ISource");
+            Assert.AreNotEqual(JsonValueKind.Undefined, sourceInterface.ValueKind, "The Source block must expose an ISource interface entry.");
             var sourceMatches = sourceInterface.GetProperty("matchingInterfaceTypeFullNames").EnumerateArray().Select(n => n.GetString()).ToList();
             Assert.IsTrue(sourceMatches.Any(n => n is not null && n.Contains("ISink", StringComparison.Ordinal)),
                           "ISource's matchingInterfaceTypeFullNames must name ISink: " + string.Join(", ", sourceMatches));
