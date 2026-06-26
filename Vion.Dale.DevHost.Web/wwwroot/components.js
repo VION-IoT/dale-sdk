@@ -1123,7 +1123,7 @@ const ResidueRow = {
     setup(props, { emit }) {
         // kind 'required' -> a warning pill; 'contested' -> a neutral "pick one".
         const isRequired = computed(() => props.entry.kind === 'required');
-        const pillClass = computed(() => isRequired.value ? 'severity-pill warning' : 'severity-pill');
+        const pillClass = computed(() => isRequired.value ? 'severity-pill warning' : 'severity-pill neutral');
         const pillLabel = computed(() => isRequired.value ? 'needs wiring' : 'pick one');
         const multHint = computed(() => allowsMultiple(props.entry.multiplicity) ? 'fan-in' : 'single-writer');
         // The select stays unselected (placeholder option) — picking a candidate fires the wire and the
