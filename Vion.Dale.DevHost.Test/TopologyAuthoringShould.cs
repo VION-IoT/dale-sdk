@@ -64,6 +64,48 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        [TestCategory("Smoke")]
+        public async Task LogicBlockDefinitions_Endpoint_ExposesTheCatalogWithMatchingMetadata()
+        {
+            // The catalog endpoint exposes every block the WithDi<> plugins register — including SourceBlock —
+            // each with the per-interface matching metadata a topology-authoring client reads (RFC 0013 Phase 1).
+            var port = FreePort();
+            var config = DevConfigurationBuilder.Create().WithTopologyName("matching").AddLogicBlock<SourceBlock>("source").AddLogicBlock<SinkBlock>("sink").Build();
+            await using var host = DevHostBuilder.Create().WithDi<CrossBlockDependencyInjection>().WithConfiguration(config).WithWebUi(port).Build();
+            await host.StartAsync();
+
+            using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
+
+            var response = await client.GetAsync("/api/logic-block-definitions");
+            Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, "GET /api/logic-block-definitions must succeed.");
+
+            using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+            var definitions = doc.RootElement.GetProperty("definitions").EnumerateArray().ToList();
+            Assert.IsNotEmpty(definitions, "The catalog must expose the WithDi-registered block types.");
+
+            // The catalog must include SourceBlock by its CLR full name.
+            var source = definitions.FirstOrDefault(d => d.GetProperty("typeFullName").GetString() == typeof(SourceBlock).FullName);
+            Assert.AreNotEqual(JsonValueKind.Undefined, source.ValueKind, "The catalog must include a SourceBlock entry: " + typeof(SourceBlock).FullName);
+
+            var interfaces = source.GetProperty("interfaces").EnumerateArray().ToList();
+            Assert.IsNotEmpty(interfaces, "SourceBlock's catalog entry must carry its logic interfaces.");
+
+            foreach (var iface in interfaces)
+            {
+                Assert.IsTrue(iface.TryGetProperty("interfaceTypeFullNames", out _), "Each interface entry must carry interfaceTypeFullNames: " + iface.GetRawText());
+                Assert.IsTrue(iface.TryGetProperty("matchingInterfaceTypeFullNames", out _),
+                              "Each interface entry must carry matchingInterfaceTypeFullNames: " + iface.GetRawText());
+            }
+
+            // ISource's match must round-trip to ISink — the same back-reference the wired /api/configuration carries.
+            var sourceInterface = interfaces.Single(iface => iface.GetProperty("identifier").GetString() == "ISource");
+            var sourceMatches = sourceInterface.GetProperty("matchingInterfaceTypeFullNames").EnumerateArray().Select(n => n.GetString()).ToList();
+            Assert.IsTrue(sourceMatches.Any(n => n is not null && n.Contains("ISink", StringComparison.Ordinal)),
+                          "ISource's matchingInterfaceTypeFullNames must name ISink: " + string.Join(", ", sourceMatches));
+        }
+
+        [TestMethod]
         public void LogicBlockDefinition_FromType_CarriesInterfaceMatchingMetadata()
         {
             // Built purely by reflection over the Type (no host build, no instantiation): the catalog DTO a

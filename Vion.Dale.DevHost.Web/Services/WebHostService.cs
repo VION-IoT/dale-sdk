@@ -23,6 +23,8 @@ namespace Vion.Dale.DevHost.Web.Services
     /// </summary>
     public class WebHostService : IHostedService
     {
+        private readonly DevBlockCatalog _blockCatalog;
+
         private readonly WebHostConfiguration _config;
 
         private readonly IDevHostControl _control;
@@ -33,12 +35,13 @@ namespace Vion.Dale.DevHost.Web.Services
 
         private WebApplication? _app;
 
-        public WebHostService(WebHostConfiguration config, DevConfiguration devConfiguration, DevHostEvents devHostEvents, IDevHostControl control)
+        public WebHostService(WebHostConfiguration config, DevConfiguration devConfiguration, DevHostEvents devHostEvents, IDevHostControl control, DevBlockCatalog blockCatalog)
         {
             _config = config;
             _devConfiguration = devConfiguration;
             _devHostEvents = devHostEvents;
             _control = control;
+            _blockCatalog = blockCatalog;
         }
 
         public Task StartAsync(CancellationToken cancellationToken)
@@ -93,6 +96,7 @@ namespace Vion.Dale.DevHost.Web.Services
             builder.Services.AddSingleton(new ScenarioStore(_devConfiguration.ScenariosPath));
             builder.Services.AddSingleton<ScenarioRunRegistry>();
             builder.Services.AddSingleton(new DevTopologyStore(_devConfiguration.TopologiesPath));
+            builder.Services.AddSingleton(_blockCatalog);
 
             _app = builder.Build();
 
