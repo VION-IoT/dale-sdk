@@ -692,6 +692,30 @@ export async function switchTopology(id) {
         store.connected = false;
         store.recycling = true;
         store.run = null;
+        // Land on a correctly-primed Explore view of the new topology. A switch recycles the whole host
+        // (new actor system, new service ids); the soft SignalR reconnect does not reliably re-prime the
+        // live value stream against that fresh generation — the workspace shows the new structure but
+        // blank values until a manual reload. A switch is heavy and user-initiated, so once the fresh host
+        // is actually serving the target topology we hard-reload to '/': a clean boot primes values from
+        // the REST snapshot over a fresh hub subscription, and the default Explore view is exactly where
+        // the user wants to land after "switch & run".
+        for (let attempt = 0; attempt < 120; attempt++) {
+            try {
+                const probe = await fetch('/api/configuration');
+                if (probe.ok) {
+                    const cfg = await probe.json();
+                    if ((cfg.topologyName || null) === id) {
+                        if (location.hash) location.hash = '';
+                        window.location.assign('/');
+                        return;
+                    }
+                }
+            } catch {
+                // Host still recycling — keep polling.
+            }
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        showError('Host did not come back on the new topology — reload the page manually.');
     } catch (err) {
         showError(`Failed to switch topology: ${err.message ?? err}`);
     }
