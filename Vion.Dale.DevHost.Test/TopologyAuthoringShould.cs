@@ -305,6 +305,51 @@ namespace Vion.Dale.DevHost.Test
             Assert.IsFalse(doc.RootElement.GetProperty("valid").GetBoolean(), "a structurally-broken draft must report valid:false");
         }
 
+        [TestMethod]
+        [TestCategory("Smoke")]
+        public async Task Topology_Save_RejectsIdMismatch_AndReadOnlyGate()
+        {
+            var dir = NewTopologyDir();
+            var port = FreePort();
+            var config = DevConfigurationBuilder.Create().WithTopologyName("rig").WithTopologies(dir).AddLogicBlock<SourceBlock>("source").AddLogicBlock<SinkBlock>("sink").Build();
+            await using var host = DevHostBuilder.Create().WithDi<CrossBlockDependencyInjection>().WithConfiguration(config).WithWebUi(port).Build();
+            await host.StartAsync();
+            using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
+
+            var body = $$"""
+                         {
+                           "id": "rig",
+                           "logicBlockInstances": [
+                             { "typeFullName": "{{typeof(SourceBlock).FullName}}", "name": "source" },
+                             { "typeFullName": "{{typeof(SinkBlock).FullName}}", "name": "sink" }
+                           ],
+                           "interfaceMappings": [
+                             { "sourceLogicBlockName": "source", "sourceInterfaceIdentifier": "ISource",
+                               "targetLogicBlockName": "sink", "targetInterfaceIdentifier": "ISink" }
+                           ]
+                         }
+                         """;
+
+            // The embedded id must equal the path id (Save enforces it; Parse does not) — a 'rig' body PUT to a
+            // different path id is rejected, so a topology file's name and its declared id can never diverge.
+            var mismatched = await client.PutAsync("/api/topologies/other", new StringContent(body, Encoding.UTF8, "application/json"));
+            Assert.AreEqual(HttpStatusCode.UnprocessableEntity, mismatched.StatusCode, await mismatched.Content.ReadAsStringAsync());
+
+            // The read-only gate (DALE_DEVHOST_READONLY_TOPOLOGIES=1) turns every save into a 403 — the
+            // locked-down CI / read-only-checkout posture, mirroring the scenarios gate. Checked before any
+            // write, so even a valid body is refused.
+            Environment.SetEnvironmentVariable(DevTopologyStore.ReadOnlyEnvVar, "1");
+            try
+            {
+                var readOnly = await client.PutAsync("/api/topologies/rig", new StringContent(body, Encoding.UTF8, "application/json"));
+                Assert.AreEqual(HttpStatusCode.Forbidden, readOnly.StatusCode);
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable(DevTopologyStore.ReadOnlyEnvVar, null);
+            }
+        }
+
         private static string NewTopologyDir()
         {
             var dir = Path.Combine(Path.GetTempPath(), "dale-topologies-" + Guid.NewGuid().ToString("N"));

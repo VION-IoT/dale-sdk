@@ -367,6 +367,7 @@ namespace Vion.Dale.DevHost.Test
                                       "/store.js",
                                       "/components.js",
                                       "/format.js",
+                                      "/wiring.js",
                                       "/THIRD-PARTY-NOTICES.txt",
                                   })
             {

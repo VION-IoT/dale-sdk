@@ -1,6 +1,6 @@
 # RFC 0013 — DevHost topology authoring (semi-automated, mappings-first) + dashboard export
 
-- **Status:** Proposed
+- **Status:** Implemented — Phases 1 (server) + 2 (SPA editor); Phase 3 (dashboard exporter) pending
 - **Date:** 2026-06-25
 - **Author:** jonas.bertsch
 - **Related:** RFC 0006 (scenario files), RFC 0008 (unified scenario+topology), RFC 0012 (DevHost UI observe/drive model), RFC 0003 (headless control). Cross-repo: `dashboard` (Logic Editor), `cloud-api` / `vion-contracts` (introspection contract).
