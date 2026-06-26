@@ -93,10 +93,14 @@ namespace Vion.Dale.DevHost.Topologies
                                                         TargetInterfaceIdentifier = mapping.TargetInterfaceIdentifier!,
                                                     });
 
-                // DiscoverMatchingInterfaces returns (source-interface-id, target-interface-id) pairs for
-                // (sourceType, targetType); the names are guaranteed declared by DevTopologyFile.Parse.
-                var pairs = DevConfigurationBuilder.DiscoverMatchingInterfaces(types[mapping.SourceLogicBlockName!], types[mapping.TargetLogicBlockName!]);
-                if (!pairs.Contains((mapping.SourceInterfaceIdentifier!, mapping.TargetInterfaceIdentifier!)))
+                // Check this ONE explicit pair against the MatchingInterface relation. DiscoverMatchingInterfaces
+                // (the AutoConnect path) stops at the first target per source interface, so it under-reports when one
+                // source interface legitimately maps to several targets — InterfacesMatch checks the exact pair. The
+                // names are guaranteed declared by DevTopologyFile.Parse.
+                if (!DevConfigurationBuilder.InterfacesMatch(types[mapping.SourceLogicBlockName!],
+                                                             mapping.SourceInterfaceIdentifier!,
+                                                             types[mapping.TargetLogicBlockName!],
+                                                             mapping.TargetInterfaceIdentifier!))
                 {
                     mappingErrors.Add($"interfaceMappings: '{mapping.SourceLogicBlockName}.{mapping.SourceInterfaceIdentifier}' is not compatible with '{mapping.TargetLogicBlockName}.{mapping.TargetInterfaceIdentifier}'");
                 }

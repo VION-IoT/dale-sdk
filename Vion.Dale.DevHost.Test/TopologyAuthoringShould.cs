@@ -204,6 +204,36 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        public void Build_AcceptsOneSourceInterfaceMappedToManyTargets()
+        {
+            // Regression (RFC 0013 Phase 1): ONE source interface that legitimately matches SEVERAL targets must
+            // not be rejected. SourceBlock exposes a single ISource interface; DualPointBlock exposes TWO
+            // property-bound ISink interfaces (PointA_ISink, PointB_ISink) — both reciprocal matches of ISource.
+            // The original compat check used DiscoverMatchingInterfaces, which stops at the first target per source
+            // interface (correct for AutoConnect, which wires one), so the second mapping was falsely rejected even
+            // though the runtime accepts both. Build must ACCEPT a topology that maps ISource to BOTH ISink targets.
+            var file = DevTopologyFile.Parse($$"""
+                                               {
+                                                 "id": "fanout",
+                                                 "logicBlockInstances": [
+                                                   { "typeFullName": "{{typeof(SourceBlock).FullName}}", "name": "source" },
+                                                   { "typeFullName": "{{typeof(DualPointBlock).FullName}}", "name": "points" }
+                                                 ],
+                                                 "interfaceMappings": [
+                                                   { "sourceLogicBlockName": "source", "sourceInterfaceIdentifier": "ISource",
+                                                     "targetLogicBlockName": "points", "targetInterfaceIdentifier": "PointA_ISink" },
+                                                   { "sourceLogicBlockName": "source", "sourceInterfaceIdentifier": "ISource",
+                                                     "targetLogicBlockName": "points", "targetInterfaceIdentifier": "PointB_ISink" }
+                                                 ]
+                                               }
+                                               """);
+
+            var configuration = DevTopologyLoader.Build(file);
+
+            Assert.HasCount(2, configuration.InterfaceMappings, "both ISource -> ISink mappings must survive the compatibility check");
+        }
+
+        [TestMethod]
         [TestCategory("Smoke")]
         public async Task Topology_PutGetValidate_RoundTrips()
         {

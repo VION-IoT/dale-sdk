@@ -209,6 +209,23 @@ namespace Vion.Dale.DevHost
             return matches;
         }
 
+        // True when the specific (source interface) ↔ (target interface) pair is type-compatible — the same
+        // MatchingInterface relation DiscoverMatchingInterfaces uses, but for ONE explicit pair (so a source
+        // interface that matches several targets is not collapsed to the first, unlike the AutoConnect path).
+        internal static bool InterfacesMatch(Type sourceType, string sourceInterfaceId, Type targetType, string targetInterfaceId)
+        {
+            var src = GetAllLogicInterfaces(sourceType).FirstOrDefault(i => i.Identifier == sourceInterfaceId);
+            var tgt = GetAllLogicInterfaces(targetType).FirstOrDefault(i => i.Identifier == targetInterfaceId);
+            if (src.InterfaceType is null || tgt.InterfaceType is null)
+            {
+                return false; // unknown identifier — not our concern here
+            }
+
+            var srcAttr = src.InterfaceType.GetCustomAttribute<LogicInterfaceAttribute>();
+            var tgtAttr = tgt.InterfaceType.GetCustomAttribute<LogicInterfaceAttribute>();
+            return srcAttr != null && tgtAttr != null && (srcAttr.MatchingInterface == tgt.InterfaceType || tgtAttr.MatchingInterface == src.InterfaceType);
+        }
+
         // The consumer-side link multiplicity declared on a block type's interface binding
         // ([LogicBlockInterfaceBinding(Multiplicity = …)]), keyed by interface identifier. Class-level bindings
         // use the interface name as the identifier; property-bound interfaces use "{Property}_{Interface}".
