@@ -110,7 +110,7 @@ Extend `DevTopologyStore` with `ReadRaw(id)`, `Save(id, rawJson)`, `TryGetPath` 
 
 - `GET /api/topologies/{id}` (NEW) → `Content(store.ReadRaw(id), "application/json")`; 404 if absent. Byte-for-byte.
 - `PUT /api/topologies/{id}` (NEW) — body = raw `*.topology.json`. → `store.Save`; 200 `{saved, directory}`; 403 on the read-only gate; 422 `{error, errors[]}` on validation failure.
-- `POST /api/topologies/validate` (NEW, **id-less**) — body = a draft (possibly un-named). Dry-run, writes nothing. → 200 `{valid:true, blocks, services}` | 422 `{valid:false, errors[]}`.
+- `POST /api/topologies/validate` (NEW, **id-less**) — body = a draft (possibly un-named). Dry-run, writes nothing. → 200 `{valid:true}` | 422 `{valid:false, errors[]}`. (The client already holds the draft, so the success body is just the pass/fail — no echoed block/service counts.)
 - `POST /api/topologies/{id}/switch` (EXISTS) — reused to recycle onto the just-saved file (no watcher needed; discovery is rescan-on-read).
 
 ### 8.4 Validation layers (and the resolved decisions)
