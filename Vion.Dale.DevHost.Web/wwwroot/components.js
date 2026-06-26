@@ -2263,7 +2263,7 @@ const KEYBINDINGS = [
     { keys: [PALETTE_KEY_LABEL], desc: 'command palette — go to a property, scenario, or topology' },
     { keys: ['e'], desc: 'Explore' },
     { keys: ['v'], desc: 'Verify' },
-    { keys: ['t'], desc: 'topology view' },
+    { keys: ['t'], desc: 'topology menu — switch / new / manage' },
     { keys: ['⇧', 'T'], desc: 'new topology editor' },
     { keys: ['[', ']'], desc: 'previous / next — scenario in Verify, topology in Explore' },
     { keys: ['/'], desc: 'focus the filter' },
@@ -2296,8 +2296,71 @@ const KeybindingsHelp = {
     `,
 };
 
+// ── header topology popover (RFC 0013): the honest ▾ on the topology chip ─────────────────────────
+// A small dropdown anchored under the chip — NOT a view. It lives in the persistent shell, so it
+// behaves identically in Explore and Verify. Switch items recycle the host IMMEDIATELY (the existing
+// store.recycling overlay/chip carries the "this recycles" feedback); New / Manage drop into the
+// topology panel via the store. Dismiss on item click, Esc, or click-outside (a document listener,
+// the same outside-dismiss idea the ⌘K palette uses; cleaned up in onUnmounted).
+const TopologyMenu = {
+    emits: ['close'],
+    setup(props, { emit }) {
+        const canEdit = computed(() => !(store.topologies && store.topologies.readOnly));
+        // Every OTHER topology (the running one is excluded — there's nothing to switch to). The chip's
+        // store.topologyName is the live current; rows carry the block count for a little weight context.
+        const others = computed(() => ((store.topologies && store.topologies.topologies) || [])
+            .filter(t => t.id !== store.topologyName)
+            .map(t => ({ id: t.id, blocks: t.blocks, invalid: !!t.error })));
+        const hasOthers = computed(() => others.value.length > 0);
+        const close = () => emit('close');
+        // Immediate switch — the recycle overlay/chip is the "this recycles the host" feedback.
+        const pick = id => { close(); switchTopology(id); };
+        const create = () => { close(); store.view = 'topology'; newTopology(); };
+        const manage = () => { close(); store.view = 'topology'; openTopologyList(); };
+
+        // Outside-dismiss + Esc, at the document level (the chip's own click toggles, so ignore clicks on
+        // the anchor wrapper — otherwise the toggle would immediately reopen what this just closed).
+        const onDocClick = e => {
+            const anchor = e.target.closest && e.target.closest('.topology-menu-anchor');
+            if (!anchor) close();
+        };
+        const onDocKey = e => { if (e.key === 'Escape') close(); };
+        onMounted(() => {
+            document.addEventListener('click', onDocClick, true);
+            document.addEventListener('keydown', onDocKey, true);
+        });
+        onUnmounted(() => {
+            document.removeEventListener('click', onDocClick, true);
+            document.removeEventListener('keydown', onDocKey, true);
+        });
+        return { canEdit, others, hasOthers, pick, create, manage };
+    },
+    template: `
+        <div class="topology-menu">
+            <div class="topology-menu-group">
+                <div class="topology-menu-label">switch to</div>
+                <div v-if="!hasOthers" class="topology-menu-empty">no other topologies</div>
+                <button v-for="t in others" :key="t.id" type="button" class="topology-menu-item"
+                        title="recycles the host onto this topology" @click="pick(t.id)">
+                    <span class="mono topology-menu-name">{{ t.id }}</span>
+                    <span class="item-spacer"></span>
+                    <span v-if="t.invalid" class="scenario-error">invalid</span>
+                    <span v-else class="topology-menu-meta">{{ t.blocks }} blocks ⟳</span>
+                </button>
+            </div>
+            <div class="topology-menu-divider"></div>
+            <button v-if="canEdit" type="button" class="topology-menu-item" @click="create">
+                <span class="topology-menu-name">＋ New topology</span>
+            </button>
+            <button type="button" class="topology-menu-item" @click="manage">
+                <span class="topology-menu-name">Manage / edit…</span>
+            </button>
+        </div>
+    `,
+};
+
 export const App = {
-    components: { Rail, BlockCard, WatchPanel, Palette, TopologyPanel, GalleryCard, PlayerPanel, KeybindingsHelp },
+    components: { Rail, BlockCard, WatchPanel, Palette, TopologyPanel, GalleryCard, PlayerPanel, KeybindingsHelp, TopologyMenu },
     setup() {
         const blocks = computed(() => (store.config && store.config.logicBlocks) || []);
         const sharedLookup = computed(() => buildSharedContractLookup());
@@ -2335,6 +2398,13 @@ export const App = {
 
         // Keyboard: '/' focuses the filter, 'b' (re)sets the baseline, Escape clears the filter.
         const filterEl = ref(null);
+        // The header topology popover (the chip's ▾ / the 't' key). A persistent-shell affordance, so it
+        // works the same in Explore and Verify. Disabled while recycling (the chip is busy then).
+        const topologyMenuOpen = ref(false);
+        const toggleTopologyMenu = () => {
+            if (store.recycling) return;
+            topologyMenuOpen.value = !topologyMenuOpen.value;
+        };
         // Cycle the primary list of the current activity: scenarios in Verify, topologies in Explore.
         const cyclePrimary = dir => {
             if (store.view === 'player') {
@@ -2373,7 +2443,7 @@ export const App = {
                 case '/': e.preventDefault(); filterEl.value && filterEl.value.focus(); break;
                 case 'e': goExplore(); break;
                 case 'v': goVerify(); break;
-                case 't': goTopology(); break;
+                case 't': toggleTopologyMenu(); break;
                 case 'T': openNewTopologyEditor(); break;
                 case 'b': setBaseline(); break;
                 case 'c': clearPins(); break;
@@ -2390,13 +2460,6 @@ export const App = {
         // setView toggles a context view (topology, gallery) against the 'explorer' default — used by the
         // context-zone chips, not the primary nav. (Explore / Verify are goExplore / goVerify below.)
         const setView = v => { store.view = store.view === v ? 'explorer' : v; };
-        // The topology chip / 't' key toggles the topology view and, when opening it, lands on the file
-        // List (not whatever screen the panel was last left on — e.g. a half-finished editor session).
-        const goTopology = () => {
-            const opening = store.view !== 'topology';
-            setView('topology');
-            if (opening) openTopologyList();
-        };
         // Two-zone nav (RFC 0012 §3): Explore and Verify are the two activities. Verify is the scenario
         // player (keeps the #/scenario deep link); Explore is the default browse surface. Topology and
         // gallery are reached from the context chip / overflow, not the primary nav.
@@ -2424,7 +2487,8 @@ export const App = {
         return {
             store, blocks, sharedLookup, totals, theme, toggleTheme, matches, changedTotal,
             baselineClock, filterEl, setBaseline, clearBaseline, pauseHost, resumeHost,
-            confirmReset, setView, goTopology, goExplore, goVerify, stepHost, advanceHost, switchClockMode, steppedClock, paletteKeyLabel: PALETTE_KEY_LABEL,
+            confirmReset, setView, goExplore, goVerify, stepHost, advanceHost, switchClockMode, steppedClock, paletteKeyLabel: PALETTE_KEY_LABEL,
+            topologyMenuOpen, toggleTopologyMenu,
         };
     },
     template: `
@@ -2438,13 +2502,16 @@ export const App = {
                             title="Verify — run a scenario and review its trace (v)" @click="goVerify">Verify</button>
                 </nav>
                 <div class="context-zone">
-                    <button v-if="store.topologyName" type="button" class="topology-chip-btn" :class="{ active: store.view === 'topology', recycling: store.recycling }"
-                            :disabled="store.recycling"
-                            :title="store.recycling ? 'recycling the host — please wait' : (store.view === 'topology' ? 'close the topology view (t)' : 'topology ' + store.topologyName + ' — view blocks/links and switch (t)')"
-                            @click="goTopology">
-                        <span v-if="store.recycling"><span class="recycling-spin">♻</span> recycling…</span>
-                        <span v-else>⛁ {{ store.topologyName }} ▾</span>
-                    </button>
+                    <span v-if="store.topologyName" class="topology-menu-anchor">
+                        <button type="button" class="topology-chip-btn" :class="{ active: topologyMenuOpen, recycling: store.recycling }"
+                                :disabled="store.recycling"
+                                :title="store.recycling ? 'recycling the host — please wait' : 'topology ' + store.topologyName + ' — switch / new / manage (t)'"
+                                @click="toggleTopologyMenu">
+                            <span v-if="store.recycling"><span class="recycling-spin">♻</span> recycling…</span>
+                            <span v-else>⛁ {{ store.topologyName }} ▾</span>
+                        </button>
+                        <TopologyMenu v-if="topologyMenuOpen" @close="topologyMenuOpen = false"/>
+                    </span>
                     <span v-if="store.stepped" class="stepped-chip" :class="{ 'run-owned': store.runActive }"
                           :title="store.runActive ? 'a scenario run owns the virtual clock — manual stepping is paused until the run finishes' : 'deterministic stepping (dale dev --stepped) — the virtual clock advances only when you step it (in Explore) or a scenario runs.'">
                         <span class="stepped-clock" title="virtual clock">⏱ t={{ steppedClock }}</span>
