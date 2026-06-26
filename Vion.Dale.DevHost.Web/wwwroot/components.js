@@ -17,8 +17,8 @@ import {
     applyScenario, baselineDelta, buildSharedContractLookup, changedCountForBlock,
     changedSinceBaseline, clearBaseline, clearPins, cloneTopologyDraft, closeScenario, collapseKey, connectionsForLb,
     advanceHost, driveContract, halKey, historyFor, isPinned, judgeKey, loadTopologies, newTopologyDraft, openScenario, pauseHost, resetHost, resumeHost, stepHost,
-    setBaseline, setJudgeTick, setProperty, showError, store,
-    switchClockMode, switchTopology, toggleCollapsed, togglePin, valueKey,
+    saveTopologyDraft, setBaseline, setJudgeTick, setProperty, showError, store,
+    switchClockMode, switchTopology, toggleCollapsed, togglePin, validateTopologyDraft, valueKey,
 } from './store.js';
 import { allowsMultiple, autoConnect, residueOf } from './wiring.js';
 
@@ -1194,44 +1194,120 @@ const TopologyEditor = {
             store.topologyDraftDirty = true;
         };
 
+        // ── form ⇄ raw + validate/save/switch (Task 7) ─────────────────────────────
+        const tab = ref('form');
+        // Raw-tab textarea: a local draft seeded from store.topologyDraft on entry (the draft+dirty
+        // discipline). The store draft is only mutated on an explicit commit, not on every keystroke.
+        const rawText = ref('');
+        const seedRaw = () => { try { rawText.value = JSON.stringify(draft.value, null, 2); } catch { rawText.value = ''; } };
+        const showRaw = () => { seedRaw(); tab.value = 'raw'; };
+        const showForm = () => { tab.value = 'form'; };
+        const commitRaw = () => {
+            try {
+                store.topologyDraft = JSON.parse(rawText.value);
+                store.topologyDraftDirty = true;
+                store.topologyDraftErrors = [];
+            } catch (e) {
+                store.topologyDraftErrors = ['invalid JSON: ' + e.message];
+            }
+        };
+
+        // Validate flips a one-shot "did a validate just run" flag so a clean pass can show a green pill
+        // (errors-empty alone is the resting state, not a success signal).
+        const validated = ref(false);
+        const errors = computed(() => store.topologyDraftErrors || []);
+        const hasErrors = computed(() => errors.value.length > 0);
+        const showValid = computed(() => validated.value && errors.value.length === 0);
+        const validate = async () => { await validateTopologyDraft(); validated.value = true; };
+        const dirty = computed(() => store.topologyDraftDirty);
+        const save = async () => { validated.value = false; await saveTopologyDraft(); };
+        const saveAndSwitch = async () => {
+            validated.value = false;
+            const ok = await saveTopologyDraft();
+            if (ok) {
+                switchTopology(draft.value.id);
+                emit('done');
+            }
+        };
+        // Any draft mutation invalidates a prior validate verdict.
+        watch([instances, mappings, () => draft.value && draft.value.id], () => { validated.value = false; }, { deep: true });
+
         return {
             draft, instances, mappings, onIdInput, close, removeBlock, shortFor,
             residue, wire, unwire, runAutoConnect,
+            tab, rawText, showRaw, showForm, commitRaw,
+            errors, hasErrors, showValid, validate, dirty, save, saveAndSwitch,
         };
     },
     template: `
         <div class="topo-panel" v-if="draft">
             <div class="topo-row topo-editor-head">
-                <span class="topo-meta">id</span>
-                <input type="text" class="topo-id-input" placeholder="topology id" v-model="draft.id" @input="onIdInput"/>
+                <div class="editor-tabs">
+                    <button type="button" :class="{ active: tab === 'form' }" @click="showForm">form</button>
+                    <button type="button" :class="{ active: tab === 'raw' }" @click="showRaw">{ } raw</button>
+                </div>
                 <span class="item-spacer"></span>
                 <button type="button" class="theme-toggle" title="close the editor" @click="close">✕</button>
             </div>
-            <h3 class="topo-section">blocks</h3>
-            <div v-if="!instances.length" class="topo-meta">no blocks yet — add one below</div>
-            <div v-for="(b, i) in instances" :key="b.name" class="topo-row">
-                <span class="mono topo-name">{{ b.name }}</span>
-                <span class="item-spacer"></span>
-                <span class="topo-meta mono">{{ shortFor(b.typeFullName) }}</span>
-                <button type="button" class="theme-toggle" title="remove this block" @click="removeBlock(i)">✕</button>
-            </div>
-            <BlockPicker/>
 
-            <div class="topo-section-head">
-                <h3 class="topo-section">wiring</h3>
-                <span class="item-spacer"></span>
-                <button type="button" class="theme-toggle"
-                        title="wire every unambiguous pair; contested ones are left for you. Click again to wire the rest."
-                        @click="runAutoConnect">⚡ AutoConnect</button>
-            </div>
-            <div v-if="!mappings.length" class="topo-meta">no wires yet — AutoConnect, or pick from residue below</div>
-            <WiringRow v-for="(m, i) in mappings" :key="i" :mapping="m" :index="i" @unwire="unwire"/>
+            <template v-if="tab === 'form'">
+                <div class="topo-row topo-editor-head">
+                    <span class="topo-meta">id</span>
+                    <input type="text" class="topo-id-input" placeholder="topology id" v-model="draft.id" @input="onIdInput"/>
+                </div>
+                <h3 class="topo-section">blocks</h3>
+                <div v-if="!instances.length" class="topo-meta">no blocks yet — add one below</div>
+                <div v-for="(b, i) in instances" :key="b.name" class="topo-row">
+                    <span class="mono topo-name">{{ b.name }}</span>
+                    <span class="item-spacer"></span>
+                    <span class="topo-meta mono">{{ shortFor(b.typeFullName) }}</span>
+                    <button type="button" class="theme-toggle" title="remove this block" @click="removeBlock(i)">✕</button>
+                </div>
+                <BlockPicker/>
 
-            <template v-if="residue.length">
-                <h3 class="topo-section">residue</h3>
-                <ResidueRow v-for="(e, i) in residue" :key="i" :entry="e" @wire="wire"/>
+                <div class="topo-section-head">
+                    <h3 class="topo-section">wiring</h3>
+                    <span class="item-spacer"></span>
+                    <button type="button" class="theme-toggle"
+                            title="wire every unambiguous pair; contested ones are left for you. Click again to wire the rest."
+                            @click="runAutoConnect">⚡ AutoConnect</button>
+                </div>
+                <div v-if="!mappings.length" class="topo-meta">no wires yet — AutoConnect, or pick from residue below</div>
+                <WiringRow v-for="(m, i) in mappings" :key="i" :mapping="m" :index="i" @unwire="unwire"/>
+
+                <template v-if="residue.length">
+                    <h3 class="topo-section">residue</h3>
+                    <ResidueRow v-for="(e, i) in residue" :key="i" :entry="e" @wire="wire"/>
+                </template>
+
+                <div class="topo-row topo-footer">
+                    <button type="button" class="theme-toggle" @click="validate">validate</button>
+                    <span v-if="showValid" class="severity-pill success">valid</span>
+                    <span class="item-spacer"></span>
+                    <button type="button" class="theme-toggle" :disabled="!dirty" title="save this topology file" @click="save">save</button>
+                    <button type="button" class="theme-toggle" title="save, then recycle the host onto this topology" @click="saveAndSwitch">save &amp; switch</button>
+                </div>
+                <div v-if="hasErrors" class="topo-errors">
+                    <div v-for="(err, i) in errors" :key="i" class="topo-row topo-error-row">
+                        <span class="severity-pill error">error</span>
+                        <span class="topo-meta">{{ err }}</span>
+                    </div>
+                </div>
             </template>
-            <!-- validate / save / raw-JSON tab land in Task 7 -->
+
+            <template v-else>
+                <textarea rows="18" spellcheck="false" class="mono topo-raw" :value="rawText"
+                          placeholder="(topology JSON)" @input="rawText = $event.target.value"></textarea>
+                <div class="topo-row topo-footer">
+                    <button type="button" class="theme-toggle" title="parse and replace the draft" @click="commitRaw">commit JSON</button>
+                </div>
+                <div v-if="hasErrors" class="topo-errors">
+                    <div v-for="(err, i) in errors" :key="i" class="topo-row topo-error-row">
+                        <span class="severity-pill error">error</span>
+                        <span class="topo-meta">{{ err }}</span>
+                    </div>
+                </div>
+            </template>
         </div>
     `,
 };

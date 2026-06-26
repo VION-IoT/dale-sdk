@@ -230,6 +230,10 @@ body {
 .topo-section-head { display: flex; align-items: center; gap: 8px; }
 .topo-section-head .topo-section { margin-bottom: 0; }
 .topo-residue-row { gap: 8px; flex-wrap: wrap; }
+.topo-footer { gap: 8px; margin-top: 10px; }
+.topo-errors { margin-top: 4px; }
+.topo-error-row { border-top: none; }
+.topo-raw { width: 100%; margin-top: 8px; resize: vertical; }
 
 .error-toast {
     position: fixed;
