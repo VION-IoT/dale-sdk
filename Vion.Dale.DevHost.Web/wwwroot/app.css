@@ -229,6 +229,7 @@ body {
 .topo-hint { font-size: 11px; color: var(--vion-error-fg-def-tertiary); }
 .topo-section-head { display: flex; align-items: center; gap: 8px; }
 .topo-section-head .topo-section { margin-bottom: 0; }
+.topo-residue-row { gap: 8px; flex-wrap: wrap; }
 
 .error-toast {
     position: fixed;

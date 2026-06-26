@@ -20,6 +20,7 @@ import {
     setBaseline, setJudgeTick, setProperty, showError, store,
     switchClockMode, switchTopology, toggleCollapsed, togglePin, valueKey,
 } from './store.js';
+import { allowsMultiple, autoConnect, residueOf } from './wiring.js';
 
 // Filter tokens, shared by every component that narrows to matches.
 const filterTokens = computed(() => parseFilter(store.filter));
@@ -1097,11 +1098,65 @@ const BlockPicker = {
     `,
 };
 
+// One existing interface mapping rendered as `src.iface → tgt.iface` with an unwire button.
+const WiringRow = {
+    props: ['mapping', 'index'],
+    setup(props, { emit }) {
+        const remove = () => emit('unwire', props.index);
+        return { remove };
+    },
+    template: `
+        <div class="topo-row">
+            <span class="mono topo-name">{{ mapping.sourceLogicBlockName }}.{{ mapping.sourceInterfaceIdentifier }}</span>
+            <span class="topo-arrow">→</span>
+            <span class="mono topo-name">{{ mapping.targetLogicBlockName }}.{{ mapping.targetInterfaceIdentifier }}</span>
+            <span class="item-spacer"></span>
+            <button type="button" class="theme-toggle" title="remove this wire" @click="remove">✕</button>
+        </div>
+    `,
+};
+
+// One residue entry: a required/contested unwired interface, its multiplicity hint, and a candidate
+// picker. The select handler lives here (not the template) so no logic leaks into the markup.
+const ResidueRow = {
+    props: ['entry'],
+    setup(props, { emit }) {
+        // kind 'required' -> a warning pill; 'contested' -> a neutral "pick one".
+        const isRequired = computed(() => props.entry.kind === 'required');
+        const pillClass = computed(() => isRequired.value ? 'severity-pill warning' : 'severity-pill');
+        const pillLabel = computed(() => isRequired.value ? 'needs wiring' : 'pick one');
+        const multHint = computed(() => allowsMultiple(props.entry.multiplicity) ? 'fan-in' : 'single-writer');
+        // The select stays unselected (placeholder option) — picking a candidate fires the wire and the
+        // residue recomputes (the entry usually disappears), so there is nothing to keep selected.
+        const onPick = event => {
+            const idx = event.target.selectedIndex - 1; // option 0 is the placeholder
+            event.target.selectedIndex = 0;
+            const cand = (props.entry.candidates || [])[idx];
+            if (cand) emit('wire', props.entry.blockName, props.entry.interfaceIdentifier, cand.targetName, cand.targetInterface);
+        };
+        return { pillClass, pillLabel, multHint, onPick };
+    },
+    template: `
+        <div class="topo-row topo-residue-row">
+            <span class="mono topo-name">{{ entry.blockName }}.{{ entry.interfaceIdentifier }}</span>
+            <span :class="pillClass">{{ pillLabel }}</span>
+            <span class="topo-meta">{{ multHint }}</span>
+            <span class="item-spacer"></span>
+            <select v-if="entry.candidates.length" @change="onPick">
+                <option value="">wire to…</option>
+                <option v-for="(c, ci) in entry.candidates" :key="ci" :value="ci">{{ c.targetName }}.{{ c.targetInterface }}</option>
+            </select>
+            <span v-else class="topo-meta">no candidate</span>
+        </div>
+    `,
+};
+
 const TopologyEditor = {
-    components: { BlockPicker },
+    components: { BlockPicker, WiringRow, ResidueRow },
     setup(props, { emit }) {
         const draft = computed(() => store.topologyDraft);
         const instances = computed(() => (draft.value && draft.value.logicBlockInstances) || []);
+        const mappings = computed(() => (draft.value && draft.value.interfaceMappings) || []);
         const onIdInput = () => { store.topologyDraftDirty = true; };
         const close = () => emit('done');
         // Removing a block also drops any interface mappings that reference its name on either end — a
@@ -1116,7 +1171,33 @@ const TopologyEditor = {
             store.topologyDraftDirty = true;
         };
         const shortFor = typeFullName => shortTypeName(typeFullName);
-        return { draft, instances, onIdInput, close, removeBlock, shortFor };
+
+        // ── wiring (Task 6) ────────────────────────────────────────────────────────
+        // residueOf is pure (wiring.js) over the live draft — the un/under-wired required interfaces and
+        // the contested single-writer ones the author still has to resolve.
+        const residue = computed(() => residueOf(store.definitions, (draft.value && draft.value.logicBlockInstances) || [], (draft.value && draft.value.interfaceMappings) || []));
+        const wire = (srcName, srcIface, tgtName, tgtIface) => {
+            if (!draft.value) return;
+            draft.value.interfaceMappings.push({ sourceLogicBlockName: srcName, sourceInterfaceIdentifier: srcIface, targetLogicBlockName: tgtName, targetInterfaceIdentifier: tgtIface });
+            store.topologyDraftDirty = true;
+        };
+        const unwire = index => {
+            if (!draft.value) return;
+            draft.value.interfaceMappings.splice(index, 1);
+            store.topologyDraftDirty = true;
+        };
+        // Wire every unambiguous pair and leave contested ones for the author; idempotent — autoConnect only
+        // adds missing pairs, so a second click "wires the rest" once the author has resolved some by hand.
+        const runAutoConnect = () => {
+            if (!draft.value) return;
+            draft.value.interfaceMappings = autoConnect(store.definitions, draft.value.logicBlockInstances, draft.value.interfaceMappings);
+            store.topologyDraftDirty = true;
+        };
+
+        return {
+            draft, instances, mappings, onIdInput, close, removeBlock, shortFor,
+            residue, wire, unwire, runAutoConnect,
+        };
     },
     template: `
         <div class="topo-panel" v-if="draft">
@@ -1135,7 +1216,22 @@ const TopologyEditor = {
                 <button type="button" class="theme-toggle" title="remove this block" @click="removeBlock(i)">✕</button>
             </div>
             <BlockPicker/>
-            <!-- wiring list / validate / save land in later tasks -->
+
+            <div class="topo-section-head">
+                <h3 class="topo-section">wiring</h3>
+                <span class="item-spacer"></span>
+                <button type="button" class="theme-toggle"
+                        title="wire every unambiguous pair; contested ones are left for you. Click again to wire the rest."
+                        @click="runAutoConnect">⚡ AutoConnect</button>
+            </div>
+            <div v-if="!mappings.length" class="topo-meta">no wires yet — AutoConnect, or pick from residue below</div>
+            <WiringRow v-for="(m, i) in mappings" :key="i" :mapping="m" :index="i" @unwire="unwire"/>
+
+            <template v-if="residue.length">
+                <h3 class="topo-section">residue</h3>
+                <ResidueRow v-for="(e, i) in residue" :key="i" :entry="e" @wire="wire"/>
+            </template>
+            <!-- validate / save / raw-JSON tab land in Task 7 -->
         </div>
     `,
 };
