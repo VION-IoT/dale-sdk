@@ -46,6 +46,7 @@ It does **not** drive the SPA web UI (the host *serves* it but the headless test
    - Pin a member in a block (the pin control) → it appears in the watch panel; unpin → it's removed.
    - Open the **`showcase-tour`** scenario in the Player and click **Run** → green (stepped, so near-instant). Open **`io-control`** and Run → green (it drives the digital + analog HAL inputs, the block observes them, and after an `advance` it asserts the mirrored digital + analog HAL outputs — the full input → block → output loop). Moving between scenarios is the Player's scenario switching.
    - Switch topology from **`⛁ topology`** to `minimal` → the host recycles and the header shows the new topology. (Equivalently, open **`minimal-subset`** and Run → recycle-on-run onto `minimal` through the Player.)
+   - **Author a topology (RFC 0013 editor):** ⌘K → **new topology** (or the topology panel's **+ new**) → add `SignalSourceBlock` (name `src`) + `SignalSinkBlock` (name `sink`) → **⚡ AutoConnect** wires `src.ISignalSource → sink.ISignalSink` and the residue clears → set id `rig` → **validate** (green) → **save & switch** → the host recycles onto `rig` and the chip shows it. Confirms the catalog endpoint (`/api/logic-block-definitions`), the client matching/AutoConnect/residue, and the save→validate→switch round-trip. Tear down: delete the authored `Vion.Dale.DevHost.SmokeHost/topologies/rig.topology.json`.
 
 3. **Tear down**: stop the process —
    ```powershell

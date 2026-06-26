@@ -167,7 +167,7 @@ A `mode = ref('view' | 'edit')` on **`TopologyPanel`** (the slide-over reached f
 ### 9.4 Client wiring intelligence (ported, pure)
 
 - `linkMultiplicityOf` / `slotAffordance` (`required` / `multiple` / `capacity`) — ported from `multiplicity.ts`.
-- `candidatesFor(endpoint)` — over the instance set, the interfaces whose `matchingInterfaceTypeFullNames` includes the endpoint's `interfaceTypeFullNames[0]` (the dashboard `useInterfaceMatching` core).
+- `candidatesFor(endpoint)` — over the instance set, the interfaces **compatible** with the endpoint, where compatibility is the **bidirectional** test `A.matchingInterfaceTypeFullNames ∩ B.interfaceTypeFullNames ≠ ∅` (either direction) — the same relation the server's authoritative `DiscoverMatchingInterfaces` gate uses (the dashboard `useInterfaceMatching` core, made bidirectional for server parity).
 - `autoConnectPreview(instances)` — apply the §6 arbitration to fill the unambiguous mappings and classify the residue.
 
 ## 10. Authoring flow
