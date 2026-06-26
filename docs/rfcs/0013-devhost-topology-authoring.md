@@ -147,9 +147,16 @@ Discovery is a **single resolved directory**, via `DevDataDirectory.Resolve("top
 
 Within the no-build discipline (plain-object Vue + template strings, all I/O via `store.js`, flat files; keymap and palette extended in lockstep with their help).
 
-### 9.1 Placement
+### 9.1 Placement & navigation
 
-A `mode = ref('view' | 'edit')` on **`TopologyPanel`** (the slide-over reached from the `⛁ topology ▾` chip). Entry points: a **"Clone & tweak"** button on each topology row (beside "⇄ switch"), a **"New, blank"** option, a ⌘K palette verb, and a keybinding (single-key, gated to not-typing). Never a peer of Explore/Verify; gateable off via the read-only gate (button hidden + server 403).
+> Refined during build (review round): the initial single `view ⇄ edit` toggle on `TopologyPanel` became a **scenario-style master-detail** surface plus a **header popover**, so switching is discoverable (not only ⌘K) and the `▾` is honest. The shipped shape:
+
+The topology surface is a **master-detail panel** (List → Detail → Editor) driven by a single `store.topologyScreen` (`'list' | 'detail' | 'editor'`), in the spirit of the Verify scenario list → detail. It is reached from a **header popover** on the persistent-shell chip `⛁ <current> ▾` (identical in Explore and Verify): the `▾` opens a `TopologyMenu` with a **switch-to** list (each item recycles immediately onto that topology — the recycle-progress affordance carries the weight), **＋ New topology**, and **Manage / edit…** (opens the List).
+- **List** — all topology files (the running one marked `● running`) + ＋New; a row → its Detail.
+- **Detail** — read-only blocks/links for the selected file + **⇄ Switch & run** / **✎ Edit** / **⧉ Clone** + ← back.
+- **Editor** — `TopologyEditor` (§9.2), reached from Edit / Clone / ＋New; Save returns to the file's Detail (so a freshly-saved topology is immediately re-editable).
+
+Other entry points: the ⌘K palette (`new topology` / `edit topology: <id>`) and **Shift+T**. Never a peer of Explore/Verify; the editing affordances (＋New / Edit / Clone) are gated off on a read-only host (`DALE_DEVHOST_READONLY_TOPOLOGIES`; server 403 backstop). The editor body's wiring list also shows **inline conflicts** (incompatible / over-wired-single-writer) computed client-side, distinct from the residue (unwired) — see §9.4.
 
 ### 9.2 Editor body (`TopologyEditor`)
 
@@ -160,8 +167,9 @@ A `mode = ref('view' | 'edit')` on **`TopologyPanel`** (the slide-over reached f
 
 ### 9.3 State + actions (`store.js`)
 
-- State slice: `topologyDraft` (a parsed topology clone), `topologyDraftDirty`, `topologyDraftErrors`, `definitions` (from `loadDefinitions()`).
-- Actions: `cloneTopologyDraft(fromId)` / `newTopologyDraft()`, `validateTopologyDraft()` (→ `POST /api/topologies/validate`, renders the server's authoritative error list), `saveTopologyDraft(id)` (→ `PUT …/{id}`, on 200 re-runs `loadTopologies()`), then the existing `switchTopology(id)` to recycle & run.
+- **Screen state** (the single source of truth for §9.1's master-detail): `topologyScreen` (`'list'|'detail'|'editor'`), `topologySelectedId`, `topologyDetail` (the fetched file shown on Detail). **Navigation actions** set it consistently from every entry: `openTopologyList()`, `openTopologyDetail(id)`, `editTopology(id)` (clone same-id → overwrite), `cloneTopology(id)` (clone + blank id → new file), `newTopology()`, `closeTopologyEditor()` (back to source Detail or List).
+- **Draft state**: `topologyDraft` (a parsed topology clone), `topologyDraftDirty`, `topologyDraftErrors`, `definitions` (from `loadDefinitions()`).
+- Draft actions: `cloneTopologyDraft(fromId)` / `newTopologyDraft()`, `validateTopologyDraft()` (→ `POST /api/topologies/validate`, renders the server's authoritative error list), `saveTopologyDraft(id)` (→ `PUT …/{id}`, on 200 re-runs `loadTopologies()` and navigates to the saved file's Detail), then the existing `switchTopology(id)` to recycle & run.
 - The draft is guarded so a recycle (switch/reset) cannot silently clobber unsaved edits.
 
 ### 9.4 Client wiring intelligence (ported, pure)
