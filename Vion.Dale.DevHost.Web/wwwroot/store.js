@@ -55,6 +55,12 @@ export const store = reactive({
     view: 'explorer',
     // Topology files (RFC 0006 R5): the discovery payload for the switcher in the topology panel.
     topologies: null,
+    // Topology authoring (RFC 0013): logic-block definitions (the palette + wiring source of truth) and
+    // the in-progress topology draft the editor mutates. Draft is null when no editor is open.
+    definitions: [],
+    topologyDraft: null,
+    topologyDraftDirty: false,
+    topologyDraftErrors: [],
     // Scenario surface (RFC 0006): the discovery payload, the opened scenario (parsed file), and the
     // latest run report. Run state lives SERVER-side (F5-safe, agent-visible) — the client only polls.
     scenarios: null,
@@ -559,6 +565,14 @@ export async function loadTopologies() {
     } catch (err) {
         console.warn('Could not list topologies', err);
     }
+}
+
+export async function loadDefinitions() {
+    try {
+        const response = await fetch('/api/logic-block-definitions');
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        store.definitions = (await response.json()).definitions || [];
+    } catch (err) { console.warn('Could not list logic-block definitions', err); }
 }
 
 // Switching rides the reset: the server parks the topology id and recycles; the existing
