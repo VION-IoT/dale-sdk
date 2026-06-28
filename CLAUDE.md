@@ -38,6 +38,8 @@ scripts/                    Build / versioning / docs generation scripts
 
 **LogicBlock**: an actor-based computation unit. Extends `LogicBlockBase`. Has service properties (observable state), measuring points (read-only metrics), timers, and communicates with other blocks via interfaces and contracts.
 
+**Service properties vs measuring points — and dual-annotation (gotcha)**: a `[ServiceProperty]` (observable state) and a `[ServiceMeasuringPoint]` (charted time series) can both be declared on the **same C# property** — common for telemetry (e.g. grid-meter power surfaced as live state *and* a chart). They are **independent**: each publishes to its own retained MQTT stream (`…/property/state` vs `…/measuring-point/state`), is throttled/deadbanded separately (RFC 0004), and a single value change raises **both** `ServicePropertyValueChanged` and `ServiceMeasuringPointValueChanged`. Consequence for anyone touching the emission/publish pipeline: **never key per-member state by `(service, member)` name alone** — that collides the two streams and one silently suppresses the other (this caused a measuring-points-go-dark regression). `LogicBlockBase` keeps **separate per-stream collections** (`_servicePropertyThrottlers` / `_measuringPointThrottlers`); keep that separation.
+
 **Contracts**: define hardware I/O bindings (Modbus registers, digital pins, etc.) and inter-block messaging (commands, request-response). Shared DTOs live in `Vion.Contracts` (separate repo).
 
 **Introspection**: `Vion.Dale.LogicBlockParser` loads a built assembly, runs `LogicBlockIntrospection`, and outputs full metadata as JSON. This is the source of truth — not source code parsing.

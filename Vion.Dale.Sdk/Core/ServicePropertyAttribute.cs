@@ -5,6 +5,13 @@ namespace Vion.Dale.Sdk.Core
     /// <summary>
     ///     Describe a service property on a service interface or logic block property.
     ///     The optional properties become annotations in the introspection schema document.
+    ///     <para>
+    ///         A property MAY also carry <see cref="ServiceMeasuringPointAttribute" /> — the two are
+    ///         <b>independent</b>. Each publishes to its own retained MQTT stream (<c>…/property/state</c>
+    ///         vs <c>…/measuring-point/state</c>) and is throttled / deadbanded separately (RFC 0004);
+    ///         neither suppresses the other. Declaring both surfaces the same value as live state AND a
+    ///         charted time series — common for telemetry (e.g. grid-meter power).
+    ///     </para>
     /// </summary>
     [PublicApi]
     [AttributeUsage(AttributeTargets.Property)]

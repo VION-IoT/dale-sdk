@@ -162,6 +162,26 @@ namespace Vion.Dale.Sdk.TestKit.Test
             ctx.VerifyServiceMeasuringPointEmitted(lb => lb.Frequency, times: Times.Exactly(2));
         }
 
+        [TestMethod]
+        public void EmitBothStreamsForADualAnnotatedMember()
+        {
+            // A member carrying BOTH [ServiceProperty] and [ServiceMeasuringPoint] (the grid-meter
+            // telemetry shape — ActivePowerTotalKw etc.) must emit on BOTH streams. Before the fix the
+            // property and measuring point shared one throttler keyed by (service, member) name, so the
+            // property's leading-edge emit seeded LastEmitted and the identical measuring-point offer hit
+            // the value-equality floor (HasEmitted && Equals(LastEmitted, value)) and was dropped —
+            // silencing the measuring-point stream entirely for every dual-annotated member.
+            var block = LogicBlockTestHelper.Create<DualAnnotatedBlock>();
+            var ctx = block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).Build();
+
+            ctx.AdvanceTime(TimeSpan.FromMilliseconds(250)); // clear the start-seed interval
+
+            block.SetPower(42.0); // one change -> the leading edge must emit on BOTH streams
+
+            ctx.VerifyServicePropertyEmitted(lb => lb.Power, value => Assert.AreEqual(42.0, value), Times.Once());
+            ctx.VerifyServiceMeasuringPointEmitted(lb => lb.Power, times: Times.Once()); // dropped before the fix
+        }
+
         // The TestKit's GetPrivateField extension is internal to the TestKit assembly; reach the
         // block's ServiceBinder via reflection here (ServiceBinder is a public SDK type).
         private static Configuration.Services.ServiceBinder GetServiceBinder(LogicBlockBase block)
@@ -199,6 +219,29 @@ namespace Vion.Dale.Sdk.TestKit.Test
             public void SetFrequency(double value)
             {
                 Frequency = value;
+            }
+
+            protected override void Ready()
+            {
+            }
+        }
+
+        // A member carrying BOTH [ServiceProperty] and [ServiceMeasuringPoint] — the grid-meter
+        // telemetry shape (read-only externally; written via a method). Each stream publishes to a
+        // distinct MQTT topic (.../property/state vs .../measuring-point/state), so both must emit.
+        private sealed class DualAnnotatedBlock : LogicBlockBase
+        {
+            [ServiceProperty(MinInterval = "250ms")]
+            [ServiceMeasuringPoint(MinInterval = "250ms")]
+            public double Power { get; private set; }
+
+            public DualAnnotatedBlock(ILogger logger) : base(logger)
+            {
+            }
+
+            public void SetPower(double value)
+            {
+                Power = value;
             }
 
             protected override void Ready()
