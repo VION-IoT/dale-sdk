@@ -9,11 +9,15 @@ namespace Vion.Dale.Sdk.Emission
     /// </summary>
     internal sealed class Throttler
     {
-        private readonly ThrottlePolicy _policy;
-
         private DateTimeOffset _lastEmitAt;
 
         private object? _pendingValue;
+
+        /// <summary>
+        ///     The policy this gate was built from — used to reconstruct a fresh gate on a value-clear (the gate has no
+        ///     in-place reset).
+        /// </summary>
+        public ThrottlePolicy Policy { get; }
 
         public bool HasEmitted { get; private set; }
 
@@ -25,7 +29,7 @@ namespace Vion.Dale.Sdk.Emission
 
         public Throttler(ThrottlePolicy policy)
         {
-            _policy = policy ?? throw new ArgumentNullException(nameof(policy));
+            Policy = policy ?? throw new ArgumentNullException(nameof(policy));
         }
 
         public OfferResult Offer(object? value, DateTimeOffset now)
@@ -37,20 +41,20 @@ namespace Vion.Dale.Sdk.Emission
             }
 
             // 2. Immediate bypasses throttle + deadband (but not the floor above).
-            if (_policy.Immediate)
+            if (Policy.Immediate)
             {
                 MarkEmitted(value, now);
                 return OfferResult.Emit;
             }
 
             // 3. Deadband: drop sub-threshold changes relative to the last emitted value.
-            if (_policy.Threshold != null && HasEmitted && !_policy.Threshold.Exceeds(LastEmitted, value, _policy.MinChange!))
+            if (Policy.Threshold != null && HasEmitted && !Policy.Threshold.Exceeds(LastEmitted, value, Policy.MinChange!))
             {
                 return OfferResult.Drop;
             }
 
             // 4. Leading edge: first emission ever, or the interval has elapsed.
-            if (!HasEmitted || now - _lastEmitAt >= _policy.MinInterval)
+            if (!HasEmitted || now - _lastEmitAt >= Policy.MinInterval)
             {
                 MarkEmitted(value, now);
                 return OfferResult.Emit;
@@ -59,7 +63,7 @@ namespace Vion.Dale.Sdk.Emission
             // 5. Within the interval: hold the latest value until the deadline (latest-wins).
             HasPending = true;
             _pendingValue = value;
-            PendingDeadline = _lastEmitAt + _policy.MinInterval;
+            PendingDeadline = _lastEmitAt + Policy.MinInterval;
             return OfferResult.Hold(PendingDeadline);
         }
 
