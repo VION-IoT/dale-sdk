@@ -1935,10 +1935,10 @@ const SectionList = {
         const onRemove = index => emit('remove', index);
         const onMoveUp = index => emit('move', index, -1);
         const onMoveDown = index => emit('move', index, 1);
-        return { lastIndex, onAdd, onRemove, onMoveUp, onMoveDown };
+        return { lastIndex, onAdd, onRemove, onMoveUp, onMoveDown, label: computed(() => props.label) };
     },
     template: `
-        <div class="section-list">
+        <div class="section-list" role="group" :aria-label="label">
             <div v-if="canAdd" class="insert-between" @click="onAdd(0)" title="insert at the start">
                 <span class="insert-label">+ insert</span>
             </div>
@@ -1957,7 +1957,7 @@ const SectionList = {
                     <span class="insert-label">+ insert</span>
                 </div>
             </template>
-            <div v-if="!rows.length" class="topo-meta section-list-empty">no entries — use + insert to add one</div>
+            <div v-if="!rows.length" class="topo-meta section-list-empty">no {{ label }} entries — use + insert to add one</div>
         </div>
     `,
 };
@@ -2006,7 +2006,8 @@ const ScenarioEditor = {
             if (section === 'setup') return { set: '', value: null };
             if (section === 'steps') return { advance: { seconds: 1 } };
             if (section === 'watch') return '';
-            return { text: '' };
+            if (section === 'judge') return { text: '' };
+            throw new Error(`unknown section: ${section}`);
         };
 
         // ── SectionList event handlers: mutate the draft array and mark dirty ──
@@ -2053,7 +2054,7 @@ const ScenarioEditor = {
         return {
             draft, onIdInput, close, errors, hasErrors, showValid, dirty, validate, save, saveAndRun,
             insertAt, removeAt, moveRow, onWatchInput, onJudgeInput,
-            kindOf, SETUP_KIND_IDS, STEP_KIND_IDS,
+            kindOf,
         };
     },
     template: `
@@ -2071,7 +2072,7 @@ const ScenarioEditor = {
             </div>
 
             <h3 class="topo-section">setup</h3>
-            <SectionList :rows="draft.setup" label="setup" :canAdd="true"
+            <SectionList :rows="draft.setup" label="setup"
                          @add="insertAt('setup', $event)"
                          @remove="removeAt('setup', $event)"
                          @move="(idx, dir) => moveRow('setup', idx, dir)">
@@ -2082,7 +2083,7 @@ const ScenarioEditor = {
             </SectionList>
 
             <h3 class="topo-section">steps</h3>
-            <SectionList :rows="draft.steps" label="steps" :canAdd="true"
+            <SectionList :rows="draft.steps" label="steps"
                          @add="insertAt('steps', $event)"
                          @remove="removeAt('steps', $event)"
                          @move="(idx, dir) => moveRow('steps', idx, dir)">
@@ -2093,7 +2094,7 @@ const ScenarioEditor = {
             </SectionList>
 
             <h3 class="topo-section">watch</h3>
-            <SectionList :rows="draft.watch" label="watch" :canAdd="true"
+            <SectionList :rows="draft.watch" label="watch"
                          @add="insertAt('watch', $event)"
                          @remove="removeAt('watch', $event)"
                          @move="(idx, dir) => moveRow('watch', idx, dir)">
@@ -2105,7 +2106,7 @@ const ScenarioEditor = {
             </SectionList>
 
             <h3 class="topo-section">judge</h3>
-            <SectionList :rows="draft.judge" label="judge" :canAdd="true"
+            <SectionList :rows="draft.judge" label="judge"
                          @add="insertAt('judge', $event)"
                          @remove="removeAt('judge', $event)"
                          @move="(idx, dir) => moveRow('judge', idx, dir)">
