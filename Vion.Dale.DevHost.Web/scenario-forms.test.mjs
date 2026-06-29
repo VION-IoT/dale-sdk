@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { KINDS, kindOf, STEP_KIND_IDS, SETUP_KIND_IDS } from './wwwroot/scenario-forms.js';
 import { stepErrors } from './wwwroot/scenario-forms.js';
+import { propertyPaths, contractRefs, structFieldPaths } from './wwwroot/scenario-forms.js';
 
 // The seven closed shapes, the four-vocabulary-sites source of truth (ScenarioStep.Kind).
 assert.deepEqual(STEP_KIND_IDS, ['set', 'serviceProviderSet', 'serviceProviderExpect', 'waitUntil', 'expect', 'advance', 'settle']);
@@ -29,3 +30,25 @@ assert.ok(stepErrors({ set: '   ', value: 1 }, false).some(e => /empty name path
 // a valid expect passes
 assert.deepEqual(stepErrors({ expect: { property: 'A.B', equals: 1 } }, false), []);
 console.log('task2 ok');
+
+// Wire shape confirmed against ConfigurationOutput.cs + components.js:
+//   - lb.contracts (LogicBlockContract) is on the LogicBlock, NOT inside a Service
+//   - contract wire field is matchingContractType (not contractType)
+//   - serviceProperties / serviceMeasuringPoints / schema.readOnly all confirmed
+const cfg = { logicBlocks: [ { name: 'Grid', services: [ {
+    serviceProperties: [
+        { identifier: 'Setpoint', schema: { readOnly: false } },
+        { identifier: 'Reading',  schema: { readOnly: true } },
+        { identifier: 'Phases',   schema: { readOnly: false, type: 'object', properties: { l1: {}, l2: {}, l3: {} } } },
+    ],
+    serviceMeasuringPoints: [ { identifier: 'Reading', schema: { readOnly: true } } ], // dual-annotated w/ the property
+} ], contracts: [ { identifier: 'Demand', matchingContractType: 'GridDemand' } ] } ] };
+// writable-only for set, de-duped (Reading appears once across prop+measuring, excluded as read-only)
+assert.deepEqual(propertyPaths(cfg, { writableOnly: true }), ['Grid.Setpoint', 'Grid.Phases']);
+// all observable for expect/watch, Reading de-duped to a single entry
+assert.deepEqual(propertyPaths(cfg, { writableOnly: false }), ['Grid.Setpoint', 'Grid.Reading', 'Grid.Phases']);
+// struct fields drill: Block.Property.Field
+assert.deepEqual(structFieldPaths(cfg, 'Grid.Phases'), ['Grid.Phases.l1', 'Grid.Phases.l2', 'Grid.Phases.l3']);
+// contracts -> {logicBlock, contract}
+assert.deepEqual(contractRefs(cfg), [{ logicBlock: 'Grid', contract: 'Demand' }]);
+console.log('task3 ok');

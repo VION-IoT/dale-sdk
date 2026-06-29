@@ -27,6 +27,76 @@ export function kindOf(step) {
     return 'unknown';
 }
 
+// ---------------------------------------------------------------------------
+// Config enumeration — Block.Property paths, struct fields, contract refs
+// ---------------------------------------------------------------------------
+
+// True when a service member is writable (mirrors format.js isWritable: schema.readOnly === true → read-only).
+function writable(item) { return !(item && item.schema && item.schema.readOnly === true); }
+
+// Block.Property paths from a config, de-duplicated by name (a dual-annotated member — both a
+// [ServiceProperty] and a [ServiceMeasuringPoint] — appears once; the server gates them as two streams
+// server-side, but the editor offers one path). writableOnly excludes read-only props + all measuring
+// points (for `set`); otherwise every observable member is offered (for expect / waitUntil / watch).
+//
+// Wire shape (confirmed against ConfigurationOutput.cs + components.js):
+//   config.logicBlocks[].name, .services[].serviceProperties[], .services[].serviceMeasuringPoints[]
+//   member.identifier, member.schema.readOnly
+export function propertyPaths(config, { writableOnly } = {}) {
+    const seen = new Set();
+    const out = [];
+    for (const lb of (config && config.logicBlocks) || []) {
+        for (const svc of lb.services || []) {
+            const members = [
+                ...(svc.serviceProperties || []),
+                ...(writableOnly ? [] : (svc.serviceMeasuringPoints || [])),
+            ];
+            for (const m of members) {
+                if (writableOnly && !writable(m)) continue;
+                const path = `${lb.name}.${m.identifier}`;
+                if (seen.has(path)) continue;
+                seen.add(path);
+                out.push(path);
+            }
+        }
+    }
+    return out;
+}
+
+// The struct field paths (Block.Property.Field) for a struct-typed member, or [] if it isn't a struct.
+// The runner's ScenarioResolver already resolves these (ResolvedProperty.FieldPath).
+export function structFieldPaths(config, path) {
+    const member = findMember(config, path);
+    const props = member && member.schema && member.schema.properties;
+    return props ? Object.keys(props).map(f => `${path}.${f}`) : [];
+}
+
+// {logicBlock, contract} for every LogicBlockContract entry (lb.contracts[]).
+// Wire shape confirmed: contracts are on the LogicBlock (not Service); field is `matchingContractType`.
+export function contractRefs(config) {
+    const out = [];
+    for (const lb of (config && config.logicBlocks) || []) {
+        for (const c of lb.contracts || []) out.push({ logicBlock: lb.name, contract: c.identifier });
+    }
+    return out;
+}
+
+// Resolve "Block.Property" (two-segment) to its member object (for schema / struct lookups). Ambiguous
+// Block.Service.Property is out of scope for v1 enumeration (the picker emits the 2-seg form).
+function findMember(config, path) {
+    const [block, prop] = String(path).split('.');
+    for (const lb of (config && config.logicBlocks) || []) {
+        if (lb.name !== block) continue;
+        for (const svc of lb.services || []) {
+            const m = [...(svc.serviceProperties || []), ...(svc.serviceMeasuringPoints || [])].find(x => x.identifier === prop);
+            if (m) return m;
+        }
+    }
+    return null;
+}
+export { findMember };
+
+// ---------------------------------------------------------------------------
 // Advisory mirror of ScenarioStep.StructuralErrors(setupOnlyShapes). The SERVER is authoritative (PUT
 // Save re-runs the real thing); this is for inline editor feedback. `hasValue` distinguishes an explicit
 // value (incl. null) from an absent one — the editor passes value !== undefined.
