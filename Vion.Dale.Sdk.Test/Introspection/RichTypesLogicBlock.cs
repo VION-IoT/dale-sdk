@@ -14,6 +14,12 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
     public readonly record struct ScheduledSetpoint(DateTime At, [StructField(Unit = "kW")] double PowerSetpoint, [StructField(Unit = "V")] double VoltageSetpoint);
 
+    // A flat record struct with independently-nullable fields (string? / double? / DateTime?). The outbound
+    // encode-regression fixture: a populated entry with null fields must emit JSON null per field — so the
+    // schema must mark each nullable field as nullable and omit it from required — instead of the codec
+    // throwing on the null and dale silently dropping the whole property publish.
+    public readonly record struct RegisterWriteInfo(string Register, double? LastWrittenValue, string? LastError, DateTime? LastAttemptUtc);
+
     public enum AlarmState
     {
         [EnumLabel("Alles in Ordnung")]
@@ -90,6 +96,10 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [ServiceProperty]
         public ImmutableArray<ScheduledSetpoint> Schedule { get; set; } = ImmutableArray<ScheduledSetpoint>.Empty;
+
+        // Array of a record struct whose fields are independently nullable — the outbound encode regression.
+        [ServiceProperty]
+        public ImmutableArray<RegisterWriteInfo> RegisterWrites { get; set; } = ImmutableArray<RegisterWriteInfo>.Empty;
 
         // Enum — direct + nullable
         [ServiceMeasuringPoint]

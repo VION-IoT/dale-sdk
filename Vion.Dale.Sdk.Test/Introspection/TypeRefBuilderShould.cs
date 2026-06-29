@@ -235,6 +235,55 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
+        public void EmitsNullableStructFieldSchemasForRegisterWrites()
+        {
+            // Regression: an ImmutableArray<record struct> whose fields are independently nullable
+            // (string? / double? / DateTime?) must emit nullable field subschemas. Before the fix the
+            // string? field was a bare (non-nullable) "string", so the outbound codec threw on a null value
+            // and dale dropped every populated publish of the property — the cloud widget hung forever.
+            var schema = GetSchema("RegisterWrites");
+            Assert.AreEqual("array", schema["type"]?.GetValue<string>());
+            var props = schema["items"]?["properties"] as JsonObject;
+            Assert.IsNotNull(props);
+
+            // Non-nullable field: bare string.
+            Assert.AreEqual("string", props["register"]?["type"]?.GetValue<string>());
+
+            // Nullable reference field (string?) — the bug: must widen to ["string","null"].
+            var errorType = props["lastError"]?["type"] as JsonArray;
+            Assert.IsNotNull(errorType);
+            Assert.HasCount(2, errorType);
+            Assert.AreEqual("string", errorType[0]!.GetValue<string>());
+            Assert.AreEqual("null", errorType[1]!.GetValue<string>());
+
+            // Nullable value field (double?) — ["number","null"].
+            var valueType = props["lastWrittenValue"]?["type"] as JsonArray;
+            Assert.IsNotNull(valueType);
+            Assert.AreEqual("number", valueType[0]!.GetValue<string>());
+            Assert.AreEqual("null", valueType[1]!.GetValue<string>());
+
+            // Nullable DateTime field — ["string","null"] with date-time format.
+            var atType = props["lastAttemptUtc"]?["type"] as JsonArray;
+            Assert.IsNotNull(atType);
+            Assert.AreEqual("string", atType[0]!.GetValue<string>());
+            Assert.AreEqual("null", atType[1]!.GetValue<string>());
+            Assert.AreEqual("date-time", props["lastAttemptUtc"]?["format"]?.GetValue<string>());
+        }
+
+        [TestMethod]
+        public void RequiresOnlyNonNullableStructFields()
+        {
+            // Only the non-nullable field is required; nullable fields must be omitted from required so a
+            // legitimately-absent (null) value stays valid on the inbound (set) direction too. Before the fix
+            // every positional parameter was added to required.
+            var schema = GetSchema("RegisterWrites");
+            var required = schema["items"]?["required"] as JsonArray;
+            Assert.IsNotNull(required);
+            Assert.HasCount(1, required);
+            Assert.AreEqual("register", required[0]!.GetValue<string>());
+        }
+
+        [TestMethod]
         public void EmitsEnumSchemaForCurrentAlarm()
         {
             var schema = GetSchema("CurrentAlarm");
