@@ -299,6 +299,12 @@ namespace Vion.Dale.Sdk.Core
                     break;
 
                 case PublishServiceState: // after broker reconnect
+                    // After an operational reconnect the broker's view of our state is unknown: publishes made while the
+                    // connection was down were lost, yet the per-member throttlers advanced LastEmitted as if those
+                    // values had been delivered. Reset every throttler so the re-publish below force-emits the current
+                    // value of each member (a fresh leading edge), re-asserting ground truth instead of being dropped by
+                    // the throttler's value-equality floor. Subsequent changes throttle normally again.
+                    ResetThrottlers();
                     _serviceBinder.PublishInitialStateUpdates(_logger);
                     break;
 
@@ -579,6 +585,27 @@ namespace Vion.Dale.Sdk.Core
             if (throttlers.TryGetValue(key, out var existing))
             {
                 throttlers[key] = new Throttler(existing.Policy);
+            }
+        }
+
+        /// <summary>
+        ///     RFC 0004: rebuilds every property and measuring-point throttler from its <see cref="Throttler.Policy" />,
+        ///     clearing emitted/pending state so the next offer for each member is a fresh leading-edge force-emit.
+        ///     Used on an operational reconnect (<c>PublishServiceState</c>): the throttlers' last-emitted values can be
+        ///     ahead of what the broker actually received (publishes during the disconnect were dropped), so the current
+        ///     state must be re-asserted unconditionally rather than deduplicated against it.
+        /// </summary>
+        private void ResetThrottlers()
+        {
+            ResetAll(_servicePropertyThrottlers);
+            ResetAll(_measuringPointThrottlers);
+
+            static void ResetAll(Dictionary<(string ServiceIdentifier, string MemberIdentifier), Throttler> throttlers)
+            {
+                foreach (var key in throttlers.Keys.ToList())
+                {
+                    throttlers[key] = new Throttler(throttlers[key].Policy);
+                }
             }
         }
 

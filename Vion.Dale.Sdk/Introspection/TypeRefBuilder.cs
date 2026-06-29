@@ -256,15 +256,25 @@ namespace Vion.Dale.Sdk.Introspection
 
             foreach (var p in ctor.GetParameters())
             {
-                // Struct fields are always value types or non-nullable in the spec (flat rule);
-                // passing false for isNullableRef is correct here (struct fields must be non-nullable
-                // reference types per DALE016 — null string fields in a struct are not permitted in v1).
-                var fieldRef = Build(p.ParameterType, false);
+                // A struct field is nullable when it is a Nullable<T> value type (double?, DateTime?, an
+                // enum?) or a nullable reference type (string?). Build already wraps Nullable<T>; the
+                // reference-type case needs the parameter's [Nullable] annotation threaded through so string?
+                // becomes NullableTypeRef(String) rather than a bare (non-nullable) string — otherwise the
+                // outbound codec throws on a null field and dale drops the whole property publish. DALE003
+                // permits these nullable fields (see AnalyzerHelper.IsFlatReadonlyRecordStruct).
+                var isNullableRef = IsNullableReferenceType(p);
+                var isNullableValue = Nullable.GetUnderlyingType(p.ParameterType) is not null;
+
+                var fieldRef = Build(p.ParameterType, isNullableRef);
                 var camelName = ToCamelCase(p.Name!);
                 fieldsBuilder.Add(new StructField(camelName, fieldRef));
 
-                // All positional ctor parameters are required in v1 (no default-value handling).
-                requiredBuilder.Add(camelName);
+                // Only non-nullable fields are required: a nullable field encodes as JSON null outbound and
+                // may be omitted inbound, so listing it in Required would reject a legitimately-absent value.
+                if (!isNullableRef && !isNullableValue)
+                {
+                    requiredBuilder.Add(camelName);
+                }
             }
 
             return new StructTypeRef(structType.Name, fieldsBuilder.ToImmutable(), requiredBuilder.ToImmutable());
@@ -302,11 +312,10 @@ namespace Vion.Dale.Sdk.Introspection
         }
 
         /// <summary>
-        ///     Detects whether a property is declared as a nullable reference type by reading the
-        ///     compiler-emitted <c>[Nullable(2)]</c> attribute. This attribute is present on the
-        ///     property getter / setter when <c>&lt;Nullable&gt;enable&lt;/Nullable&gt;</c> is active
-        ///     and the property type is a nullable reference type (e.g. <c>string?</c>).
-        ///     Only applicable to reference types; value types use <c>Nullable&lt;T&gt;</c> instead.
+        ///     Detects whether a property is declared as a nullable reference type (e.g. <c>string?</c>) by
+        ///     reading the compiler-emitted <c>[Nullable(2)]</c> attribute, falling back to
+        ///     <c>[NullableContext]</c> on the declaring type. Only applicable to reference types; value types
+        ///     use <c>Nullable&lt;T&gt;</c> instead.
         /// </summary>
         private static bool IsNullableReferenceType(PropertyInfo property)
         {
@@ -316,38 +325,57 @@ namespace Vion.Dale.Sdk.Introspection
                 return false;
             }
 
-            // The compiler emits [Nullable(byte)] or [Nullable(byte[])] on the property itself,
-            // or falls back to [NullableContext(byte)] on the declaring type.
-            // byte value 2 = "annotated" (may be null), byte value 1 = "not annotated".
-            var nullable = property.GetCustomAttributes(false).FirstOrDefault(a => a.GetType().FullName == "System.Runtime.CompilerServices.NullableAttribute");
+            return ReadNullableAnnotation(property.GetCustomAttributes(false)) ??
+                   (property.DeclaringType is { } declaring ? ReadNullableContext(declaring.GetCustomAttributes(false)) : null) ?? false;
+        }
 
-            if (nullable is not null)
+        /// <summary>
+        ///     Detects whether a positional record-struct field (a primary-constructor parameter) is a nullable
+        ///     reference type (e.g. <c>string?</c>). The compiler emits <c>[Nullable]</c> on the parameter; when
+        ///     the whole constructor / type shares one nullability it emits <c>[NullableContext]</c> on the
+        ///     constructor or declaring type instead, so both fallbacks are consulted. Only applicable to
+        ///     reference types; value-type fields use <c>Nullable&lt;T&gt;</c>.
+        /// </summary>
+        private static bool IsNullableReferenceType(ParameterInfo parameter)
+        {
+            if (parameter.ParameterType.IsValueType)
             {
-                var flags = nullable.GetType().GetField("NullableFlags");
-                if (flags?.GetValue(nullable) is byte[] bytes && bytes.Length > 0)
-                {
-                    return bytes[0] == 2;
-                }
+                return false;
             }
 
-            // Fallback: check [NullableContext] on the declaring type.
-            var declaringType = property.DeclaringType;
-            if (declaringType is not null)
-            {
-                var ctx = declaringType.GetCustomAttributes(false).FirstOrDefault(a => a.GetType().FullName == "System.Runtime.CompilerServices.NullableContextAttribute");
+            return ReadNullableAnnotation(parameter.GetCustomAttributes(false)) ?? ReadNullableContext(parameter.Member.GetCustomAttributes(false)) ??
+                   (parameter.Member.DeclaringType is { } declaring ? ReadNullableContext(declaring.GetCustomAttributes(false)) : null) ?? false;
+        }
 
-                if (ctx is not null)
-                {
-                    var flag = ctx.GetType().GetField("Flag");
-                    if (flag?.GetValue(ctx) is byte b)
-                    {
-                        return b == 2;
-                    }
-                }
+        /// <summary>
+        ///     Reads the compiler-emitted <c>[Nullable(b)]</c> flag from a member's own attributes:
+        ///     <c>true</c> = annotated (may be null), <c>false</c> = not annotated, <c>null</c> = no
+        ///     <c>[Nullable]</c> attribute present (so the caller falls back to <c>[NullableContext]</c>).
+        /// </summary>
+        private static bool? ReadNullableAnnotation(object[] attributes)
+        {
+            var nullable = attributes.FirstOrDefault(a => a.GetType().FullName == "System.Runtime.CompilerServices.NullableAttribute");
+            if (nullable is not null && nullable.GetType().GetField("NullableFlags")?.GetValue(nullable) is byte[] bytes && bytes.Length > 0)
+            {
+                return bytes[0] == 2; // 2 = annotated (may be null), 1 = not annotated.
             }
 
-            // Unknown nullability — default to non-nullable (conservative / safe).
-            return false;
+            return null;
+        }
+
+        /// <summary>
+        ///     Reads the <c>[NullableContext(b)]</c> fallback flag the compiler emits on a member / type when all
+        ///     its members share one nullability. Returns <c>null</c> when no context attribute is present.
+        /// </summary>
+        private static bool? ReadNullableContext(object[] attributes)
+        {
+            var ctx = attributes.FirstOrDefault(a => a.GetType().FullName == "System.Runtime.CompilerServices.NullableContextAttribute");
+            if (ctx is not null && ctx.GetType().GetField("Flag")?.GetValue(ctx) is byte b)
+            {
+                return b == 2;
+            }
+
+            return null;
         }
     }
 }
