@@ -14,9 +14,9 @@ import {
     STEP_GLYPHS,
 } from './format.js';
 import {
-    applyScenario, baselineDelta, buildSharedContractLookup, changedCountForBlock,
+    applyScenario, applySetup, baselineDelta, buildSharedContractLookup, changedCountForBlock,
     changedSinceBaseline, clearBaseline, clearPins, cloneTopology, closeScenario, closeScenarioEditor, closeTopologyEditor, collapseKey, connectionsForLb,
-    advanceHost, driveContract, editScenarioDraft, editTopology, halKey, historyFor, isPinned, judgeKey, loadTopologies, newScenarioDraft, newTopology, openScenario, openTopologyDetail, openTopologyList, pauseHost, resetHost, resumeHost, stepHost,
+    advanceHost, currentValueFor, driveContract, editScenarioDraft, editTopology, halKey, historyFor, isPinned, judgeKey, loadTopologies, newScenarioDraft, newTopology, openScenario, openTopologyDetail, openTopologyList, pauseHost, resetHost, resumeHost, stepHost,
     saveScenarioDraft, saveTopologyDraft, setBaseline, setJudgeTick, setProperty, showError, store,
     switchClockMode, switchTopology, toggleCollapsed, togglePin, validateScenarioDraft, validateTopologyDraft, valueKey,
 } from './store.js';
@@ -2279,6 +2279,25 @@ const StepRow = {
         const isAdvance = computed(() => kind.value === 'advance');
         const isSettle = computed(() => kind.value === 'settle');
 
+        // "use current value" — fills the equals field from the live host value so the author doesn't
+        // have to hand-type it. For expect/waitUntil: resolves Block.Property[.Field] via currentValueFor.
+        // For serviceProviderExpect: the asserted value is what the block last wrote on the contract output,
+        // held in store.hal keyed by halKey(spId, svcId, contractId). Resolving those three ids requires
+        // walking store.config to find the lb's contractMapping for the picked contract, then reading
+        // store.hal. That resolver is non-trivial and fragile (the mapping may list many lbs for the same
+        // contract endpoint); the property cases are implemented fully and serviceProviderExpect is a
+        // no-op (the HAL resolver is deferred — DONE_WITH_CONCERNS: the button is shown but does nothing
+        // for serviceProviderExpect because a robust hal-key resolver needs richer contract-mapping data
+        // than a StepRow has access to without significant complexity).
+        const useCurrentForAssertProp = () => {
+            const obj = assertObj.value;
+            if (!obj || !obj.property) return;
+            const v = currentValueFor(obj.property);
+            if (v === undefined) return;
+            obj.equals = v;
+            dirty();
+        };
+
         return {
             kind, kindOptions, onKindChange, errors, hasErrors,
             setSchema, spSetSchema, setSet, setValue, setSpSet, setSpExpect, onLabel,
@@ -2286,6 +2305,7 @@ const StepRow = {
             equalsText, spEqualsText, onSpEquals, onSpTolerance, toleranceText, spToleranceText,
             timeoutText, secondsText, maxSecondsText, labelText,
             isSet, isSpSet, isSpExpect, isWaitUntil, isExpect, isAssertProp, isAdvance, isSettle,
+            useCurrentForAssertProp,
             row: props.row,
         };
     },
@@ -2311,6 +2331,7 @@ const StepRow = {
                     <span class="step-field">
                         <span class="mono topo-meta">equals</span>
                         <input type="text" class="control step-value-input" :value="equalsText" @input="onEquals">
+                        <button type="button" class="theme-toggle" title="fill equals with the current live value" @click="useCurrentForAssertProp">use current</button>
                     </span>
                     <span v-if="isExpect" class="step-field">
                         <span class="mono topo-meta">± tol</span>
@@ -2468,9 +2489,15 @@ const ScenarioEditor = {
             validated.value = false;
         };
 
+        // Clock hint: visible only when the host is NOT on a stepped (deterministic) clock. A real-clock
+        // capture can be noisy because live values change while the author edits. Boolean computed so the
+        // template stays operator-free (rule: no && / || in template expressions).
+        const showClockHint = computed(() => !store.stepped);
+
         return {
             draft, onIdInput, close, errors, hasErrors, showValid, dirty, validate, save, saveAndRun,
             insertAt, removeAt, moveRow, onWatchInput, onJudgeInput,
+            applySetup, showClockHint,
         };
     },
     template: `
@@ -2534,6 +2561,8 @@ const ScenarioEditor = {
             <div class="topo-row topo-footer">
                 <button type="button" class="theme-toggle" @click="validate">validate</button>
                 <span v-if="showValid" class="severity-pill success">valid</span>
+                <button type="button" class="theme-toggle" title="drive setup steps against the live host so you can capture realistic values with 'use current'" @click="applySetup">apply setup</button>
+                <span v-if="showClockHint" class="topo-meta">values are live — switch to stepped for reproducible captures</span>
                 <span class="item-spacer"></span>
                 <button type="button" class="theme-toggle" title="discard and close the editor" @click="close">cancel</button>
                 <button type="button" class="theme-toggle" :disabled="!dirty" title="save this scenario file" @click="save">save</button>

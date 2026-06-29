@@ -943,6 +943,30 @@ export async function applySetup() {
     }
 }
 
+// Read the live host value for a scenario name path — `Block.Property` or `Block.Property.Field`.
+// For two-segment paths, resolves via serviceIdForPath → liveValue (the coalesced store.values entry).
+// For a three-segment path (struct field navigation), navigates one level into the published object
+// using a case-insensitive field lookup (matching the wire-key camelCase convention). Returns
+// undefined when the path is unresolvable or the value has not yet been published.
+export function currentValueFor(path) {
+    if (!path || typeof path !== 'string') return undefined;
+    const segments = path.split('.');
+    // Base is always the first two segments (Block.Property); a third segment is a struct field name.
+    const base = segments.slice(0, 2).join('.');
+    const field = segments.length >= 3 ? segments[2] : null;
+    const resolved = serviceIdForPath(base);
+    if (!resolved) return undefined;
+    const value = liveValue(resolved.serviceId, resolved.propertyId);
+    if (field === null) return value;
+    // Struct field navigation: case-tolerant (wire keys are camelCased, schema keys are usually
+    // PascalCase — match case-insensitively, same policy as primeInitialValues).
+    if (value === null || value === undefined || typeof value !== 'object') return undefined;
+    if (Object.prototype.hasOwnProperty.call(value, field)) return value[field];
+    const lower = field.toLowerCase();
+    const key = Object.keys(value).find(k => k.toLowerCase() === lower);
+    return key !== undefined ? value[key] : undefined;
+}
+
 async function refreshRun(id) {
     try {
         const response = await fetch(`/api/scenarios/${encodeURIComponent(id)}/run`);
