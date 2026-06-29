@@ -16,7 +16,7 @@ import {
 import {
     applyScenario, applySetup, baselineDelta, buildSharedContractLookup, changedCountForBlock,
     changedSinceBaseline, clearBaseline, clearPins, cloneTopology, closeScenario, closeScenarioEditor, closeTopologyEditor, collapseKey, connectionsForLb,
-    advanceHost, currentValueFor, driveContract, editScenarioDraft, editTopology, halKey, historyFor, isPinned, judgeKey, loadTopologies, newScenarioDraft, newTopology, openScenario, openTopologyDetail, openTopologyList, pauseHost, resetHost, resumeHost, stepHost,
+    advanceHost, currentValueFor, driveContract, editScenarioDraft, editTopology, halKey, historyFor, isPinned, judgeKey, loadTopologies, movePinAt, newScenarioDraft, newTopology, openScenario, openTopologyDetail, openTopologyList, pauseHost, resetHost, resumeHost, stepHost,
     saveScenarioDraft, saveTopologyDraft, setBaseline, setJudgeTick, setProperty, showError, store,
     switchClockMode, switchTopology, toggleCollapsed, togglePin, validateScenarioDraft, validateTopologyDraft, valueKey,
 } from './store.js';
@@ -1020,9 +1020,12 @@ export const WatchPanel = {
         const observe = computed(() => store.pins.filter(p => !drive.value.includes(p)));
         const missing = computed(() => store.pins.filter(p => !resolvePin(p)));
         const empty = computed(() => store.pins.length === 0);
+        const lastPinIndex = computed(() => store.pins.length - 1);
         const clearAll = () => clearPins();
         const pruneMissing = () => clearPins(missing.value);
-        return { store, drive, observe, missing, empty, clearAll, pruneMissing };
+        const moveUp = i => movePinAt(i, -1);
+        const moveDown = i => movePinAt(i, 1);
+        return { store, drive, observe, missing, empty, lastPinIndex, clearAll, pruneMissing, moveUp, moveDown };
     },
     template: `
         <aside class="watch" :class="{ empty }">
@@ -1039,9 +1042,13 @@ export const WatchPanel = {
                         title="unpin everything the current topology does not resolve"
                         @click="pruneMissing">remove {{ missing.length }} not in this topology</button>
                 <div v-if="drive.length" class="watch-section">drive</div>
-                <WatchTile v-for="p in drive" :key="p.block + '/' + p.service + '/' + p.item" :entry="p"/>
-                <div v-if="observe.length" class="watch-section">observe</div>
-                <WatchTile v-for="p in observe" :key="p.block + '/' + p.service + '/' + p.item" :entry="p"/>
+                <div v-for="(p, i) in store.pins" :key="p.block + '/' + p.service + '/' + p.item" class="watch-pin-row">
+                    <WatchTile :entry="p"/>
+                    <div class="section-move watch-move">
+                        <button type="button" class="theme-toggle" title="move up" :disabled="i === 0" @click="moveUp(i)">↑</button>
+                        <button type="button" class="theme-toggle" title="move down" :disabled="i === lastPinIndex" @click="moveDown(i)">↓</button>
+                    </div>
+                </div>
             </template>
         </aside>
     `,
@@ -2494,10 +2501,33 @@ const ScenarioEditor = {
         // template stays operator-free (rule: no && / || in template expressions).
         const showClockHint = computed(() => !store.stepped);
 
+        // ── form ⇄ raw tab (mirrors TopologyEditor) ───────────────────────────────
+        // Raw-tab textarea: a local draft seeded from store.scenarioDraft on entry. The store draft is only
+        // mutated on an explicit "commit JSON", not on every keystroke (draft+dirty discipline).
+        const tab = ref('form');
+        const rawText = ref('');
+        const rawError = ref('');
+        const seedRaw = () => { try { rawText.value = JSON.stringify(draft.value, null, 2); } catch { rawText.value = ''; } rawError.value = ''; };
+        const showRaw = () => { seedRaw(); tab.value = 'raw'; };
+        const showForm = () => { tab.value = 'form'; rawError.value = ''; };
+        const commitRaw = () => {
+            try {
+                store.scenarioDraft = JSON.parse(rawText.value);
+                store.scenarioDraftDirty = true;
+                store.scenarioDraftErrors = [];
+                rawError.value = '';
+                tab.value = 'form';
+            } catch (e) {
+                rawError.value = 'invalid JSON: ' + e.message;
+            }
+        };
+        const isFormTab = computed(() => tab.value === 'form');
+
         return {
             draft, onIdInput, close, errors, hasErrors, showValid, dirty, validate, save, saveAndRun,
             insertAt, removeAt, moveRow, onWatchInput, onJudgeInput,
             applySetup, showClockHint,
+            tab, rawText, rawError, showRaw, showForm, commitRaw, isFormTab,
         };
     },
     template: `
@@ -2505,10 +2535,24 @@ const ScenarioEditor = {
             <div class="topo-row topo-editor-head">
                 <button type="button" class="theme-toggle" title="back — close the editor" @click="close">← back</button>
                 <h2 class="mono">scenario editor</h2>
+                <div class="editor-tabs">
+                    <button type="button" :class="{ active: isFormTab }" @click="showForm">form</button>
+                    <button type="button" :class="{ active: !isFormTab }" @click="showRaw">{ } raw</button>
+                </div>
                 <span class="item-spacer"></span>
                 <button type="button" class="theme-toggle" title="close the editor" @click="close">✕</button>
             </div>
 
+            <template v-if="!isFormTab">
+                <textarea rows="22" spellcheck="false" class="mono topo-raw" :value="rawText"
+                          placeholder="(scenario JSON)" @input="rawText = $event.target.value"></textarea>
+                <div class="topo-row topo-footer">
+                    <button type="button" class="theme-toggle" title="parse and replace the draft" @click="commitRaw">commit JSON</button>
+                    <span v-if="rawError" class="topo-meta">{{ rawError }}</span>
+                </div>
+            </template>
+
+            <template v-if="isFormTab">
             <div class="topo-row topo-editor-head">
                 <span class="topo-meta">id</span>
                 <input type="text" class="topo-id-input" placeholder="scenario id" v-model="draft.id" @input="onIdInput"/>
@@ -2574,6 +2618,7 @@ const ScenarioEditor = {
                     <span class="topo-meta">{{ err }}</span>
                 </div>
             </div>
+            </template>
         </div>
     `,
 };
@@ -2821,6 +2866,18 @@ function openCloneTopologyEditor(id) {
     editTopology(id);
 }
 
+// Open the scenario editor from anywhere (⌘K palette / Shift+S keybinding): flip to the player view,
+// then prime the draft via newScenarioDraft. Mirrors openNewTopologyEditor; honors the read-only gate.
+const scenarioEditable = () => !(store.scenarios && store.scenarios.readOnly);
+function openNewScenarioEditor() {
+    if (!scenarioEditable()) return;
+    newScenarioDraft();
+}
+function openEditScenarioEditor(id) {
+    if (!scenarioEditable()) return;
+    editScenarioDraft(id);
+}
+
 export const Palette = {
     setup() {
         const query = ref('');
@@ -2828,9 +2885,10 @@ export const Palette = {
         const inputEl = ref(null);
         // Nav targets (scenario / topology) sort ahead of properties on a score tie — they're fewer and the
         // headline "go to anything" use; authoring verbs follow them; properties are the long tail.
-        const typeRank = t => (t === 'scenario' ? 0 : t === 'topology' ? 1 : t === 'newtopology' || t === 'edittopology' ? 2 : 3);
-        // Authoring verbs are offered only on a writable topology workspace (mirrors TopologyPanel.canEdit).
+        const typeRank = t => (t === 'scenario' ? 0 : t === 'topology' ? 1 : t === 'newtopology' || t === 'edittopology' || t === 'newscenario' || t === 'editscenario' ? 2 : 3);
+        // Authoring verbs are offered only on a writable workspace (mirrors TopologyPanel.canEdit / PlayerPanel.canEdit).
         const canAuthor = computed(() => !(store.topologies && store.topologies.readOnly));
+        const canAuthorScenario = computed(() => !(store.scenarios && store.scenarios.readOnly));
         const entries = computed(() => {
             const tokens = parseFilter(query.value);
             const q = query.value.trim().toLowerCase();
@@ -2858,6 +2916,19 @@ export const Palette = {
                     const label = 'edit topology: ' + tp.id;
                     if (!q || tp.id.toLowerCase().includes(q) || label.includes(q)) {
                         out.push({ type: 'edittopology', key: 'edit:' + tp.id, id: tp.id, name: label, where: 'clone into editor', score: tp.id.toLowerCase().includes(q) ? 0 : 1 });
+                    }
+                });
+            }
+            // Scenario authoring verbs (RFC 0014) — only on a writable scenario workspace (mirrors
+            // PlayerPanel.canEdit). "new scenario" is always offered; one "edit scenario: <id>" per file.
+            if (canAuthorScenario.value) {
+                if (!q || 'new scenario'.includes(q)) {
+                    out.push({ type: 'newscenario', key: 'scn:new', name: 'new scenario', where: 'author a scenario', score: 'new scenario'.includes(q) ? 0 : 1 });
+                }
+                ((store.scenarios && store.scenarios.scenarios) || []).forEach(s => {
+                    const label = 'edit scenario: ' + s.id;
+                    if (!q || s.id.toLowerCase().includes(q) || label.includes(q)) {
+                        out.push({ type: 'editscenario', key: 'edit:scn:' + s.id, id: s.id, name: label, where: 'open in editor', score: s.id.toLowerCase().includes(q) ? 0 : 1 });
                     }
                 });
             }
@@ -2899,6 +2970,16 @@ export const Palette = {
             if (entry.type === 'edittopology') {
                 close();
                 openCloneTopologyEditor(entry.id);
+                return;
+            }
+            if (entry.type === 'newscenario') {
+                close();
+                openNewScenarioEditor();
+                return;
+            }
+            if (entry.type === 'editscenario') {
+                close();
+                openEditScenarioEditor(entry.id);
                 return;
             }
             const groupKey = (entry.item.presentation && entry.item.presentation.group) || '';
@@ -2957,7 +3038,7 @@ export const Palette = {
                     <div v-for="(e, i) in entries" :key="e.key"
                          class="palette-row" :class="{ selected: i === selected }"
                          @click="jump(e)" @mouseenter="selected = i">
-                        <span class="palette-kind" :class="'kind-' + e.type" :title="e.type">{{ e.type === 'scenario' ? '▶' : e.type === 'topology' ? '⛁' : e.type === 'newtopology' ? '＋' : e.type === 'edittopology' ? '✎' : '◦' }}</span>
+                        <span class="palette-kind" :class="'kind-' + e.type" :title="e.type">{{ e.type === 'scenario' ? '▶' : e.type === 'topology' ? '⛁' : e.type === 'newtopology' ? '＋' : e.type === 'edittopology' ? '✎' : e.type === 'newscenario' ? '＋' : e.type === 'editscenario' ? '✎' : '◦' }}</span>
                         <template v-if="e.type === 'property'">
                             <span class="mono palette-name">{{ e.item.identifier }}</span>
                             <span class="palette-where">{{ e.lb.name }}<template v-if="e.multiService"> · {{ e.service.identifier }}</template><template v-if="e.item.presentation?.group"> · {{ e.item.presentation.group }}</template></span>
@@ -2987,6 +3068,7 @@ const KEYBINDINGS = [
     { keys: ['v'], desc: 'Verify' },
     { keys: ['t'], desc: 'topology menu — switch / new / manage' },
     { keys: ['⇧', 'T'], desc: 'new topology editor' },
+    { keys: ['⇧', 'S'], desc: 'new scenario editor' },
     { keys: ['[', ']'], desc: 'previous / next — scenario in Verify, topology in Explore' },
     { keys: ['/'], desc: 'focus the filter' },
     { keys: ['b'], desc: 'set baseline (mark the current values)' },
@@ -3170,6 +3252,7 @@ export const App = {
                 case 'v': goVerify(); break;
                 case 't': toggleTopologyMenu(); break;
                 case 'T': openNewTopologyEditor(); break;
+                case 'S': openNewScenarioEditor(); break;
                 case 'b': setBaseline(); break;
                 case 'c': clearPins(); break;
                 case 'p': store.paused ? resumeHost() : pauseHost(); break;

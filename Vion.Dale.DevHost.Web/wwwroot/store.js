@@ -192,6 +192,21 @@ function loadPins() {
     }
 }
 
+// Move a pinned entry one slot up (dir = -1) or down (dir = +1) and persist. No-ops at the
+// boundary: the caller is responsible for disabling the button at index 0 (up) and the last index
+// (down), but a no-op here is safe in case of a race.
+export function movePinAt(index, dir) {
+    const target = index + dir;
+    if (target < 0 || target >= store.pins.length) return;
+    const [removed] = store.pins.splice(index, 1);
+    store.pins.splice(target, 0, removed);
+    try {
+        localStorage.setItem(PINS_STORAGE_KEY, JSON.stringify(store.pins));
+    } catch (err) {
+        console.warn('Could not persist pins', err);
+    }
+}
+
 // Remove pins in bulk: all of them (the watch panel's clear), or a given subset (pruning
 // tombstones after a topology switch). Pins are cheap to re-create — no confirmation ceremony.
 export function clearPins(entries = null) {
