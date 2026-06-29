@@ -69,7 +69,7 @@ namespace Vion.Examples.Emission.LogicBlocks
                                MinChange = "0.25",
                                Description =
                                    "Per-phase currents derived from the setpoint; the Δ0.25 deadband uses a custom IChangeThreshold<ThreePhase> discovered in this assembly.")]
-        [Presentation(Group = PropertyGroup.Metric, Order = 10)]
+        [Presentation(Group = PropertyGroup.Metric)]
         public ThreePhase PhaseCurrents { get; private set; }
 
         // ── Independently sensed signals (read-only, timer-driven — the auto throttle demo) ──
@@ -83,7 +83,7 @@ namespace Vion.Examples.Emission.LogicBlocks
                                MinInterval = "2s",
                                MinChange = "0.5",
                                Description = "Sensed temperature; throttled to 2 s and deadbanded at Δ0.5. Watch it hold and coalesce in free-run.")]
-        [Presentation(Group = PropertyGroup.Metric, Order = 20)]
+        [Presentation(Group = PropertyGroup.Metric)]
         public double Temperature { get; private set; }
 
         /// <summary>
@@ -95,7 +95,7 @@ namespace Vion.Examples.Emission.LogicBlocks
                          MinInterval = "2s",
                          Description = "Same sensed value, two independently-throttled streams: the property stream (2 s) and the measuring-point stream (500 ms + Δ1).")]
         [ServiceMeasuringPoint(Title = "Power", Unit = "W", MinInterval = "500ms", MinChange = "1")]
-        [Presentation(Group = PropertyGroup.Metric, Order = 30)]
+        [Presentation(Group = PropertyGroup.Metric)]
         public double Power { get; private set; }
 
         /// <summary>
@@ -107,7 +107,7 @@ namespace Vion.Examples.Emission.LogicBlocks
                                Immediate = true,
                                Description =
                                    "Immediate=true bypasses throttle and deadband: flashes every tick. (Immediate is also the right knob for a bool safety flag, which has no magnitude to deadband.)")]
-        [Presentation(Group = PropertyGroup.Metric, Order = 40)]
+        [Presentation(Group = PropertyGroup.Metric)]
         public long LiveTick { get; private set; }
 
         // ── Diagnostics (read-only) ─────────────────────────────────────────────────
