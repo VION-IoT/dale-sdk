@@ -60,6 +60,9 @@ assert.equal(valueEditorFor({ type: 'boolean' }).control, 'bool');
 assert.equal(valueEditorFor({ type: 'number' }).control, 'number');
 assert.equal(valueEditorFor({ type: 'object', properties: { l1: {} } }).control, 'struct');
 assert.equal(valueEditorFor({ type: 'array', items: {} }).control, 'array');
+// nullable members carry the union type form (#105) — still classify (not rawJson)
+assert.equal(valueEditorFor({ type: ['object', 'null'], properties: { l1: {} } }).control, 'struct');
+assert.equal(valueEditorFor({ type: ['number', 'null'] }).control, 'number');
 // contract values: scalar families form-drive by convention; non-scalar -> raw JSON (Q1 UI-only stopgap)
 assert.equal(contractValueEditor('DigitalInput').control, 'bool');
 assert.equal(contractValueEditor('AnalogInput').control, 'number');

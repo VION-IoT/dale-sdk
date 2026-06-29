@@ -141,11 +141,15 @@ export function stepErrors(step, setupOnly) {
 export function valueEditorFor(schema) {
     if (!schema) return { control: 'rawJson' };
     if (Array.isArray(schema.enum)) return { control: 'enum', options: schema.enum };
-    if (schema.type === 'boolean') return { control: 'bool' };
-    if (schema.type === 'number' || schema.type === 'integer') return { control: 'number' };
-    if (schema.type === 'object' && schema.properties) return { control: 'struct', fields: schema.properties };
-    if (schema.type === 'array') return { control: 'array', items: schema.items || {} };
-    if (schema.format === 'duration' || schema.type === 'string') return { control: 'text' };
+    // Nullable members carry the union type form (e.g. ['object','null']); normalize it like format.js
+    // effectiveType so a NULLABLE struct/number still classifies (RFC §7.3 / #105) — the control just lets the
+    // value be null/omitted.
+    const type = Array.isArray(schema.type) ? schema.type.find(t => t !== 'null') : schema.type;
+    if (type === 'boolean') return { control: 'bool' };
+    if (type === 'number' || type === 'integer') return { control: 'number' };
+    if (type === 'object' && schema.properties) return { control: 'struct', fields: schema.properties };
+    if (type === 'array') return { control: 'array', items: schema.items || {} };
+    if (schema.format === 'duration' || type === 'string') return { control: 'text' };
     return { control: 'rawJson' };
 }
 
