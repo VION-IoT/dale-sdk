@@ -2292,10 +2292,9 @@ const StepRow = {
         // held in store.hal keyed by halKey(spId, svcId, contractId). Resolving those three ids requires
         // walking store.config to find the lb's contractMapping for the picked contract, then reading
         // store.hal. That resolver is non-trivial and fragile (the mapping may list many lbs for the same
-        // contract endpoint); the property cases are implemented fully and serviceProviderExpect is a
-        // no-op (the HAL resolver is deferred — DONE_WITH_CONCERNS: the button is shown but does nothing
-        // for serviceProviderExpect because a robust hal-key resolver needs richer contract-mapping data
-        // than a StepRow has access to without significant complexity).
+        // contract endpoint), so the property cases are implemented fully and the button is simply NOT
+        // rendered for serviceProviderExpect (its equals is hand-typed) — the HAL-key resolver is a
+        // deferred follow-up rather than a no-op button.
         const useCurrentForAssertProp = () => {
             const obj = assertObj.value;
             if (!obj || !obj.property) return;

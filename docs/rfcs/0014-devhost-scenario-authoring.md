@@ -96,7 +96,7 @@ Every `expect` / `waitUntil` / `serviceProviderExpect` row carries a **"use curr
 
 - **Clock-mode hint (decision Q2).** A captured value is only *reproducible* on a **stepped** host (at a known virtual tick); on a real-clock host (the DevHost default) values move continuously and `advance`/`settle` wait wall-clock. The editor surfaces a one-line hint when capturing on a real-clock host ("values are live — switch to stepped for reproducible captures"), but does **not** hard-require stepped.
 - **Reaching the right state (decision Q5).** For sequence-dependent asserts the author drives/advances the host to the intended point, then captures — acceptable for v1. A cheap **"apply setup"** button (runs just the scenario's `setup`) gives a sane starting state without a full run; the deferred run-to-step snapshot automates the rest.
-- **`expect` form scope (decision Q4):** `equals` / `above` / `below` against a **literal** for v1 (what "use current value" fills); the compare-against-another-property *comparand* variant the resolver supports is **deferred**.
+- **`expect` form scope (decision Q4):** the form ships the **`equals`** comparator for v1 (what "use current value" fills). `above`/`below` against a literal are accepted by the runner and authorable via the **raw-JSON tab**; dedicated `above`/`below` form controls are a small follow-up (§11). The compare-against-another-property *comparand* variant the resolver supports is **deferred**.
 
 ### 7.5 State & actions (`store.js`)
 
@@ -137,6 +137,7 @@ A small adjacent enhancement requested alongside: the live **`WatchPanel`** (Exp
 - **Capture-from-driving (record mode)** — the natural follow-up once the form editor exists; capture live `set`/`advance`/assert actions in Explore into steps. "use current value" is its first sip.
 - **Run-to-step snapshot** — recycle + replay prior steps to snapshot a sequence-accurate assert value at the exact point.
 - **Run/iterate loop polish** — re-run from a step, richer inline failure surfacing beyond the trace.
+- **`expect` `above`/`below` form controls** — the form authors `equals` for v1; literal `above`/`below` are runner-supported and authorable via the raw-JSON tab, but lack dedicated form controls (a small comparator-select follow-up).
 - **`expect` comparand-property variant** — `above`/`below` *another property*'s value (the resolver already supports it); v1 is literal-only.
 - **Service-provider contract value schema in introspection** — the general backend solution that would retire the Q1 raw-JSON stopgap: expose a value `Schema` for `[ServiceProviderContractType]` contracts (for *all* SP messages), at which point the schema-presence-gated value editor form-drives struct/array contract values automatically.
 - **Server-authoritative `POST /api/scenarios/validate`** — only if validate-without-write is wanted.
