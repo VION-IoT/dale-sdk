@@ -100,6 +100,50 @@ namespace Vion.Dale.Sdk.TestKit.Test
         }
 
         [TestMethod]
+        public void ReassertPropertyStateOnReconnectEvenWhenUnchanged()
+        {
+            // On an operational reconnect the runtime sends PublishServiceState. Publishes made while the connection
+            // was down were lost, but the throttler advanced LastEmitted as if they had been delivered — so the current
+            // value can equal LastEmitted and the value-equality floor would drop the re-publish, leaving the broker
+            // stale. PublishServiceState must reset the throttlers so the current value is force-emitted (re-asserted).
+            var block = LogicBlockTestHelper.Create<ThrottledBlock>();
+            var ctx = block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).Build();
+
+            ctx.AdvanceTime(TimeSpan.FromMilliseconds(250)); // clear the start-seed interval
+
+            block.Voltage = 5.0; // leading edge -> emit, throttler LastEmitted = 5.0
+            ctx.VerifyServicePropertyEmitted(lb => lb.Voltage, value => Assert.AreEqual(5.0, value), Times.Once());
+
+            ctx.ClearRecordedMessages();
+
+            // Reconnect: the value is unchanged (== LastEmitted). Without the throttler reset this re-publish is dropped
+            // by the value-equality floor; with it, 5.0 is re-asserted exactly once.
+            block.HandleMessageAsync(new Messages.PublishServiceState(), ctx).GetAwaiter().GetResult();
+
+            ctx.VerifyServicePropertyEmitted(lb => lb.Voltage, value => Assert.AreEqual(5.0, value), Times.Once());
+        }
+
+        [TestMethod]
+        public void ReassertMeasuringPointStateOnReconnectEvenWhenUnchanged()
+        {
+            // Same reconnect re-assertion guarantee for the measuring-point stream (PublishServiceState resets both
+            // the property and measuring-point throttlers).
+            var block = LogicBlockTestHelper.Create<ThrottledMpBlock>();
+            var ctx = block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).Build();
+
+            ctx.AdvanceTime(TimeSpan.FromMilliseconds(250)); // clear the start-seed interval
+
+            block.SetFrequency(50.0); // leading edge -> emit, throttler LastEmitted = 50.0
+            ctx.VerifyServiceMeasuringPointEmitted(lb => lb.Frequency, times: Times.Once());
+
+            ctx.ClearRecordedMessages();
+
+            block.HandleMessageAsync(new Messages.PublishServiceState(), ctx).GetAwaiter().GetResult();
+
+            ctx.VerifyServiceMeasuringPointEmitted(lb => lb.Frequency, times: Times.Once());
+        }
+
+        [TestMethod]
         public void EmitClearedImmediatelyAndCancelPendingFlush()
         {
             var block = LogicBlockTestHelper.Create<ThrottledBlock>();
