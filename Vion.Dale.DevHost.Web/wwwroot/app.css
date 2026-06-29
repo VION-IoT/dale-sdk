@@ -373,6 +373,35 @@ body {
 /* Watch and judge inline inputs: fill the available body width */
 .section-watch-input, .section-judge-input { flex: 1 1 0; min-width: 0; font-family: var(--mono); font-size: 12px; }
 
+/* ── StepRow (Task 9): per-step kind form — a wrapping field cluster + an inline error list ───── */
+
+/* A step body is taller / multi-control than a watch input — let it fill the width and wrap. The
+   section body's overflow:hidden suits one-line inputs; a step row owns its own vertical space. */
+.section-list-row:has(.step-row) .section-list-body { overflow: visible; align-items: flex-start; }
+.step-row { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.step-row-main { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.step-row-errors { display: flex; flex-direction: column; gap: 2px; }
+.step-error-row { display: flex; align-items: center; gap: 6px; }
+
+/* Each labelled field is a label + its control, kept together when the row wraps */
+.step-field { display: inline-flex; align-items: center; gap: 4px; }
+
+/* Sizing: kind/property/contract selects auto-size; numeric knobs are compact */
+.step-kind-select { min-width: 120px; }
+.step-prop-select, .step-contract-select { min-width: 150px; }
+.step-field-select { min-width: 110px; }
+.step-value-input { min-width: 120px; }
+.step-small-input { width: 72px; }
+.step-label-input { width: 140px; }
+.step-value-raw { min-width: 220px; min-height: 38px; }
+.step-raw-invalid { color: var(--vion-error-fg-def-primary); font-size: 11px; }
+
+/* Nested ValueEditor (struct / array): indented field/element blocks */
+.value-editor { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.value-editor-struct, .value-editor-array { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-left: 6px; border-left: 1px solid var(--border); }
+.value-editor-field, .value-editor-element { display: inline-flex; align-items: center; gap: 4px; }
+.value-editor-field-label { font-size: 11px; }
+
 .error-toast {
     position: fixed;
     top: 52px;

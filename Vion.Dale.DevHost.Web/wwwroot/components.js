@@ -21,7 +21,10 @@ import {
     switchClockMode, switchTopology, toggleCollapsed, togglePin, validateScenarioDraft, validateTopologyDraft, valueKey,
 } from './store.js';
 import { allowsMultiple, autoConnect, problemsOf, residueOf } from './wiring.js';
-import { kindOf, SETUP_KIND_IDS, STEP_KIND_IDS } from './scenario-forms.js';
+import {
+    contractRefs, contractValueEditor, findMember, kindOf, propertyPaths,
+    SETUP_KIND_IDS, STEP_KIND_IDS, stepErrors, structFieldPaths, valueEditorFor,
+} from './scenario-forms.js';
 
 // Filter tokens, shared by every component that narrows to matches.
 const filterTokens = computed(() => parseFilter(store.filter));
@@ -1962,13 +1965,427 @@ const SectionList = {
     `,
 };
 
+// ── PropertyPicker (Task 9): a Block.Property[.Field] picker over the running host's config. ─────────
+// Props: modelValue (the dotted name path), writableOnly (set ⇒ only writable props), allowStructFields
+// (expect/waitUntil ⇒ allow descending into a struct member's fields). Emits update:modelValue. Reads
+// store.config ONLY — never fetches. The base member is one <select> over propertyPaths(); when the base
+// is a struct AND allowStructFields, a SECOND <select> over structFieldPaths() lets the user pick a field,
+// so the emitted value is `Block.Property` (base) or `Block.Property.Field` (descended).
+const PropertyPicker = {
+    props: {
+        modelValue: { type: String, default: '' },
+        writableOnly: { type: Boolean, default: false },
+        allowStructFields: { type: Boolean, default: false },
+    },
+    emits: ['update:modelValue'],
+    setup(props, { emit }) {
+        const bases = computed(() => propertyPaths(store.config, { writableOnly: props.writableOnly }));
+        // The current value is base[.field]; the base is the longest enumerated path that prefixes it.
+        const base = computed(() => {
+            const v = props.modelValue || '';
+            const match = bases.value.find(p => v === p || v.startsWith(p + '.'));
+            // Fall back to the first two segments so a hand-typed / stale path still selects sensibly.
+            return match || v.split('.').slice(0, 2).join('.');
+        });
+        const fieldPaths = computed(() => props.allowStructFields ? structFieldPaths(store.config, base.value) : []);
+        const hasFields = computed(() => fieldPaths.value.length > 0);
+        const fieldValue = computed(() => (props.modelValue && props.modelValue !== base.value) ? props.modelValue : '');
+        const onBase = e => emit('update:modelValue', e.target.value);
+        // Field '' ⇒ the whole struct member (base). A field path is already the full Block.Prop.Field.
+        const onField = e => emit('update:modelValue', e.target.value || base.value);
+        return { bases, base, fieldPaths, hasFields, fieldValue, onBase, onField };
+    },
+    template: `
+        <span class="step-field">
+            <select class="control step-prop-select" :value="base" @change="onBase">
+                <option value="">— property —</option>
+                <option v-for="p in bases" :key="p" :value="p">{{ p }}</option>
+            </select>
+            <select v-if="hasFields" class="control step-field-select" :value="fieldValue" @change="onField">
+                <option value="">(whole struct)</option>
+                <option v-for="f in fieldPaths" :key="f" :value="f">.{{ f.slice(base.length + 1) }}</option>
+            </select>
+        </span>
+    `,
+};
+
+// ── ContractPicker (Task 9): a {logicBlock, contract} picker over the host's service-provider contracts.
+// Props: modelValue (an object with logicBlock + contract). Emits update:modelValue with the chosen pair.
+// A single <select> over contractRefs(); the option value encodes the pair as "logicBlock contract"
+// (a delimiter that can't occur in an identifier), decoded on change.
+const ContractPicker = {
+    props: {
+        modelValue: { type: Object, default: () => ({ logicBlock: '', contract: '' }) },
+    },
+    emits: ['update:modelValue'],
+    setup(props, { emit }) {
+        const refs = computed(() => contractRefs(store.config));
+        const encode = r => `${r.logicBlock} ${r.contract}`;
+        const current = computed(() => {
+            const m = props.modelValue || {};
+            return m.logicBlock ? encode({ logicBlock: m.logicBlock, contract: m.contract }) : '';
+        });
+        const onChange = e => {
+            const [logicBlock, contract] = String(e.target.value).split(' ');
+            emit('update:modelValue', { logicBlock: logicBlock || '', contract: contract || '' });
+        };
+        return { refs, current, onChange, encode };
+    },
+    template: `
+        <span class="step-field">
+            <select class="control step-contract-select" :value="current" @change="onChange">
+                <option value="">— contract —</option>
+                <option v-for="r in refs" :key="encode(r)" :value="encode(r)">{{ r.logicBlock }}.{{ r.contract }}</option>
+            </select>
+        </span>
+    `,
+};
+
+// ── ValueEditor (Task 9): a schema-driven value editor that RECURSES into structs/arrays. ────────────
+// Props: schema (the value's JSON schema, or null ⇒ raw-JSON), modelValue (the current value). Emits
+// update:modelValue. The control is chosen by valueEditorFor(schema).control:
+//   number/text/bool/enum → a single leaf input; struct → a nested field block (recurse per property);
+//   array → element rows (recurse on items) with add/remove; rawJson → a textarea parsed on blur.
+// Recursion: this const references itself in its own `components` (see the assignment AFTER the literal),
+// and `name: 'ValueEditor'` makes the self-reference resolvable in the template. node --check can't catch
+// a missing self-registration, so the registration below is load-bearing — keep it.
+const ValueEditor = {
+    name: 'ValueEditor',
+    props: {
+        schema: { type: Object, default: null },
+        modelValue: { default: null },
+    },
+    emits: ['update:modelValue'],
+    setup(props, { emit }) {
+        const spec = computed(() => valueEditorFor(props.schema));
+        const control = computed(() => spec.value.control);
+        // Leaf string-ish state: number/text keep a local text ref that commits on input (number parsed;
+        // empty ⇒ null so nullable fields can clear). bool/enum write through immediately.
+        const onNumber = e => {
+            const raw = e.target.value;
+            emit('update:modelValue', raw === '' ? null : Number(raw));
+        };
+        const onText = e => emit('update:modelValue', e.target.value);
+        const onBool = e => emit('update:modelValue', e.target.checked);
+        const onEnum = e => emit('update:modelValue', e.target.value);
+        const enumOptions = computed(() => spec.value.options || []);
+        const boolChecked = computed(() => props.modelValue === true);
+        const numberText = computed(() => props.modelValue === null || props.modelValue === undefined ? '' : String(props.modelValue));
+        const textText = computed(() => props.modelValue === null || props.modelValue === undefined ? '' : String(props.modelValue));
+        const enumValue = computed(() => props.modelValue === null || props.modelValue === undefined ? '' : String(props.modelValue));
+
+        // ── struct: a field block; each field is a nested ValueEditor over its sub-schema. ──
+        const structFields = computed(() => {
+            const props2 = props.schema && props.schema.properties;
+            return props2 ? Object.keys(props2).map(name => ({ name, schema: props2[name] })) : [];
+        });
+        const structValue = computed(() => props.modelValue && typeof props.modelValue === 'object' ? props.modelValue : {});
+        const setStructField = (name, v) => {
+            const next = { ...structValue.value };
+            next[name] = v;
+            emit('update:modelValue', next);
+        };
+
+        // ── array: element rows over schema.items; add/remove buttons. ──
+        const itemSchema = computed(() => (props.schema && props.schema.items) || {});
+        const arrayValue = computed(() => Array.isArray(props.modelValue) ? props.modelValue : []);
+        const setArrayItem = (i, v) => {
+            const next = arrayValue.value.slice();
+            next[i] = v;
+            emit('update:modelValue', next);
+        };
+        const addArrayItem = () => emit('update:modelValue', [...arrayValue.value, null]);
+        const removeArrayItem = i => {
+            const next = arrayValue.value.slice();
+            next.splice(i, 1);
+            emit('update:modelValue', next);
+        };
+
+        // ── rawJson: a textarea with a LOCAL text ref committed (parsed) on blur/change. This is the one
+        // allowed local draft (mid-typing JSON is invalid); a parse error keeps the text + flags invalid.
+        const rawText = ref(props.modelValue === undefined ? '' : JSON.stringify(props.modelValue, null, 2));
+        const rawInvalid = ref(false);
+        // Re-seed from upstream only while not mid-edit-with-error (so a kind change / external set shows).
+        watch(() => props.modelValue, v => {
+            if (rawInvalid.value) return;
+            rawText.value = v === undefined ? '' : JSON.stringify(v, null, 2);
+        });
+        const commitRaw = () => {
+            const t = rawText.value.trim();
+            if (t === '') { rawInvalid.value = false; emit('update:modelValue', null); return; }
+            try {
+                const parsed = JSON.parse(rawText.value);
+                rawInvalid.value = false;
+                emit('update:modelValue', parsed);
+            } catch {
+                rawInvalid.value = true;
+            }
+        };
+        const onRawInput = e => { rawText.value = e.target.value; };
+
+        return {
+            control, onNumber, onText, onBool, onEnum, enumOptions, boolChecked, numberText, textText, enumValue,
+            structFields, setStructField, structValue, itemSchema, arrayValue, setArrayItem, addArrayItem, removeArrayItem,
+            rawText, rawInvalid, commitRaw, onRawInput,
+        };
+    },
+    template: `
+        <span class="value-editor">
+            <input v-if="control === 'number'" type="number" step="any" class="control step-value-input"
+                   :value="numberText" @input="onNumber">
+            <input v-else-if="control === 'text'" type="text" class="control step-value-input"
+                   :value="textText" @input="onText">
+            <input v-else-if="control === 'bool'" type="checkbox" class="toggle" :checked="boolChecked" @change="onBool">
+            <select v-else-if="control === 'enum'" class="control step-value-input" :value="enumValue" @change="onEnum">
+                <option v-for="o in enumOptions" :key="o" :value="o">{{ o }}</option>
+            </select>
+            <span v-else-if="control === 'struct'" class="value-editor-struct">
+                <span v-for="f in structFields" :key="f.name" class="value-editor-field">
+                    <span class="mono topo-meta value-editor-field-label">{{ f.name }}</span>
+                    <ValueEditor :schema="f.schema" :model-value="structValue[f.name]"
+                                 @update:model-value="v => setStructField(f.name, v)"/>
+                </span>
+            </span>
+            <span v-else-if="control === 'array'" class="value-editor-array">
+                <span v-for="(el, i) in arrayValue" :key="i" class="value-editor-element">
+                    <ValueEditor :schema="itemSchema" :model-value="el"
+                                 @update:model-value="v => setArrayItem(i, v)"/>
+                    <button type="button" class="null-btn" title="remove element" @click="removeArrayItem(i)">✕</button>
+                </span>
+                <button type="button" class="null-btn" title="add element" @click="addArrayItem">+ element</button>
+            </span>
+            <span v-else class="value-editor-raw">
+                <textarea rows="2" spellcheck="false" class="mono step-value-raw" :value="rawText"
+                          placeholder="(JSON)" @input="onRawInput" @blur="commitRaw" @change="commitRaw"></textarea>
+                <span v-if="rawInvalid" class="topo-meta step-raw-invalid">invalid JSON</span>
+            </span>
+        </span>
+    `,
+};
+ValueEditor.components = { ValueEditor };
+
+// ── StepRow (Task 9): the per-step editor — a kind <select> + the kind's fields, bound DIRECTLY to the
+// row object (the draft is the single source of truth; SectionList keys by index, so write-through means
+// reorder just re-renders). Props: row (the step object, a draft[section][i]), setupOnly (setup ⇒ the
+// drive-only kind subset). On kind change the row's shape is REPLACED in place (old discriminator + value/
+// timeout deleted, new discriminator defaulted) keeping row.label. No local draft state except the
+// ValueEditor rawJson textarea.
+const StepRow = {
+    components: { PropertyPicker, ContractPicker, ValueEditor },
+    props: {
+        row: { type: Object, required: true },
+        setupOnly: { type: Boolean, default: false },
+    },
+    setup(props) {
+        const dirty = () => { store.scenarioDraftDirty = true; };
+        const kind = computed(() => kindOf(props.row));
+        const kindOptions = computed(() => props.setupOnly ? SETUP_KIND_IDS : STEP_KIND_IDS);
+        const errors = computed(() => stepErrors(props.row, props.setupOnly));
+        const hasErrors = computed(() => errors.value.length > 0);
+
+        // Replace the row's shape in place: drop every discriminator + the cross-kind value/timeout fields,
+        // then install the new kind's discriminator with a sensible default. row.label is preserved.
+        const onKindChange = e => {
+            const next = e.target.value;
+            for (const id of STEP_KIND_IDS) delete props.row[id];
+            delete props.row.value;
+            delete props.row.timeoutSeconds;
+            if (next === 'set') { props.row.set = ''; props.row.value = null; }
+            else if (next === 'serviceProviderSet') { props.row.serviceProviderSet = { logicBlock: '', contract: '' }; props.row.value = null; }
+            else if (next === 'serviceProviderExpect') { props.row.serviceProviderExpect = { logicBlock: '', contract: '', equals: null }; }
+            else if (next === 'waitUntil') { props.row.waitUntil = { property: '', equals: null }; props.row.timeoutSeconds = 5; }
+            else if (next === 'expect') { props.row.expect = { property: '', equals: null }; }
+            else if (next === 'advance') { props.row.advance = { seconds: 1 }; }
+            else if (next === 'settle') { props.row.settle = {}; }
+            dirty();
+        };
+
+        // ── set / serviceProviderSet helpers ──
+        const memberSchemaFor = path => { const m = findMember(store.config, path); return m ? m.schema : null; };
+        const setSchema = computed(() => memberSchemaFor(props.row.set || ''));
+        // serviceProviderSet value control: look up the picked contract's matchingContractType from config.
+        const contractTypeFor = ref => {
+            if (!ref || !ref.logicBlock || !ref.contract) return null;
+            for (const lb of (store.config && store.config.logicBlocks) || []) {
+                if (lb.name !== ref.logicBlock) continue;
+                for (const c of lb.contracts || []) {
+                    if (c.identifier === ref.contract) return c.matchingContractType;
+                }
+            }
+            return null;
+        };
+        const spSetSchema = computed(() => {
+            // contractValueEditor returns {control}; ValueEditor consumes a schema, so synthesize a minimal
+            // schema for the scalar families and let null (raw-JSON) fall through for the rest.
+            const editor = contractValueEditor(contractTypeFor(props.row.serviceProviderSet));
+            if (editor.control === 'bool') return { type: 'boolean' };
+            if (editor.control === 'number') return { type: 'number' };
+            return null; // rawJson
+        });
+
+        // write-through setters (direct-to-row; Vue's reactive proxy tracks the mutation) ──
+        const setSet = v => { props.row.set = v; dirty(); };
+        const setValue = v => { props.row.value = v; dirty(); };
+        const setSpSet = v => { props.row.serviceProviderSet = v; dirty(); };
+        const setSpExpect = v => {
+            // Preserve the comparator (equals/tolerance) while swapping the contract ref.
+            props.row.serviceProviderExpect = { ...props.row.serviceProviderExpect, logicBlock: v.logicBlock, contract: v.contract };
+            dirty();
+        };
+        const onLabel = e => { props.row.label = e.target.value; dirty(); };
+
+        // ── expect / waitUntil field accessors (bound to row[kind].*) ──
+        const assertObj = computed(() => props.row[kind.value] || {});
+        const onAssertProperty = v => { assertObj.value.property = v; dirty(); };
+        const onEquals = e => { assertObj.value.equals = parseScalar(e.target.value); dirty(); };
+        const onTolerance = e => { assertObj.value.tolerance = e.target.value === '' ? undefined : Number(e.target.value); dirty(); };
+        const onTimeout = e => { props.row.timeoutSeconds = e.target.value === '' ? undefined : Number(e.target.value); dirty(); };
+        const onSeconds = e => { props.row.advance.seconds = e.target.value === '' ? null : Number(e.target.value); dirty(); };
+        const onMaxSeconds = e => {
+            const v = e.target.value;
+            props.row.settle = v === '' ? {} : { ...props.row.settle, maxSeconds: Number(v) };
+            dirty();
+        };
+        // equals comparand display: scalars are shown verbatim, objects as JSON (the {path} form / null).
+        const equalsText = computed(() => {
+            const v = assertObj.value.equals;
+            if (v === null || v === undefined) return '';
+            return typeof v === 'object' ? JSON.stringify(v) : String(v);
+        });
+        const spEqualsText = computed(() => {
+            const v = (props.row.serviceProviderExpect || {}).equals;
+            if (v === null || v === undefined) return '';
+            return typeof v === 'object' ? JSON.stringify(v) : String(v);
+        });
+        const onSpEquals = e => { props.row.serviceProviderExpect.equals = parseScalar(e.target.value); dirty(); };
+        const onSpTolerance = e => {
+            props.row.serviceProviderExpect.tolerance = e.target.value === '' ? undefined : Number(e.target.value);
+            dirty();
+        };
+        const toleranceText = computed(() => { const t = assertObj.value.tolerance; return t === null || t === undefined ? '' : String(t); });
+        const spToleranceText = computed(() => { const t = (props.row.serviceProviderExpect || {}).tolerance; return t === null || t === undefined ? '' : String(t); });
+        const timeoutText = computed(() => { const t = props.row.timeoutSeconds; return t === null || t === undefined ? '' : String(t); });
+        const secondsText = computed(() => { const s = props.row.advance && props.row.advance.seconds; return s === null || s === undefined ? '' : String(s); });
+        const maxSecondsText = computed(() => { const m = props.row.settle && props.row.settle.maxSeconds; return m === null || m === undefined ? '' : String(m); });
+        const labelText = computed(() => props.row.label || '');
+
+        // per-kind boolean flags (no && / || in templates — compute the discriminators here)
+        const isSet = computed(() => kind.value === 'set');
+        const isSpSet = computed(() => kind.value === 'serviceProviderSet');
+        const isSpExpect = computed(() => kind.value === 'serviceProviderExpect');
+        const isWaitUntil = computed(() => kind.value === 'waitUntil');
+        const isExpect = computed(() => kind.value === 'expect');
+        const isAssertProp = computed(() => isExpect.value || isWaitUntil.value);
+        const isAdvance = computed(() => kind.value === 'advance');
+        const isSettle = computed(() => kind.value === 'settle');
+
+        return {
+            kind, kindOptions, onKindChange, errors, hasErrors,
+            setSchema, spSetSchema, setSet, setValue, setSpSet, setSpExpect, onLabel,
+            assertObj, onAssertProperty, onEquals, onTolerance, onTimeout, onSeconds, onMaxSeconds,
+            equalsText, spEqualsText, onSpEquals, onSpTolerance, toleranceText, spToleranceText,
+            timeoutText, secondsText, maxSecondsText, labelText,
+            isSet, isSpSet, isSpExpect, isWaitUntil, isExpect, isAssertProp, isAdvance, isSettle,
+            row: props.row,
+        };
+    },
+    template: `
+        <div class="step-row">
+            <div class="step-row-main">
+                <select class="control step-kind-select" :value="kind" @change="onKindChange">
+                    <option v-for="k in kindOptions" :key="k" :value="k">{{ k }}</option>
+                </select>
+
+                <template v-if="isSet">
+                    <PropertyPicker :model-value="row.set" :writable-only="true" @update:model-value="setSet"/>
+                    <ValueEditor :schema="setSchema" :model-value="row.value" @update:model-value="setValue"/>
+                </template>
+
+                <template v-else-if="isSpSet">
+                    <ContractPicker :model-value="row.serviceProviderSet" @update:model-value="setSpSet"/>
+                    <ValueEditor :schema="spSetSchema" :model-value="row.value" @update:model-value="setValue"/>
+                </template>
+
+                <template v-else-if="isAssertProp">
+                    <PropertyPicker :model-value="assertObj.property" :allow-struct-fields="true" @update:model-value="onAssertProperty"/>
+                    <span class="step-field">
+                        <span class="mono topo-meta">equals</span>
+                        <input type="text" class="control step-value-input" :value="equalsText" @input="onEquals">
+                    </span>
+                    <span v-if="isExpect" class="step-field">
+                        <span class="mono topo-meta">± tol</span>
+                        <input type="number" step="any" class="control step-small-input" :value="toleranceText" @input="onTolerance">
+                    </span>
+                    <span v-if="isWaitUntil" class="step-field">
+                        <span class="mono topo-meta">timeout s</span>
+                        <input type="number" step="any" class="control step-small-input" :value="timeoutText" @input="onTimeout">
+                    </span>
+                </template>
+
+                <template v-else-if="isSpExpect">
+                    <ContractPicker :model-value="row.serviceProviderExpect" @update:model-value="setSpExpect"/>
+                    <span class="step-field">
+                        <span class="mono topo-meta">equals</span>
+                        <input type="text" class="control step-value-input" :value="spEqualsText" @input="onSpEquals">
+                    </span>
+                    <span class="step-field">
+                        <span class="mono topo-meta">± tol</span>
+                        <input type="number" step="any" class="control step-small-input" :value="spToleranceText" @input="onSpTolerance">
+                    </span>
+                </template>
+
+                <template v-else-if="isAdvance">
+                    <span class="step-field">
+                        <span class="mono topo-meta">seconds</span>
+                        <input type="number" step="any" class="control step-small-input" :value="secondsText" @input="onSeconds">
+                    </span>
+                </template>
+
+                <template v-else-if="isSettle">
+                    <span class="step-field">
+                        <span class="mono topo-meta">max s</span>
+                        <input type="number" step="any" class="control step-small-input" :value="maxSecondsText"
+                               placeholder="60" @input="onMaxSeconds">
+                    </span>
+                </template>
+
+                <span class="item-spacer"></span>
+                <span class="step-field step-label-field">
+                    <span class="mono topo-meta">label</span>
+                    <input type="text" class="control step-label-input" :value="labelText" placeholder="(optional)" @input="onLabel">
+                </span>
+            </div>
+            <div v-if="hasErrors" class="step-row-errors">
+                <div v-for="(err, i) in errors" :key="i" class="step-error-row">
+                    <span class="severity-pill error">error</span>
+                    <span class="topo-meta">{{ err }}</span>
+                </div>
+            </div>
+        </div>
+    `,
+};
+
+// Parse a free-text comparand into a scalar: numbers → number, true/false → bool, empty → null, else the
+// raw string (enum member name). Keeps `equals` editing forgiving without a per-comparand schema (Task 10
+// will refine with a "use current value" affordance).
+function parseScalar(raw) {
+    const t = String(raw).trim();
+    if (t === '') return null;
+    if (t === 'true') return true;
+    if (t === 'false') return false;
+    if (t === 'null') return null;
+    const n = Number(t);
+    if (t !== '' && !Number.isNaN(n) && String(n) === t) return n;
+    return raw;
+}
+
 // ── scenario editor (RFC 0014, Task 7): the authoring surface for a scenario file. THIS IS THE SHELL —
 // the four section bodies (setup / steps / watch / judge) + their step rows, pickers and value editors
 // land in Tasks 8–11; here we build only the id input (draft+dirty), section placeholders so the layout
 // is visible, and the footer toolbar (validate / save / save & run / cancel) + the error display. Mirrors
 // TopologyEditor's structure and .topo-* / theme-toggle vocabulary so Task 8's CSS reuses it.
 const ScenarioEditor = {
-    components: { SectionList },
+    components: { SectionList, StepRow },
     setup() {
         const draft = computed(() => store.scenarioDraft);
         // id is the one live-bound field in the shell; touching it dirties the draft (draft+dirty pattern).
@@ -2054,7 +2471,6 @@ const ScenarioEditor = {
         return {
             draft, onIdInput, close, errors, hasErrors, showValid, dirty, validate, save, saveAndRun,
             insertAt, removeAt, moveRow, onWatchInput, onJudgeInput,
-            kindOf,
         };
     },
     template: `
@@ -2077,8 +2493,7 @@ const ScenarioEditor = {
                          @remove="removeAt('setup', $event)"
                          @move="(idx, dir) => moveRow('setup', idx, dir)">
                 <template #default="{ row }">
-                    <span class="mono topo-meta">{{ kindOf(row) }}</span>
-                    <span class="topo-meta section-placeholder-note">row editor: Task 9</span>
+                    <StepRow :row="row" :setup-only="true"/>
                 </template>
             </SectionList>
 
@@ -2088,8 +2503,7 @@ const ScenarioEditor = {
                          @remove="removeAt('steps', $event)"
                          @move="(idx, dir) => moveRow('steps', idx, dir)">
                 <template #default="{ row }">
-                    <span class="mono topo-meta">{{ kindOf(row) }}</span>
-                    <span class="topo-meta section-placeholder-note">row editor: Task 9</span>
+                    <StepRow :row="row" :setup-only="false"/>
                 </template>
             </SectionList>
 
