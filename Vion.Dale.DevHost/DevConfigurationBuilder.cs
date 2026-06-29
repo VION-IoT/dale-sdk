@@ -209,6 +209,116 @@ namespace Vion.Dale.DevHost
             return matches;
         }
 
+        // True when the specific (source interface) ↔ (target interface) pair is type-compatible — the same
+        // MatchingInterface relation DiscoverMatchingInterfaces uses, but for ONE explicit pair (so a source
+        // interface that matches several targets is not collapsed to the first, unlike the AutoConnect path).
+        internal static bool InterfacesMatch(Type sourceType, string sourceInterfaceId, Type targetType, string targetInterfaceId)
+        {
+            var src = GetAllLogicInterfaces(sourceType).FirstOrDefault(i => i.Identifier == sourceInterfaceId);
+            var tgt = GetAllLogicInterfaces(targetType).FirstOrDefault(i => i.Identifier == targetInterfaceId);
+            if (src.InterfaceType is null || tgt.InterfaceType is null)
+            {
+                return false; // unknown identifier — not our concern here
+            }
+
+            var srcAttr = src.InterfaceType.GetCustomAttribute<LogicInterfaceAttribute>();
+            var tgtAttr = tgt.InterfaceType.GetCustomAttribute<LogicInterfaceAttribute>();
+            return srcAttr != null && tgtAttr != null && (srcAttr.MatchingInterface == tgt.InterfaceType || tgtAttr.MatchingInterface == src.InterfaceType);
+        }
+
+        // The consumer-side link multiplicity declared on a block type's interface binding
+        // ([LogicBlockInterfaceBinding(Multiplicity = …)]), keyed by interface identifier. Class-level bindings
+        // use the interface name as the identifier; property-bound interfaces use "{Property}_{Interface}".
+        // Defaults to ZeroOrMore (unconstrained) when not annotated.
+        internal static LinkMultiplicity MultiplicityOf(Type blockType, string interfaceIdentifier)
+        {
+            foreach (var attribute in blockType.GetCustomAttributes<LogicBlockInterfaceBindingAttribute>())
+            {
+                if (attribute.ForInterface.Name == interfaceIdentifier)
+                {
+                    return attribute.Multiplicity;
+                }
+            }
+
+            foreach (var property in blockType.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            {
+                foreach (var attribute in property.GetCustomAttributes<LogicBlockInterfaceBindingAttribute>())
+                {
+                    if ($"{property.Name}_{attribute.ForInterface.Name}" == interfaceIdentifier)
+                    {
+                        return attribute.Multiplicity;
+                    }
+                }
+            }
+
+            return LinkMultiplicity.ZeroOrMore;
+        }
+
+        internal static List<(Type InterfaceType, string Identifier)> GetAllLogicInterfaces(Type type)
+        {
+            var result = new List<(Type, string)>();
+
+            // Class-level interfaces
+            foreach (var iface in type.GetInterfaces())
+            {
+                if (iface.GetCustomAttribute<LogicInterfaceAttribute>() != null)
+                {
+                    result.Add((iface, iface.Name));
+                }
+            }
+
+            // Property-based interfaces
+            var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+            foreach (var property in properties)
+            {
+                if (!property.CanWrite)
+                {
+                    continue;
+                }
+
+                foreach (var iface in property.PropertyType.GetInterfaces())
+                {
+                    if (iface.GetCustomAttribute<LogicInterfaceAttribute>() != null)
+                    {
+                        result.Add((iface, $"{property.Name}_{iface.Name}"));
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        // The service-provider contracts declared on a block type's writable properties, by reflection over
+        // the Type (no instantiation): each property whose PropertyType carries a [ServiceProviderContractType]
+        // yields (identifier, the provider-side contract-type token). The catalog DTO (RFC 0013) reuses this —
+        // the token here is exactly what LogicBlockIntrospection records as ContractInfo.MatchingContractType.
+        internal static List<(string Identifier, string ContractType)> GetContractProperties(Type type)
+        {
+            var result = new List<(string, string)>();
+            var properties = ReflectionHelper.GetProperties(type, true);
+
+            foreach (var property in properties)
+            {
+                if (!property.CanWrite)
+                {
+                    continue;
+                }
+
+                var contractTypeAttr = property.PropertyType.GetCustomAttribute<ServiceProviderContractTypeAttribute>();
+                if (contractTypeAttr == null)
+                {
+                    continue;
+                }
+
+                var contractAttr = property.GetCustomAttribute<ServiceProviderContractBindingAttribute>();
+                var identifier = contractAttr?.Identifier ?? property.Name;
+
+                result.Add((identifier, contractTypeAttr.ServiceProviderContractType));
+            }
+
+            return result;
+        }
+
         private LogicBlockHandle CreateHandle<T>(string? name, string? id)
             where T : LogicBlockBase
         {
@@ -321,36 +431,12 @@ namespace Vion.Dale.DevHost
 
         // The consumer-side link multiplicity declared on a block's interface binding
         // ([LogicBlockInterfaceBinding(Multiplicity = …)]), for the endpoint (block id + interface identifier)
-        // AutoConnect keys on. Class-level bindings use the interface name as the identifier; property-bound
-        // interfaces use "{Property}_{Interface}". Defaults to ZeroOrMore (unconstrained) when not annotated.
+        // AutoConnect keys on. Resolves the handle's type, then reads the binding via the static overload.
+        // Defaults to ZeroOrMore (unconstrained) when the block is unknown or unannotated.
         private LinkMultiplicity MultiplicityOf(string blockId, string interfaceIdentifier)
         {
             var type = _handles.FirstOrDefault(h => h.Id == blockId)?.LogicBlockType;
-            if (type is null)
-            {
-                return LinkMultiplicity.ZeroOrMore;
-            }
-
-            foreach (var attribute in type.GetCustomAttributes<LogicBlockInterfaceBindingAttribute>())
-            {
-                if (attribute.ForInterface.Name == interfaceIdentifier)
-                {
-                    return attribute.Multiplicity;
-                }
-            }
-
-            foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
-            {
-                foreach (var attribute in property.GetCustomAttributes<LogicBlockInterfaceBindingAttribute>())
-                {
-                    if ($"{property.Name}_{attribute.ForInterface.Name}" == interfaceIdentifier)
-                    {
-                        return attribute.Multiplicity;
-                    }
-                }
-            }
-
-            return LinkMultiplicity.ZeroOrMore;
+            return type is null ? LinkMultiplicity.ZeroOrMore : MultiplicityOf(type, interfaceIdentifier);
         }
 
         private void AutoCreateServiceProviders(DevConfiguration config)
@@ -449,67 +535,6 @@ namespace Vion.Dale.DevHost
                                                   });
                 }
             }
-        }
-
-        private static List<(Type InterfaceType, string Identifier)> GetAllLogicInterfaces(Type type)
-        {
-            var result = new List<(Type, string)>();
-
-            // Class-level interfaces
-            foreach (var iface in type.GetInterfaces())
-            {
-                if (iface.GetCustomAttribute<LogicInterfaceAttribute>() != null)
-                {
-                    result.Add((iface, iface.Name));
-                }
-            }
-
-            // Property-based interfaces
-            var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
-            foreach (var property in properties)
-            {
-                if (!property.CanWrite)
-                {
-                    continue;
-                }
-
-                foreach (var iface in property.PropertyType.GetInterfaces())
-                {
-                    if (iface.GetCustomAttribute<LogicInterfaceAttribute>() != null)
-                    {
-                        result.Add((iface, $"{property.Name}_{iface.Name}"));
-                    }
-                }
-            }
-
-            return result;
-        }
-
-        private static List<(string Identifier, string ContractType)> GetContractProperties(Type type)
-        {
-            var result = new List<(string, string)>();
-            var properties = ReflectionHelper.GetProperties(type, true);
-
-            foreach (var property in properties)
-            {
-                if (!property.CanWrite)
-                {
-                    continue;
-                }
-
-                var contractTypeAttr = property.PropertyType.GetCustomAttribute<ServiceProviderContractTypeAttribute>();
-                if (contractTypeAttr == null)
-                {
-                    continue;
-                }
-
-                var contractAttr = property.GetCustomAttribute<ServiceProviderContractBindingAttribute>();
-                var identifier = contractAttr?.Identifier ?? property.Name;
-
-                result.Add((identifier, contractTypeAttr.ServiceProviderContractType));
-            }
-
-            return result;
         }
     }
 }

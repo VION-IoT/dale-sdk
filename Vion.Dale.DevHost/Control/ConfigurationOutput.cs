@@ -53,6 +53,20 @@ namespace Vion.Dale.DevHost.Control
             public required string Identifier { get; set; }
 
             public required Dictionary<string, object> Annotations { get; set; }
+
+            /// <summary>
+            ///     The CLR full names of the logic-interface type(s) this entry exposes — the introspection
+            ///     result's <c>InterfaceTypeFullNames</c>. Reachable so a topology-authoring client (RFC 0013
+            ///     Phase 1) can identify the interface across blocks.
+            /// </summary>
+            public List<string> InterfaceTypeFullNames { get; set; } = [];
+
+            /// <summary>
+            ///     The CLR full names of the matching counterpart interface(s) — the introspection result's
+            ///     <c>MatchingInterfaceTypeFullNames</c> back-reference (a <c>[LogicInterface]</c>'s
+            ///     <c>MatchingInterface</c>). The frozen cross-repo wiring relation the client matches on.
+            /// </summary>
+            public List<string> MatchingInterfaceTypeFullNames { get; set; } = [];
         }
 
         public class Service

@@ -55,6 +55,23 @@ export const store = reactive({
     view: 'explorer',
     // Topology files (RFC 0006 R5): the discovery payload for the switcher in the topology panel.
     topologies: null,
+    // Topology authoring (RFC 0013): logic-block definitions (the palette + wiring source of truth) and
+    // the in-progress topology draft the editor mutates. Draft is null when no editor is open.
+    definitions: [],
+    topologyDraft: null,
+    topologyDraftDirty: false,
+    topologyDraftErrors: [],
+    // Topology panel screen state (RFC 0013): a scenario-style master→detail→editor router. One of
+    // 'list' (the file picker), 'detail' (a read-only render of a selected file), or 'editor' (the
+    // draft editor). Lives in the STORE (not a local ref) so an external requester (⌘K palette /
+    // Shift+T) that navigates BEFORE the panel mounts still lands on the right screen — the panel reads
+    // the state at render time, mount-order-independent. The requester sets the view first.
+    topologyScreen: 'list',
+    // The file id the Detail screen is showing / the Editor was opened from (so closing the editor
+    // returns to that file's Detail). Null on the List screen and for a brand-new draft.
+    topologySelectedId: null,
+    // The fetched topology file object (GET /api/topologies/{id}) rendered read-only on the Detail screen.
+    topologyDetail: null,
     // Scenario surface (RFC 0006): the discovery payload, the opened scenario (parsed file), and the
     // latest run report. Run state lives SERVER-side (F5-safe, agent-visible) — the client only polls.
     scenarios: null,
@@ -561,6 +578,106 @@ export async function loadTopologies() {
     }
 }
 
+export async function loadDefinitions() {
+    try {
+        const response = await fetch('/api/logic-block-definitions');
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        store.definitions = (await response.json()).definitions || [];
+    } catch (err) { console.warn('Could not list logic-block definitions', err); }
+}
+
+export function newTopologyDraft() {
+    store.topologyDraft = { id: '', logicBlockInstances: [], interfaceMappings: [], contractMappings: [] };
+    store.topologyDraftDirty = false; store.topologyDraftErrors = [];
+    loadDefinitions();
+}
+export async function cloneTopologyDraft(id) {
+    await loadDefinitions();
+    try {
+        const res = await fetch(`/api/topologies/${encodeURIComponent(id)}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const file = await res.json();
+        store.topologyDraft = { id: file.id || id, logicBlockInstances: file.logicBlockInstances || [], interfaceMappings: file.interfaceMappings || [], contractMappings: file.contractMappings || [] };
+        store.topologyDraftDirty = false; store.topologyDraftErrors = [];
+    } catch (err) { showError(`Could not load topology '${id}': ${err.message ?? err}`); }
+}
+export async function validateTopologyDraft() {
+    if (!store.topologyDraft) return false;
+    try {
+        const res = await fetch('/api/topologies/validate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(store.topologyDraft) });
+        if (res.ok) { store.topologyDraftErrors = []; return true; }
+        const body = await res.json().catch(() => ({}));
+        store.topologyDraftErrors = body.errors || ['validation failed']; return false;
+    } catch (err) { store.topologyDraftErrors = [String(err.message ?? err)]; return false; }
+}
+export async function saveTopologyDraft() {
+    if (!store.topologyDraft || !store.topologyDraft.id) { store.topologyDraftErrors = ['id is required']; return false; }
+    try {
+        const savedId = store.topologyDraft.id;
+        const res = await fetch(`/api/topologies/${encodeURIComponent(savedId)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(store.topologyDraft) });
+        if (res.ok) {
+            store.topologyDraftDirty = false; store.topologyDraftErrors = [];
+            // Land on the just-saved file's Detail screen (loadTopologies runs inside openTopologyDetail) —
+            // so a fresh save is immediately reviewable, with an Edit button right there.
+            await openTopologyDetail(savedId);
+            return true;
+        }
+        if (res.status === 403) { const b = await res.json().catch(() => ({})); showError(b.error || 'topology saving is disabled'); return false; }
+        const body = await res.json().catch(() => ({})); store.topologyDraftErrors = body.errors || ['save failed']; return false;
+    } catch (err) { store.topologyDraftErrors = [String(err.message ?? err)]; return false; }
+}
+
+// ── Topology panel navigation (RFC 0013): the list → detail → editor master-detail flow ──────────
+// All screen transitions + their I/O live here so the components are pure renders of store state.
+
+export async function openTopologyList() {
+    store.topologyScreen = 'list';
+    store.topologySelectedId = null;
+    await loadTopologies();
+}
+
+// Fetch a file and show it read-only on the Detail screen. loadTopologies first so the "running"
+// marker + read-only gate the screen reads are current.
+export async function openTopologyDetail(id) {
+    await loadTopologies();
+    try {
+        const res = await fetch(`/api/topologies/${encodeURIComponent(id)}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        store.topologyDetail = await res.json();
+        store.topologySelectedId = id;
+        store.topologyScreen = 'detail';
+    } catch (err) {
+        showError(`Could not load topology '${id}': ${err.message ?? err}`);
+    }
+}
+
+// Edit a file in place: clone its body into the draft under the SAME id, so Save overwrites the file.
+export async function editTopology(id) {
+    await cloneTopologyDraft(id);
+    store.topologyScreen = 'editor';
+}
+
+// Clone a file into a NEW file: same body, blank id — Save creates a new file once the author names it.
+export async function cloneTopology(id) {
+    await cloneTopologyDraft(id);
+    if (store.topologyDraft) store.topologyDraft.id = '';
+    store.topologyDraftDirty = true;
+    store.topologyScreen = 'editor';
+}
+
+// Author a fresh, empty topology.
+export function newTopology() {
+    newTopologyDraft();
+    store.topologySelectedId = null;
+    store.topologyScreen = 'editor';
+}
+
+// Leave the editor: back to the file's Detail if one was selected (edit/clone-in-place), else the list.
+export function closeTopologyEditor() {
+    if (store.topologySelectedId) openTopologyDetail(store.topologySelectedId);
+    else openTopologyList();
+}
+
 // Switching rides the reset: the server parks the topology id and recycles; the existing
 // reconnect path rebuilds the whole client state against the new generation.
 export async function switchTopology(id) {
@@ -575,6 +692,30 @@ export async function switchTopology(id) {
         store.connected = false;
         store.recycling = true;
         store.run = null;
+        // Land on a correctly-primed Explore view of the new topology. A switch recycles the whole host
+        // (new actor system, new service ids); the soft SignalR reconnect does not reliably re-prime the
+        // live value stream against that fresh generation — the workspace shows the new structure but
+        // blank values until a manual reload. A switch is heavy and user-initiated, so once the fresh host
+        // is actually serving the target topology we hard-reload to '/': a clean boot primes values from
+        // the REST snapshot over a fresh hub subscription, and the default Explore view is exactly where
+        // the user wants to land after "switch & run".
+        for (let attempt = 0; attempt < 120; attempt++) {
+            try {
+                const probe = await fetch('/api/configuration');
+                if (probe.ok) {
+                    const cfg = await probe.json();
+                    if ((cfg.topologyName || null) === id) {
+                        if (location.hash) location.hash = '';
+                        window.location.assign('/');
+                        return;
+                    }
+                }
+            } catch {
+                // Host still recycling — keep polling.
+            }
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        showError('Host did not come back on the new topology — reload the page manually.');
     } catch (err) {
         showError(`Failed to switch topology: ${err.message ?? err}`);
     }

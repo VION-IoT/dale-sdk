@@ -173,6 +173,37 @@ body {
     max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .topology-chip-btn:hover, .topology-chip-btn.active { border-color: var(--accent); }
+
+/* ── header topology popover (RFC 0013): the chip's honest ▾ — a dropdown anchored under it ── */
+.topology-menu-anchor { position: relative; display: inline-flex; }
+.topology-menu {
+    position: absolute; top: calc(100% + 6px); left: 0; z-index: 40;
+    min-width: 240px; max-width: 320px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--vion-border-radius-md);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    padding: 5px;
+    overflow: hidden;
+}
+.topology-menu-group { display: flex; flex-direction: column; }
+.topology-menu-label {
+    font-size: 9.5px; color: var(--text-faint);
+    text-transform: uppercase; letter-spacing: 0.07em;
+    padding: 4px 9px 3px;
+}
+.topology-menu-empty { font-size: 11.5px; color: var(--text-faint); padding: 4px 9px 6px; }
+.topology-menu-item {
+    display: flex; align-items: center; gap: 8px; width: 100%;
+    background: none; border: none; color: var(--text);
+    font-family: inherit; font-size: 12.5px; text-align: left;
+    padding: 6px 9px; border-radius: var(--vion-border-radius-sm); cursor: pointer;
+}
+.topology-menu-item:hover { background: var(--bg-raised); }
+.topology-menu-name { color: var(--text); }
+.topology-menu-meta { font-size: 11px; color: var(--text-faint); white-space: nowrap; }
+.topology-menu-divider { height: 1px; background: var(--border); margin: 5px 4px; }
+
 .workspace-bar { display: flex; align-items: center; gap: 12px; padding: 6px 16px; background: var(--bg-page); border-bottom: 1px solid var(--border); }
 .ws-spacer { margin-left: auto; }
 .step-controls { display: inline-flex; align-items: center; gap: 4px; }
@@ -220,6 +251,73 @@ body {
 .topo-name { font-size: 12.5px; color: var(--text); }
 .topo-arrow { color: var(--accent); font-weight: var(--vion-font-weight-emphasized); }
 .topo-meta { font-size: 11px; color: var(--text-faint); }
+
+/* A topo row rendered as a clickable button (the file List → Detail master-detail affordance).
+   Matches .scenario-row exactly so the two master lists read identically: reset the default <button>
+   border (otherwise the UA's dark outline boxes every row — wrong in dark mode) and rely on
+   .topo-row's themed border-top divider; the comfortable padding mirrors the scenario list. */
+.topo-row-button {
+    width: 100%;
+    background: none;
+    border: none;
+    padding: 8px 10px;
+    color: inherit;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+.topo-row-button:hover { background: var(--bg-raised); }
+
+/* topology editor (RFC 0013): the edit sub-mode reuses the panel's row vocabulary */
+.topo-panel { display: block; }
+.topo-editor-head { gap: 8px; }
+.topo-id-input { width: 220px; }
+.topo-picker { gap: 8px; flex-wrap: wrap; }
+.topo-hint { font-size: 11px; color: var(--vion-error-fg-def-tertiary); }
+.topo-section-head { display: flex; align-items: center; gap: 8px; }
+.topo-section-head .topo-section { margin-bottom: 0; }
+.topo-residue-row { gap: 8px; flex-wrap: wrap; }
+.topo-footer { gap: 8px; margin-top: 10px; }
+.topo-errors { margin-top: 4px; }
+.topo-error-row { border-top: none; }
+.topo-raw { width: 100%; margin-top: 8px; resize: vertical; }
+
+/* Block rows: a two-column grid (name | type) with the remove ✕ hugging the right, so names and
+   types line up down the list instead of being flung apart by an item-spacer. */
+.topo-block-row {
+    display: grid;
+    grid-template-columns: minmax(120px, 1fr) minmax(120px, 1.4fr) auto;
+    gap: 8px;
+    align-items: center;
+}
+.topo-block-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topo-block-type { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topo-row-x { justify-self: end; }
+
+/* Block picker: the type select and the name input share a comfortable, equal-ish width; the +add
+   button hugs its label. flex-wrap (on .topo-picker) lets the inline hint drop below on narrow panels. */
+.topo-pick-type { flex: 1 1 160px; min-width: 140px; }
+.topo-pick-name { flex: 1 1 160px; min-width: 120px; }
+.topo-pick-add { flex: 0 0 auto; }
+
+/* Wiring rows: a flagged (incompatible / over-wired) wire gets a red left-border accent + an inline
+   note, reusing the existing error tokens so it reads as a conflict before the server validate. */
+.topo-wire-bad { border-left: 3px solid var(--vion-error-brd-def-primary); padding-left: 6px; }
+.topo-wire-note { font-size: 11px; color: var(--vion-error-fg-def-primary); }
+
+/* Continuous problems summary near the footer — muted ⚠ count + the messages. */
+.topo-problems {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 8px;
+    padding: 6px 8px;
+    border-left: 3px solid var(--vion-error-brd-def-primary);
+    background: var(--vion-error-bg-def-primary);
+    border-radius: var(--vion-border-radius-sm);
+}
+.topo-problems-head { font-size: 11.5px; font-weight: var(--vion-font-weight-emphasized); color: var(--vion-error-fg-def-primary); }
+.topo-problem-msg { font-size: 11px; color: var(--text-dim); }
 
 .error-toast {
     position: fixed;
@@ -664,6 +762,8 @@ button { cursor: pointer; font-family: inherit; }
 .palette-kind { width: 14px; flex: none; text-align: center; font-size: 11px; color: var(--text-faint); }
 .palette-kind.kind-scenario { color: var(--vion-success-fg-def-tertiary); }
 .palette-kind.kind-topology { color: var(--vion-acc-fg-def-primary); }
+.palette-kind.kind-newtopology,
+.palette-kind.kind-edittopology { color: var(--vion-acc-fg-def-primary); }
 .palette-type-tag { font-size: 9.5px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.05em; }
 .palette-value {
     font-size: 11px;

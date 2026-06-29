@@ -1,5 +1,8 @@
+using System;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Vion.Dale.DevHost.Control;
 using Vion.Dale.DevHost.Topologies;
@@ -49,9 +52,64 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
                       {
                           current = _control.GetConfiguration().TopologyName,
                           canSwitch = _control.CanReset,
+                          readOnly = DevTopologyStore.IsReadOnly,
                           directory = _store.Directory,
                           topologies = _store.List(),
                       });
+        }
+
+        /// <summary>The topology file, byte-for-byte as on disk.</summary>
+        [HttpGet("{id}")]
+        public IActionResult Get(string id)
+        {
+            var raw = _store.ReadRaw(id);
+            return raw is null ? NotFound(new { error = $"no topology '{id}' under {_store.Directory}" }) : Content(raw, "application/json");
+        }
+
+        /// <summary>
+        ///     Save a topology from the editor (RFC 0013): structurally + catalog + compatibility validated,
+        ///     path-confined to the topologies directory, disabled by <c>DALE_DEVHOST_READONLY_TOPOLOGIES=1</c>.
+        /// </summary>
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Save(string id)
+        {
+            using var reader = new StreamReader(Request.Body);
+            var raw = await reader.ReadToEndAsync();
+
+            try
+            {
+                var path = _store.Save(id, raw);
+                return Ok(new { saved = Path.GetFileName(path), directory = _store.Directory });
+            }
+            catch (InvalidOperationException e)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { error = e.Message });
+            }
+            catch (InvalidDataException e)
+            {
+                return InvalidTopology(e);
+            }
+        }
+
+        /// <summary>
+        ///     Validate a draft topology (RFC 0013) without writing it: structural + catalog + compatibility,
+        ///     in-process against the live catalog. The draft may be un-named (a brand-new draft has no saved id).
+        /// </summary>
+        [HttpPost("validate")]
+        public async Task<IActionResult> Validate()
+        {
+            using var reader = new StreamReader(Request.Body);
+            var raw = await reader.ReadToEndAsync();
+
+            try
+            {
+                DevTopologyLoader.Build(DevTopologyFile.Parse(raw));
+                return Ok(new { valid = true });
+            }
+            catch (InvalidDataException e)
+            {
+                return InvalidTopology(e);
+            }
         }
 
         /// <summary>
@@ -75,6 +133,16 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
             }
 
             return Accepted(new { switching = id });
+        }
+
+        // DevTopologyFile.Parse / DevTopologyLoader.Build report every problem in one InvalidDataException
+        // whose Message joins them with "; " (the topology subsystem's convention), so we split it back into
+        // the {valid,errors} list. This couples the consumer to that exact separator.
+        // TODO(RFC 0013 follow-up): give the topology subsystem a structured exception carrying an
+        // IReadOnlyList<string> Errors (like ScenarioFormatException) and drop the split.
+        private IActionResult InvalidTopology(InvalidDataException e)
+        {
+            return UnprocessableEntity(new { valid = false, errors = e.Message.Split("; ") });
         }
     }
 }
