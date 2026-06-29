@@ -1295,6 +1295,7 @@ const TopologyEditor = {
         <div class="topo-panel" v-if="draft">
             <div class="topo-row topo-editor-head">
                 <button type="button" class="theme-toggle" title="back — close the editor" @click="close">← back</button>
+                <h2 class="mono">topology editor</h2>
                 <div class="editor-tabs">
                     <button type="button" :class="{ active: tab === 'form' }" @click="showForm">form</button>
                     <button type="button" :class="{ active: tab === 'raw' }" @click="showRaw">{ } raw</button>
@@ -1341,6 +1342,7 @@ const TopologyEditor = {
                     <button type="button" class="theme-toggle" @click="validate">validate</button>
                     <span v-if="showValid" class="severity-pill success">valid</span>
                     <span class="item-spacer"></span>
+                    <button type="button" class="theme-toggle" title="discard and close the editor" @click="close">cancel</button>
                     <button type="button" class="theme-toggle" :disabled="!dirty" title="save this topology file" @click="save">save</button>
                     <button type="button" class="theme-toggle" title="save, then recycle the host onto this topology" @click="saveAndSwitch">save &amp; switch</button>
                 </div>
@@ -2547,7 +2549,12 @@ const ScenarioEditor = {
                           placeholder="(scenario JSON)" @input="rawText = $event.target.value"></textarea>
                 <div class="topo-row topo-footer">
                     <button type="button" class="theme-toggle" title="parse and replace the draft" @click="commitRaw">commit JSON</button>
-                    <span v-if="rawError" class="topo-meta">{{ rawError }}</span>
+                </div>
+                <div v-if="rawError" class="topo-errors">
+                    <div class="topo-row topo-error-row">
+                        <span class="severity-pill error">error</span>
+                        <span class="topo-meta">{{ rawError }}</span>
+                    </div>
                 </div>
             </template>
 

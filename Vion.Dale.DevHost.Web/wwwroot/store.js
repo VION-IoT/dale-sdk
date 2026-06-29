@@ -714,8 +714,11 @@ export function newTopology() {
     store.topologyScreen = 'editor';
 }
 
-// Leave the editor: back to the file's Detail if one was selected (edit/clone-in-place), else the list.
+// Leave the editor: clear the draft + dirty/errors first (mirrors closeScenarioEditor — so a later
+// re-entry always rebuilds rather than reading stale draft state), then back to the file's Detail if one
+// was selected (edit/clone-in-place), else the list.
 export function closeTopologyEditor() {
+    store.topologyDraft = null; store.topologyDraftDirty = false; store.topologyDraftErrors = [];
     if (store.topologySelectedId) openTopologyDetail(store.topologySelectedId);
     else openTopologyList();
 }
