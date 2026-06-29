@@ -852,6 +852,69 @@ export function validateScenarioDraft() {
     return store.scenarioDraftErrors.length === 0;
 }
 
+// Resolve a "Block.Property" path from a scenario `set` row to { serviceId, propertyId } using store.config.
+// Returns null when the block or property cannot be found (e.g. host not yet loaded or path typo).
+function serviceIdForPath(path) {
+    if (!store.config || !store.config.logicBlocks) return null;
+    const dot = path.indexOf('.');
+    if (dot < 0) return null;
+    const blockName = path.slice(0, dot);
+    const propertyId = path.slice(dot + 1);
+    const lb = store.config.logicBlocks.find(b => b.name === blockName);
+    if (!lb) return null;
+    for (const service of (lb.services || [])) {
+        const props = [
+            ...(service.serviceProperties || []),
+            ...(service.serviceMeasuringPoints || []),
+        ];
+        if (props.some(p => p.identifier.toLowerCase() === propertyId.toLowerCase())) {
+            return { serviceId: service.id, propertyId };
+        }
+    }
+    return null;
+}
+
+// Save the draft to disk via the existing validated PUT, then return to the read-only Detail of the saved
+// file (re-fetch so the saved bytes are what's shown). Mirrors saveTopologyDraft.
+export async function saveScenarioDraft() {
+    const id = store.scenarioDraft && store.scenarioDraft.id;
+    if (!id) { store.scenarioDraftErrors = ['id is required']; return false; }
+    try {
+        const res = await fetch(`/api/scenarios/${encodeURIComponent(id)}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(store.scenarioDraft),
+        });
+        if (res.ok) {
+            store.scenarioDraftDirty = false; store.scenarioDraftErrors = [];
+            store.scenarioScreen = 'detail';
+            await openScenario(id);     // re-enters the read-only Detail/run view on the saved file
+            return true;
+        }
+        if (res.status === 403) { const b = await res.json().catch(() => ({})); showError(b.error || 'scenario saving is disabled'); return false; }
+        const body = await res.json().catch(() => ({}));
+        store.scenarioDraftErrors = body.errors || [`save failed (HTTP ${res.status})`];
+        return false;
+    } catch (err) { store.scenarioDraftErrors = [String(err.message ?? err)]; return false; }
+}
+
+// Q5: apply just the draft's `setup` against the running host so "use current value" reads a sane state,
+// without a full run. Drives each setup `set` via the existing property-set path. (serviceProviderSet setups
+// route through the HAL drive — reuse driveContract if present; otherwise note as a TODO for the rare case.)
+export async function applySetup() {
+    for (const s of (store.scenarioDraft && store.scenarioDraft.setup) || []) {
+        if (s.set) {
+            const resolved = serviceIdForPath(s.set);
+            if (resolved) {
+                await setProperty(resolved.serviceId, resolved.propertyId, s.value);
+            } else {
+                showError(`applySetup: could not resolve path '${s.set}' — block or property not found`);
+            }
+        }
+        // serviceProviderSet rows are skipped here (they route through driveContract which requires
+        // handlerName / spId / contractId context not present in the setup row): TODO when needed.
+    }
+}
+
 async function refreshRun(id) {
     try {
         const response = await fetch(`/api/scenarios/${encodeURIComponent(id)}/run`);
