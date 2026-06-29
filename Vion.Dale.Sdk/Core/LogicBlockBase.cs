@@ -33,18 +33,26 @@ namespace Vion.Dale.Sdk.Core
 
         private readonly ILogger _logger;
 
+        // Measuring-point emission stream — see _servicePropertyThrottlers for why a property and a
+        // measuring point are gated by SEPARATE collections (a member can be both; they must not share).
+        private readonly Dictionary<(string ServiceIdentifier, string MemberIdentifier), Throttler> _measuringPointThrottlers = [];
+
         private readonly PersistentData _persistentData = new();
 
         private readonly ServiceBinder _serviceBinder = new();
 
-        // The policy each throttler was built from, kept so a value-clear can reconstruct a fresh
-        // throttler (the gate has no in-place cancel) — see ResetThrottlerPending.
-        private readonly Dictionary<(string ServiceIdentifier, string MemberIdentifier), ThrottlePolicy> _throttlerPolicies = [];
-
-        // One Throttler per bound service property + measuring point, keyed by (ServiceIdentifier,
-        // member identifier). Built after Configure() (BuildThrottlers). Empty until then, and never
-        // consulted when _emissionPolicyActive is false.
-        private readonly Dictionary<(string ServiceIdentifier, string MemberIdentifier), Throttler> _throttlers = [];
+        // RFC 0004 emission gates — one Throttler per bound member, keyed by (ServiceIdentifier,
+        // MemberIdentifier). A property and a measuring point are SEPARATE streams (own MQTT topic
+        // .../property/state vs .../measuring-point/state, own throttle/deadband), so they get
+        // separate collections rather than one map keyed by member name. This matters because a
+        // member can be BOTH a [ServiceProperty] and a [ServiceMeasuringPoint] on the same C#
+        // property (the dual-annotated grid-meter telemetry shape): with a shared throttler the
+        // property's leading-edge emit seeded LastEmitted, so the identical measuring-point offer hit
+        // the value-equality floor and was dropped — silencing the measuring-point stream entirely.
+        // Built after Configure() (BuildThrottlers); empty until then; never consulted when
+        // _emissionPolicyActive is false. A value-clear rebuilds a member's gate from its
+        // Throttler.Policy (the gate has no in-place cancel) — see ResetThrottlerPending.
+        private readonly Dictionary<(string ServiceIdentifier, string MemberIdentifier), Throttler> _servicePropertyThrottlers = [];
 
         private readonly Dictionary<string, (TimeSpan interval, Action callback)> _timerCallbacks = [];
 
@@ -291,6 +299,12 @@ namespace Vion.Dale.Sdk.Core
                     break;
 
                 case PublishServiceState: // after broker reconnect
+                    // After an operational reconnect the broker's view of our state is unknown: publishes made while the
+                    // connection was down were lost, yet the per-member throttlers advanced LastEmitted as if those
+                    // values had been delivered. Reset every throttler so the re-publish below force-emits the current
+                    // value of each member (a fresh leading edge), re-asserting ground truth instead of being dropped by
+                    // the throttler's value-equality floor. Subsequent changes throttle normally again.
+                    ResetThrottlers();
                     _serviceBinder.PublishInitialStateUpdates(_logger);
                     break;
 
@@ -470,20 +484,22 @@ namespace Vion.Dale.Sdk.Core
         }
 
         /// <summary>
-        ///     RFC 0004: constructs one <see cref="Throttler" /> per bound service property and measuring
-        ///     point from its declarative emission attributes. Keyed by (ServiceIdentifier, member name)
-        ///     so <see cref="HandleServicePropertyValueChanged" /> / the measuring-point handler can look
-        ///     up the gate on each change. The attribute (an <see cref="IThrottleConfigured" />) is read off
-        ///     the binding's root source <see cref="System.Reflection.PropertyInfo" />; the value type comes
-        ///     from <see cref="ServiceBinding.TargetPropertyType" />.
+        ///     RFC 0004: constructs one <see cref="Throttler" /> per bound service property and per bound
+        ///     measuring point from its declarative emission attributes, into the matching stream collection
+        ///     (<see cref="_servicePropertyThrottlers" /> / <see cref="_measuringPointThrottlers" />) keyed by
+        ///     (ServiceIdentifier, member name). A dual-annotated member thus gets one gate per stream, so the
+        ///     two streams don't cross-suppress. The attribute (an <see cref="IThrottleConfigured" />) is read
+        ///     off the binding's root source <see cref="System.Reflection.PropertyInfo" />; the value type
+        ///     comes from <see cref="ServiceBinding.TargetPropertyType" />.
         /// </summary>
         private void BuildThrottlers()
         {
-            BuildThrottlersFor(_serviceBinder.GetAllServicePropertyBindings());
-            BuildThrottlersFor(_serviceBinder.GetAllServiceMeasuringPointBindings());
+            BuildThrottlersFor(_serviceBinder.GetAllServicePropertyBindings(), _servicePropertyThrottlers);
+            BuildThrottlersFor(_serviceBinder.GetAllServiceMeasuringPointBindings(), _measuringPointThrottlers);
         }
 
-        private void BuildThrottlersFor(IReadOnlyDictionary<string, IReadOnlyDictionary<Type, IReadOnlyDictionary<string, ServiceBinding>>> bindings)
+        private void BuildThrottlersFor(IReadOnlyDictionary<string, IReadOnlyDictionary<Type, IReadOnlyDictionary<string, ServiceBinding>>> bindings,
+                                        Dictionary<(string ServiceIdentifier, string MemberIdentifier), Throttler> throttlers)
         {
             foreach (var (serviceIdentifier, interfaceMap) in bindings)
             {
@@ -517,8 +533,7 @@ namespace Vion.Dale.Sdk.Core
                                                                 "parameterless constructor), or remove MinChange.");
                         }
 
-                        _throttlerPolicies[(serviceIdentifier, memberIdentifier)] = policy;
-                        _throttlers[(serviceIdentifier, memberIdentifier)] = new Throttler(policy);
+                        throttlers[(serviceIdentifier, memberIdentifier)] = new Throttler(policy);
                     }
                 }
             }
@@ -561,13 +576,36 @@ namespace Vion.Dale.Sdk.Core
         /// <summary>
         ///     RFC 0004: discards a throttler's pending held flush (and its emitted state) on a value-clear,
         ///     so the cleared edge is not undone by a later trailing flush. Reconstructs the gate from its
-        ///     stored policy via a fresh <see cref="Throttler" /> — there is no in-place cancel on the gate.
+        ///     own <see cref="Throttler.Policy" /> via a fresh <see cref="Throttler" /> — there is no
+        ///     in-place cancel on the gate. The caller passes the member's stream collection.
         /// </summary>
-        private void ResetThrottlerPending((string ServiceIdentifier, string MemberIdentifier) key)
+        private static void ResetThrottlerPending(Dictionary<(string ServiceIdentifier, string MemberIdentifier), Throttler> throttlers,
+                                                  (string ServiceIdentifier, string MemberIdentifier) key)
         {
-            if (_throttlerPolicies.TryGetValue(key, out var policy))
+            if (throttlers.TryGetValue(key, out var existing))
             {
-                _throttlers[key] = new Throttler(policy);
+                throttlers[key] = new Throttler(existing.Policy);
+            }
+        }
+
+        /// <summary>
+        ///     RFC 0004: rebuilds every property and measuring-point throttler from its <see cref="Throttler.Policy" />,
+        ///     clearing emitted/pending state so the next offer for each member is a fresh leading-edge force-emit.
+        ///     Used on an operational reconnect (<c>PublishServiceState</c>): the throttlers' last-emitted values can be
+        ///     ahead of what the broker actually received (publishes during the disconnect were dropped), so the current
+        ///     state must be re-asserted unconditionally rather than deduplicated against it.
+        /// </summary>
+        private void ResetThrottlers()
+        {
+            ResetAll(_servicePropertyThrottlers);
+            ResetAll(_measuringPointThrottlers);
+
+            static void ResetAll(Dictionary<(string ServiceIdentifier, string MemberIdentifier), Throttler> throttlers)
+            {
+                foreach (var key in throttlers.Keys.ToList())
+                {
+                    throttlers[key] = new Throttler(throttlers[key].Policy);
+                }
             }
         }
 
@@ -629,65 +667,35 @@ namespace Vion.Dale.Sdk.Core
             var nextDeadline = DateTimeOffset.MaxValue;
             var hasNext = false;
 
-            foreach (var ((serviceIdentifier, memberIdentifier), throttler) in _throttlers)
-            {
-                if (throttler.HasPending && throttler.PendingDeadline <= now)
-                {
-                    if (throttler.TryFlush(now, out var value))
-                    {
-                        EmitFlushedValue(serviceIdentifier, memberIdentifier, value);
-                    }
-                }
-
-                if (throttler.HasPending && throttler.PendingDeadline < nextDeadline)
-                {
-                    nextDeadline = throttler.PendingDeadline;
-                    hasNext = true;
-                }
-            }
+            // Each stream flushes to its own central handler; the per-stream emit closure keeps the
+            // routing explicit (no kind flag), and the next-deadline is coalesced across both streams.
+            FlushDue(_servicePropertyThrottlers,
+                     (serviceId, member, value) => _actorContext.SendTo(_servicePropertyHandlerActorRef, new ServicePropertyValueChanged(serviceId, member, value)));
+            FlushDue(_measuringPointThrottlers,
+                     (serviceId, member, value) => _actorContext.SendTo(_serviceMeasuringPointHandlerActorRef, new ServiceMeasuringPointValueChanged(serviceId, member, value)));
 
             if (hasNext)
             {
                 ScheduleEmissionFlush(nextDeadline);
             }
-        }
 
-        /// <summary>
-        ///     Emits a flushed value to the correct handler. A key in <see cref="_throttlers" /> may be a
-        ///     service property or a measuring point; resolve which by membership in the binder's maps so
-        ///     the value reaches the right central handler.
-        /// </summary>
-        private void EmitFlushedValue(string serviceIdentifier, string memberIdentifier, object? value)
-        {
-            if (!_serviceIdLookup.TryGetValue(serviceIdentifier, out var serviceId))
+            void FlushDue(Dictionary<(string ServiceIdentifier, string MemberIdentifier), Throttler> throttlers, Action<ServiceIdentifier, string, object?> emit)
             {
-                return;
-            }
-
-            if (IsMeasuringPoint(serviceIdentifier, memberIdentifier))
-            {
-                _actorContext.SendTo(_serviceMeasuringPointHandlerActorRef, new ServiceMeasuringPointValueChanged(serviceId, memberIdentifier, value));
-            }
-            else
-            {
-                _actorContext.SendTo(_servicePropertyHandlerActorRef, new ServicePropertyValueChanged(serviceId, memberIdentifier, value));
-            }
-        }
-
-        private bool IsMeasuringPoint(string serviceIdentifier, string memberIdentifier)
-        {
-            if (_serviceBinder.GetAllServiceMeasuringPointBindings().TryGetValue(serviceIdentifier, out var interfaceMap))
-            {
-                foreach (var perInterface in interfaceMap.Values)
+                foreach (var ((serviceIdentifier, memberIdentifier), throttler) in throttlers)
                 {
-                    if (perInterface.ContainsKey(memberIdentifier))
+                    if (throttler.HasPending && throttler.PendingDeadline <= now && throttler.TryFlush(now, out var value) &&
+                        _serviceIdLookup.TryGetValue(serviceIdentifier, out var serviceId))
                     {
-                        return true;
+                        emit(serviceId, memberIdentifier, value);
+                    }
+
+                    if (throttler.HasPending && throttler.PendingDeadline < nextDeadline)
+                    {
+                        nextDeadline = throttler.PendingDeadline;
+                        hasNext = true;
                     }
                 }
             }
-
-            return false;
         }
 
         /// <summary>
@@ -702,11 +710,18 @@ namespace Vion.Dale.Sdk.Core
                 return;
             }
 
-            DrainBindings(_serviceBinder.GetAllServicePropertyBindings(), false);
-            DrainBindings(_serviceBinder.GetAllServiceMeasuringPointBindings(), true);
+            DrainBindings(_serviceBinder.GetAllServicePropertyBindings(),
+                          _servicePropertyThrottlers,
+                          (serviceId, member, current) => _actorContext.SendTo(_servicePropertyHandlerActorRef, new ServicePropertyValueChanged(serviceId, member, current)));
+            DrainBindings(_serviceBinder.GetAllServiceMeasuringPointBindings(),
+                          _measuringPointThrottlers,
+                          (serviceId, member, current) =>
+                              _actorContext.SendTo(_serviceMeasuringPointHandlerActorRef, new ServiceMeasuringPointValueChanged(serviceId, member, current)));
         }
 
-        private void DrainBindings(IReadOnlyDictionary<string, IReadOnlyDictionary<Type, IReadOnlyDictionary<string, ServiceBinding>>> bindings, bool isMeasuringPoint)
+        private void DrainBindings(IReadOnlyDictionary<string, IReadOnlyDictionary<Type, IReadOnlyDictionary<string, ServiceBinding>>> bindings,
+                                   Dictionary<(string ServiceIdentifier, string MemberIdentifier), Throttler> throttlers,
+                                   Action<ServiceIdentifier, string, object?> emit)
         {
             foreach (var (serviceIdentifier, interfaceMap) in bindings)
             {
@@ -719,7 +734,7 @@ namespace Vion.Dale.Sdk.Core
                 {
                     foreach (var (memberIdentifier, binding) in perInterface)
                     {
-                        if (!_throttlers.TryGetValue((serviceIdentifier, memberIdentifier), out var throttler))
+                        if (!throttlers.TryGetValue((serviceIdentifier, memberIdentifier), out var throttler))
                         {
                             continue;
                         }
@@ -743,14 +758,7 @@ namespace Vion.Dale.Sdk.Core
                             continue;
                         }
 
-                        if (isMeasuringPoint)
-                        {
-                            _actorContext.SendTo(_serviceMeasuringPointHandlerActorRef, new ServiceMeasuringPointValueChanged(serviceId, memberIdentifier, current));
-                        }
-                        else
-                        {
-                            _actorContext.SendTo(_servicePropertyHandlerActorRef, new ServicePropertyValueChanged(serviceId, memberIdentifier, current));
-                        }
+                        emit(serviceId, memberIdentifier, current);
                     }
                 }
             }
@@ -785,7 +793,7 @@ namespace Vion.Dale.Sdk.Core
 
             // RFC 0004: when the policy is inactive (controllable clock without override), or no
             // throttler exists for this member, send as before. Otherwise gate via the throttler.
-            if (!_emissionPolicyActive || !_throttlers.TryGetValue((args.ServiceIdentifier, args.PropertyIdentifier), out var throttler))
+            if (!_emissionPolicyActive || !_servicePropertyThrottlers.TryGetValue((args.ServiceIdentifier, args.PropertyIdentifier), out var throttler))
             {
                 _actorContext.SendTo(_servicePropertyHandlerActorRef, new ServicePropertyValueChanged(serviceIdentifier, args.PropertyIdentifier, args.Value));
                 return;
@@ -819,7 +827,7 @@ namespace Vion.Dale.Sdk.Core
             }
 
             // RFC 0004: same gate as the service-property path, keyed by measuring-point identifier.
-            if (!_emissionPolicyActive || !_throttlers.TryGetValue((args.ServiceIdentifier, args.MeasuringPointIdentifier), out var throttler))
+            if (!_emissionPolicyActive || !_measuringPointThrottlers.TryGetValue((args.ServiceIdentifier, args.MeasuringPointIdentifier), out var throttler))
             {
                 _actorContext.SendTo(_serviceMeasuringPointHandlerActorRef, new ServiceMeasuringPointValueChanged(serviceIdentifier, args.MeasuringPointIdentifier, args.Value));
                 return;
@@ -849,7 +857,7 @@ namespace Vion.Dale.Sdk.Core
 
             // RFC 0004: a clear is a state-significant edge — emit immediately (bypass the gate) and
             // discard any pending held flush so the just-cleared value is not re-emitted afterwards.
-            ResetThrottlerPending((args.ServiceIdentifier, args.PropertyIdentifier));
+            ResetThrottlerPending(_servicePropertyThrottlers, (args.ServiceIdentifier, args.PropertyIdentifier));
 
             // Send empty retained message to clear
             _actorContext.SendTo(_servicePropertyHandlerActorRef, new ServicePropertyValueCleared(serviceIdentifier, args.PropertyIdentifier));
@@ -865,7 +873,7 @@ namespace Vion.Dale.Sdk.Core
 
             // RFC 0004: same clear-edge semantics as the property path — emit immediately and discard
             // any pending held flush for this measuring point.
-            ResetThrottlerPending((args.ServiceIdentifier, args.MeasuringPointIdentifier));
+            ResetThrottlerPending(_measuringPointThrottlers, (args.ServiceIdentifier, args.MeasuringPointIdentifier));
 
             // Send empty retained message to clear
             _actorContext.SendTo(_serviceMeasuringPointHandlerActorRef, new ServiceMeasuringPointValueCleared(serviceIdentifier, args.MeasuringPointIdentifier));
