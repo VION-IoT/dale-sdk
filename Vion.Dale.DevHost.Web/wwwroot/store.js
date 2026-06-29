@@ -4,6 +4,7 @@
 // reactivity so event bursts don't cause render storms.
 
 import { reactive } from './vue.esm-browser.prod.js';
+import { scenarioErrors } from './scenario-forms.js';
 
 export const store = reactive({
     loading: true,
@@ -91,6 +92,12 @@ export const store = reactive({
     // Human judgment ticks, keyed `${runId}/${index}` -> 'ok' | 'notOk'. Local to this browser;
     // they enter the copied verification report, not the server.
     judgeTicks: {},
+    // Scenario authoring (RFC 0014): the in-progress draft + the Verify editor screen flag. scenarioScreen
+    // 'detail' (read-only run view) | 'editor' (the form editor); null draft when no editor is open.
+    scenarioScreen: 'detail',
+    scenarioDraft: null,
+    scenarioDraftDirty: false,
+    scenarioDraftErrors: [],
 });
 
 const COLLAPSE_STORAGE_KEY = 'dale.devhost.collapsed';
@@ -811,6 +818,38 @@ export function closeScenario() {
     store.runActive = false;
     loadScenarios();
     if (location.hash.startsWith('#/scenario/')) location.hash = '#/scenarios';
+}
+
+// Author a brand-new scenario for the running topology (Q3: topology is locked to what's loaded).
+export function newScenarioDraft() {
+    store.scenarioDraft = { version: 1, id: '', topology: store.topologyName || '', setup: [], steps: [], watch: [], judge: [] };
+    store.scenarioDraftDirty = false; store.scenarioDraftErrors = [];
+    store.view = 'player'; store.scenarioScreen = 'editor';
+}
+
+// Edit / clone an existing scenario. Q3: if its topology != the running one, recycle onto it first so the
+// editor's pickers/values are for the right rig. `asClone` blanks the id (a new file).
+export async function editScenarioDraft(id, { asClone = false } = {}) {
+    const res = await fetch(`/api/scenarios/${encodeURIComponent(id)}`);
+    if (!res.ok) { showError(`Could not load scenario '${id}'`); return; }
+    const file = JSON.parse(await res.text());
+    if (file.topology && file.topology !== store.topologyName) {
+        await switchTopology(file.topology);   // recycles + reloads onto the scenario's topology (RFC 0013)
+        return;                                 // the reload re-enters the editor fresh; see Task 7 deep-link note
+    }
+    store.scenarioDraft = { ...file, id: asClone ? '' : file.id, setup: file.setup || [], steps: file.steps || [], watch: file.watch || [], judge: file.judge || [] };
+    store.scenarioDraftDirty = false; store.scenarioDraftErrors = [];
+    store.view = 'player'; store.scenarioScreen = 'editor';
+}
+
+export function closeScenarioEditor() {
+    store.scenarioDraft = null; store.scenarioDraftDirty = false; store.scenarioDraftErrors = [];
+    store.scenarioScreen = 'detail';
+}
+
+export function validateScenarioDraft() {
+    store.scenarioDraftErrors = scenarioErrors(store.scenarioDraft);
+    return store.scenarioDraftErrors.length === 0;
 }
 
 async function refreshRun(id) {
