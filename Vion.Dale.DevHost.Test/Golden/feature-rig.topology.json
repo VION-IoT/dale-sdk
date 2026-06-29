@@ -1,0 +1,26 @@
+{
+  "$schema": "./.dale/topology.schema.json",
+  "id": "feature-rig",
+  "logicBlockInstances": [
+    { "typeFullName": "Vion.Dale.DevHost.SmokeHost.LogicBlocks.ShowcaseBlock", "name": "ShowcaseBlock" },
+    { "typeFullName": "Vion.Dale.DevHost.SmokeHost.LogicBlocks.IoBlock", "name": "IoBlock" },
+    { "typeFullName": "Vion.Dale.DevHost.SmokeHost.LogicBlocks.GridBlock", "name": "GridBlock" },
+    { "typeFullName": "Vion.Dale.DevHost.SmokeHost.LogicBlocks.SignalSourceBlock", "name": "SignalSourceBlock" },
+    { "typeFullName": "Vion.Dale.DevHost.SmokeHost.LogicBlocks.SignalSinkBlock", "name": "SignalSinkBlock" }
+  ],
+  "interfaceMappings": [
+    {
+      "sourceLogicBlockName": "SignalSourceBlock",
+      "sourceInterfaceIdentifier": "ISignalSource",
+      "targetLogicBlockName": "SignalSinkBlock",
+      "targetInterfaceIdentifier": "ISignalSink"
+    }
+  ],
+  "contractMappings": [
+    { "logicBlockName": "IoBlock", "contractIdentifier": "EnableInput", "mappedServiceProviderIdentifier": "sp_lb_1", "mappedServiceIdentifier": "svc_lb_1", "mappedContractIdentifier": "EnableInput" },
+    { "logicBlockName": "IoBlock", "contractIdentifier": "LevelInput", "mappedServiceProviderIdentifier": "sp_lb_1", "mappedServiceIdentifier": "svc_lb_1", "mappedContractIdentifier": "LevelInput" },
+    { "logicBlockName": "IoBlock", "contractIdentifier": "ActiveOutput", "mappedServiceProviderIdentifier": "sp_lb_1", "mappedServiceIdentifier": "svc_lb_1", "mappedContractIdentifier": "ActiveOutput" },
+    { "logicBlockName": "IoBlock", "contractIdentifier": "EchoOutput", "mappedServiceProviderIdentifier": "sp_lb_1", "mappedServiceIdentifier": "svc_lb_1", "mappedContractIdentifier": "EchoOutput" },
+    { "logicBlockName": "GridBlock", "contractIdentifier": "Demand", "mappedServiceProviderIdentifier": "sp_lb_2", "mappedServiceIdentifier": "svc_lb_2", "mappedContractIdentifier": "Demand" }
+  ]
+}

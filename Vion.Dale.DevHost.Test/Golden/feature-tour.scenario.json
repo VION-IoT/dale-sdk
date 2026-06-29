@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "id": "feature-tour",
+  "topology": "default",
+  "setup": [
+    { "set": "ShowcaseBlock.Setpoint", "value": 42 },
+    { "set": "ShowcaseBlock.HomePosition", "value": { "x": 1, "y": 2 } },
+    { "set": "ShowcaseBlock.PreferredMood", "value": "Calm" },
+    { "set": "ShowcaseBlock.Enabled", "value": true },
+    { "set": "ShowcaseBlock.DeviceName", "value": "edge-3" },
+    { "set": "ShowcaseBlock.OptionalLimit", "value": 7.5 }
+  ],
+  "steps": [
+    { "serviceProviderSet": { "logicBlock": "IoBlock", "contract": "EnableInput" }, "value": true },
+    { "waitUntil": { "property": "IoBlock.IsEnabled", "equals": true }, "timeoutSeconds": 5 },
+    { "advance": { "seconds": 1 } },
+    { "settle": { "until": ["ShowcaseBlock.Setpoint"] } },
+    { "expect": { "property": "ShowcaseBlock.Setpoint", "equals": 42, "tolerance": 0.001 } },
+    { "expect": { "property": "ShowcaseBlock.HomePosition.x", "equals": 1 } },
+    { "expect": { "property": "ShowcaseBlock.PreferredMood", "equals": "Calm" } },
+    { "expect": { "property": "ShowcaseBlock.DeviceName", "equals": "edge-3" } },
+    { "expect": { "property": "ShowcaseBlock.OptionalLimit", "equals": 7.5 } },
+    { "serviceProviderExpect": { "logicBlock": "IoBlock", "contract": "ActiveOutput", "equals": true } }
+  ],
+  "watch": ["ShowcaseBlock.Setpoint", "ShowcaseBlock.Cycles", "IoBlock.IsEnabled"],
+  "judge": [{ "text": "Feature-rich golden covering all step kinds; the value-editor types (number, string, bool, nullable-number, struct, enum); a struct-field expect; and a HAL round-trip." }]
+}

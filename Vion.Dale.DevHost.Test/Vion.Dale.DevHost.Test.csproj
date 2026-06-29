@@ -35,4 +35,8 @@
         <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting"/>
     </ItemGroup>
 
+    <ItemGroup>
+        <Content Include="Golden\**\*.json" CopyToOutputDirectory="PreserveNewest"/>
+    </ItemGroup>
+
 </Project>
