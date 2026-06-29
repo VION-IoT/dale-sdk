@@ -51,12 +51,7 @@ namespace Vion.Dale.DevHost.Test
                                                 .AddLogicBlock<SmokeHost.LogicBlocks.SignalSinkBlock>("SignalSinkBlock")
                                                 .Build();
 
-            await using var host = DevHostBuilder.Create()
-                                                 .WithDi<SmokeHost.DependencyInjection>()
-                                                 .WithConfiguration(config)
-                                                 .WithDeterministicStepping()
-                                                 .WithWebUi(port)
-                                                 .Build();
+            await using var host = DevHostBuilder.Create().WithDi<SmokeHost.DependencyInjection>().WithConfiguration(config).WithDeterministicStepping().WithWebUi(port).Build();
             await host.StartAsync();
 
             using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
@@ -67,9 +62,9 @@ namespace Vion.Dale.DevHost.Test
             var goldenJson = await File.ReadAllTextAsync(goldenPath);
 
             // 1) PUT the golden body — must be accepted (200).
-            var putResponse = await client.PutAsync("/api/scenarios/feature-tour",
-                                                    new StringContent(goldenJson, Encoding.UTF8, "application/json"));
-            Assert.AreEqual(HttpStatusCode.OK, putResponse.StatusCode,
+            var putResponse = await client.PutAsync("/api/scenarios/feature-tour", new StringContent(goldenJson, Encoding.UTF8, "application/json"));
+            Assert.AreEqual(HttpStatusCode.OK,
+                            putResponse.StatusCode,
                             $"PUT /api/scenarios/feature-tour must accept the golden body. Response: {await putResponse.Content.ReadAsStringAsync()}");
 
             // 2) GET and assert logical equality with the golden.
@@ -90,14 +85,14 @@ namespace Vion.Dale.DevHost.Test
             // 3) Apply + poll to terminal: the host is clean and on topology "default" (matching), so
             //    apply runs in place (no recycle). Assert succeeded + every step ok.
             var applyResponse = await client.PostAsync("/api/scenarios/feature-tour/apply", null);
-            Assert.AreEqual(HttpStatusCode.Accepted, applyResponse.StatusCode,
+            Assert.AreEqual(HttpStatusCode.Accepted,
+                            applyResponse.StatusCode,
                             $"POST /api/scenarios/feature-tour/apply must start a run. Response: {await applyResponse.Content.ReadAsStringAsync()}");
 
             var report = await PollRunUntilDoneAsync(client, "feature-tour", TimeSpan.FromSeconds(60));
             var rawReport = report.GetRawText();
 
-            Assert.AreEqual("succeeded", report.GetProperty("status").GetString(),
-                            $"feature-tour golden must run to 'succeeded'.\nRun report:\n{rawReport}");
+            Assert.AreEqual("succeeded", report.GetProperty("status").GetString(), $"feature-tour golden must run to 'succeeded'.\nRun report:\n{rawReport}");
 
             // Every step must also be 'ok' — a failed expect yields 'failed' on the step.
             if (report.TryGetProperty("steps", out var steps))
@@ -106,8 +101,7 @@ namespace Vion.Dale.DevHost.Test
                 {
                     if (step.TryGetProperty("status", out var stepStatus))
                     {
-                        Assert.AreEqual("ok", stepStatus.GetString(),
-                                        $"Every step must be 'ok', but got '{stepStatus.GetString()}'.\nRun report:\n{rawReport}");
+                        Assert.AreEqual("ok", stepStatus.GetString(), $"Every step must be 'ok', but got '{stepStatus.GetString()}'.\nRun report:\n{rawReport}");
                     }
                 }
             }
@@ -131,11 +125,7 @@ namespace Vion.Dale.DevHost.Test
                                                 .AddLogicBlock<SmokeHost.LogicBlocks.SignalSinkBlock>("SignalSinkBlock")
                                                 .Build();
 
-            await using var host = DevHostBuilder.Create()
-                                                 .WithDi<SmokeHost.DependencyInjection>()
-                                                 .WithConfiguration(config)
-                                                 .WithWebUi(port)
-                                                 .Build();
+            await using var host = DevHostBuilder.Create().WithDi<SmokeHost.DependencyInjection>().WithConfiguration(config).WithWebUi(port).Build();
             await host.StartAsync();
 
             using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
@@ -155,9 +145,9 @@ namespace Vion.Dale.DevHost.Test
             var putBody = goldenNode.ToJsonString();
 
             // 1) PUT the empty-contractMappings draft — Save must complete the mappings and accept (200).
-            var putResponse = await client.PutAsync("/api/topologies/feature-rig",
-                                                    new StringContent(putBody, Encoding.UTF8, "application/json"));
-            Assert.AreEqual(HttpStatusCode.OK, putResponse.StatusCode,
+            var putResponse = await client.PutAsync("/api/topologies/feature-rig", new StringContent(putBody, Encoding.UTF8, "application/json"));
+            Assert.AreEqual(HttpStatusCode.OK,
+                            putResponse.StatusCode,
                             $"PUT /api/topologies/feature-rig must accept the draft body. Response: {await putResponse.Content.ReadAsStringAsync()}");
 
             // 2) GET and compare the saved topology to the golden.
@@ -183,8 +173,7 @@ namespace Vion.Dale.DevHost.Test
             var goldenContracts = goldenRoot.GetProperty("contractMappings");
             var getContracts = getRoot.GetProperty("contractMappings");
 
-            Assert.AreEqual(5, getContracts.GetArrayLength(),
-                            $"Save must complete the 5 auto-mocked contract mappings. Actual contractMappings:\n{getContracts.GetRawText()}");
+            Assert.AreEqual(5, getContracts.GetArrayLength(), $"Save must complete the 5 auto-mocked contract mappings. Actual contractMappings:\n{getContracts.GetRawText()}");
 
             Assert.IsTrue(JsonNode.DeepEquals(JsonNode.Parse(goldenContracts.GetRawText()), JsonNode.Parse(getContracts.GetRawText())),
                           $"contractMappings must match the golden exactly (deterministic IDs).\nExpected:\n{goldenContracts.GetRawText()}\n\nActual:\n{getContracts.GetRawText()}");
@@ -222,9 +211,9 @@ namespace Vion.Dale.DevHost.Test
 
         private static int FreePort()
         {
-            var listener = new TcpListener(System.Net.IPAddress.Loopback, 0);
+            var listener = new TcpListener(IPAddress.Loopback, 0);
             listener.Start();
-            var port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
+            var port = ((IPEndPoint)listener.LocalEndpoint).Port;
             listener.Stop();
             return port;
         }
