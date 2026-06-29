@@ -132,6 +132,34 @@ export function stepErrors(step, setupOnly) {
     return errors;
 }
 
+// ---------------------------------------------------------------------------
+// Value-editor typing — schema-driven property controls + Q1 contract raw-JSON fallback
+// ---------------------------------------------------------------------------
+
+// Choose a value control from a member's value schema. Honors nullable/optional struct fields (#105 emits
+// nullable record-struct fields as nullable+optional, so a struct field may be null/omitted).
+export function valueEditorFor(schema) {
+    if (!schema) return { control: 'rawJson' };
+    if (Array.isArray(schema.enum)) return { control: 'enum', options: schema.enum };
+    if (schema.type === 'boolean') return { control: 'bool' };
+    if (schema.type === 'number' || schema.type === 'integer') return { control: 'number' };
+    if (schema.type === 'object' && schema.properties) return { control: 'struct', fields: schema.properties };
+    if (schema.type === 'array') return { control: 'array', items: schema.items || {} };
+    if (schema.format === 'duration' || schema.type === 'string') return { control: 'text' };
+    return { control: 'rawJson' };
+}
+
+// Q1 (UI-only stopgap): contracts carry only a type token, no value schema. Scalar families form-drive by
+// convention; everything else (struct/array contracts) falls back to a raw-JSON editor. SCHEMA-PRESENCE-
+// GATED so it auto-retires: if a contract value schema ever appears, callers pass it to valueEditorFor and
+// this convention layer is bypassed — no other change. Token families per format.js contractTypeShort.
+const SCALAR_CONTRACT = { DigitalInput: 'bool', DigitalOutput: 'bool', AnalogInput: 'number', AnalogOutput: 'number' };
+export function contractValueEditor(contractType, valueSchema) {
+    if (valueSchema) return valueEditorFor(valueSchema);              // future: backend exposes it → retire the fallback
+    const control = SCALAR_CONTRACT[contractType];
+    return control ? { control } : { control: 'rawJson' };
+}
+
 // Whole-draft errors (topology required; per-section step errors; empty watch / judge entries) — mirrors
 // ScenarioFile.StructuralErrors. Returns a flat list of `section[i]: message` strings.
 export function scenarioErrors(draft) {

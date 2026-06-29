@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { KINDS, kindOf, STEP_KIND_IDS, SETUP_KIND_IDS } from './wwwroot/scenario-forms.js';
 import { stepErrors } from './wwwroot/scenario-forms.js';
 import { propertyPaths, contractRefs, structFieldPaths } from './wwwroot/scenario-forms.js';
+import { valueEditorFor, contractValueEditor } from './wwwroot/scenario-forms.js';
 
 // The seven closed shapes, the four-vocabulary-sites source of truth (ScenarioStep.Kind).
 assert.deepEqual(STEP_KIND_IDS, ['set', 'serviceProviderSet', 'serviceProviderExpect', 'waitUntil', 'expect', 'advance', 'settle']);
@@ -52,3 +53,15 @@ assert.deepEqual(structFieldPaths(cfg, 'Grid.Phases'), ['Grid.Phases.l1', 'Grid.
 // contracts -> {logicBlock, contract}
 assert.deepEqual(contractRefs(cfg), [{ logicBlock: 'Grid', contract: 'Demand' }]);
 console.log('task3 ok');
+
+// property value editor is schema-driven
+assert.equal(valueEditorFor({ readOnly: false, enum: ['A', 'B'] }).control, 'enum');
+assert.equal(valueEditorFor({ type: 'boolean' }).control, 'bool');
+assert.equal(valueEditorFor({ type: 'number' }).control, 'number');
+assert.equal(valueEditorFor({ type: 'object', properties: { l1: {} } }).control, 'struct');
+assert.equal(valueEditorFor({ type: 'array', items: {} }).control, 'array');
+// contract values: scalar families form-drive by convention; non-scalar -> raw JSON (Q1 UI-only stopgap)
+assert.equal(contractValueEditor('DigitalInput').control, 'bool');
+assert.equal(contractValueEditor('AnalogInput').control, 'number');
+assert.equal(contractValueEditor('GridDemand').control, 'rawJson'); // no value schema → fallback
+console.log('task4 ok');
