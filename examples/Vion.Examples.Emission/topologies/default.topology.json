@@ -1,0 +1,12 @@
+{
+  "$schema": "./.dale/topology.schema.json",
+  "id": "default",
+  "logicBlockInstances": [
+    {
+      "typeFullName": "Vion.Examples.Emission.LogicBlocks.SensorBlock",
+      "name": "SensorBlock"
+    }
+  ],
+  "interfaceMappings": [],
+  "contractMappings": []
+}

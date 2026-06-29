@@ -18,6 +18,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\Vion.Examples.Energy\Vion.Examples.Energy.csproj"/>
+        <ProjectReference Include="..\Vion.Examples.Emission\Vion.Examples.Emission.csproj"/>
     </ItemGroup>
 </Project>

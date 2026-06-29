@@ -5,11 +5,15 @@
         <Nullable>enable</Nullable>
         <IsPackable>false</IsPackable>
     </PropertyGroup>
-    <ItemGroup>
-        <PackageReference Include="Vion.Dale.Sdk.AnalogIo.TestKit" Version="0.9.4"/>
-        <PackageReference Include="Vion.Dale.Sdk.DigitalIo.TestKit" Version="0.9.4"/>
+    <ItemGroup Condition="'$(DaleLocalSource)' != 'true'">
         <PackageReference Include="Vion.Dale.Sdk.TestKit" Version="0.9.4"/>
+    </ItemGroup>
+    <ItemGroup Condition="'$(DaleLocalSource)' == 'true'">
+        <ProjectReference Include="..\..\..\Vion.Dale.Sdk.TestKit\Vion.Dale.Sdk.TestKit.csproj"/>
+    </ItemGroup>
+    <ItemGroup>
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1"/>
+        <PackageReference Include="Moq" Version="4.20.72"/>
         <PackageReference Include="xunit.v3" Version="3.2.0"/>
         <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
             <PrivateAssets>all</PrivateAssets>
@@ -17,6 +21,6 @@
         </PackageReference>
     </ItemGroup>
     <ItemGroup>
-        <ProjectReference Include="..\Vion.Examples.Energy\Vion.Examples.Energy.csproj"/>
+        <ProjectReference Include="..\Vion.Examples.Emission\Vion.Examples.Emission.csproj"/>
     </ItemGroup>
 </Project>
