@@ -1930,7 +1930,8 @@ const ScenarioEditor = {
         const close = () => closeScenarioEditor();
 
         // validate flips a one-shot "did a validate just run" flag so a clean pass shows a green pill
-        // (errors-empty alone is the resting state, not a success signal) — same shape as TopologyEditor.
+        // (errors-empty alone is the resting state, not a success signal). Note: this validate is
+        // synchronous (client-side validateScenarioDraft), unlike TopologyEditor's async server validate.
         const validated = ref(false);
         const errors = computed(() => store.scenarioDraftErrors || []);
         const hasErrors = computed(() => errors.value.length > 0);
@@ -1939,8 +1940,8 @@ const ScenarioEditor = {
         const validate = () => { validateScenarioDraft(); validated.value = true; };
         const save = async () => { validated.value = false; await saveScenarioDraft(); };
         // save & run: persist, then recycle-on-run against the saved id (applyScenario handles the topology
-        // recycle if needed). Capture the id before save — saveScenarioDraft re-enters Detail and may clear
-        // the draft by the time it resolves.
+        // recycle if needed). Capture the id before the await in case the screen navigates away
+        // (saveScenarioDraft calls openScenario which re-enters the read-only Detail view).
         const saveAndRun = async () => {
             validated.value = false;
             const id = draft.value && draft.value.id;
@@ -2110,7 +2111,6 @@ export const PlayerPanel = {
         // read-only run view. Screen state lives in the store (not a local ref) so a navigation that flips
         // it before this panel mounts still lands on the right screen.
         const canEdit = computed(() => !(store.scenarios && store.scenarios.readOnly));
-        const scenarioScreen = computed(() => store.scenarioScreen);
         const editing = computed(() => store.scenarioScreen === 'editor');
         const createDraft = () => newScenarioDraft();
         const editScenario = () => editScenarioDraft(store.scenarioId);
@@ -2121,12 +2121,13 @@ export const PlayerPanel = {
             steps, judge, statusClass, staleRun, runLabel, heading, entryError, start, tick,
             tickState, copyReport, reload, open: openScenario, close: closeScenario,
             tagFilter, allTags, filteredEntries, toggleTag,
-            canEdit, scenarioScreen, editing, createDraft, editScenario, cloneScenario,
+            canEdit, editing, createDraft, editScenario, cloneScenario,
         };
     },
     template: `
         <div class="player-panel">
-            <section v-if="!store.scenarioId" class="block-card">
+            <ScenarioEditor v-if="editing"/>
+            <section v-else-if="!store.scenarioId" class="block-card">
                 <div class="block-header">
                     <h2>scenarios</h2>
                     <span class="item-spacer"></span>
@@ -2153,7 +2154,6 @@ export const PlayerPanel = {
                     <code v-else class="topology-chip">{{ e.topology }}</code>
                 </button>
             </section>
-            <ScenarioEditor v-else-if="editing"/>
             <section v-else class="block-card">
                 <div class="block-header">
                     <button type="button" class="theme-toggle" title="back to the scenario list (Esc)" @click="close">←</button>

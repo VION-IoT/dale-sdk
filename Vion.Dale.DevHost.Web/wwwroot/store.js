@@ -870,6 +870,9 @@ export async function editScenarioDraft(id, { asClone = false } = {}) {
 export function closeScenarioEditor() {
     store.scenarioDraft = null; store.scenarioDraftDirty = false; store.scenarioDraftErrors = [];
     store.scenarioScreen = 'detail';
+    // Re-enter a fresh Detail on the saved file (re-fetch), mirroring closeTopologyEditor's pattern.
+    // If scenarioId is null (cancelling a brand-new scenario), leave it null so routing falls back to the list.
+    if (store.scenarioId) openScenario(store.scenarioId);
 }
 
 export function validateScenarioDraft() {
