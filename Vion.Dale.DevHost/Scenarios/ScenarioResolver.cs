@@ -13,9 +13,10 @@ namespace Vion.Dale.DevHost.Scenarios
     /// <summary>
     ///     A name path resolved against the wired host: which service config carries the member, plus an
     ///     optional trailing <see cref="FieldPath" /> that descends into a struct-typed member's scalar
-    ///     field leaf (e.g. <c>RefControllableConsumer.AllocatedCurrent.L1</c>). The field segments are C#
-    ///     member names (PascalCase), like the rest of the path; the schema's <c>properties</c> keys are
-    ///     camelCase, matched by lower-casing the first char.
+    ///     field leaf (e.g. <c>RefControllableConsumer.AllocatedCurrent.L1</c>). Field segments may be the C#
+    ///     member name (PascalCase, like the rest of the path) or the schema's camelCase <c>properties</c> key
+    ///     (what the authoring UI emits, e.g. <c>HomePosition.x</c>) — the two are joined case-insensitively
+    ///     here and at read time, so either resolves.
     /// </summary>
     internal sealed record ResolvedProperty(
         string Block,
@@ -314,9 +315,9 @@ namespace Vion.Dale.DevHost.Scenarios
         }
 
         // Walks the field path against the member's JSON schema: each segment must exist in the current
-        // object's "properties" map (camelCase keys; the path is PascalCase, matched by lowering the first
-        // char), every intermediate must be "type":"object", and the leaf must be a scalar. Returns false
-        // and records a helpful error (canonical PascalCase suggestion) on the first miss.
+        // object's "properties" map (camelCase keys), matched via ToCamelCase so either a PascalCase or a
+        // camelCase segment resolves; every intermediate must be "type":"object", and the leaf must be a
+        // scalar. Returns false and records a helpful error (canonical PascalCase suggestion) on the first miss.
         private bool ValidateFieldPath(ResolvedProperty member, IReadOnlyList<string> fieldPath, string where, string path, List<string> errors)
         {
             var current = SchemaOf(member);

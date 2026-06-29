@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -970,10 +971,14 @@ namespace Vion.Dale.DevHost.Scenarios
             }
         }
 
-        // Extract a struct field leaf from a (boxed) live value by walking the PascalCase field path via
-        // reflection. Each segment reads a public property (record-struct positional fields surface as
-        // properties) or, failing that, a field of the same name. A null intermediate short-circuits to a
-        // null leaf. With no field path the value passes through unchanged (the common scalar case).
+        // Extract a struct field leaf from a (boxed) live value by walking the field path via reflection.
+        // Each segment reads a public property (record-struct positional fields surface as properties) or,
+        // failing that, a field of the same name. Lookup is CASE-INSENSITIVE: the field path the authoring
+        // UI emits uses the schema's camelCase wire keys (e.g. HomePosition.x), while the C# members are
+        // PascalCase (X) — per the DevHost convention, joins between wire-camelCase and introspection-
+        // PascalCase are case-insensitive, so either casing resolves (and validation already normalises via
+        // ToCamelCase, so what passes validation must also read here). A null intermediate short-circuits to
+        // a null leaf. With no field path the value passes through unchanged (the common scalar case).
         private static object? ExtractField(object? value, IReadOnlyList<string>? fieldPath)
         {
             if (fieldPath is null || fieldPath.Count == 0)
@@ -981,6 +986,7 @@ namespace Vion.Dale.DevHost.Scenarios
                 return value;
             }
 
+            const BindingFlags memberLookup = BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase;
             foreach (var segment in fieldPath)
             {
                 if (value is null)
@@ -989,7 +995,18 @@ namespace Vion.Dale.DevHost.Scenarios
                 }
 
                 var type = value.GetType();
-                value = type.GetProperty(segment)?.GetValue(value) ?? type.GetField(segment)?.GetValue(value);
+                try
+                {
+                    value = type.GetProperty(segment, memberLookup)?.GetValue(value) ?? type.GetField(segment, memberLookup)?.GetValue(value);
+                }
+                catch (AmbiguousMatchException)
+                {
+                    // Two public members differing only by case — non-idiomatic and excluded upstream (the
+                    // schema keys members by ToCamelCase, so a same-but-for-case pair collides into one key and
+                    // could never have been addressed). Treat as unresolvable rather than letting it escape the
+                    // one ExtractField call site (the watch sampler) that runs outside the per-step try/catch.
+                    return null;
+                }
             }
 
             return value;
