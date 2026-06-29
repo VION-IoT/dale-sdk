@@ -1,0 +1,32 @@
+{
+  "$schema": "./.dale/scenario.schema.json",
+  "version": 1,
+  "id": "emission",
+  "title": "The emission-showcase block drives its signals and the writable inputs round-trip",
+  "description": "Under the deterministic clock the RFC 0004 emission policy is off, so every tick surfaces. Drives the writable Setpoint/Current, steps the 1 s timer, and checks the monotonic counters and the noisy signal land in band. The throttle/deadband gate itself is shown in free-run DevHost + the unit tests, not here.",
+  "topology": "default",
+  "setup": [
+    { "set": "SensorBlock.Setpoint", "value": 42.0 },
+    { "set": "SensorBlock.Current", "value": { "L1": 12.0, "L2": 12.0, "L3": 12.0 } }
+  ],
+  "steps": [
+    { "label": "Setpoint round-trips", "expect": { "property": "SensorBlock.Setpoint", "equals": 42.0, "tolerance": 0.001 } },
+    { "label": "Fresh boot — no ticks yet", "expect": { "property": "SensorBlock.LiveTick", "equals": 0 } },
+    { "label": "Run 10 timer ticks (10 s)", "advance": { "seconds": 10 } },
+    { "label": "LiveTick reached 10", "expect": { "property": "SensorBlock.LiveTick", "equals": 10 } },
+    { "label": "SampleCount reached 10", "expect": { "property": "SensorBlock.SampleCount", "equals": 10 } },
+    { "label": "Temperature is within its band", "expect": { "property": "SensorBlock.Temperature", "equals": 22.0, "tolerance": 3.5 } },
+    { "label": "ThrottledEcho tracks Setpoint", "expect": { "property": "SensorBlock.ThrottledEcho", "equals": 42.0, "tolerance": 2.5 } }
+  ],
+  "watch": [
+    "SensorBlock.LiveTick",
+    "SensorBlock.SampleCount",
+    "SensorBlock.Setpoint",
+    "SensorBlock.ThrottledEcho",
+    "SensorBlock.Temperature",
+    "SensorBlock.Power"
+  ],
+  "judge": [
+    { "text": "Under the deterministic clock every tick surfaces (policy off); the counters climb and the noisy signals move each step." }
+  ]
+}

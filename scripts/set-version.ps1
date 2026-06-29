@@ -45,7 +45,8 @@ $exampleMainProjectsWithVersion = @(
     "examples\Vion.Examples.ToggleLight\Vion.Examples.ToggleLight\Vion.Examples.ToggleLight.csproj",
     "examples\Vion.Examples.ModbusRtu\Vion.Examples.ModbusRtu\Vion.Examples.ModbusRtu.csproj",
     "examples\Vion.Examples.Presentation\Vion.Examples.Presentation\Vion.Examples.Presentation.csproj",
-    "examples\Vion.Examples.RichTypes\Vion.Examples.RichTypes\Vion.Examples.RichTypes.csproj"
+    "examples\Vion.Examples.RichTypes\Vion.Examples.RichTypes\Vion.Examples.RichTypes.csproj",
+    "examples\Vion.Examples.Emission\Vion.Examples.Emission\Vion.Examples.Emission.csproj"
 )
 
 # Example projects that reference Vion.Dale.* packages.
@@ -124,6 +125,19 @@ $exampleProjects = @(
     @{
         Path              = "examples\Vion.Examples.RichTypes\Vion.Examples.RichTypes.DevHost\Vion.Examples.RichTypes.DevHost.csproj"
         PackageReferences = @("Vion.Dale.DevHost.Web")
+    },
+    # Emission example (showcases RFC 0004 throttle/deadband; SDK + TestKit only, no I/O packages)
+    @{
+        Path              = "examples\Vion.Examples.Emission\Vion.Examples.Emission\Vion.Examples.Emission.csproj"
+        PackageReferences = @("Vion.Dale.Sdk")
+    },
+    @{
+        Path              = "examples\Vion.Examples.Emission\Vion.Examples.Emission.DevHost\Vion.Examples.Emission.DevHost.csproj"
+        PackageReferences = @("Vion.Dale.DevHost.Web")
+    },
+    @{
+        Path              = "examples\Vion.Examples.Emission\Vion.Examples.Emission.Test\Vion.Examples.Emission.Test.csproj"
+        PackageReferences = @("Vion.Dale.Sdk.TestKit")
     }
 )
 
