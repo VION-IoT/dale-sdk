@@ -2211,12 +2211,12 @@ const StepRow = {
         const memberSchemaFor = path => { const m = findMember(store.config, path); return m ? m.schema : null; };
         const setSchema = computed(() => memberSchemaFor(props.row.set || ''));
         // serviceProviderSet value control: look up the picked contract's matchingContractType from config.
-        const contractTypeFor = ref => {
-            if (!ref || !ref.logicBlock || !ref.contract) return null;
+        const contractTypeFor = cref => {
+            if (!cref || !cref.logicBlock || !cref.contract) return null;
             for (const lb of (store.config && store.config.logicBlocks) || []) {
-                if (lb.name !== ref.logicBlock) continue;
+                if (lb.name !== cref.logicBlock) continue;
                 for (const c of lb.contracts || []) {
-                    if (c.identifier === ref.contract) return c.matchingContractType;
+                    if (c.identifier === cref.contract) return c.matchingContractType;
                 }
             }
             return null;
@@ -2654,13 +2654,7 @@ export const PlayerPanel = {
             const raw = scenario.value && Array.isArray(scenario.value[section]) ? scenario.value[section] : [];
             return raw.map((s, i) => ({
                 index: i,
-                kind: s.set !== undefined ? 'set'
-                    : s.serviceProviderSet ? 'serviceProviderSet'
-                    : s.serviceProviderExpect ? 'serviceProviderExpect'
-                    : s.waitUntil ? 'waitUntil'
-                    : s.expect ? 'expect'
-                    : s.advance ? 'advance'
-                    : s.settle !== undefined ? 'settle' : 'unknown',
+                kind: kindOf(s),
                 label: s.label,
                 spec: s.spec,
                 target: s.set !== undefined ? s.set
