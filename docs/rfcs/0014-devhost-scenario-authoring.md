@@ -68,7 +68,7 @@ Extend **Verify** into a master-detail, identical to the topology panel. Verify 
 - **Detail** (scenario open) — today's read-only step view + Run/trace, plus **✎ Edit** and **⧉ Clone**.
 - **Editor** — the new form-list editor; **Save** → back to Detail, **Run** from Detail.
 
-The scenario's `topology` is **locked to the running topology** (principle 1). Editing/cloning is gated off on a read-only host (the existing `DALE_DEVHOST_READONLY_TOPOLOGIES`-sibling scenario gate). Reuses the `#/scenario` deep link; ⌘K palette gains `new scenario` / `edit scenario: <id>` verbs and a keybinding, in lockstep with the help.
+The scenario's `topology` is **locked to the running topology** (principle 1). **＋new** uses the running topology directly; **Edit / Clone of a scenario whose `topology` differs from the running one first auto-recycles the host onto that topology** (reusing the RFC 0013 switch path), so the editor's pickers and live values are always for the right rig (decision Q3). Editing/cloning is gated off on a read-only host (the existing `DALE_DEVHOST_READONLY_TOPOLOGIES`-sibling scenario gate). Reuses the `#/scenario` deep link; ⌘K palette gains `new scenario` / `edit scenario: <id>` verbs and a keybinding, in lockstep with the help.
 
 ### 7.2 Editor body (form-list)
 
@@ -85,13 +85,18 @@ Per-kind field forms map 1:1 to §5; they reuse the topology editor's compact-ro
 
 Pickers draw from the live `store.config`:
 
-- **Property pickers** flatten each block's service-properties + measuring-points to `Block.Property` (and `Block.Service.Property` when ambiguous). For **`set` / setup** they are **filtered to writable** (`format.js`'s existing `isWritable`, driven by `schema.readOnly`) — read-only props and measuring points are excluded, matching the server's read-only-write 400. For **`expect` / `waitUntil` / `watch`** all observable members are offered, and **struct-typed members drill into their fields** (block → property → field), emitting `Block.Property.Field`.
+- **Property pickers** flatten each block's service-properties + measuring-points to `Block.Property` (and `Block.Service.Property` when ambiguous), **de-duplicated by name** — a member that is *both* `[ServiceProperty]` and `[ServiceMeasuringPoint]` (the dual-annotation gotcha, gated as two streams server-side per #104) appears **once** in the picker. For **`set` / setup** they are **filtered to writable** (`format.js`'s existing `isWritable`, driven by `schema.readOnly`) — read-only props and measuring points are excluded, matching the server's read-only-write 400. For **`expect` / `waitUntil` / `watch`** all observable members are offered, and **struct-typed members drill into their fields** (block → property → field), emitting `Block.Property.Field`.
 - **Contract pickers** (`serviceProviderSet` / `serviceProviderExpect`) enumerate the blocks' `[ServiceProviderContractType]` members → `{logicBlock, contract}`.
-- **Value editor — type-driven from the picked member's schema:** scalars / enum / bool / duration reuse the existing writable controls; **struct → a nested per-field form; array (incl. array-of-struct) → add/remove element rows**, each element edited per its element schema. Seeded from the schema→sample-value template `format.js` already builds. The value ships as JSON the server already accepts (the RFC 0010 struct-contract path).
+- **Value editor — type-driven from the picked member's schema:** scalars / enum / bool / duration reuse the existing writable controls; **struct → a nested per-field form (honoring nullable/optional fields — the value editor must let a nullable struct field be null/omitted, now that #105 emits them as nullable+optional); array (incl. array-of-struct) → add/remove element rows**, each element edited per its element schema. Seeded from the schema→sample-value template `format.js` already builds.
+- **Contract values have no schema in the config — a UI-only stopgap (decision Q1).** Service *properties* carry a full value `Schema`, but service-provider *contracts* carry only a type **token** (`ContractType`/`MatchingContractType`). So the value editor is **schema-presence-gated**: scalar contract families (DI/DO → bool, AI/AO → number) are form-driven by convention; a **non-scalar (struct/array) contract value falls back to a raw-JSON editor**. This special-casing lives **entirely in the SPA value-editor component — no C#/model changes.** It is written so that *if/when the introspection later exposes a value schema for service-provider contracts generally (for all SP messages), the same type-driven path lights up automatically and the raw-JSON fallback simply stops triggering* — the stopgap retires itself with no further UI work.
 
 ### 7.4 Assertion correctness ("use current value")
 
-Every `expect` / `waitUntil` / `serviceProviderExpect` row carries a **"use current value"** button that fills `equals` from the **live `store.values`** for the picked property/contract (navigating into the leaf for struct-field paths). Per principle 2 this reads the host's *current* state — for sequence-dependent asserts the author advances the host to the intended point first (the deferred run-to-step snapshot would automate this).
+Every `expect` / `waitUntil` / `serviceProviderExpect` row carries a **"use current value"** button that fills `equals` from the **live `store.values`** for the picked property/contract (navigating into the leaf for struct-field paths). Per principle 2 this reads the host's *current* state.
+
+- **Clock-mode hint (decision Q2).** A captured value is only *reproducible* on a **stepped** host (at a known virtual tick); on a real-clock host (the DevHost default) values move continuously and `advance`/`settle` wait wall-clock. The editor surfaces a one-line hint when capturing on a real-clock host ("values are live — switch to stepped for reproducible captures"), but does **not** hard-require stepped.
+- **Reaching the right state (decision Q5).** For sequence-dependent asserts the author drives/advances the host to the intended point, then captures — acceptable for v1. A cheap **"apply setup"** button (runs just the scenario's `setup`) gives a sane starting state without a full run; the deferred run-to-step snapshot automates the rest.
+- **`expect` form scope (decision Q4):** `equals` / `above` / `below` against a **literal** for v1 (what "use current value" fills); the compare-against-another-property *comparand* variant the resolver supports is **deferred**.
 
 ### 7.5 State & actions (`store.js`)
 
@@ -124,7 +129,7 @@ A small adjacent enhancement requested alongside: the live **`WatchPanel`** (Exp
 ## 10. Testing
 
 - **Tier 1 (headless smoke):** an **author→save→apply→`succeeded`** round-trip over `PUT` + `apply` (the read-only / id-mismatch guards are already covered on the scenario side).
-- **Tier 2 (live UI, chrome-devtools):** a devhost-smoke editor-flow checklist mirroring the topology one — ＋new → a setup `set` + a couple of steps + an `expect` filled via **"use current value"** (incl. a struct-field assert and a struct/array value set on `ShowcaseBlock`) → Save → Run → green. Tear down the authored file.
+- **Tier 2 (live UI, chrome-devtools):** a devhost-smoke editor-flow checklist mirroring the topology one — ＋new → a setup `set` + a couple of steps + an `expect` filled via **"use current value"** (incl. a struct-field assert and a struct/array value set on `ShowcaseBlock`) → Save → Run → green. Tear down the authored file. The merged **`Vion.Examples.Emission`** example (`SensorBlock` + a `ThreePhase` l1/l2/l3 struct + a committed `emission.scenario.json`) is a second realistic struct test bed — useful for exercising the struct-field assert + struct value editor against a real example (and a live poke target).
 - **Unit:** pure `scenario-forms.js` tests (kind field specs, per-kind validation incl. setup-only, struct-field path enumeration, type-driven value coercion).
 
 ## 11. Out of scope / phasing / follow-ups
@@ -132,6 +137,19 @@ A small adjacent enhancement requested alongside: the live **`WatchPanel`** (Exp
 - **Capture-from-driving (record mode)** — the natural follow-up once the form editor exists; capture live `set`/`advance`/assert actions in Explore into steps. "use current value" is its first sip.
 - **Run-to-step snapshot** — recycle + replay prior steps to snapshot a sequence-accurate assert value at the exact point.
 - **Run/iterate loop polish** — re-run from a step, richer inline failure surfacing beyond the trace.
+- **`expect` comparand-property variant** — `above`/`below` *another property*'s value (the resolver already supports it); v1 is literal-only.
+- **Service-provider contract value schema in introspection** — the general backend solution that would retire the Q1 raw-JSON stopgap: expose a value `Schema` for `[ServiceProviderContractType]` contracts (for *all* SP messages), at which point the schema-presence-gated value editor form-drives struct/array contract values automatically.
 - **Server-authoritative `POST /api/scenarios/validate`** — only if validate-without-write is wanted.
 
 Phasing: this is a single SPA-centric phase (no Phase-1 backend). It can ship independently of the RFC 0013 follow-ups.
+
+## 12. Resolved review questions (decision log)
+
+Resolved during review (folded into §5–§11 above):
+
+- **Q1 — `serviceProviderSet`/`Expect` value editor for non-scalar contracts.** Contracts expose only a type token, not a value schema. **Decision:** form-drive scalar contract families by convention; **raw-JSON fallback for struct/array contract values, entirely UI-side (schema-presence-gated), no backend special-casing** — it auto-retires when the introspection exposes contract value schemas generally (§11). (§7.3)
+- **Q2 — stepped vs real-clock authoring.** **Decision:** author in either mode; surface a hint that captures are reproducible only on a stepped host; don't hard-require it. (§7.4)
+- **Q3 — editing a scenario whose topology ≠ the running one.** **Decision:** Edit/Clone auto-recycles the host onto the scenario's topology first (RFC 0013 switch). (§7.1)
+- **Q4 — `expect` comparand.** **Decision:** literal `equals`/`above`/`below` for v1; defer the compare-to-another-property comparand. (§7.4, §11)
+- **Q5 — assert-capture ergonomics.** **Decision:** manual advance + "use current value" for v1, plus a cheap "apply setup" button; run-to-step deferred. (§7.4)
+- **Merge (#104/#105/#106):** picker **de-dupes dual-annotated members** (§7.3); value editor **honors nullable/optional struct fields** (§7.3); the **`Vion.Examples.Emission`** `SensorBlock`/`ThreePhase` is a second struct test bed (§10).
