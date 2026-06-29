@@ -496,7 +496,27 @@ export async function initStore() {
     await loadScenarios();
     window.addEventListener('hashchange', applyHash);
     applyHash();
+    // Q3 re-entry: editScenarioDraft on a foreign topology parks the edit intent then recycles via a full
+    // page reload (switchTopology). We're now booted on the (matching) topology — consume the parked intent
+    // and re-enter the editor. Runs after store.topologyName is set + applyHash, so editScenarioDraft sees
+    // file.topology === store.topologyName and does NOT recycle again.
+    consumeEditAfterRecycle();
     await connectHub();
+}
+
+// Read + clear the parked Q3 edit intent and re-open the editor on it. Best-effort: a missing/garbled key
+// or unavailable sessionStorage is a no-op (worst case the user re-clicks Edit on the landed topology).
+function consumeEditAfterRecycle() {
+    let parked = null;
+    try {
+        parked = sessionStorage.getItem('dale.scenario.editAfterRecycle');
+        sessionStorage.removeItem('dale.scenario.editAfterRecycle');
+    } catch { return; }
+    if (!parked) return;
+    try {
+        const intent = JSON.parse(parked);
+        if (intent && intent.id) editScenarioDraft(intent.id, { asClone: !!intent.asClone });
+    } catch { /* garbled park — ignore */ }
 }
 
 async function primeInitialValues() {
@@ -834,6 +854,11 @@ export async function editScenarioDraft(id, { asClone = false } = {}) {
     if (!res.ok) { showError(`Could not load scenario '${id}'`); return; }
     const file = JSON.parse(await res.text());
     if (file.topology && file.topology !== store.topologyName) {
+        // Q3: switchTopology recycles onto the scenario's topology with a FULL PAGE RELOAD (window.location
+        // .assign('/')), so the edit intent is lost across the reload. Park it in sessionStorage; initStore
+        // consumes it on boot once the host is on the matching topology, re-entering the editor (no second
+        // recycle). See the consumeEditAfterRecycle hook in initStore.
+        try { sessionStorage.setItem('dale.scenario.editAfterRecycle', JSON.stringify({ id, asClone })); } catch { /* sessionStorage unavailable — re-entry is best-effort */ }
         await switchTopology(file.topology);   // recycles + reloads onto the scenario's topology (RFC 0013)
         return;                                 // the reload re-enters the editor fresh; see Task 7 deep-link note
     }

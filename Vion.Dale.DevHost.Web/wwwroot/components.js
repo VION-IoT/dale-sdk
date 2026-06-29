@@ -15,10 +15,10 @@ import {
 } from './format.js';
 import {
     applyScenario, baselineDelta, buildSharedContractLookup, changedCountForBlock,
-    changedSinceBaseline, clearBaseline, clearPins, cloneTopology, closeScenario, closeTopologyEditor, collapseKey, connectionsForLb,
-    advanceHost, driveContract, editTopology, halKey, historyFor, isPinned, judgeKey, loadTopologies, newTopology, openScenario, openTopologyDetail, openTopologyList, pauseHost, resetHost, resumeHost, stepHost,
-    saveTopologyDraft, setBaseline, setJudgeTick, setProperty, showError, store,
-    switchClockMode, switchTopology, toggleCollapsed, togglePin, validateTopologyDraft, valueKey,
+    changedSinceBaseline, clearBaseline, clearPins, cloneTopology, closeScenario, closeScenarioEditor, closeTopologyEditor, collapseKey, connectionsForLb,
+    advanceHost, driveContract, editScenarioDraft, editTopology, halKey, historyFor, isPinned, judgeKey, loadTopologies, newScenarioDraft, newTopology, openScenario, openTopologyDetail, openTopologyList, pauseHost, resetHost, resumeHost, stepHost,
+    saveScenarioDraft, saveTopologyDraft, setBaseline, setJudgeTick, setProperty, showError, store,
+    switchClockMode, switchTopology, toggleCollapsed, togglePin, validateScenarioDraft, validateTopologyDraft, valueKey,
 } from './store.js';
 import { allowsMultiple, autoConnect, problemsOf, residueOf } from './wiring.js';
 
@@ -1917,8 +1917,88 @@ const ScenarioTrace = {
     `,
 };
 
+// ── scenario editor (RFC 0014, Task 7): the authoring surface for a scenario file. THIS IS THE SHELL —
+// the four section bodies (setup / steps / watch / judge) + their step rows, pickers and value editors
+// land in Tasks 8–11; here we build only the id input (draft+dirty), section placeholders so the layout
+// is visible, and the footer toolbar (validate / save / save & run / cancel) + the error display. Mirrors
+// TopologyEditor's structure and .topo-* / theme-toggle vocabulary so Task 8's CSS reuses it.
+const ScenarioEditor = {
+    setup() {
+        const draft = computed(() => store.scenarioDraft);
+        // id is the one live-bound field in the shell; touching it dirties the draft (draft+dirty pattern).
+        const onIdInput = () => { store.scenarioDraftDirty = true; };
+        const close = () => closeScenarioEditor();
+
+        // validate flips a one-shot "did a validate just run" flag so a clean pass shows a green pill
+        // (errors-empty alone is the resting state, not a success signal) — same shape as TopologyEditor.
+        const validated = ref(false);
+        const errors = computed(() => store.scenarioDraftErrors || []);
+        const hasErrors = computed(() => errors.value.length > 0);
+        const showValid = computed(() => validated.value && errors.value.length === 0);
+        const dirty = computed(() => store.scenarioDraftDirty);
+        const validate = () => { validateScenarioDraft(); validated.value = true; };
+        const save = async () => { validated.value = false; await saveScenarioDraft(); };
+        // save & run: persist, then recycle-on-run against the saved id (applyScenario handles the topology
+        // recycle if needed). Capture the id before save — saveScenarioDraft re-enters Detail and may clear
+        // the draft by the time it resolves.
+        const saveAndRun = async () => {
+            validated.value = false;
+            const id = draft.value && draft.value.id;
+            const ok = await saveScenarioDraft();
+            if (ok && id) applyScenario(id);
+        };
+        // Any id edit invalidates a prior validate verdict (the section bodies in Tasks 8–11 will widen
+        // this watch to the rest of the draft).
+        watch(() => draft.value && draft.value.id, () => { validated.value = false; });
+
+        return { draft, onIdInput, close, errors, hasErrors, showValid, dirty, validate, save, saveAndRun };
+    },
+    template: `
+        <div class="topo-panel" v-if="draft">
+            <div class="topo-row topo-editor-head">
+                <button type="button" class="theme-toggle" title="back — close the editor" @click="close">← back</button>
+                <h2 class="mono">scenario editor</h2>
+                <span class="item-spacer"></span>
+                <button type="button" class="theme-toggle" title="close the editor" @click="close">✕</button>
+            </div>
+
+            <div class="topo-row topo-editor-head">
+                <span class="topo-meta">id</span>
+                <input type="text" class="topo-id-input" placeholder="scenario id" v-model="draft.id" @input="onIdInput"/>
+            </div>
+
+            <h3 class="topo-section">setup</h3>
+            <div class="topo-meta">setup step rows land in Task 8–11</div>
+
+            <h3 class="topo-section">steps</h3>
+            <div class="topo-meta">step rows land in Task 8–11</div>
+
+            <h3 class="topo-section">watch</h3>
+            <div class="topo-meta">watch path rows land in Task 8–11</div>
+
+            <h3 class="topo-section">judge</h3>
+            <div class="topo-meta">judge rows land in Task 8–11</div>
+
+            <div class="topo-row topo-footer">
+                <button type="button" class="theme-toggle" @click="validate">validate</button>
+                <span v-if="showValid" class="severity-pill success">valid</span>
+                <span class="item-spacer"></span>
+                <button type="button" class="theme-toggle" title="discard and close the editor" @click="close">cancel</button>
+                <button type="button" class="theme-toggle" :disabled="!dirty" title="save this scenario file" @click="save">save</button>
+                <button type="button" class="theme-toggle" title="save, then run this scenario (recycles the host onto its topology)" @click="saveAndRun">save &amp; run</button>
+            </div>
+            <div v-if="hasErrors" class="topo-errors">
+                <div v-for="(err, i) in errors" :key="i" class="topo-row topo-error-row">
+                    <span class="severity-pill error">error</span>
+                    <span class="topo-meta">{{ err }}</span>
+                </div>
+            </div>
+        </div>
+    `,
+};
+
 export const PlayerPanel = {
-    components: { PlayerStep, ScenarioWatchTile, ScenarioTrace },
+    components: { PlayerStep, ScenarioWatchTile, ScenarioTrace, ScenarioEditor },
     setup() {
         const entries = computed(() => (store.scenarios && store.scenarios.scenarios) || []);
         const directory = computed(() => (store.scenarios && store.scenarios.directory) || '');
@@ -2024,11 +2104,24 @@ export const PlayerPanel = {
             tagFilter.value ? entries.value.filter(e => (e.specs || []).includes(tagFilter.value)) : entries.value);
         const toggleTag = t => { tagFilter.value = tagFilter.value === t ? null : t; };
 
+        // Authoring (Task 7): ＋new on the list, ✎Edit / ⧉Clone on an open scenario — all gated to a
+        // writable host (readOnly hides them), mirroring the topology editor's gate. The open-scenario
+        // view is a router on store.scenarioScreen: 'editor' shows the ScenarioEditor, anything else the
+        // read-only run view. Screen state lives in the store (not a local ref) so a navigation that flips
+        // it before this panel mounts still lands on the right screen.
+        const canEdit = computed(() => !(store.scenarios && store.scenarios.readOnly));
+        const scenarioScreen = computed(() => store.scenarioScreen);
+        const editing = computed(() => store.scenarioScreen === 'editor');
+        const createDraft = () => newScenarioDraft();
+        const editScenario = () => editScenarioDraft(store.scenarioId);
+        const cloneScenario = () => editScenarioDraft(store.scenarioId, { asClone: true });
+
         return {
             store, entries, directory, scenario, run, running, mismatch, mismatchText, setupSteps,
             steps, judge, statusClass, staleRun, runLabel, heading, entryError, start, tick,
             tickState, copyReport, reload, open: openScenario, close: closeScenario,
             tagFilter, allTags, filteredEntries, toggleTag,
+            canEdit, scenarioScreen, editing, createDraft, editScenario, cloneScenario,
         };
     },
     template: `
@@ -2038,6 +2131,8 @@ export const PlayerPanel = {
                     <h2>scenarios</h2>
                     <span class="item-spacer"></span>
                     <span class="block-counts">{{ entries.length }} discovered · {{ directory }}</span>
+                    <button v-if="canEdit" type="button" class="theme-toggle" title="author a new scenario"
+                            @click="createDraft">＋ new</button>
                 </div>
                 <div v-if="allTags.length" class="scenario-tags">
                     <span class="scenario-tags-label">tag</span>
@@ -2058,6 +2153,7 @@ export const PlayerPanel = {
                     <code v-else class="topology-chip">{{ e.topology }}</code>
                 </button>
             </section>
+            <ScenarioEditor v-else-if="editing"/>
             <section v-else class="block-card">
                 <div class="block-header">
                     <button type="button" class="theme-toggle" title="back to the scenario list (Esc)" @click="close">←</button>
@@ -2067,6 +2163,8 @@ export const PlayerPanel = {
                     <span v-if="staleRun" class="stale-chip" title="the file on disk no longer matches the file this run executed — the report below is about the older version">file changed since this run</span>
                     <span v-if="run" class="run-status" :class="statusClass">{{ run.status }}</span>
                     <button type="button" class="theme-toggle" title="re-read the file from disk" @click="reload">⟳</button>
+                    <button v-if="canEdit" type="button" class="theme-toggle" title="edit this scenario in place" @click="editScenario">✎ edit</button>
+                    <button v-if="canEdit" type="button" class="theme-toggle" title="clone this scenario into a new file" @click="cloneScenario">⧉ clone</button>
                     <button type="button" class="trigger-button"
                             :title="running ? 'cancel the active run and start over' : 'run this scenario'"
                             @click="start()">{{ runLabel }}</button>
