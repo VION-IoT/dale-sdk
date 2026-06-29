@@ -38,6 +38,7 @@ jobs:
           - Vion.Examples.ModbusRtu
           - Vion.Examples.Presentation
           - Vion.Examples.RichTypes
+          - Vion.Examples.Emission
     steps:
       - uses: actions/checkout@v4
 

@@ -169,7 +169,7 @@ off under the scenario clock).
 > confirm the name/shape against `Vion.Dale.Sdk.TestKit` before writing `SensorBlockShould.cs`. If it
 > differs, adapt the test; the rest of the design is unaffected.
 
-### Wiring (4 must-update registration sites)
+### Wiring (5 must-update registration sites)
 
 1. **`Vion.Dale.Sdk.sln`** — add the 3 projects under an `examples` solution folder. Use
    `dotnet sln Vion.Dale.Sdk.sln add <csproj>` to get correct GUIDs/config rows, then nest under the
@@ -179,7 +179,11 @@ off under the scenario clock).
    `$exampleMainProjectsWithVersion`.
 3. **`scripts/pack-examples.ps1`** — add the library csproj to `$projects` (pack/publish it, like
    `RichTypes`).
-4. **Per-example `Vion.Examples.Emission.sln`** — flat 3-project sln, Debug/Release|Any CPU only.
+4. **`.github/workflows/examples.yml`** — add `Vion.Examples.Emission` to the **`upload-test`** matrix.
+   This is what actually publishes the example to the Cloud *test* environment (`dale upload` on every
+   `main` push touching `examples/**`, RFC 0009). Do **NOT** add it to `detect-prod`/`upload-prod` — those
+   are onboarding-only (Energy/ToggleLight/PingPong); this showcase is test-only, like ModbusRtu/Presentation/RichTypes.
+5. **Per-example `Vion.Examples.Emission.sln`** — flat 3-project sln, Debug/Release|Any CPU only.
 
 ## Verification (full)
 
