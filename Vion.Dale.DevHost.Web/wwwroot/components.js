@@ -21,6 +21,7 @@ import {
     switchClockMode, switchTopology, toggleCollapsed, togglePin, validateScenarioDraft, validateTopologyDraft, valueKey,
 } from './store.js';
 import { allowsMultiple, autoConnect, problemsOf, residueOf } from './wiring.js';
+import { kindOf, SETUP_KIND_IDS, STEP_KIND_IDS } from './scenario-forms.js';
 
 // Filter tokens, shared by every component that narrows to matches.
 const filterTokens = computed(() => parseFilter(store.filter));
@@ -1917,12 +1918,57 @@ const ScenarioTrace = {
     `,
 };
 
+// ── SectionList (Task 8): a generic reorderable list with insert-anywhere / ↑ / ↓ / remove. ────────
+// Props: rows (array), label (string), canAdd (bool). Emits: add(index), remove(index), move(index, dir).
+// The component holds NO state and does NO array mutation — it only emits; the parent owns the array.
+// The default slot receives { row, index } so the parent can supply custom row bodies.
+const SectionList = {
+    props: {
+        rows: { type: Array, default: () => [] },
+        label: { type: String, default: '' },
+        canAdd: { type: Boolean, default: true },
+    },
+    emits: ['add', 'remove', 'move'],
+    setup(props, { emit }) {
+        const lastIndex = computed(() => props.rows.length - 1);
+        const onAdd = index => emit('add', index);
+        const onRemove = index => emit('remove', index);
+        const onMoveUp = index => emit('move', index, -1);
+        const onMoveDown = index => emit('move', index, 1);
+        return { lastIndex, onAdd, onRemove, onMoveUp, onMoveDown };
+    },
+    template: `
+        <div class="section-list">
+            <div v-if="canAdd" class="insert-between" @click="onAdd(0)" title="insert at the start">
+                <span class="insert-label">+ insert</span>
+            </div>
+            <template v-for="(row, i) in rows" :key="i">
+                <div class="section-list-row topo-row">
+                    <div class="section-list-body">
+                        <slot :row="row" :index="i"/>
+                    </div>
+                    <div class="section-move">
+                        <button type="button" class="theme-toggle" title="move up" :disabled="i === 0" @click="onMoveUp(i)">↑</button>
+                        <button type="button" class="theme-toggle" title="move down" :disabled="i === lastIndex" @click="onMoveDown(i)">↓</button>
+                        <button type="button" class="theme-toggle" title="remove" @click="onRemove(i)">✕</button>
+                    </div>
+                </div>
+                <div v-if="canAdd" class="insert-between" @click="onAdd(i + 1)" :title="'insert after row ' + (i + 1)">
+                    <span class="insert-label">+ insert</span>
+                </div>
+            </template>
+            <div v-if="!rows.length" class="topo-meta section-list-empty">no entries — use + insert to add one</div>
+        </div>
+    `,
+};
+
 // ── scenario editor (RFC 0014, Task 7): the authoring surface for a scenario file. THIS IS THE SHELL —
 // the four section bodies (setup / steps / watch / judge) + their step rows, pickers and value editors
 // land in Tasks 8–11; here we build only the id input (draft+dirty), section placeholders so the layout
 // is visible, and the footer toolbar (validate / save / save & run / cancel) + the error display. Mirrors
 // TopologyEditor's structure and .topo-* / theme-toggle vocabulary so Task 8's CSS reuses it.
 const ScenarioEditor = {
+    components: { SectionList },
     setup() {
         const draft = computed(() => store.scenarioDraft);
         // id is the one live-bound field in the shell; touching it dirties the draft (draft+dirty pattern).
@@ -1948,11 +1994,67 @@ const ScenarioEditor = {
             const ok = await saveScenarioDraft();
             if (ok && id) applyScenario(id);
         };
-        // Any id edit invalidates a prior validate verdict (the section bodies in Tasks 8–11 will widen
-        // this watch to the rest of the draft).
+        // Any draft mutation (id change or section-list mutations below) invalidates a prior validate verdict.
         watch(() => draft.value && draft.value.id, () => { validated.value = false; });
 
-        return { draft, onIdInput, close, errors, hasErrors, showValid, dirty, validate, save, saveAndRun };
+        // ── blank-row factories for each section ───────────────────────────────
+        // setup: a set step (the only shape legal in setup, per SETUP_KIND_IDS).
+        // steps: advance 1 s (a safe default shape that never needs a property path).
+        // watch: a plain string (the name-path format the server expects).
+        // judge: { text } (the text is the human-readable checklist item).
+        const blankFor = section => {
+            if (section === 'setup') return { set: '', value: null };
+            if (section === 'steps') return { advance: { seconds: 1 } };
+            if (section === 'watch') return '';
+            return { text: '' };
+        };
+
+        // ── SectionList event handlers: mutate the draft array and mark dirty ──
+        // Vue 3 reactive arrays: splice is fully reactive — no need for full replacement.
+        const insertAt = (section, index) => {
+            if (!draft.value) return;
+            draft.value[section].splice(index, 0, blankFor(section));
+            store.scenarioDraftDirty = true;
+            validated.value = false;
+        };
+        const removeAt = (section, index) => {
+            if (!draft.value) return;
+            draft.value[section].splice(index, 1);
+            store.scenarioDraftDirty = true;
+            validated.value = false;
+        };
+        const moveRow = (section, index, dir) => {
+            if (!draft.value) return;
+            const arr = draft.value[section];
+            const target = index + dir;
+            if (target < 0 || target >= arr.length) return;
+            const [removed] = arr.splice(index, 1);
+            arr.splice(target, 0, removed);
+            store.scenarioDraftDirty = true;
+            validated.value = false;
+        };
+
+        // ── watch/judge inline-input helpers ──────────────────────────────────
+        // watch rows are plain strings; Vue can't v-model an array slot by index directly in a
+        // template expression, so we provide these named helpers instead.
+        const onWatchInput = (index, value) => {
+            if (!draft.value) return;
+            draft.value.watch.splice(index, 1, value);
+            store.scenarioDraftDirty = true;
+            validated.value = false;
+        };
+        const onJudgeInput = (index, value) => {
+            if (!draft.value) return;
+            draft.value.judge[index].text = value;
+            store.scenarioDraftDirty = true;
+            validated.value = false;
+        };
+
+        return {
+            draft, onIdInput, close, errors, hasErrors, showValid, dirty, validate, save, saveAndRun,
+            insertAt, removeAt, moveRow, onWatchInput, onJudgeInput,
+            kindOf, SETUP_KIND_IDS, STEP_KIND_IDS,
+        };
     },
     template: `
         <div class="topo-panel" v-if="draft">
@@ -1969,16 +2071,50 @@ const ScenarioEditor = {
             </div>
 
             <h3 class="topo-section">setup</h3>
-            <div class="topo-meta">setup step rows land in Task 8–11</div>
+            <SectionList :rows="draft.setup" label="setup" :canAdd="true"
+                         @add="insertAt('setup', $event)"
+                         @remove="removeAt('setup', $event)"
+                         @move="(idx, dir) => moveRow('setup', idx, dir)">
+                <template #default="{ row }">
+                    <span class="mono topo-meta">{{ kindOf(row) }}</span>
+                    <span class="topo-meta section-placeholder-note">row editor: Task 9</span>
+                </template>
+            </SectionList>
 
             <h3 class="topo-section">steps</h3>
-            <div class="topo-meta">step rows land in Task 8–11</div>
+            <SectionList :rows="draft.steps" label="steps" :canAdd="true"
+                         @add="insertAt('steps', $event)"
+                         @remove="removeAt('steps', $event)"
+                         @move="(idx, dir) => moveRow('steps', idx, dir)">
+                <template #default="{ row }">
+                    <span class="mono topo-meta">{{ kindOf(row) }}</span>
+                    <span class="topo-meta section-placeholder-note">row editor: Task 9</span>
+                </template>
+            </SectionList>
 
             <h3 class="topo-section">watch</h3>
-            <div class="topo-meta">watch path rows land in Task 8–11</div>
+            <SectionList :rows="draft.watch" label="watch" :canAdd="true"
+                         @add="insertAt('watch', $event)"
+                         @remove="removeAt('watch', $event)"
+                         @move="(idx, dir) => moveRow('watch', idx, dir)">
+                <template #default="{ row, index }">
+                    <input type="text" class="section-watch-input" placeholder="Block.Property"
+                           :value="row"
+                           @input="onWatchInput(index, $event.target.value)"/>
+                </template>
+            </SectionList>
 
             <h3 class="topo-section">judge</h3>
-            <div class="topo-meta">judge rows land in Task 8–11</div>
+            <SectionList :rows="draft.judge" label="judge" :canAdd="true"
+                         @add="insertAt('judge', $event)"
+                         @remove="removeAt('judge', $event)"
+                         @move="(idx, dir) => moveRow('judge', idx, dir)">
+                <template #default="{ row, index }">
+                    <input type="text" class="section-judge-input" placeholder="human-readable checklist item"
+                           :value="row.text"
+                           @input="onJudgeInput(index, $event.target.value)"/>
+                </template>
+            </SectionList>
 
             <div class="topo-row topo-footer">
                 <button type="button" class="theme-toggle" @click="validate">validate</button>

@@ -319,6 +319,60 @@ body {
 .topo-problems-head { font-size: 11.5px; font-weight: var(--vion-font-weight-emphasized); color: var(--vion-error-fg-def-primary); }
 .topo-problem-msg { font-size: 11px; color: var(--text-dim); }
 
+/* ── SectionList (Task 8): reorderable rows with insert-between + ↑↓✕ ───── */
+
+/* Outer wrapper: no extra spacing — the inner .topo-row rows supply their own border-top */
+.section-list { display: flex; flex-direction: column; }
+
+/* Each list row: the row body stretches, the control cluster is fixed to the right */
+.section-list-row { gap: 6px; }
+.section-list-body { flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 6px; overflow: hidden; }
+
+/* ↑ ↓ ✕ cluster — compact, muted until hover */
+.section-move { display: flex; gap: 2px; flex-shrink: 0; }
+.section-move .theme-toggle {
+    padding: 2px 6px;
+    font-size: 11px;
+    color: var(--text-faint);
+    border-color: transparent;
+}
+.section-move .theme-toggle:hover { color: var(--text); border-color: var(--border); }
+.section-move .theme-toggle:disabled { opacity: 0.3; cursor: default; }
+.section-move .theme-toggle:disabled:hover { color: var(--text-faint); border-color: transparent; }
+
+/* "+ insert" affordance: a thin full-width clickable line between rows and at the ends */
+.insert-between {
+    display: flex;
+    align-items: center;
+    height: 14px;
+    cursor: pointer;
+    color: var(--text-faint);
+    font-size: 10px;
+    opacity: 0;
+    transition: opacity 0.12s;
+}
+.insert-between:hover { opacity: 1; color: var(--accent); }
+.section-list:hover .insert-between { opacity: 0.4; }
+.section-list:hover .insert-between:hover { opacity: 1; }
+.insert-label { padding: 0 4px; white-space: nowrap; }
+.insert-between::before, .insert-between::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: currentColor;
+}
+.insert-between::before { margin-right: 4px; }
+.insert-between::after { margin-left: 4px; }
+
+/* Empty-state note when a section has no rows yet */
+.section-list-empty { padding: 4px 2px; }
+
+/* Placeholder note for setup / steps rows (body is Task 9) */
+.section-placeholder-note { font-style: italic; color: var(--text-faint); font-size: 11px; }
+
+/* Watch and judge inline inputs: fill the available body width */
+.section-watch-input, .section-judge-input { flex: 1 1 0; min-width: 0; font-family: var(--mono); font-size: 12px; }
+
 .error-toast {
     position: fixed;
     top: 52px;
