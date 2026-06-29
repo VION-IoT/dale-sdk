@@ -1,19 +1,23 @@
 # Vion.Examples.Emission
 
 A one-block showcase of the **RFC 0004 emission policy** — the throttle / deadband / dedup knobs you put on
-`[ServiceProperty]` and `[ServiceMeasuringPoint]` to cut MQTT chatter from fast-moving telemetry. `SensorBlock`
-exposes one member per knob, and two of them are **writable** so you can drive the gate by hand in the DevHost UI.
+`[ServiceProperty]` and `[ServiceMeasuringPoint]` to cut MQTT chatter from fast-moving telemetry.
 
-## The knobs
+**Emission policy governs the outbound direction** — how a block re-publishes its *own* measured state. A
+write *into* a writable property is always forwarded (applied immediately), so throttle/deadband belong on
+**read-only computed/sensed values**, not on operator inputs. `SensorBlock` reflects that: `Setpoint` is a
+plain writable input, and every gated member is a read-only reading.
 
-| Member | Drive? | Knobs | DevHost badge | Shows |
+## The members
+
+| Member | Direction | Knobs | DevHost badge | Shows |
 |---|---|---|---|---|
-| `Setpoint` | writable | `MinInterval="0", MinChange="0.5"` | `deadband Δ0.5` | deadband only — sub-Δ0.5 changes are dropped |
-| `Current` | writable | `MinInterval="0", MinChange="0.25"` + custom threshold | `deadband Δ0.25` | a custom `IChangeThreshold<ThreePhase>` for a non-built-in type |
-| `Temperature` | read-only | `MinInterval="2s", MinChange="0.5"` | `throttle 2s · Δ0.5` | throttle **and** deadband together |
-| `ThrottledEcho` | read-only | `MinInterval="3s"` | `throttle 3s` | time-throttle only (echoes `Setpoint`) |
+| `Setpoint` | writable input | *(none)* | *(no badge)* | a plain operator input — writes always forwarded |
+| `Reading` | read-only (tracks setpoint) | `MinInterval="0", MinChange="0.5"` | `deadband Δ0.5` | deadband — sub-Δ0.5 moves suppressed on the wire |
+| `PhaseCurrents` | read-only (tracks setpoint) | `MinInterval="0", MinChange="0.25"` + custom threshold | `deadband Δ0.25` | a custom `IChangeThreshold<ThreePhase>` for a non-built-in type |
+| `Temperature` | read-only (sensed) | `MinInterval="2s", MinChange="0.5"` | `throttle 2s · Δ0.5` | throttle **and** deadband together |
+| `Power` | read-only (sensed) | property `2s`; measuring-point `500ms + Δ1` | two badges | one value, two **independently** throttled streams |
 | `LiveTick` | read-only | `Immediate=true` | `immediate` | bypass — emits on every change |
-| `Power` | read-only | property `2s`; measuring-point `500ms + Δ1` | two badges | one value, two **independently** throttled streams |
 | `SampleCount` | read-only | *(none)* | *(no badge)* | the default 250 ms throttle — introspection omits the badge |
 
 ## Seeing it act — run in **free-run** (real clock)
@@ -29,14 +33,15 @@ dale dev          # real clock — emission policy is ACTIVE
 In the dashboard, a value chip **flashes only when a value passes the gate** — that flash is your tell for
 "emitted vs. suppressed".
 
-1. **Deadband (interactive):** type into `Setpoint` — `25.0` flashes, `25.3` (below Δ0.5) is dropped with no flash,
-   `25.6` flashes again. Same for `Current`: nudge a phase by < 0.25 → dropped; by ≥ 0.25 → emitted.
-2. **Throttle (watch it coalesce):** `Temperature`, `ThrottledEcho`, and `Power` move every second but only emit on
+1. **Deadband (interactive):** drive `Setpoint` — it updates instantly (writes are forwarded). The read-only
+   `Reading` tracks it, but **holds** when you nudge `Setpoint` by less than 0.5 (the sub-threshold re-emission is
+   suppressed) and jumps once a change clears Δ0.5. `PhaseCurrents` does the same at Δ0.25. This is the whole point:
+   the write lands, the *re-emission* is deadbanded.
+2. **Throttle (watch it coalesce):** `Temperature` and `Power` move on their own every second but only emit on
    their interval — watch them hold and update in steps, next to `LiveTick` flashing every single tick.
-3. **Drive the echo:** change `Setpoint` and watch `ThrottledEcho` follow it, but lagging on its 3 s throttle.
 
-There is no slider in the current UI (the number field commits one write on blur/Enter), so the *time throttle* is
-best watched on the auto-moving signals rather than hand-typed; the *deadband* is the fully hand-drivable one.
+There is no slider in the current UI (the number field commits one write on blur/Enter), so the *throttle* is best
+watched on the auto-moving sensed signals; the *deadband* is the one you drive by hand via `Setpoint`.
 
 ## Verify it deterministically
 
@@ -44,9 +49,9 @@ best watched on the auto-moving signals rather than hand-typed; the *deadband* i
 dotnet test examples/Vion.Examples.Emission/Vion.Examples.Emission.Test
 ```
 
-`SensorBlockShould` forces the policy on under a fake clock and asserts the gate: deadband drops sub-threshold
-changes, the dedup floor drops equal values, `Immediate` bypasses, the custom threshold resolves, and `Power`'s two
-streams throttle independently.
+`SensorBlockShould` forces the policy on under a fake clock and asserts the gate on the read-only readings:
+deadband drops sub-threshold moves, the dedup floor drops unchanged values, `Immediate` bypasses, the custom
+threshold resolves, and `Power`'s two streams throttle independently.
 
 ## See also
 

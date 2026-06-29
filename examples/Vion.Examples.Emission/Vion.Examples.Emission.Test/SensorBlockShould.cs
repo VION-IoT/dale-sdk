@@ -9,11 +9,12 @@ using Xunit;
 namespace Vion.Examples.Emission.Test
 {
     /// <summary>
-    ///     Proves the RFC 0004 emission gate acts on <see cref="SensorBlock" />'s declarations. The TestKit's
+    ///     Proves the RFC 0004 emission gate acts on <see cref="SensorBlock" />'s read-only readings. The TestKit's
     ///     <c>WithEmissionPolicy(EmissionPolicyMode.FromAttributes)</c> forces the policy on under the fake clock
-    ///     (it is off by default for deterministic tests), so <c>AdvanceTime</c> drives throttling and
-    ///     <c>VerifyServicePropertyEmitted</c> counts post-gate emissions. The seed value is uncounted; the first
-    ///     distinct post-seed change is the leading-edge emit.
+    ///     (it is off by default for deterministic tests). The emission policy governs the OUTBOUND direction, so
+    ///     the gated members are read-only; the tests drive them by writing the plain <see cref="SensorBlock.Setpoint" />
+    ///     input (always forwarded) and running <c>OnTick</c>, then count post-gate emissions. The seed value is
+    ///     uncounted; the first distinct post-seed change is the leading-edge emit.
     /// </summary>
     public class SensorBlockShould
     {
@@ -24,58 +25,54 @@ namespace Vion.Examples.Emission.Test
         }
 
         [Fact]
-        public void DropAnEqualSetpointViaTheDedupFloor()
+        public void DropAnUnchangedReadingViaTheDedupFloor()
         {
             var ctx = WithPolicyOn(out var block);
 
-            block.Setpoint = 40.0; // emit (1)
-            block.Setpoint = 40.0; // equal -> always-on dedup floor drops it
+            block.Setpoint = 40.0;
+            block.OnTick(); // Reading = 40 -> emit (1)
+            block.OnTick(); // Reading = 40 again (setpoint unchanged) -> dedup floor drops it
 
-            ctx.VerifyServicePropertyEmitted(lb => lb.Setpoint, times: Times.Once());
+            ctx.VerifyServiceMeasuringPointEmitted(lb => lb.Reading, times: Times.Once());
         }
 
         [Fact]
-        public void DropCurrentChangesBelowTheCustomDeadband()
+        public void DropThePhaseCurrentsBelowTheCustomDeadband()
         {
             var ctx = WithPolicyOn(out var block);
 
-            block.Current = new ThreePhase(10.0, 10.0, 10.0); // Δ vs seed (0,0,0) -> emit (1)
-            block.Current = new ThreePhase(10.1, 10.0, 10.0); // Δ0.1 < 0.25 -> dropped
+            block.Setpoint = 10.0;
+            block.OnTick(); // PhaseCurrents = (10,10,10) -> emit (1)
+            block.Setpoint = 10.1;
+            block.OnTick(); // each phase Δ0.1 < 0.25 -> dropped by the custom threshold
 
-            ctx.VerifyServicePropertyEmitted(lb => lb.Current, times: Times.Once());
+            ctx.VerifyServiceMeasuringPointEmitted(lb => lb.PhaseCurrents, times: Times.Once());
         }
 
         [Fact]
-        public void DropSetpointChangesBelowTheDeadband()
+        public void DropTheReadingWhenTheSetpointMovesBelowTheDeadband()
         {
             var ctx = WithPolicyOn(out var block);
 
-            block.Setpoint = 26.0; // Δ vs seed 25.0 = 1.0 >= 0.5 -> leading-edge emit
-            block.Setpoint = 26.2; // Δ vs last-emitted 26.0 = 0.2 < 0.5 -> dropped
+            block.Setpoint = 26.0;
+            block.OnTick(); // Reading = 26 -> leading-edge emit
+            block.Setpoint = 26.2;
+            block.OnTick(); // Reading = 26.2, Δ vs last-emitted 26 = 0.2 < 0.5 -> dropped
 
-            ctx.VerifyServicePropertyEmitted(lb => lb.Setpoint, times: Times.Once());
+            ctx.VerifyServiceMeasuringPointEmitted(lb => lb.Reading, times: Times.Once());
         }
 
         [Fact]
-        public void EmitCurrentChangesThatClearTheCustomDeadband()
+        public void EmitThePhaseCurrentsWhenClearingTheCustomDeadband()
         {
             var ctx = WithPolicyOn(out var block);
 
-            block.Current = new ThreePhase(10.0, 10.0, 10.0); // emit (1)
-            block.Current = new ThreePhase(10.3, 10.0, 10.0); // Δ0.3 >= 0.25 -> emit (2)
+            block.Setpoint = 10.0;
+            block.OnTick(); // emit (1)
+            block.Setpoint = 10.3;
+            block.OnTick(); // each phase Δ0.3 >= 0.25 -> emit (2)
 
-            ctx.VerifyServicePropertyEmitted(lb => lb.Current, times: Times.Exactly(2));
-        }
-
-        [Fact]
-        public void EmitSetpointChangesThatClearTheDeadband()
-        {
-            var ctx = WithPolicyOn(out var block);
-
-            block.Setpoint = 26.0; // emit (1)
-            block.Setpoint = 26.8; // Δ0.8 >= 0.5 -> emit (2)
-
-            ctx.VerifyServicePropertyEmitted(lb => lb.Setpoint, times: Times.Exactly(2));
+            ctx.VerifyServiceMeasuringPointEmitted(lb => lb.PhaseCurrents, times: Times.Exactly(2));
         }
 
         [Fact]
@@ -104,22 +101,35 @@ namespace Vion.Examples.Emission.Test
         }
 
         [Fact]
-        public void ThrottleTheEchoWhileImmediateEmitsEveryChange()
+        public void EmitTheReadingWhenTheSetpointClearsTheDeadband()
         {
             var ctx = WithPolicyOn(out var block);
 
-            // Drive 12 distinct value changes across 3 virtual seconds (250 ms apart).
+            block.Setpoint = 26.0;
+            block.OnTick(); // emit (1)
+            block.Setpoint = 26.8;
+            block.OnTick(); // Δ0.8 >= 0.5 -> emit (2)
+
+            ctx.VerifyServiceMeasuringPointEmitted(lb => lb.Reading, times: Times.Exactly(2));
+        }
+
+        [Fact]
+        public void ThrottleTheTemperatureWhileImmediateEmitsEveryTick()
+        {
+            var ctx = WithPolicyOn(out var block);
+
+            // Drive 12 ticks across 3 virtual seconds (250 ms apart).
             for (var i = 0; i < 12; i++)
             {
                 block.OnTick();
                 ctx.AdvanceTime(TimeSpan.FromMilliseconds(250));
             }
 
-            // LiveTick is Immediate -> every change emits.
+            // LiveTick is Immediate -> every tick emits.
             ctx.VerifyServiceMeasuringPointEmitted(lb => lb.LiveTick, times: Times.Exactly(12));
 
-            // ThrottledEcho is throttled to 3 s -> the 12 rapid changes coalesce to far fewer.
-            ctx.VerifyServiceMeasuringPointEmitted(lb => lb.ThrottledEcho, times: Times.AtMost(3));
+            // Temperature is throttled to 2 s (+ Δ0.5) -> the 12 ticks coalesce to far fewer emissions.
+            ctx.VerifyServiceMeasuringPointEmitted(lb => lb.Temperature, times: Times.AtMost(4));
         }
     }
 }

@@ -84,29 +84,28 @@ examples/Vion.Examples.Emission/
   Vion.Examples.Emission.sln                 # flat 3-project sln (Debug/Release|Any CPU)
   topologies/default.topology.json           # single SensorBlock instance
   scenarios/emission.scenario.json           # validates value-production logic (+ scenarios/.dale/scenario.schema.json)
-  README.md                                  # short getting-started + knob table + free-run drive walkthrough (clock-mode, Setpoint deadband steps, watch-the-flash)
+  README.md                                  # short getting-started + member table + free-run drive walkthrough (clock-mode, drive Setpoint → Reading holds, watch-the-flash)
 ```
 
 ### `SensorBlock` — one property per emission feature
 
-A synthetic sensor driven by `[Timer(1)]` (1 s ticks) whose read-only values are **deterministic
-functions of tick count** (sine + a deterministic secondary-frequency "jitter"), so scenarios reproduce
-exactly while still giving throttle/deadband something to act on in free-run. Throttle intervals are set
-**longer than the 1 s tick** so the gate visibly coalesces multiple ticks into one emission. Two members
-are **writable** so the gate can be exercised interactively in the DevHost UI (see "Seeing it live").
+**Emission policy governs the outbound direction** — how a block re-publishes its own measured state. A
+write *into* a writable property is always forwarded (applied immediately), so throttle/deadband belong on
+**read-only computed/sensed values**, never on operator inputs (a deadband on a writable would make the
+block report a value different from the one just written). So the block has one **plain writable input**
+(`Setpoint`, no policy) and gates only **read-only readings**: `Reading`/`PhaseCurrents` *track* `Setpoint`
+(so driving it exercises their deadband), while `Temperature`/`Power` are sensed signals that move on their
+own (the auto throttle demo). Driven by `[Timer(1)]` (1 s ticks); the 2 s throttles hold ~2 ticks each.
 
-> Verify the `[Timer]` minimum granularity during implementation; the rule is *tick interval < throttle
-> interval* so coalescing is visible. If 1 s is the floor, the 2–3 s throttles below hold 1–2 ticks each.
-
-| Property | W/R | Knobs | DevHost badge | Demonstrates / interaction |
+| Member | Direction | Knobs | DevHost badge | Demonstrates / interaction |
 |---|---|---|---|---|
-| `Setpoint` | **writable** | `MinInterval="0", MinChange="0.5"` | `deadband Δ0.5` | **interactive deadband** — type sub-Δ0.5 values → dropped (no flash); type ≥Δ0.5 → flashes |
-| `Temperature` | read-only | `MinInterval="2s", MinChange="0.5"` | `throttle 2s · Δ0.5` | throttle **and** deadband together (auto, timer-driven) |
-| `ThrottledEcho` | read-only | `MinInterval="3s"` | `throttle 3s` | time-throttle only; echoes `Setpoint` + noise each tick → drive `Setpoint`, watch the echo lag; also auto-moves |
-| `LiveTick` | read-only | `Immediate=true` | `immediate` | ungated bypass — flashes every tick, the visual contrast to `ThrottledEcho` (doc-note: also the right knob for a bool safety flag, which has no magnitude to deadband) |
-| `SampleCount` | read-only | *(none)* | *(no badge)* | the default policy is already 250 ms; documents the invisible default |
-| `Power` | read-only | dual-annotated; property `MinInterval="2s"`, measuring-point `MinInterval="500ms", MinChange="1"` | two badges | **independent per-stream** throttling (the #104 fix) |
-| `Current` | read-only | `MinChange="0.25"` + registered `IChangeThreshold<ThreePhase>` | `deadband Δ0.25` | **custom** change-threshold discovery (DF-34) |
+| `Setpoint` | writable input | *(none)* | *(no badge)* | a plain operator input — the write is always forwarded |
+| `Reading` | read-only (tracks setpoint) | `MinInterval="0", MinChange="0.5"` | `deadband Δ0.5` | **interactive deadband** — drive `Setpoint` < 0.5 → `Reading` holds (re-emission suppressed); ≥ 0.5 → it jumps |
+| `PhaseCurrents` | read-only (tracks setpoint) | `MinInterval="0", MinChange="0.25"` + `IChangeThreshold<ThreePhase>` | `deadband Δ0.25` | **custom** change-threshold discovery (DF-34), also driven by `Setpoint` |
+| `Temperature` | read-only (sensed) | `MinInterval="2s", MinChange="0.5"` | `throttle 2s · Δ0.5` | throttle **and** deadband together (auto, timer-driven) |
+| `Power` | read-only (sensed) | dual-annotated; property `MinInterval="2s"`, measuring-point `MinInterval="500ms", MinChange="1"` | two badges | **independent per-stream** throttling (the #104 fix) |
+| `LiveTick` | read-only | `Immediate=true` | `immediate` | ungated bypass — emits every tick, the contrast to the throttled members (also the right knob for a bool safety flag, which can't deadband) |
+| `SampleCount` | read-only | *(none)* | *(no badge)* | the default 250 ms policy; introspection omits the badge |
 
 All knobs use valid duration/threshold tokens so the example stays clean of the DALE034–DALE039
 analyzer diagnostics.
@@ -128,19 +127,22 @@ smoke must use free-run (`dale dev` without `--stepped`, or the RFC 0012 clock-m
 
 Two interactions the example exposes:
 
-- **Deadband (crisp, fully interactive):** drive `Setpoint` in its number field — `25.0` flashes, `25.3`
-  (< Δ0.5) is dropped with no flash, `25.6` flashes. A driven write goes through the same gate as any
-  internal change ([`DevHostControl.cs:287-330`](../../Vion.Dale.DevHost/Control/DevHostControl.cs)).
-- **Throttle (auto-driven + echo):** the timer mutates `Temperature`/`ThrottledEcho`/`Power` every second
-  while their 2–3 s throttles emit less often — watch the chips hold and flash on the coalesced cadence,
-  next to `LiveTick` (`Immediate`) flashing every tick. Driving `Setpoint` also feeds `ThrottledEcho`, so
-  a burst of edits shows up gated.
+- **Deadband (interactive):** drive `Setpoint` — it updates instantly (the write is forwarded). The
+  read-only `Reading` tracks it but **holds** when you nudge `Setpoint` by < 0.5 (the sub-threshold
+  re-emission is suppressed — no flash) and jumps once a change clears Δ0.5; `PhaseCurrents` does the same
+  at Δ0.25. The write goes through; the *re-emission* is what's deadbanded
+  ([`DevHostControl.cs:287-330`](../../Vion.Dale.DevHost/Control/DevHostControl.cs)).
+- **Throttle (auto):** the timer moves `Temperature`/`Power` every second while their 2 s throttles emit
+  less often — watch the chips hold and flash on the coalesced cadence, next to `LiveTick` (`Immediate`)
+  flashing every tick. Hand-driving can't exercise a *time* throttle (no slider, and a write is forwarded
+  immediately), so the throttle is the auto demo and the deadband is the hand-driven one.
 
 **Constraint (documented, not worked around):** the SPA renders `uiHint=slider` as a plain number field
 that commits one write on blur/Enter — there is no slider drag, so a *time throttle* cannot be exercised by
-rapid hand-typing. Hence the throttle demo relies on the timer; the deadband demo is the hand-driven one.
-The `Vion.Dale.DevHost.SmokeHost` `ShowcaseBlock.Setpoint` (writable, `MinInterval=1s, MinChange=Δ0.1`)
-already proves this interaction pattern.
+rapid hand-typing. Hence the throttle demo relies on the timer; the deadband demo is the hand-driven one
+(drive the input, watch the read-only reading). (Note: the `SmokeHost`'s `ShowcaseBlock.Setpoint` carries
+throttle+deadband on a *writable* — that fixture is a value-shape/badge-coverage showcase, not the semantic
+model; this example deliberately keeps the policy on read-only readings.)
 
 ### Three teaching surfaces
 
@@ -187,12 +189,12 @@ off under the scenario clock).
 3. New example: `dotnet test` on `Vion.Examples.Emission.Test` (throttle/deadband/immediate/dedup/custom
    threshold all pass), and run `emission.scenario.json` under deterministic stepping.
 4. **Live DevHost smoke (Tier 2, chrome-devtools), in free-run / real-clock mode** — boot
-   `Vion.Examples.Emission.DevHost`, confirm the badges render as specified (`deadband Δ0.5` on `Setpoint`,
-   `throttle 2s · Δ0.5` on `Temperature`, `throttle 3s` on `ThrottledEcho`, `immediate` on `LiveTick`, two
-   badges on `Power`, `deadband Δ0.25` on `Current`, no badge on `SampleCount`). Then **exercise the gate**:
-   drive `Setpoint` with a sub-Δ0.5 step and confirm it is dropped (no flash) while a ≥Δ0.5 step flashes;
-   confirm the timer-driven throttled chips hold/coalesce while `LiveTick` flashes every tick. Use the
-   `devhost-smoke` skill. (Skip nothing to stepped mode — the gate is off there by design.)
+   `Vion.Examples.Emission.DevHost`, confirm the badges render as specified (`deadband Δ0.5` on `Reading`,
+   `deadband Δ0.25` on `PhaseCurrents`, `throttle 2s · Δ0.5` on `Temperature`, `immediate` on `LiveTick`,
+   two badges on `Power`, no badge on `Setpoint` or `SampleCount`). Then **exercise the gate**: drive
+   `Setpoint` by < 0.5 and confirm the read-only `Reading` holds (re-emission suppressed, no flash) while a
+   ≥ 0.5 step makes it jump; confirm the timer-driven throttled chips hold/coalesce while `LiveTick` flashes
+   every tick. Use the `devhost-smoke` skill. (Don't switch to stepped mode — the gate is off there by design.)
 5. `pwsh scripts/cleanup-code.ps1 -Changed`, review `git diff`, commit, before opening the PR.
 
 ## Risks
