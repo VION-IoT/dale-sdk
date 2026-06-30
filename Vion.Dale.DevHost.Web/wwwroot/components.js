@@ -1973,13 +1973,13 @@ const SectionList = {
     `,
 };
 
-// ── PropertyPicker (Task 9; autocomplete since the energy review): a Block.Property[.Field] name-path
-// picker over the running host's config. An <input> backed by a <datalist> of flattened, alphabetically
-// sorted paths from pathOptions(config, mode) — type-to-filter (so the long energy lists stay usable) with
-// struct fields as first-class entries (no separate sub-dropdown). `mode`: 'set' (writable wholes) /
-// 'assert' (scalars + struct leaves) / 'watch' (wholes + struct leaves). Free-form entry is allowed — a
-// bad path is caught by validation. Reads store.config ONLY — never fetches. Emits update:modelValue.
-let propertyPickerSeq = 0;
+// ── PropertyPicker (Task 9; ⌘K-style combobox since the energy review): a Block.Property[.Field] name-path
+// picker over the running host's config. An <input> with a dropdown that opens on focus and lists the
+// matching options as rows — each annotated, like the ⌘K palette, with its block · presentation group · live
+// value — narrowing as you type (↑/↓ + Enter, or click). `mode` selects the path set via pathOptions(): 'set'
+// (writable wholes) / 'assert' (scalars + struct leaves) / 'watch' (wholes + struct leaves); struct fields are
+// first-class rows (no sub-dropdown). Free-form entry is still allowed (the input keeps what you type — a bad
+// path is caught by validation). Reads store.config + store.values ONLY — never fetches. Emits update:modelValue.
 const PropertyPicker = {
     props: {
         modelValue: { type: String, default: '' },
@@ -1987,16 +1987,59 @@ const PropertyPicker = {
     },
     emits: ['update:modelValue'],
     setup(props, { emit }) {
-        const options = computed(() => pathOptions(store.config, props.mode));
-        const listId = 'sc-paths-' + (++propertyPickerSeq);   // unique per instance so each input has its own list
-        const onInput = e => emit('update:modelValue', e.target.value);
-        return { options, listId, onInput };
+        const open = ref(false);
+        const query = ref('');
+        const selected = ref(0);
+        const rootEl = ref(null);
+        // Each option carries the ⌘K-style metadata: its block, its presentation group, and its live value
+        // (a struct-field path inherits the parent member's group; currentValueFor reads the field leaf).
+        const all = computed(() => pathOptions(store.config, props.mode).map(path => {
+            const member = findMember(store.config, path);
+            return {
+                path,
+                block: path.split('.')[0],
+                group: (member && member.presentation && member.presentation.group) || '',
+                value: currentValueFor(path),
+            };
+        }));
+        // Everything on focus (empty query); narrowed by case-insensitive path substring as you type.
+        const filtered = computed(() => {
+            const q = query.value.trim().toLowerCase();
+            return (q ? all.value.filter(o => o.path.toLowerCase().includes(q)) : all.value).slice(0, 60);
+        });
+        watch(query, () => { selected.value = 0; });
+        const valueHint = v => v === undefined ? '' : v === null ? 'null' : typeof v === 'object' ? JSON.stringify(v) : formatValue(v);
+        const choose = o => { emit('update:modelValue', o.path); query.value = ''; open.value = false; };
+        const onFocus = () => { query.value = ''; selected.value = 0; open.value = true; };
+        // Free-form typing flows straight to the model (so a hand-typed path survives without an explicit pick).
+        const onInput = e => { query.value = e.target.value; open.value = true; emit('update:modelValue', e.target.value); };
+        const onKey = e => {
+            if (e.key === 'ArrowDown') { open.value = true; selected.value = Math.min(selected.value + 1, filtered.value.length - 1); e.preventDefault(); }
+            else if (e.key === 'ArrowUp') { selected.value = Math.max(selected.value - 1, 0); e.preventDefault(); }
+            else if (e.key === 'Enter') { const o = filtered.value[selected.value]; if (open.value && o) { choose(o); e.preventDefault(); } }
+            else if (e.key === 'Escape') { if (open.value) { open.value = false; e.stopPropagation(); } }
+        };
+        const onDocPointer = e => { if (rootEl.value && !rootEl.value.contains(e.target)) open.value = false; };
+        onMounted(() => document.addEventListener('mousedown', onDocPointer));
+        onUnmounted(() => document.removeEventListener('mousedown', onDocPointer));
+        // While open the input is the filter box (shows the query); closed, it shows the committed value.
+        const shown = computed(() => open.value ? query.value : props.modelValue);
+        return { open, selected, filtered, rootEl, valueHint, choose, onFocus, onInput, onKey, shown };
     },
     template: `
-        <span class="step-field">
-            <input class="control step-prop-input" type="text" :list="listId" :value="modelValue" @input="onInput"
+        <span class="step-field combobox" ref="rootEl">
+            <input class="control step-prop-input" type="text" :value="shown" @focus="onFocus" @input="onInput" @keydown="onKey"
                    placeholder="— property —" spellcheck="false" autocomplete="off"/>
-            <datalist :id="listId"><option v-for="p in options" :key="p" :value="p"></option></datalist>
+            <div v-if="open" class="combobox-pop">
+                <div v-for="(o, i) in filtered" :key="o.path" class="combobox-row" :class="{ selected: i === selected }"
+                     @mousedown.prevent="choose(o)" @mouseenter="selected = i">
+                    <span class="mono combobox-path">{{ o.path }}</span>
+                    <span class="combobox-meta">{{ o.block }}<template v-if="o.group"> · {{ o.group }}</template></span>
+                    <span class="item-spacer"></span>
+                    <span class="mono combobox-val">{{ valueHint(o.value) }}</span>
+                </div>
+                <div v-if="!filtered.length" class="combobox-empty">no matches</div>
+            </div>
         </span>
     `,
 };

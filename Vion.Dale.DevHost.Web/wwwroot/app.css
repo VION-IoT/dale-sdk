@@ -406,6 +406,30 @@ body {
 .step-kind-select { min-width: 120px; }
 .step-contract-select { min-width: 150px; }
 .step-prop-input { min-width: 200px; }
+
+/* PropertyPicker dropdown (⌘K-style inline combobox): the option list floats under the input, mirroring the
+   palette rows — path · block/group meta · live value. */
+.combobox { position: relative; }
+.combobox-pop {
+    position: absolute;
+    top: calc(100% + 2px);
+    left: 0;
+    z-index: 20;
+    min-width: 340px;
+    max-width: 520px;
+    max-height: 44vh;
+    overflow-y: auto;
+    background: var(--bg-card);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--vion-border-radius-xs);
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.18);
+}
+.combobox-row { display: flex; align-items: center; gap: 9px; padding: 5px 10px; cursor: pointer; }
+.combobox-row.selected { background: var(--bg-raised); }
+.combobox-path { font-size: 12px; color: var(--text); white-space: nowrap; }
+.combobox-meta { font-size: 10.5px; color: var(--text-faint); white-space: nowrap; }
+.combobox-val { font-size: 11px; color: var(--text-dim); max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.combobox-empty { padding: 10px; font-size: 12px; color: var(--text-faint); }
 .step-value-input { min-width: 120px; }
 .step-small-input { width: 72px; }
 .step-label-input { width: 140px; }
