@@ -319,6 +319,131 @@ body {
 .topo-problems-head { font-size: 11.5px; font-weight: var(--vion-font-weight-emphasized); color: var(--vion-error-fg-def-primary); }
 .topo-problem-msg { font-size: 11px; color: var(--text-dim); }
 
+/* ── SectionList (Task 8): reorderable rows with insert-between + ↑↓✕ ───── */
+
+/* Outer wrapper: no extra spacing — the inner .topo-row rows supply their own border-top */
+.section-list { display: flex; flex-direction: column; }
+
+/* Each list row: the row body stretches, the control cluster is fixed to the right */
+.section-list-row { gap: 6px; }
+.section-list-body { flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 6px; overflow: hidden; }
+
+/* ↑ ↓ ✕ cluster — compact, muted until hover */
+.section-move { display: flex; gap: 2px; flex-shrink: 0; }
+.section-move .theme-toggle {
+    padding: 2px 6px;
+    font-size: 11px;
+    color: var(--text-faint);
+    border-color: transparent;
+}
+.section-move .theme-toggle:hover { color: var(--text); border-color: var(--border); }
+.section-move .theme-toggle:disabled { opacity: 0.3; cursor: default; }
+.section-move .theme-toggle:disabled:hover { color: var(--text-faint); border-color: transparent; }
+
+/* "+ insert" affordance: a thin full-width clickable line between rows and at the ends */
+.insert-between {
+    display: flex;
+    align-items: center;
+    height: 14px;
+    cursor: pointer;
+    color: var(--text-faint);
+    font-size: 10px;
+    opacity: 0;
+    transition: opacity 0.12s;
+}
+.insert-between:hover { opacity: 1; color: var(--accent); }
+.section-list:hover .insert-between { opacity: 0.4; }
+.section-list:hover .insert-between:hover { opacity: 1; }
+.insert-label { padding: 0 4px; white-space: nowrap; }
+.insert-between::before, .insert-between::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: currentColor;
+}
+.insert-between::before { margin-right: 4px; }
+.insert-between::after { margin-left: 4px; }
+
+/* Always-visible append button at the bottom of every section (the 80% case — adding at the end).
+   Unlike .insert-between (hover-revealed, for mid-list inserts) this stays visible for discoverability. */
+.section-add {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 4px;
+    padding: 2px 10px;
+    cursor: pointer;
+    color: var(--accent);
+    background: none;
+    border: 1px dashed var(--text-faint);
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+}
+.section-add:hover { border-color: var(--accent); border-style: solid; }
+
+/* Placeholder note for setup / steps rows (body is Task 9) */
+.section-placeholder-note { font-style: italic; color: var(--text-faint); font-size: 11px; }
+
+/* Judge inline input: fill the available body width */
+.section-judge-input { flex: 1 1 0; min-width: 0; font-family: var(--mono); font-size: 12px; }
+
+/* ── StepRow (Task 9): per-step kind form — a wrapping field cluster + an inline error list ───── */
+
+/* A step body is taller / multi-control than a watch input — let it fill the width and wrap. The
+   section body's overflow:hidden suits one-line inputs; a step row owns its own vertical space. */
+.section-list-row:has(.step-row) .section-list-body { overflow: visible; align-items: flex-start; }
+/* A row whose body holds a combobox (e.g. the watch picker, which isn't a .step-row) must let the
+   dropdown escape — the base body is overflow:hidden, which would clip the floating option list. */
+.section-list-row:has(.combobox) .section-list-body { overflow: visible; }
+.step-row { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.step-row-main { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.step-row-errors { display: flex; flex-direction: column; gap: 2px; }
+.step-error-row { display: flex; align-items: center; gap: 6px; }
+
+/* Each labelled field is a label + its control, kept together when the row wraps */
+.step-field { display: inline-flex; align-items: center; gap: 4px; }
+
+/* Sizing: the kind select auto-sizes; the combobox inputs (property / contract / block / wire pickers) are
+   wider (long dotted paths); numeric knobs are compact */
+.step-kind-select { min-width: 120px; }
+.combobox-input { min-width: 180px; }
+
+/* Combobox (the generic ⌘K-style picker used for property / contract / block-type / wire-to): the option list
+   floats under the input, mirroring the palette rows — label · meta · value. */
+.combobox { position: relative; display: inline-flex; align-items: center; }
+.combobox-pop {
+    position: absolute;
+    top: calc(100% + 2px);
+    left: 0;
+    z-index: 20;
+    min-width: 340px;
+    max-width: 520px;
+    max-height: 44vh;
+    overflow-y: auto;
+    background: var(--bg-card);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--vion-border-radius-xs);
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.18);
+}
+.combobox-row { display: flex; align-items: center; gap: 9px; padding: 5px 10px; cursor: pointer; }
+.combobox-row.selected { background: var(--bg-raised); }
+.combobox-label { font-size: 12px; color: var(--text); white-space: nowrap; }
+.combobox-meta { font-size: 10.5px; color: var(--text-faint); white-space: nowrap; }
+.combobox-val { font-size: 11px; color: var(--text-dim); max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.combobox-empty { padding: 10px; font-size: 12px; color: var(--text-faint); }
+.step-value-input { min-width: 120px; }
+.step-small-input { width: 72px; }
+.step-label-input { width: 140px; }
+.step-value-raw { min-width: 220px; min-height: 38px; }
+.step-raw-invalid { color: var(--vion-error-fg-def-primary); font-size: 11px; }
+
+/* Nested ValueEditor (struct / array): indented field/element blocks */
+.value-editor { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.value-editor-struct, .value-editor-array { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-left: 6px; border-left: 1px solid var(--border); }
+.value-editor-field, .value-editor-element { display: inline-flex; align-items: center; gap: 4px; }
+.value-editor-field-label { font-size: 11px; }
+
 .error-toast {
     position: fixed;
     top: 52px;

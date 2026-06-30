@@ -4,6 +4,7 @@
 // reactivity so event bursts don't cause render storms.
 
 import { reactive } from './vue.esm-browser.prod.js';
+import { scenarioErrors } from './scenario-forms.js';
 
 export const store = reactive({
     loading: true,
@@ -91,6 +92,12 @@ export const store = reactive({
     // Human judgment ticks, keyed `${runId}/${index}` -> 'ok' | 'notOk'. Local to this browser;
     // they enter the copied verification report, not the server.
     judgeTicks: {},
+    // Scenario authoring (RFC 0014): the in-progress draft + the Verify editor screen flag. scenarioScreen
+    // 'detail' (read-only run view) | 'editor' (the form editor); null draft when no editor is open.
+    scenarioScreen: 'detail',
+    scenarioDraft: null,
+    scenarioDraftDirty: false,
+    scenarioDraftErrors: [],
 });
 
 const COLLAPSE_STORAGE_KEY = 'dale.devhost.collapsed';
@@ -182,6 +189,21 @@ function loadPins() {
         if (raw) store.pins.push(...JSON.parse(raw));
     } catch (err) {
         console.warn('Could not load pins', err);
+    }
+}
+
+// Move a pinned entry one slot up (dir = -1) or down (dir = +1) and persist. No-ops at the
+// boundary: the caller is responsible for disabling the button at index 0 (up) and the last index
+// (down), but a no-op here is safe in case of a race.
+export function movePinAt(index, dir) {
+    const target = index + dir;
+    if (target < 0 || target >= store.pins.length) return;
+    const [removed] = store.pins.splice(index, 1);
+    store.pins.splice(target, 0, removed);
+    try {
+        localStorage.setItem(PINS_STORAGE_KEY, JSON.stringify(store.pins));
+    } catch (err) {
+        console.warn('Could not persist pins', err);
     }
 }
 
@@ -489,7 +511,27 @@ export async function initStore() {
     await loadScenarios();
     window.addEventListener('hashchange', applyHash);
     applyHash();
+    // Q3 re-entry: editScenarioDraft on a foreign topology parks the edit intent then recycles via a full
+    // page reload (switchTopology). We're now booted on the (matching) topology — consume the parked intent
+    // and re-enter the editor. Runs after store.topologyName is set + applyHash, so editScenarioDraft sees
+    // file.topology === store.topologyName and does NOT recycle again.
+    consumeEditAfterRecycle();
     await connectHub();
+}
+
+// Read + clear the parked Q3 edit intent and re-open the editor on it. Best-effort: a missing/garbled key
+// or unavailable sessionStorage is a no-op (worst case the user re-clicks Edit on the landed topology).
+function consumeEditAfterRecycle() {
+    let parked = null;
+    try {
+        parked = sessionStorage.getItem('dale.scenario.editAfterRecycle');
+        sessionStorage.removeItem('dale.scenario.editAfterRecycle');
+    } catch { return; }
+    if (!parked) return;
+    try {
+        const intent = JSON.parse(parked);
+        if (intent && intent.id) editScenarioDraft(intent.id, { asClone: !!intent.asClone });
+    } catch { /* garbled park — ignore */ }
 }
 
 async function primeInitialValues() {
@@ -672,8 +714,11 @@ export function newTopology() {
     store.topologyScreen = 'editor';
 }
 
-// Leave the editor: back to the file's Detail if one was selected (edit/clone-in-place), else the list.
+// Leave the editor: clear the draft + dirty/errors first (mirrors closeScenarioEditor — so a later
+// re-entry always rebuilds rather than reading stale draft state), then back to the file's Detail if one
+// was selected (edit/clone-in-place), else the list.
 export function closeTopologyEditor() {
+    store.topologyDraft = null; store.topologyDraftDirty = false; store.topologyDraftErrors = [];
     if (store.topologySelectedId) openTopologyDetail(store.topologySelectedId);
     else openTopologyList();
 }
@@ -811,6 +856,133 @@ export function closeScenario() {
     store.runActive = false;
     loadScenarios();
     if (location.hash.startsWith('#/scenario/')) location.hash = '#/scenarios';
+}
+
+// Author a brand-new scenario for the running topology (Q3: topology is locked to what's loaded).
+export function newScenarioDraft() {
+    store.scenarioDraft = { version: 1, id: '', topology: store.topologyName || '', setup: [], steps: [], watch: [], judge: [] };
+    store.scenarioDraftDirty = false; store.scenarioDraftErrors = [];
+    store.view = 'player'; store.scenarioScreen = 'editor';
+}
+
+// Edit / clone an existing scenario. Q3: if its topology != the running one, recycle onto it first so the
+// editor's pickers/values are for the right rig. `asClone` blanks the id (a new file).
+export async function editScenarioDraft(id, { asClone = false } = {}) {
+    const res = await fetch(`/api/scenarios/${encodeURIComponent(id)}`);
+    if (!res.ok) { showError(`Could not load scenario '${id}'`); return; }
+    const file = JSON.parse(await res.text());
+    if (file.topology && file.topology !== store.topologyName) {
+        // Q3: switchTopology recycles onto the scenario's topology with a FULL PAGE RELOAD (window.location
+        // .assign('/')), so the edit intent is lost across the reload. Park it in sessionStorage; initStore
+        // consumes it on boot once the host is on the matching topology, re-entering the editor (no second
+        // recycle). See the consumeEditAfterRecycle hook in initStore.
+        try { sessionStorage.setItem('dale.scenario.editAfterRecycle', JSON.stringify({ id, asClone })); } catch { /* sessionStorage unavailable — re-entry is best-effort */ }
+        await switchTopology(file.topology);   // recycles + reloads onto the scenario's topology (RFC 0013)
+        return;                                 // the reload re-enters the editor fresh; see Task 7 deep-link note
+    }
+    store.scenarioDraft = { ...file, id: asClone ? '' : file.id, setup: file.setup || [], steps: file.steps || [], watch: file.watch || [], judge: file.judge || [] };
+    store.scenarioDraftDirty = false; store.scenarioDraftErrors = [];
+    store.view = 'player'; store.scenarioScreen = 'editor';
+}
+
+export function closeScenarioEditor() {
+    store.scenarioDraft = null; store.scenarioDraftDirty = false; store.scenarioDraftErrors = [];
+    store.scenarioScreen = 'detail';
+    // Re-enter a fresh Detail on the saved file (re-fetch), mirroring closeTopologyEditor's pattern.
+    // If scenarioId is null (cancelling a brand-new scenario), leave it null so routing falls back to the list.
+    if (store.scenarioId) openScenario(store.scenarioId);
+}
+
+export function validateScenarioDraft() {
+    store.scenarioDraftErrors = scenarioErrors(store.scenarioDraft);
+    return store.scenarioDraftErrors.length === 0;
+}
+
+// Resolve a "Block.Property" path from a scenario `set` row to { serviceId, propertyId } using store.config.
+// Returns null when the block or property cannot be found (e.g. host not yet loaded or path typo).
+function serviceIdForPath(path) {
+    if (!store.config || !store.config.logicBlocks) return null;
+    const dot = path.indexOf('.');
+    if (dot < 0) return null;
+    const blockName = path.slice(0, dot);
+    const propertyId = path.slice(dot + 1);
+    const lb = store.config.logicBlocks.find(b => b.name === blockName);
+    if (!lb) return null;
+    for (const service of (lb.services || [])) {
+        const props = [
+            ...(service.serviceProperties || []),
+            ...(service.serviceMeasuringPoints || []),
+        ];
+        if (props.some(p => p.identifier.toLowerCase() === propertyId.toLowerCase())) {
+            return { serviceId: service.id, propertyId };
+        }
+    }
+    return null;
+}
+
+// Save the draft to disk via the existing validated PUT, then return to the read-only Detail of the saved
+// file (re-fetch so the saved bytes are what's shown). Mirrors saveTopologyDraft.
+export async function saveScenarioDraft() {
+    const id = store.scenarioDraft && store.scenarioDraft.id;
+    if (!id) { store.scenarioDraftErrors = ['id is required']; return false; }
+    try {
+        const res = await fetch(`/api/scenarios/${encodeURIComponent(id)}`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(store.scenarioDraft),
+        });
+        if (res.ok) {
+            store.scenarioDraftDirty = false; store.scenarioDraftErrors = [];
+            store.scenarioScreen = 'detail';
+            await openScenario(id);     // re-enters the read-only Detail/run view on the saved file
+            return true;
+        }
+        if (res.status === 403) { const b = await res.json().catch(() => ({})); showError(b.error || 'scenario saving is disabled'); return false; }
+        const body = await res.json().catch(() => ({}));
+        store.scenarioDraftErrors = body.errors || [`save failed (HTTP ${res.status})`];
+        return false;
+    } catch (err) { store.scenarioDraftErrors = [String(err.message ?? err)]; return false; }
+}
+
+// Q5: apply just the draft's `setup` against the running host so "use current value" reads a sane state,
+// without a full run. Drives each setup `set` via the existing property-set path. (serviceProviderSet setups
+// route through the HAL drive — reuse driveContract if present; otherwise note as a TODO for the rare case.)
+export async function applySetup() {
+    for (const s of (store.scenarioDraft && store.scenarioDraft.setup) || []) {
+        if (s.set) {
+            const resolved = serviceIdForPath(s.set);
+            if (resolved) {
+                await setProperty(resolved.serviceId, resolved.propertyId, s.value);
+            } else {
+                showError(`applySetup: could not resolve path '${s.set}' — block or property not found`);
+            }
+        }
+        // serviceProviderSet rows are skipped here (they route through driveContract which requires
+        // handlerName / spId / contractId context not present in the setup row): TODO when needed.
+    }
+}
+
+// Read the live host value for a scenario name path — `Block.Property` or `Block.Property.Field`.
+// For two-segment paths, resolves via serviceIdForPath → liveValue (the coalesced store.values entry).
+// For a three-segment path (struct field navigation), navigates one level into the published object
+// using a case-insensitive field lookup (matching the wire-key camelCase convention). Returns
+// undefined when the path is unresolvable or the value has not yet been published.
+export function currentValueFor(path) {
+    if (!path || typeof path !== 'string') return undefined;
+    const segments = path.split('.');
+    // Base is always the first two segments (Block.Property); a third segment is a struct field name.
+    const base = segments.slice(0, 2).join('.');
+    const field = segments.length >= 3 ? segments[2] : null;
+    const resolved = serviceIdForPath(base);
+    if (!resolved) return undefined;
+    const value = liveValue(resolved.serviceId, resolved.propertyId);
+    if (field === null) return value;
+    // Struct field navigation: case-tolerant (wire keys are camelCased, schema keys are usually
+    // PascalCase — match case-insensitively, same policy as primeInitialValues).
+    if (value === null || value === undefined || typeof value !== 'object') return undefined;
+    if (Object.prototype.hasOwnProperty.call(value, field)) return value[field];
+    const lower = field.toLowerCase();
+    const key = Object.keys(value).find(k => k.toLowerCase() === lower);
+    return key !== undefined ? value[key] : undefined;
 }
 
 async function refreshRun(id) {

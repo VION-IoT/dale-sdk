@@ -14,13 +14,17 @@ import {
     STEP_GLYPHS,
 } from './format.js';
 import {
-    applyScenario, baselineDelta, buildSharedContractLookup, changedCountForBlock,
-    changedSinceBaseline, clearBaseline, clearPins, cloneTopology, closeScenario, closeTopologyEditor, collapseKey, connectionsForLb,
-    advanceHost, driveContract, editTopology, halKey, historyFor, isPinned, judgeKey, loadTopologies, newTopology, openScenario, openTopologyDetail, openTopologyList, pauseHost, resetHost, resumeHost, stepHost,
-    saveTopologyDraft, setBaseline, setJudgeTick, setProperty, showError, store,
-    switchClockMode, switchTopology, toggleCollapsed, togglePin, validateTopologyDraft, valueKey,
+    applyScenario, applySetup, baselineDelta, buildSharedContractLookup, changedCountForBlock,
+    changedSinceBaseline, clearBaseline, clearPins, cloneTopology, closeScenario, closeScenarioEditor, closeTopologyEditor, collapseKey, connectionsForLb,
+    advanceHost, currentValueFor, driveContract, editScenarioDraft, editTopology, halKey, historyFor, isPinned, judgeKey, loadTopologies, movePinAt, newScenarioDraft, newTopology, openScenario, openTopologyDetail, openTopologyList, pauseHost, resetHost, resumeHost, stepHost,
+    saveScenarioDraft, saveTopologyDraft, setBaseline, setJudgeTick, setProperty, showError, store,
+    switchClockMode, switchTopology, toggleCollapsed, togglePin, validateScenarioDraft, validateTopologyDraft, valueKey,
 } from './store.js';
 import { allowsMultiple, autoConnect, problemsOf, residueOf } from './wiring.js';
+import {
+    contractRefs, contractValueEditor, findMember, kindOf, pathOptions,
+    SETUP_KIND_IDS, STEP_KIND_IDS, stepErrors, valueEditorFor,
+} from './scenario-forms.js';
 
 // Filter tokens, shared by every component that narrows to matches.
 const filterTokens = computed(() => parseFilter(store.filter));
@@ -1016,9 +1020,12 @@ export const WatchPanel = {
         const observe = computed(() => store.pins.filter(p => !drive.value.includes(p)));
         const missing = computed(() => store.pins.filter(p => !resolvePin(p)));
         const empty = computed(() => store.pins.length === 0);
+        const lastPinIndex = computed(() => store.pins.length - 1);
         const clearAll = () => clearPins();
         const pruneMissing = () => clearPins(missing.value);
-        return { store, drive, observe, missing, empty, clearAll, pruneMissing };
+        const moveUp = i => movePinAt(i, -1);
+        const moveDown = i => movePinAt(i, 1);
+        return { store, drive, observe, missing, empty, lastPinIndex, clearAll, pruneMissing, moveUp, moveDown };
     },
     template: `
         <aside class="watch" :class="{ empty }">
@@ -1035,9 +1042,13 @@ export const WatchPanel = {
                         title="unpin everything the current topology does not resolve"
                         @click="pruneMissing">remove {{ missing.length }} not in this topology</button>
                 <div v-if="drive.length" class="watch-section">drive</div>
-                <WatchTile v-for="p in drive" :key="p.block + '/' + p.service + '/' + p.item" :entry="p"/>
-                <div v-if="observe.length" class="watch-section">observe</div>
-                <WatchTile v-for="p in observe" :key="p.block + '/' + p.service + '/' + p.item" :entry="p"/>
+                <div v-for="(p, i) in store.pins" :key="p.block + '/' + p.service + '/' + p.item" class="watch-pin-row">
+                    <WatchTile :entry="p"/>
+                    <div class="section-move watch-move">
+                        <button type="button" class="theme-toggle" title="move up" :disabled="i === 0" @click="moveUp(i)">↑</button>
+                        <button type="button" class="theme-toggle" title="move down" :disabled="i === lastPinIndex" @click="moveDown(i)">↓</button>
+                    </div>
+                </div>
             </template>
         </aside>
     `,
@@ -1050,7 +1061,72 @@ export const WatchPanel = {
 // Add a logic-block instance from the definition catalog: pick a type, name it, add. Names must be
 // non-empty, unique within the draft, and dotless (the server rejects dots in instance names) — an
 // invalid name shows an inline hint and is not added.
+// Live value → a short display hint for a combobox row (the property picker's value column).
+const comboHint = v => v === undefined ? '' : v === null ? 'null' : typeof v === 'object' ? JSON.stringify(v) : formatValue(v);
+
+// ── Combobox: a generic ⌘K-style picker — an <input> + a dropdown of option rows ({ label · meta · hint })
+// that opens on focus, filters by label/meta as you type, ↑/↓/Enter/click to pick. Emits 'pick' (value, option).
+// `options` is [{ value, label, meta? }] (value is the emit payload, label the display text); `label` is the
+// closed-state input text for the current selection; `freeText` (the property name-path case) also emits raw
+// typed text on input; `hintFor` is an optional per-row hint function — called only for rendered rows, so a
+// CLOSED picker never recomputes (keeps the live-value property picker lazy). Reuses the palette row styling.
+const Combobox = {
+    props: {
+        options: { type: Array, default: () => [] },
+        label: { type: String, default: '' },
+        placeholder: { type: String, default: '— select —' },
+        freeText: { type: Boolean, default: false },
+        hintFor: { type: Function, default: null },
+    },
+    emits: ['pick'],
+    setup(props, { emit }) {
+        const open = ref(false);
+        const query = ref('');
+        const selected = ref(0);
+        const rootEl = ref(null);
+        const filtered = computed(() => {
+            const q = query.value.trim().toLowerCase();
+            const match = o => o.label.toLowerCase().includes(q) || (o.meta || '').toLowerCase().includes(q);
+            return (q ? props.options.filter(match) : props.options).slice(0, 60);
+        });
+        watch(query, () => { selected.value = 0; });
+        const hint = o => props.hintFor ? props.hintFor(o) : (o.hint !== undefined ? o.hint : '');
+        const pick = o => { emit('pick', o.value, o); query.value = ''; open.value = false; };
+        const onFocus = () => { query.value = ''; selected.value = 0; open.value = true; };
+        const onInput = e => { query.value = e.target.value; open.value = true; if (props.freeText) emit('pick', e.target.value, null); };
+        const onKey = e => {
+            if (e.key === 'ArrowDown') { open.value = true; selected.value = Math.min(selected.value + 1, filtered.value.length - 1); e.preventDefault(); }
+            else if (e.key === 'ArrowUp') { selected.value = Math.max(selected.value - 1, 0); e.preventDefault(); }
+            else if (e.key === 'Enter') { const o = filtered.value[selected.value]; if (open.value && o) { pick(o); e.preventDefault(); } }
+            else if (e.key === 'Escape') { if (open.value) { open.value = false; e.stopPropagation(); } }
+        };
+        const onDocPointer = e => { if (rootEl.value && !rootEl.value.contains(e.target)) open.value = false; };
+        onMounted(() => document.addEventListener('mousedown', onDocPointer));
+        onUnmounted(() => document.removeEventListener('mousedown', onDocPointer));
+        // While open the input is the filter box (shows the query); closed, it shows the selection's label.
+        const shown = computed(() => open.value ? query.value : props.label);
+        return { open, selected, filtered, rootEl, hint, pick, onFocus, onInput, onKey, shown };
+    },
+    template: `
+        <span class="combobox" ref="rootEl">
+            <input class="control combobox-input" type="text" :value="shown" :placeholder="placeholder"
+                   @focus="onFocus" @input="onInput" @keydown="onKey" spellcheck="false" autocomplete="off"/>
+            <div v-if="open" class="combobox-pop">
+                <div v-for="(o, i) in filtered" :key="i" class="combobox-row" :class="{ selected: i === selected }"
+                     @mousedown.prevent="pick(o)" @mouseenter="selected = i">
+                    <span class="mono combobox-label">{{ o.label }}</span>
+                    <span v-if="o.meta" class="combobox-meta">{{ o.meta }}</span>
+                    <span class="item-spacer"></span>
+                    <span class="mono combobox-val">{{ hint(o) }}</span>
+                </div>
+                <div v-if="!filtered.length" class="combobox-empty">no matches</div>
+            </div>
+        </span>
+    `,
+};
+
 const BlockPicker = {
+    components: { Combobox },
     setup() {
         const selectedType = ref('');
         const name = ref('');
@@ -1058,10 +1134,15 @@ const BlockPicker = {
         // edit). Set on @input, reset after add so the next type selection re-suggests.
         const nameTouched = ref(false);
         const definitions = computed(() => store.definitions || []);
+        // Combobox options: value = the full type name (what we add), label = the short class name, meta = the
+        // namespace it lives in (disambiguates same-named blocks across libraries).
         const options = computed(() => definitions.value.map(d => ({
-            typeFullName: d.typeFullName,
-            short: shortTypeName(d.typeFullName),
+            value: d.typeFullName,
+            label: shortTypeName(d.typeFullName),
+            meta: d.typeFullName.split('.').slice(0, -1).join('.'),
         })));
+        const selectedLabel = computed(() => selectedType.value ? shortTypeName(selectedType.value) : '');
+        const onPickType = v => { selectedType.value = v; };
         const instances = computed(() => (store.topologyDraft && store.topologyDraft.logicBlockInstances) || []);
         // A sensible default instance name for a type: shortTypeName lower-cased (reads well next to the
         // existing names, which are lower-cased instance names), de-duplicated against the draft by suffixing
@@ -1110,14 +1191,11 @@ const BlockPicker = {
         };
         // @input marks the name as user-owned (stop auto-suggesting). v-model still flows the text in.
         const onNameInput = () => { nameTouched.value = true; };
-        return { selectedType, name, options, hint, canAdd, add, onNameInput };
+        return { name, options, hint, canAdd, add, onNameInput, selectedLabel, onPickType };
     },
     template: `
         <div class="topo-row topo-picker">
-            <select class="topo-pick-type" v-model="selectedType">
-                <option value="" disabled>add block…</option>
-                <option v-for="o in options" :key="o.typeFullName" :value="o.typeFullName">{{ o.short }}</option>
-            </select>
+            <Combobox class="topo-pick-type" :options="options" :label="selectedLabel" placeholder="add block…" @pick="onPickType"/>
             <input class="topo-pick-name" type="text" placeholder="name" v-model="name" @input="onNameInput" @keyup.enter="add"/>
             <button type="button" class="theme-toggle topo-pick-add" :disabled="!canAdd" @click="add">+ add</button>
             <span v-if="hint" class="topo-hint">{{ hint }}</span>
@@ -1151,6 +1229,7 @@ const WiringRow = {
 // One residue entry: a required/contested unwired interface, its multiplicity hint, and a candidate
 // picker. The select handler lives here (not the template) so no logic leaks into the markup.
 const ResidueRow = {
+    components: { Combobox },
     props: ['entry'],
     setup(props, { emit }) {
         // kind 'required' -> a warning pill; 'contested' -> a neutral "pick one".
@@ -1158,15 +1237,11 @@ const ResidueRow = {
         const pillClass = computed(() => isRequired.value ? 'severity-pill warning' : 'severity-pill neutral');
         const pillLabel = computed(() => isRequired.value ? 'needs wiring' : 'pick one');
         const multHint = computed(() => allowsMultiple(props.entry.multiplicity) ? 'fan-in' : 'single-writer');
-        // The select stays unselected (placeholder option) — picking a candidate fires the wire and the
-        // residue recomputes (the entry usually disappears), so there is nothing to keep selected.
-        const onPick = event => {
-            const idx = event.target.selectedIndex - 1; // option 0 is the placeholder
-            event.target.selectedIndex = 0;
-            const cand = (props.entry.candidates || [])[idx];
-            if (cand) emit('wire', props.entry.blockName, props.entry.interfaceIdentifier, cand.targetName, cand.targetInterface);
-        };
-        return { pillClass, pillLabel, multHint, onPick };
+        const comboOptions = computed(() => (props.entry.candidates || []).map(c => ({ value: c, label: c.targetName + '.' + c.targetInterface })));
+        // Picking a candidate fires the wire; the residue recomputes (the entry usually disappears), so the
+        // combobox keeps no selection (label '').
+        const onPickCand = cand => emit('wire', props.entry.blockName, props.entry.interfaceIdentifier, cand.targetName, cand.targetInterface);
+        return { pillClass, pillLabel, multHint, comboOptions, onPickCand };
     },
     template: `
         <div class="topo-row topo-residue-row">
@@ -1174,10 +1249,7 @@ const ResidueRow = {
             <span :class="pillClass">{{ pillLabel }}</span>
             <span class="topo-meta">{{ multHint }}</span>
             <span class="item-spacer"></span>
-            <select v-if="entry.candidates.length" @change="onPick">
-                <option value="">wire to…</option>
-                <option v-for="(c, ci) in entry.candidates" :key="ci" :value="ci">{{ c.targetName }}.{{ c.targetInterface }}</option>
-            </select>
+            <Combobox v-if="entry.candidates.length" class="topo-wire-pick" :options="comboOptions" label="" placeholder="wire to…" @pick="onPickCand"/>
             <span v-else class="topo-meta">no candidate</span>
         </div>
     `,
@@ -1284,6 +1356,7 @@ const TopologyEditor = {
         <div class="topo-panel" v-if="draft">
             <div class="topo-row topo-editor-head">
                 <button type="button" class="theme-toggle" title="back — close the editor" @click="close">← back</button>
+                <h2 class="mono">topology editor</h2>
                 <div class="editor-tabs">
                     <button type="button" :class="{ active: tab === 'form' }" @click="showForm">form</button>
                     <button type="button" :class="{ active: tab === 'raw' }" @click="showRaw">{ } raw</button>
@@ -1330,6 +1403,7 @@ const TopologyEditor = {
                     <button type="button" class="theme-toggle" @click="validate">validate</button>
                     <span v-if="showValid" class="severity-pill success">valid</span>
                     <span class="item-spacer"></span>
+                    <button type="button" class="theme-toggle" title="discard and close the editor" @click="close">cancel</button>
                     <button type="button" class="theme-toggle" :disabled="!dirty" title="save this topology file" @click="save">save</button>
                     <button type="button" class="theme-toggle" title="save, then recycle the host onto this topology" @click="saveAndSwitch">save &amp; switch</button>
                 </div>
@@ -1917,8 +1991,679 @@ const ScenarioTrace = {
     `,
 };
 
+// ── SectionList (Task 8): a generic reorderable list with insert-anywhere / ↑ / ↓ / remove. ────────
+// Props: rows (array), label (string), canAdd (bool). Emits: add(index), remove(index), move(index, dir).
+// The component holds NO state and does NO array mutation — it only emits; the parent owns the array.
+// The default slot receives { row, index } so the parent can supply custom row bodies.
+const SectionList = {
+    props: {
+        rows: { type: Array, default: () => [] },
+        label: { type: String, default: '' },
+        canAdd: { type: Boolean, default: true },
+    },
+    emits: ['add', 'remove', 'move'],
+    setup(props, { emit }) {
+        const lastIndex = computed(() => props.rows.length - 1);
+        const onAdd = index => emit('add', index);
+        const onRemove = index => emit('remove', index);
+        const onMoveUp = index => emit('move', index, -1);
+        const onMoveDown = index => emit('move', index, 1);
+        return { lastIndex, onAdd, onRemove, onMoveUp, onMoveDown, label: computed(() => props.label) };
+    },
+    template: `
+        <div class="section-list" role="group" :aria-label="label">
+            <template v-for="(row, i) in rows" :key="i">
+                <div v-if="canAdd" class="insert-between" @click="onAdd(i)" :title="i === 0 ? 'insert at the start' : 'insert above this row'">
+                    <span class="insert-label">+ insert</span>
+                </div>
+                <div class="section-list-row topo-row">
+                    <div class="section-list-body">
+                        <slot :row="row" :index="i"/>
+                    </div>
+                    <div class="section-move">
+                        <button type="button" class="theme-toggle" title="move up" :disabled="i === 0" @click="onMoveUp(i)">↑</button>
+                        <button type="button" class="theme-toggle" title="move down" :disabled="i === lastIndex" @click="onMoveDown(i)">↓</button>
+                        <button type="button" class="theme-toggle" title="remove" @click="onRemove(i)">✕</button>
+                    </div>
+                </div>
+            </template>
+            <button v-if="canAdd" type="button" class="section-add" :title="'add a ' + label + ' entry at the end'" @click="onAdd(rows.length)">
+                <span class="insert-label">+ add {{ label }}</span>
+            </button>
+        </div>
+    `,
+};
+
+// ── PropertyPicker (Task 9; ⌘K combobox): a Block.Property[.Field] name-path picker. Wraps the generic
+// Combobox with the host's flattened, alphabetically-sorted paths (pathOptions by `mode`: 'set' writable
+// wholes / 'assert' scalars + struct leaves / 'watch' wholes + struct leaves). Each row shows block ·
+// presentation group + a LIVE value (hintFor → currentValueFor, lazy — only the rendered rows read it).
+// Struct fields are first-class rows; free-form typing flows to the model. Reads store.config + store.values.
+const PropertyPicker = {
+    components: { Combobox },
+    props: {
+        modelValue: { type: String, default: '' },
+        mode: { type: String, default: 'assert' },
+    },
+    emits: ['update:modelValue'],
+    setup(props, { emit }) {
+        const options = computed(() => pathOptions(store.config, props.mode).map(path => {
+            const member = findMember(store.config, path);
+            const group = (member && member.presentation && member.presentation.group) || '';
+            return { value: path, label: path, meta: path.split('.')[0] + (group ? ' · ' + group : '') };
+        }));
+        const liveHint = o => comboHint(currentValueFor(o.value));
+        const onPick = v => emit('update:modelValue', v);   // free-text passes the typed string; a row pick the path
+        return { options, liveHint, onPick, current: computed(() => props.modelValue) };
+    },
+    template: `<Combobox :options="options" :label="current" :free-text="true" :hint-for="liveHint" placeholder="— property —" @pick="onPick"/>`,
+};
+
+// ── ContractPicker (Task 9): a {logicBlock, contract} picker over the host's service-provider contracts.
+// Props: modelValue (an object with logicBlock + contract). Emits update:modelValue with the chosen pair.
+// A single <select> over contractRefs(); the option value encodes the pair as "logicBlock contract"
+// (a delimiter that can't occur in an identifier), decoded on change.
+const ContractPicker = {
+    components: { Combobox },
+    props: {
+        modelValue: { type: Object, default: () => ({ logicBlock: '', contract: '' }) },
+    },
+    emits: ['update:modelValue'],
+    setup(props, { emit }) {
+        const typeOf = r => {
+            for (const lb of (store.config && store.config.logicBlocks) || []) {
+                if (lb.name !== r.logicBlock) continue;
+                for (const c of lb.contracts || []) if (c.identifier === r.contract) return c.matchingContractType || '';
+            }
+            return '';
+        };
+        const options = computed(() => contractRefs(store.config).map(r => ({ value: r, label: r.logicBlock + '.' + r.contract, meta: typeOf(r) })));
+        const label = computed(() => { const m = props.modelValue || {}; return m.logicBlock ? m.logicBlock + '.' + m.contract : ''; });
+        const onPick = v => emit('update:modelValue', { logicBlock: v.logicBlock, contract: v.contract });
+        return { options, label, onPick };
+    },
+    template: `<Combobox :options="options" :label="label" placeholder="\u2014 contract \u2014" @pick="onPick"/>`,
+};
+
+// ── ValueEditor (Task 9): a schema-driven value editor that RECURSES into structs/arrays. ────────────
+// Props: schema (the value's JSON schema, or null ⇒ raw-JSON), modelValue (the current value). Emits
+// update:modelValue. The control is chosen by valueEditorFor(schema).control:
+//   number/text/bool/enum → a single leaf input; struct → a nested field block (recurse per property);
+//   array → element rows (recurse on items) with add/remove; rawJson → a textarea parsed on blur.
+// Recursion: this const references itself in its own `components` (see the assignment AFTER the literal),
+// and `name: 'ValueEditor'` makes the self-reference resolvable in the template. node --check can't catch
+// a missing self-registration, so the registration below is load-bearing — keep it.
+const ValueEditor = {
+    name: 'ValueEditor',
+    props: {
+        schema: { type: Object, default: null },
+        modelValue: { default: null },
+    },
+    emits: ['update:modelValue'],
+    setup(props, { emit }) {
+        const spec = computed(() => valueEditorFor(props.schema));
+        const control = computed(() => spec.value.control);
+        // Leaf string-ish state: number/text keep a local text ref that commits on input (number parsed;
+        // empty ⇒ null so nullable fields can clear). bool/enum write through immediately.
+        const onNumber = e => {
+            const raw = e.target.value;
+            emit('update:modelValue', raw === '' ? null : Number(raw));
+        };
+        const onText = e => emit('update:modelValue', e.target.value);
+        const onBool = e => emit('update:modelValue', e.target.checked);
+        const onEnum = e => emit('update:modelValue', e.target.value);
+        const enumOptions = computed(() => spec.value.options || []);
+        const boolChecked = computed(() => props.modelValue === true);
+        const numberText = computed(() => props.modelValue === null || props.modelValue === undefined ? '' : String(props.modelValue));
+        const textText = computed(() => props.modelValue === null || props.modelValue === undefined ? '' : String(props.modelValue));
+        const enumValue = computed(() => props.modelValue === null || props.modelValue === undefined ? '' : String(props.modelValue));
+
+        // ── struct: a field block; each field is a nested ValueEditor over its sub-schema. ──
+        const structFields = computed(() => {
+            const props2 = props.schema && props.schema.properties;
+            return props2 ? Object.keys(props2).map(name => ({ name, schema: props2[name] })) : [];
+        });
+        const structValue = computed(() => props.modelValue && typeof props.modelValue === 'object' ? props.modelValue : {});
+        const setStructField = (name, v) => {
+            const next = { ...structValue.value };
+            next[name] = v;
+            emit('update:modelValue', next);
+        };
+
+        // ── array: element rows over schema.items; add/remove buttons. ──
+        const itemSchema = computed(() => (props.schema && props.schema.items) || {});
+        const arrayValue = computed(() => Array.isArray(props.modelValue) ? props.modelValue : []);
+        const setArrayItem = (i, v) => {
+            const next = arrayValue.value.slice();
+            next[i] = v;
+            emit('update:modelValue', next);
+        };
+        const addArrayItem = () => emit('update:modelValue', [...arrayValue.value, null]);
+        const removeArrayItem = i => {
+            const next = arrayValue.value.slice();
+            next.splice(i, 1);
+            emit('update:modelValue', next);
+        };
+
+        // ── rawJson: a textarea with a LOCAL text ref committed (parsed) on blur/change. This is the one
+        // allowed local draft (mid-typing JSON is invalid); a parse error keeps the text + flags invalid.
+        const rawText = ref(props.modelValue === undefined ? '' : JSON.stringify(props.modelValue, null, 2));
+        const rawInvalid = ref(false);
+        // Re-seed from upstream only while not mid-edit-with-error (so a kind change / external set shows).
+        watch(() => props.modelValue, v => {
+            if (rawInvalid.value) return;
+            rawText.value = v === undefined ? '' : JSON.stringify(v, null, 2);
+        });
+        const commitRaw = () => {
+            const t = rawText.value.trim();
+            if (t === '') { rawInvalid.value = false; emit('update:modelValue', null); return; }
+            try {
+                const parsed = JSON.parse(rawText.value);
+                rawInvalid.value = false;
+                emit('update:modelValue', parsed);
+            } catch {
+                rawInvalid.value = true;
+            }
+        };
+        const onRawInput = e => { rawText.value = e.target.value; };
+
+        return {
+            control, onNumber, onText, onBool, onEnum, enumOptions, boolChecked, numberText, textText, enumValue,
+            structFields, setStructField, structValue, itemSchema, arrayValue, setArrayItem, addArrayItem, removeArrayItem,
+            rawText, rawInvalid, commitRaw, onRawInput,
+        };
+    },
+    template: `
+        <span class="value-editor">
+            <input v-if="control === 'number'" type="number" step="any" class="control step-value-input"
+                   :value="numberText" @input="onNumber">
+            <input v-else-if="control === 'text'" type="text" class="control step-value-input"
+                   :value="textText" @input="onText">
+            <input v-else-if="control === 'bool'" type="checkbox" class="toggle" :checked="boolChecked" @change="onBool">
+            <select v-else-if="control === 'enum'" class="control step-value-input" :value="enumValue" @change="onEnum">
+                <option v-for="o in enumOptions" :key="o" :value="o">{{ o }}</option>
+            </select>
+            <span v-else-if="control === 'struct'" class="value-editor-struct">
+                <span v-for="f in structFields" :key="f.name" class="value-editor-field">
+                    <span class="mono topo-meta value-editor-field-label">{{ f.name }}</span>
+                    <ValueEditor :schema="f.schema" :model-value="structValue[f.name]"
+                                 @update:model-value="v => setStructField(f.name, v)"/>
+                </span>
+            </span>
+            <span v-else-if="control === 'array'" class="value-editor-array">
+                <span v-for="(el, i) in arrayValue" :key="i" class="value-editor-element">
+                    <ValueEditor :schema="itemSchema" :model-value="el"
+                                 @update:model-value="v => setArrayItem(i, v)"/>
+                    <button type="button" class="null-btn" title="remove element" @click="removeArrayItem(i)">✕</button>
+                </span>
+                <button type="button" class="null-btn" title="add element" @click="addArrayItem">+ element</button>
+            </span>
+            <span v-else class="value-editor-raw">
+                <textarea rows="2" spellcheck="false" class="mono step-value-raw" :value="rawText"
+                          placeholder="(JSON)" @input="onRawInput" @blur="commitRaw" @change="commitRaw"></textarea>
+                <span v-if="rawInvalid" class="topo-meta step-raw-invalid">invalid JSON</span>
+            </span>
+        </span>
+    `,
+};
+ValueEditor.components = { ValueEditor };
+
+// ── StepRow (Task 9): the per-step editor — a kind <select> + the kind's fields, bound DIRECTLY to the
+// row object (the draft is the single source of truth; SectionList keys by index, so write-through means
+// reorder just re-renders). Props: row (the step object, a draft[section][i]), setupOnly (setup ⇒ the
+// drive-only kind subset). On kind change the row's shape is REPLACED in place (old discriminator + value/
+// timeout deleted, new discriminator defaulted) keeping row.label. No local draft state except the
+// ValueEditor rawJson textarea.
+const StepRow = {
+    components: { PropertyPicker, ContractPicker, ValueEditor },
+    props: {
+        row: { type: Object, required: true },
+        setupOnly: { type: Boolean, default: false },
+    },
+    setup(props) {
+        const dirty = () => { store.scenarioDraftDirty = true; };
+        const kind = computed(() => kindOf(props.row));
+        const kindOptions = computed(() => props.setupOnly ? SETUP_KIND_IDS : STEP_KIND_IDS);
+        const errors = computed(() => stepErrors(props.row, props.setupOnly));
+        const hasErrors = computed(() => errors.value.length > 0);
+
+        // Replace the row's shape in place: drop every discriminator + the cross-kind value/timeout fields,
+        // then install the new kind's discriminator with a sensible default. row.label is preserved.
+        const onKindChange = e => {
+            const next = e.target.value;
+            for (const id of STEP_KIND_IDS) delete props.row[id];
+            delete props.row.value;
+            delete props.row.timeoutSeconds;
+            if (next === 'set') { props.row.set = ''; props.row.value = null; }
+            else if (next === 'serviceProviderSet') { props.row.serviceProviderSet = { logicBlock: '', contract: '' }; props.row.value = null; }
+            else if (next === 'serviceProviderExpect') { props.row.serviceProviderExpect = { logicBlock: '', contract: '', equals: null }; }
+            else if (next === 'waitUntil') { props.row.waitUntil = { property: '', equals: null }; props.row.timeoutSeconds = 5; }
+            else if (next === 'expect') { props.row.expect = { property: '', equals: null }; }
+            else if (next === 'advance') { props.row.advance = { seconds: 1 }; }
+            else if (next === 'settle') { props.row.settle = {}; }
+            dirty();
+        };
+
+        // ── set / serviceProviderSet helpers ──
+        const memberSchemaFor = path => { const m = findMember(store.config, path); return m ? m.schema : null; };
+        const setSchema = computed(() => memberSchemaFor(props.row.set || ''));
+        // serviceProviderSet value control: look up the picked contract's matchingContractType from config.
+        const contractTypeFor = cref => {
+            if (!cref || !cref.logicBlock || !cref.contract) return null;
+            for (const lb of (store.config && store.config.logicBlocks) || []) {
+                if (lb.name !== cref.logicBlock) continue;
+                for (const c of lb.contracts || []) {
+                    if (c.identifier === cref.contract) return c.matchingContractType;
+                }
+            }
+            return null;
+        };
+        const spSetSchema = computed(() => {
+            // contractValueEditor returns {control}; ValueEditor consumes a schema, so synthesize a minimal
+            // schema for the scalar families and let null (raw-JSON) fall through for the rest.
+            const editor = contractValueEditor(contractTypeFor(props.row.serviceProviderSet));
+            if (editor.control === 'bool') return { type: 'boolean' };
+            if (editor.control === 'number') return { type: 'number' };
+            return null; // rawJson
+        });
+
+        // write-through setters (direct-to-row; Vue's reactive proxy tracks the mutation) ──
+        const setSet = v => { props.row.set = v; dirty(); };
+        const setValue = v => { props.row.value = v; dirty(); };
+        const setSpSet = v => { props.row.serviceProviderSet = v; dirty(); };
+        const setSpExpect = v => {
+            // Preserve the comparator (equals/tolerance) while swapping the contract ref.
+            props.row.serviceProviderExpect = { ...props.row.serviceProviderExpect, logicBlock: v.logicBlock, contract: v.contract };
+            dirty();
+        };
+        const onLabel = e => { props.row.label = e.target.value; dirty(); };
+
+        // ── expect / waitUntil field accessors (bound to row[kind].*) ──
+        const assertObj = computed(() => props.row[kind.value] || {});
+        const onAssertProperty = v => { assertObj.value.property = v; dirty(); };
+        const onEquals = e => { assertObj.value.equals = parseScalar(e.target.value); dirty(); };
+        const onTolerance = e => { assertObj.value.tolerance = e.target.value === '' ? undefined : Number(e.target.value); dirty(); };
+        const onTimeout = e => { props.row.timeoutSeconds = e.target.value === '' ? undefined : Number(e.target.value); dirty(); };
+        const onSeconds = e => { props.row.advance.seconds = e.target.value === '' ? null : Number(e.target.value); dirty(); };
+        const onMaxSeconds = e => {
+            const v = e.target.value;
+            props.row.settle = v === '' ? {} : { ...props.row.settle, maxSeconds: Number(v) };
+            dirty();
+        };
+        // equals comparand display: scalars are shown verbatim, objects as JSON (the {path} form / null).
+        const equalsText = computed(() => {
+            const v = assertObj.value.equals;
+            if (v === null || v === undefined) return '';
+            return typeof v === 'object' ? JSON.stringify(v) : String(v);
+        });
+        const spEqualsText = computed(() => {
+            const v = (props.row.serviceProviderExpect || {}).equals;
+            if (v === null || v === undefined) return '';
+            return typeof v === 'object' ? JSON.stringify(v) : String(v);
+        });
+        const onSpEquals = e => { props.row.serviceProviderExpect.equals = parseScalar(e.target.value); dirty(); };
+        const onSpTolerance = e => {
+            props.row.serviceProviderExpect.tolerance = e.target.value === '' ? undefined : Number(e.target.value);
+            dirty();
+        };
+        const toleranceText = computed(() => { const t = assertObj.value.tolerance; return t === null || t === undefined ? '' : String(t); });
+        const spToleranceText = computed(() => { const t = (props.row.serviceProviderExpect || {}).tolerance; return t === null || t === undefined ? '' : String(t); });
+        const timeoutText = computed(() => { const t = props.row.timeoutSeconds; return t === null || t === undefined ? '' : String(t); });
+        const secondsText = computed(() => { const s = props.row.advance && props.row.advance.seconds; return s === null || s === undefined ? '' : String(s); });
+        const maxSecondsText = computed(() => { const m = props.row.settle && props.row.settle.maxSeconds; return m === null || m === undefined ? '' : String(m); });
+        const labelText = computed(() => props.row.label || '');
+
+        // per-kind boolean flags (no && / || in templates — compute the discriminators here)
+        const isSet = computed(() => kind.value === 'set');
+        const isSpSet = computed(() => kind.value === 'serviceProviderSet');
+        const isSpExpect = computed(() => kind.value === 'serviceProviderExpect');
+        const isWaitUntil = computed(() => kind.value === 'waitUntil');
+        const isExpect = computed(() => kind.value === 'expect');
+        const isAssertProp = computed(() => isExpect.value || isWaitUntil.value);
+        const isAdvance = computed(() => kind.value === 'advance');
+        const isSettle = computed(() => kind.value === 'settle');
+
+        // "use current value" — fills the equals field from the live host value so the author doesn't
+        // have to hand-type it. For expect/waitUntil: resolves Block.Property[.Field] via currentValueFor.
+        // For serviceProviderExpect: the asserted value is what the block last wrote on the contract output,
+        // held in store.hal keyed by halKey(spId, svcId, contractId). Resolving those three ids requires
+        // walking store.config to find the lb's contractMapping for the picked contract, then reading
+        // store.hal. That resolver is non-trivial and fragile (the mapping may list many lbs for the same
+        // contract endpoint), so the property cases are implemented fully and the button is simply NOT
+        // rendered for serviceProviderExpect (its equals is hand-typed) — the HAL-key resolver is a
+        // deferred follow-up rather than a no-op button.
+        const useCurrentForAssertProp = () => {
+            const obj = assertObj.value;
+            if (!obj || !obj.property) return;
+            const v = currentValueFor(obj.property);
+            if (v === undefined) return;
+            obj.equals = v;
+            dirty();
+        };
+
+        return {
+            kind, kindOptions, onKindChange, errors, hasErrors,
+            setSchema, spSetSchema, setSet, setValue, setSpSet, setSpExpect, onLabel,
+            assertObj, onAssertProperty, onEquals, onTolerance, onTimeout, onSeconds, onMaxSeconds,
+            equalsText, spEqualsText, onSpEquals, onSpTolerance, toleranceText, spToleranceText,
+            timeoutText, secondsText, maxSecondsText, labelText,
+            isSet, isSpSet, isSpExpect, isWaitUntil, isExpect, isAssertProp, isAdvance, isSettle,
+            useCurrentForAssertProp,
+            row: props.row,
+        };
+    },
+    template: `
+        <div class="step-row">
+            <div class="step-row-main">
+                <select class="control step-kind-select" :value="kind" @change="onKindChange">
+                    <option v-for="k in kindOptions" :key="k" :value="k">{{ k }}</option>
+                </select>
+
+                <template v-if="isSet">
+                    <PropertyPicker :model-value="row.set" mode="set" @update:model-value="setSet"/>
+                    <ValueEditor :schema="setSchema" :model-value="row.value" @update:model-value="setValue"/>
+                </template>
+
+                <template v-else-if="isSpSet">
+                    <ContractPicker :model-value="row.serviceProviderSet" @update:model-value="setSpSet"/>
+                    <ValueEditor :schema="spSetSchema" :model-value="row.value" @update:model-value="setValue"/>
+                </template>
+
+                <template v-else-if="isAssertProp">
+                    <PropertyPicker :model-value="assertObj.property" mode="assert" @update:model-value="onAssertProperty"/>
+                    <span class="step-field">
+                        <span class="mono topo-meta">equals</span>
+                        <input type="text" class="control step-value-input" :value="equalsText" @input="onEquals">
+                        <button type="button" class="theme-toggle" title="fill equals with the current live value" @click="useCurrentForAssertProp">use current</button>
+                    </span>
+                    <span v-if="isExpect" class="step-field">
+                        <span class="mono topo-meta">± tol</span>
+                        <input type="number" step="any" class="control step-small-input" :value="toleranceText" @input="onTolerance">
+                    </span>
+                    <span v-if="isWaitUntil" class="step-field">
+                        <span class="mono topo-meta">timeout s</span>
+                        <input type="number" step="any" class="control step-small-input" :value="timeoutText" @input="onTimeout">
+                    </span>
+                </template>
+
+                <template v-else-if="isSpExpect">
+                    <ContractPicker :model-value="row.serviceProviderExpect" @update:model-value="setSpExpect"/>
+                    <span class="step-field">
+                        <span class="mono topo-meta">equals</span>
+                        <input type="text" class="control step-value-input" :value="spEqualsText" @input="onSpEquals">
+                    </span>
+                    <span class="step-field">
+                        <span class="mono topo-meta">± tol</span>
+                        <input type="number" step="any" class="control step-small-input" :value="spToleranceText" @input="onSpTolerance">
+                    </span>
+                </template>
+
+                <template v-else-if="isAdvance">
+                    <span class="step-field">
+                        <span class="mono topo-meta">seconds</span>
+                        <input type="number" step="any" class="control step-small-input" :value="secondsText" @input="onSeconds">
+                    </span>
+                </template>
+
+                <template v-else-if="isSettle">
+                    <span class="step-field">
+                        <span class="mono topo-meta">max s</span>
+                        <input type="number" step="any" class="control step-small-input" :value="maxSecondsText"
+                               placeholder="60" @input="onMaxSeconds">
+                    </span>
+                </template>
+
+                <span class="item-spacer"></span>
+                <span class="step-field step-label-field">
+                    <span class="mono topo-meta">label</span>
+                    <input type="text" class="control step-label-input" :value="labelText" placeholder="(optional)" @input="onLabel">
+                </span>
+            </div>
+            <div v-if="hasErrors" class="step-row-errors">
+                <div v-for="(err, i) in errors" :key="i" class="step-error-row">
+                    <span class="severity-pill error">error</span>
+                    <span class="topo-meta">{{ err }}</span>
+                </div>
+            </div>
+        </div>
+    `,
+};
+
+// Parse a free-text comparand into a scalar: numbers → number, true/false → bool, empty → null, else the
+// raw string (enum member name). Keeps `equals` editing forgiving without a per-comparand schema (Task 10
+// will refine with a "use current value" affordance).
+function parseScalar(raw) {
+    const t = String(raw).trim();
+    if (t === '') return null;
+    if (t === 'true') return true;
+    if (t === 'false') return false;
+    if (t === 'null') return null;
+    const n = Number(t);
+    if (t !== '' && !Number.isNaN(n) && String(n) === t) return n;
+    return raw;
+}
+
+// ── scenario editor (RFC 0014, Task 7): the authoring surface for a scenario file. THIS IS THE SHELL —
+// the four section bodies (setup / steps / watch / judge) + their step rows, pickers and value editors
+// land in Tasks 8–11; here we build only the id input (draft+dirty), section placeholders so the layout
+// is visible, and the footer toolbar (validate / save / save & run / cancel) + the error display. Mirrors
+// TopologyEditor's structure and .topo-* / theme-toggle vocabulary so Task 8's CSS reuses it.
+const ScenarioEditor = {
+    components: { SectionList, StepRow, PropertyPicker },
+    setup() {
+        const draft = computed(() => store.scenarioDraft);
+        // id is the one live-bound field in the shell; touching it dirties the draft (draft+dirty pattern).
+        const onIdInput = () => { store.scenarioDraftDirty = true; };
+        const close = () => closeScenarioEditor();
+
+        // validate flips a one-shot "did a validate just run" flag so a clean pass shows a green pill
+        // (errors-empty alone is the resting state, not a success signal). Note: this validate is
+        // synchronous (client-side validateScenarioDraft), unlike TopologyEditor's async server validate.
+        const validated = ref(false);
+        const errors = computed(() => store.scenarioDraftErrors || []);
+        const hasErrors = computed(() => errors.value.length > 0);
+        const showValid = computed(() => validated.value && errors.value.length === 0);
+        const dirty = computed(() => store.scenarioDraftDirty);
+        const validate = () => { validateScenarioDraft(); validated.value = true; };
+        const save = async () => { validated.value = false; await saveScenarioDraft(); };
+        // save & run: persist, then recycle-on-run against the saved id (applyScenario handles the topology
+        // recycle if needed). Capture the id before the await in case the screen navigates away
+        // (saveScenarioDraft calls openScenario which re-enters the read-only Detail view).
+        const saveAndRun = async () => {
+            validated.value = false;
+            const id = draft.value && draft.value.id;
+            const ok = await saveScenarioDraft();
+            if (ok && id) applyScenario(id);
+        };
+        // Any draft mutation (id change or section-list mutations below) invalidates a prior validate verdict.
+        watch(() => draft.value && draft.value.id, () => { validated.value = false; });
+
+        // ── blank-row factories for each section ───────────────────────────────
+        // setup: a set step (the only shape legal in setup, per SETUP_KIND_IDS).
+        // steps: advance 1 s (a safe default shape that never needs a property path).
+        // watch: a plain string (the name-path format the server expects).
+        // judge: { text } (the text is the human-readable checklist item).
+        const blankFor = section => {
+            if (section === 'setup') return { set: '', value: null };
+            if (section === 'steps') return { advance: { seconds: 1 } };
+            if (section === 'watch') return '';
+            if (section === 'judge') return { text: '' };
+            throw new Error(`unknown section: ${section}`);
+        };
+
+        // ── SectionList event handlers: mutate the draft array and mark dirty ──
+        // Vue 3 reactive arrays: splice is fully reactive — no need for full replacement.
+        const insertAt = (section, index) => {
+            if (!draft.value) return;
+            draft.value[section].splice(index, 0, blankFor(section));
+            store.scenarioDraftDirty = true;
+            validated.value = false;
+        };
+        const removeAt = (section, index) => {
+            if (!draft.value) return;
+            draft.value[section].splice(index, 1);
+            store.scenarioDraftDirty = true;
+            validated.value = false;
+        };
+        const moveRow = (section, index, dir) => {
+            if (!draft.value) return;
+            const arr = draft.value[section];
+            const target = index + dir;
+            if (target < 0 || target >= arr.length) return;
+            const [removed] = arr.splice(index, 1);
+            arr.splice(target, 0, removed);
+            store.scenarioDraftDirty = true;
+            validated.value = false;
+        };
+
+        // ── watch/judge inline-input helpers ──────────────────────────────────
+        // watch rows are plain strings; Vue can't v-model an array slot by index directly in a
+        // template expression, so we provide these named helpers instead.
+        const onWatchInput = (index, value) => {
+            if (!draft.value) return;
+            draft.value.watch.splice(index, 1, value);
+            store.scenarioDraftDirty = true;
+            validated.value = false;
+        };
+        const onJudgeInput = (index, value) => {
+            if (!draft.value) return;
+            draft.value.judge[index].text = value;
+            store.scenarioDraftDirty = true;
+            validated.value = false;
+        };
+
+        // Clock hint: visible only when the host is NOT on a stepped (deterministic) clock. A real-clock
+        // capture can be noisy because live values change while the author edits. Boolean computed so the
+        // template stays operator-free (rule: no && / || in template expressions).
+        const showClockHint = computed(() => !store.stepped);
+
+        // ── form ⇄ raw tab (mirrors TopologyEditor) ───────────────────────────────
+        // Raw-tab textarea: a local draft seeded from store.scenarioDraft on entry. The store draft is only
+        // mutated on an explicit "commit JSON", not on every keystroke (draft+dirty discipline).
+        const tab = ref('form');
+        const rawText = ref('');
+        const rawError = ref('');
+        const seedRaw = () => { try { rawText.value = JSON.stringify(draft.value, null, 2); } catch { rawText.value = ''; } rawError.value = ''; };
+        const showRaw = () => { seedRaw(); tab.value = 'raw'; };
+        const showForm = () => { tab.value = 'form'; rawError.value = ''; };
+        const commitRaw = () => {
+            try {
+                store.scenarioDraft = JSON.parse(rawText.value);
+                store.scenarioDraftDirty = true;
+                store.scenarioDraftErrors = [];
+                rawError.value = '';
+                tab.value = 'form';
+            } catch (e) {
+                rawError.value = 'invalid JSON: ' + e.message;
+            }
+        };
+        const isFormTab = computed(() => tab.value === 'form');
+
+        return {
+            draft, onIdInput, close, errors, hasErrors, showValid, dirty, validate, save, saveAndRun,
+            insertAt, removeAt, moveRow, onWatchInput, onJudgeInput,
+            applySetup, showClockHint,
+            tab, rawText, rawError, showRaw, showForm, commitRaw, isFormTab,
+        };
+    },
+    template: `
+        <div class="topo-panel" v-if="draft">
+            <div class="topo-row topo-editor-head">
+                <button type="button" class="theme-toggle" title="back — close the editor" @click="close">← back</button>
+                <h2 class="mono">scenario editor</h2>
+                <div class="editor-tabs">
+                    <button type="button" :class="{ active: isFormTab }" @click="showForm">form</button>
+                    <button type="button" :class="{ active: !isFormTab }" @click="showRaw">{ } raw</button>
+                </div>
+                <span class="item-spacer"></span>
+                <button type="button" class="theme-toggle" title="close the editor" @click="close">✕</button>
+            </div>
+
+            <template v-if="!isFormTab">
+                <textarea rows="22" spellcheck="false" class="mono topo-raw" :value="rawText"
+                          placeholder="(scenario JSON)" @input="rawText = $event.target.value"></textarea>
+                <div class="topo-row topo-footer">
+                    <button type="button" class="theme-toggle" title="parse and replace the draft" @click="commitRaw">commit JSON</button>
+                </div>
+                <div v-if="rawError" class="topo-errors">
+                    <div class="topo-row topo-error-row">
+                        <span class="severity-pill error">error</span>
+                        <span class="topo-meta">{{ rawError }}</span>
+                    </div>
+                </div>
+            </template>
+
+            <template v-if="isFormTab">
+            <div class="topo-row topo-editor-head">
+                <span class="topo-meta">id</span>
+                <input type="text" class="topo-id-input" placeholder="scenario id" v-model="draft.id" @input="onIdInput"/>
+            </div>
+
+            <h3 class="topo-section">setup</h3>
+            <SectionList :rows="draft.setup" label="setup"
+                         @add="insertAt('setup', $event)"
+                         @remove="removeAt('setup', $event)"
+                         @move="(idx, dir) => moveRow('setup', idx, dir)">
+                <template #default="{ row }">
+                    <StepRow :row="row" :setup-only="true"/>
+                </template>
+            </SectionList>
+
+            <h3 class="topo-section">steps</h3>
+            <SectionList :rows="draft.steps" label="steps"
+                         @add="insertAt('steps', $event)"
+                         @remove="removeAt('steps', $event)"
+                         @move="(idx, dir) => moveRow('steps', idx, dir)">
+                <template #default="{ row }">
+                    <StepRow :row="row" :setup-only="false"/>
+                </template>
+            </SectionList>
+
+            <h3 class="topo-section">watch</h3>
+            <SectionList :rows="draft.watch" label="watch"
+                         @add="insertAt('watch', $event)"
+                         @remove="removeAt('watch', $event)"
+                         @move="(idx, dir) => moveRow('watch', idx, dir)">
+                <template #default="{ row, index }">
+                    <PropertyPicker :model-value="row" mode="watch" @update:model-value="onWatchInput(index, $event)"/>
+                </template>
+            </SectionList>
+
+            <h3 class="topo-section">judge</h3>
+            <SectionList :rows="draft.judge" label="judge"
+                         @add="insertAt('judge', $event)"
+                         @remove="removeAt('judge', $event)"
+                         @move="(idx, dir) => moveRow('judge', idx, dir)">
+                <template #default="{ row, index }">
+                    <input type="text" class="section-judge-input" placeholder="human-readable checklist item"
+                           :value="row.text"
+                           @input="onJudgeInput(index, $event.target.value)"/>
+                </template>
+            </SectionList>
+
+            <div class="topo-row topo-footer">
+                <button type="button" class="theme-toggle" @click="validate">validate</button>
+                <span v-if="showValid" class="severity-pill success">valid</span>
+                <button type="button" class="theme-toggle" title="drive setup steps against the live host so you can capture realistic values with 'use current'" @click="applySetup">apply setup</button>
+                <span v-if="showClockHint" class="topo-meta">values are live — switch to stepped for reproducible captures</span>
+                <span class="item-spacer"></span>
+                <button type="button" class="theme-toggle" title="discard and close the editor" @click="close">cancel</button>
+                <button type="button" class="theme-toggle" :disabled="!dirty" title="save this scenario file" @click="save">save</button>
+                <button type="button" class="theme-toggle" title="save, then run this scenario (recycles the host onto its topology)" @click="saveAndRun">save &amp; run</button>
+            </div>
+            <div v-if="hasErrors" class="topo-errors">
+                <div v-for="(err, i) in errors" :key="i" class="topo-row topo-error-row">
+                    <span class="severity-pill error">error</span>
+                    <span class="topo-meta">{{ err }}</span>
+                </div>
+            </div>
+            </template>
+        </div>
+    `,
+};
+
 export const PlayerPanel = {
-    components: { PlayerStep, ScenarioWatchTile, ScenarioTrace },
+    components: { PlayerStep, ScenarioWatchTile, ScenarioTrace, ScenarioEditor },
     setup() {
         const entries = computed(() => (store.scenarios && store.scenarios.scenarios) || []);
         const directory = computed(() => (store.scenarios && store.scenarios.directory) || '');
@@ -1948,13 +2693,7 @@ export const PlayerPanel = {
             const raw = scenario.value && Array.isArray(scenario.value[section]) ? scenario.value[section] : [];
             return raw.map((s, i) => ({
                 index: i,
-                kind: s.set !== undefined ? 'set'
-                    : s.serviceProviderSet ? 'serviceProviderSet'
-                    : s.serviceProviderExpect ? 'serviceProviderExpect'
-                    : s.waitUntil ? 'waitUntil'
-                    : s.expect ? 'expect'
-                    : s.advance ? 'advance'
-                    : s.settle !== undefined ? 'settle' : 'unknown',
+                kind: kindOf(s),
                 label: s.label,
                 spec: s.spec,
                 target: s.set !== undefined ? s.set
@@ -2024,20 +2763,35 @@ export const PlayerPanel = {
             tagFilter.value ? entries.value.filter(e => (e.specs || []).includes(tagFilter.value)) : entries.value);
         const toggleTag = t => { tagFilter.value = tagFilter.value === t ? null : t; };
 
+        // Authoring (Task 7): ＋new on the list, ✎Edit / ⧉Clone on an open scenario — all gated to a
+        // writable host (readOnly hides them), mirroring the topology editor's gate. The open-scenario
+        // view is a router on store.scenarioScreen: 'editor' shows the ScenarioEditor, anything else the
+        // read-only run view. Screen state lives in the store (not a local ref) so a navigation that flips
+        // it before this panel mounts still lands on the right screen.
+        const canEdit = computed(() => !(store.scenarios && store.scenarios.readOnly));
+        const editing = computed(() => store.scenarioScreen === 'editor');
+        const createDraft = () => newScenarioDraft();
+        const editScenario = () => editScenarioDraft(store.scenarioId);
+        const cloneScenario = () => editScenarioDraft(store.scenarioId, { asClone: true });
+
         return {
             store, entries, directory, scenario, run, running, mismatch, mismatchText, setupSteps,
             steps, judge, statusClass, staleRun, runLabel, heading, entryError, start, tick,
             tickState, copyReport, reload, open: openScenario, close: closeScenario,
             tagFilter, allTags, filteredEntries, toggleTag,
+            canEdit, editing, createDraft, editScenario, cloneScenario,
         };
     },
     template: `
         <div class="player-panel">
-            <section v-if="!store.scenarioId" class="block-card">
+            <ScenarioEditor v-if="editing"/>
+            <section v-else-if="!store.scenarioId" class="block-card">
                 <div class="block-header">
                     <h2>scenarios</h2>
                     <span class="item-spacer"></span>
                     <span class="block-counts">{{ entries.length }} discovered · {{ directory }}</span>
+                    <button v-if="canEdit" type="button" class="theme-toggle" title="author a new scenario"
+                            @click="createDraft">＋ new</button>
                 </div>
                 <div v-if="allTags.length" class="scenario-tags">
                     <span class="scenario-tags-label">tag</span>
@@ -2067,6 +2821,8 @@ export const PlayerPanel = {
                     <span v-if="staleRun" class="stale-chip" title="the file on disk no longer matches the file this run executed — the report below is about the older version">file changed since this run</span>
                     <span v-if="run" class="run-status" :class="statusClass">{{ run.status }}</span>
                     <button type="button" class="theme-toggle" title="re-read the file from disk" @click="reload">⟳</button>
+                    <button v-if="canEdit" type="button" class="theme-toggle" title="edit this scenario in place" @click="editScenario">✎ edit</button>
+                    <button v-if="canEdit" type="button" class="theme-toggle" title="clone this scenario into a new file" @click="cloneScenario">⧉ clone</button>
                     <button type="button" class="trigger-button"
                             :title="running ? 'cancel the active run and start over' : 'run this scenario'"
                             @click="start()">{{ runLabel }}</button>
@@ -2143,6 +2899,18 @@ function openCloneTopologyEditor(id) {
     editTopology(id);
 }
 
+// Open the scenario editor from anywhere (⌘K palette / Shift+S keybinding): flip to the player view,
+// then prime the draft via newScenarioDraft. Mirrors openNewTopologyEditor; honors the read-only gate.
+const scenarioEditable = () => !(store.scenarios && store.scenarios.readOnly);
+function openNewScenarioEditor() {
+    if (!scenarioEditable()) return;
+    newScenarioDraft();
+}
+function openEditScenarioEditor(id) {
+    if (!scenarioEditable()) return;
+    editScenarioDraft(id);
+}
+
 export const Palette = {
     setup() {
         const query = ref('');
@@ -2150,9 +2918,10 @@ export const Palette = {
         const inputEl = ref(null);
         // Nav targets (scenario / topology) sort ahead of properties on a score tie — they're fewer and the
         // headline "go to anything" use; authoring verbs follow them; properties are the long tail.
-        const typeRank = t => (t === 'scenario' ? 0 : t === 'topology' ? 1 : t === 'newtopology' || t === 'edittopology' ? 2 : 3);
-        // Authoring verbs are offered only on a writable topology workspace (mirrors TopologyPanel.canEdit).
+        const typeRank = t => (t === 'scenario' ? 0 : t === 'topology' ? 1 : t === 'newtopology' || t === 'edittopology' || t === 'newscenario' || t === 'editscenario' ? 2 : 3);
+        // Authoring verbs are offered only on a writable workspace (mirrors TopologyPanel.canEdit / PlayerPanel.canEdit).
         const canAuthor = computed(() => !(store.topologies && store.topologies.readOnly));
+        const canAuthorScenario = computed(() => !(store.scenarios && store.scenarios.readOnly));
         const entries = computed(() => {
             const tokens = parseFilter(query.value);
             const q = query.value.trim().toLowerCase();
@@ -2180,6 +2949,19 @@ export const Palette = {
                     const label = 'edit topology: ' + tp.id;
                     if (!q || tp.id.toLowerCase().includes(q) || label.includes(q)) {
                         out.push({ type: 'edittopology', key: 'edit:' + tp.id, id: tp.id, name: label, where: 'clone into editor', score: tp.id.toLowerCase().includes(q) ? 0 : 1 });
+                    }
+                });
+            }
+            // Scenario authoring verbs (RFC 0014) — only on a writable scenario workspace (mirrors
+            // PlayerPanel.canEdit). "new scenario" is always offered; one "edit scenario: <id>" per file.
+            if (canAuthorScenario.value) {
+                if (!q || 'new scenario'.includes(q)) {
+                    out.push({ type: 'newscenario', key: 'scn:new', name: 'new scenario', where: 'author a scenario', score: 'new scenario'.includes(q) ? 0 : 1 });
+                }
+                ((store.scenarios && store.scenarios.scenarios) || []).forEach(s => {
+                    const label = 'edit scenario: ' + s.id;
+                    if (!q || s.id.toLowerCase().includes(q) || label.includes(q)) {
+                        out.push({ type: 'editscenario', key: 'edit:scn:' + s.id, id: s.id, name: label, where: 'open in editor', score: s.id.toLowerCase().includes(q) ? 0 : 1 });
                     }
                 });
             }
@@ -2221,6 +3003,16 @@ export const Palette = {
             if (entry.type === 'edittopology') {
                 close();
                 openCloneTopologyEditor(entry.id);
+                return;
+            }
+            if (entry.type === 'newscenario') {
+                close();
+                openNewScenarioEditor();
+                return;
+            }
+            if (entry.type === 'editscenario') {
+                close();
+                openEditScenarioEditor(entry.id);
                 return;
             }
             const groupKey = (entry.item.presentation && entry.item.presentation.group) || '';
@@ -2279,7 +3071,7 @@ export const Palette = {
                     <div v-for="(e, i) in entries" :key="e.key"
                          class="palette-row" :class="{ selected: i === selected }"
                          @click="jump(e)" @mouseenter="selected = i">
-                        <span class="palette-kind" :class="'kind-' + e.type" :title="e.type">{{ e.type === 'scenario' ? '▶' : e.type === 'topology' ? '⛁' : e.type === 'newtopology' ? '＋' : e.type === 'edittopology' ? '✎' : '◦' }}</span>
+                        <span class="palette-kind" :class="'kind-' + e.type" :title="e.type">{{ e.type === 'scenario' ? '▶' : e.type === 'topology' ? '⛁' : e.type === 'newtopology' ? '＋' : e.type === 'edittopology' ? '✎' : e.type === 'newscenario' ? '＋' : e.type === 'editscenario' ? '✎' : '◦' }}</span>
                         <template v-if="e.type === 'property'">
                             <span class="mono palette-name">{{ e.item.identifier }}</span>
                             <span class="palette-where">{{ e.lb.name }}<template v-if="e.multiService"> · {{ e.service.identifier }}</template><template v-if="e.item.presentation?.group"> · {{ e.item.presentation.group }}</template></span>
@@ -2309,6 +3101,7 @@ const KEYBINDINGS = [
     { keys: ['v'], desc: 'Verify' },
     { keys: ['t'], desc: 'topology menu — switch / new / manage' },
     { keys: ['⇧', 'T'], desc: 'new topology editor' },
+    { keys: ['⇧', 'S'], desc: 'new scenario editor' },
     { keys: ['[', ']'], desc: 'previous / next — scenario in Verify, topology in Explore' },
     { keys: ['/'], desc: 'focus the filter' },
     { keys: ['b'], desc: 'set baseline (mark the current values)' },
@@ -2492,6 +3285,7 @@ export const App = {
                 case 'v': goVerify(); break;
                 case 't': toggleTopologyMenu(); break;
                 case 'T': openNewTopologyEditor(); break;
+                case 'S': openNewScenarioEditor(); break;
                 case 'b': setBaseline(); break;
                 case 'c': clearPins(); break;
                 case 'p': store.paused ? resumeHost() : pauseHost(); break;
