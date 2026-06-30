@@ -22,8 +22,8 @@ import {
 } from './store.js';
 import { allowsMultiple, autoConnect, problemsOf, residueOf } from './wiring.js';
 import {
-    contractRefs, contractValueEditor, findMember, kindOf, propertyPaths,
-    SETUP_KIND_IDS, STEP_KIND_IDS, stepErrors, structFieldPaths, valueEditorFor,
+    contractRefs, contractValueEditor, findMember, kindOf, pathOptions,
+    SETUP_KIND_IDS, STEP_KIND_IDS, stepErrors, valueEditorFor,
 } from './scenario-forms.js';
 
 // Filter tokens, shared by every component that narrows to matches.
@@ -1951,10 +1951,10 @@ const SectionList = {
     },
     template: `
         <div class="section-list" role="group" :aria-label="label">
-            <div v-if="canAdd" class="insert-between" @click="onAdd(0)" title="insert at the start">
-                <span class="insert-label">+ insert</span>
-            </div>
             <template v-for="(row, i) in rows" :key="i">
+                <div v-if="canAdd" class="insert-between" @click="onAdd(i)" :title="i === 0 ? 'insert at the start' : 'insert above this row'">
+                    <span class="insert-label">+ insert</span>
+                </div>
                 <div class="section-list-row topo-row">
                     <div class="section-list-body">
                         <slot :row="row" :index="i"/>
@@ -1965,55 +1965,38 @@ const SectionList = {
                         <button type="button" class="theme-toggle" title="remove" @click="onRemove(i)">✕</button>
                     </div>
                 </div>
-                <div v-if="canAdd" class="insert-between" @click="onAdd(i + 1)" :title="'insert after row ' + (i + 1)">
-                    <span class="insert-label">+ insert</span>
-                </div>
             </template>
-            <div v-if="!rows.length" class="topo-meta section-list-empty">no {{ label }} entries — use + insert to add one</div>
+            <button v-if="canAdd" type="button" class="section-add" :title="'add a ' + label + ' entry at the end'" @click="onAdd(rows.length)">
+                <span class="insert-label">+ add {{ label }}</span>
+            </button>
         </div>
     `,
 };
 
-// ── PropertyPicker (Task 9): a Block.Property[.Field] picker over the running host's config. ─────────
-// Props: modelValue (the dotted name path), writableOnly (set ⇒ only writable props), allowStructFields
-// (expect/waitUntil ⇒ allow descending into a struct member's fields). Emits update:modelValue. Reads
-// store.config ONLY — never fetches. The base member is one <select> over propertyPaths(); when the base
-// is a struct AND allowStructFields, a SECOND <select> over structFieldPaths() lets the user pick a field,
-// so the emitted value is `Block.Property` (base) or `Block.Property.Field` (descended).
+// ── PropertyPicker (Task 9; autocomplete since the energy review): a Block.Property[.Field] name-path
+// picker over the running host's config. An <input> backed by a <datalist> of flattened, alphabetically
+// sorted paths from pathOptions(config, mode) — type-to-filter (so the long energy lists stay usable) with
+// struct fields as first-class entries (no separate sub-dropdown). `mode`: 'set' (writable wholes) /
+// 'assert' (scalars + struct leaves) / 'watch' (wholes + struct leaves). Free-form entry is allowed — a
+// bad path is caught by validation. Reads store.config ONLY — never fetches. Emits update:modelValue.
+let propertyPickerSeq = 0;
 const PropertyPicker = {
     props: {
         modelValue: { type: String, default: '' },
-        writableOnly: { type: Boolean, default: false },
-        allowStructFields: { type: Boolean, default: false },
+        mode: { type: String, default: 'assert' },
     },
     emits: ['update:modelValue'],
     setup(props, { emit }) {
-        const bases = computed(() => propertyPaths(store.config, { writableOnly: props.writableOnly }));
-        // The current value is base[.field]; the base is the longest enumerated path that prefixes it.
-        const base = computed(() => {
-            const v = props.modelValue || '';
-            const match = bases.value.find(p => v === p || v.startsWith(p + '.'));
-            // Fall back to the first two segments so a hand-typed / stale path still selects sensibly.
-            return match || v.split('.').slice(0, 2).join('.');
-        });
-        const fieldPaths = computed(() => props.allowStructFields ? structFieldPaths(store.config, base.value) : []);
-        const hasFields = computed(() => fieldPaths.value.length > 0);
-        const fieldValue = computed(() => (props.modelValue && props.modelValue !== base.value) ? props.modelValue : '');
-        const onBase = e => emit('update:modelValue', e.target.value);
-        // Field '' ⇒ the whole struct member (base). A field path is already the full Block.Prop.Field.
-        const onField = e => emit('update:modelValue', e.target.value || base.value);
-        return { bases, base, fieldPaths, hasFields, fieldValue, onBase, onField };
+        const options = computed(() => pathOptions(store.config, props.mode));
+        const listId = 'sc-paths-' + (++propertyPickerSeq);   // unique per instance so each input has its own list
+        const onInput = e => emit('update:modelValue', e.target.value);
+        return { options, listId, onInput };
     },
     template: `
         <span class="step-field">
-            <select class="control step-prop-select" :value="base" @change="onBase">
-                <option value="">— property —</option>
-                <option v-for="p in bases" :key="p" :value="p">{{ p }}</option>
-            </select>
-            <select v-if="hasFields" class="control step-field-select" :value="fieldValue" @change="onField">
-                <option value="">(whole struct)</option>
-                <option v-for="f in fieldPaths" :key="f" :value="f">.{{ f.slice(base.length + 1) }}</option>
-            </select>
+            <input class="control step-prop-input" type="text" :list="listId" :value="modelValue" @input="onInput"
+                   placeholder="— property —" spellcheck="false" autocomplete="off"/>
+            <datalist :id="listId"><option v-for="p in options" :key="p" :value="p"></option></datalist>
         </span>
     `,
 };
@@ -2325,7 +2308,7 @@ const StepRow = {
                 </select>
 
                 <template v-if="isSet">
-                    <PropertyPicker :model-value="row.set" :writable-only="true" @update:model-value="setSet"/>
+                    <PropertyPicker :model-value="row.set" mode="set" @update:model-value="setSet"/>
                     <ValueEditor :schema="setSchema" :model-value="row.value" @update:model-value="setValue"/>
                 </template>
 
@@ -2335,7 +2318,7 @@ const StepRow = {
                 </template>
 
                 <template v-else-if="isAssertProp">
-                    <PropertyPicker :model-value="assertObj.property" :allow-struct-fields="true" @update:model-value="onAssertProperty"/>
+                    <PropertyPicker :model-value="assertObj.property" mode="assert" @update:model-value="onAssertProperty"/>
                     <span class="step-field">
                         <span class="mono topo-meta">equals</span>
                         <input type="text" class="control step-value-input" :value="equalsText" @input="onEquals">
@@ -2414,7 +2397,7 @@ function parseScalar(raw) {
 // is visible, and the footer toolbar (validate / save / save & run / cancel) + the error display. Mirrors
 // TopologyEditor's structure and .topo-* / theme-toggle vocabulary so Task 8's CSS reuses it.
 const ScenarioEditor = {
-    components: { SectionList, StepRow },
+    components: { SectionList, StepRow, PropertyPicker },
     setup() {
         const draft = computed(() => store.scenarioDraft);
         // id is the one live-bound field in the shell; touching it dirties the draft (draft+dirty pattern).
@@ -2590,9 +2573,7 @@ const ScenarioEditor = {
                          @remove="removeAt('watch', $event)"
                          @move="(idx, dir) => moveRow('watch', idx, dir)">
                 <template #default="{ row, index }">
-                    <input type="text" class="section-watch-input" placeholder="Block.Property"
-                           :value="row"
-                           @input="onWatchInput(index, $event.target.value)"/>
+                    <PropertyPicker :model-value="row" mode="watch" @update:model-value="onWatchInput(index, $event)"/>
                 </template>
             </SectionList>
 

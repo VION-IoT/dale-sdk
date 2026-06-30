@@ -96,6 +96,28 @@ function findMember(config, path) {
 }
 export { findMember };
 
+// Flattened, alphabetically-sorted name paths for an autocomplete (datalist) picker. `mode` selects what
+// the field is for, so a struct member expands the right way:
+//   'set'    → writable WHOLE properties (a writable struct is set whole via the value editor — no leaves)
+//   'assert' → every observable; a struct descends to its scalar FIELD leaves only (a whole struct is not
+//              comparable — mirrors the runner's RejectWholeStructTarget), for expect / waitUntil
+//   'watch'  → every observable: the whole property AND its struct field leaves (watch can sample either)
+// Sorting is locale-aware so the long dropdowns the energy topologies produce read alphabetically.
+export function pathOptions(config, mode) {
+    const out = [];
+    for (const path of propertyPaths(config, { writableOnly: mode === 'set' })) {
+        const fields = structFieldPaths(config, path);
+        if (!fields.length || mode === 'set') {
+            out.push(path);
+        }
+        else {
+            if (mode === 'watch') out.push(path);
+            for (const f of fields) out.push(f);
+        }
+    }
+    return out.sort((a, b) => a.localeCompare(b));
+}
+
 // ---------------------------------------------------------------------------
 // Advisory mirror of ScenarioStep.StructuralErrors(setupOnlyShapes). The SERVER is authoritative (PUT
 // Save re-runs the real thing); this is for inline editor feedback. `hasValue` distinguishes an explicit

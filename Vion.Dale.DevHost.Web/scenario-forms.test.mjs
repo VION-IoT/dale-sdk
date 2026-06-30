@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { KINDS, kindOf, STEP_KIND_IDS, SETUP_KIND_IDS } from './wwwroot/scenario-forms.js';
 import { stepErrors } from './wwwroot/scenario-forms.js';
-import { propertyPaths, contractRefs, structFieldPaths } from './wwwroot/scenario-forms.js';
+import { propertyPaths, contractRefs, structFieldPaths, pathOptions } from './wwwroot/scenario-forms.js';
 import { valueEditorFor, contractValueEditor } from './wwwroot/scenario-forms.js';
 
 // The seven closed shapes, the four-vocabulary-sites source of truth (ScenarioStep.Kind).
@@ -68,3 +68,12 @@ assert.equal(contractValueEditor('DigitalInput').control, 'bool');
 assert.equal(contractValueEditor('AnalogInput').control, 'number');
 assert.equal(contractValueEditor('GridDemand').control, 'rawJson'); // no value schema → fallback
 console.log('task4 ok');
+
+// pathOptions: flattened, alphabetically-sorted name paths for the autocomplete picker (energy review).
+// 'set' → writable WHOLE props (a struct stays whole — it's set via the value editor, no leaves), sorted
+assert.deepEqual(pathOptions(cfg, 'set'), ['Grid.Phases', 'Grid.Setpoint']);
+// 'assert' → all observables; a struct descends to its scalar field leaves (a whole struct is not comparable)
+assert.deepEqual(pathOptions(cfg, 'assert'), ['Grid.Phases.l1', 'Grid.Phases.l2', 'Grid.Phases.l3', 'Grid.Reading', 'Grid.Setpoint']);
+// 'watch' → all observables: the whole property AND its struct field leaves
+assert.deepEqual(pathOptions(cfg, 'watch'), ['Grid.Phases', 'Grid.Phases.l1', 'Grid.Phases.l2', 'Grid.Phases.l3', 'Grid.Reading', 'Grid.Setpoint']);
+console.log('task5 ok');

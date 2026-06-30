@@ -364,14 +364,29 @@ body {
 .insert-between::before { margin-right: 4px; }
 .insert-between::after { margin-left: 4px; }
 
-/* Empty-state note when a section has no rows yet */
-.section-list-empty { padding: 4px 2px; }
+/* Always-visible append button at the bottom of every section (the 80% case — adding at the end).
+   Unlike .insert-between (hover-revealed, for mid-list inserts) this stays visible for discoverability. */
+.section-add {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 4px;
+    padding: 2px 10px;
+    cursor: pointer;
+    color: var(--accent);
+    background: none;
+    border: 1px dashed var(--text-faint);
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+}
+.section-add:hover { border-color: var(--accent); border-style: solid; }
 
 /* Placeholder note for setup / steps rows (body is Task 9) */
 .section-placeholder-note { font-style: italic; color: var(--text-faint); font-size: 11px; }
 
-/* Watch and judge inline inputs: fill the available body width */
-.section-watch-input, .section-judge-input { flex: 1 1 0; min-width: 0; font-family: var(--mono); font-size: 12px; }
+/* Judge inline input: fill the available body width */
+.section-judge-input { flex: 1 1 0; min-width: 0; font-family: var(--mono); font-size: 12px; }
 
 /* ── StepRow (Task 9): per-step kind form — a wrapping field cluster + an inline error list ───── */
 
@@ -386,10 +401,11 @@ body {
 /* Each labelled field is a label + its control, kept together when the row wraps */
 .step-field { display: inline-flex; align-items: center; gap: 4px; }
 
-/* Sizing: kind/property/contract selects auto-size; numeric knobs are compact */
+/* Sizing: kind/contract selects auto-size; the property autocomplete is wider (long dotted paths);
+   numeric knobs are compact */
 .step-kind-select { min-width: 120px; }
-.step-prop-select, .step-contract-select { min-width: 150px; }
-.step-field-select { min-width: 110px; }
+.step-contract-select { min-width: 150px; }
+.step-prop-input { min-width: 200px; }
 .step-value-input { min-width: 120px; }
 .step-small-input { width: 72px; }
 .step-label-input { width: 140px; }
