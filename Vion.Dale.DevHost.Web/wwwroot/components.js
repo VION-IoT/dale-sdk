@@ -1061,7 +1061,72 @@ export const WatchPanel = {
 // Add a logic-block instance from the definition catalog: pick a type, name it, add. Names must be
 // non-empty, unique within the draft, and dotless (the server rejects dots in instance names) — an
 // invalid name shows an inline hint and is not added.
+// Live value → a short display hint for a combobox row (the property picker's value column).
+const comboHint = v => v === undefined ? '' : v === null ? 'null' : typeof v === 'object' ? JSON.stringify(v) : formatValue(v);
+
+// ── Combobox: a generic ⌘K-style picker — an <input> + a dropdown of option rows ({ label · meta · hint })
+// that opens on focus, filters by label/meta as you type, ↑/↓/Enter/click to pick. Emits 'pick' (value, option).
+// `options` is [{ value, label, meta? }] (value is the emit payload, label the display text); `label` is the
+// closed-state input text for the current selection; `freeText` (the property name-path case) also emits raw
+// typed text on input; `hintFor` is an optional per-row hint function — called only for rendered rows, so a
+// CLOSED picker never recomputes (keeps the live-value property picker lazy). Reuses the palette row styling.
+const Combobox = {
+    props: {
+        options: { type: Array, default: () => [] },
+        label: { type: String, default: '' },
+        placeholder: { type: String, default: '— select —' },
+        freeText: { type: Boolean, default: false },
+        hintFor: { type: Function, default: null },
+    },
+    emits: ['pick'],
+    setup(props, { emit }) {
+        const open = ref(false);
+        const query = ref('');
+        const selected = ref(0);
+        const rootEl = ref(null);
+        const filtered = computed(() => {
+            const q = query.value.trim().toLowerCase();
+            const match = o => o.label.toLowerCase().includes(q) || (o.meta || '').toLowerCase().includes(q);
+            return (q ? props.options.filter(match) : props.options).slice(0, 60);
+        });
+        watch(query, () => { selected.value = 0; });
+        const hint = o => props.hintFor ? props.hintFor(o) : (o.hint !== undefined ? o.hint : '');
+        const pick = o => { emit('pick', o.value, o); query.value = ''; open.value = false; };
+        const onFocus = () => { query.value = ''; selected.value = 0; open.value = true; };
+        const onInput = e => { query.value = e.target.value; open.value = true; if (props.freeText) emit('pick', e.target.value, null); };
+        const onKey = e => {
+            if (e.key === 'ArrowDown') { open.value = true; selected.value = Math.min(selected.value + 1, filtered.value.length - 1); e.preventDefault(); }
+            else if (e.key === 'ArrowUp') { selected.value = Math.max(selected.value - 1, 0); e.preventDefault(); }
+            else if (e.key === 'Enter') { const o = filtered.value[selected.value]; if (open.value && o) { pick(o); e.preventDefault(); } }
+            else if (e.key === 'Escape') { if (open.value) { open.value = false; e.stopPropagation(); } }
+        };
+        const onDocPointer = e => { if (rootEl.value && !rootEl.value.contains(e.target)) open.value = false; };
+        onMounted(() => document.addEventListener('mousedown', onDocPointer));
+        onUnmounted(() => document.removeEventListener('mousedown', onDocPointer));
+        // While open the input is the filter box (shows the query); closed, it shows the selection's label.
+        const shown = computed(() => open.value ? query.value : props.label);
+        return { open, selected, filtered, rootEl, hint, pick, onFocus, onInput, onKey, shown };
+    },
+    template: `
+        <span class="combobox" ref="rootEl">
+            <input class="control combobox-input" type="text" :value="shown" :placeholder="placeholder"
+                   @focus="onFocus" @input="onInput" @keydown="onKey" spellcheck="false" autocomplete="off"/>
+            <div v-if="open" class="combobox-pop">
+                <div v-for="(o, i) in filtered" :key="i" class="combobox-row" :class="{ selected: i === selected }"
+                     @mousedown.prevent="pick(o)" @mouseenter="selected = i">
+                    <span class="mono combobox-label">{{ o.label }}</span>
+                    <span v-if="o.meta" class="combobox-meta">{{ o.meta }}</span>
+                    <span class="item-spacer"></span>
+                    <span class="mono combobox-val">{{ hint(o) }}</span>
+                </div>
+                <div v-if="!filtered.length" class="combobox-empty">no matches</div>
+            </div>
+        </span>
+    `,
+};
+
 const BlockPicker = {
+    components: { Combobox },
     setup() {
         const selectedType = ref('');
         const name = ref('');
@@ -1069,10 +1134,15 @@ const BlockPicker = {
         // edit). Set on @input, reset after add so the next type selection re-suggests.
         const nameTouched = ref(false);
         const definitions = computed(() => store.definitions || []);
+        // Combobox options: value = the full type name (what we add), label = the short class name, meta = the
+        // namespace it lives in (disambiguates same-named blocks across libraries).
         const options = computed(() => definitions.value.map(d => ({
-            typeFullName: d.typeFullName,
-            short: shortTypeName(d.typeFullName),
+            value: d.typeFullName,
+            label: shortTypeName(d.typeFullName),
+            meta: d.typeFullName.split('.').slice(0, -1).join('.'),
         })));
+        const selectedLabel = computed(() => selectedType.value ? shortTypeName(selectedType.value) : '');
+        const onPickType = v => { selectedType.value = v; };
         const instances = computed(() => (store.topologyDraft && store.topologyDraft.logicBlockInstances) || []);
         // A sensible default instance name for a type: shortTypeName lower-cased (reads well next to the
         // existing names, which are lower-cased instance names), de-duplicated against the draft by suffixing
@@ -1121,14 +1191,11 @@ const BlockPicker = {
         };
         // @input marks the name as user-owned (stop auto-suggesting). v-model still flows the text in.
         const onNameInput = () => { nameTouched.value = true; };
-        return { selectedType, name, options, hint, canAdd, add, onNameInput };
+        return { name, options, hint, canAdd, add, onNameInput, selectedLabel, onPickType };
     },
     template: `
         <div class="topo-row topo-picker">
-            <select class="topo-pick-type" v-model="selectedType">
-                <option value="" disabled>add block…</option>
-                <option v-for="o in options" :key="o.typeFullName" :value="o.typeFullName">{{ o.short }}</option>
-            </select>
+            <Combobox class="topo-pick-type" :options="options" :label="selectedLabel" placeholder="add block…" @pick="onPickType"/>
             <input class="topo-pick-name" type="text" placeholder="name" v-model="name" @input="onNameInput" @keyup.enter="add"/>
             <button type="button" class="theme-toggle topo-pick-add" :disabled="!canAdd" @click="add">+ add</button>
             <span v-if="hint" class="topo-hint">{{ hint }}</span>
@@ -1162,6 +1229,7 @@ const WiringRow = {
 // One residue entry: a required/contested unwired interface, its multiplicity hint, and a candidate
 // picker. The select handler lives here (not the template) so no logic leaks into the markup.
 const ResidueRow = {
+    components: { Combobox },
     props: ['entry'],
     setup(props, { emit }) {
         // kind 'required' -> a warning pill; 'contested' -> a neutral "pick one".
@@ -1169,15 +1237,11 @@ const ResidueRow = {
         const pillClass = computed(() => isRequired.value ? 'severity-pill warning' : 'severity-pill neutral');
         const pillLabel = computed(() => isRequired.value ? 'needs wiring' : 'pick one');
         const multHint = computed(() => allowsMultiple(props.entry.multiplicity) ? 'fan-in' : 'single-writer');
-        // The select stays unselected (placeholder option) — picking a candidate fires the wire and the
-        // residue recomputes (the entry usually disappears), so there is nothing to keep selected.
-        const onPick = event => {
-            const idx = event.target.selectedIndex - 1; // option 0 is the placeholder
-            event.target.selectedIndex = 0;
-            const cand = (props.entry.candidates || [])[idx];
-            if (cand) emit('wire', props.entry.blockName, props.entry.interfaceIdentifier, cand.targetName, cand.targetInterface);
-        };
-        return { pillClass, pillLabel, multHint, onPick };
+        const comboOptions = computed(() => (props.entry.candidates || []).map(c => ({ value: c, label: c.targetName + '.' + c.targetInterface })));
+        // Picking a candidate fires the wire; the residue recomputes (the entry usually disappears), so the
+        // combobox keeps no selection (label '').
+        const onPickCand = cand => emit('wire', props.entry.blockName, props.entry.interfaceIdentifier, cand.targetName, cand.targetInterface);
+        return { pillClass, pillLabel, multHint, comboOptions, onPickCand };
     },
     template: `
         <div class="topo-row topo-residue-row">
@@ -1185,10 +1249,7 @@ const ResidueRow = {
             <span :class="pillClass">{{ pillLabel }}</span>
             <span class="topo-meta">{{ multHint }}</span>
             <span class="item-spacer"></span>
-            <select v-if="entry.candidates.length" @change="onPick">
-                <option value="">wire to…</option>
-                <option v-for="(c, ci) in entry.candidates" :key="ci" :value="ci">{{ c.targetName }}.{{ c.targetInterface }}</option>
-            </select>
+            <Combobox v-if="entry.candidates.length" class="topo-wire-pick" :options="comboOptions" label="" placeholder="wire to…" @pick="onPickCand"/>
             <span v-else class="topo-meta">no candidate</span>
         </div>
     `,
@@ -1973,75 +2034,29 @@ const SectionList = {
     `,
 };
 
-// ── PropertyPicker (Task 9; ⌘K-style combobox since the energy review): a Block.Property[.Field] name-path
-// picker over the running host's config. An <input> with a dropdown that opens on focus and lists the
-// matching options as rows — each annotated, like the ⌘K palette, with its block · presentation group · live
-// value — narrowing as you type (↑/↓ + Enter, or click). `mode` selects the path set via pathOptions(): 'set'
-// (writable wholes) / 'assert' (scalars + struct leaves) / 'watch' (wholes + struct leaves); struct fields are
-// first-class rows (no sub-dropdown). Free-form entry is still allowed (the input keeps what you type — a bad
-// path is caught by validation). Reads store.config + store.values ONLY — never fetches. Emits update:modelValue.
+// ── PropertyPicker (Task 9; ⌘K combobox): a Block.Property[.Field] name-path picker. Wraps the generic
+// Combobox with the host's flattened, alphabetically-sorted paths (pathOptions by `mode`: 'set' writable
+// wholes / 'assert' scalars + struct leaves / 'watch' wholes + struct leaves). Each row shows block ·
+// presentation group + a LIVE value (hintFor → currentValueFor, lazy — only the rendered rows read it).
+// Struct fields are first-class rows; free-form typing flows to the model. Reads store.config + store.values.
 const PropertyPicker = {
+    components: { Combobox },
     props: {
         modelValue: { type: String, default: '' },
         mode: { type: String, default: 'assert' },
     },
     emits: ['update:modelValue'],
     setup(props, { emit }) {
-        const open = ref(false);
-        const query = ref('');
-        const selected = ref(0);
-        const rootEl = ref(null);
-        // Each option carries the ⌘K-style metadata: its block, its presentation group, and its live value
-        // (a struct-field path inherits the parent member's group; currentValueFor reads the field leaf).
-        const all = computed(() => pathOptions(store.config, props.mode).map(path => {
+        const options = computed(() => pathOptions(store.config, props.mode).map(path => {
             const member = findMember(store.config, path);
-            return {
-                path,
-                block: path.split('.')[0],
-                group: (member && member.presentation && member.presentation.group) || '',
-                value: currentValueFor(path),
-            };
+            const group = (member && member.presentation && member.presentation.group) || '';
+            return { value: path, label: path, meta: path.split('.')[0] + (group ? ' · ' + group : '') };
         }));
-        // Everything on focus (empty query); narrowed by case-insensitive path substring as you type.
-        const filtered = computed(() => {
-            const q = query.value.trim().toLowerCase();
-            return (q ? all.value.filter(o => o.path.toLowerCase().includes(q)) : all.value).slice(0, 60);
-        });
-        watch(query, () => { selected.value = 0; });
-        const valueHint = v => v === undefined ? '' : v === null ? 'null' : typeof v === 'object' ? JSON.stringify(v) : formatValue(v);
-        const choose = o => { emit('update:modelValue', o.path); query.value = ''; open.value = false; };
-        const onFocus = () => { query.value = ''; selected.value = 0; open.value = true; };
-        // Free-form typing flows straight to the model (so a hand-typed path survives without an explicit pick).
-        const onInput = e => { query.value = e.target.value; open.value = true; emit('update:modelValue', e.target.value); };
-        const onKey = e => {
-            if (e.key === 'ArrowDown') { open.value = true; selected.value = Math.min(selected.value + 1, filtered.value.length - 1); e.preventDefault(); }
-            else if (e.key === 'ArrowUp') { selected.value = Math.max(selected.value - 1, 0); e.preventDefault(); }
-            else if (e.key === 'Enter') { const o = filtered.value[selected.value]; if (open.value && o) { choose(o); e.preventDefault(); } }
-            else if (e.key === 'Escape') { if (open.value) { open.value = false; e.stopPropagation(); } }
-        };
-        const onDocPointer = e => { if (rootEl.value && !rootEl.value.contains(e.target)) open.value = false; };
-        onMounted(() => document.addEventListener('mousedown', onDocPointer));
-        onUnmounted(() => document.removeEventListener('mousedown', onDocPointer));
-        // While open the input is the filter box (shows the query); closed, it shows the committed value.
-        const shown = computed(() => open.value ? query.value : props.modelValue);
-        return { open, selected, filtered, rootEl, valueHint, choose, onFocus, onInput, onKey, shown };
+        const liveHint = o => comboHint(currentValueFor(o.value));
+        const onPick = v => emit('update:modelValue', v);   // free-text passes the typed string; a row pick the path
+        return { options, liveHint, onPick, current: computed(() => props.modelValue) };
     },
-    template: `
-        <span class="step-field combobox" ref="rootEl">
-            <input class="control step-prop-input" type="text" :value="shown" @focus="onFocus" @input="onInput" @keydown="onKey"
-                   placeholder="— property —" spellcheck="false" autocomplete="off"/>
-            <div v-if="open" class="combobox-pop">
-                <div v-for="(o, i) in filtered" :key="o.path" class="combobox-row" :class="{ selected: i === selected }"
-                     @mousedown.prevent="choose(o)" @mouseenter="selected = i">
-                    <span class="mono combobox-path">{{ o.path }}</span>
-                    <span class="combobox-meta">{{ o.block }}<template v-if="o.group"> · {{ o.group }}</template></span>
-                    <span class="item-spacer"></span>
-                    <span class="mono combobox-val">{{ valueHint(o.value) }}</span>
-                </div>
-                <div v-if="!filtered.length" class="combobox-empty">no matches</div>
-            </div>
-        </span>
-    `,
+    template: `<Combobox :options="options" :label="current" :free-text="true" :hint-for="liveHint" placeholder="— property —" @pick="onPick"/>`,
 };
 
 // ── ContractPicker (Task 9): a {logicBlock, contract} picker over the host's service-provider contracts.
@@ -2049,31 +2064,25 @@ const PropertyPicker = {
 // A single <select> over contractRefs(); the option value encodes the pair as "logicBlock contract"
 // (a delimiter that can't occur in an identifier), decoded on change.
 const ContractPicker = {
+    components: { Combobox },
     props: {
         modelValue: { type: Object, default: () => ({ logicBlock: '', contract: '' }) },
     },
     emits: ['update:modelValue'],
     setup(props, { emit }) {
-        const refs = computed(() => contractRefs(store.config));
-        const encode = r => `${r.logicBlock} ${r.contract}`;
-        const current = computed(() => {
-            const m = props.modelValue || {};
-            return m.logicBlock ? encode({ logicBlock: m.logicBlock, contract: m.contract }) : '';
-        });
-        const onChange = e => {
-            const [logicBlock, contract] = String(e.target.value).split(' ');
-            emit('update:modelValue', { logicBlock: logicBlock || '', contract: contract || '' });
+        const typeOf = r => {
+            for (const lb of (store.config && store.config.logicBlocks) || []) {
+                if (lb.name !== r.logicBlock) continue;
+                for (const c of lb.contracts || []) if (c.identifier === r.contract) return c.matchingContractType || '';
+            }
+            return '';
         };
-        return { refs, current, onChange, encode };
+        const options = computed(() => contractRefs(store.config).map(r => ({ value: r, label: r.logicBlock + '.' + r.contract, meta: typeOf(r) })));
+        const label = computed(() => { const m = props.modelValue || {}; return m.logicBlock ? m.logicBlock + '.' + m.contract : ''; });
+        const onPick = v => emit('update:modelValue', { logicBlock: v.logicBlock, contract: v.contract });
+        return { options, label, onPick };
     },
-    template: `
-        <span class="step-field">
-            <select class="control step-contract-select" :value="current" @change="onChange">
-                <option value="">— contract —</option>
-                <option v-for="r in refs" :key="encode(r)" :value="encode(r)">{{ r.logicBlock }}.{{ r.contract }}</option>
-            </select>
-        </span>
-    `,
+    template: `<Combobox :options="options" :label="label" placeholder="\u2014 contract \u2014" @pick="onPick"/>`,
 };
 
 // ── ValueEditor (Task 9): a schema-driven value editor that RECURSES into structs/arrays. ────────────

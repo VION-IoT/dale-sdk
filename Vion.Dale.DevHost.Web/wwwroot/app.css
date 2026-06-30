@@ -404,15 +404,14 @@ body {
 /* Each labelled field is a label + its control, kept together when the row wraps */
 .step-field { display: inline-flex; align-items: center; gap: 4px; }
 
-/* Sizing: kind/contract selects auto-size; the property autocomplete is wider (long dotted paths);
-   numeric knobs are compact */
+/* Sizing: the kind select auto-sizes; the combobox inputs (property / contract / block / wire pickers) are
+   wider (long dotted paths); numeric knobs are compact */
 .step-kind-select { min-width: 120px; }
-.step-contract-select { min-width: 150px; }
-.step-prop-input { min-width: 200px; }
+.combobox-input { min-width: 180px; }
 
-/* PropertyPicker dropdown (⌘K-style inline combobox): the option list floats under the input, mirroring the
-   palette rows — path · block/group meta · live value. */
-.combobox { position: relative; }
+/* Combobox (the generic ⌘K-style picker used for property / contract / block-type / wire-to): the option list
+   floats under the input, mirroring the palette rows — label · meta · value. */
+.combobox { position: relative; display: inline-flex; align-items: center; }
 .combobox-pop {
     position: absolute;
     top: calc(100% + 2px);
@@ -429,7 +428,7 @@ body {
 }
 .combobox-row { display: flex; align-items: center; gap: 9px; padding: 5px 10px; cursor: pointer; }
 .combobox-row.selected { background: var(--bg-raised); }
-.combobox-path { font-size: 12px; color: var(--text); white-space: nowrap; }
+.combobox-label { font-size: 12px; color: var(--text); white-space: nowrap; }
 .combobox-meta { font-size: 10.5px; color: var(--text-faint); white-space: nowrap; }
 .combobox-val { font-size: 11px; color: var(--text-dim); max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .combobox-empty { padding: 10px; font-size: 12px; color: var(--text-faint); }
