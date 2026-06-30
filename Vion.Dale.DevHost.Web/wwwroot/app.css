@@ -393,6 +393,9 @@ body {
 /* A step body is taller / multi-control than a watch input — let it fill the width and wrap. The
    section body's overflow:hidden suits one-line inputs; a step row owns its own vertical space. */
 .section-list-row:has(.step-row) .section-list-body { overflow: visible; align-items: flex-start; }
+/* A row whose body holds a combobox (e.g. the watch picker, which isn't a .step-row) must let the
+   dropdown escape — the base body is overflow:hidden, which would clip the floating option list. */
+.section-list-row:has(.combobox) .section-list-body { overflow: visible; }
 .step-row { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .step-row-main { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .step-row-errors { display: flex; flex-direction: column; gap: 2px; }
