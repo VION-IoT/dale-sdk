@@ -714,6 +714,38 @@ export function newTopology() {
     store.topologyScreen = 'editor';
 }
 
+// Author a topology from clipboard JSON: mirrors cloneTopologyDraft's draft-building (so the shape
+// matches what the form/raw editor expects) and newTopology's navigation, landing on the form view
+// so the author reviews before Save — this does not save or catalog-validate anything.
+export async function pasteTopology() {
+    let text;
+    try {
+        text = await navigator.clipboard.readText();
+    } catch (err) {
+        showError(`Could not read the clipboard: ${err.message ?? err}`);
+        return;
+    }
+    if (!text || !text.trim()) { showError('Clipboard is empty.'); return; }
+    let parsed;
+    try {
+        parsed = JSON.parse(text);
+    } catch (e) {
+        showError('Clipboard does not contain valid topology JSON: ' + e.message);
+        return;
+    }
+    await loadDefinitions();
+    store.topologyDraft = {
+        id: parsed.id || '',
+        logicBlockInstances: parsed.logicBlockInstances || [],
+        interfaceMappings: parsed.interfaceMappings || [],
+        contractMappings: parsed.contractMappings || [],
+    };
+    store.topologyDraftDirty = true;
+    store.topologyDraftErrors = [];
+    store.topologySelectedId = null;
+    store.topologyScreen = 'editor';
+}
+
 // Leave the editor: clear the draft + dirty/errors first (mirrors closeScenarioEditor — so a later
 // re-entry always rebuilds rather than reading stale draft state), then back to the file's Detail if one
 // was selected (edit/clone-in-place), else the list.
