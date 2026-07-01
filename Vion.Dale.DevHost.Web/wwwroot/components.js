@@ -1319,6 +1319,7 @@ const TopologyEditor = {
                 store.topologyDraft = JSON.parse(rawText.value);
                 store.topologyDraftDirty = true;
                 store.topologyDraftErrors = [];
+                tab.value = 'form';
             } catch (e) {
                 store.topologyDraftErrors = ['invalid JSON: ' + e.message];
             }
@@ -1518,10 +1519,17 @@ const TopologyDetail = {
         const doSwitch = () => switchTopology(id.value);
         const doEdit = () => editTopology(id.value);
         const doClone = () => cloneTopology(id.value);
+        const copyJson = async () => {
+            try {
+                if (detail.value) await navigator.clipboard.writeText(JSON.stringify(detail.value, null, 2));
+            } catch (err) {
+                showError(`Could not copy the topology JSON: ${err.message ?? err}`);
+            }
+        };
         return {
             canEdit, canSwitch, id, isRunning, switchTitle,
             blockRows, linkRows, contractRows, hasBlocks, hasLinks, hasContracts,
-            back, doSwitch, doEdit, doClone,
+            back, doSwitch, doEdit, doClone, copyJson,
         };
     },
     template: `
@@ -1535,6 +1543,7 @@ const TopologyDetail = {
                         @click="doSwitch">⇄ switch &amp; run</button>
                 <button v-if="canEdit" type="button" class="theme-toggle" title="edit this topology in place" @click="doEdit">✎ edit</button>
                 <button v-if="canEdit" type="button" class="theme-toggle" title="clone this topology into a new file" @click="doClone">⧉ clone</button>
+                <button type="button" class="theme-toggle" title="copy topology JSON to clipboard" @click="copyJson">⧉ copy JSON</button>
             </div>
             <h3 class="topo-section">blocks</h3>
             <div v-if="!hasBlocks" class="topo-meta">no blocks</div>
