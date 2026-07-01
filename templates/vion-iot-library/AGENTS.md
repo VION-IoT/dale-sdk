@@ -231,3 +231,14 @@ than expecting a synchronous step. For exact, instant stepping in a test, build 
 `POST /api/scenarios/{id}/apply`), and `POST /api/dale/property/...` to set values. Writing a read-only
 member returns **400** (not a silent 200); `apply` recycles the host onto the scenario's topology with a
 clean slate when needed (returns `{ "recycling": true }` — re-apply once it's back), and there is no `force`.
+
+## Importing a topology for debugging
+
+Given a topology JSON (e.g. pasted from the dashboard's "Export topology"), save it to
+`topologies/<id>.topology.json` — the filename's `<id>` must equal the JSON's `id` field. To
+build a scenario on it, add `scenarios/<id>-<case>.scenario.json` with `"topology": "<id>"` and
+author `setup` / `steps` / `watch` (see `scenarios/thermostat.scenario.json`). Validate offline
+with `dale scenario validate`, then run it with `dale scenario run <id>` under `dale dev --stepped`.
+A *"type … is not loadable"* error at DevHost boot means this project doesn't reference the block's
+library — add the `PackageReference` named in the export's compatibility note. See dale-sdk RFC 0015
+(topology exchange).

@@ -16,7 +16,7 @@ import {
 import {
     applyScenario, applySetup, baselineDelta, buildSharedContractLookup, changedCountForBlock,
     changedSinceBaseline, clearBaseline, clearPins, cloneTopology, closeScenario, closeScenarioEditor, closeTopologyEditor, collapseKey, connectionsForLb,
-    advanceHost, currentValueFor, driveContract, editScenarioDraft, editTopology, halKey, historyFor, isPinned, judgeKey, loadTopologies, movePinAt, newScenarioDraft, newTopology, openScenario, openTopologyDetail, openTopologyList, pauseHost, resetHost, resumeHost, stepHost,
+    advanceHost, currentValueFor, driveContract, editScenarioDraft, editTopology, halKey, historyFor, isPinned, judgeKey, loadTopologies, movePinAt, newScenarioDraft, newTopology, openScenario, openTopologyDetail, openTopologyList, pasteTopology, pauseHost, resetHost, resumeHost, stepHost,
     saveScenarioDraft, saveTopologyDraft, setBaseline, setJudgeTick, setProperty, showError, store,
     switchClockMode, switchTopology, toggleCollapsed, togglePin, validateScenarioDraft, validateTopologyDraft, valueKey,
 } from './store.js';
@@ -1319,6 +1319,7 @@ const TopologyEditor = {
                 store.topologyDraft = JSON.parse(rawText.value);
                 store.topologyDraftDirty = true;
                 store.topologyDraftErrors = [];
+                tab.value = 'form';
             } catch (e) {
                 store.topologyDraftErrors = ['invalid JSON: ' + e.message];
             }
@@ -1416,10 +1417,11 @@ const TopologyEditor = {
             </template>
 
             <template v-else>
+                <div class="topo-meta">Paste a topology JSON, press Load to review it in the form, then Save.</div>
                 <textarea rows="18" spellcheck="false" class="mono topo-raw" :value="rawText"
                           placeholder="(topology JSON)" @input="rawText = $event.target.value"></textarea>
                 <div class="topo-row topo-footer">
-                    <button type="button" class="theme-toggle" title="parse and replace the draft" @click="commitRaw">commit JSON</button>
+                    <button type="button" class="theme-toggle" title="parse this JSON into the editor (does not save or validate against the catalog)" @click="commitRaw">load</button>
                 </div>
                 <div v-if="hasErrors" class="topo-errors">
                     <div v-for="(err, i) in errors" :key="i" class="topo-row topo-error-row">
@@ -1458,7 +1460,8 @@ const TopologyList = {
         const hasFiles = computed(() => rows.value.length > 0);
         const open = id => openTopologyDetail(id);
         const create = () => newTopology();
-        return { canEdit, rows, hasFiles, open, create };
+        const paste = () => pasteTopology();
+        return { canEdit, rows, hasFiles, open, create, paste };
     },
     template: `
         <section class="block-card">
@@ -1467,6 +1470,8 @@ const TopologyList = {
                 <span class="item-spacer"></span>
                 <button v-if="canEdit" type="button" class="theme-toggle" title="author a new topology"
                         @click="create">＋ new</button>
+                <button v-if="canEdit" type="button" class="theme-toggle" title="create a topology from JSON on your clipboard"
+                        @click="paste">⧉ paste JSON</button>
             </div>
             <div v-if="!hasFiles" class="topo-meta">
                 no topology files — export this preset with <code>dale dev --export-topology topologies/&lt;id&gt;.topology.json</code>
@@ -1518,10 +1523,17 @@ const TopologyDetail = {
         const doSwitch = () => switchTopology(id.value);
         const doEdit = () => editTopology(id.value);
         const doClone = () => cloneTopology(id.value);
+        const copyJson = async () => {
+            try {
+                if (detail.value) await navigator.clipboard.writeText(JSON.stringify(detail.value, null, 2));
+            } catch (err) {
+                showError(`Could not copy the topology JSON: ${err.message ?? err}`);
+            }
+        };
         return {
             canEdit, canSwitch, id, isRunning, switchTitle,
             blockRows, linkRows, contractRows, hasBlocks, hasLinks, hasContracts,
-            back, doSwitch, doEdit, doClone,
+            back, doSwitch, doEdit, doClone, copyJson,
         };
     },
     template: `
@@ -1535,6 +1547,7 @@ const TopologyDetail = {
                         @click="doSwitch">⇄ switch &amp; run</button>
                 <button v-if="canEdit" type="button" class="theme-toggle" title="edit this topology in place" @click="doEdit">✎ edit</button>
                 <button v-if="canEdit" type="button" class="theme-toggle" title="clone this topology into a new file" @click="doClone">⧉ clone</button>
+                <button type="button" class="theme-toggle" title="copy topology JSON to clipboard" @click="copyJson">⧉ copy JSON</button>
             </div>
             <h3 class="topo-section">blocks</h3>
             <div v-if="!hasBlocks" class="topo-meta">no blocks</div>
