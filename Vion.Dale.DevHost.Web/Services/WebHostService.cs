@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
@@ -143,15 +144,27 @@ namespace Vion.Dale.DevHost.Web.Services
                                      FileProvider = embeddedProvider,
                                  });
 
+            // Dev host on localhost: correctness over caching. The no-build discipline rules out
+            // content-hashed asset filenames, so every SPA file lives at a stable URL (/components.js, …).
+            // Without this a browser applies heuristic freshness and serves the OLD file after a NuGet
+            // upgrade of this package — the DevHost UI stays stale until a manual hard reload. `no-cache`
+            // forces revalidation, which the ETag makes a cheap 304; nothing is served stale after an upgrade.
+            void NoStaleSpaCache(StaticFileResponseContext ctx)
+            {
+                ctx.Context.Response.Headers.CacheControl = "no-cache";
+            }
+
             _app.UseStaticFiles(new StaticFileOptions
                                 {
                                     FileProvider = embeddedProvider,
+                                    OnPrepareResponse = NoStaleSpaCache,
                                 });
 
             _app.MapFallbackToFile("index.html",
                                    new StaticFileOptions
                                    {
                                        FileProvider = embeddedProvider,
+                                       OnPrepareResponse = NoStaleSpaCache,
                                    });
 
             Console.WriteLine($"DevHost Web UI running at http://localhost:{_config.Port}");

@@ -381,6 +381,33 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        public async Task ServeSpaAssets_WithNoCacheHeader_SoAPackageUpgradeIsNeverServedStale()
+        {
+            // The SPA ships as embedded static files under stable, non-content-hashed URLs (/components.js,
+            // /index.html, …) — the no-build discipline rules out content-hashed filenames. Without a
+            // Cache-Control header a browser applies heuristic freshness and reuses the OLD file after a
+            // NuGet upgrade of this package, so the DevHost UI stays stale until a manual hard reload (the
+            // "I upgraded but ＋new is missing" report). Serving with `no-cache` forces revalidation — still
+            // a cheap 304 via the ETag — so an upgraded package's UI is picked up on the next load. This
+            // covers the static-file path (/components.js, /) and the SPA fallback (a client-route path).
+            var port = FreePort();
+            await using var host = BuildWebHost(port);
+            await host.StartAsync();
+
+            using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
+
+            foreach (var asset in new[] { "/components.js", "/", "/some-client-route" })
+            {
+                var response = await client.GetAsync(asset);
+                Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, $"{asset} must be served (static asset or SPA fallback).");
+                Assert.IsNotNull(response.Headers.CacheControl,
+                                 $"{asset} must carry a Cache-Control header so the browser revalidates after a package upgrade instead of serving a stale SPA.");
+                Assert.IsTrue(response.Headers.CacheControl!.NoCache,
+                              $"{asset} must be served with Cache-Control: no-cache (revalidate); otherwise an upgraded DevHost package serves stale UI from the browser cache. Got: {response.Headers.CacheControl}");
+            }
+        }
+
+        [TestMethod]
         public async Task DevHostWebRunner_InHeadlessMode_PrintsReadinessAndDoesNotBlock()
         {
             var port = FreePort();
