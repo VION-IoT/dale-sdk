@@ -26,5 +26,13 @@ namespace Vion.Dale.Sdk.Core
         public double Minimum { get; init; } = double.NegativeInfinity;
 
         public double Maximum { get; init; } = double.PositiveInfinity;
+
+        /// <summary>
+        ///     Marks this field as a secret — clients see a redaction sentinel (<c>"***"</c>) on the
+        ///     publish-state channel instead of the actual value, while the struct's other fields stay
+        ///     visible. Restricted to <c>string</c> / <c>string?</c> fields in v1. Routes into the
+        ///     field's <c>schema.annotations.writeOnly</c>.
+        /// </summary>
+        public bool WriteOnly { get; init; }
     }
 }

@@ -14,6 +14,13 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
     public readonly record struct ScheduledSetpoint(DateTime At, [StructField(Unit = "kW")] double PowerSetpoint, [StructField(Unit = "V")] double VoltageSetpoint);
 
+    // Flat record struct with a secret field — the per-member WriteOnly fixture. Only AccessToken carries
+    // [StructField(WriteOnly = true)], so writeOnly must surface on that member's schema and nowhere else.
+    public readonly record struct ConnectionCredentials(
+        [StructField(Title = "Endpoint")] string Endpoint,
+        [StructField(Title = "Access token", WriteOnly = true)]
+        string AccessToken);
+
     // A flat record struct with independently-nullable fields (string? / double? / DateTime?). The outbound
     // encode-regression fixture: a populated entry with null fields must emit JSON null per field — so the
     // schema must mark each nullable field as nullable and omit it from required — instead of the codec
@@ -129,6 +136,10 @@ namespace Vion.Dale.Sdk.Test.Introspection
         // ImmutableArray — writable service property (needed for ServiceBinder round-trip tests)
         [ServiceProperty]
         public ImmutableArray<double> Setpoints { get; set; } = ImmutableArray<double>.Empty;
+
+        // Writable struct property carrying a per-member secret — the [StructField(WriteOnly)] fixture.
+        [ServiceProperty(Title = "Verbindungsdaten")]
+        public ConnectionCredentials Credentials { get; set; }
 
         public RichTypesLogicBlock() : base(new Mock<ILogger>().Object)
         {

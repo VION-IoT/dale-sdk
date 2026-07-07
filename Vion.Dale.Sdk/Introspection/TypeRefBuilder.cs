@@ -61,6 +61,7 @@ namespace Vion.Dale.Sdk.Introspection
                               Format = sf.StringFormat,
                               Minimum = !double.IsNegativeInfinity(sf.Minimum) ? sf.Minimum : null,
                               Maximum = !double.IsPositiveInfinity(sf.Maximum) ? sf.Maximum : null,
+                              WriteOnly = sf.WriteOnly,
                           };
 
                 if (!ann.IsEmpty)

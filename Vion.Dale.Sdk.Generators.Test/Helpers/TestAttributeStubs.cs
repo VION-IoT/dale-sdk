@@ -54,6 +54,24 @@ namespace Vion.Dale.Sdk.Core
         public bool Immediate { get; init; }
     }
 
+    [AttributeUsage(AttributeTargets.Parameter | AttributeTargets.Property)]
+    public class StructFieldAttribute : Attribute
+    {
+        public string? Title { get; init; }
+
+        public string? Description { get; init; }
+
+        public string? Unit { get; init; }
+
+        public string? StringFormat { get; init; }
+
+        public double Minimum { get; init; } = double.NegativeInfinity;
+
+        public double Maximum { get; init; } = double.PositiveInfinity;
+
+        public bool WriteOnly { get; init; }
+    }
+
     public enum Importance
     {
         Normal,

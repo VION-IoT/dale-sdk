@@ -223,6 +223,17 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
+        public void EmitsWriteOnlyOnlyForTheSecretStructField()
+        {
+            var schema = GetSchema("Credentials");
+            Assert.AreEqual("object", schema["type"]?.GetValue<string>());
+            var props = schema["properties"] as JsonObject;
+            Assert.IsNotNull(props);
+            Assert.IsTrue(props["accessToken"]?["writeOnly"]?.GetValue<bool>());
+            Assert.IsNull(props["endpoint"]?["writeOnly"]);
+        }
+
+        [TestMethod]
         public void EmitsDateTimeFormatForScheduledSetpointAtField()
         {
             var schema = GetSchema("Schedule");

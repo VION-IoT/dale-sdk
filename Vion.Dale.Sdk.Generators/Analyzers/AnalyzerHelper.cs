@@ -18,6 +18,8 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
 
         internal const string ServiceMeasuringPointAttribute = "Vion.Dale.Sdk.Core.ServiceMeasuringPointAttribute";
 
+        internal const string StructFieldAttribute = "Vion.Dale.Sdk.Core.StructFieldAttribute";
+
         internal const string PersistentAttribute = "Vion.Dale.Sdk.Core.PersistentAttribute";
 
         internal const string PresentationAttribute = "Vion.Dale.Sdk.Core.PresentationAttribute";

@@ -472,5 +472,18 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                                                                                           Category,
                                                                                           DiagnosticSeverity.Info,
                                                                                           true);
+
+        /// <summary>
+        ///     [StructField(WriteOnly = true)] restricted to <c>string</c> / <c>string?</c> in v1 — the
+        ///     per-member analogue of DALE022. The redaction sentinel ("***") is a string literal, so a
+        ///     non-string member would break the codec round-trip and be rejected by the contracts schema
+        ///     parser (InvalidSchemaException) when the introspection is uploaded / activated.
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE040_WriteOnlyStructFieldTypeRestriction = new("DALE040",
+                                                                                                      "[StructField(WriteOnly)] only supported on string / string?",
+                                                                                                      "Struct field '{0}' sets WriteOnly = true but type '{1}' is not string. WriteOnly is restricted to string / string? in v1.",
+                                                                                                      Category,
+                                                                                                      DiagnosticSeverity.Error,
+                                                                                                      true);
     }
 }
