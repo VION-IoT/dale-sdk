@@ -313,14 +313,15 @@ namespace Vion.Examples.RichTypes.LogicBlocks
     /// <summary>
     ///     Flat record struct with a secret member — showcases per-field
     ///     <see cref="StructFieldAttribute.WriteOnly" />. Only <c>AccessToken</c> is redacted to the
-    ///     sentinel (<c>"***"</c>) on the publish-state channel; <c>Endpoint</c> stays visible. WriteOnly
-    ///     struct fields are restricted to <c>string</c> / <c>string?</c> (enforced by analyzer DALE040).
+    ///     sentinel (<c>"***"</c>) on the publish-state channel; <c>Endpoint</c> stays visible. The token
+    ///     is <c>string?</c> so it can be cleared (null is the "cleared" state; "***" is "set, hidden").
+    ///     WriteOnly struct fields are restricted to <c>string</c> / <c>string?</c> (enforced by DALE040).
     /// </summary>
     public readonly record struct ConnectionCredentials(
         [StructField(Title = "Endpoint", Description = "Dienst-Endpunkt (sichtbar).")]
         string Endpoint,
         [StructField(Title = "Zugriffstoken", WriteOnly = true, Description = "Geheimes Token — auf dem Lesepfad zu \"***\" redigiert.")]
-        string AccessToken);
+        string? AccessToken);
 
     /// <summary>
     ///     Per-member <see cref="SeverityAttribute" /> drives the status-pill colour;

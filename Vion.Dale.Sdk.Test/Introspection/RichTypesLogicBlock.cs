@@ -16,10 +16,11 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
     // Flat record struct with a secret field — the per-member WriteOnly fixture. Only AccessToken carries
     // [StructField(WriteOnly = true)], so writeOnly must surface on that member's schema and nowhere else.
+    // The token is string? so it can be cleared (null) — a non-nullable secret could never be cleared.
     public readonly record struct ConnectionCredentials(
         [StructField(Title = "Endpoint")] string Endpoint,
         [StructField(Title = "Access token", WriteOnly = true)]
-        string AccessToken);
+        string? AccessToken);
 
     // A flat record struct with independently-nullable fields (string? / double? / DateTime?). The outbound
     // encode-regression fixture: a populated entry with null fields must emit JSON null per field — so the
