@@ -155,6 +155,15 @@ namespace Vion.Examples.RichTypes.LogicBlocks
         [Presentation(Group = PropertyGroup.Configuration, Order = 43)]
         public string Hostname { get; set; } = "device.local";
 
+        /// <summary>
+        ///     Writable struct with a per-member secret — the <c>[StructField(WriteOnly)]</c> showcase.
+        ///     On the publish-state channel the dashboard sees <c>"***"</c> for the AccessToken while the
+        ///     Endpoint stays visible; a client that echoes the sentinel back keeps the stored token.
+        /// </summary>
+        [ServiceProperty(Description = "Verbindungsdaten — das Zugriffstoken ist ein Secret (WriteOnly).")]
+        [Presentation(DisplayName = "Verbindungsdaten", Group = PropertyGroup.Configuration, Order = 45)]
+        public ConnectionCredentials Credentials { get; set; } = new("https://api.example.com", "s3cr3t-token");
+
         [ServiceProperty(Title = "Bevorzugte Position", Description = "Manuelle Override-Position; bei Null wird CurrentLocation verwendet.")]
         [Presentation(DisplayName = "Bevorzugte Position", Group = PropertyGroup.Configuration, Order = 50)]
         public Coordinates? PreferredLocation { get; set; }
@@ -300,6 +309,18 @@ namespace Vion.Examples.RichTypes.LogicBlocks
         double PowerSetpoint,
         [StructField(Title = "Spannung", Unit = "V", Description = "Spannungs-Sollwert.")]
         double VoltageSetpoint);
+
+    /// <summary>
+    ///     Flat record struct with a secret member — showcases per-field
+    ///     <see cref="StructFieldAttribute.WriteOnly" />. Only <c>AccessToken</c> is redacted to the
+    ///     sentinel (<c>"***"</c>) on the publish-state channel; <c>Endpoint</c> stays visible. WriteOnly
+    ///     struct fields are restricted to <c>string</c> / <c>string?</c> (enforced by analyzer DALE040).
+    /// </summary>
+    public readonly record struct ConnectionCredentials(
+        [StructField(Title = "Endpoint", Description = "Dienst-Endpunkt (sichtbar).")]
+        string Endpoint,
+        [StructField(Title = "Zugriffstoken", WriteOnly = true, Description = "Geheimes Token — auf dem Lesepfad zu \"***\" redigiert.")]
+        string AccessToken);
 
     /// <summary>
     ///     Per-member <see cref="SeverityAttribute" /> drives the status-pill colour;
