@@ -1,10 +1,14 @@
 # RFC 0017 — Presentation-time member visibility
 
-- **Status:** Proposed — 2026-07-09
+- **Status:** Accepted — 2026-07-09; concretized + implemented 2026-07-10.
 - **Author:** jonas.bertsch
-- **Related:** **RFC 0016 (configuration-time structural gating)** — this RFC is its deliberately-shallow sibling and **depends on the predicate-expression grammar defined in RFC 0016 §7**. RFC 0004 (emission policy / `Presentation` hints), RFC 0013 (Logic Editor). Cross-repo: `vion-contracts` (the `Presentation` model), `dashboard` (config form rendering). Explicitly **not** `cloud-api` runtime or `dale`. Origin: the `DirectMeasurement` pattern in `logic-block-libraries/.../ElectricityMeterSiemensPac2200.cs`.
+- **Related:** **RFC 0016 (configuration-time structural gating)** — this RFC is its deliberately-shallow sibling and **shares the predicate-expression grammar** (defined originally in RFC 0016 §7, now canonical in vion-contracts `docs/predicates.md`). RFC 0004 (emission policy / `Presentation` hints), RFC 0013 (Logic Editor). Cross-repo: `vion-contracts` (the `Presentation` model), `dashboard` (config form rendering). Explicitly **not** `cloud-api` runtime or `dale`. Origin: the `DirectMeasurement` pattern in `logic-block-libraries/.../ElectricityMeterSiemensPac2200.cs`.
 
-> This is a design contract, not an implementation. It stops at the seams (exact field name, store wiring, i18n) so the per-component spec can fill them in against current `main`.
+> This is a design contract, not an implementation. It stopped at the seams (exact field name, store wiring, i18n); those were filled by the cross-repo spec
+> [`2026-07-10-presentation-conditional-visibility.md`](https://github.com/VION-IoT/architecture/blob/main/specs/in-flight/2026-07-10-presentation-conditional-visibility.md),
+> which is the authoritative source for the concretized grammar, reference scope, and per-repo implementation.
+>
+> **Concretization notes (2026-07-10).** The seams this RFC left open resolved as: the authoring surface is a **`VisibleWhen` named property on `[Presentation]`** (not a separate `[VisibleWhen]` attribute — see §4/§6 below and spec §6); the transport field is `presentation.visibleWhen`; the reference scope widened from "same-service only" (§9 R1) to **same-logic-block instance** (bare ref = same service, `Service.Property` = sibling service, root addressed by the block class name); measuring points may also carry the predicate; and the SDK ships a parse-only analyzer (**DALE041/DALE042**) plus a DevHost.Web UI evaluator. The grammar + conformance vector are canonical in vion-contracts `docs/predicates.md` / `Predicates/predicate-conformance.json`.
 
 ## 1. Summary
 
@@ -37,16 +41,20 @@ It is the **soft twin** of RFC 0016's structural gate, and the two are deliberat
 public bool DirectMeasurement { get; set; }
 
 [ServiceProperty(Title = "Primärstrom (schreiben)", Unit = "A", Minimum = 1, Maximum = 5000)]
-[Presentation(Group = PropertyGroup.Configuration)]
-[VisibleWhen("DirectMeasurement == false")]        // hidden when direct-measurement is on
+[Presentation(Group = PropertyGroup.Configuration, VisibleWhen = "DirectMeasurement == false")]  // hidden when direct-measurement is on
 public double PrimaryCurrentToWriteA { get; set; }
 
 // …SecondaryCurrentToWrite, WriteCtRatio likewise
 ```
 
-- `[VisibleWhen]` is a **presentation** annotation; a property with none is always shown (backward compatible).
-- The predicate follows RFC 0016 §7 but with the widened reference scope of §5.
-- The property's *behavior* is unchanged and remains the block's responsibility (the CT-writes already no-op when `DirectMeasurement` is true). `[VisibleWhen]` never alters behavior — only display.
+- **`VisibleWhen` is a named property on `[Presentation]`** (concretized, spec §6 — *not* a separate
+  `[VisibleWhen]` attribute, which would reopen the mega-attribute the 0.5.0 redesign collapsed; decision
+  `0018` set the precedent with `Format`). It is a **presentation** field; a property with none is always
+  shown (backward compatible), and it maps 1:1 onto the wire field `presentation.visibleWhen`.
+- The predicate follows the shared grammar (canonical in vion-contracts `docs/predicates.md`) with the
+  widened reference scope of §5.
+- The property's *behavior* is unchanged and remains the block's responsibility (the CT-writes already no-op
+  when `DirectMeasurement` is true). `VisibleWhen` never alters behavior — only display.
 
 ## 5. Semantics vs RFC 0016 (the load-bearing distinction)
 
@@ -78,10 +86,11 @@ Deliberately narrow — two repos.
 
 ### 7.1 dale-sdk
 
-- `Vion.Dale.Sdk/Core/` — a `[VisibleWhen]` attribute contributing to `Presentation`.
-- `Vion.Dale.Sdk/Introspection/**` + the presentation-emitting path — carry the predicate string into the property's `Presentation` document.
-- `Vion.Dale.Sdk.Generators/` — an analyzer (DALE#### tbd): the predicate parses, type-checks, and references properties that exist on the block/service. Weaker than RFC 0016's (no structural-only restriction).
-- **No binder, routing, or runtime change** — `[VisibleWhen]` is inert to `DeclarativeServiceBinder` beyond passing the hint through.
+- `Vion.Dale.Sdk/Core/PresentationAttribute.cs` — a **`VisibleWhen` named property** (not a separate attribute) contributing to `Presentation`.
+- `Vion.Dale.Sdk/Introspection/PropertyMetadataBuilder.cs` — `ExtractPresentation` carries the predicate string into the property's `Presentation` document; `MergePresentation` cascades it class-over-interface. A dual-annotated member emits into both sibling docs.
+- `Vion.Dale.Sdk.Generators/` — **DALE041** (parse/resolve) + **DALE042** (type discipline): the predicate parses, type-checks, and references `[ServiceProperty]`s that exist on the block/its component services. A small internal recursive-descent parser (netstandard2.0, no package deps), pinned by the shared conformance vector (parse cases). The analyzer **parses and type-checks but never evaluates** — strict-profile C# evaluation is RFC 0016's job. Weaker than RFC 0016's (no structural-only restriction).
+- DevHost.Web — `predicates.js` evaluates the predicate live (UI profile) against the store's sibling values; the row hides like a static `Importance.Hidden` row.
+- **No binder, routing, or runtime change** — `VisibleWhen` is inert to `DeclarativeServiceBinder` beyond passing the hint through.
 
 ### 7.2 vion-contracts
 

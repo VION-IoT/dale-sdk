@@ -19,9 +19,21 @@
         <CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)Generated</CompilerGeneratedFilesOutputPath>
     </PropertyGroup>
 
-    <ItemGroup>
+    <!-- SDK refs: the published packages by default. `dotnet build -p:DaleLocalSource=true` swaps them for
+         local project refs (incl. the source generator + Metalama, which don't flow through a project ref) so
+         you can test working-tree SDK changes against this example without editing the csproj. -->
+    <ItemGroup Condition="'$(DaleLocalSource)' != 'true'">
         <PackageReference Include="Vion.Dale.Sdk" Version="0.9.6"/>
         <PackageReference Include="Vion.Dale.Sdk.Modbus.Rtu" Version="0.9.6"/>
+    </ItemGroup>
+    <ItemGroup Condition="'$(DaleLocalSource)' == 'true'">
+        <ProjectReference Include="..\..\..\Vion.Dale.Sdk\Vion.Dale.Sdk.csproj"/>
+        <ProjectReference Include="..\..\..\Vion.Dale.Sdk.Generators\Vion.Dale.Sdk.Generators.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer"/>
+        <PackageReference Include="Metalama.Patterns.Observability" Version="2026.1.18"/>
+        <ProjectReference Include="..\..\..\Vion.Dale.Sdk.Modbus.Rtu\Vion.Dale.Sdk.Modbus.Rtu.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
         <!--shim to be able to use readonly record structs in netstandard2.1-->
         <PackageReference Include="IsExternalInit" Version="1.0.3">
             <PrivateAssets>all</PrivateAssets>

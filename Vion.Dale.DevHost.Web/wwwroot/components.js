@@ -25,6 +25,7 @@ import {
     contractRefs, contractValueEditor, findMember, kindOf, pathOptions,
     SETUP_KIND_IDS, STEP_KIND_IDS, stepErrors, valueEditorFor,
 } from './scenario-forms.js';
+import { compilePredicate, evaluateVisibility } from './predicates.js';
 
 // Filter tokens, shared by every component that narrows to matches.
 const filterTokens = computed(() => parseFilter(store.filter));
@@ -80,6 +81,7 @@ function badgeList(item) {
     if (presentation.decimals !== undefined && presentation.decimals !== null) push('decimals', `${presentation.decimals} dp`);
     if (presentation.order !== undefined && presentation.order !== null) push('order', `order=${presentation.order}`);
     if (presentation.format) push('decimals', `format=${presentation.format}`);
+    if (presentation.visibleWhen) push('visiblewhen', `visibleWhen: ${presentation.visibleWhen}`, 'RFC 0017: shown only while this predicate holds (evaluated live against sibling properties)');
 
     // RFC 0004: runtime emission policy (throttle/deadband/immediate) + persistence.
     const runtime = item.runtime || {};
@@ -658,8 +660,31 @@ export const ItemRow = {
         const t = effectiveType(schema);
         const isStruct = t === 'object' || t === 'array';
         const isStatus = presentation.uiHint === 'statusIndicator' || !!presentation.statusMappings;
-        const hidden = presentation.importance === 'Hidden';
         const unit = resolveUnit(schema);
+
+        // Conditional visibility (RFC 0017, UI profile). A predicate is evaluated reactively against live
+        // sibling-property values of the same logic-block instance; when it is false the row is hidden the
+        // same way a static Importance.Hidden row is. Bare refs resolve against this item's own service;
+        // qualified refs against a sibling service keyed by its definition identifier (the DevHost resolves
+        // definition identifiers directly — no cloud GUID instantiation). Fail-open per §2.3.
+        const visibleWhen = presentation.visibleWhen || null;
+        const resolveRef = (ref) => {
+            const svc = ref.service === null ? props.service : (props.lb.services || []).find(s => s.identifier === ref.service);
+            if (!svc) return evaluateVisibility.UNKNOWN;
+            const declared = (svc.serviceProperties || []).some(m => m.identifier === ref.property) ||
+                (svc.serviceMeasuringPoints || []).some(m => m.identifier === ref.property);
+            if (!declared) return evaluateVisibility.UNKNOWN;
+            const v = store.values[valueKey(svc.id, ref.property)];
+            return v === undefined ? evaluateVisibility.ABSENT : v;
+        };
+        const hidden = computed(() => {
+            if (presentation.importance === 'Hidden') return true;
+            if (!visibleWhen) return false;
+            // Touch every extracted ref so Vue tracks them all (short-circuit must not drop reactivity).
+            const compiled = compilePredicate(visibleWhen);
+            if (compiled.ok) compiled.refs.forEach(resolveRef);
+            return !evaluateVisibility(visibleWhen, resolveRef);
+        });
 
         // Control dispatch for writable scalars (value-as-control). Structs/arrays keep a value
         // chip plus an expandable editor row; writeOnly gets the secret control.

@@ -23,6 +23,12 @@
     </ItemGroup>
 
     <ItemGroup>
+        <!-- Vendored predicate conformance vector (source: vion-contracts). Copied to output so the
+             conformance test reads it beside the test assembly. -->
+        <None Include="Predicates\predicate-conformance.json" CopyToOutputDirectory="PreserveNewest"/>
+    </ItemGroup>
+
+    <ItemGroup>
         <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting"/>
     </ItemGroup>
 

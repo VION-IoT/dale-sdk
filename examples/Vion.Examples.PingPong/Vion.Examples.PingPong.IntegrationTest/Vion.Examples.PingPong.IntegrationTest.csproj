@@ -5,10 +5,16 @@
         <Nullable>enable</Nullable>
         <IsPackable>false</IsPackable>
     </PropertyGroup>
-    <ItemGroup>
-        <!-- The headless control surface (RFC 0003) lives in the core Vion.Dale.DevHost package — no web UI
-             needed to drive a wired network from a test. -->
+    <!-- The headless control surface (RFC 0003) lives in the core Vion.Dale.DevHost package — no web UI
+         needed to drive a wired network from a test. Published package by default; `dotnet build
+         -p:DaleLocalSource=true` swaps it for the local working-tree DevHost project ref. -->
+    <ItemGroup Condition="'$(DaleLocalSource)' != 'true'">
         <PackageReference Include="Vion.Dale.DevHost" Version="0.9.6"/>
+    </ItemGroup>
+    <ItemGroup Condition="'$(DaleLocalSource)' == 'true'">
+        <ProjectReference Include="..\..\..\Vion.Dale.DevHost\Vion.Dale.DevHost.csproj"/>
+    </ItemGroup>
+    <ItemGroup>
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1"/>
         <PackageReference Include="xunit.v3" Version="3.1.0"/>
         <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">

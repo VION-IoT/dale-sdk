@@ -383,6 +383,7 @@ export function presentationFacts(item) {
     if (p.uiHint) authored.push(`uiHint ${p.uiHint}`);
     if (p.order !== undefined && p.order !== null) authored.push(`order ${p.order}`);
     if (p.decimals !== undefined && p.decimals !== null) authored.push(`${p.decimals} dp`);
+    if (p.visibleWhen) authored.push(`visibleWhen ${p.visibleWhen}`);
     if (schema['x-unit']) authored.push(`unit ${schema['x-unit']}`);
     else if (numeric) missing.push('unit');
     if (schema.minimum !== undefined || schema.maximum !== undefined) authored.push(`bounds ${schema.minimum ?? '−∞'}–${schema.maximum ?? '∞'}`);

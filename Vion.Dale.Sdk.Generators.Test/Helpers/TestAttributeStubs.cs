@@ -101,6 +101,13 @@ namespace Vion.Dale.Sdk.Core
         public string? UiHint { get; init; }
 
         public string? Format { get; init; }
+
+        public string? VisibleWhen { get; init; }
+    }
+
+    [AttributeUsage(AttributeTargets.Interface)]
+    public class ServiceInterfaceAttribute : Attribute
+    {
     }
 
     [AttributeUsage(AttributeTargets.Property)]

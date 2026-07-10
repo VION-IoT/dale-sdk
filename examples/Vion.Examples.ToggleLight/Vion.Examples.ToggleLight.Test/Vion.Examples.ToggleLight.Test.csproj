@@ -5,9 +5,17 @@
         <Nullable>enable</Nullable>
         <IsPackable>false</IsPackable>
     </PropertyGroup>
-    <ItemGroup>
+    <!-- TestKit refs: the published packages by default. `dotnet build -p:DaleLocalSource=true` swaps them for
+         local project refs so you can test working-tree SDK changes against this example without editing the csproj. -->
+    <ItemGroup Condition="'$(DaleLocalSource)' != 'true'">
         <PackageReference Include="Vion.Dale.Sdk.DigitalIo.TestKit" Version="0.9.6"/>
         <PackageReference Include="Vion.Dale.Sdk.TestKit" Version="0.9.6"/>
+    </ItemGroup>
+    <ItemGroup Condition="'$(DaleLocalSource)' == 'true'">
+        <ProjectReference Include="..\..\..\Vion.Dale.Sdk.DigitalIo.TestKit\Vion.Dale.Sdk.DigitalIo.TestKit.csproj"/>
+        <ProjectReference Include="..\..\..\Vion.Dale.Sdk.TestKit\Vion.Dale.Sdk.TestKit.csproj"/>
+    </ItemGroup>
+    <ItemGroup>
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1"/>
         <PackageReference Include="xunit.v3" Version="3.2.0"/>
         <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">

@@ -82,6 +82,30 @@ namespace Vion.Dale.DevHost.SmokeHost.LogicBlocks
         [Presentation(Group = PropertyGroup.Configuration, Order = 40)]
         public double? OptionalLimit { get; set; }
 
+        // ── Conditional visibility (RFC 0017 — VisibleWhen) ─────────────────────────
+        // The DirectMeasurement pattern: when direct measurement is on, the two CT-ratio commissioning
+        // inputs become internal no-ops, so hiding them is a pure display decision — they keep existing
+        // and functioning. Toggle DirectMeasurement to watch the two inputs hide/show live.
+        [ServiceProperty(Title = "Direkte Messung (ohne Stromwandler)", Description = "When on, the CT-ratio inputs below are internal no-ops and hide.")]
+        [Presentation(Group = PropertyGroup.Configuration, Order = 50)]
+        public bool DirectMeasurement { get; set; }
+
+        [ServiceProperty(Title = "Primärstrom (schreiben)",
+                         Unit = "A",
+                         Minimum = 1,
+                         Maximum = 5000,
+                         Description = "CT primary current — only relevant when DirectMeasurement is off; hidden otherwise.")]
+        [Presentation(Group = PropertyGroup.Configuration, Order = 51, VisibleWhen = "DirectMeasurement == false")]
+        public double PrimaryCurrentToWriteA { get; set; } = 100;
+
+        [ServiceProperty(Title = "Sekundärstrom (schreiben)",
+                         Unit = "A",
+                         Minimum = 1,
+                         Maximum = 5,
+                         Description = "CT secondary current — hidden together with the primary when DirectMeasurement is on.")]
+        [Presentation(Group = PropertyGroup.Configuration, Order = 52, VisibleWhen = "DirectMeasurement == false")]
+        public double SecondaryCurrentToWriteA { get; set; } = 5;
+
         // ── Diagnostics (read-only, private setter) ─────────────────────────────────
 
         [ServiceProperty(Title = "Letzte Notiz", Description = "Read-only status string (private setter) — writing it must be rejected.")]

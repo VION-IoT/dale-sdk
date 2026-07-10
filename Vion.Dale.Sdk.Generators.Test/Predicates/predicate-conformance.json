@@ -1,0 +1,348 @@
+// VENDORED — do not edit here. Canonical source of truth:
+//   repo:  github.com/VION-IoT/vion-contracts
+//   path:  Vion.Contracts/Predicates/predicate-conformance.json
+//   sha:   e75ea04  (Add Presentation.VisibleWhen and the shared predicate dialect)
+//   doc:   docs/predicates.md
+// This copy is the drift guard for the dale-sdk analyzer's recursive-descent parser
+// (parse cases; the analyzer never evaluates). Re-sync manually when the canonical vector
+// changes and bump the sha above. Read with JsonCommentHandling.Skip.
+{
+  "eval": [
+    {
+      "name": "bool comparison, equal",
+      "predicate": "DirectMeasurement == false",
+      "values": { "DirectMeasurement": false },
+      "expected": true
+    },
+    {
+      "name": "bool comparison, not equal",
+      "predicate": "DirectMeasurement == true",
+      "values": { "DirectMeasurement": false },
+      "expected": false
+    },
+    {
+      "name": "bool comparison with !=",
+      "predicate": "DirectMeasurement != false",
+      "values": { "DirectMeasurement": true },
+      "expected": true
+    },
+    {
+      "name": "enum comparison (quoted member), match",
+      "predicate": "Mode == 'Eco'",
+      "values": { "Mode": "Eco" },
+      "expected": true
+    },
+    {
+      "name": "enum comparison (quoted member), no match",
+      "predicate": "Mode == 'Eco'",
+      "values": { "Mode": "Fast" },
+      "expected": false
+    },
+    {
+      "name": "enum comparison with !=",
+      "predicate": "Mode != 'Off'",
+      "values": { "Mode": "Eco" },
+      "expected": true
+    },
+    {
+      "name": "string comparison, match",
+      "predicate": "Region == 'EU'",
+      "values": { "Region": "EU" },
+      "expected": true
+    },
+    {
+      "name": "string comparison, no match",
+      "predicate": "Region == 'EU'",
+      "values": { "Region": "US" },
+      "expected": false
+    },
+    {
+      "name": "int comparison, equal",
+      "predicate": "NumChargingPoints == 2",
+      "values": { "NumChargingPoints": 2 },
+      "expected": true
+    },
+    {
+      "name": "int comparison, not equal",
+      "predicate": "NumChargingPoints == 2",
+      "values": { "NumChargingPoints": 1 },
+      "expected": false
+    },
+    {
+      "name": "relational greater-than, true",
+      "predicate": "NumChargingPoints > 1",
+      "values": { "NumChargingPoints": 2 },
+      "expected": true
+    },
+    {
+      "name": "relational greater-or-equal, true",
+      "predicate": "NumChargingPoints >= 2",
+      "values": { "NumChargingPoints": 2 },
+      "expected": true
+    },
+    {
+      "name": "relational less-than, false",
+      "predicate": "NumChargingPoints < 2",
+      "values": { "NumChargingPoints": 2 },
+      "expected": false
+    },
+    {
+      "name": "relational less-or-equal, false",
+      "predicate": "NumChargingPoints <= 1",
+      "values": { "NumChargingPoints": 2 },
+      "expected": false
+    },
+    {
+      "name": "membership in string list, member",
+      "predicate": "Mode in ['Eco', 'Fast']",
+      "values": { "Mode": "Eco" },
+      "expected": true
+    },
+    {
+      "name": "membership in string list, not a member",
+      "predicate": "Mode in ['Eco', 'Fast']",
+      "values": { "Mode": "Off" },
+      "expected": false
+    },
+    {
+      "name": "membership in integer list, member",
+      "predicate": "NumChargingPoints in [1, 2, 3]",
+      "values": { "NumChargingPoints": 2 },
+      "expected": true
+    },
+    {
+      "name": "conjunction, both true",
+      "predicate": "DirectMeasurement == false && NumChargingPoints > 1",
+      "values": { "DirectMeasurement": false, "NumChargingPoints": 2 },
+      "expected": true
+    },
+    {
+      "name": "conjunction, one false",
+      "predicate": "DirectMeasurement == false && NumChargingPoints > 1",
+      "values": { "DirectMeasurement": false, "NumChargingPoints": 1 },
+      "expected": false
+    },
+    {
+      "name": "disjunction, one true",
+      "predicate": "DirectMeasurement == true || NumChargingPoints > 1",
+      "values": { "DirectMeasurement": false, "NumChargingPoints": 2 },
+      "expected": true
+    },
+    {
+      "name": "disjunction, both false",
+      "predicate": "DirectMeasurement == true || NumChargingPoints > 5",
+      "values": { "DirectMeasurement": false, "NumChargingPoints": 2 },
+      "expected": false
+    },
+    {
+      "name": "negation of bare bool ref, true",
+      "predicate": "!DirectMeasurement",
+      "values": { "DirectMeasurement": false },
+      "expected": true
+    },
+    {
+      "name": "negation of bare bool ref, false",
+      "predicate": "!DirectMeasurement",
+      "values": { "DirectMeasurement": true },
+      "expected": false
+    },
+    {
+      "name": "negation of a parenthesized predicate",
+      "predicate": "!(DirectMeasurement == true)",
+      "values": { "DirectMeasurement": false },
+      "expected": true
+    },
+    {
+      "name": "parentheses regroup or-then-and",
+      "predicate": "(DirectMeasurement == false || Mode == 'Eco') && NumChargingPoints > 1",
+      "values": { "DirectMeasurement": true, "Mode": "Eco", "NumChargingPoints": 2 },
+      "expected": true
+    },
+    {
+      "name": "parentheses with negated bare-bool disjunction",
+      "predicate": "!(DirectMeasurement || IsExternallyLocked)",
+      "values": { "DirectMeasurement": false, "IsExternallyLocked": false },
+      "expected": true
+    },
+    {
+      "name": "bare bool ref, true",
+      "predicate": "DirectMeasurement",
+      "values": { "DirectMeasurement": true },
+      "expected": true
+    },
+    {
+      "name": "bare bool ref, false",
+      "predicate": "DirectMeasurement",
+      "values": { "DirectMeasurement": false },
+      "expected": false
+    },
+    {
+      "name": "qualified ref to root service by class name",
+      "predicate": "ChargingStationMultiPointSimulation.IsExternallyLocked == false",
+      "values": { "ChargingStationMultiPointSimulation.IsExternallyLocked": false },
+      "expected": true
+    },
+    {
+      "name": "qualified ref to sibling component service",
+      "predicate": "ChargingPoint2.EnableCharging == true",
+      "values": { "ChargingPoint2.EnableCharging": true },
+      "expected": true
+    },
+    {
+      "name": "bare-qualified bool ref, false",
+      "predicate": "ChargingPoint2.EnableCharging",
+      "values": { "ChargingPoint2.EnableCharging": false },
+      "expected": false
+    },
+    {
+      "name": "null value: equality against integer literal is false (loose ==)",
+      "predicate": "Threshold == 5",
+      "values": { "Threshold": null },
+      "expected": false,
+      "profile": "ui"
+    },
+    {
+      "name": "null value: negation of null is true (null is falsy)",
+      "predicate": "!Enabled",
+      "values": { "Enabled": null },
+      "expected": true,
+      "profile": "ui"
+    },
+    {
+      "name": "null value: equality against bool literal is false (loose ==)",
+      "predicate": "Enabled == false",
+      "values": { "Enabled": null },
+      "expected": false,
+      "profile": "ui"
+    },
+    {
+      "name": "null value: inequality against bool literal is true (loose !=)",
+      "predicate": "Enabled != false",
+      "values": { "Enabled": null },
+      "expected": true,
+      "profile": "ui"
+    },
+    {
+      "name": "truthiness of final compound result",
+      "predicate": "NumChargingPoints in [2, 3] || DirectMeasurement",
+      "values": { "NumChargingPoints": 2, "DirectMeasurement": false },
+      "expected": true
+    }
+  ],
+  "parse": [
+    {
+      "name": "bare bool ref parses",
+      "predicate": "DirectMeasurement",
+      "valid": true
+    },
+    {
+      "name": "bool comparison parses",
+      "predicate": "DirectMeasurement == false",
+      "valid": true
+    },
+    {
+      "name": "quoted enum comparison parses",
+      "predicate": "Mode == 'Eco'",
+      "valid": true
+    },
+    {
+      "name": "string comparison parses",
+      "predicate": "Region == 'EU'",
+      "valid": true
+    },
+    {
+      "name": "integer equality parses",
+      "predicate": "NumChargingPoints == 2",
+      "valid": true
+    },
+    {
+      "name": "integer relational parses",
+      "predicate": "NumChargingPoints >= 2",
+      "valid": true
+    },
+    {
+      "name": "membership with array literal parses",
+      "predicate": "Mode in ['Eco', 'Fast']",
+      "valid": true
+    },
+    {
+      "name": "conjunction of comparison and relational parses",
+      "predicate": "DirectMeasurement == false && NumChargingPoints > 1",
+      "valid": true
+    },
+    {
+      "name": "negation of a parenthesized bare-bool disjunction parses",
+      "predicate": "!(DirectMeasurement || IsExternallyLocked)",
+      "valid": true
+    },
+    {
+      "name": "qualified two-segment ref parses",
+      "predicate": "ChargingStationMultiPointSimulation.IsExternallyLocked == false",
+      "valid": true
+    },
+    {
+      "name": "parenthesized subexpression parses",
+      "predicate": "(DirectMeasurement == false || Mode == 'Eco') && NumChargingPoints > 1",
+      "valid": true
+    },
+    {
+      "name": "double-quoted string literal parses (single quotes recommended for authoring)",
+      "predicate": "Region == \"EU\"",
+      "valid": true
+    },
+    {
+      "name": "unquoted enum member on the right of a comparison",
+      "predicate": "Mode == Eco",
+      "valid": false,
+      "reason": "unquoted enum member: the right side of a comparison must be a literal, not an identifier"
+    },
+    {
+      "name": "arithmetic operand",
+      "predicate": "NumChargingPoints * 2 == 4",
+      "valid": false,
+      "reason": "arithmetic is not in the dialect"
+    },
+    {
+      "name": "ternary conditional",
+      "predicate": "DirectMeasurement ? true : false",
+      "valid": false,
+      "reason": "the ternary conditional is not in the dialect"
+    },
+    {
+      "name": "function call",
+      "predicate": "abs(NumChargingPoints) > 1",
+      "valid": false,
+      "reason": "function calls are not in the dialect"
+    },
+    {
+      "name": "three-segment ref",
+      "predicate": "ChargingPoint2.Meter.Voltage == 1",
+      "valid": false,
+      "reason": "refs may have at most two segments (Property or Service.Property)"
+    },
+    {
+      "name": "Yoda comparison (literal on the left)",
+      "predicate": "false == DirectMeasurement",
+      "valid": false,
+      "reason": "the ref must be on the left of a comparison (no Yoda conditions)"
+    },
+    {
+      "name": "pipe",
+      "predicate": "DirectMeasurement | true",
+      "valid": false,
+      "reason": "pipes are not in the dialect"
+    },
+    {
+      "name": "computed member access",
+      "predicate": "Modes[0] == 1",
+      "valid": false,
+      "reason": "computed member access is not in the dialect"
+    },
+    {
+      "name": "negation of a bare comparison",
+      "predicate": "!DirectMeasurement == false",
+      "valid": false,
+      "reason": "negation applies only to a bool ref or a parenthesized predicate"
+    }
+  ]
+}
