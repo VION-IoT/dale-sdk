@@ -5,6 +5,10 @@
     {
       "typeFullName": "Vion.Examples.Presentation.LogicBlocks.PresentationDemo",
       "name": "PresentationDemo"
+    },
+    {
+      "typeFullName": "Vion.Examples.Presentation.LogicBlocks.ConditionalVisibilityDemo",
+      "name": "ConditionalVisibilityDemo"
     }
   ],
   "interfaceMappings": [],
