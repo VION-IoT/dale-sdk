@@ -8,7 +8,7 @@
 
         <!-- NuGet package metadata -->
         <PackageId>Vion.Examples.PingPong</PackageId>
-        <Version>0.9.6</Version>
+        <Version>0.9.7</Version>
         <Authors>Vion-IoT</Authors>
         <Company>Vion-IoT</Company>
         <Description>Vion IoT logic blocks</Description>
@@ -23,8 +23,8 @@
          local project refs (incl. the source generator + Metalama, which don't flow through a project ref) so
          you can test working-tree SDK changes against this example without editing the csproj. -->
     <ItemGroup Condition="'$(DaleLocalSource)' != 'true'">
-        <PackageReference Include="Vion.Dale.Sdk" Version="0.9.6"/>
-        <PackageReference Include="Vion.Dale.Sdk.DigitalIo" Version="0.9.6"/>
+        <PackageReference Include="Vion.Dale.Sdk" Version="0.9.7"/>
+        <PackageReference Include="Vion.Dale.Sdk.DigitalIo" Version="0.9.7"/>
     </ItemGroup>
     <ItemGroup Condition="'$(DaleLocalSource)' == 'true'">
         <ProjectReference Include="..\..\..\Vion.Dale.Sdk\Vion.Dale.Sdk.csproj"/>

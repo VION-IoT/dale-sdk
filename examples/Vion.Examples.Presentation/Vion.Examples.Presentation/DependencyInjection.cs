@@ -12,6 +12,7 @@ namespace Vion.Examples.Presentation
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddTransient<PresentationDemo>();
+            services.AddTransient<ConditionalVisibilityDemo>();
         }
     }
 }
