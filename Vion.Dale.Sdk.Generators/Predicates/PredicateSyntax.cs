@@ -15,20 +15,23 @@ namespace Vion.Dale.Sdk.Generators.Predicates
     /// <summary>Result of <see cref="PredicateParser.Parse" />: either an AST or a structured error.</summary>
     internal sealed class PredicateParseResult
     {
-        private PredicateParseResult(PredicateNode? ast, string? error, PredicateErrorKind errorKind)
-        {
-            Ast = ast;
-            Error = error;
-            ErrorKind = errorKind;
-        }
-
         public PredicateNode? Ast { get; }
 
         public string? Error { get; }
 
         public PredicateErrorKind ErrorKind { get; }
 
-        public bool IsValid => Error is null;
+        public bool IsValid
+        {
+            get => Error is null;
+        }
+
+        private PredicateParseResult(PredicateNode? ast, string? error, PredicateErrorKind errorKind)
+        {
+            Ast = ast;
+            Error = error;
+            ErrorKind = errorKind;
+        }
 
         public static PredicateParseResult Ok(PredicateNode ast)
         {
@@ -44,39 +47,39 @@ namespace Vion.Dale.Sdk.Generators.Predicates
     /// <summary>A reference: a bare property (<c>Service</c> null) or a two-segment <c>Service.Property</c>.</summary>
     internal sealed class PredicateRef
     {
-        public PredicateRef(string? service, string property)
-        {
-            Service = service;
-            Property = property;
-        }
-
         /// <summary>Sibling-service identifier for a qualified ref, or <c>null</c> for a bare ref.</summary>
         public string? Service { get; }
 
         public string Property { get; }
 
-        public bool IsQualified => Service != null;
+        public bool IsQualified
+        {
+            get => Service != null;
+        }
 
-        public string Text => IsQualified ? Service + "." + Property : Property;
+        public string Text
+        {
+            get => IsQualified ? Service + "." + Property : Property;
+        }
+
+        public PredicateRef(string? service, string property)
+        {
+            Service = service;
+            Property = property;
+        }
     }
 
     internal enum PredicateLiteralKind
     {
         Integer,
+
         Boolean,
+
         String,
     }
 
     internal sealed class PredicateLiteral
     {
-        private PredicateLiteral(PredicateLiteralKind kind, int intValue, bool boolValue, string stringValue)
-        {
-            Kind = kind;
-            IntValue = intValue;
-            BoolValue = boolValue;
-            StringValue = stringValue;
-        }
-
         public PredicateLiteralKind Kind { get; }
 
         public int IntValue { get; }
@@ -84,6 +87,14 @@ namespace Vion.Dale.Sdk.Generators.Predicates
         public bool BoolValue { get; }
 
         public string StringValue { get; }
+
+        private PredicateLiteral(PredicateLiteralKind kind, int intValue, bool boolValue, string stringValue)
+        {
+            Kind = kind;
+            IntValue = intValue;
+            BoolValue = boolValue;
+            StringValue = stringValue;
+        }
 
         public static PredicateLiteral Integer(int value)
         {
@@ -109,78 +120,81 @@ namespace Vion.Dale.Sdk.Generators.Predicates
 
     internal sealed class OrNode : PredicateNode
     {
+        public PredicateNode Left { get; }
+
+        public PredicateNode Right { get; }
+
         public OrNode(PredicateNode left, PredicateNode right)
         {
             Left = left;
             Right = right;
         }
-
-        public PredicateNode Left { get; }
-
-        public PredicateNode Right { get; }
     }
 
     internal sealed class AndNode : PredicateNode
     {
+        public PredicateNode Left { get; }
+
+        public PredicateNode Right { get; }
+
         public AndNode(PredicateNode left, PredicateNode right)
         {
             Left = left;
             Right = right;
         }
-
-        public PredicateNode Left { get; }
-
-        public PredicateNode Right { get; }
     }
 
     internal sealed class NotNode : PredicateNode
     {
+        public PredicateNode Operand { get; }
+
         public NotNode(PredicateNode operand)
         {
             Operand = operand;
         }
-
-        public PredicateNode Operand { get; }
     }
 
     internal sealed class ComparisonNode : PredicateNode
     {
-        public ComparisonNode(PredicateRef reference, string op, PredicateLiteral literal)
-        {
-            Reference = reference;
-            Operator = op;
-            Literal = literal;
-        }
-
         public PredicateRef Reference { get; }
 
         public string Operator { get; }
 
         public PredicateLiteral Literal { get; }
 
-        public bool IsRelational => Operator is "<" or "<=" or ">" or ">=";
+        public bool IsRelational
+        {
+            get => Operator is "<" or "<=" or ">" or ">=";
+        }
+
+        public ComparisonNode(PredicateRef reference, string op, PredicateLiteral literal)
+        {
+            Reference = reference;
+            Operator = op;
+            Literal = literal;
+        }
     }
 
     internal sealed class MembershipNode : PredicateNode
     {
+        public PredicateRef Reference { get; }
+
+        public IReadOnlyList<PredicateLiteral> Items { get; }
+
         public MembershipNode(PredicateRef reference, IReadOnlyList<PredicateLiteral> items)
         {
             Reference = reference;
             Items = items;
         }
-
-        public PredicateRef Reference { get; }
-
-        public IReadOnlyList<PredicateLiteral> Items { get; }
     }
 
     internal sealed class BoolRefNode : PredicateNode
     {
+        public PredicateRef Reference { get; }
+
         public BoolRefNode(PredicateRef reference)
         {
             Reference = reference;
         }
-
-        public PredicateRef Reference { get; }
     }
 }

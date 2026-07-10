@@ -52,12 +52,15 @@ namespace Vion.Dale.Sdk.Generators.Predicates
 
             private int _pos;
 
+            private Token Current
+            {
+                get => _tokens[_pos];
+            }
+
             public Impl(IReadOnlyList<Token> tokens)
             {
                 _tokens = tokens;
             }
-
-            private Token Current => _tokens[_pos];
 
             public PredicateParseResult ParseTop()
             {
@@ -236,6 +239,14 @@ namespace Vion.Dale.Sdk.Generators.Predicates
                     throw new ParseException($"expected an identifier but found '{Current.Text}' (references sit on the left of a comparison)", PredicateErrorKind.Syntax);
                 }
 
+                // `true`/`false` are literals, not references — reject them in reference position so
+                // `false == true` fails as a Yoda comparison (matching the dashboard's jsep, which parses
+                // them as literals), not as an unresolved-reference error.
+                if (Current.Text == "true" || Current.Text == "false")
+                {
+                    throw new ParseException($"'{Current.Text}' is a literal, not a reference — a reference must be on the left of a comparison", PredicateErrorKind.Syntax);
+                }
+
                 var text = Current.Text;
                 _pos++;
                 return text;
@@ -254,12 +265,12 @@ namespace Vion.Dale.Sdk.Generators.Predicates
 
         private sealed class ParseException : System.Exception
         {
+            public PredicateErrorKind Kind { get; }
+
             public ParseException(string message, PredicateErrorKind kind) : base(message)
             {
                 Kind = kind;
             }
-
-            public PredicateErrorKind Kind { get; }
         }
 
         // ── Tokenizer ──
@@ -267,23 +278,41 @@ namespace Vion.Dale.Sdk.Generators.Predicates
         private enum TokenKind
         {
             Ident,
+
             Int,
+
             Str,
+
             Dot,
+
             LParen,
+
             RParen,
+
             LBracket,
+
             RBracket,
+
             Comma,
+
             Bang,
+
             EqEq,
+
             NotEq,
+
             Lt,
+
             Le,
+
             Gt,
+
             Ge,
+
             AmpAmp,
+
             PipePipe,
+
             End,
         }
 

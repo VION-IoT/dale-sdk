@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Vion.Dale.Sdk.Generators.Predicates
 {
@@ -6,8 +7,11 @@ namespace Vion.Dale.Sdk.Generators.Predicates
     internal enum RefCategory
     {
         Bool,
+
         Enum,
+
         Integer,
+
         String,
 
         /// <summary><c>double</c> / <c>float</c> — excluded (analog values flap): DALE042.</summary>
@@ -20,30 +24,39 @@ namespace Vion.Dale.Sdk.Generators.Predicates
     /// <summary>A referenceable service member in the block's service map.</summary>
     internal sealed class PredicateMember
     {
-        public PredicateMember(RefCategory category, bool isServiceProperty, bool isWriteOnly)
-        {
-            Category = category;
-            IsServiceProperty = isServiceProperty;
-            IsWriteOnly = isWriteOnly;
-        }
-
         public RefCategory Category { get; }
 
         /// <summary>False for measuring-point-only members (no <c>[ServiceProperty]</c>) — those are not referenceable.</summary>
         public bool IsServiceProperty { get; }
 
         public bool IsWriteOnly { get; }
+
+        /// <summary>
+        ///     The enum's member names (case-sensitive), when <see cref="Category" /> is
+        ///     <see cref="RefCategory.Enum" /> — so a quoted literal can be checked against the real
+        ///     members. <c>null</c> for non-enum members, or when the members could not be resolved
+        ///     (in which case membership is not validated, to avoid false positives).
+        /// </summary>
+        public IReadOnlyCollection<string>? EnumMembers { get; }
+
+        public PredicateMember(RefCategory category, bool isServiceProperty, bool isWriteOnly, IReadOnlyCollection<string>? enumMembers = null)
+        {
+            Category = category;
+            IsServiceProperty = isServiceProperty;
+            IsWriteOnly = isWriteOnly;
+            EnumMembers = enumMembers;
+        }
     }
 
     /// <summary>One service (root or component) and its referenceable members, keyed by property name (ordinal).</summary>
     internal sealed class PredicateService
     {
+        public IReadOnlyDictionary<string, PredicateMember> Members { get; }
+
         public PredicateService(IReadOnlyDictionary<string, PredicateMember> members)
         {
             Members = members;
         }
-
-        public IReadOnlyDictionary<string, PredicateMember> Members { get; }
     }
 
     /// <summary>
@@ -52,30 +65,30 @@ namespace Vion.Dale.Sdk.Generators.Predicates
     /// </summary>
     internal sealed class PredicateContext
     {
+        /// <summary>Keyed by service identifier (root class name + component holding-property names), ordinal.</summary>
+        public IReadOnlyDictionary<string, PredicateService> Services { get; }
+
+        public string OwnServiceId { get; }
+
         public PredicateContext(IReadOnlyDictionary<string, PredicateService> services, string ownServiceId)
         {
             Services = services;
             OwnServiceId = ownServiceId;
         }
-
-        /// <summary>Keyed by service identifier (root class name + component holding-property names), ordinal.</summary>
-        public IReadOnlyDictionary<string, PredicateService> Services { get; }
-
-        public string OwnServiceId { get; }
     }
 
     /// <summary>A type-check finding; <see cref="IsTypeError" /> routes to DALE042 (true) or DALE041 (false).</summary>
     internal sealed class PredicateCheckError
     {
+        public string Message { get; }
+
+        public bool IsTypeError { get; }
+
         public PredicateCheckError(string message, bool isTypeError)
         {
             Message = message;
             IsTypeError = isTypeError;
         }
-
-        public string Message { get; }
-
-        public bool IsTypeError { get; }
 
         public static PredicateCheckError Resolve(string message)
         {
@@ -155,7 +168,8 @@ namespace Vion.Dale.Sdk.Generators.Predicates
             {
                 if (member.Category != RefCategory.Integer)
                 {
-                    errors.Add(PredicateCheckError.Type($"relational operator '{node.Operator}' requires an integer reference; '{node.Reference.Text}' is {Describe(member.Category)}"));
+                    errors.Add(PredicateCheckError
+                                   .Type($"relational operator '{node.Operator}' requires an integer reference; '{node.Reference.Text}' is {Describe(member.Category)}"));
                     return;
                 }
 
@@ -167,8 +181,8 @@ namespace Vion.Dale.Sdk.Generators.Predicates
                 return;
             }
 
-            // Equality: literal must match the reference type.
-            if (!LiteralMatches(member.Category, node.Literal, out var expected))
+            // Equality: literal must match the reference type (and, for enums, be a real member name).
+            if (!LiteralMatches(member, node.Literal, out var expected))
             {
                 errors.Add(PredicateCheckError.Type($"'{node.Reference.Text}' is {Describe(member.Category)}; the '{node.Operator}' literal must be {expected}"));
             }
@@ -190,9 +204,9 @@ namespace Vion.Dale.Sdk.Generators.Predicates
 
             foreach (var literal in node.Items)
             {
-                if (!LiteralMatches(member.Category, literal, out var expected))
+                if (!LiteralMatches(member, literal, out var expected))
                 {
-                    errors.Add(PredicateCheckError.Type($"'in' list for '{node.Reference.Text}' must be homogeneous — every element must be {expected}"));
+                    errors.Add(PredicateCheckError.Type($"every element of the 'in' list for '{node.Reference.Text}' must be {expected}"));
                     return;
                 }
             }
@@ -213,13 +227,15 @@ namespace Vion.Dale.Sdk.Generators.Predicates
                 // property on the annotated member's own service the intent is ambiguous — DALE041.
                 if (ctx.Services.TryGetValue(ctx.OwnServiceId, out var ownService) && ownService.Members.ContainsKey(serviceId))
                 {
-                    errors.Add(PredicateCheckError.Resolve($"reference '{reference.Text}' is ambiguous: '{serviceId}' is both a sibling-service identifier and a property on service '{ctx.OwnServiceId}'"));
+                    errors.Add(PredicateCheckError
+                                   .Resolve($"reference '{reference.Text}' is ambiguous: '{serviceId}' is both a sibling-service identifier and a property on service '{ctx.OwnServiceId}'"));
                     return null;
                 }
 
                 if (!ctx.Services.TryGetValue(serviceId, out var service))
                 {
-                    errors.Add(PredicateCheckError.Resolve($"'{serviceId}' is not a sibling-service identifier (expected the block class name or a component-service property name)"));
+                    errors.Add(PredicateCheckError
+                                   .Resolve($"'{serviceId}' is not a sibling-service identifier (expected the block class name or a component-service property name)"));
                     return null;
                 }
 
@@ -239,16 +255,21 @@ namespace Vion.Dale.Sdk.Generators.Predicates
                 return null;
             }
 
-            // A bare ref that also names a sibling service is ambiguous — DALE041.
-            if (ctx.Services.ContainsKey(reference.Property) && !own.Members.ContainsKey(reference.Property))
+            // A bare ref that names ANY sibling-service identifier is ambiguous — DALE041 — even when the
+            // own service also has a property of that name. The dashboard evaluation context is a flat
+            // namespace, so the sibling-service OBJECT shadows the same-named property (mirror of the
+            // qualified-ref rule above; spec §3).
+            if (ctx.Services.ContainsKey(reference.Property))
             {
-                errors.Add(PredicateCheckError.Resolve($"bare reference '{reference.Property}' names a sibling service, not a property on service '{ctx.OwnServiceId}' — qualify it as '{reference.Property}.<Property>'"));
+                errors.Add(PredicateCheckError
+                               .Resolve($"bare reference '{reference.Property}' collides with a sibling-service identifier; in the flat evaluation context the service would shadow the property — rename one, or qualify a sibling property as '{reference.Property}.<Property>'"));
                 return null;
             }
 
             if (!own.Members.TryGetValue(reference.Property, out var member))
             {
-                errors.Add(PredicateCheckError.Resolve($"service '{ctx.OwnServiceId}' has no service property '{reference.Property}' (a bare reference must be a property on the same service)"));
+                errors.Add(PredicateCheckError
+                               .Resolve($"service '{ctx.OwnServiceId}' has no service property '{reference.Property}' (a bare reference must be a property on the same service)"));
                 return null;
             }
 
@@ -278,9 +299,9 @@ namespace Vion.Dale.Sdk.Generators.Predicates
             return member;
         }
 
-        private static bool LiteralMatches(RefCategory category, PredicateLiteral literal, out string expected)
+        private static bool LiteralMatches(PredicateMember member, PredicateLiteral literal, out string expected)
         {
-            switch (category)
+            switch (member.Category)
             {
                 case RefCategory.Bool:
                     expected = "true or false";
@@ -289,8 +310,23 @@ namespace Vion.Dale.Sdk.Generators.Predicates
                     expected = "an integer";
                     return literal.Kind == PredicateLiteralKind.Integer;
                 case RefCategory.Enum:
+                    if (literal.Kind != PredicateLiteralKind.String)
+                    {
+                        expected = "a quoted enum member (e.g. 'Eco')";
+                        return false;
+                    }
+
+                    // Validate against the enum's ACTUAL member names — a typo (Mode == 'Ecoo') must fail
+                    // CLOSED (DALE042), not build clean and permanently hide the row in every UI. When the
+                    // members could not be resolved, skip the check (don't false-positive).
+                    if (member.EnumMembers is not null && !member.EnumMembers.Contains(literal.StringValue))
+                    {
+                        expected = member.EnumMembers.Count == 0 ? "a quoted enum member" : "one of the enum members: " + string.Join(", ", member.EnumMembers);
+                        return false;
+                    }
+
                     expected = "a quoted enum member (e.g. 'Eco')";
-                    return literal.Kind == PredicateLiteralKind.String;
+                    return true;
                 case RefCategory.String:
                     expected = "a quoted string";
                     return literal.Kind == PredicateLiteralKind.String;

@@ -44,11 +44,6 @@ public class MyBlock : LogicBlockBase
     {0}
 }";
 
-        private static string Block(string annotatedMember)
-        {
-            return Scaffold.Replace("{0}", annotatedMember);
-        }
-
         // ── Positive cases (no diagnostic) ──
 
         [TestMethod]
@@ -121,6 +116,19 @@ public class MyBlock : LogicBlockBase
         }
 
         [TestMethod]
+        public async Task Int32OverflowLiteral_ReportsDALE041()
+        {
+            await ExpectDiagnostic("NumChargingPoints == 9999999999", DaleDiagnostics.DALE041_VisibleWhenUnresolved);
+        }
+
+        [TestMethod]
+        public async Task LiteralOnLeftOfComparison_ReportsDALE041()
+        {
+            // `false`/`true` are literals, not references — `false == true` is rejected (matches the dashboard).
+            await ExpectDiagnostic("false == true", DaleDiagnostics.DALE041_VisibleWhenUnresolved);
+        }
+
+        [TestMethod]
         public async Task UnresolvedBareRef_ReportsDALE041()
         {
             await ExpectDiagnostic("Nonexistent == false", DaleDiagnostics.DALE041_VisibleWhenUnresolved);
@@ -170,12 +178,55 @@ public class MyBlock : LogicBlockBase
             await AnalyzerTestBase.VerifyAnalyzerAsync<VisibleWhenPredicateAnalyzer>(source, expected);
         }
 
+        [TestMethod]
+        public async Task BareRefNamingSiblingService_ReportsDALE041()
+        {
+            // Comp has a bool property 'Point2' whose name also identifies the sibling component service
+            // 'Point2'. A BARE ref 'Point2' is ambiguous even though the own service (Point1) has that
+            // property — in the flat evaluation context the service object shadows the property.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public class Comp
+{
+    [ServiceProperty] public bool Point2 { get; set; }
+    [ServiceProperty] [Presentation(VisibleWhen = {|#0:""Point2""|})] public bool X { get; set; }
+}
+
+public class MyBlock : LogicBlockBase
+{
+    public Comp Point1 { get; set; } = new();
+    public Comp Point2 { get; set; } = new();
+}";
+            var expected = Diag(DaleDiagnostics.DALE041_VisibleWhenUnresolved).WithLocation(0);
+            await AnalyzerTestBase.VerifyAnalyzerAsync<VisibleWhenPredicateAnalyzer>(source, expected);
+        }
+
         // ── Negative cases: DALE042 (type discipline) ──
 
         [TestMethod]
         public async Task UnquotedEnumMember_ReportsDALE042()
         {
             await ExpectDiagnostic("Mode == Eco", DaleDiagnostics.DALE042_VisibleWhenTypeMismatch);
+        }
+
+        [TestMethod]
+        public async Task WrongEnumMemberEquality_ReportsDALE042()
+        {
+            // A typo in an enum member must fail CLOSED — a clean build here would permanently hide the row.
+            await ExpectDiagnostic("Mode == 'Ecoo'", DaleDiagnostics.DALE042_VisibleWhenTypeMismatch);
+        }
+
+        [TestMethod]
+        public async Task WrongEnumMemberInList_ReportsDALE042()
+        {
+            await ExpectDiagnostic("Mode in ['Eco', 'Fastt']", DaleDiagnostics.DALE042_VisibleWhenTypeMismatch);
+        }
+
+        [TestMethod]
+        public async Task NonHomogeneousInList_ReportsDALE042()
+        {
+            await ExpectDiagnostic("NumChargingPoints in [1, 'two']", DaleDiagnostics.DALE042_VisibleWhenTypeMismatch);
         }
 
         [TestMethod]
@@ -257,6 +308,11 @@ public class MyBlock : LogicBlockBase
             await VerifyWithReferenceNoStubsAsync(consumerSource, libReference);
         }
 
+        private static string Block(string annotatedMember)
+        {
+            return Scaffold.Replace("{0}", annotatedMember);
+        }
+
         // ── Helpers ──
 
         // Build the expected result from the descriptor id only, so the harness verifies the diagnostic
@@ -275,7 +331,12 @@ public class MyBlock : LogicBlockBase
 
         private static string GetAttributeStubs()
         {
-            var stubsPath = Path.Combine(Path.GetDirectoryName(typeof(VisibleWhenPredicateAnalyzerTests).Assembly.Location)!, "..", "..", "..", "Helpers", "TestAttributeStubs.cs");
+            var stubsPath = Path.Combine(Path.GetDirectoryName(typeof(VisibleWhenPredicateAnalyzerTests).Assembly.Location)!,
+                                         "..",
+                                         "..",
+                                         "..",
+                                         "Helpers",
+                                         "TestAttributeStubs.cs");
             return File.ReadAllText(stubsPath);
         }
 

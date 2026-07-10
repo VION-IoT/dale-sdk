@@ -35,18 +35,21 @@ function tokenize(text) {
         if (c === '\'' || c === '"') {
             let j = i + 1;
             let s = '';
+            let closed = false;
             while (j < text.length) {
                 const ch = text[j];
                 if (ch === '\\') {
                     if (text[j + 1] === c) { s += c; j += 2; continue; }
                     throw new Error("string escapes beyond \\' (or \\\") are not in the dialect");
                 }
-                if (ch === c) { j++; break; }
-                if (j === text.length - 1) throw new Error('unterminated string literal');
+                if (ch === c) { j++; closed = true; break; }
                 s += ch;
                 j++;
             }
-            if (j > text.length) throw new Error('unterminated string literal');
+            // Track a closed flag: an opening quote as the LAST character never enters the loop, so the
+            // old `j > text.length` guard was unreachable and an unterminated string parsed as '' — which
+            // could wrongly HIDE a row (violating the fail-open ladder). A parse error fails open instead.
+            if (!closed) throw new Error('unterminated string literal');
             tokens.push({ k: 'str', v: s });
             i = j;
             continue;
@@ -119,15 +122,19 @@ function parse(text) {
         }
         return { t: 'boolref', ref };
     }
-    function parseRef() {
+    function ident() {
         if (cur().k !== 'ident') throw new Error(`expected an identifier but found '${cur().v ?? cur().k}' (references sit on the left of a comparison)`);
-        const first = cur().v;
+        // true/false are literals, not references — reject them in reference position (mirrors jsep).
+        if (cur().v === 'true' || cur().v === 'false') throw new Error(`'${cur().v}' is a literal, not a reference — a reference must be on the left of a comparison`);
+        const v = cur().v;
         pos++;
+        return v;
+    }
+    function parseRef() {
+        const first = ident();
         if (cur().k !== '.') return { service: null, property: first };
         pos++;
-        if (cur().k !== 'ident') throw new Error('expected a property name after the service qualifier');
-        const second = cur().v;
-        pos++;
+        const second = ident();
         if (cur().k === '.') throw new Error('references may have at most two segments (Property or Service.Property)');
         return { service: first, property: second };
     }

@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using Vion.Dale.Sdk.Generators.Predicates;
 
 namespace Vion.Dale.Sdk.Generators.Test
@@ -20,21 +19,6 @@ namespace Vion.Dale.Sdk.Generators.Test
     [TestClass]
     public class PredicateConformanceVectorTests
     {
-        private static ConformanceVector LoadVector()
-        {
-            var path = Path.Combine(Path.GetDirectoryName(typeof(PredicateConformanceVectorTests).Assembly.Location)!, "Predicates", "predicate-conformance.json");
-            var json = File.ReadAllText(path);
-            var options = new JsonSerializerOptions
-                          {
-                              PropertyNameCaseInsensitive = true,
-                              ReadCommentHandling = JsonCommentHandling.Skip,
-                              AllowTrailingCommas = true,
-                          };
-            var vector = JsonSerializer.Deserialize<ConformanceVector>(json, options);
-            Assert.IsNotNull(vector, "conformance vector failed to deserialize");
-            return vector!;
-        }
-
         [TestMethod]
         public void VendoredVector_HasCases()
         {
@@ -82,34 +66,28 @@ namespace Vion.Dale.Sdk.Generators.Test
             Assert.IsEmpty(failures, "eval-case predicates that fail to parse:\n" + string.Join("\n", failures));
         }
 
-        private sealed class ConformanceVector
+        private static ConformanceVector LoadVector()
         {
-            [JsonPropertyName("eval")]
-            public List<EvalCase> Eval { get; init; } = new();
-
-            [JsonPropertyName("parse")]
-            public List<ParseCase> Parse { get; init; } = new();
+            var path = Path.Combine(Path.GetDirectoryName(typeof(PredicateConformanceVectorTests).Assembly.Location)!, "Predicates", "predicate-conformance.json");
+            var json = File.ReadAllText(path);
+            var options = new JsonSerializerOptions
+                          {
+                              PropertyNameCaseInsensitive = true,
+                              ReadCommentHandling = JsonCommentHandling.Skip,
+                              AllowTrailingCommas = true,
+                          };
+            var vector = JsonSerializer.Deserialize<ConformanceVector>(json, options);
+            Assert.IsNotNull(vector, "conformance vector failed to deserialize");
+            return vector!;
         }
 
-        private sealed class EvalCase
-        {
-            [JsonPropertyName("name")]
-            public string Name { get; init; } = "";
+        // Positional records (constructor-bound), so the ReSharper cleanup can't strip an `init` accessor
+        // and leave System.Text.Json unable to populate the fields. Case-insensitive matching (set on the
+        // JsonSerializerOptions) maps the lower-case JSON keys onto these PascalCase parameters.
+        private sealed record ConformanceVector(List<EvalCase> Eval, List<ParseCase> Parse);
 
-            [JsonPropertyName("predicate")]
-            public string Predicate { get; init; } = "";
-        }
+        private sealed record EvalCase(string Name, string Predicate);
 
-        private sealed class ParseCase
-        {
-            [JsonPropertyName("name")]
-            public string Name { get; init; } = "";
-
-            [JsonPropertyName("predicate")]
-            public string Predicate { get; init; } = "";
-
-            [JsonPropertyName("valid")]
-            public bool Valid { get; init; }
-        }
+        private sealed record ParseCase(string Name, string Predicate, bool Valid);
     }
 }

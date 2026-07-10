@@ -20,7 +20,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
     ///     (§3), and type-checked (§2.3). The analyzer <b>never evaluates</b> — strict-profile C#
     ///     evaluation is RFC 0016's job.
     /// </summary>
-    [DiagnosticAnalyzer(Microsoft.CodeAnalysis.LanguageNames.CSharp)]
+    [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class VisibleWhenPredicateAnalyzer : DiagnosticAnalyzer
     {
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
@@ -64,9 +64,8 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             var parse = PredicateParser.Parse(member.Predicate);
             if (!parse.IsValid)
             {
-                var descriptor = parse.ErrorKind == PredicateErrorKind.ExpectedLiteral
-                                     ? DaleDiagnostics.DALE042_VisibleWhenTypeMismatch
-                                     : DaleDiagnostics.DALE041_VisibleWhenUnresolved;
+                var descriptor = parse.ErrorKind == PredicateErrorKind.ExpectedLiteral ? DaleDiagnostics.DALE042_VisibleWhenTypeMismatch :
+                                     DaleDiagnostics.DALE041_VisibleWhenUnresolved;
                 context.ReportDiagnostic(Diagnostic.Create(descriptor, location, member.Symbol.Name, member.Predicate, parse.Error));
                 return;
             }
@@ -75,9 +74,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             var errors = PredicateTypeChecker.Check(parse.Ast!, predicateContext);
             foreach (var error in errors)
             {
-                var descriptor = error.IsTypeError
-                                     ? DaleDiagnostics.DALE042_VisibleWhenTypeMismatch
-                                     : DaleDiagnostics.DALE041_VisibleWhenUnresolved;
+                var descriptor = error.IsTypeError ? DaleDiagnostics.DALE042_VisibleWhenTypeMismatch : DaleDiagnostics.DALE041_VisibleWhenUnresolved;
                 context.ReportDiagnostic(Diagnostic.Create(descriptor, location, member.Symbol.Name, member.Predicate, error.Message));
             }
         }
@@ -96,7 +93,10 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             }
 
             // One level of component services: a property whose type carries service members forms a
-            // component service identified by the holding property's name.
+            // component service identified by the holding property's name. Note: this analyzer registers on
+            // the block's NamedType, so a predicate authored on a *component* type's member is reported
+            // against the block's compilation, not the component's file — in IDE live-analysis it surfaces
+            // when the block is analyzed, and a component-file-only edit may need a full build to re-report.
             foreach (var holder in EnumerateProperties(block))
             {
                 if (holder.Type is not INamedTypeSymbol componentType || !TypeHasServiceMembers(componentType))
@@ -154,7 +154,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         {
             var services = new Dictionary<string, PredicateService>(System.StringComparer.Ordinal)
                            {
-                               [block.Name] = new PredicateService(CollectServiceMembers(block)),
+                               [block.Name] = new(CollectServiceMembers(block)),
                            };
 
             foreach (var holder in EnumerateProperties(block))
@@ -222,7 +222,35 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         {
             var isServiceProperty = serviceProperty is not null;
             var isWriteOnly = isServiceProperty && AnalyzerHelper.GetNamedArgument<bool>(serviceProperty!, "WriteOnly");
-            return new PredicateMember(Categorize(type), isServiceProperty, isWriteOnly);
+            var category = Categorize(type);
+            var enumMembers = category == RefCategory.Enum ? CollectEnumMembers(type) : null;
+            return new PredicateMember(category, isServiceProperty, isWriteOnly, enumMembers);
+        }
+
+        // The enum's member names (case-sensitive), so a quoted literal can be checked against the real
+        // members. Enum members are const fields; the synthesized `value__` instance field is not const.
+        private static IReadOnlyCollection<string>? CollectEnumMembers(ITypeSymbol type)
+        {
+            if (type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable)
+            {
+                type = nullable.TypeArguments[0];
+            }
+
+            if (type.TypeKind != TypeKind.Enum)
+            {
+                return null;
+            }
+
+            var names = new HashSet<string>(System.StringComparer.Ordinal);
+            foreach (var member in type.GetMembers().OfType<IFieldSymbol>())
+            {
+                if (member.IsConst)
+                {
+                    names.Add(member.Name);
+                }
+            }
+
+            return names;
         }
 
         private static RefCategory Categorize(ITypeSymbol type)
@@ -310,13 +338,19 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             return false;
         }
 
+        // Public instance properties (self + base chain) — the exact set DeclarativeServiceBinder binds
+        // (BindingFlags.Public | Instance). A non-public or static property with [ServiceProperty] is never
+        // bound at runtime, so a predicate referencing it must not resolve.
         private static IEnumerable<IPropertySymbol> EnumerateProperties(INamedTypeSymbol type)
         {
             for (var current = type; current is not null && current.SpecialType != SpecialType.System_Object; current = current.BaseType)
             {
                 foreach (var property in current.GetMembers().OfType<IPropertySymbol>())
                 {
-                    yield return property;
+                    if (property.DeclaredAccessibility == Accessibility.Public && !property.IsStatic)
+                    {
+                        yield return property;
+                    }
                 }
             }
         }
@@ -353,14 +387,6 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
 
         private sealed class AnnotatedMember
         {
-            public AnnotatedMember(IPropertySymbol symbol, string predicate, string ownServiceId, AttributeData presentation)
-            {
-                Symbol = symbol;
-                Predicate = predicate;
-                OwnServiceId = ownServiceId;
-                Presentation = presentation;
-            }
-
             public IPropertySymbol Symbol { get; }
 
             public string Predicate { get; }
@@ -368,6 +394,14 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             public string OwnServiceId { get; }
 
             public AttributeData Presentation { get; }
+
+            public AnnotatedMember(IPropertySymbol symbol, string predicate, string ownServiceId, AttributeData presentation)
+            {
+                Symbol = symbol;
+                Predicate = predicate;
+                OwnServiceId = ownServiceId;
+                Presentation = presentation;
+            }
         }
     }
 }
