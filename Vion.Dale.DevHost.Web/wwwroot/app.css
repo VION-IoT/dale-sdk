@@ -1009,6 +1009,7 @@ button { cursor: pointer; font-family: inherit; }
 .badge.statusindicator { background: var(--vion-warning-bg-def-primary); color: var(--vion-warning-fg-def-primary); border-color: var(--vion-warning-brd-def-primary); }
 .badge.throttle { background: var(--vion-info-bg-def-primary); color: var(--vion-info-fg-def-primary); border-color: var(--vion-info-brd-def-primary); }
 .badge.persistent { background: var(--vion-acc-bg-def-primary); color: var(--vion-acc-fg-def-primary); border-color: var(--vion-acc-brd-def-primary); }
+.badge.visiblewhen { background: var(--vion-info-bg-def-primary); color: var(--vion-info-fg-def-primary); border-color: var(--vion-info-brd-def-primary); font-family: var(--font-mono, monospace); }
 
 .docs-panels { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 6px; }
 .docs-panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--vion-border-radius-sm); padding: 8px; min-width: 0; }

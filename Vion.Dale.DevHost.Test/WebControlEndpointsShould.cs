@@ -368,6 +368,8 @@ namespace Vion.Dale.DevHost.Test
                                       "/components.js",
                                       "/format.js",
                                       "/wiring.js",
+                                      "/predicates.js",
+                                      "/predicate-conformance.json",
                                       "/THIRD-PARTY-NOTICES.txt",
                                   })
             {

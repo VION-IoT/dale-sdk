@@ -24,6 +24,10 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
 
         internal const string PresentationAttribute = "Vion.Dale.Sdk.Core.PresentationAttribute";
 
+        internal const string ServiceInterfaceAttribute = "Vion.Dale.Sdk.Core.ServiceInterfaceAttribute";
+
+        internal const string LogicBlockBaseType = "Vion.Dale.Sdk.Core.LogicBlockBase";
+
         internal const string LogicBlockContractAttribute = "Vion.Dale.Sdk.Core.LogicBlockContractAttribute";
 
         internal const string CommandAttribute = "Vion.Dale.Sdk.Core.CommandAttribute";

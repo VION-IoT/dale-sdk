@@ -119,9 +119,100 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
     }
 
+    // RFC 0017: VisibleWhen on a [ServiceInterface] property, inherited/overridable like every other
+    // presentation field.
+    [ServiceInterface]
+    public interface IVisibleWhenInterface
+    {
+        [ServiceProperty(Title = "Reading")]
+        [Presentation(VisibleWhen = "Enabled == true")]
+        double Reading { get; }
+    }
+
+    // Class inherits VisibleWhen from the interface (declares no [Presentation] of its own).
+    public class VisibleWhenInheritedLb : LogicBlockBase, IVisibleWhenInterface
+    {
+        [ServiceProperty]
+        public bool Enabled { get; set; }
+
+        public VisibleWhenInheritedLb() : base(new Mock<ILogger>().Object)
+        {
+        }
+
+        public double Reading { get; private set; }
+
+        protected override void Ready()
+        {
+        }
+
+        protected override void Starting()
+        {
+        }
+    }
+
+    // Class overrides the interface's VisibleWhen with its own predicate.
+    public class VisibleWhenOverrideLb : LogicBlockBase, IVisibleWhenInterface
+    {
+        [ServiceProperty]
+        public bool Manual { get; set; }
+
+        public VisibleWhenOverrideLb() : base(new Mock<ILogger>().Object)
+        {
+        }
+
+        [ServiceProperty]
+        [Presentation(VisibleWhen = "Manual == false")]
+        public double Reading { get; private set; }
+
+        protected override void Ready()
+        {
+        }
+
+        protected override void Starting()
+        {
+        }
+    }
+
     [TestClass]
     public class PropertyMetadataBuilderShould
     {
+        [TestMethod]
+        public void EmitVisibleWhenFromThePresentationAttribute()
+        {
+            var property = typeof(VisibleWhenDirectLb).GetProperty(nameof(VisibleWhenDirectLb.PrimaryCurrentToWriteA))!;
+            var pm = PropertyMetadataBuilder.Build(property, new PrimitiveTypeRef(PrimitiveKind.Double), ImmutableDictionary<string, TypeAnnotations>.Empty);
+
+            Assert.AreEqual("DirectMeasurement == false", pm.Presentation.VisibleWhen);
+        }
+
+        [TestMethod]
+        public void CascadeVisibleWhenFromTheInterfaceWhenTheClassDeclaresNone()
+        {
+            var schemaSource = typeof(IVisibleWhenInterface).GetProperty(nameof(IVisibleWhenInterface.Reading))!;
+            var presentationSource = typeof(VisibleWhenInheritedLb).GetProperty(nameof(VisibleWhenInheritedLb.Reading))!;
+
+            var pm = PropertyMetadataBuilder.BuildSplit(schemaSource,
+                                                        presentationSource,
+                                                        new PrimitiveTypeRef(PrimitiveKind.Double),
+                                                        ImmutableDictionary<string, TypeAnnotations>.Empty);
+
+            Assert.AreEqual("Enabled == true", pm.Presentation.VisibleWhen);
+        }
+
+        [TestMethod]
+        public void PreferTheClassVisibleWhenOverTheInterface()
+        {
+            var schemaSource = typeof(IVisibleWhenInterface).GetProperty(nameof(IVisibleWhenInterface.Reading))!;
+            var presentationSource = typeof(VisibleWhenOverrideLb).GetProperty(nameof(VisibleWhenOverrideLb.Reading))!;
+
+            var pm = PropertyMetadataBuilder.BuildSplit(schemaSource,
+                                                        presentationSource,
+                                                        new PrimitiveTypeRef(PrimitiveKind.Double),
+                                                        ImmutableDictionary<string, TypeAnnotations>.Empty);
+
+            Assert.AreEqual("Manual == false", pm.Presentation.VisibleWhen);
+        }
+
         [TestMethod]
         public void MergePresentationFromInterfaceAndClassPerField()
         {
@@ -244,6 +335,28 @@ namespace Vion.Dale.Sdk.Test.Introspection
             Assert.AreEqual("250ms", pm.Runtime.Throttle!.MinInterval);
         }
 
+        private sealed class VisibleWhenDirectLb : LogicBlockBase
+        {
+            [ServiceProperty]
+            public bool DirectMeasurement { get; set; }
+
+            [ServiceProperty]
+            [Presentation(Group = PropertyGroup.Configuration, VisibleWhen = "DirectMeasurement == false")]
+            public double PrimaryCurrentToWriteA { get; set; }
+
+            public VisibleWhenDirectLb() : base(new Mock<ILogger>().Object)
+            {
+            }
+
+            protected override void Ready()
+            {
+            }
+
+            protected override void Starting()
+            {
+            }
+        }
+
         private sealed class ThrottledLb : LogicBlockBase
         {
             [ServiceProperty(MinInterval = "1s", MinChange = "0.1")]
@@ -299,6 +412,30 @@ namespace Vion.Dale.Sdk.Test.Introspection
         public double DerivedProp1 { get; set; }
     }
 
+    // A dual-annotated member ([ServiceProperty] + [ServiceMeasuringPoint]) carrying a VisibleWhen predicate.
+    public class DualAnnotatedVisibilityLb : LogicBlockBase
+    {
+        [ServiceProperty]
+        public bool Enabled { get; set; }
+
+        [ServiceProperty]
+        [ServiceMeasuringPoint]
+        [Presentation(VisibleWhen = "Enabled == true")]
+        public double Power { get; private set; }
+
+        public DualAnnotatedVisibilityLb() : base(new Mock<ILogger>().Object)
+        {
+        }
+
+        protected override void Ready()
+        {
+        }
+
+        protected override void Starting()
+        {
+        }
+    }
+
     [TestClass]
     public class LogicBlockIntrospectionOrderingShould
     {
@@ -318,6 +455,22 @@ namespace Vion.Dale.Sdk.Test.Introspection
             // BaseSortLb declares BaseProp1, BaseProp2; DerivedSortLb adds DerivedProp1.
             // Expected order: base-class properties first (in declaration order), then derived.
             CollectionAssert.AreEqual(new[] { "BaseProp1", "BaseProp2", "DerivedProp1" }, propIds, $"Got order: {string.Join(", ", propIds)}");
+        }
+
+        [TestMethod]
+        public void EmitVisibleWhenIntoBothThePropertyAndMeasuringPointDocsOfADualAnnotatedMember()
+        {
+            // A member annotated with both [ServiceProperty] and [ServiceMeasuringPoint] rides the same
+            // presentation node, so the predicate lands in BOTH sibling docs — the editor row and the
+            // chart row hide coherently (spec §4).
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(new DualAnnotatedVisibilityLb(), _serviceProvider);
+            var service = result.Services.Single();
+
+            var property = service.Properties.Single(p => p.Identifier == "Power");
+            Assert.AreEqual("Enabled == true", property.Presentation?["visibleWhen"]?.GetValue<string>());
+
+            var measuringPoint = service.MeasuringPoints.Single(m => m.Identifier == "Power");
+            Assert.AreEqual("Enabled == true", measuringPoint.Presentation?["visibleWhen"]?.GetValue<string>());
         }
 
         [TestMethod]

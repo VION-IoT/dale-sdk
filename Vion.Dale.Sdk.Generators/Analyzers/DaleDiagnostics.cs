@@ -485,5 +485,38 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                                                                                                       Category,
                                                                                                       DiagnosticSeverity.Error,
                                                                                                       true);
+
+        // --- Presentation-time conditional visibility (RFC 0017 / VisibleWhen) ---
+
+        /// <summary>
+        ///     A <c>[Presentation(VisibleWhen = "...")]</c> predicate does not parse, or references a
+        ///     property that cannot be resolved. Covers: syntax outside the dialect grammar; a bare ref
+        ///     with no match on the annotated member's own service; a qualified ref whose first segment is
+        ///     not a sibling-service identifier (component-service property name or the block class name)
+        ///     or whose second segment is not a service property of that service; a ref to a
+        ///     measuring-point-only (non-<c>[ServiceProperty]</c>) member; and a ref that is
+        ///     shadowed/ambiguous under the name-collision rule (an own-service property sharing a
+        ///     sibling-service identifier). The analyzer parses and type-checks but never evaluates.
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE041_VisibleWhenUnresolved = new("DALE041",
+                                                                                        "VisibleWhen predicate does not parse or resolve",
+                                                                                        "Property '{0}' has an invalid VisibleWhen predicate \"{1}\": {2}",
+                                                                                        Category,
+                                                                                        DiagnosticSeverity.Error,
+                                                                                        true);
+
+        /// <summary>
+        ///     A <c>[Presentation(VisibleWhen = "...")]</c> predicate parses and resolves but violates the
+        ///     type discipline: a referenced property whose type is outside bool / enum / integer / string
+        ///     (e.g. <c>double</c>/<c>float</c>); a <c>WriteOnly</c> reference (its value is redacted in the
+        ///     UI); a relational operator on a non-integer reference; a non-homogeneous <c>in</c> list; an
+        ///     unquoted enum member on the right of a comparison; or a bare reference that is not a bool.
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE042_VisibleWhenTypeMismatch = new("DALE042",
+                                                                                          "VisibleWhen predicate has a type error",
+                                                                                          "Property '{0}' has a VisibleWhen predicate \"{1}\" with a type error: {2}",
+                                                                                          Category,
+                                                                                          DiagnosticSeverity.Error,
+                                                                                          true);
     }
 }

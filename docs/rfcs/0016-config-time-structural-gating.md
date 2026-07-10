@@ -100,15 +100,30 @@ Notes:
 
 ## 7. The predicate-expression language (shared foundation)
 
-One grammar, defined here and **reused by RFC 0017** (which widens the reference scope and evaluates it differently). Kept deliberately small so it is trivially and identically implementable in C# (SDK + Dale + cloud-api) and TypeScript (dashboard):
+One grammar, defined here in sketch and **concretized by RFC 0017's cross-repo spec** (which widens the reference scope and evaluates it differently). The **canonical grammar + semantics now live in vion-contracts [`docs/predicates.md`](https://github.com/VION-IoT/vion-contracts/blob/main/docs/predicates.md)**, pinned by `Predicates/predicate-conformance.json`; this section is superseded by that document and kept only for context. Kept deliberately small so it is trivially and identically implementable in C# (SDK + Dale + cloud-api) and TypeScript (dashboard):
 
 ```
-predicate   := comparison | membership | predicate ("&&" | "||") predicate | "!" predicate | "(" predicate ")"
-comparison  := propertyRef ("==" | "!=" | "<" | "<=" | ">" | ">=") literal
-membership  := propertyRef "in" "[" literal ("," literal)* "]"
-propertyRef := identifier            // for RFC 0016: MUST resolve to a [StructuralConfig] scalar on the same block
-literal     := number | boolean | string | enumMember
+predicate   := orExpr
+orExpr      := andExpr ( "||" andExpr )*
+andExpr     := unaryExpr ( "&&" unaryExpr )*
+unaryExpr   := "!" negand | "(" predicate ")" | comparison | membership | boolRef
+negand      := boolRef | "(" predicate ")"     // NOT a bare comparison: "!A == 5" is rejected
+comparison  := ref ( "==" | "!=" | "<" | "<=" | ">" | ">=" ) literal
+membership  := ref "in" "[" literal ( "," literal )* "]"
+ref         := identifier | identifier "." identifier   // Property | Service.Property
+boolRef     := ref                                       // must type-check to bool
+literal     := integer | "true" | "false" | string      // strings quoted; enum members are quoted
 ```
+
+> **Concretization deviations from the original sketch above** (adopted 2026-07-10; see the spec's Drift
+> checkpoints). The sketch's `literal := number | boolean | string | enumMember` became: **enum members are
+> quoted strings** (`Mode == 'Eco'`) — the unquoted `enumMember` literal is gone, because an unquoted RHS
+> identifier is indistinguishable from a property reference under JS/jsep evaluation. Also: **bare bool refs**
+> are a predicate (`unaryExpr := … | boolRef`); refs may be **two segments** (`Service.Property`), not just a
+> bare identifier; **negation is restricted** to a bool ref or a parenthesized predicate (`!A == 5` is a parse
+> error — parenthesize as `!(A == 5)`); numeric literals are **integers only, int32-range** (no floats — analog
+> values flap); strings accept both quote styles but **single quotes are the documented style** (no escaping in
+> a C# attribute). For RFC 0016 the `ref` still MUST resolve to a `[StructuralConfig]` scalar on the same block.
 
 Constraints and obligations:
 

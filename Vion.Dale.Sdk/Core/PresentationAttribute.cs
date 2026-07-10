@@ -106,5 +106,74 @@ namespace Vion.Dale.Sdk.Core
         ///     Token reference: <see href="https://momentjs.com/docs/#/displaying/format/" />.
         /// </summary>
         public string? Format { get; init; }
+
+        // ── Conditional visibility ──
+
+        /// <summary>
+        ///     Conditional-visibility predicate. When set, this member is hidden from the dashboard
+        ///     form whenever the predicate evaluates false, and shown otherwise. Evaluated
+        ///     <b>reactively in the UI only</b>, against the
+        ///     <b>
+        ///         live values of sibling service
+        ///         properties of the same logic-block instance
+        ///     </b>
+        ///     . The member keeps existing and
+        ///     functioning everywhere else — runtime, MQTT, cloud DB, introspection — so this is a
+        ///     pure <b>display</b> hint, never an existence or behavior gate (contrast RFC 0016's
+        ///     <c>[ExistsWhen]</c>, which removes the member across every layer). A property with no
+        ///     <c>VisibleWhen</c> is always shown (backward compatible). Evaluation is
+        ///     <b>fail-open</b>: a broken or unresolvable predicate shows the member.
+        ///     <para />
+        ///     <b>Grammar (in brief).</b> A typed subset of the dashboard's widget-expression dialect:
+        ///     <list type="bullet">
+        ///         <item>
+        ///             comparisons — <c>==</c> <c>!=</c> (bool / enum / string / integer refs),
+        ///             <c>&lt;</c> <c>&lt;=</c> <c>&gt;</c> <c>&gt;=</c> (integer refs only);
+        ///         </item>
+        ///         <item>membership — <c>ref in [literal, …]</c> (enum / string / integer, homogeneous list);</item>
+        ///         <item>
+        ///             boolean combinators — <c>&amp;&amp;</c> <c>||</c> <c>!</c> and parentheses;
+        ///             a <b>bare</b> ref must be <c>bool</c>; <c>!</c> applies only to a bool ref or a
+        ///             parenthesized predicate (write <c>!(A == 5)</c>, not <c>!A == 5</c>);
+        ///         </item>
+        ///         <item>
+        ///             literals — integers (int32 range), <c>true</c> / <c>false</c>, and strings.
+        ///             <b>Enum members are quoted strings</b> (<c>Mode == 'Eco'</c>). Single quotes are
+        ///             the recommended style (no escaping inside a C# attribute string).
+        ///         </item>
+        ///     </list>
+        ///     Refs sit on the <b>left</b> of every comparison (no Yoda conditions). Arithmetic, the
+        ///     ternary, function calls, and pipes are rejected by the analyzer. The canonical grammar
+        ///     and semantics live in the shared <c>docs/predicates.md</c> (vion-contracts), pinned by
+        ///     <c>Predicates/predicate-conformance.json</c>.
+        ///     <para />
+        ///     <b>Reference scope and addressing.</b> Referenced targets must be <c>[ServiceProperty]</c>s
+        ///     of type <c>bool</c>, <c>enum</c>, integer, or <c>string</c> (never <c>double</c>/<c>float</c>,
+        ///     <c>WriteOnly</c>, or measuring-point-only members):
+        ///     <list type="bullet">
+        ///         <item>
+        ///             <b>Bare ref</b> (<c>DirectMeasurement</c>) — a property on the <b>same service</b>
+        ///             as the annotated member.
+        ///         </item>
+        ///         <item>
+        ///             <b>Qualified ref</b> (<c>Service.Property</c>) — a property on a
+        ///             <b>
+        ///                 sibling
+        ///                 service of the same logic-block instance
+        ///             </b>
+        ///             .
+        ///         </item>
+        ///     </list>
+        ///     Service identifiers are those the introspection uses (invisible in source, so spelled out
+        ///     here): the <b>component-service</b> identifier is the <b>holding property's name</b>
+        ///     (a <c>ChargingPoint ChargingPoint1 { get; }</c> property forms service
+        ///     <c>ChargingPoint1</c>), and the <b>root-service</b> identifier is the
+        ///     <b>logic-block class name</b> (address the root's own <c>IsExternallyLocked</c> as
+        ///     <c>MyBlockClassName.IsExternallyLocked</c>). Renaming the class therefore breaks
+        ///     root-qualified predicates in the same compilation — the analyzer (DALE041/DALE042)
+        ///     catches it at build. <c>nameof()</c> concatenation is supported:
+        ///     <c>VisibleWhen = nameof(DirectMeasurement) + " == false"</c>.
+        /// </summary>
+        public string? VisibleWhen { get; init; }
     }
 }

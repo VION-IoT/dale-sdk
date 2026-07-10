@@ -98,6 +98,7 @@ namespace Vion.Dale.Sdk.Introspection
                              UIHint = classP.UIHint ?? interfaceP.UIHint,
                              Decimals = classP.Decimals ?? interfaceP.Decimals,
                              Format = classP.Format ?? interfaceP.Format,
+                             VisibleWhen = classP.VisibleWhen ?? interfaceP.VisibleWhen,
                              StatusMappings = classP.StatusMappings ?? interfaceP.StatusMappings,
                              EnumLabels = classP.EnumLabels ?? interfaceP.EnumLabels,
                          };
@@ -238,6 +239,13 @@ namespace Vion.Dale.Sdk.Introspection
                                    UIHint = uiHint,
                                    Decimals = decimals,
                                    Format = presentationAttr?.Format,
+
+                                   // Conditional-visibility predicate (RFC 0017). Emitted verbatim into
+                                   // presentation.visibleWhen; parse/type discipline is enforced by the
+                                   // DALE041/DALE042 analyzers, not here. Rides both sibling docs
+                                   // automatically for a dual-annotated [ServiceProperty]+[ServiceMeasuringPoint]
+                                   // member, since the same presentation node feeds both.
+                                   VisibleWhen = presentationAttr?.VisibleWhen,
                                    StatusMappings = statusMappings,
                                    EnumLabels = enumLabels,
                                };
