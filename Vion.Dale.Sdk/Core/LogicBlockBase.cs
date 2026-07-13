@@ -266,7 +266,21 @@ namespace Vion.Dale.Sdk.Core
                 case SetLinkedInterfaces m: // initialization
                     foreach (var (interfaceId, linkedInterfaces) in m.LinkedInterfaceIds)
                     {
-                        GetFunctionById(interfaceId).SetLinkedInterfaceIds(linkedInterfaces);
+                        // RFC 0016: a mapping may target an interface gated out by [IncludedWhen] on this block, so
+                        // it was never bound and is absent from _interfaces. Skip-and-warn instead of throwing a
+                        // KeyNotFoundException that would take the whole block down — mirror of the gated-out
+                        // contract-mapping guard above.
+                        if (!_interfaces.TryGetValue(interfaceId.InterfaceIdentifier, out var function))
+                        {
+                            _logger.LogWarning("Logic block '{LogicBlockId}' ({LogicBlockName}) received a link mapping for interface '{InterfaceIdentifier}', " +
+                                               "which is not a bound interface (gated out by [IncludedWhen] or otherwise absent). Skipping the mapping; the block stays up.",
+                                               Id,
+                                               Name,
+                                               interfaceId.InterfaceIdentifier);
+                            continue;
+                        }
+
+                        function.SetLinkedInterfaceIds(linkedInterfaces);
                     }
 
                     break;
@@ -350,7 +364,21 @@ namespace Vion.Dale.Sdk.Core
                     break;
 
                 case IFunctionInterfaceMessage m: // delegate to logic interface
-                    GetFunctionById(m.ToId).HandleMessage(m);
+                    // RFC 0016: a sender may route to an interface that was gated out by [IncludedWhen] on this
+                    // block (a topology interfaceMapping to a now-absent endpoint), so it is not in _interfaces.
+                    // Skip-and-warn instead of throwing a KeyNotFoundException that would take the block down —
+                    // mirror of the gated-out contract-mapping guard.
+                    if (!_interfaces.TryGetValue(m.ToId.InterfaceIdentifier, out var targetFunction))
+                    {
+                        _logger.LogWarning("Logic block '{LogicBlockId}' ({LogicBlockName}) received a message for interface '{InterfaceIdentifier}', " +
+                                           "which is not a bound interface (gated out by [IncludedWhen] or otherwise absent). Dropping the message; the block stays up.",
+                                           Id,
+                                           Name,
+                                           m.ToId.InterfaceIdentifier);
+                        break;
+                    }
+
+                    targetFunction.HandleMessage(m);
                     break;
 
                 case SetServicePropertyValueRequest m: // from service proxy, set value and respond with current value
@@ -1050,17 +1078,6 @@ namespace Vion.Dale.Sdk.Core
         private void AddContract(string identifier, LogicBlockContractBase logicBlockContract)
         {
             _contracts[identifier] = logicBlockContract;
-        }
-
-        private LogicSenderInterfaceBase GetFunctionByIdentifier(string identifier)
-        {
-            return _interfaces[identifier];
-        }
-
-        private LogicSenderInterfaceBase GetFunctionById(InterfaceId functionId)
-        {
-            var identifier = functionId.InterfaceIdentifier;
-            return GetFunctionByIdentifier(identifier);
         }
 
         private LogicBlockContractBase GetContractById(LogicBlockContractId logicBlockContractId)
