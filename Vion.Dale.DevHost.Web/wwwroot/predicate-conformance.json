@@ -1,5 +1,5 @@
 {
-  "_provenance": "VENDORED from github.com/VION-IoT/vion-contracts @ e75ea04 — Vion.Contracts/Predicates/predicate-conformance.json (docs/predicates.md). Re-sync manually; near-write-once. Kept as strict JSON (fetched by the browser self-test); provenance rides this key instead of a comment header.",
+  "_provenance": "VENDORED from github.com/VION-IoT/vion-contracts @ d150d91 — Vion.Contracts/Predicates/predicate-conformance.json (docs/predicates.md). Re-sync manually; near-write-once. Kept as strict JSON (fetched by the browser self-test); provenance rides this key instead of a comment header. eval carries profile:strict + error:true cases (RFC 0016) that the UI self-test skips.",
   "eval": [
     {
       "name": "bool comparison, equal",
@@ -220,6 +220,62 @@
       "predicate": "NumChargingPoints in [2, 3] || DirectMeasurement",
       "values": { "NumChargingPoints": 2, "DirectMeasurement": false },
       "expected": true
+    },
+    {
+      "name": "strict: model membership gate (enum member-name strings), member",
+      "predicate": "Model in ['Moka', 'Ristretto', 'Cappuccino', 'Corretto6']",
+      "values": { "Model": "Ristretto" },
+      "expected": true,
+      "profile": "strict"
+    },
+    {
+      "name": "strict: model membership gate, not a member",
+      "predicate": "Model in ['Moka', 'Ristretto', 'Cappuccino', 'Corretto6']",
+      "values": { "Model": "Bricco" },
+      "expected": false,
+      "profile": "strict"
+    },
+    {
+      "name": "strict: charge-point-count relational gate, included",
+      "predicate": "ChargePointCount >= 2",
+      "values": { "ChargePointCount": 3 },
+      "expected": true,
+      "profile": "strict"
+    },
+    {
+      "name": "strict: charge-point-count relational gate, excluded",
+      "predicate": "ChargePointCount >= 2",
+      "values": { "ChargePointCount": 1 },
+      "expected": false,
+      "profile": "strict"
+    },
+    {
+      "name": "strict: compound model + bool parameter gate",
+      "predicate": "Model in ['Cappuccino', 'Corretto6'] && HasAcOutlet",
+      "values": { "Model": "Cappuccino", "HasAcOutlet": true },
+      "expected": true,
+      "profile": "strict"
+    },
+    {
+      "name": "strict: a missing reference is a hard error (fail-closed)",
+      "predicate": "ChargePointCount >= 2",
+      "values": {},
+      "error": true,
+      "profile": "strict"
+    },
+    {
+      "name": "strict: a null parameter value is a hard error (fail-closed)",
+      "predicate": "ChargePointCount >= 2",
+      "values": { "ChargePointCount": null },
+      "error": true,
+      "profile": "strict"
+    },
+    {
+      "name": "strict: a type-mismatched value is a hard error (fail-closed)",
+      "predicate": "ChargePointCount >= 2",
+      "values": { "ChargePointCount": "three" },
+      "error": true,
+      "profile": "strict"
     }
   ],
   "parse": [

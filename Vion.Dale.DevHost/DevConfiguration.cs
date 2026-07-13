@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text.Json.Nodes;
 
 namespace Vion.Dale.DevHost
 {
@@ -58,6 +59,13 @@ namespace Vion.Dale.DevHost
         public List<DevServiceConfig> Services { get; set; } = [];
 
         public List<DevContractMapping> ContractMappings { get; set; } = [];
+
+        /// <summary>
+        ///     RFC 0016: operator-chosen <c>[InstantiationParameter]</c> values (identifier → JSON scalar)
+        ///     from the topology file, applied to the block before <c>Configure</c> so inclusion gates
+        ///     resolve at bind time. Null / empty when the instance sets no parameters.
+        /// </summary>
+        public IReadOnlyDictionary<string, JsonNode>? InstantiationParameters { get; set; }
     }
 
     public class DevServiceProviderConfig

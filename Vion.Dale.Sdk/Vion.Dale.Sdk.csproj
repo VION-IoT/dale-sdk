@@ -60,7 +60,7 @@
         <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0"/>
         <!-- TimeProvider backport for netstandard2.1. Replaces homegrown IDateTimeProvider. -->
         <PackageReference Include="Microsoft.Bcl.TimeProvider" Version="10.0.0"/>
-        <PackageReference Include="Vion.Contracts" Version="3.5.0"/>
+        <PackageReference Include="Vion.Contracts" Version="3.7.0"/>
         <PackageReference Include="System.Text.Json" Version="10.0.7"/>
         <!-- AssemblyLoadContext for resolving a custom IChangeThreshold<T> from a sibling assembly in the
              declaring block's load context (RFC 0004). A netstandard2.1 compile-time facade that

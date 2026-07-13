@@ -27,6 +27,13 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
             return obj;
         }
 
+        public static TInterface WithIncludedWhen<TInterface>(this TInterface obj, string? includedWhen)
+            where TInterface : ILogicSenderInterface
+        {
+            obj.GetMetaData().IncludedWhen = includedWhen;
+            return obj;
+        }
+
         private static LogicSenderInterfaceBase AsImplementation<TInterface>(this TInterface obj)
             where TInterface : ILogicSenderInterface
         {

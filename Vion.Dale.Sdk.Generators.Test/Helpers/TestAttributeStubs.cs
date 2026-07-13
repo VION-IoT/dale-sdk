@@ -216,6 +216,34 @@ namespace Vion.Dale.Sdk.Core
     {
     }
 
+    // RFC 0016 config-time structural gating stubs.
+    [AttributeUsage(AttributeTargets.Property)]
+    public class InstantiationParameterAttribute : Attribute
+    {
+    }
+
+    [AttributeUsage(AttributeTargets.Property | AttributeTargets.Class | AttributeTargets.Method)]
+    public class IncludedWhenAttribute : Attribute
+    {
+        public string Predicate { get; }
+
+        public IncludedWhenAttribute(string predicate)
+        {
+            Predicate = predicate;
+        }
+    }
+
+    [AttributeUsage(AttributeTargets.Property | AttributeTargets.Class, AllowMultiple = true)]
+    public class LogicBlockInterfaceBindingAttribute : Attribute
+    {
+        public Type ForInterface { get; }
+
+        public LogicBlockInterfaceBindingAttribute(Type forInterface)
+        {
+            ForInterface = forInterface;
+        }
+    }
+
     // Minimal LogicBlockBase stub — sufficient for analyzers that key off derivation from
     // Vion.Dale.Sdk.Core.LogicBlockBase.
     public abstract class LogicBlockBase

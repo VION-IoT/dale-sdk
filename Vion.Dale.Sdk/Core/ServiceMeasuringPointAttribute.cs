@@ -21,7 +21,7 @@ namespace Vion.Dale.Sdk.Core
 
         /// <summary>
         ///     Long-form description for tooltips, search, and accessibility. Routes into
-        ///     <c>schema.annotations.description</c>. Independent of <see cref="Title" />.
+        ///     <c>schema.description</c>. Independent of <see cref="Title" />.
         /// </summary>
         public string? Description { get; init; }
 
@@ -43,7 +43,7 @@ namespace Vion.Dale.Sdk.Core
         /// <summary>
         ///     Semantic classification of the measuring point's time-series shape — drives
         ///     default chart rendering, aggregation, and storage strategy. Routes into
-        ///     <c>schema.annotations.x-kind</c>. Defaults to
+        ///     <c>schema.x-kind</c>. Defaults to
         ///     <see cref="MeasuringPointKind.Measurement" /> (instantaneous samples).
         /// </summary>
         public MeasuringPointKind Kind { get; init; } = MeasuringPointKind.Measurement;

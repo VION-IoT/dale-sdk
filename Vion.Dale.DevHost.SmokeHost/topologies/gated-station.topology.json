@@ -1,0 +1,13 @@
+{
+  "$schema": "./.dale/topology.schema.json",
+  "id": "gated-station",
+  "logicBlockInstances": [
+    {
+      "typeFullName": "Vion.Dale.DevHost.SmokeHost.LogicBlocks.GatedStationBlock",
+      "name": "Station",
+      "instantiationParameters": { "PointCount": 2 }
+    }
+  ],
+  "interfaceMappings": [],
+  "contractMappings": []
+}

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Vion.Dale.DevHost.Control;
@@ -162,7 +163,12 @@ namespace Vion.Dale.DevHost.Topologies
                        Schema = SchemaRef,
                        Id = configuration.TopologyName ?? "default",
                        LogicBlockInstances = configuration.LogicBlocks
-                                                          .Select(lb => new TopologyLogicBlockInstance { TypeFullName = lb.TypeFullName, Name = lb.Name })
+                                                          .Select(lb => new TopologyLogicBlockInstance
+                                                                        {
+                                                                            TypeFullName = lb.TypeFullName,
+                                                                            Name = lb.Name,
+                                                                            InstantiationParameters = lb.InstantiationParameters,
+                                                                        })
                                                           .ToList(),
                        InterfaceMappings = configuration.InterfaceMappings
                                                         .Select(im => new TopologyInterfaceMapping
@@ -197,6 +203,18 @@ namespace Vion.Dale.DevHost.Topologies
         public string? TypeFullName { get; init; }
 
         public string? Name { get; init; }
+
+        /// <summary>
+        ///     RFC 0016: optional operator-chosen <c>[InstantiationParameter]</c> values (identifier → JSON
+        ///     scalar) applied to the block before <c>Configure</c>, so config-time inclusion gates resolve.
+        ///     Optional — an instance with no gated members needs none. Because parsing is strict on both
+        ///     layers (<see cref="DevTopologyFile.SerializerOptions" /> and the JSON schema's
+        ///     <c>additionalProperties: false</c>), the field is declared here and in every
+        ///     <c>topology.schema.json</c> copy. Omitted from serialization when null so instances without
+        ///     parameters round-trip byte-identically (existing goldens unaffected).
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public IReadOnlyDictionary<string, JsonNode>? InstantiationParameters { get; init; }
     }
 
     public sealed class TopologyInterfaceMapping

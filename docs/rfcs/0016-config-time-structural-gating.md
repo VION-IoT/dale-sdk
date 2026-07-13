@@ -1,10 +1,36 @@
 # RFC 0016 — Configuration-time structural gating of logic-block members (DF-38)
 
-- **Status:** Proposed — 2026-07-09
+- **Status:** Accepted — 2026-07-09; concretized + implemented 2026-07-13 (dale-sdk).
 - **Author:** jonas.bertsch
 - **Related:** RFC 0013 (DevHost topology authoring — the wiring/multiplicity contract), RFC 0008 (unified scenario+topology; recycle-on-run), RFC 0004 (emission policy — per-member retained streams), RFC 0010 (service-provider contracts). Sibling: **RFC 0017 (presentation-time member visibility)** — shares the predicate-expression foundation defined here in §7. Cross-repo: `vion-contracts` (introspection model), `cloud-api` (definition storage, activation, multiplicity validation, active read-models), `dashboard` (Logic Editor), `dale` (runtime `LogicSystemConfigurationInitializer` / `ServicePropertyHandler`), `architecture` (`concepts/logic-block-wiring.md`, `decisions/0020-seal-imperative-logicblock-configuration.md`, `flows/logic-configuration-deployment.md`). Origin: **DF-38** in `logic-block-libraries/docs/dale-preview-feedback.md` + the charging-station brainstorm (`.../notes/2026-07-08-charging-station-concept-brainstorm.md`).
 
 > This is a design contract, not an implementation. It is the document an implementation plan (or an `architecture` spec) is generated from. It deliberately stops at the seams (exact attribute syntax, field names, DALE#### numbers, route bodies, store-action names) so the per-component spec can fill them in against current `main` of each repo. Where a mechanism is under-examined, it is flagged in §11 rather than hand-waved.
+
+> **Concretization notes (2026-07-13).** The seams this RFC left open were filled by the cross-repo spec
+> [`2026-07-10-config-time-structural-gating.md`](https://github.com/VION-IoT/architecture/blob/main/specs/in-flight/2026-07-10-config-time-structural-gating.md)
+> (decisions [`0079`](https://github.com/VION-IoT/architecture/blob/main/decisions/0079-instantiation-parameters-are-config-time-service-properties.md) /
+> [`0080`](https://github.com/VION-IoT/architecture/blob/main/decisions/0080-inclusion-gates-resolve-at-bind.md)), which is
+> authoritative. Review renames and decisions folded back into this doc:
+> - **`[ExistsWhen]` → `[IncludedWhen]`** and **`[StructuralConfig]` → `[InstantiationParameter]`** (the
+>   attribute names throughout §5/§8/§12 are the working names; read them as the final names).
+> - **`DerivedFrom` is dropped** (§8.6). The `[IncludedWhen]` expression is the only way to relate an input
+>   to a member — use membership (`Model in ['Cappuccino3in1', 'Ristretto2']`, the `in` operator) or make the
+>   count itself the parameter and derive behaviour in code. No "derived structural input" concept ships.
+> - **No dormancy** (§8.5 / §11 R5, reversed). A member gated out **loses** its gateway-persisted state;
+>   cloud measuring-point history survives via stable service GUIDs. The dormancy machinery R5 asked for is
+>   not built; one hygiene fix ships (the `[Persistent]` opt-in pass skips excluded components).
+> - **`ServiceInfo.IncludedWhen` is a typed field**, not an annotation-bag key (services have no bag);
+>   interface/contract bindings still carry the predicate in their `Annotations` under
+>   `LogicBlockWiringConventions.IncludedWhenAnnotationKey`. The parameter marker + default ride the property's
+>   opaque `runtime` doc (`runtime.instantiationParameter` / `runtime.default`), never a `schema` keyword;
+>   the implied wire-read-only rides the existing allow-listed `schema.readOnly`.
+> - **§13 prior-art correction.** The template-parameter `visibleWhen` annotation the platform documents is
+>   **evaluated nowhere** today — do not build on it. Templates are **not** part of v1 (expansion seeds each
+>   instance's parameter values from the definition's `runtime.default`s; author-fixed template values and
+>   template-parameter→instantiation-parameter binding are deferred).
+> - Analyzers landed as **DALE043** (`[IncludedWhen]` parse / resolve / placement / re-gated-override) and
+>   **DALE044** (`[InstantiationParameter]` discipline: pairing, discrete-scalar type, no-`WriteOnly`,
+>   auto-property, no in-code assignment, no re-declaration, plus predicate type mismatches).
 
 ## 1. Summary
 

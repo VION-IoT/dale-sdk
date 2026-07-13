@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json.Nodes;
 using Vion.Dale.Sdk.CodeGeneration;
 using Vion.Dale.Sdk.Core;
 
@@ -9,13 +10,14 @@ namespace Vion.Dale.Sdk.Configuration.Services
 {
     public static class DeclarativeServiceBinder
     {
-        public static void BindServicesFromAttributes(object logicBlock, ServiceBinder binder)
+        public static void BindServicesFromAttributes(object logicBlock, ServiceBinder binder, BindingMode mode, IReadOnlyDictionary<string, JsonNode?>? parameterContext)
         {
             var type = logicBlock.GetType();
 
             // Class-level service: one per logic block, identified by the class name.
             // The dropped [Service] attribute previously allowed overriding the identifier; without
-            // it, the class name is canonical.
+            // it, the class name is canonical. The root service is never gated (RFC 0016 placement matrix:
+            // whole-block existence = the operator adds the instance or not).
             var implementedServiceInterfaces = GetImplementedServiceInterfaces(type);
             var service = binder.CreateService(type.Name);
             var boundInterfaceProperties = new HashSet<string>();
@@ -34,10 +36,10 @@ namespace Vion.Dale.Sdk.Configuration.Services
 
             // Scan for properties whose values are themselves services (implement a service interface
             // or carry service-property attributes).
-            BindPropertyBasedServices(logicBlock, binder);
+            BindPropertyBasedServices(logicBlock, binder, mode, parameterContext);
         }
 
-        private static void BindPropertyBasedServices(object logicBlock, ServiceBinder binder)
+        private static void BindPropertyBasedServices(object logicBlock, ServiceBinder binder, BindingMode mode, IReadOnlyDictionary<string, JsonNode?>? parameterContext)
         {
             var type = logicBlock.GetType();
             var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
@@ -55,6 +57,15 @@ namespace Vion.Dale.Sdk.Configuration.Services
                     continue;
                 }
 
+                // RFC 0016: skip a gated-out component service entirely in Live mode (its whole service —
+                // all properties + measuring points — falls out by construction). Definition mode binds and
+                // records the predicate for ServiceInfo.IncludedWhen.
+                var includedWhen = InclusionGate.ReadPredicate(property);
+                if (!InclusionGate.IsIncluded(includedWhen, mode, parameterContext))
+                {
+                    continue;
+                }
+
                 var propertyValue = property.GetValue(logicBlock);
                 if (propertyValue == null)
                 {
@@ -63,6 +74,11 @@ namespace Vion.Dale.Sdk.Configuration.Services
 
                 // Use the property name as the service identifier.
                 BindServiceWithInterfaces(propertyValue, property.Name, implementedServiceInterfaces, binder);
+
+                if (!string.IsNullOrEmpty(includedWhen))
+                {
+                    binder.RegisterServiceIncludedWhen(property.Name, includedWhen!);
+                }
             }
         }
 

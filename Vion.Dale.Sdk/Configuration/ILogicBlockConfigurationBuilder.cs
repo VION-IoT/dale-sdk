@@ -14,5 +14,11 @@ namespace Vion.Dale.Sdk.Configuration
         public IServiceFactory Services { get; }
 
         public ITimerFactory Timers { get; }
+
+        /// <summary>
+        ///     RFC 0016: whether the binders resolve <c>[IncludedWhen]</c> gates (<see cref="BindingMode.Live" />)
+        ///     or bind the full definition set and record the predicates (<see cref="BindingMode.Definition" />).
+        /// </summary>
+        public BindingMode Mode { get; }
     }
 }

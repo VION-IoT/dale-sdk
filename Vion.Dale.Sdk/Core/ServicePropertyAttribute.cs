@@ -21,7 +21,7 @@ namespace Vion.Dale.Sdk.Core
 
         /// <summary>
         ///     Long-form description for tooltips, search, and accessibility. Routes into
-        ///     <c>schema.annotations.description</c>. Independent of <see cref="Title" />.
+        ///     <c>schema.description</c>. Independent of <see cref="Title" />.
         /// </summary>
         public string? Description { get; init; }
 
@@ -44,7 +44,7 @@ namespace Vion.Dale.Sdk.Core
         ///     Marks a writable property as a secret — clients see a redaction sentinel
         ///     (<c>"***"</c>) on the publish-state channel instead of the actual value.
         ///     Restricted to <c>string</c> / <c>string?</c> properties in v1. Routes into
-        ///     <c>schema.annotations.writeOnly</c>.
+        ///     <c>schema.writeOnly</c>.
         /// </summary>
         public bool WriteOnly { get; init; }
 
@@ -52,7 +52,7 @@ namespace Vion.Dale.Sdk.Core
         ///     Marks the property as read-only on the wire even when the C# property has a public setter.
         ///     Use this when a cross-assembly helper needs to assign the value (requires the public setter)
         ///     but the cloud must not be able to SetPropertyValue it back. Routes into
-        ///     <c>schema.annotations.readOnly</c> — same wire flag that a private setter or a
+        ///     <c>schema.readOnly</c> — same wire flag that a private setter or a
         ///     <c>[ServiceMeasuringPoint]</c> would set, so the dashboard groups it with metrics.
         /// </summary>
         public bool ReadOnly { get; init; }

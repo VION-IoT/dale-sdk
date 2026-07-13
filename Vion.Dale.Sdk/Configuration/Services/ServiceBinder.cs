@@ -11,6 +11,11 @@ namespace Vion.Dale.Sdk.Configuration.Services
     {
         public static readonly Type ExtraPropsKey = typeof(ExtraPropertiesSentinel);
 
+        // serviceIdentifier → RFC 0016 [IncludedWhen] predicate (Definition mode only; Live mode skips
+        // gated-out services rather than recording them). Consumed by LogicBlockIntrospection to populate
+        // ServiceInfo.IncludedWhen.
+        private readonly Dictionary<string, string> _serviceIncludedWhen = [];
+
         // serviceIdentifier → interfaceType (ExtraPropsKey for extra props) → propertyName → binding
         private readonly Dictionary<string, Dictionary<Type, Dictionary<string, ServiceBinding>>> _serviceMeasuringPoints = new();
 
@@ -109,6 +114,24 @@ namespace Vion.Dale.Sdk.Configuration.Services
         public IReadOnlyDictionary<string, IReadOnlyList<ServiceRelationInfo>> GetAllServiceRelations()
         {
             return _serviceRelations.ToDictionary(kvp => kvp.Key, kvp => (IReadOnlyList<ServiceRelationInfo>)kvp.Value.AsReadOnly());
+        }
+
+        /// <summary>
+        ///     RFC 0016: records a config-time inclusion predicate for a property-based service (Definition
+        ///     mode). The predicate is emitted into <c>ServiceInfo.IncludedWhen</c> by the introspection.
+        /// </summary>
+        public void RegisterServiceIncludedWhen(string serviceIdentifier, string includedWhen)
+        {
+            _serviceIncludedWhen[serviceIdentifier] = includedWhen;
+        }
+
+        /// <summary>
+        ///     RFC 0016: the config-time inclusion predicate recorded for the given service, or <c>null</c>
+        ///     when the service is unconditional.
+        /// </summary>
+        public string? GetServiceIncludedWhen(string serviceIdentifier)
+        {
+            return _serviceIncludedWhen.TryGetValue(serviceIdentifier, out var predicate) ? predicate : null;
         }
 
         /// <summary>

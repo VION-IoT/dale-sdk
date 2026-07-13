@@ -72,6 +72,16 @@ namespace Vion.Dale.DevHost.Topologies
             // Build first: blocks + the auto-mocked service providers (today's preset behavior).
             var configuration = builder.Build();
 
+            // RFC 0016: carry each instance's operator-chosen instantiation-parameter values onto its built
+            // config, so the initializer can apply them to the block before Configure (gates resolve at bind).
+            foreach (var instance in topology.LogicBlockInstances!)
+            {
+                if (instance.InstantiationParameters is { Count: > 0 })
+                {
+                    configuration.LogicBlocks.Single(lb => lb.Name == instance.Name).InstantiationParameters = instance.InstantiationParameters;
+                }
+            }
+
             // Interface mappings come from the file verbatim — the dev profile declares wiring
             // explicitly rather than re-running auto-discovery, so a file is reproducible by content.
             // Each authored mapping is also checked against the frozen MatchingInterface relation (RFC 0013

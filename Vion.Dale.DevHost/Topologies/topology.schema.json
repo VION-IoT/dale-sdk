@@ -27,6 +27,11 @@
             "type": "string",
             "pattern": "^[^.]+$",
             "description": "Instance name, unique within the topology. No '.', which scenario name paths split on."
+          },
+          "instantiationParameters": {
+            "type": "object",
+            "description": "RFC 0016: operator-chosen [InstantiationParameter] values (identifier -> JSON scalar; enums as member-name strings), applied to the block before Configure so config-time inclusion gates resolve. Optional.",
+            "additionalProperties": { "type": ["boolean", "integer", "string"] }
           }
         }
       }

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Vion.Contracts.Events.CloudToMesh;
 using Vion.Dale.DevHost.Mocking;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Core;
@@ -217,8 +218,20 @@ namespace Vion.Dale.DevHost
                     var logicBlockContractIdLookup =
                         logicBlockConfig.ContractMappings.ToDictionary(m => m.ContractIdentifier, m => new LogicBlockContractId(logicBlockConfig.Id, m.ContractIdentifier));
 
+                    // RFC 0016: carry the topology's operator-chosen parameter values so the block applies them
+                    // before Configure and the Live-mode binders resolve inclusion gates.
+                    var instantiationParameterValues = logicBlockConfig.InstantiationParameters
+                                                                       ?.Select(kvp => new SetLogicConfigurationPayload.InstantiationParameterValue
+                                                                                       { Identifier = kvp.Key, Value = kvp.Value })
+                                                                       .ToList();
+
                     _actorSystem.SendTo(actorRef,
-                                        new InitializeLogicBlock(logicBlockConfig.Id, logicBlockConfig.Name, serviceIdLookup, logicBlockContractIdLookup, _serviceProvider));
+                                        new InitializeLogicBlock(logicBlockConfig.Id,
+                                                                 logicBlockConfig.Name,
+                                                                 serviceIdLookup,
+                                                                 logicBlockContractIdLookup,
+                                                                 _serviceProvider,
+                                                                 instantiationParameterValues));
 
                     createdCount++;
                 }
