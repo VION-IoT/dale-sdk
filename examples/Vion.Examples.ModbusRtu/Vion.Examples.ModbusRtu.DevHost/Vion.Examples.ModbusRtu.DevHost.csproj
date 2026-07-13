@@ -11,7 +11,7 @@
     <!-- Published DevHost UI by default; `dotnet build -p:DaleLocalSource=true` serves the local working-tree
          DevHost.Web (and, via the referenced example project, the working-tree SDK). -->
     <ItemGroup Condition="'$(DaleLocalSource)' != 'true'">
-        <PackageReference Include="Vion.Dale.DevHost.Web" Version="0.9.7"/>
+        <PackageReference Include="Vion.Dale.DevHost.Web" Version="0.9.8"/>
     </ItemGroup>
     <ItemGroup Condition="'$(DaleLocalSource)' == 'true'">
         <ProjectReference Include="..\..\..\Vion.Dale.DevHost.Web\Vion.Dale.DevHost.Web.csproj"/>
