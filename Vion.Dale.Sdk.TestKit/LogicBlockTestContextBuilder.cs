@@ -7,6 +7,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
+using Vion.Contracts.Codec;
+using Vion.Contracts.Events.CloudToMesh;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.CodeGeneration;
 using Vion.Dale.Sdk.Emission;
@@ -14,6 +16,7 @@ using Vion.Dale.Sdk.Configuration.Contract;
 using Vion.Dale.Sdk.Configuration.Interfaces;
 using Vion.Dale.Sdk.Configuration.Services;
 using Vion.Dale.Sdk.Core;
+using Vion.Dale.Sdk.Introspection;
 using Vion.Dale.Sdk.Messages;
 using Vion.Dale.Sdk.Persistence;
 using Vion.Dale.Sdk.Utils;
@@ -27,6 +30,8 @@ namespace Vion.Dale.Sdk.TestKit
     public class LogicBlockTestContextBuilder<TLogicBlock>
         where TLogicBlock : LogicBlockBase
     {
+        private readonly List<SetLogicConfigurationPayload.InstantiationParameterValue> _instantiationParameters = [];
+
         private readonly TLogicBlock _logicBlock;
 
         private readonly LogicBlockTestContext<TLogicBlock> _logicBlockTestContext = new();
@@ -103,6 +108,33 @@ namespace Vion.Dale.Sdk.TestKit
         {
             var propertyName = GetPropertyName(propertySelector);
             _persistentValues.Add((propertyName, value, typeof(TValue)));
+            return this;
+        }
+
+        /// <summary>
+        ///     RFC 0016: sets an <c>[InstantiationParameter]</c> value that is applied to the block
+        ///     <b>before</b> <c>Configure</c> (via the same JSON value channel the config payload uses), so
+        ///     Live-mode <c>[IncludedWhen]</c> gates resolve against it. Exercises the encode/decode path.
+        ///     <para>
+        ///         Direct pre-<c>Build()</c> assignment also works when the property has a settable/<c>init</c>
+        ///         accessor (e.g. <c>new MyBlock { PointCount = 2 }</c> in the test's object initializer); this
+        ///         builder method additionally covers post-construction cases and the decode path.
+        ///     </para>
+        ///     <code>
+        ///     var ctx = block.CreateTestContext()
+        ///         .WithInstantiationParameter(lb => lb.ChargePointCount, 3)
+        ///         .Build();
+        ///     </code>
+        /// </summary>
+        public LogicBlockTestContextBuilder<TLogicBlock> WithInstantiationParameter<TValue>(Expression<Func<TLogicBlock, TValue>> propertySelector, TValue value)
+        {
+            var propertyName = GetPropertyName(propertySelector);
+            var property = _logicBlock.GetType().GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance) ??
+                           throw new InvalidOperationException($"Property '{propertyName}' not found on '{_logicBlock.GetType().FullName}'.");
+
+            var typeRef = TypeRefBuilder.BuildForProperty(property);
+            var jsonValue = value is null ? null : PropertyValueCodec.ClrToJson(value, typeRef);
+            _instantiationParameters.Add(new SetLogicConfigurationPayload.InstantiationParameterValue { Identifier = propertyName, Value = jsonValue });
             return this;
         }
 
@@ -226,7 +258,12 @@ namespace Vion.Dale.Sdk.TestKit
             _logicBlockTestContext.BuiltServiceProvider = _serviceProvider;
             var serviceIdLookup = DiscoverServiceIds();
             var contractIdLookup = DiscoverContractIds();
-            var initializeLogicBlock = new InitializeLogicBlock(Constants.LogicBlockId, Constants.LogicBlockName, serviceIdLookup, contractIdLookup, _serviceProvider);
+            var initializeLogicBlock = new InitializeLogicBlock(Constants.LogicBlockId,
+                                                                Constants.LogicBlockName,
+                                                                serviceIdLookup,
+                                                                contractIdLookup,
+                                                                _serviceProvider,
+                                                                _instantiationParameters.Count > 0 ? _instantiationParameters : null);
             _logicBlock.HandleMessageAsync(initializeLogicBlock, _logicBlockTestContext).GetAwaiter().GetResult();
         }
 

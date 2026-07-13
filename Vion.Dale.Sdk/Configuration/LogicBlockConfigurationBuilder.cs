@@ -18,7 +18,8 @@ namespace Vion.Dale.Sdk.Configuration
                                               Func<LogicBlockId> logicBlockId,
                                               IActorContext actorContext,
                                               Action<IActorContext, string, TimeSpan> scheduleNextTimerTick,
-                                              IServiceProvider serviceProvider)
+                                              IServiceProvider serviceProvider,
+                                              BindingMode mode)
         {
             Contracts = new ContractFactory(addContract, actorContext, serviceProvider);
             Interfaces = new InterfaceFactory(addInterface, logicBlockId, actorContext, new LoggerFactory());
@@ -30,6 +31,8 @@ namespace Vion.Dale.Sdk.Configuration
                                           addTimerCallback.Invoke(identifier, interval, callback);
                                           scheduleNextTimerTick(actorContext, identifier, interval);
                                       });
+
+            Mode = mode;
         }
 
         /// <inheritdoc />
@@ -43,5 +46,8 @@ namespace Vion.Dale.Sdk.Configuration
 
         /// <inheritdoc />
         public ITimerFactory Timers { get; }
+
+        /// <inheritdoc />
+        public BindingMode Mode { get; }
     }
 }

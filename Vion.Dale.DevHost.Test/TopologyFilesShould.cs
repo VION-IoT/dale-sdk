@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using Vion.Dale.DevHost.Topologies;
@@ -134,6 +135,59 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        public void CarryInstantiationParametersFromTheTopologyFileThroughBuild()
+        {
+            // RFC 0016: the instantiationParameters field crosses the file → model → DevConfiguration layer.
+            var topology = DevTopologyFile.Parse($$"""
+                                                   {
+                                                     "id": "gated",
+                                                     "logicBlockInstances": [
+                                                       { "typeFullName": "{{typeof(SmokeHost.LogicBlocks.GatedStationBlock).FullName}}", "name": "Station",
+                                                         "instantiationParameters": { "PointCount": 2 } }
+                                                     ]
+                                                   }
+                                                   """);
+
+            var config = DevTopologyLoader.Build(topology);
+            var station = config.LogicBlocks.Single(b => b.Name == "Station");
+
+            Assert.IsNotNull(station.InstantiationParameters);
+            Assert.AreEqual(2, station.InstantiationParameters!["PointCount"]!.GetValue<int>());
+        }
+
+        [TestMethod]
+        public void RoundTripInstantiationParametersThroughTheEditorSave()
+        {
+            // RFC 0016: the editor Save re-serializes a fixed field set — instantiationParameters must survive it.
+            var dir = Path.Combine(Path.GetTempPath(), "dale-topo-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(dir);
+            try
+            {
+                var store = new DevTopologyStore(dir);
+                var path = store.Save("gated",
+                                      $$"""
+                                        {
+                                          "id": "gated",
+                                          "logicBlockInstances": [
+                                            { "typeFullName": "{{typeof(SmokeHost.LogicBlocks.GatedStationBlock).FullName}}", "name": "Station",
+                                              "instantiationParameters": { "PointCount": 2 } }
+                                          ]
+                                        }
+                                        """);
+
+                var saved = File.ReadAllText(path);
+                StringAssert.Contains(saved, "instantiationParameters");
+
+                var reparsed = DevTopologyFile.Parse(saved);
+                Assert.AreEqual(2, reparsed.LogicBlockInstances!.Single(i => i.Name == "Station").InstantiationParameters!["PointCount"]!.GetValue<int>());
+            }
+            finally
+            {
+                Directory.Delete(dir, true);
+            }
+        }
+
+        [TestMethod]
         public async Task ServeTheGenericTopologySchema()
         {
             // DF-12: the topology schema ships embedded and is served symmetrically to /api/scenarios/schema.
@@ -149,6 +203,7 @@ namespace Vion.Dale.DevHost.Test
             var schema = await response.Content.ReadAsStringAsync();
             StringAssert.Contains(schema, "logicBlockInstances");
             StringAssert.Contains(schema, "mappedServiceProviderIdentifier");
+            StringAssert.Contains(schema, "instantiationParameters"); // RFC 0016 — the served schema declares the field
         }
 
         [TestMethod]

@@ -1,3 +1,4 @@
+using Vion.Dale.Sdk.Configuration;
 using Vion.Dale.Sdk.Configuration.Services;
 using Vion.Dale.Sdk.Core;
 
@@ -16,7 +17,9 @@ namespace Vion.Dale.Sdk.Test.Configuration.Services
         {
             var block = new T();
             var binder = new ServiceBinder();
-            DeclarativeServiceBinder.BindServicesFromAttributes(block, binder);
+
+            // Definition mode: bind the full member set (this harness is for "fully populated" inspection).
+            DeclarativeServiceBinder.BindServicesFromAttributes(block, binder, BindingMode.Definition, null);
             return (binder, block);
         }
     }

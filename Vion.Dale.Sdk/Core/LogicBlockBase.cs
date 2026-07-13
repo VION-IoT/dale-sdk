@@ -4,6 +4,8 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Vion.Contracts.Codec;
+using Vion.Contracts.Events.CloudToMesh;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Configuration;
 using Vion.Dale.Sdk.Configuration.Contract;
@@ -12,6 +14,7 @@ using Vion.Dale.Sdk.Configuration.Services;
 using Vion.Dale.Sdk.Configuration.Timers;
 using Vion.Dale.Sdk.Diagnostics;
 using Vion.Dale.Sdk.Emission;
+using Vion.Dale.Sdk.Introspection;
 using Vion.Dale.Sdk.Messages;
 using Vion.Dale.Sdk.Persistence;
 using Vion.Dale.Sdk.Utils;
@@ -183,6 +186,11 @@ namespace Vion.Dale.Sdk.Core
                                      Name,
                                      Id,
                                      m.LogicBlockContractIdLookup.Count);
+
+                    // RFC 0016: apply operator-chosen [InstantiationParameter] values to the CLR properties
+                    // BEFORE Configure, so the Live-mode binders resolve [IncludedWhen] gates against them.
+                    ApplyInstantiationParameters(m.InstantiationParameterValues);
+
                     Configure(new LogicBlockConfigurationBuilder(AddContract,
                                                                  AddInterface,
                                                                  _serviceBinder,
@@ -190,7 +198,8 @@ namespace Vion.Dale.Sdk.Core
                                                                  () => Id,
                                                                  actorContext,
                                                                  ScheduleNextTimerTick,
-                                                                 m.ServiceProvider));
+                                                                 m.ServiceProvider,
+                                                                 BindingMode.Live));
 
                     // RFC 0004: build one Throttler per bound service property + measuring point,
                     // resolved from each binding's attribute + CLR value type. Cheap no-op state when
@@ -200,7 +209,22 @@ namespace Vion.Dale.Sdk.Core
 
                     foreach (var (identifier, logicBlockContractId) in m.LogicBlockContractIdLookup)
                     {
-                        _contracts[identifier].SetLogicBlockContractId(logicBlockContractId);
+                        // RFC 0016: a mapping may target a contract that was gated out by [IncludedWhen], so it
+                        // was never bound and is absent from _contracts. Skip-and-warn instead of throwing a
+                        // KeyNotFoundException that would take the whole block down. The cloud path rejects such
+                        // mappings at activation; this guards the non-cloud paths (DevHost, TestKit, stale or
+                        // hand-built payloads) — mirror of the "contract has no mapping" warning below.
+                        if (!_contracts.TryGetValue(identifier, out var contract))
+                        {
+                            _logger.LogWarning("Logic block '{LogicBlockId}' ({LogicBlockName}) received a mapping for contract '{ContractIdentifier}', " +
+                                               "which is not a bound contract (gated out by [IncludedWhen] or otherwise absent). Skipping the mapping; the block stays up.",
+                                               Id,
+                                               Name,
+                                               identifier);
+                            continue;
+                        }
+
+                        contract.SetLogicBlockContractId(logicBlockContractId);
                     }
 
                     // Warn about contracts that have no mapping — their LogicBlockContractId will remain unset
@@ -477,10 +501,60 @@ namespace Vion.Dale.Sdk.Core
         /// </summary>
         internal void Configure(ILogicBlockConfigurationBuilder configurationBuilder)
         {
-            DeclarativeInterfaceBinder.BindInterfacesFromAttributes(this, configurationBuilder.Interfaces);
-            DeclarativeContractBinder.BindContractsFromAttributes(this, configurationBuilder.Contracts);
-            DeclarativeServiceBinder.BindServicesFromAttributes(this, (ServiceBinder)configurationBuilder.Services);
+            var mode = configurationBuilder.Mode;
+
+            // RFC 0016: in Live mode the binders resolve [IncludedWhen] gates against this instance's
+            // current [InstantiationParameter] values (applied pre-Configure, or the C# defaults when none
+            // were supplied), encoded to the shared JSON-scalar form. Definition mode binds the full set.
+            var parameterContext = mode == BindingMode.Live ? InclusionGate.BuildParameterContext(this) : null;
+
+            DeclarativeInterfaceBinder.BindInterfacesFromAttributes(this, configurationBuilder.Interfaces, mode, parameterContext);
+            DeclarativeContractBinder.BindContractsFromAttributes(this, configurationBuilder.Contracts, mode, parameterContext);
+            DeclarativeServiceBinder.BindServicesFromAttributes(this, (ServiceBinder)configurationBuilder.Services, mode, parameterContext);
             DeclarativeTimerBinder.BindTimersFromAttributes(this, configurationBuilder.Timers);
+        }
+
+        /// <summary>
+        ///     RFC 0016: applies the operator-chosen <c>[InstantiationParameter]</c> values from the config
+        ///     payload onto this block's CLR properties by reflection, <b>before</b> <see cref="Configure" />
+        ///     runs the Live-mode binders that read them to resolve inclusion gates. The decode schema is built
+        ///     from each property's <see cref="PropertyInfo" /> via <see cref="TypeRefBuilder.BuildForProperty" />
+        ///     (binder / <c>PropertyMetadataBuilder</c> output does not exist pre-bind), then decoded with
+        ///     <see cref="PropertyValueCodec.JsonToClr" />. Fail-closed: an unknown identifier or a decode
+        ///     failure throws, failing block initialization (sync-status <c>Failed</c>) rather than resolving
+        ///     gates against a wrong or default value.
+        /// </summary>
+        private void ApplyInstantiationParameters(List<SetLogicConfigurationPayload.InstantiationParameterValue>? values)
+        {
+            if (values is null || values.Count == 0)
+            {
+                return;
+            }
+
+            var type = GetType();
+            foreach (var parameter in values)
+            {
+                var property = type.GetProperty(parameter.Identifier, BindingFlags.Public | BindingFlags.Instance);
+                if (property is null || property.GetCustomAttribute<InstantiationParameterAttribute>() is null)
+                {
+                    throw new
+                        InvalidOperationException($"Instantiation parameter '{parameter.Identifier}' does not resolve to an [InstantiationParameter] property on logic block '{type.FullName}'.");
+                }
+
+                object? clrValue;
+                try
+                {
+                    var typeRef = TypeRefBuilder.BuildForProperty(property);
+                    clrValue = PropertyValueCodec.JsonToClr(parameter.Value, typeRef, property.PropertyType);
+                }
+                catch (Exception exception)
+                {
+                    throw new InvalidOperationException($"Failed to decode instantiation parameter '{parameter.Identifier}' for logic block '{type.FullName}': {exception.Message}",
+                                                        exception);
+                }
+
+                property.SetValue(this, clrValue);
+            }
         }
 
         /// <summary>

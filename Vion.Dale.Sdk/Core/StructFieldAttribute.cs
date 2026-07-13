@@ -31,7 +31,7 @@ namespace Vion.Dale.Sdk.Core
         ///     Marks this field as a secret — clients see a redaction sentinel (<c>"***"</c>) on the
         ///     publish-state channel instead of the actual value, while the struct's other fields stay
         ///     visible. Restricted to <c>string</c> / <c>string?</c> fields in v1. Routes into the
-        ///     field's <c>schema.annotations.writeOnly</c>.
+        ///     field's <c>schema.writeOnly</c>.
         /// </summary>
         public bool WriteOnly { get; init; }
     }

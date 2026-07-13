@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json.Nodes;
 using Vion.Dale.Sdk.CodeGeneration;
 using Vion.Dale.Sdk.Configuration.Services;
 using Vion.Dale.Sdk.Core;
@@ -10,15 +11,19 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
 {
     public static class DeclarativeInterfaceBinder
     {
-        public static void BindInterfacesFromAttributes(object logicBlock, IInterfaceFactory interfaceFactory)
+        public static void BindInterfacesFromAttributes(object logicBlock,
+                                                        IInterfaceFactory interfaceFactory,
+                                                        BindingMode mode,
+                                                        IReadOnlyDictionary<string, JsonNode?>? parameterContext)
         {
             var type = logicBlock.GetType();
 
-            // Handle class-based interfaces with automatic detection
+            // Handle class-based interfaces with automatic detection. Class-implemented interfaces are not
+            // gateable (no member to carry [IncludedWhen] — DALE043 enforces this), so they bind unconditionally.
             BindClassBasedInterfaces(logicBlock, interfaceFactory, type);
 
-            // Handle property-based interfaces with automatic detection
-            BindPropertyBasedInterfaces(logicBlock, interfaceFactory, type);
+            // Handle property-based interfaces with automatic detection (the RFC 0016 gateable path).
+            BindPropertyBasedInterfaces(logicBlock, interfaceFactory, type, mode, parameterContext);
         }
 
         private static void BindClassBasedInterfaces(object logicBlock, IInterfaceFactory interfaceFactory, Type type)
@@ -32,11 +37,20 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
             // Process each implemented interface
             foreach (var implementedLogicInterface in implementedLogicInterfaces)
             {
-                BindLogicInterface(logicBlock, implementedLogicInterface, interfaceAttributes, interfaceFactory, null);
+                BindLogicInterface(logicBlock,
+                                   implementedLogicInterface,
+                                   interfaceAttributes,
+                                   interfaceFactory,
+                                   null,
+                                   null);
             }
         }
 
-        private static void BindPropertyBasedInterfaces(object logicBlock, IInterfaceFactory interfaceFactory, Type type)
+        private static void BindPropertyBasedInterfaces(object logicBlock,
+                                                        IInterfaceFactory interfaceFactory,
+                                                        Type type,
+                                                        BindingMode mode,
+                                                        IReadOnlyDictionary<string, JsonNode?>? parameterContext)
         {
             var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
 
@@ -49,6 +63,14 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
 
                 // Skip if no logic interfaces implemented
                 if (implementedLogicInterfaces.Length == 0)
+                {
+                    continue;
+                }
+
+                // RFC 0016: skip a gated-out interface binding entirely in Live mode (never bound, never
+                // wired, never published). Definition mode always binds and records the predicate.
+                var includedWhen = InclusionGate.ReadPredicate(property);
+                if (!InclusionGate.IsIncluded(includedWhen, mode, parameterContext))
                 {
                     continue;
                 }
@@ -70,7 +92,12 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
                     // This ensures unique identifiers even with single interface implementation
                     var defaultIdentifier = $"{property.Name}_{implementedLogicInterface.Name}";
 
-                    BindLogicInterface(propertyValue, implementedLogicInterface, interfaceAttributes, interfaceFactory, defaultIdentifier);
+                    BindLogicInterface(propertyValue,
+                                       implementedLogicInterface,
+                                       interfaceAttributes,
+                                       interfaceFactory,
+                                       defaultIdentifier,
+                                       includedWhen);
                 }
             }
         }
@@ -79,7 +106,8 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
                                                Type implementedLogicInterface,
                                                List<LogicBlockInterfaceBindingAttribute> interfaceAttributes,
                                                IInterfaceFactory interfaceFactory,
-                                               string? defaultIdentifier)
+                                               string? defaultIdentifier,
+                                               string? includedWhen)
         {
             // Look for explicit attribute for this interface, use explicit attribute or create default
             var interfaceAttribute = interfaceAttributes.FirstOrDefault(attr => attr.ForInterface == implementedLogicInterface) ??
@@ -89,7 +117,7 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
             var identifier = interfaceAttribute.Identifier ?? defaultIdentifier ?? implementedLogicInterface.Name;
 
             var logicSendInterfaceInstance = CreateLogicSendInterface(interfaceFactory, logicSendInterfaceType, implementedLogicInterface, identifier, implementation);
-            ApplyMetadata(logicSendInterfaceInstance, interfaceAttribute);
+            ApplyMetadata(logicSendInterfaceInstance, interfaceAttribute, includedWhen);
         }
 
         private static Type[] GetImplementedLogicInterfaces(Type type)
@@ -109,7 +137,7 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
             return implementationAttr.SenderInterface;
         }
 
-        private static void ApplyMetadata(object logicSendInterfaceInstance, LogicBlockInterfaceBindingAttribute interfaceAttr)
+        private static void ApplyMetadata(object logicSendInterfaceInstance, LogicBlockInterfaceBindingAttribute interfaceAttr, string? includedWhen)
         {
             if (logicSendInterfaceInstance is not ILogicSenderInterface logicSendInterface)
             {
@@ -127,6 +155,7 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
             }
 
             logicSendInterface.WithMultiplicity(interfaceAttr.Multiplicity);
+            logicSendInterface.WithIncludedWhen(includedWhen);
         }
 
         /// <summary>

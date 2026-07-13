@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
+using Vion.Contracts.Conventions;
 using Vion.Contracts.Introspection;
+using Vion.Contracts.Predicates;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Introspection;
 
@@ -250,6 +252,13 @@ namespace Vion.Dale.DevHost.Control
                 }
 
                 var result = LogicBlockIntrospection.IntrospectLogicBlock(instance, _serviceProvider);
+
+                // RFC 0016: the DevHost is the local stand-in for cloud-api's LiveViewResolver — resolve the
+                // definition view down to the live view for this instance's topology-set parameters, so the UI
+                // shows exactly the included members (no dead Point3 slot) and the minted service ids match the
+                // set the running block actually binds.
+                ApplyLiveView(result, block.InstantiationParameters);
+
                 _results[block.Id] = result;
 
                 if (block.Services.Count == 0)
@@ -291,6 +300,76 @@ namespace Vion.Dale.DevHost.Control
             }
         }
 
+        /// <summary>
+        ///     RFC 0016: filters a definition-view introspection down to the live view for a set of
+        ///     instantiation-parameter values — drops any service / interface / contract whose
+        ///     <c>[IncludedWhen]</c> predicate resolves false. Mirrors cloud-api's <c>LiveViewResolver</c>;
+        ///     the parameter context is the topology-set values overlaid on each parameter's introspected
+        ///     <c>runtime.default</c>. A predicate that fails to parse/evaluate is left included and logged
+        ///     (the running block is the strict fail-closed gate; the DevHost UI stays fail-open).
+        /// </summary>
+        private void ApplyLiveView(LogicBlockIntrospectionResult result, IReadOnlyDictionary<string, JsonNode>? parameterValues)
+        {
+            var context = BuildParameterContext(result, parameterValues);
+
+            result.Services.RemoveAll(service => !IsIncluded(service.IncludedWhen, context));
+            result.Interfaces.RemoveAll(iface => !IsIncluded(AnnotationPredicate(iface.Annotations), context));
+            result.Contracts.RemoveAll(contract => !IsIncluded(AnnotationPredicate(contract.Annotations), context));
+        }
+
+        private static Dictionary<string, JsonNode?> BuildParameterContext(LogicBlockIntrospectionResult result, IReadOnlyDictionary<string, JsonNode>? parameterValues)
+        {
+            var context = new Dictionary<string, JsonNode?>(StringComparer.Ordinal);
+
+            // Defaults: each [InstantiationParameter] property carries runtime.instantiationParameter + runtime.default.
+            foreach (var service in result.Services)
+            {
+                foreach (var property in service.Properties)
+                {
+                    if (property.Runtime is JsonObject runtime && runtime["instantiationParameter"]?.GetValue<bool>() == true)
+                    {
+                        context[property.Identifier] = runtime["default"]?.DeepClone();
+                    }
+                }
+            }
+
+            // Overlay the operator-chosen topology values.
+            if (parameterValues is not null)
+            {
+                foreach (var (identifier, value) in parameterValues)
+                {
+                    context[identifier] = value?.DeepClone();
+                }
+            }
+
+            return context;
+        }
+
+        private bool IsIncluded(string? predicate, IReadOnlyDictionary<string, JsonNode?> context)
+        {
+            if (string.IsNullOrEmpty(predicate))
+            {
+                return true;
+            }
+
+            try
+            {
+                return Predicate.Parse(predicate!).Evaluate(context);
+            }
+            catch (PredicateException exception)
+            {
+                _logger.LogWarning(exception,
+                                   "Could not resolve [IncludedWhen] predicate \"{Predicate}\" for the live view; leaving the member visible (the running block is the strict gate).",
+                                   predicate);
+                return true;
+            }
+        }
+
+        private static string? AnnotationPredicate(IReadOnlyDictionary<string, object>? annotations)
+        {
+            return annotations is not null && annotations.TryGetValue(LogicBlockWiringConventions.IncludedWhenAnnotationKey, out var value) ? value as string : null;
+        }
+
         private ConfigurationOutput.LogicBlock BuildLogicBlock(DevLogicBlockConfig lb)
         {
             var meta = _results[lb.Id];
@@ -329,6 +408,7 @@ namespace Vion.Dale.DevHost.Control
                                                               MappedContractIdentifier = cm.ContractEndpointIdentifier,
                                                           })
                                             .ToList(),
+                       InstantiationParameters = lb.InstantiationParameters,
                    };
         }
 

@@ -1,5 +1,7 @@
+using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
+using Vion.Dale.Sdk.Generators.Predicates;
 
 namespace Vion.Dale.Sdk.Generators.Analyzers
 {
@@ -37,6 +39,15 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         internal const string RequestResponseAttribute = "Vion.Dale.Sdk.Core.RequestResponseAttribute";
 
         internal const string ServiceProviderContractTypeAttribute = "Vion.Dale.Sdk.Configuration.Contract.ServiceProviderContractTypeAttribute";
+
+        internal const string LogicBlockInterfaceBindingAttribute = "Vion.Dale.Sdk.Core.LogicBlockInterfaceBindingAttribute";
+
+        internal const string LogicInterfaceAttribute = "Vion.Dale.Sdk.CodeGeneration.LogicInterfaceAttribute";
+
+        // RFC 0016 config-time structural gating
+        internal const string IncludedWhenAttribute = "Vion.Dale.Sdk.Core.IncludedWhenAttribute";
+
+        internal const string InstantiationParameterAttribute = "Vion.Dale.Sdk.Core.InstantiationParameterAttribute";
 
         /// <summary>
         ///     Checks whether a symbol has an attribute with the given fully-qualified name.
@@ -237,6 +248,150 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             }
 
             return default;
+        }
+
+        /// <summary>
+        ///     Public, non-static instance properties across the self + base chain (stops before
+        ///     <see cref="object" />) — the exact set the declarative binders bind
+        ///     (<c>BindingFlags.Public | Instance</c>). The most-derived declaration of a name appears first.
+        /// </summary>
+        internal static IEnumerable<IPropertySymbol> EnumerateProperties(INamedTypeSymbol type)
+        {
+            for (var current = type; current is not null && current.SpecialType != SpecialType.System_Object; current = current.BaseType)
+            {
+                foreach (var property in current.GetMembers().OfType<IPropertySymbol>())
+                {
+                    if (property.DeclaredAccessibility == Accessibility.Public && !property.IsStatic)
+                    {
+                        yield return property;
+                    }
+                }
+            }
+        }
+
+        internal static bool InheritsFromLogicBlockBase(INamedTypeSymbol type)
+        {
+            for (var current = type.BaseType; current is not null; current = current.BaseType)
+            {
+                if (GetFullName(current) == LogicBlockBaseType)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        internal static bool IsServiceElement(IPropertySymbol property)
+        {
+            return HasAttribute(property, ServicePropertyAttribute) || HasAttribute(property, ServiceMeasuringPointAttribute);
+        }
+
+        /// <summary>
+        ///     Whether <paramref name="type" /> carries service members (own/inherited service props or measuring points, or
+        ///     a <c>[ServiceInterface]</c>).
+        /// </summary>
+        internal static bool TypeHasServiceMembers(INamedTypeSymbol type)
+        {
+            foreach (var property in EnumerateProperties(type))
+            {
+                if (IsServiceElement(property))
+                {
+                    return true;
+                }
+            }
+
+            foreach (var iface in type.AllInterfaces)
+            {
+                if (!HasAttribute(iface, ServiceInterfaceAttribute))
+                {
+                    continue;
+                }
+
+                foreach (var property in iface.GetMembers().OfType<IPropertySymbol>())
+                {
+                    if (IsServiceElement(property))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>Maps a referenced property's CLR type to a predicate <see cref="RefCategory" /> (Nullable unwrapped).</summary>
+        internal static RefCategory Categorize(ITypeSymbol type)
+        {
+            if (type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable)
+            {
+                type = nullable.TypeArguments[0];
+            }
+
+            if (type.TypeKind == TypeKind.Enum)
+            {
+                return RefCategory.Enum;
+            }
+
+            switch (type.SpecialType)
+            {
+                case SpecialType.System_Boolean:
+                    return RefCategory.Bool;
+                case SpecialType.System_String:
+                    return RefCategory.String;
+                case SpecialType.System_Single:
+                case SpecialType.System_Double:
+                    return RefCategory.Double;
+                case SpecialType.System_SByte:
+                case SpecialType.System_Byte:
+                case SpecialType.System_Int16:
+                case SpecialType.System_UInt16:
+                case SpecialType.System_Int32:
+                case SpecialType.System_UInt32:
+                case SpecialType.System_Int64:
+                case SpecialType.System_UInt64:
+                    return RefCategory.Integer;
+                default:
+                    return RefCategory.Other;
+            }
+        }
+
+        /// <summary>The case-sensitive enum member names (const fields) of an enum type, or <c>null</c> for a non-enum.</summary>
+        internal static IReadOnlyCollection<string>? CollectEnumMembers(ITypeSymbol type)
+        {
+            if (type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable)
+            {
+                type = nullable.TypeArguments[0];
+            }
+
+            if (type.TypeKind != TypeKind.Enum)
+            {
+                return null;
+            }
+
+            var names = new HashSet<string>(System.StringComparer.Ordinal);
+            foreach (var member in type.GetMembers().OfType<IFieldSymbol>())
+            {
+                if (member.IsConst)
+                {
+                    names.Add(member.Name);
+                }
+            }
+
+            return names;
+        }
+
+        /// <summary>
+        ///     Builds a <see cref="PredicateMember" /> for a referenced property from its type + optional
+        ///     <c>[ServiceProperty]</c>.
+        /// </summary>
+        internal static PredicateMember MakeMember(ITypeSymbol type, AttributeData? serviceProperty)
+        {
+            var isServiceProperty = serviceProperty is not null;
+            var isWriteOnly = isServiceProperty && GetNamedArgument<bool>(serviceProperty!, "WriteOnly");
+            var category = Categorize(type);
+            var enumMembers = category == RefCategory.Enum ? CollectEnumMembers(type) : null;
+            return new PredicateMember(category, isServiceProperty, isWriteOnly, enumMembers);
         }
 
         /// <summary>

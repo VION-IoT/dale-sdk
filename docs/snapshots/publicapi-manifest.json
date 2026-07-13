@@ -29,6 +29,8 @@
     "Vion.Dale.Sdk.Core.Formats",
     "Vion.Dale.Sdk.Core.IConfigureServices",
     "Vion.Dale.Sdk.Core.Importance",
+    "Vion.Dale.Sdk.Core.IncludedWhenAttribute",
+    "Vion.Dale.Sdk.Core.InstantiationParameterAttribute",
     "Vion.Dale.Sdk.Core.LinkMultiplicity",
     "Vion.Dale.Sdk.Core.LogicBlockAttribute",
     "Vion.Dale.Sdk.Core.LogicBlockBase",

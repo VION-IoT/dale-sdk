@@ -518,5 +518,41 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                                                                                           Category,
                                                                                           DiagnosticSeverity.Error,
                                                                                           true);
+
+        // --- Config-time structural gating (RFC 0016 / IncludedWhen + InstantiationParameter) ---
+
+        /// <summary>
+        ///     An <c>[IncludedWhen("...")]</c> gate is invalid. Covers: a predicate that does not parse
+        ///     (syntax outside the dialect grammar); a qualified (two-segment) reference (inclusion gates
+        ///     take bare single-segment refs only); a reference that does not resolve to an
+        ///     <c>[InstantiationParameter]</c> property on the same block (base-class declarations
+        ///     included); placement outside the gateable set (a scalar
+        ///     <c>[ServiceProperty]</c>/<c>[ServiceMeasuringPoint]</c>, a <c>[Timer]</c> method, a
+        ///     class-implemented interface, or the block class itself); and re-declaring the gate on an
+        ///     <c>override</c>/<c>new</c> member whose base declaration already carries one.
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE043_IncludedWhenInvalid = new("DALE043",
+                                                                                      "IncludedWhen gate does not parse, resolve, or is misplaced",
+                                                                                      "Member '{0}' has an invalid [IncludedWhen] gate \"{1}\": {2}",
+                                                                                      Category,
+                                                                                      DiagnosticSeverity.Error,
+                                                                                      true);
+
+        /// <summary>
+        ///     An <c>[InstantiationParameter]</c> declaration violates its discipline, or an
+        ///     <c>[IncludedWhen]</c> predicate has a type error referencing one. Covers: a missing
+        ///     <c>[ServiceProperty]</c> pairing; a disallowed type (not <c>bool</c>/<c>enum</c>/integer/
+        ///     <c>string</c>); combination with <c>WriteOnly</c>; declaration on a component type rather
+        ///     than the logic-block class; a non-auto-property (computed getter breaks read-back honesty);
+        ///     assignment in the declaring block's own code outside the constructor/object-initializer;
+        ///     re-declaration on an <c>override</c>/<c>new</c> member; and a type/literal mismatch inside a
+        ///     referencing <c>[IncludedWhen]</c> predicate.
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE044_InstantiationParameterDiscipline = new("DALE044",
+                                                                                                   "InstantiationParameter discipline violated",
+                                                                                                   "Member '{0}': {1}",
+                                                                                                   Category,
+                                                                                                   DiagnosticSeverity.Error,
+                                                                                                   true);
     }
 }

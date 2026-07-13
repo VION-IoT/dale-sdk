@@ -276,6 +276,8 @@ evaluateVisibility.ABSENT = ABSENT;
 // Runs the vendored conformance vector: every parse case against the parser, and every eval case
 // (core + "profile": "ui") against the evaluator. `values` is keyed by ref string (e.g.
 // "Service.Property" or "Property"); a missing key is treated as ABSENT, an explicit null as null.
+// RFC 0016 added "profile": "strict" and fail-closed "error": true eval cases that bind only the
+// strict C# evaluator — this UI (fail-open) evaluator skips them.
 export function runVectorSelfTest(vector) {
     const failures = [];
 
@@ -285,6 +287,9 @@ export function runVectorSelfTest(vector) {
     }
 
     for (const c of vector.eval || []) {
+        // Strict-profile / fail-closed cases are the C# strict evaluator's; this UI evaluator does not model them.
+        if (c.profile === 'strict' || c.error === true) continue;
+
         const resolveValue = (ref) => {
             const key = ref.service === null ? ref.property : `${ref.service}.${ref.property}`;
             if (!Object.prototype.hasOwnProperty.call(c.values || {}, key)) return ABSENT;

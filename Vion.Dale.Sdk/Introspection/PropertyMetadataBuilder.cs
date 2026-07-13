@@ -29,7 +29,8 @@ namespace Vion.Dale.Sdk.Introspection
             var mp = property.GetCustomAttribute<ServiceMeasuringPointAttribute>();
             var hasIdentityTitle = HasIdentityBearingTitle(typeRef);
 
-            var annotations = ExtractTypeAnnotations(sp, mp, HasPublicSetter(property), hasIdentityTitle);
+            var isInstantiationParameter = property.GetCustomAttribute<InstantiationParameterAttribute>() is not null;
+            var annotations = ExtractTypeAnnotations(sp, mp, HasPublicSetter(property), hasIdentityTitle, isInstantiationParameter);
             var schema = new TypeSchema(typeRef, annotations, structFieldAnnotations);
             var presentation = ExtractPresentation(property, sp, mp, hasIdentityTitle);
             var runtime = ExtractRuntime(property);
@@ -57,7 +58,8 @@ namespace Vion.Dale.Sdk.Introspection
 
             // Writability is governed by the implementing logic-block property — that's the actual
             // binding target when cloud calls SetPropertyValue. The interface only declares intent.
-            var annotations = ExtractTypeAnnotations(sp, mp, HasPublicSetter(presentationSource), hasIdentityTitle);
+            var isInstantiationParameter = presentationSource.GetCustomAttribute<InstantiationParameterAttribute>() is not null;
+            var annotations = ExtractTypeAnnotations(sp, mp, HasPublicSetter(presentationSource), hasIdentityTitle, isInstantiationParameter);
             var schema = new TypeSchema(typeRef, annotations, structFieldAnnotations);
 
             // Per-field presentation merge: the class wins on any field it explicitly sets, and
@@ -130,7 +132,11 @@ namespace Vion.Dale.Sdk.Introspection
             };
         }
 
-        private static TypeAnnotations ExtractTypeAnnotations(ServicePropertyAttribute? sp, ServiceMeasuringPointAttribute? mp, bool hasPublicSetter, bool hasIdentityTitle)
+        private static TypeAnnotations ExtractTypeAnnotations(ServicePropertyAttribute? sp,
+                                                              ServiceMeasuringPointAttribute? mp,
+                                                              bool hasPublicSetter,
+                                                              bool hasIdentityTitle,
+                                                              bool isInstantiationParameter)
         {
             // Cross-fill: missing field on one side inherits from the other when both
             // [ServiceProperty] and [ServiceMeasuringPoint] are applied to the same property.
@@ -171,7 +177,10 @@ namespace Vion.Dale.Sdk.Introspection
             //     exposes a value the gateway publishes but the cloud cannot SetPropertyValue back to)
             //   - [ServiceProperty(ReadOnly = true)] explicitly opts in — needed when a cross-assembly helper
             //     requires the public setter but the cloud must not write the value.
-            var readOnly = (mp is not null && sp is null) || !hasPublicSetter || (sp?.ReadOnly ?? false);
+            //   - [InstantiationParameter] — config-time value, wire-read-only + immutable at runtime (RFC 0016);
+            //     it deliberately has a public setter (the SDK applies the value pre-Configure by reflection),
+            //     so this forced flag is what makes the dashboard render it read-only and the cloud reject SETs.
+            var readOnly = (mp is not null && sp is null) || !hasPublicSetter || (sp?.ReadOnly ?? false) || isInstantiationParameter;
 
             // WriteOnly comes only from [ServiceProperty]; restricted to string / string? properties in v1
             // (DALE022 analyzer enforces).

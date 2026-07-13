@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json.Nodes;
+using Vion.Contracts.Codec;
 using Vion.Contracts.Conventions;
 using Vion.Contracts.Introspection;
 using Vion.Contracts.TypeRef;
@@ -90,7 +91,8 @@ namespace Vion.Dale.Sdk.Introspection
                                                       () => string.Empty, // get logic block id
                                                       new MockActorContext(), // Mock actor context for introspection (actual context not available during logic block inspection)
                                                       (_, _, _) => { }, // schedule timer tick
-                                                      serviceProvider);
+                                                      serviceProvider,
+                                                      BindingMode.Definition); // full member set + predicates, config-independent
 
             void AddContract(string identifier, LogicBlockContractBase contract)
             {
@@ -253,6 +255,10 @@ namespace Vion.Dale.Sdk.Introspection
                                   MeasuringPoints = new List<LogicBlockIntrospectionResult.ServiceMeasuringPointInfo>(),
                                   InwardRelations = new List<LogicBlockIntrospectionResult.ServiceRelationInfo>(),
                                   OutwardRelations = new List<LogicBlockIntrospectionResult.ServiceRelationInfo>(),
+
+                                  // RFC 0016: the config-time inclusion predicate for a gated component service
+                                  // (recorded by the service binder in Definition mode); null when unconditional.
+                                  IncludedWhen = serviceBinder.GetServiceIncludedWhen(serviceIdentifier),
                               };
 
                 // Process property bindings
@@ -368,6 +374,7 @@ namespace Vion.Dale.Sdk.Introspection
             var structFieldAnnotations = TypeRefBuilder.BuildStructFieldAnnotations(prop.PropertyType);
             var metadata = PropertyMetadataBuilder.Build(prop, typeRef, structFieldAnnotations);
             var (schema, presentation, runtime) = ExtractSiblings(metadata);
+            runtime = ApplyInstantiationParameterRuntime(runtime, prop, binding, typeRef);
 
             return new LogicBlockIntrospectionResult.ServicePropertyInfo
                    {
@@ -390,6 +397,7 @@ namespace Vion.Dale.Sdk.Introspection
             var structFieldAnnotations = TypeRefBuilder.BuildStructFieldAnnotations(ifaceProp.PropertyType);
             var metadata = PropertyMetadataBuilder.BuildSplit(ifaceProp, implProp, typeRef, structFieldAnnotations);
             var (schema, presentation, runtime) = ExtractSiblings(metadata);
+            runtime = ApplyInstantiationParameterRuntime(runtime, implProp, binding, typeRef);
 
             return new LogicBlockIntrospectionResult.ServicePropertyInfo
                    {
@@ -407,6 +415,7 @@ namespace Vion.Dale.Sdk.Introspection
             var structFieldAnnotations = TypeRefBuilder.BuildStructFieldAnnotations(prop.PropertyType);
             var metadata = PropertyMetadataBuilder.Build(prop, typeRef, structFieldAnnotations);
             var (schema, presentation, runtime) = ExtractSiblings(metadata);
+            runtime = ApplyInstantiationParameterRuntime(runtime, prop, binding, typeRef);
 
             return new LogicBlockIntrospectionResult.ServiceMeasuringPointInfo
                    {
@@ -429,6 +438,7 @@ namespace Vion.Dale.Sdk.Introspection
             var structFieldAnnotations = TypeRefBuilder.BuildStructFieldAnnotations(ifaceProp.PropertyType);
             var metadata = PropertyMetadataBuilder.BuildSplit(ifaceProp, implProp, typeRef, structFieldAnnotations);
             var (schema, presentation, runtime) = ExtractSiblings(metadata);
+            runtime = ApplyInstantiationParameterRuntime(runtime, implProp, binding, typeRef);
 
             return new LogicBlockIntrospectionResult.ServiceMeasuringPointInfo
                    {
@@ -460,6 +470,31 @@ namespace Vion.Dale.Sdk.Introspection
             var runtime = runtimeNode is null ? null : runtimeNode.DeepClone();
 
             return (schema, presentation, runtime);
+        }
+
+        /// <summary>
+        ///     RFC 0016: for an <c>[InstantiationParameter]</c> property, augments the opaque
+        ///     <c>runtime</c> sibling doc with <c>instantiationParameter: true</c> and <c>default</c>
+        ///     (the default-instance's value, JSON-scalar-encoded via
+        ///     <see cref="PropertyValueCodec.ClrToJson" /> — enum member-name strings, integers as numbers).
+        ///     The runtime doc is opaque passthrough (codec and mesh never read it), so these keys ride it
+        ///     without a contracts-model change — mirroring the <c>Consumers</c>-annotation injection. Returns
+        ///     the runtime node unchanged for ordinary properties.
+        /// </summary>
+        private static JsonNode? ApplyInstantiationParameterRuntime(JsonNode? runtime, PropertyInfo attributeSource, ServiceBinding binding, TypeRef typeRef)
+        {
+            if (attributeSource.GetCustomAttribute<InstantiationParameterAttribute>() is null)
+            {
+                return runtime;
+            }
+
+            var runtimeObject = runtime as JsonObject ?? new JsonObject();
+            runtimeObject["instantiationParameter"] = JsonValue.Create(true);
+
+            var value = binding.Getter(binding.Source);
+            runtimeObject["default"] = value is null ? null : PropertyValueCodec.ClrToJson(value, typeRef);
+
+            return runtimeObject;
         }
 
         private static Dictionary<string, object> GetLogicBlockAnnotations(Type logicBlockType)

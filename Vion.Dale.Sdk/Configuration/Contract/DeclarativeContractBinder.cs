@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json.Nodes;
 using Vion.Dale.Sdk.Configuration.Services;
 using Vion.Dale.Sdk.Core;
 
@@ -9,7 +10,10 @@ namespace Vion.Dale.Sdk.Configuration.Contract
 {
     public static class DeclarativeContractBinder
     {
-        public static void BindContractsFromAttributes(object logicBlock, IContractFactory contractFactory)
+        public static void BindContractsFromAttributes(object logicBlock,
+                                                       IContractFactory contractFactory,
+                                                       BindingMode mode,
+                                                       IReadOnlyDictionary<string, JsonNode?>? parameterContext)
         {
             var type = logicBlock.GetType();
             var contractProperties = GetContractProperties(type);
@@ -24,11 +28,20 @@ namespace Vion.Dale.Sdk.Configuration.Contract
 
             foreach (var property in contractProperties)
             {
+                // RFC 0016: skip a gated-out contract binding entirely in Live mode. The property is left
+                // at its default — for a contract that means NULL (the binder is what constructs it), the
+                // documented authoring hazard (declare gated contract properties nullable, gate the fan-out).
+                var includedWhen = InclusionGate.ReadPredicate(property);
+                if (!InclusionGate.IsIncluded(includedWhen, mode, parameterContext))
+                {
+                    continue;
+                }
+
                 var contractAttribute = property.GetCustomAttribute<ServiceProviderContractBindingAttribute>();
                 var identifier = contractAttribute?.Identifier ?? property.Name;
                 var contractInstance = contractFactory.Create(property.PropertyType, identifier);
                 property.SetValue(logicBlock, contractInstance);
-                ApplyMetadata(contractInstance, contractAttribute);
+                ApplyMetadata(contractInstance, contractAttribute, includedWhen);
             }
         }
 
@@ -42,9 +55,9 @@ namespace Vion.Dale.Sdk.Configuration.Contract
             return ReflectionHelper.GetProperties(type, true).Where(p => IsContractType(p.PropertyType) && !p.CanWrite).ToList();
         }
 
-        private static void ApplyMetadata(object contractInstance, ServiceProviderContractBindingAttribute? contractAttr)
+        private static void ApplyMetadata(object contractInstance, ServiceProviderContractBindingAttribute? contractAttr, string? includedWhen)
         {
-            if (contractAttr == null)
+            if (contractAttr == null && string.IsNullOrEmpty(includedWhen))
             {
                 return;
             }
@@ -55,6 +68,13 @@ namespace Vion.Dale.Sdk.Configuration.Contract
             }
 
             var metadata = logicBlockContract.MetaData;
+            metadata.IncludedWhen = includedWhen;
+
+            if (contractAttr == null)
+            {
+                return;
+            }
+
             if (!string.IsNullOrEmpty(contractAttr.DefaultName))
             {
                 metadata.DefaultName = contractAttr.DefaultName;

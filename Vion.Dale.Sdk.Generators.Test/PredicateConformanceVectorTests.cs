@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using Vion.Dale.Sdk.Generators.Predicates;
 
@@ -66,6 +67,24 @@ namespace Vion.Dale.Sdk.Generators.Test
             Assert.IsEmpty(failures, "eval-case predicates that fail to parse:\n" + string.Join("\n", failures));
         }
 
+        [TestMethod]
+        public void StrictFailClosedCases_AreStillInsideTheGrammar()
+        {
+            // Brief A (2026-07-13) added strict-profile fail-closed eval cases carrying "error": true in place
+            // of "expected". They fail at EVALUATION (missing/null/type-mismatched value), not at parse — so
+            // the parse-only harness must still accept them. This pins that the reshaped vector deserializes
+            // (the new "error"/"profile" fields are tolerated) and that every such predicate parses.
+            var vector = LoadVector();
+            var errorCases = vector.Eval.Where(c => c.Error).ToList();
+            Assert.IsNotEmpty(errorCases, "expected the vendored vector to carry strict fail-closed (error:true) cases");
+
+            foreach (var testCase in errorCases)
+            {
+                Assert.IsTrue(PredicateParser.Parse(testCase.Predicate).IsValid,
+                              $"[{testCase.Name}] a fail-closed eval case must still be inside the grammar: \"{testCase.Predicate}\"");
+            }
+        }
+
         private static ConformanceVector LoadVector()
         {
             var path = Path.Combine(Path.GetDirectoryName(typeof(PredicateConformanceVectorTests).Assembly.Location)!, "Predicates", "predicate-conformance.json");
@@ -86,7 +105,9 @@ namespace Vion.Dale.Sdk.Generators.Test
         // JsonSerializerOptions) maps the lower-case JSON keys onto these PascalCase parameters.
         private sealed record ConformanceVector(List<EvalCase> Eval, List<ParseCase> Parse);
 
-        private sealed record EvalCase(string Name, string Predicate);
+        // Error / Profile tolerate the Brief-A reshape (strict-profile + fail-closed cases). Defaulted so
+        // untagged / expected-outcome cases (which carry neither key) still deserialize.
+        private sealed record EvalCase(string Name, string Predicate, bool Error = false, string? Profile = null);
 
         private sealed record ParseCase(string Name, string Predicate, bool Valid);
     }
