@@ -52,7 +52,10 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             var classGate = AnalyzerHelper.GetAttribute(block, AnalyzerHelper.IncludedWhenAttribute);
             if (classGate is not null)
             {
-                ReportGate(context, GateLocation(classGate, block), block.Name, PredicateOf(classGate),
+                ReportGate(context,
+                           GateLocation(classGate, block),
+                           block.Name,
+                           PredicateOf(classGate),
                            "[IncludedWhen] is not valid on the block class — whole-block existence is decided by adding the instance; a class-implemented interface must be a property-based binding to be gateable.");
             }
 
@@ -62,7 +65,10 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                 var methodGate = AnalyzerHelper.GetAttribute(method, AnalyzerHelper.IncludedWhenAttribute);
                 if (methodGate is not null && !method.DeclaringSyntaxReferences.IsEmpty)
                 {
-                    ReportGate(context, GateLocation(methodGate, method), method.Name, PredicateOf(methodGate),
+                    ReportGate(context,
+                               GateLocation(methodGate, method),
+                               method.Name,
+                               PredicateOf(methodGate),
                                "[IncludedWhen] is not valid on a method — a [Timer] is not in the definition view; gate it in code instead (e.g. `if (Count < 3) return;`).");
                 }
             }
@@ -87,24 +93,27 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             }
         }
 
-        private static void ValidateProperty(SymbolAnalysisContext context,
-                                             IPropertySymbol property,
-                                             AttributeData gate,
-                                             IReadOnlyDictionary<string, PredicateMember> parameters)
+        private static void ValidateProperty(SymbolAnalysisContext context, IPropertySymbol property, AttributeData gate, IReadOnlyDictionary<string, PredicateMember> parameters)
         {
             var predicate = PredicateOf(gate);
             var location = GateLocation(gate, property);
 
             if (!IsGateable(property))
             {
-                ReportGate(context, location, property.Name, predicate,
+                ReportGate(context,
+                           location,
+                           property.Name,
+                           predicate,
                            "this member is not gateable — only a property-based interface binding, a contract binding, or a service-bearing component can carry [IncludedWhen]. A scalar service property/measuring point keeps publishing; use [Presentation(VisibleWhen = ...)] for display relevance.");
                 return;
             }
 
             if (HasBaseGateOrParameter(property))
             {
-                ReportGate(context, location, property.Name, predicate,
+                ReportGate(context,
+                           location,
+                           property.Name,
+                           predicate,
                            "re-declaring [IncludedWhen] on an override/new member is not supported — declare the gate once, at the base declaration the hierarchy shares.");
                 return;
             }
@@ -124,9 +133,8 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                 return;
             }
 
-            var predicateContext = new PredicateContext(
-                new Dictionary<string, PredicateService>(System.StringComparer.Ordinal) { [ParameterServiceId] = new PredicateService(parameters) },
-                ParameterServiceId);
+            var predicateContext = new PredicateContext(new Dictionary<string, PredicateService>(System.StringComparer.Ordinal) { [ParameterServiceId] = new(parameters) },
+                                                        ParameterServiceId);
 
             foreach (var error in PredicateTypeChecker.Check(parse.Ast!, predicateContext))
             {

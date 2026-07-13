@@ -66,8 +66,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             // Placement: a parameter lives on the logic-block class itself (root-service scalar), never a component.
             if (!AnalyzerHelper.InheritsFromLogicBlockBase(property.ContainingType))
             {
-                Report(context, location, property.Name,
-                       "[InstantiationParameter] must be declared on the logic-block class (a root-service scalar), not on a component type.");
+                Report(context, location, property.Name, "[InstantiationParameter] must be declared on the logic-block class (a root-service scalar), not on a component type.");
                 return;
             }
 
@@ -83,7 +82,9 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
 
             if (AnalyzerHelper.Categorize(property.Type) is RefCategory.Double or RefCategory.Other)
             {
-                Report(context, location, property.Name,
+                Report(context,
+                       location,
+                       property.Name,
                        "[InstantiationParameter] must be a discrete scalar — bool, enum, an integer kind, or string (never double/float, structs, or arrays).");
             }
 
@@ -94,7 +95,9 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
 
             if (HasBaseDeclaration(property))
             {
-                Report(context, location, property.Name,
+                Report(context,
+                       location,
+                       property.Name,
                        "re-declaring [InstantiationParameter] on an override/new member is not supported — declare it once, at the base declaration the hierarchy shares.");
             }
         }

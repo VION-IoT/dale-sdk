@@ -50,8 +50,12 @@ namespace Vion.Dale.Sdk.Core
     ///         <b>Runtime immutability &amp; honesty.</b> The attribute forces the top-level
     ///         <c>schema.readOnly</c> wire flag, so the dashboard renders it read-only and every
     ///         SetPropertyValue is rejected — the operator changes the value by editing the config and
-    ///         re-activating (which recycles the block), not at runtime. The property <b>must be an
-    ///         auto-property</b> (no computed getter, so block code provably reads the value the gates
+    ///         re-activating (which recycles the block), not at runtime. The property
+    ///         <b>
+    ///             must be an
+    ///             auto-property
+    ///         </b>
+    ///         (no computed getter, so block code provably reads the value the gates
     ///         evaluated) and block code must not assign it outside the constructor / object initializer;
     ///         DALE044 enforces both regardless of accessor shape. <c>{ get; init; }</c> is the
     ///         recommended shape (the compiler then backstops the analyzer globally), but is not the

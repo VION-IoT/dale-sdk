@@ -16,6 +16,8 @@ namespace Vion.Dale.Sdk.Configuration
     /// </summary>
     internal static class InclusionGate
     {
+        private static readonly IReadOnlyDictionary<string, JsonNode?> EmptyContext = new Dictionary<string, JsonNode?>(0);
+
         /// <summary>The <c>[IncludedWhen]</c> predicate on <paramref name="member" />, or <c>null</c> if ungated.</summary>
         public static string? ReadPredicate(MemberInfo member)
         {
@@ -68,7 +70,5 @@ namespace Vion.Dale.Sdk.Configuration
 
             return context;
         }
-
-        private static readonly IReadOnlyDictionary<string, JsonNode?> EmptyContext = new Dictionary<string, JsonNode?>(0);
     }
 }

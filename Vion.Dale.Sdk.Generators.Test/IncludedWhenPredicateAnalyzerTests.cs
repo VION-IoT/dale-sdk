@@ -50,8 +50,7 @@ public class MyBlock : LogicBlockBase
         [TestMethod]
         public async Task ValidGateOnAContractBinding_NoDiagnostic()
         {
-            var source = Block("[ServiceProviderContractBinding] [IncludedWhen(\"Count >= 2\")] public IThing Output { get; private set; }") +
-                         "\npublic interface IThing { }";
+            var source = Block("[ServiceProviderContractBinding] [IncludedWhen(\"Count >= 2\")] public IThing Output { get; private set; }") + "\npublic interface IThing { }";
 
             // A contract binding is gateable; declare a plain interface property with the binding attribute.
             await AnalyzerTestBase.VerifyAnalyzerAsync<IncludedWhenPredicateAnalyzer>(source);

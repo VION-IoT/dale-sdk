@@ -27,8 +27,11 @@ namespace Vion.Dale.Sdk.Test.Configuration
     public enum StationModel
     {
         Bricco,
+
         Moka,
+
         Ristretto,
+
         Cappuccino,
     }
 
@@ -202,6 +205,7 @@ namespace Vion.Dale.Sdk.Test.Configuration
         {
             Assert.Contains("Point2", BindLiveServiceIds(new GatedEnumBlock { Model = StationModel.Ristretto }));
             Assert.Contains("Point2", BindLiveServiceIds(new GatedEnumBlock { Model = StationModel.Cappuccino }));
+
             // Bricco is not in the membership list — Point2 is gated out.
             Assert.DoesNotContain("Point2", BindLiveServiceIds(new GatedEnumBlock { Model = StationModel.Bricco }));
         }
@@ -252,8 +256,7 @@ namespace Vion.Dale.Sdk.Test.Configuration
         public void EmitTheParameterRuntimeMarkerDefaultAndReadOnly()
         {
             var result = LogicBlockIntrospection.IntrospectLogicBlock(new GatedCountBlock(), _serviceProvider);
-            var pointCount = result.Services.Single(s => s.Identifier == nameof(GatedCountBlock))
-                                   .Properties.Single(p => p.Identifier == nameof(GatedCountBlock.PointCount));
+            var pointCount = result.Services.Single(s => s.Identifier == nameof(GatedCountBlock)).Properties.Single(p => p.Identifier == nameof(GatedCountBlock.PointCount));
 
             Assert.IsNotNull(pointCount.Runtime);
             Assert.IsTrue(pointCount.Runtime!["instantiationParameter"]!.GetValue<bool>());
@@ -265,8 +268,7 @@ namespace Vion.Dale.Sdk.Test.Configuration
         public void EmitTheEnumParameterDefaultAsItsMemberName()
         {
             var result = LogicBlockIntrospection.IntrospectLogicBlock(new GatedEnumBlock(), _serviceProvider);
-            var model = result.Services.Single(s => s.Identifier == nameof(GatedEnumBlock))
-                              .Properties.Single(p => p.Identifier == nameof(GatedEnumBlock.Model));
+            var model = result.Services.Single(s => s.Identifier == nameof(GatedEnumBlock)).Properties.Single(p => p.Identifier == nameof(GatedEnumBlock.Model));
 
             Assert.AreEqual("Bricco", model.Runtime!["default"]!.GetValue<string>());
         }
@@ -378,9 +380,7 @@ namespace Vion.Dale.Sdk.Test.Configuration
             var binder = new ServiceBinder();
             var context = InclusionGate.BuildParameterContext(block);
             DeclarativeServiceBinder.BindServicesFromAttributes(block, binder, BindingMode.Live, context);
-            return binder.GetAllServicePropertyBindings().Keys
-                         .Concat(binder.GetAllServiceMeasuringPointBindings().Keys)
-                         .ToHashSet(StringComparer.Ordinal);
+            return binder.GetAllServicePropertyBindings().Keys.Concat(binder.GetAllServiceMeasuringPointBindings().Keys).ToHashSet(StringComparer.Ordinal);
         }
 
         private static SetLogicConfigurationPayload.InstantiationParameterValue Param(string identifier, int value)
@@ -410,7 +410,9 @@ namespace Vion.Dale.Sdk.Test.Configuration
                                                               new Dictionary<string, ServiceIdentifier>(),
                                                               new Dictionary<string, LogicBlockContractId>(),
                                                               _serviceProvider),
-                                     new Mock<IActorContext>().Object).GetAwaiter().GetResult();
+                                     new Mock<IActorContext>().Object)
+                 .GetAwaiter()
+                 .GetResult();
 
             var binder = (ServiceBinder)typeof(LogicBlockBase).GetField("_serviceBinder", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(block)!;
 

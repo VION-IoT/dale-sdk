@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 
 namespace Vion.Dale.DevHost.Control
 {
@@ -51,7 +52,9 @@ namespace Vion.Dale.DevHost.Control
             ///     RFC 0016: the operator-chosen <c>[InstantiationParameter]</c> values (identifier → JSON
             ///     scalar) this instance was configured with, when the topology set any. Carried so
             ///     <c>dale dev --export-topology</c> round-trips them, symmetric with the editor Save path.
+            ///     Omitted when null so an ungated block carries no key (consistent with the topology model).
             /// </summary>
+            [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
             public IReadOnlyDictionary<string, JsonNode>? InstantiationParameters { get; set; }
         }
 

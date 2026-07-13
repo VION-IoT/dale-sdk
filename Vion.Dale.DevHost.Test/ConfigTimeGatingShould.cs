@@ -17,7 +17,7 @@ namespace Vion.Dale.DevHost.Test
         [TestMethod]
         public async Task ShowExactlyTheIncludedComponentServices_ForTheTopologyParameter()
         {
-            var included = await ResolveStationServices(pointCount: 2);
+            var included = await ResolveStationServices(2);
 
             Assert.Contains("GatedStationBlock", included); // the root service (carries the parameter)
             Assert.Contains("Point1", included);
@@ -28,23 +28,16 @@ namespace Vion.Dale.DevHost.Test
         [TestMethod]
         public async Task ResolveTheLiveViewAgainstTheParameterValue()
         {
-            Assert.DoesNotContain("Point2", await ResolveStationServices(pointCount: 1)); // only Point1
-            Assert.Contains("Point3", await ResolveStationServices(pointCount: 3)); // full set
+            Assert.DoesNotContain("Point2", await ResolveStationServices(1)); // only Point1
+            Assert.Contains("Point3", await ResolveStationServices(3)); // full set
         }
 
         private static async Task<HashSet<string>> ResolveStationServices(int pointCount)
         {
-            var config = DevConfigurationBuilder.Create()
-                                                .WithTopologyName("gated")
-                                                .AddLogicBlock<SmokeHost.LogicBlocks.GatedStationBlock>("Station")
-                                                .Build();
+            var config = DevConfigurationBuilder.Create().WithTopologyName("gated").AddLogicBlock<SmokeHost.LogicBlocks.GatedStationBlock>("Station").Build();
             config.LogicBlocks[0].InstantiationParameters = new Dictionary<string, JsonNode> { ["PointCount"] = JsonValue.Create((long)pointCount) };
 
-            await using var host = DevHostBuilder.Create()
-                                                 .WithDi<SmokeHost.DependencyInjection>()
-                                                 .WithConfiguration(config)
-                                                 .WithDeterministicStepping()
-                                                 .Build();
+            await using var host = DevHostBuilder.Create().WithDi<SmokeHost.DependencyInjection>().WithConfiguration(config).WithDeterministicStepping().Build();
             await host.StartAsync();
 
             var station = host.Control.GetConfiguration().LogicBlocks.Single(b => b.Name == "Station");

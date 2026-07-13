@@ -45,9 +45,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
         {
             var block = new TestKitGatedBlock();
 
-            block.CreateTestContext()
-                 .WithInstantiationParameter(lb => lb.PointCount, 2)
-                 .Build();
+            block.CreateTestContext().WithInstantiationParameter(lb => lb.PointCount, 2).Build();
 
             Assert.AreEqual(2, block.PointCount, "WithInstantiationParameter applies the value through the JSON decode path before Configure.");
 

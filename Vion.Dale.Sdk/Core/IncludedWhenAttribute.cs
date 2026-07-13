@@ -5,8 +5,12 @@ namespace Vion.Dale.Sdk.Core
     /// <summary>
     ///     Gates whether a member is part of the configured instance, based on the instance's
     ///     <see cref="InstantiationParameterAttribute" /> values chosen at configuration time. The C#
-    ///     member always exists in code; what the gate controls is whether it is <b>discoverable,
-    ///     wireable, bound, and published</b> for a given instance. When the predicate is false the
+    ///     member always exists in code; what the gate controls is whether it is
+    ///     <b>
+    ///         discoverable,
+    ///         wireable, bound, and published
+    ///     </b>
+    ///     for a given instance. When the predicate is false the
     ///     member is skipped entirely at bind time — never bound, never constructed (for contracts),
     ///     never registered, no MQTT topic, no cloud read-model row, no editor slot. As if it were
     ///     never declared. A member with no gate is unconditional (fully backward compatible).
@@ -27,8 +31,12 @@ namespace Vion.Dale.Sdk.Core
     ///         <c>[InstantiationParameter]</c>; DALE044 rejects a type/literal mismatch.
     ///     </para>
     ///     <para>
-    ///         <b>Placement matrix</b> (DALE043 enforces it; the rule is <i>gateable = what the
-    ///         definition view exposes as a wireable/publishable member</i>):
+    ///         <b>Placement matrix</b> (DALE043 enforces it; the rule is
+    ///         <i>
+    ///             gateable = what the
+    ///             definition view exposes as a wireable/publishable member
+    ///         </i>
+    ///         ):
     ///     </para>
     ///     <list type="bullet">
     ///         <item>
@@ -74,6 +82,12 @@ namespace Vion.Dale.Sdk.Core
     public class IncludedWhenAttribute : Attribute
     {
         /// <summary>
+        ///     The inclusion predicate. References <see cref="InstantiationParameterAttribute" /> scalars
+        ///     of the same block; evaluated strict / fail-closed at bind time.
+        /// </summary>
+        public string Predicate { get; }
+
+        /// <summary>
         ///     Creates an inclusion gate over the given predicate in the shared dialect
         ///     (<c>docs/predicates.md</c>), referencing <see cref="InstantiationParameterAttribute" />
         ///     properties of the same block.
@@ -82,11 +96,5 @@ namespace Vion.Dale.Sdk.Core
         {
             Predicate = predicate;
         }
-
-        /// <summary>
-        ///     The inclusion predicate. References <see cref="InstantiationParameterAttribute" /> scalars
-        ///     of the same block; evaluated strict / fail-closed at bind time.
-        /// </summary>
-        public string Predicate { get; }
     }
 }
