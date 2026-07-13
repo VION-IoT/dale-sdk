@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>false</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <!-- Published DevHost UI by default; `dotnet build -p:DaleLocalSource=true` serves the local working-tree
+         DevHost.Web instead (see the library csproj for the matching SDK swap). -->
+    <ItemGroup Condition="'$(DaleLocalSource)' != 'true'">
+        <PackageReference Include="Vion.Dale.DevHost.Web" Version="0.9.8"/>
+    </ItemGroup>
+    <ItemGroup Condition="'$(DaleLocalSource)' == 'true'">
+        <ProjectReference Include="..\..\..\Vion.Dale.DevHost.Web\Vion.Dale.DevHost.Web.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vion.Examples.Gating\Vion.Examples.Gating.csproj"/>
+    </ItemGroup>
+</Project>

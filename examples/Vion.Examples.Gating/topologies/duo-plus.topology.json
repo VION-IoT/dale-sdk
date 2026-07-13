@@ -1,0 +1,30 @@
+{
+  "$schema": "./.dale/topology.schema.json",
+  "id": "duo-plus",
+  "logicBlockInstances": [
+    {
+      "typeFullName": "Vion.Examples.Gating.LogicBlocks.ChargingStationBlock",
+      "name": "Station",
+      "instantiationParameters": { "ChargePointCount": 2, "Model": "Plus", "Region": "UK" }
+    },
+    {
+      "typeFullName": "Vion.Examples.Gating.LogicBlocks.ChargeController",
+      "name": "Controller"
+    }
+  ],
+  "interfaceMappings": [
+    {
+      "sourceLogicBlockName": "Controller",
+      "sourceInterfaceIdentifier": "IChargeController",
+      "targetLogicBlockName": "Station",
+      "targetInterfaceIdentifier": "Point1_IChargePoint"
+    },
+    {
+      "sourceLogicBlockName": "Controller",
+      "sourceInterfaceIdentifier": "IChargeController",
+      "targetLogicBlockName": "Station",
+      "targetInterfaceIdentifier": "Point2_IChargePoint"
+    }
+  ],
+  "contractMappings": []
+}
