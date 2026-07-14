@@ -22,10 +22,14 @@ export function interfacesMatch(a, b) {
 export function candidatesFor(definitions, instances, sourceName, sourceInterfaceId) {
     const src = instances.find(i => i.name === sourceName); if (!src) return [];
     const srcIface = interfacesOf(definitions, src).find(i => i.identifier === sourceInterfaceId); if (!srcIface) return [];
+    // A source interface the chosen parameters gate out has no live endpoint — nothing to wire from it.
+    if (interfaceGatedOut(definitions, src, sourceInterfaceId)) return [];
     const out = [];
     for (const inst of instances) {
         if (inst.name === sourceName) continue;
         for (const tIface of interfacesOf(definitions, inst)) {
+            // Skip a target the chosen parameters gate out — wiring to it would be a dangling link (RFC 0016).
+            if (interfaceGatedOut(definitions, inst, tIface.identifier)) continue;
             if (interfacesMatch(srcIface, tIface)) out.push({ targetName: inst.name, targetInterface: tIface.identifier });
         }
     }
@@ -38,6 +42,8 @@ export function residueOf(definitions, instances, mappings) {
         (m.targetLogicBlockName === name && m.targetInterfaceIdentifier === iface)).length;
     for (const inst of instances) {
         for (const iface of interfacesOf(definitions, inst)) {
+            // A gated-out interface doesn't exist for the chosen parameters — it isn't residue to resolve.
+            if (interfaceGatedOut(definitions, inst, iface.identifier)) continue;
             const d = degree(inst.name, iface.identifier);
             const cands = candidatesFor(definitions, instances, inst.name, iface.identifier);
             if (isRequired(iface.multiplicity) && d === 0)
@@ -131,6 +137,14 @@ function memberGatedOut(includedWhen, def, instance) {
     } catch (e) {
         return false;
     }
+}
+// Whether an interface binding on `instance` is gated OUT for its chosen [InstantiationParameter] values, so
+// AutoConnect never proposes a wire to an endpoint the parameters removed, and residue never nags to wire one.
+export function interfaceGatedOut(definitions, instance, interfaceIdentifier) {
+    const def = defByType(definitions, instance.typeFullName);
+    if (!def) return false;
+    const iface = (def.interfaces || []).find(i => i.identifier === interfaceIdentifier);
+    return iface ? memberGatedOut(iface.includedWhen, def, instance) : false;
 }
 export function gatedOutMappingProblems(definitions, instances, interfaceMappings, contractMappings) {
     const problems = [];
