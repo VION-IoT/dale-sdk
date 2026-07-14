@@ -7,6 +7,9 @@ using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using System.Text.Json.Nodes;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Vion.Dale.DevHost.Topologies;
 using Vion.Dale.DevHost.Web;
@@ -348,6 +351,26 @@ namespace Vion.Dale.DevHost.Test
             {
                 Environment.SetEnvironmentVariable(DevTopologyStore.ReadOnlyEnvVar, null);
             }
+        }
+
+        [TestMethod]
+        public void LogicBlockDefinition_FromType_CarriesInstantiationParametersAndGatePredicates()
+        {
+            // RFC 0016: the catalog projects each [InstantiationParameter]'s identifier + JSON schema + default,
+            // and the [IncludedWhen] predicate on each gated interface/contract binding — the metadata the
+            // topology-authoring client renders a parameter editor from, and evaluates to flag a mapping to a
+            // gated-out member. GatedCatalogFixture declares [InstantiationParameter] int Count (default 1) and a
+            // contract Demand gated by [IncludedWhen("Count >= 2")].
+            var definition = LogicBlockDefinition.FromType(typeof(GatedCatalogFixture), new GatedCatalogFixture(NullLogger.Instance));
+
+            var count = definition.InstantiationParameters.Single(p => p.Identifier == "Count");
+            Assert.AreEqual("integer", count.Schema["type"]!.GetValue<string>(), "an int parameter projects an integer schema.");
+            Assert.AreEqual(1L, count.Schema["minimum"]!.GetValue<long>(), "[ServiceProperty] Minimum flows to schema.minimum.");
+            Assert.AreEqual(2L, count.Schema["maximum"]!.GetValue<long>(), "[ServiceProperty] Maximum flows to schema.maximum.");
+            Assert.AreEqual(1L, count.Default!.GetValue<long>(), "the instance seeds the parameter's C# default (1).");
+
+            var demand = definition.Contracts.Single(c => c.Identifier == "Demand");
+            Assert.AreEqual("Count >= 2", demand.IncludedWhen, "the gated contract binding must carry its [IncludedWhen] predicate.");
         }
 
         private static string NewTopologyDir()
