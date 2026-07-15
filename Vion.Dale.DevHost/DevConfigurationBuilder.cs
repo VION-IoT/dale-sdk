@@ -254,20 +254,20 @@ namespace Vion.Dale.DevHost
             return LinkMultiplicity.ZeroOrMore;
         }
 
-        internal static List<(Type InterfaceType, string Identifier)> GetAllLogicInterfaces(Type type)
+        internal static List<(Type InterfaceType, string Identifier, string? IncludedWhen)> GetAllLogicInterfaces(Type type)
         {
-            var result = new List<(Type, string)>();
+            var result = new List<(Type, string, string?)>();
 
-            // Class-level interfaces
+            // Class-level interfaces — a class-implemented interface is unconditional (not gateable), so no predicate.
             foreach (var iface in type.GetInterfaces())
             {
                 if (iface.GetCustomAttribute<LogicInterfaceAttribute>() != null)
                 {
-                    result.Add((iface, iface.Name));
+                    result.Add((iface, iface.Name, null));
                 }
             }
 
-            // Property-based interfaces
+            // Property-based interfaces — gateable, so carry the property's [IncludedWhen] predicate (RFC 0016).
             var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
             foreach (var property in properties)
             {
@@ -276,11 +276,12 @@ namespace Vion.Dale.DevHost
                     continue;
                 }
 
+                var includedWhen = property.GetCustomAttribute<IncludedWhenAttribute>()?.Predicate;
                 foreach (var iface in property.PropertyType.GetInterfaces())
                 {
                     if (iface.GetCustomAttribute<LogicInterfaceAttribute>() != null)
                     {
-                        result.Add((iface, $"{property.Name}_{iface.Name}"));
+                        result.Add((iface, $"{property.Name}_{iface.Name}", includedWhen));
                     }
                 }
             }
@@ -292,9 +293,9 @@ namespace Vion.Dale.DevHost
         // the Type (no instantiation): each property whose PropertyType carries a [ServiceProviderContractType]
         // yields (identifier, the provider-side contract-type token). The catalog DTO (RFC 0013) reuses this —
         // the token here is exactly what LogicBlockIntrospection records as ContractInfo.MatchingContractType.
-        internal static List<(string Identifier, string ContractType)> GetContractProperties(Type type)
+        internal static List<(string Identifier, string ContractType, string? IncludedWhen)> GetContractProperties(Type type)
         {
-            var result = new List<(string, string)>();
+            var result = new List<(string, string, string?)>();
             var properties = ReflectionHelper.GetProperties(type, true);
 
             foreach (var property in properties)
@@ -312,8 +313,9 @@ namespace Vion.Dale.DevHost
 
                 var contractAttr = property.GetCustomAttribute<ServiceProviderContractBindingAttribute>();
                 var identifier = contractAttr?.Identifier ?? property.Name;
+                var includedWhen = property.GetCustomAttribute<IncludedWhenAttribute>()?.Predicate;
 
-                result.Add((identifier, contractTypeAttr.ServiceProviderContractType));
+                result.Add((identifier, contractTypeAttr.ServiceProviderContractType, includedWhen));
             }
 
             return result;
@@ -484,7 +486,7 @@ namespace Vion.Dale.DevHost
                 var defaultSpId = $"sp_{lbConfig.Id}";
                 var defaultSvcId = $"svc_{lbConfig.Id}";
 
-                foreach (var (identifier, contractType) in contractProperties)
+                foreach (var (identifier, contractType, _) in contractProperties)
                 {
                     var key = (lbConfig.Id, identifier);
 

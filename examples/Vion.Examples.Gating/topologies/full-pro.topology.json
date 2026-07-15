@@ -1,0 +1,36 @@
+{
+  "$schema": "./.dale/topology.schema.json",
+  "id": "full-pro",
+  "logicBlockInstances": [
+    {
+      "typeFullName": "Vion.Examples.Gating.LogicBlocks.ChargingStationBlock",
+      "name": "Station",
+      "instantiationParameters": { "ChargePointCount": 3, "Model": "Pro", "Region": "EU" }
+    },
+    {
+      "typeFullName": "Vion.Examples.Gating.LogicBlocks.ChargeController",
+      "name": "Controller"
+    }
+  ],
+  "interfaceMappings": [
+    {
+      "sourceLogicBlockName": "Controller",
+      "sourceInterfaceIdentifier": "IChargeController",
+      "targetLogicBlockName": "Station",
+      "targetInterfaceIdentifier": "Point1_IChargePoint"
+    },
+    {
+      "sourceLogicBlockName": "Controller",
+      "sourceInterfaceIdentifier": "IChargeController",
+      "targetLogicBlockName": "Station",
+      "targetInterfaceIdentifier": "Point2_IChargePoint"
+    },
+    {
+      "sourceLogicBlockName": "Controller",
+      "sourceInterfaceIdentifier": "IChargeController",
+      "targetLogicBlockName": "Station",
+      "targetInterfaceIdentifier": "Point3_IChargePoint"
+    }
+  ],
+  "contractMappings": []
+}

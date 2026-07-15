@@ -20,7 +20,7 @@ import {
     saveScenarioDraft, saveTopologyDraft, setBaseline, setJudgeTick, setProperty, showError, store,
     switchClockMode, switchTopology, toggleCollapsed, togglePin, validateScenarioDraft, validateTopologyDraft, valueKey,
 } from './store.js';
-import { allowsMultiple, autoConnect, problemsOf, residueOf } from './wiring.js';
+import { allowsMultiple, autoConnect, defByType, gatedOutMappingProblems, problemsOf, residueOf } from './wiring.js';
 import {
     contractRefs, contractValueEditor, findMember, kindOf, pathOptions,
     SETUP_KIND_IDS, STEP_KIND_IDS, stepErrors, valueEditorFor,
@@ -1134,7 +1134,7 @@ const Combobox = {
     },
     template: `
         <span class="combobox" ref="rootEl">
-            <input class="control combobox-input" type="text" :value="shown" :placeholder="placeholder"
+            <input class="control combobox-input" type="text" :value="shown" :placeholder="placeholder" :title="shown || null"
                    @focus="onFocus" @input="onInput" @keydown="onKey" spellcheck="false" autocomplete="off"/>
             <div v-if="open" class="combobox-pop">
                 <div v-for="(o, i) in filtered" :key="i" class="combobox-row" :class="{ selected: i === selected }"
@@ -1280,8 +1280,73 @@ const ResidueRow = {
     `,
 };
 
+// One block instance in the editor: the name/type/remove row, plus a per-instance [InstantiationParameter]
+// editor (RFC 0016) that expands on click. Inputs are picked from the definition's parameter schema (enum →
+// select, integer → number with bounds, string → text, bool → checkbox) and written straight onto the draft
+// instance's instantiationParameters (config-time values, so no live/dirty control — a plain draft mutation).
+const InstanceRow = {
+    props: { instance: Object, index: Number },
+    emits: ['remove'],
+    setup(props) {
+        const def = computed(() => defByType(store.definitions, props.instance.typeFullName));
+        const params = computed(() => (def.value && def.value.instantiationParameters) || []);
+        const hasParams = computed(() => params.value.length > 0);
+        const open = ref(false);
+        const showParams = computed(() => open.value && hasParams.value);
+        const toggle = () => { if (hasParams.value) open.value = !open.value; };
+        const controlOf = schema => {
+            if (schema && Array.isArray(schema.enum)) return 'enum';
+            const t = schema && (Array.isArray(schema.type) ? schema.type.find(x => x !== 'null') : schema.type);
+            if (t === 'boolean') return 'bool';
+            if (t === 'integer' || t === 'number') return 'number';
+            return 'text';
+        };
+        const valueFor = p => {
+            const chosen = props.instance.instantiationParameters;
+            if (chosen && Object.prototype.hasOwnProperty.call(chosen, p.identifier)) return chosen[p.identifier];
+            return (p.default === undefined || p.default === null) ? undefined : p.default;
+        };
+        const setParam = (p, v) => {
+            if (!props.instance.instantiationParameters) props.instance.instantiationParameters = {};
+            props.instance.instantiationParameters[p.identifier] = v;
+            store.topologyDraftDirty = true;
+        };
+        const setNumber = (p, raw) => {
+            if (raw === '' || raw === null) { setParam(p, null); return; }
+            const n = Number(raw);
+            setParam(p, Number.isNaN(n) ? null : n);
+        };
+        const labelFor = p => (p.schema && p.schema.title) || p.identifier;
+        const shortFor = t => shortTypeName(t);
+        return { params, hasParams, open, showParams, toggle, controlOf, valueFor, setParam, setNumber, labelFor, shortFor };
+    },
+    template: `
+        <div class="topo-instance">
+            <div class="topo-row topo-block-row">
+                <span class="mono topo-name topo-block-name" :class="{ 'topo-name-clickable': hasParams }" @click="toggle">
+                    <span v-if="hasParams" class="topo-param-caret">{{ open ? '▾' : '▸' }}</span>{{ instance.name }}
+                </span>
+                <span class="topo-meta mono topo-block-type">{{ shortFor(instance.typeFullName) }}</span>
+                <button type="button" class="theme-toggle topo-row-x" title="remove this block" @click="$emit('remove', index)">✕</button>
+            </div>
+            <div v-if="showParams" class="topo-params">
+                <div v-for="p in params" :key="p.identifier" class="field-row topo-param-row">
+                    <span class="field-name">{{ labelFor(p) }}</span>
+                    <span class="item-spacer"></span>
+                    <select v-if="controlOf(p.schema) === 'enum'" class="topo-param-input" :value="valueFor(p)" @change="setParam(p, $event.target.value)">
+                        <option v-for="opt in p.schema.enum" :key="opt" :value="opt">{{ opt }}</option>
+                    </select>
+                    <input v-else-if="controlOf(p.schema) === 'bool'" type="checkbox" :checked="!!valueFor(p)" @change="setParam(p, $event.target.checked)"/>
+                    <input v-else-if="controlOf(p.schema) === 'number'" type="number" class="topo-param-input" :min="p.schema.minimum" :max="p.schema.maximum" :value="valueFor(p)" @input="setNumber(p, $event.target.value)"/>
+                    <input v-else type="text" class="topo-param-input" :value="valueFor(p)" @input="setParam(p, $event.target.value)"/>
+                </div>
+            </div>
+        </div>
+    `,
+};
+
 const TopologyEditor = {
-    components: { BlockPicker, WiringRow, ResidueRow },
+    components: { BlockPicker, WiringRow, ResidueRow, InstanceRow },
     setup() {
         const draft = computed(() => store.topologyDraft);
         const instances = computed(() => (draft.value && draft.value.logicBlockInstances) || []);
@@ -1309,7 +1374,14 @@ const TopologyEditor = {
         // Continuous WIRED-but-wrong detection (pure, wiring.js): incompatible + over-wired. Recomputes on
         // every draft mutation so conflicts surface before the server validate. The first problem per
         // mapping index drives that row's accent; the full list feeds the footer summary.
-        const problems = computed(() => problemsOf(store.definitions, instances.value, mappings.value));
+        const contractMappings = computed(() => (draft.value && draft.value.contractMappings) || []);
+        // Merge the pure wiring problems (incompatible / over-wired) with the RFC 0016 gated-out check — a
+        // mapping to an interface/contract the chosen parameters exclude. Both share the { mappingIndex, kind,
+        // message } shape, so the per-wire accent and the footer summary render them uniformly.
+        const problems = computed(() => [
+            ...problemsOf(store.definitions, instances.value, mappings.value),
+            ...gatedOutMappingProblems(store.definitions, instances.value, mappings.value, contractMappings.value),
+        ]);
         const problemFor = index => problems.value.find(p => p.mappingIndex === index) || null;
         const hasProblems = computed(() => problems.value.length > 0);
         const problemMessages = computed(() => problems.value.map(p => p.message));
@@ -1398,11 +1470,7 @@ const TopologyEditor = {
                 </div>
                 <h3 class="topo-section">blocks</h3>
                 <div v-if="!instances.length" class="topo-meta">no blocks yet — add one below</div>
-                <div v-for="(b, i) in instances" :key="b.name" class="topo-row topo-block-row">
-                    <span class="mono topo-name topo-block-name">{{ b.name }}</span>
-                    <span class="topo-meta mono topo-block-type">{{ shortFor(b.typeFullName) }}</span>
-                    <button type="button" class="theme-toggle topo-row-x" title="remove this block" @click="removeBlock(i)">✕</button>
-                </div>
+                <InstanceRow v-for="(b, i) in instances" :key="b.name" :instance="b" :index="i" @remove="removeBlock"/>
                 <BlockPicker/>
 
                 <div class="topo-section-head">
@@ -2451,7 +2519,6 @@ const StepRow = {
                     </span>
                 </template>
 
-                <span class="item-spacer"></span>
                 <span class="step-field step-label-field">
                     <span class="mono topo-meta">label</span>
                     <input type="text" class="control step-label-input" :value="labelText" placeholder="(optional)" @input="onLabel">
@@ -3215,24 +3282,28 @@ const TopologyMenu = {
     },
     template: `
         <div class="topology-menu">
-            <div class="topology-menu-group">
-                <div class="topology-menu-label">switch to</div>
-                <div v-if="!hasOthers" class="topology-menu-empty">no other topologies</div>
-                <button v-for="t in others" :key="t.id" type="button" class="topology-menu-item"
-                        title="recycles the host onto this topology" @click="pick(t.id)">
-                    <span class="mono topology-menu-name">{{ t.id }}</span>
-                    <span class="item-spacer"></span>
-                    <span v-if="t.invalid" class="scenario-error">invalid</span>
-                    <span v-else class="topology-menu-meta">{{ t.blocks }} blocks ⟳</span>
-                </button>
+            <div class="topology-menu-scroll">
+                <div class="topology-menu-group">
+                    <div class="topology-menu-label">switch to</div>
+                    <div v-if="!hasOthers" class="topology-menu-empty">no other topologies</div>
+                    <button v-for="t in others" :key="t.id" type="button" class="topology-menu-item"
+                            title="recycles the host onto this topology" @click="pick(t.id)">
+                        <span class="mono topology-menu-name">{{ t.id }}</span>
+                        <span class="item-spacer"></span>
+                        <span v-if="t.invalid" class="scenario-error">invalid</span>
+                        <span v-else class="topology-menu-meta">{{ t.blocks }} blocks ⟳</span>
+                    </button>
+                </div>
             </div>
             <div class="topology-menu-divider"></div>
-            <button v-if="canEdit" type="button" class="topology-menu-item" @click="create">
-                <span class="topology-menu-name">＋ New topology</span>
-            </button>
-            <button type="button" class="topology-menu-item" @click="manage">
-                <span class="topology-menu-name">Manage / edit…</span>
-            </button>
+            <div class="topology-menu-footer">
+                <button v-if="canEdit" type="button" class="topology-menu-item" @click="create">
+                    <span class="topology-menu-name">＋ New topology</span>
+                </button>
+                <button type="button" class="topology-menu-item" @click="manage">
+                    <span class="topology-menu-name">Manage / edit…</span>
+                </button>
+            </div>
         </div>
     `,
 };

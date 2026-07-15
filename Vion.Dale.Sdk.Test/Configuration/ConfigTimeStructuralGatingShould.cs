@@ -322,6 +322,30 @@ namespace Vion.Dale.Sdk.Test.Configuration
             Assert.IsNull(block.Point2Output, "The gated contract stays excluded; the dangling mapping is skipped, not applied.");
         }
 
+        [TestMethod]
+        public void SkipAMessageTargetingAGatedOutInterfaceInsteadOfThrowing()
+        {
+            // At Count = 2 the Probe interface binding is included — discover its bound identifier.
+            var included = new GatedInterfaceOnlyBlock { Count = 2 };
+            DriveInitialize(included);
+            var boundInterfaces =
+                (System.Collections.IDictionary)typeof(LogicBlockBase).GetField("_interfaces", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(included)!;
+            var probeInterfaceIdentifier = boundInterfaces.Keys.Cast<string>().Single(k => k.Contains("Probe"));
+
+            // At Count = 1 that binding is gated out. A sender routing a request to it — a topology interface
+            // mapping to a now-absent endpoint — must be skipped-and-warned, not throw a KeyNotFoundException
+            // that takes the whole receiver block down (RFC 0016 R11; mirror of the gated-out contract guard).
+            var excluded = new GatedInterfaceOnlyBlock { Count = 1 };
+            DriveInitialize(excluded);
+
+            var message = new FunctionInterfaceMessage<ProbeLink.Poll>(new InterfaceId("sender", "IProbeSource"),
+                                                                       new InterfaceId("cfg", probeInterfaceIdentifier),
+                                                                       new ProbeLink.Poll(7));
+
+            // Passes iff HandleMessageAsync does not throw.
+            excluded.HandleMessageAsync(message, new Mock<IActorContext>().Object).GetAwaiter().GetResult();
+        }
+
         // ── Persistence (no dormancy) ─────────────────────────────────────────────────────────────
 
         [TestMethod]

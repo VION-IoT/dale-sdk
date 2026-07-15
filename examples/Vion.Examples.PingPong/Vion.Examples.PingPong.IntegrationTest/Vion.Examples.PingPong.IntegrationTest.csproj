@@ -9,7 +9,7 @@
          needed to drive a wired network from a test. Published package by default; `dotnet build
          -p:DaleLocalSource=true` swaps it for the local working-tree DevHost project ref. -->
     <ItemGroup Condition="'$(DaleLocalSource)' != 'true'">
-        <PackageReference Include="Vion.Dale.DevHost" Version="0.9.7"/>
+        <PackageReference Include="Vion.Dale.DevHost" Version="0.9.8"/>
     </ItemGroup>
     <ItemGroup Condition="'$(DaleLocalSource)' == 'true'">
         <ProjectReference Include="..\..\..\Vion.Dale.DevHost\Vion.Dale.DevHost.csproj"/>

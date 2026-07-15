@@ -9,7 +9,7 @@
     </PropertyGroup>
 
     <!-- Published DevHost UI by default; `dotnet build -p:DaleLocalSource=true` serves the local working-tree
-         DevHost.Web (and, via the referenced example project, the working-tree SDK). -->
+         DevHost.Web instead (see the library csproj for the matching SDK swap). -->
     <ItemGroup Condition="'$(DaleLocalSource)' != 'true'">
         <PackageReference Include="Vion.Dale.DevHost.Web" Version="0.9.8"/>
     </ItemGroup>
@@ -18,6 +18,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\Vion.Examples.ModbusRtu\Vion.Examples.ModbusRtu.csproj"/>
+        <ProjectReference Include="..\Vion.Examples.Gating\Vion.Examples.Gating.csproj"/>
     </ItemGroup>
 </Project>

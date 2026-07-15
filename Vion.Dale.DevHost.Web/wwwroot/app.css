@@ -179,6 +179,7 @@ body {
 .topology-menu {
     position: absolute; top: calc(100% + 6px); left: 0; z-index: 40;
     min-width: 240px; max-width: 320px;
+    display: flex; flex-direction: column; max-height: min(70vh, 560px);
     background: var(--bg-card);
     border: 1px solid var(--border-strong);
     border-radius: var(--vion-border-radius-md);
@@ -186,6 +187,11 @@ body {
     padding: 5px;
     overflow: hidden;
 }
+/* Only the switch-to list scrolls (capped to the viewport); the New / Manage footer sits OUTSIDE this
+   box so a long topology catalog never pushes those actions off-screen. min-height:0 is what lets a
+   flex child actually scroll instead of growing past the cap. */
+.topology-menu-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-right: 2px; }
+.topology-menu-footer { flex: none; }
 .topology-menu-group { display: flex; flex-direction: column; }
 .topology-menu-label {
     font-size: 9.5px; color: var(--text-faint);
@@ -202,7 +208,7 @@ body {
 .topology-menu-item:hover { background: var(--bg-raised); }
 .topology-menu-name { color: var(--text); }
 .topology-menu-meta { font-size: 11px; color: var(--text-faint); white-space: nowrap; }
-.topology-menu-divider { height: 1px; background: var(--border); margin: 5px 4px; }
+.topology-menu-divider { flex: none; height: 1px; background: var(--border); margin: 5px 4px; }
 
 .workspace-bar { display: flex; align-items: center; gap: 12px; padding: 6px 16px; background: var(--bg-page); border-bottom: 1px solid var(--border); }
 .ws-spacer { margin-left: auto; }
@@ -293,6 +299,10 @@ body {
 .topo-block-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .topo-block-type { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .topo-row-x { justify-self: end; }
+.topo-name-clickable { cursor: pointer; }
+.topo-param-caret { display: inline-block; width: 14px; color: var(--text-faint); }
+.topo-params { padding: 2px 0 6px 22px; margin-bottom: 2px; border-bottom: 1px solid var(--border); }
+.topo-param-input { min-width: 130px; }
 
 /* Block picker: the type select and the name input share a comfortable, equal-ish width; the +add
    button hugs its label. flex-wrap (on .topo-picker) lets the inline hint drop below on narrow panels. */
@@ -408,6 +418,13 @@ body {
    wider (long dotted paths); numeric knobs are compact */
 .step-kind-select { min-width: 120px; }
 .combobox-input { min-width: 180px; }
+
+/* In a step / setup row the identifier picker (property / contract combobox) is the PRIMARY field:
+   let it grow into the row's free space (reclaiming the old item-spacer slack) so long dotted paths
+   stay readable, and let the input fill whatever width the combobox is given. When even the grown
+   field clips on a narrow panel, the Combobox input's `title` reveals the full path on hover. */
+.step-row-main .combobox { flex: 1 1 220px; min-width: 140px; }
+.step-row-main .combobox-input { width: 100%; min-width: 0; }
 
 /* Combobox (the generic ⌘K-style picker used for property / contract / block-type / wire-to): the option list
    floats under the input, mirroring the palette rows — label · meta · value. */
