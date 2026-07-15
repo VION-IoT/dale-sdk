@@ -46,7 +46,8 @@ $exampleMainProjectsWithVersion = @(
     "examples\Vion.Examples.ModbusRtu\Vion.Examples.ModbusRtu\Vion.Examples.ModbusRtu.csproj",
     "examples\Vion.Examples.Presentation\Vion.Examples.Presentation\Vion.Examples.Presentation.csproj",
     "examples\Vion.Examples.RichTypes\Vion.Examples.RichTypes\Vion.Examples.RichTypes.csproj",
-    "examples\Vion.Examples.Emission\Vion.Examples.Emission\Vion.Examples.Emission.csproj"
+    "examples\Vion.Examples.Emission\Vion.Examples.Emission\Vion.Examples.Emission.csproj",
+    "examples\Vion.Examples.Gating\Vion.Examples.Gating\Vion.Examples.Gating.csproj"
 )
 
 # Example projects that reference Vion.Dale.* packages.
@@ -138,6 +139,19 @@ $exampleProjects = @(
     @{
         Path              = "examples\Vion.Examples.Emission\Vion.Examples.Emission.Test\Vion.Examples.Emission.Test.csproj"
         PackageReferences = @("Vion.Dale.Sdk.TestKit")
+    },
+    # Gating example (showcases RFC 0016 config-time structural gating; uses DigitalIo for a gated contract)
+    @{
+        Path              = "examples\Vion.Examples.Gating\Vion.Examples.Gating\Vion.Examples.Gating.csproj"
+        PackageReferences = @("Vion.Dale.Sdk", "Vion.Dale.Sdk.DigitalIo")
+    },
+    @{
+        Path              = "examples\Vion.Examples.Gating\Vion.Examples.Gating.DevHost\Vion.Examples.Gating.DevHost.csproj"
+        PackageReferences = @("Vion.Dale.DevHost.Web")
+    },
+    @{
+        Path              = "examples\Vion.Examples.Gating\Vion.Examples.Gating.Test\Vion.Examples.Gating.Test.csproj"
+        PackageReferences = @("Vion.Dale.Sdk.TestKit", "Vion.Dale.Sdk.DigitalIo.TestKit")
     }
 )
 

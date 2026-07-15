@@ -3,15 +3,15 @@
     <PropertyGroup>
         <TargetFramework>netstandard2.1</TargetFramework>
         <LangVersion>latest</LangVersion>
-        <ImplicitUsings>false</ImplicitUsings>
+        <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
 
         <!-- NuGet package metadata -->
-        <PackageId>Vion.Examples.Presentation</PackageId>
+        <PackageId>Vion.Examples.Gating</PackageId>
         <Version>0.9.8</Version>
         <Authors>Vion-IoT</Authors>
         <Company>Vion-IoT</Company>
-        <Description>Vion IoT example LogicBlock exercising the declarative-presentation attribute surface (PropertyGroup, Importance, MeasuringPointKind, StatusIndicator, WriteOnly, UiHint, Format).</Description>
+        <Description>Vion IoT logic blocks</Description>
         <IsPackable>false</IsPackable>
 
         <!--debug information from the source generator-->
@@ -24,16 +24,23 @@
          you can test working-tree SDK changes against this example without editing the csproj. -->
     <ItemGroup Condition="'$(DaleLocalSource)' != 'true'">
         <PackageReference Include="Vion.Dale.Sdk" Version="0.9.8"/>
+        <PackageReference Include="Vion.Dale.Sdk.DigitalIo" Version="0.9.8"/>
     </ItemGroup>
     <ItemGroup Condition="'$(DaleLocalSource)' == 'true'">
         <ProjectReference Include="..\..\..\Vion.Dale.Sdk\Vion.Dale.Sdk.csproj"/>
         <ProjectReference Include="..\..\..\Vion.Dale.Sdk.Generators\Vion.Dale.Sdk.Generators.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer"/>
+        <ProjectReference Include="..\..\..\Vion.Dale.Sdk.DigitalIo\Vion.Dale.Sdk.DigitalIo.csproj"/>
         <PackageReference Include="Metalama.Patterns.Observability" Version="2026.1.18"/>
     </ItemGroup>
 
     <ItemGroup>
         <!--shim to be able to use readonly record structs in netstandard2.1-->
         <PackageReference Include="IsExternalInit" Version="1.0.3">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <!--shim to be able to use required members in netstandard2.1-->
+        <PackageReference Include="RequiredMemberAttribute" Version="1.0.0">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
