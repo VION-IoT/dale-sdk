@@ -1,10 +1,10 @@
 # RFC 0018 — Per-block Modbus socket lifetime: scope-owned client/server + reuse-safe server bind (DF-46)
 
-- **Status:** Draft — proposal, not yet accepted. 2026-07-15.
+- **Status:** Implemented (Part A + Part B) in dale-sdk — 2026-07-15; pending merge + release. The runtime (`dale`) is a **package bump, zero code change**.
 - **Author:** jonas.bertsch
 - **Related:** RFC 0007 (Modbus-TCP server support — this extends its client/server *lifetime* story); RFC 0005 (observability — same `ActorSystem.CreateRootActorFromDi` spawn site). The Part A fix is **SDK-internal** (the block-instantiation path in `Vion.Dale.ProtoActor` + `Vion.Dale.DevHost`); the private `dale` runtime is involved only if its production initializer instantiates blocks at its own root-provider site rather than reusing the SDK spawn API (§4). Consumer: `logic-block-libraries` (the current `Stopping()` workaround). Origin: **DF-46** in [`logic-block-libraries/docs/dale-preview-feedback.md`](https://github.com/…/dale-preview-feedback.md).
 
-> This is a design contract, not an implementation. **Part B** (server bind) is SDK-local and shippable now. **Part A** (per-block scope) is an **SDK-internal DI-lifetime change at the block-instantiation path**; it needs cross-repo confirmation on exactly one point — whether the production `dale` runtime reuses the SDK's `CreateRootActorFromDi` spawn API or has its own root-provider instantiation site (§4). Nothing Modbus-specific or TCP-central is configured by any host. No code has been written for either part.
+> **Implemented 2026-07-15 (dale-sdk).** The open cross-repo question is answered: confirmed against the runtime source (`C:\_gh\dale`) that the production initializer spawns blocks via `_actorSystem.CreateRootActorFromDi(type, name, logger)` (`Dale/Configuration/LogicSystem/LogicSystemConfigurationInitializer.cs:381`) with **no DI scoping anywhere** — so **Part A is a package bump for the runtime, zero code change there**. What shipped: **(Part A)** `Actor<T>` owns a per-actor `IServiceScope` disposed on Proto's terminal `Stopped`, and `CreateRootActorFromDi` resolves the receiver from that scope; DevHost switched to the same spawn for production parity. **(Part B)** the Modbus-TCP server binds through a reuse-address listener provider. Nothing Modbus-specific or TCP-central is configured by any host. See [§9 Implementation notes](#9-implementation-notes-2026-07-15).
 
 ## 1. Summary
 
@@ -104,7 +104,17 @@ The consumer currently papers over the **client leak** by having every Modbus bl
 
 ## 8. Open questions
 
-1. Exact reuse knob (`ExclusiveAddressUse=false` vs `SO_REUSEADDR`) — decide against a real same-version-redeploy repro.
-2. Does the production `dale` runtime spawn blocks via the SDK's `CreateRootActorFromDi`, or via its own root-provider instantiation site? Determines whether Part A is a pure package bump or also a small runtime edit.
-3. Factory-created clients (`ILogicBlockModbusTcpClientFactory.Create`) — scope-bind the factory to the ambient block scope, or keep those the block's responsibility?
+1. Exact reuse knob (`ExclusiveAddressUse=false` vs `SO_REUSEADDR`) — shipped `ExclusiveAddressUse=false`; still worth confirming against a real same-version-redeploy repro (the EADDRINUSE-on-overlap benefit is OS/timing-dependent, so it is not unit-tested portably).
+2. ~~Does the production `dale` runtime spawn blocks via the SDK's `CreateRootActorFromDi`, or its own site?~~ **Answered:** it uses `CreateRootActorFromDi` (`LogicSystemConfigurationInitializer.cs:381`) — Part A is a package bump, zero runtime code change.
+3. **Still open — factory-created clients** (`ILogicBlockModbusTcpClientFactory.Create`) resolve from the singleton factory's root provider, so they do **not** ride the per-block scope. Either scope-bind the factory to the ambient block scope, or keep those the block's responsibility (documented). Constructor-injected clients — the common case — are fully covered.
 4. Does a newer FluentModbus expose an explicit `ExclusiveAddressUse` (making even the provider unnecessary)? Not required given the 5.3.2 hook; a quick follow-up if we bump for other reasons.
+
+## 9. Implementation notes (2026-07-15)
+
+Shipped in `dale-sdk` on branch `docs/df46-modbus-socket-lifetime` (RFC + code together):
+
+- **Part A — core (`Vion.Dale.ProtoActor`).** `Actor<T>` gained an optional `IServiceScope` disposed on Proto's terminal `Stopped`; `CreateRootActorFromDi` creates a per-actor scope, resolves the receiver from `scope.ServiceProvider`, hands it to the actor, and disposes it if construction fails before spawn. New `Vion.Dale.ProtoActor.Test` (the component had none) proves a DI-resolved `IDisposable` dependency is reclaimed on stop (RED→GREEN). The block's `Stopping()` runs first (it is driven by the domain stop request, before the actor is Proto-stopped), so a safe-baseline write is not cut off.
+- **Part A — DevHost (`Vion.Dale.DevHost`).** `DevLogicSystemInitializer.CreateLogicBlockActors` switched from `GetService` + `CreateRootActorFor(pre-built instance)` to `CreateRootActorFromDi` — the same spawn production uses, so DevHost rides the same scoping. DevHost recycle already rebuilds the whole provider (so it never had the persistent-root leak); this is production parity + robustness, verified by the 189-test DevHost suite.
+- **Part B — server bind (`Vion.Dale.Sdk.Modbus.Tcp`).** New internal `ReuseAddressTcpClientProvider` (`ExclusiveAddressUse=false`) injected via `ModbusTcpServer.Start(ITcpClientProvider, leaveOpen: false)` — FluentModbus 5.3.2's public hook, no fork/upgrade. Every real-socket `ModbusTcpServerIntegrationShould` test now binds through it (green), plus a focused provider test.
+- **Verification.** Full solution green (1900+ tests) with the shared actor-lifecycle change — no block-lifecycle/stepping/scenario regression. **Runtime:** a `Vion.Dale.ProtoActor` package bump; no `dale` code change.
+- **Deferred:** factory-created clients (§8.3); a real same-version-redeploy repro to confirm the reuse knob (§8.1).
