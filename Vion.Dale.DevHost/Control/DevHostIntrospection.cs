@@ -279,16 +279,35 @@ namespace Vion.Dale.DevHost.Control
                         continue;
                     }
 
+                    // A nested interface-bound component surfaces as its own service whose identifier equals
+                    // the block-type property that holds it; the block's OWN (root) service has no such
+                    // property. When a member name is carried by BOTH the root service and a nested component
+                    // (DF-47 — standard telemetry names such as ActivePowerTotalKw shared across a buffer
+                    // surface and its charge points), the flat per-block name map must resolve the bare name
+                    // to the ROOT service rather than collapse it last-service-wins onto a component. A
+                    // root-service entry always wins; a nested-component entry only fills a name the root does
+                    // not carry. The service-qualified map below still reaches every component (and the
+                    // "service.member" read path is the correct way to address a shadowed nested member).
+                    var isNestedComponentService = block.LogicBlockType.GetProperty(service.Identifier) is not null;
+
                     var members = new Dictionary<string, string>();
                     foreach (var property in service.Properties)
                     {
-                        map[property.Identifier] = serviceConfig.Id;
+                        if (!isNestedComponentService || !map.ContainsKey(property.Identifier))
+                        {
+                            map[property.Identifier] = serviceConfig.Id;
+                        }
+
                         members[property.Identifier] = serviceConfig.Id;
                     }
 
                     foreach (var measuringPoint in service.MeasuringPoints)
                     {
-                        map[measuringPoint.Identifier] = serviceConfig.Id;
+                        if (!isNestedComponentService || !map.ContainsKey(measuringPoint.Identifier))
+                        {
+                            map[measuringPoint.Identifier] = serviceConfig.Id;
+                        }
+
                         members[measuringPoint.Identifier] = serviceConfig.Id;
                     }
 
