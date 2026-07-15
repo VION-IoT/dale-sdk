@@ -223,7 +223,27 @@ namespace Vion.Dale.DevHost.Control
         public object? GetProperty(string logicBlockIdOrName, string propertyName)
         {
             var logicBlock = ResolveLogicBlock(logicBlockIdOrName);
-            if (logicBlock is null || !_introspection.TryGetServiceId(logicBlock.Id, propertyName, out var serviceId))
+            if (logicBlock is null)
+            {
+                return null;
+            }
+
+            // A dotted "service.member" path addresses a specific service — typically a nested component
+            // (e.g. "ChargePoint1.IsPluggedIn") whose members the flat per-block name map does not key by
+            // their bare name. Route it through the service-qualified resolver so it isn't looked up (and
+            // missed) as a bare member name. (DF-47)
+            var separatorIndex = propertyName.IndexOf('.');
+            if (separatorIndex > 0 && separatorIndex < propertyName.Length - 1)
+            {
+                var serviceIdentifier = propertyName.Substring(0, separatorIndex);
+                var member = propertyName.Substring(separatorIndex + 1);
+                if (_introspection.TryGetServiceId(logicBlock.Id, serviceIdentifier, member, out var qualifiedServiceId))
+                {
+                    return _values.TryGetValue((qualifiedServiceId, member), out var qualifiedValue) ? qualifiedValue : null;
+                }
+            }
+
+            if (!_introspection.TryGetServiceId(logicBlock.Id, propertyName, out var serviceId))
             {
                 return null;
             }
