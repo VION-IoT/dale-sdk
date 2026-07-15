@@ -8,8 +8,8 @@
     <!-- TestKit refs: the published packages by default. `dotnet build -p:DaleLocalSource=true` swaps them for
          local project refs so you can test working-tree SDK changes against this example without editing the csproj. -->
     <ItemGroup Condition="'$(DaleLocalSource)' != 'true'">
-        <PackageReference Include="Vion.Dale.Sdk.TestKit" Version="0.9.8"/>
-        <PackageReference Include="Vion.Dale.Sdk.Modbus.Rtu.TestKit" Version="0.9.8"/>
+        <PackageReference Include="Vion.Dale.Sdk.TestKit" Version="0.9.11"/>
+        <PackageReference Include="Vion.Dale.Sdk.Modbus.Rtu.TestKit" Version="0.9.11"/>
     </ItemGroup>
     <ItemGroup Condition="'$(DaleLocalSource)' == 'true'">
         <ProjectReference Include="..\..\..\Vion.Dale.Sdk.TestKit\Vion.Dale.Sdk.TestKit.csproj"/>
