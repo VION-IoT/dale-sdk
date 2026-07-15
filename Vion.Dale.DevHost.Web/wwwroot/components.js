@@ -1134,7 +1134,7 @@ const Combobox = {
     },
     template: `
         <span class="combobox" ref="rootEl">
-            <input class="control combobox-input" type="text" :value="shown" :placeholder="placeholder"
+            <input class="control combobox-input" type="text" :value="shown" :placeholder="placeholder" :title="shown || null"
                    @focus="onFocus" @input="onInput" @keydown="onKey" spellcheck="false" autocomplete="off"/>
             <div v-if="open" class="combobox-pop">
                 <div v-for="(o, i) in filtered" :key="i" class="combobox-row" :class="{ selected: i === selected }"
@@ -2519,7 +2519,6 @@ const StepRow = {
                     </span>
                 </template>
 
-                <span class="item-spacer"></span>
                 <span class="step-field step-label-field">
                     <span class="mono topo-meta">label</span>
                     <input type="text" class="control step-label-input" :value="labelText" placeholder="(optional)" @input="onLabel">

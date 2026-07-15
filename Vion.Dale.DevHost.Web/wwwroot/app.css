@@ -419,6 +419,13 @@ body {
 .step-kind-select { min-width: 120px; }
 .combobox-input { min-width: 180px; }
 
+/* In a step / setup row the identifier picker (property / contract combobox) is the PRIMARY field:
+   let it grow into the row's free space (reclaiming the old item-spacer slack) so long dotted paths
+   stay readable, and let the input fill whatever width the combobox is given. When even the grown
+   field clips on a narrow panel, the Combobox input's `title` reveals the full path on hover. */
+.step-row-main .combobox { flex: 1 1 220px; min-width: 140px; }
+.step-row-main .combobox-input { width: 100%; min-width: 0; }
+
 /* Combobox (the generic ⌘K-style picker used for property / contract / block-type / wire-to): the option list
    floats under the input, mirroring the palette rows — label · meta · value. */
 .combobox { position: relative; display: inline-flex; align-items: center; }
