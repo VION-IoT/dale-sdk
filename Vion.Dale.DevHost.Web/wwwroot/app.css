@@ -179,6 +179,7 @@ body {
 .topology-menu {
     position: absolute; top: calc(100% + 6px); left: 0; z-index: 40;
     min-width: 240px; max-width: 320px;
+    display: flex; flex-direction: column; max-height: min(70vh, 560px);
     background: var(--bg-card);
     border: 1px solid var(--border-strong);
     border-radius: var(--vion-border-radius-md);
@@ -186,6 +187,11 @@ body {
     padding: 5px;
     overflow: hidden;
 }
+/* Only the switch-to list scrolls (capped to the viewport); the New / Manage footer sits OUTSIDE this
+   box so a long topology catalog never pushes those actions off-screen. min-height:0 is what lets a
+   flex child actually scroll instead of growing past the cap. */
+.topology-menu-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-right: 2px; }
+.topology-menu-footer { flex: none; }
 .topology-menu-group { display: flex; flex-direction: column; }
 .topology-menu-label {
     font-size: 9.5px; color: var(--text-faint);
@@ -202,7 +208,7 @@ body {
 .topology-menu-item:hover { background: var(--bg-raised); }
 .topology-menu-name { color: var(--text); }
 .topology-menu-meta { font-size: 11px; color: var(--text-faint); white-space: nowrap; }
-.topology-menu-divider { height: 1px; background: var(--border); margin: 5px 4px; }
+.topology-menu-divider { flex: none; height: 1px; background: var(--border); margin: 5px 4px; }
 
 .workspace-bar { display: flex; align-items: center; gap: 12px; padding: 6px 16px; background: var(--bg-page); border-bottom: 1px solid var(--border); }
 .ws-spacer { margin-left: auto; }
