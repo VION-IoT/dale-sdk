@@ -3283,24 +3283,28 @@ const TopologyMenu = {
     },
     template: `
         <div class="topology-menu">
-            <div class="topology-menu-group">
-                <div class="topology-menu-label">switch to</div>
-                <div v-if="!hasOthers" class="topology-menu-empty">no other topologies</div>
-                <button v-for="t in others" :key="t.id" type="button" class="topology-menu-item"
-                        title="recycles the host onto this topology" @click="pick(t.id)">
-                    <span class="mono topology-menu-name">{{ t.id }}</span>
-                    <span class="item-spacer"></span>
-                    <span v-if="t.invalid" class="scenario-error">invalid</span>
-                    <span v-else class="topology-menu-meta">{{ t.blocks }} blocks ⟳</span>
-                </button>
+            <div class="topology-menu-scroll">
+                <div class="topology-menu-group">
+                    <div class="topology-menu-label">switch to</div>
+                    <div v-if="!hasOthers" class="topology-menu-empty">no other topologies</div>
+                    <button v-for="t in others" :key="t.id" type="button" class="topology-menu-item"
+                            title="recycles the host onto this topology" @click="pick(t.id)">
+                        <span class="mono topology-menu-name">{{ t.id }}</span>
+                        <span class="item-spacer"></span>
+                        <span v-if="t.invalid" class="scenario-error">invalid</span>
+                        <span v-else class="topology-menu-meta">{{ t.blocks }} blocks ⟳</span>
+                    </button>
+                </div>
             </div>
             <div class="topology-menu-divider"></div>
-            <button v-if="canEdit" type="button" class="topology-menu-item" @click="create">
-                <span class="topology-menu-name">＋ New topology</span>
-            </button>
-            <button type="button" class="topology-menu-item" @click="manage">
-                <span class="topology-menu-name">Manage / edit…</span>
-            </button>
+            <div class="topology-menu-footer">
+                <button v-if="canEdit" type="button" class="topology-menu-item" @click="create">
+                    <span class="topology-menu-name">＋ New topology</span>
+                </button>
+                <button type="button" class="topology-menu-item" @click="manage">
+                    <span class="topology-menu-name">Manage / edit…</span>
+                </button>
+            </div>
         </div>
     `,
 };
