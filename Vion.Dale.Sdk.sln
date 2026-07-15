@@ -166,6 +166,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vion.Examples.Emission.DevH
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vion.Examples.Emission.Test", "examples\Vion.Examples.Emission\Vion.Examples.Emission.Test\Vion.Examples.Emission.Test.csproj", "{90B58A7C-239A-45F1-A73C-1E225A1A5D99}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vion.Dale.ProtoActor.Test", "Vion.Dale.ProtoActor.Test\Vion.Dale.ProtoActor.Test.csproj", "{7D316C7D-EFBE-4B76-8AC2-863FA8D5CBF4}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vion.Examples.Gating", "examples\Vion.Examples.Gating\Vion.Examples.Gating\Vion.Examples.Gating.csproj", "{25053324-E517-41F5-9726-4750E3240FD8}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vion.Examples.Gating.DevHost", "examples\Vion.Examples.Gating\Vion.Examples.Gating.DevHost\Vion.Examples.Gating.DevHost.csproj", "{E9092743-C511-4326-B355-E5788FD9F9D4}"
@@ -926,6 +928,18 @@ Global
 		{90B58A7C-239A-45F1-A73C-1E225A1A5D99}.Release|x64.Build.0 = Release|Any CPU
 		{90B58A7C-239A-45F1-A73C-1E225A1A5D99}.Release|x86.ActiveCfg = Release|Any CPU
 		{90B58A7C-239A-45F1-A73C-1E225A1A5D99}.Release|x86.Build.0 = Release|Any CPU
+		{7D316C7D-EFBE-4B76-8AC2-863FA8D5CBF4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7D316C7D-EFBE-4B76-8AC2-863FA8D5CBF4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7D316C7D-EFBE-4B76-8AC2-863FA8D5CBF4}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{7D316C7D-EFBE-4B76-8AC2-863FA8D5CBF4}.Debug|x64.Build.0 = Debug|Any CPU
+		{7D316C7D-EFBE-4B76-8AC2-863FA8D5CBF4}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{7D316C7D-EFBE-4B76-8AC2-863FA8D5CBF4}.Debug|x86.Build.0 = Debug|Any CPU
+		{7D316C7D-EFBE-4B76-8AC2-863FA8D5CBF4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7D316C7D-EFBE-4B76-8AC2-863FA8D5CBF4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7D316C7D-EFBE-4B76-8AC2-863FA8D5CBF4}.Release|x64.ActiveCfg = Release|Any CPU
+		{7D316C7D-EFBE-4B76-8AC2-863FA8D5CBF4}.Release|x64.Build.0 = Release|Any CPU
+		{7D316C7D-EFBE-4B76-8AC2-863FA8D5CBF4}.Release|x86.ActiveCfg = Release|Any CPU
+		{7D316C7D-EFBE-4B76-8AC2-863FA8D5CBF4}.Release|x86.Build.0 = Release|Any CPU
 		{25053324-E517-41F5-9726-4750E3240FD8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{25053324-E517-41F5-9726-4750E3240FD8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{25053324-E517-41F5-9726-4750E3240FD8}.Debug|x64.ActiveCfg = Debug|Any CPU

@@ -198,19 +198,14 @@ namespace Vion.Dale.DevHost
                 {
                     _logger.LogDebug("Creating actor for {Name} ({Id}) of type {Type}", logicBlockConfig.Name, logicBlockConfig.Id, logicBlockConfig.LogicBlockType.Name);
 
-                    // Instantiate LogicBlock from DI using the Type
-                    var logicBlock = (LogicBlockBase)_serviceProvider.GetService(logicBlockConfig.LogicBlockType)!;
-
-                    if (logicBlock == null)
-                    {
-                        throw new InvalidOperationException($"Failed to instantiate {logicBlockConfig.LogicBlockType.Name} from DI. " +
-                                                            $"Make sure it's registered in IConfigureServices.");
-                    }
-
                     var name = LogicBlockUtils.CreateLogicBlockName(logicBlockConfig.Name, logicBlockConfig.Id);
 
-                    // Create actor from the instantiated LogicBlock
-                    var actorRef = _actorSystem.CreateRootActorFor(() => logicBlock, name, _logger);
+                    // Spawn the block the same way production does (LogicSystemConfigurationInitializer):
+                    // CreateRootActorFromDi resolves it in a per-block DI scope disposed on the actor's stop, so
+                    // a per-block Modbus/HTTP client is reclaimed on host recycle instead of leaking to the root
+                    // container (RFC 0018 / DF-46). A missing / unconstructable type throws (e.g. a dependency
+                    // not registered in IConfigureServices) and is caught and recorded below.
+                    var actorRef = _actorSystem.CreateRootActorFromDi(logicBlockConfig.LogicBlockType, name);
 
                     // Initialize with configuration
                     var serviceIdLookup = logicBlockConfig.Services.ToDictionary(s => s.Identifier, s => new ServiceIdentifier(s.Id));

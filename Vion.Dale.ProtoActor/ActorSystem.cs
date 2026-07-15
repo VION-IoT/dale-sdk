@@ -208,45 +208,60 @@ namespace Vion.Dale.ProtoActor
                                                           .Any(p => p.ParameterType == typeof(ILogger) ||
                                                                     (p.ParameterType.IsGenericType && p.ParameterType.GetGenericTypeDefinition() == typeof(ILogger<>)));
 
-            object actorReceiverInstance;
-            if (!constructorTakesLogger || logger == null)
+            // Resolve the actor receiver (e.g. a logic block) from a per-actor DI scope rather than the root
+            // container, so its IDisposable dependencies (a per-block Modbus/HTTP client) are tracked by the
+            // scope and reclaimed when the actor stops — instead of being pinned on the root container until
+            // process exit, which strands one socket per same-version redeploy (RFC 0018 / DF-46). The Actor<T>
+            // owns the scope and disposes it on its terminal Stopped; dispose eagerly here if construction fails
+            // before the actor takes ownership.
+            var scope = _serviceProvider.CreateScope();
+            try
             {
-                actorReceiverInstance = ActivatorUtilities.CreateInstance(_serviceProvider, actorReceiverType);
-            }
-            else
-            {
-                // Determine if the constructor expects ILogger<T> (generic) rather than ILogger (non-generic).
-                // If so, wrap the plain ILogger in a Logger<T> so ActivatorUtilities can match the parameter type.
-                var loggerParam = actorReceiverType.GetConstructors()
-                                                   .SelectMany(c => c.GetParameters())
-                                                   .FirstOrDefault(p => p.ParameterType.IsGenericType && p.ParameterType.GetGenericTypeDefinition() == typeof(ILogger<>));
-
-                object loggerArg = logger;
-                if (loggerParam != null)
+                object actorReceiverInstance;
+                if (!constructorTakesLogger || logger == null)
                 {
-                    var expectedLoggerType = loggerParam.ParameterType;
-                    var loggerWrapperType = typeof(Logger<>).MakeGenericType(expectedLoggerType.GetGenericArguments()[0]);
-                    loggerArg = Activator.CreateInstance(loggerWrapperType, _serviceProvider.GetRequiredService<ILoggerFactory>())!;
+                    actorReceiverInstance = ActivatorUtilities.CreateInstance(scope.ServiceProvider, actorReceiverType);
+                }
+                else
+                {
+                    // Determine if the constructor expects ILogger<T> (generic) rather than ILogger (non-generic).
+                    // If so, wrap the plain ILogger in a Logger<T> so ActivatorUtilities can match the parameter type.
+                    var loggerParam = actorReceiverType.GetConstructors()
+                                                       .SelectMany(c => c.GetParameters())
+                                                       .FirstOrDefault(p => p.ParameterType.IsGenericType && p.ParameterType.GetGenericTypeDefinition() == typeof(ILogger<>));
+
+                    object loggerArg = logger;
+                    if (loggerParam != null)
+                    {
+                        var expectedLoggerType = loggerParam.ParameterType;
+                        var loggerWrapperType = typeof(Logger<>).MakeGenericType(expectedLoggerType.GetGenericArguments()[0]);
+                        loggerArg = Activator.CreateInstance(loggerWrapperType, _serviceProvider.GetRequiredService<ILoggerFactory>())!;
+                    }
+
+                    actorReceiverInstance = ActivatorUtilities.CreateInstance(scope.ServiceProvider, actorReceiverType, loggerArg);
                 }
 
-                actorReceiverInstance = ActivatorUtilities.CreateInstance(_serviceProvider, actorReceiverType, loggerArg);
-            }
+                var genericActor = _delayedSendGate is null ? ActivatorUtilities.CreateInstance(_serviceProvider, actorType, actorReceiverInstance, scope) :
+                                       ActivatorUtilities.CreateInstance(_serviceProvider, actorType, actorReceiverInstance, _delayedSendGate, scope);
+                if (genericActor == null)
+                {
+                    throw new InvalidOperationException($"Actor type {actorType.FullName} is not registered in the service provider.");
+                }
 
-            var genericActor = _delayedSendGate is null ? ActivatorUtilities.CreateInstance(_serviceProvider, actorType, actorReceiverInstance) :
-                                   ActivatorUtilities.CreateInstance(_serviceProvider, actorType, actorReceiverInstance, _delayedSendGate);
-            if (genericActor == null)
+                var props = Props.FromProducer(() => (IActor)genericActor)
+                                 .WithReceiverMiddleware(ActorMiddleware.ReceiveMiddleware(logger ?? _logger, _messageObserver, _timeProvider, _activityMonitor))
+                                 .WithSenderMiddleware(ActorMiddleware.SenderMiddleware(logger ?? _logger));
+                props = WithVitals(props, actorReceiverType, name);
+                props = WithDeterministicDispatcher(props);
+
+                var pid = _actorSystem.Root.SpawnNamed(props, name);
+                return pid.ToActorReference();
+            }
+            catch
             {
-                throw new InvalidOperationException($"Actor type {actorType.FullName} is not registered in the service provider.");
+                scope.Dispose();
+                throw;
             }
-
-            var props = Props.FromProducer(() => (IActor)genericActor)
-                             .WithReceiverMiddleware(ActorMiddleware.ReceiveMiddleware(logger ?? _logger, _messageObserver, _timeProvider, _activityMonitor))
-                             .WithSenderMiddleware(ActorMiddleware.SenderMiddleware(logger ?? _logger));
-            props = WithVitals(props, actorReceiverType, name);
-            props = WithDeterministicDispatcher(props);
-
-            var pid = _actorSystem.Root.SpawnNamed(props, name);
-            return pid.ToActorReference();
         }
 
         /// <inheritdoc />
