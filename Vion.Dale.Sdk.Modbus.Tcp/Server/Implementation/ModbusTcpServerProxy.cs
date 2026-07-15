@@ -106,7 +106,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.Implementation
             // listener sets no socket options — so an overlapping same-version redeploy can rebind the port
             // instead of hitting EADDRINUSE while the outgoing socket lingers (RFC 0018 / DF-46, Part B).
             // leaveOpen: false keeps the provider's teardown on the server's existing Stop()/Dispose() path.
-            _server.Start(new ReuseAddressTcpClientProvider(new IPEndPoint(listenAddress, port)), false);
+            _server.Start(new ReuseAddressTcpClientProvider(new IPEndPoint(listenAddress, port)));
             IsListening = true;
             LogStarted(listenAddress, port);
         }
