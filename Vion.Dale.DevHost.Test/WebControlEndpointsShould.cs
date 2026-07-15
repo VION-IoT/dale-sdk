@@ -259,6 +259,34 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        public async Task StateRoute_PrefersRootServiceForABareName_AndResolvesADottedComponentPath()
+        {
+            // DF-47 over HTTP: on a block whose root service and its nested components share a member name,
+            // GET /api/state/{block}/{prop} must return the ROOT value for the bare name, and must route a
+            // dotted "{component}.{member}" path to that component. The reported symptom was a 0 / null read
+            // here on a working device.
+            var port = FreePort();
+            var config = DevConfigurationBuilder.Create().AddLogicBlock<RootNestedCollisionBlock>("collide").Build();
+            await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithWebUi(port).Build();
+            await host.StartAsync();
+
+            using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
+
+            // Drive PointA to a distinctive value via its own (nested) service id.
+            var pointAServiceId = await NestedServiceId(client, "PointA");
+            var setResponse = await client.PostAsJsonAsync($"/api/dale/property/{pointAServiceId}/SharedPower", new { value = 11.0 });
+            Assert.AreEqual(HttpStatusCode.OK, setResponse.StatusCode);
+
+            // Bare name → the ROOT service's -40 (emitted from Ready), not a component's default 0.
+            var bare = await PollStateDouble(client, "/api/state/collide/SharedPower", -40.0);
+            Assert.AreEqual(-40.0, bare, "A bare read of the shared name must return the ROOT service's value over HTTP.");
+
+            // Dotted "PointA.SharedPower" → PointA's value, not null.
+            var dotted = await PollStateDouble(client, "/api/state/collide/PointA.SharedPower", 11.0);
+            Assert.AreEqual(11.0, dotted, "A dotted service.member path must resolve the named component over HTTP.");
+        }
+
+        [TestMethod]
         public async Task TimeSpanProperty_WritesDotNetForm_AndReadsBackAsIso8601()
         {
             // Regression for the "cannot write any TimeSpan property" bug. The UI submits the .NET TimeSpan
@@ -510,6 +538,41 @@ namespace Vion.Dale.DevHost.Test
 
             var currentLevel = JsonDocument.Parse(await client.GetStringAsync("/api/state/io/CurrentLevel")).RootElement;
             Assert.AreEqual(3.3, currentLevel.GetProperty("value").GetDouble(), 0.001, "The LevelInput drive must reach the block (CurrentLevel=3.3).");
+        }
+
+        // The service id of the (single) block's nested interface-bound component (identifier == the binding
+        // member name), read from /api/configuration — the addressing the set route uses.
+        private static async Task<string> NestedServiceId(HttpClient client, string serviceIdentifier)
+        {
+            using var doc = JsonDocument.Parse(await client.GetStringAsync("/api/configuration"));
+            foreach (var service in doc.RootElement.GetProperty("logicBlocks")[0].GetProperty("services").EnumerateArray())
+            {
+                if (service.GetProperty("identifier").GetString() == serviceIdentifier)
+                {
+                    return service.GetProperty("id").GetString()!;
+                }
+            }
+
+            throw new InvalidOperationException($"No service '{serviceIdentifier}' on the block.");
+        }
+
+        // Poll the single-property state route until its numeric "value" equals expected (or attempts elapse);
+        // returns the last observed value. The startup leading edge is asynchronous, so a bare root read polls.
+        private static async Task<double?> PollStateDouble(HttpClient client, string url, double expected)
+        {
+            double? value = null;
+            for (var attempt = 0; attempt < 50 && value != expected; attempt++)
+            {
+                using var doc = JsonDocument.Parse(await client.GetStringAsync(url));
+                var v = doc.RootElement.GetProperty("value");
+                value = v.ValueKind == JsonValueKind.Number ? v.GetDouble() : null;
+                if (value != expected)
+                {
+                    await Task.Delay(100);
+                }
+            }
+
+            return value;
         }
 
         // The mocked endpoint ids for a contract, read from /api/configuration (the addressing the SPA and the

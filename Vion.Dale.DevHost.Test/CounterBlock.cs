@@ -52,6 +52,7 @@ namespace Vion.Dale.DevHost.Test
             serviceCollection.AddTransient<MultiPointBlock>();
             serviceCollection.AddTransient<TickerBlock>();
             serviceCollection.AddTransient<DualPointBlock>();
+            serviceCollection.AddTransient<RootNestedCollisionBlock>();
         }
     }
 }
