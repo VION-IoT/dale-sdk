@@ -8,6 +8,7 @@ namespace Vion.Examples.Energy.Contracts
                         BetweenDefaultName = "Verbraucher",
                         AndDefaultName = "Energiemanager",
                         Direction = ContractDirection.AndToBetween)]
+    [ServiceRelation(RelationType = "LinkedObservableConsumer", OutwardsInterface = "IObservableElectricityConsumer")]
     public static class ObservableElectricityConsumerContract
     {
         [RequestResponse(From = "IObservableElectricityConsumerManager", To = "IObservableElectricityConsumer", ResponseType = typeof(DataResponse))]

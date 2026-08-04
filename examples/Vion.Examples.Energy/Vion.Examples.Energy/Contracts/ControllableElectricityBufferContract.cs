@@ -8,6 +8,7 @@ namespace Vion.Examples.Energy.Contracts
                         BetweenDefaultName = "Speicher",
                         AndDefaultName = "Energiemanager",
                         Direction = ContractDirection.AndToBetween)]
+    [ServiceRelation(RelationType = "LinkedControllableBuffer", OutwardsInterface = "IControllableElectricityBuffer")]
     public static class ControllableElectricityBufferContract
     {
         [RequestResponse(From = "IControllableElectricityBufferManager", To = "IControllableElectricityBuffer", ResponseType = typeof(DataResponse))]
