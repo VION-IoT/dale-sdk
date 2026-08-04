@@ -2,9 +2,9 @@
 
 namespace Vion.Examples.Energy.Contracts
 {
-    // Deliberately no [ServiceRelation]: relations are opt-in, and this contract is a data feed rather
-    // than a link in the energy topology. Wiring it still works exactly as before — it just does not show
-    // up as an edge in the block graph.
+    // Deliberately no [ServiceRelation]: relations are opt-in per contract, and this one is a data feed
+    // rather than a link in the energy topology. Its endpoints bind and wire exactly like any other
+    // contract's — they simply contribute no edge to the block graph.
     [LogicBlockContract(BetweenInterface = "IWeatherDataProvider",
                         AndInterface = "IWeatherDataConsumer",
                         BetweenDefaultName = "Wetterdatenquelle",
