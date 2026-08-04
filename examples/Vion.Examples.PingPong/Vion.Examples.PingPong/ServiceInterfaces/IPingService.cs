@@ -1,10 +1,10 @@
 ﻿using Vion.Dale.Sdk.Core;
-using Vion.Examples.PingPong.Contracts;
 
 namespace Vion.Examples.PingPong.ServiceInterfaces
 {
+    // No relation declaration here: the relation rides on the PingPong contract, and the SDK derives this
+    // service's half from the IPing interface the Ping block implements.
     [ServiceInterface]
-    [ServiceRelation("PingPong", ServiceRelationDirection.Outwards, typeof(IPing))]
     public interface IPingService
     {
         [ServiceProperty]
