@@ -3,39 +3,38 @@ using System;
 namespace Vion.Dale.Sdk.Core
 {
     /// <summary>
-    ///     Declares that an operator wiring of this contract constitutes a service relation of the given
-    ///     type between the two blocks' services (RFC 0019). The SDK derives one relation half per bound
-    ///     interface endpoint on each side; a relation row materialises in the cloud only where an
-    ///     operator-authored interface mapping connects two blocks over this contract. Relations are pure
-    ///     topology metadata — they carry no runtime behaviour.
+    ///     Declares that wiring this contract between two logic blocks is a service relation of the given
+    ///     type — a typed edge between the two blocks' services, published as topology metadata. Declare it
+    ///     once, here on the contract: every block implementing either of the contract's two interfaces
+    ///     then takes part automatically, on whichever side it implements. Relations describe the graph;
+    ///     they carry no runtime behaviour and change nothing about how messages flow.
     ///     <para>
-    ///         <b>Direction convention:</b> <see cref="OutwardsInterface" /> names the subordinate
-    ///         (providing) side — the start of the arrow, e.g. a consumer, supplier, meter, or cascade
-    ///         child. The contract's other interface is the inwards, aggregating (managing) side — the end
-    ///         of the arrow, e.g. an energy manager or cascade parent.
+    ///         <b>Which side is which.</b> <see cref="OutwardsInterface" /> names the subordinate,
+    ///         providing side — the start of the arrow. The contract's other interface is the inwards,
+    ///         aggregating side — the end of the arrow. A block may implement both sides; each is treated
+    ///         independently.
     ///     </para>
     ///     <para>
-    ///         The half attaches to the service that owns the endpoint: the root service for a
-    ///         class-implemented interface, and the component service for a property-bound one. A component
-    ///         whose type carries no service surface (no <see cref="ServiceInterfaceAttribute" />, no
-    ///         <see cref="ServicePropertyAttribute" /> / <see cref="ServiceMeasuringPointAttribute" />
-    ///         members) has no node in the cloud graph, so its endpoint emits <b>no</b> half — it still
-    ///         binds and wires normally. Give such a component one service property to let it participate,
-    ///         or implement the contract interface class-level for a block-granularity edge. Analyzer
-    ///         DALE045 warns at the property.
+    ///         <b>A component must be a service to take part.</b> The relation attaches to the service that
+    ///         owns the interface: the block's own service when the block class implements it, or the
+    ///         component's service when a property's type does. A component type with no service surface
+    ///         (no <see cref="ServiceInterfaceAttribute" />, no <see cref="ServicePropertyAttribute" /> or
+    ///         <see cref="ServiceMeasuringPointAttribute" /> members) is not a service, so nothing is
+    ///         emitted for it — the interface still binds and wires as usual. Give the component one
+    ///         service property to let it take part, or implement the interface on the block class for an
+    ///         edge at block granularity.
     ///     </para>
     ///     <para>
-    ///         <b>Package skew:</b> halves are derived per package at parse time from the contract assembly
-    ///         that package was built against. For a contract shared across libraries, both sides' packages
-    ///         must be built against a contract version carrying the declaration; skew degrades to "no row",
-    ///         never a failure.
+    ///         <b>Both sides need the declaration.</b> Each package resolves relations at build time
+    ///         against the contract assembly it was compiled against, so a block built against an older
+    ///         contract simply contributes nothing for that pair — a missing edge, never an error.
     ///     </para>
     /// </summary>
     /// <example>
     ///     <code>
-    /// [LogicBlockContract(BetweenInterface = "IControllableConsumer", AndInterface = "IControllableConsumerManager")]
-    /// [ServiceRelation(RelationType = "LinkedEnergyManagerConsumer", OutwardsInterface = "IControllableConsumer")]
-    /// public static class ControllableConsumerContract { }
+    /// [LogicBlockContract(BetweenInterface = "IHeatPump", AndInterface = "IHeatPumpManager")]
+    /// [ServiceRelation(RelationType = "LinkedHeatPump", OutwardsInterface = "IHeatPump")]
+    /// public static class HeatPumpContract { }
     /// </code>
     /// </example>
     [PublicApi]
@@ -43,31 +42,26 @@ namespace Vion.Dale.Sdk.Core
     public sealed class ServiceRelationAttribute : Attribute
     {
         /// <summary>
-        ///     Identifier of the relation as it appears in the cloud API (<c>relationType</c>). An opaque,
-        ///     ordinal-compared, stable contract string — renaming it is a breaking metadata change for
-        ///     every dashboard / API consumer keying on it. Must be unique across the declarations on one
-        ///     contract (analyzer DALE045).
+        ///     Names the kind of edge this relation is. Opaque and compared verbatim, and it is what both
+        ///     the API and the UI key on — so treat it as a public identifier: choose it deliberately, and
+        ///     expect a rename to break every consumer. Must be unique among the declarations on one
+        ///     contract.
         /// </summary>
         public required string RelationType { get; init; }
 
         /// <summary>
-        ///     Which of the contract's two interfaces (<see cref="LogicBlockContractAttribute.BetweenInterface" />
-        ///     / <see cref="LogicBlockContractAttribute.AndInterface" />, by the same short-name string) is
-        ///     the outwards — subordinate / providing — side. Must equal one of the two; validated at bind
-        ///     time and by analyzer DALE045.
+        ///     Which of the contract's two interfaces is the outwards — subordinate, providing — side.
+        ///     Must be spelled exactly like the corresponding
+        ///     <see cref="LogicBlockContractAttribute.BetweenInterface" /> or
+        ///     <see cref="LogicBlockContractAttribute.AndInterface" />; any other value is rejected.
         /// </summary>
         public required string OutwardsInterface { get; init; }
     }
 
     /// <summary>
-    ///     Which side of a service relation a derived half represents. The split key between the
-    ///     <c>inwardRelations</c> and <c>outwardRelations</c> arrays on the wire; the value itself never
-    ///     reaches the wire.
-    ///     <para>
-    ///         Per the RFC 0019 convention, <see cref="Outwards" /> is the subordinate / providing side
-    ///         (start of the arrow) named by <see cref="ServiceRelationAttribute.OutwardsInterface" />, and
-    ///         <see cref="Inwards" /> is the aggregating / managing side (end of the arrow).
-    ///     </para>
+    ///     Which side of a service relation a service sits on. <see cref="Outwards" /> is the side named by
+    ///     <see cref="ServiceRelationAttribute.OutwardsInterface" />; the contract's other interface is
+    ///     <see cref="Inwards" />.
     /// </summary>
     [PublicApi]
     public enum ServiceRelationDirection

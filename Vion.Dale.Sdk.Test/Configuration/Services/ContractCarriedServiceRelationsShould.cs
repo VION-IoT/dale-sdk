@@ -9,6 +9,7 @@ using Moq;
 using Vion.Contracts.Introspection;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.CodeGeneration;
+using Vion.Dale.Sdk.Configuration;
 using Vion.Dale.Sdk.Configuration.Interfaces;
 using Vion.Dale.Sdk.Configuration.Services;
 using Vion.Dale.Sdk.Core;
@@ -330,7 +331,7 @@ namespace Vion.Dale.Sdk.Test.Configuration.Services
             Assert.AreEqual(0, root.OutwardRelations.Count + root.InwardRelations.Count, "The skipped half must not fall back onto the root service.");
 
             // The endpoint itself still binds and wires normally.
-            Assert.Contains("Bare_IConsumer", BoundInterfaceIdentifiers(block));
+            Assert.Contains("Bare_IConsumer", BindLive(block).Endpoints);
         }
 
         // ── Emitted shape (golden pin) ────────────────────────────────────────────────────────────
@@ -378,11 +379,14 @@ namespace Vion.Dale.Sdk.Test.Configuration.Services
 
             // Live mode: a gated-out endpoint never binds, so no half is registered — "no endpoint, no
             // wiring, no relation".
-            var live = LiveRelations(new GatedConsumerBlock { PointCount = 1 });
-            Assert.IsTrue(live.ContainsKey("Point1"));
-            Assert.IsFalse(live.ContainsKey("Point2"), "A gated-out endpoint registers no relation half in Live mode.");
+            var gatedOut = BindLive(new GatedConsumerBlock { PointCount = 1 });
+            Assert.IsTrue(gatedOut.Relations.ContainsKey("Point1"));
+            Assert.IsFalse(gatedOut.Relations.ContainsKey("Point2"), "A gated-out endpoint registers no relation half in Live mode.");
+            Assert.DoesNotContain("Point2_IConsumer", gatedOut.Endpoints, "The endpoint itself is what falls away — the half follows from that.");
 
-            Assert.IsTrue(LiveRelations(new GatedConsumerBlock { PointCount = 2 }).ContainsKey("Point2"));
+            var included = BindLive(new GatedConsumerBlock { PointCount = 2 });
+            Assert.IsTrue(included.Relations.ContainsKey("Point2"));
+            Assert.Contains("Point2_IConsumer", included.Endpoints);
         }
 
         // ── Bind-time validation (§4.6) ───────────────────────────────────────────────────────────
@@ -439,32 +443,36 @@ namespace Vion.Dale.Sdk.Test.Configuration.Services
             return $"{relation.RelationType}|{relation.InterfaceIdentifier}|{relation.InterfaceTypeFullName}|{{{string.Join(",", relation.Annotations.Keys)}}}";
         }
 
-        /// <summary>Runs the real Live-mode binders and returns the relation halves per owning service.</summary>
-        private Dictionary<string, IReadOnlyList<ServiceRelationInfo>> LiveRelations(LogicBlockBase block)
+        /// <summary>
+        ///     Runs the interface binder in Live mode — the mode <see cref="LogicBlockIntrospection" /> never
+        ///     uses — and returns both what it bound and what it registered. Calling the binder directly is
+        ///     what <c>LogicBlockBase.Configure</c> does, one layer down, so nothing here reaches into the
+        ///     block's private state.
+        /// </summary>
+        private static (HashSet<string> Endpoints, Dictionary<string, IReadOnlyList<ServiceRelationInfo>> Relations) BindLive(LogicBlockBase block)
         {
-            DriveInitialize(block);
+            var serviceBinder = new ServiceBinder();
+            var interfaceFactory = new RecordingInterfaceFactory();
 
-            var binder = (ServiceBinder)typeof(LogicBlockBase).GetField("_serviceBinder", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(block)!;
-            return binder.GetAllServiceRelations().ToDictionary(kvp => kvp.Key, kvp => kvp.Value, StringComparer.Ordinal);
+            DeclarativeInterfaceBinder.BindInterfacesFromAttributes(block, interfaceFactory, serviceBinder, BindingMode.Live, InclusionGate.BuildParameterContext(block));
+
+            return (interfaceFactory.Identifiers, serviceBinder.GetAllServiceRelations().ToDictionary(kvp => kvp.Key, kvp => kvp.Value, StringComparer.Ordinal));
         }
 
-        private HashSet<string> BoundInterfaceIdentifiers(LogicBlockBase block)
+        /// <summary>
+        ///     Records the endpoint identifiers the binder mints. The binder only passes the created instance
+        ///     to <c>ApplyMetadata</c>, which ignores anything that is not an <see cref="ILogicSenderInterface" />
+        ///     — so returning nothing is enough, and no generated sender types are needed.
+        /// </summary>
+        private sealed class RecordingInterfaceFactory : IInterfaceFactory
         {
-            DriveInitialize(block);
+            public HashSet<string> Identifiers { get; } = new(StringComparer.Ordinal);
 
-            var interfaces = (System.Collections.IDictionary)typeof(LogicBlockBase).GetField("_interfaces", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(block)!;
-            return interfaces.Keys.Cast<string>().ToHashSet(StringComparer.Ordinal);
-        }
-
-        private void DriveInitialize(LogicBlockBase block)
-        {
-            var initialize = new InitializeLogicBlock("cfg",
-                                                      block.GetType().Name,
-                                                      new Dictionary<string, ServiceIdentifier>(),
-                                                      new Dictionary<string, LogicBlockContractId>(),
-                                                      _serviceProvider);
-
-            block.HandleMessageAsync(initialize, new Mock<IActorContext>().Object).GetAwaiter().GetResult();
+            public TInterface Create<TInterface, TImplementation>(string identifier, TImplementation implementation)
+            {
+                Identifiers.Add(identifier);
+                return default!;
+            }
         }
     }
 }
