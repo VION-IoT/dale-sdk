@@ -1,10 +1,16 @@
 using System.Collections.Generic;
+using System.Text.Json.Nodes;
 
 namespace Vion.Dale.Cli.Models
 {
     /// <summary>
     ///     DTO matching the JSON output of Vion.Dale.LogicBlockParser.
-    ///     Mirrors Vion.Contracts/Introspection types for deserialization.
+    ///     Hand-mirrors the Vion.Contracts introspection types (DalePluginInfo /
+    ///     LogicBlockIntrospectionResult) rather than referencing the package: the CLI has no
+    ///     Vion.* dependency, and the parser it shells out to comes from the consumer project's
+    ///     SDK version — so this mirror must stay a tolerant reader across parser versions.
+    ///     Every member is therefore optional (no <c>required</c>): unknown JSON members are
+    ///     ignored and absent members stay default instead of failing deserialization.
     /// </summary>
     public class DalePluginInfo
     {
@@ -56,6 +62,12 @@ namespace Vion.Dale.Cli.Models
     {
         public string Identifier { get; set; } = string.Empty;
 
+        /// <summary>
+        ///     Config-time inclusion gate (RFC 0016): the [IncludedWhen] predicate string when the
+        ///     service is gated, otherwise null.
+        /// </summary>
+        public string? IncludedWhen { get; set; }
+
         public List<string> InterfaceTypeFullNames { get; set; } = new();
 
         public List<ServicePropertyInfo> Properties { get; set; } = new();
@@ -71,24 +83,42 @@ namespace Vion.Dale.Cli.Models
     {
         public string Identifier { get; set; } = string.Empty;
 
-        public string TypeFullName { get; set; } = string.Empty;
+        /// <summary>
+        ///     JSON Schema 2020-12 document (Dale profile) describing the property's data shape.
+        ///     Null only for output from pre-schema parser versions.
+        /// </summary>
+        public JsonNode? Schema { get; set; }
 
-        public bool Writable { get; set; }
+        /// <summary>
+        ///     Optional UI presentation hints (display name, group, ordering, etc.).
+        /// </summary>
+        public JsonNode? Presentation { get; set; }
 
-        public string ServiceElementType { get; set; } = string.Empty;
-
-        public Dictionary<string, object>? Annotations { get; set; }
+        /// <summary>
+        ///     Optional dale-runtime behavior hints (e.g. persistent, instantiationParameter).
+        /// </summary>
+        public JsonNode? Runtime { get; set; }
     }
 
     public class ServiceMeasuringPointInfo
     {
         public string Identifier { get; set; } = string.Empty;
 
-        public string TypeFullName { get; set; } = string.Empty;
+        /// <summary>
+        ///     JSON Schema 2020-12 document (Dale profile) describing the measuring point's data shape.
+        ///     Null only for output from pre-schema parser versions.
+        /// </summary>
+        public JsonNode? Schema { get; set; }
 
-        public string ServiceElementType { get; set; } = string.Empty;
+        /// <summary>
+        ///     Optional UI presentation hints.
+        /// </summary>
+        public JsonNode? Presentation { get; set; }
 
-        public Dictionary<string, object>? Annotations { get; set; }
+        /// <summary>
+        ///     Optional dale-runtime behavior hints.
+        /// </summary>
+        public JsonNode? Runtime { get; set; }
     }
 
     public class ServiceRelationInfo

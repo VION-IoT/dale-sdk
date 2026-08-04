@@ -141,7 +141,9 @@ feed instead of your local build.
 dotnet test Vion.Dale.Cli.Test/Vion.Dale.Cli.Test.csproj
 ```
 
-57 tests covering: ProjectDiscovery, SourceInserter, AddCommand snippet builders, TokenStore, CommandContext, ParserRunner, AddMeasuringPoint.
+Tests cover: ProjectDiscovery, SourceInserter, AddCommand snippet builders, TokenStore, CommandContext, ParserRunner (parser discovery + introspection-JSON deserialization against the current parser shape), SchemaSummary type labels, `dale list` JSON mapping, AddMeasuringPoint, scenario file checks.
+
+`Models/DalePluginInfo.cs` is a **hand-maintained mirror** of the parser's publish JSON (Vion.Contracts `DalePluginInfo`/`LogicBlockIntrospectionResult`) — deliberately not a package reference (no-Vion-dependency rule, and the CLI must tolerate output from whatever SDK version the consumer project pins, which a `required`-property contract type would reject). When the contracts introspection shape changes, update the mirror and the fixture in `Vion.Dale.Cli.Test/Models/DalePluginInfoDeserializationTests.cs`.
 
 ## Versioning
 

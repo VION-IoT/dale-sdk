@@ -47,6 +47,56 @@ namespace Vion.Dale.Cli.Commands
             return command;
         }
 
+        internal static CliListOutput MapToCliOutput(DalePluginInfo info, DaleProject project)
+        {
+            var output = new CliListOutput
+                         {
+                             PackageId = info.PackageId ?? project.PackageId ?? project.ProjectName,
+                             Version = info.PackageVersion ?? project.Version,
+                             SdkVersion = project.SdkVersion,
+                             LogicBlocks = new List<CliLogicBlockOutput>(),
+                         };
+
+            foreach (var lb in info.LogicBlocks)
+            {
+                var block = new CliLogicBlockOutput
+                            {
+                                Name = lb.TypeFullName?.Split('.')[^1] ?? lb.TypeFullName ?? "Unknown",
+                                FullName = lb.TypeFullName ?? "Unknown",
+                                Interfaces = lb.Interfaces?.Select(i => i.Identifier ?? string.Empty).Where(s => s != string.Empty).ToList() ??
+                                             new List<string>(),
+                                Contracts = lb.Contracts?.Select(c => c.Identifier ?? string.Empty).Where(s => s != string.Empty).ToList() ??
+                                            new List<string>(),
+                                Services = lb.Services
+                                             ?.Select(s => new CliServiceOutput
+                                                           {
+                                                               Name = s.Identifier ?? string.Empty,
+                                                               IncludedWhen = s.IncludedWhen,
+                                                               Properties = s.Properties
+                                                                             ?.Select(p => new CliPropertyOutput
+                                                                                           {
+                                                                                               Name = p.Identifier ?? string.Empty,
+                                                                                               Type =
+                                                                                                   SchemaSummary
+                                                                                                       .Describe(p.Schema),
+                                                                                           })
+                                                                             .ToList() ?? new List<CliPropertyOutput>(),
+                                                               MeasuringPoints = s.MeasuringPoints
+                                                                                  ?.Select(m => new CliPropertyOutput
+                                                                                                {
+                                                                                                    Name = m.Identifier ?? string.Empty,
+                                                                                                    Type = SchemaSummary.Describe(m.Schema),
+                                                                                                })
+                                                                                  .ToList() ?? new List<CliPropertyOutput>(),
+                                                           })
+                                             .ToList() ?? new List<CliServiceOutput>(),
+                            };
+                output.LogicBlocks.Add(block);
+            }
+
+            return output;
+        }
+
         private static void RenderTable(DaleProject project, DalePluginInfo pluginInfo)
         {
             DaleConsole.Info($"Project: {project.ProjectName} (v{project.Version ?? "??"})");
@@ -98,53 +148,6 @@ namespace Vion.Dale.Cli.Commands
                 AnsiConsole.Write(table);
                 AnsiConsole.WriteLine();
             }
-        }
-
-        private static CliListOutput MapToCliOutput(DalePluginInfo info, DaleProject project)
-        {
-            var output = new CliListOutput
-                         {
-                             PackageId = info.PackageId ?? project.PackageId ?? project.ProjectName,
-                             Version = info.PackageVersion ?? project.Version,
-                             SdkVersion = project.SdkVersion,
-                             LogicBlocks = new List<CliLogicBlockOutput>(),
-                         };
-
-            foreach (var lb in info.LogicBlocks)
-            {
-                var block = new CliLogicBlockOutput
-                            {
-                                Name = lb.TypeFullName?.Split('.')[^1] ?? lb.TypeFullName ?? "Unknown",
-                                FullName = lb.TypeFullName ?? "Unknown",
-                                Interfaces = lb.Interfaces?.Select(i => i.Identifier ?? string.Empty).Where(s => s != string.Empty).ToList() ??
-                                             new List<string>(),
-                                Contracts = lb.Contracts?.Select(c => c.Identifier ?? string.Empty).Where(s => s != string.Empty).ToList() ??
-                                            new List<string>(),
-                                Services = lb.Services
-                                             ?.Select(s => new CliServiceOutput
-                                                           {
-                                                               Properties = s.Properties
-                                                                             ?.Select(p => new CliPropertyOutput
-                                                                                           {
-                                                                                               Name = p.Identifier ?? string.Empty,
-                                                                                               Type = p.TypeFullName ?? string
-                                                                                                          .Empty,
-                                                                                           })
-                                                                             .ToList() ?? new List<CliPropertyOutput>(),
-                                                               MeasuringPoints = s.MeasuringPoints
-                                                                                  ?.Select(m => new CliPropertyOutput
-                                                                                                {
-                                                                                                    Name = m.Identifier ?? string.Empty,
-                                                                                                    Type = m.TypeFullName ?? string.Empty,
-                                                                                                })
-                                                                                  .ToList() ?? new List<CliPropertyOutput>(),
-                                                           })
-                                             .ToList() ?? new List<CliServiceOutput>(),
-                            };
-                output.LogicBlocks.Add(block);
-            }
-
-            return output;
         }
     }
 }

@@ -67,7 +67,7 @@ namespace Vion.Dale.Cli.Helpers
 
                 // Step 5: Read and parse JSON
                 var json = await File.ReadAllTextAsync(tempJson);
-                return JsonSerializer.Deserialize<DalePluginInfo>(json, JsonOptions);
+                return ParsePluginInfo(json);
             }
             finally
             {
@@ -84,6 +84,14 @@ namespace Vion.Dale.Cli.Helpers
                     // Best effort cleanup
                 }
             }
+        }
+
+        /// <summary>
+        ///     Deserialize the parser's introspection JSON into the CLI's tolerant mirror DTO.
+        /// </summary>
+        internal static DalePluginInfo? ParsePluginInfo(string json)
+        {
+            return JsonSerializer.Deserialize<DalePluginInfo>(json, JsonOptions);
         }
 
         /// <summary>
