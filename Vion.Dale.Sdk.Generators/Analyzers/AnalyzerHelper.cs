@@ -44,6 +44,9 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
 
         internal const string LogicInterfaceAttribute = "Vion.Dale.Sdk.CodeGeneration.LogicInterfaceAttribute";
 
+        // RFC 0019 contract-carried service relations
+        internal const string ServiceRelationAttribute = "Vion.Dale.Sdk.Core.ServiceRelationAttribute";
+
         // RFC 0016 config-time structural gating
         internal const string IncludedWhenAttribute = "Vion.Dale.Sdk.Core.IncludedWhenAttribute";
 
@@ -314,6 +317,38 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                     {
                         return true;
                     }
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        ///     Whether <paramref name="type" /> carries a service surface — it implements a
+        ///     <c>[ServiceInterface]</c>, or declares <c>[ServiceProperty]</c> / <c>[ServiceMeasuringPoint]</c>
+        ///     members. Mirrors the runtime's <c>ServiceSurface.IsServiceBearing</c> exactly: it is what
+        ///     decides whether binding a component property produces a service node, and therefore (RFC 0019)
+        ///     whether its interface endpoints own a relation half.
+        ///     <para>
+        ///         Distinct from <see cref="TypeHasServiceMembers" />, which additionally requires an
+        ///         implemented service interface to declare members.
+        ///     </para>
+        /// </summary>
+        internal static bool IsServiceBearing(INamedTypeSymbol type)
+        {
+            foreach (var iface in type.AllInterfaces)
+            {
+                if (HasAttribute(iface, ServiceInterfaceAttribute))
+                {
+                    return true;
+                }
+            }
+
+            foreach (var property in EnumerateProperties(type))
+            {
+                if (IsServiceElement(property))
+                {
+                    return true;
                 }
             }
 

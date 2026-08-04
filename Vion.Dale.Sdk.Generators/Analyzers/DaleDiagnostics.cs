@@ -554,5 +554,29 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                                                                                                    Category,
                                                                                                    DiagnosticSeverity.Error,
                                                                                                    true);
+
+        /// <summary>
+        ///     A <c>[ServiceRelation]</c> declaration violates its discipline, or a block cannot participate
+        ///     in one it is wired for (RFC 0019 §4.6). Reported as an <b>error</b> for: the attribute on a
+        ///     class without <c>[LogicBlockContract]</c> (bind-time throw); an <c>OutwardsInterface</c> that
+        ///     is neither the contract's <c>BetweenInterface</c> nor its <c>AndInterface</c> (bind-time
+        ///     throw); a duplicate <c>RelationType</c> across the declarations on one contract (duplicate
+        ///     rows crash the cloud activation projection on its composite primary key); and an empty or
+        ///     whitespace <c>RelationType</c> / <c>OutwardsInterface</c>.
+        ///     <para>
+        ///         Reported as a <b>warning</b> (same ID — suppress or configure the whole rule together)
+        ///         for: a property whose type implements a relation-bearing contract interface but carries no
+        ///         service surface, so the endpoint wires normally yet emits no relation half; and the same
+        ///         <c>RelationType</c> appearing on two contracts in one compilation, which is legitimate for
+        ///         contract versioning but collides when both are wired between the same two services.
+        ///     </para>
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE045_ServiceRelationDiscipline = new("DALE045",
+                                                                                            "ServiceRelation discipline violated",
+                                                                                            "{0}: {1}",
+                                                                                            Category,
+                                                                                            DiagnosticSeverity.Error,
+                                                                                            true,
+                                                                                            customTags: new[] { WellKnownDiagnosticTags.CompilationEnd });
     }
 }

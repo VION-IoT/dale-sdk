@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json.Nodes;
-using Vion.Dale.Sdk.CodeGeneration;
 using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.Sdk.Configuration.Services
@@ -18,18 +17,13 @@ namespace Vion.Dale.Sdk.Configuration.Services
             // The dropped [Service] attribute previously allowed overriding the identifier; without
             // it, the class name is canonical. The root service is never gated (RFC 0016 placement matrix:
             // whole-block existence = the operator adds the instance or not).
-            var implementedServiceInterfaces = GetImplementedServiceInterfaces(type);
+            var implementedServiceInterfaces = ServiceSurface.GetImplementedServiceInterfaces(type);
             var service = binder.CreateService(type.Name);
             var boundInterfaceProperties = new HashSet<string>();
 
             foreach (var iface in implementedServiceInterfaces)
             {
-                service.Implements(iface,
-                                   decl =>
-                                   {
-                                       BindInterfaceProperties(logicBlock, iface, decl, boundInterfaceProperties);
-                                       AutoDetectServiceRelationsForInterface(logicBlock, iface, decl);
-                                   });
+                service.Implements(iface, decl => BindInterfaceProperties(logicBlock, iface, decl, boundInterfaceProperties));
             }
 
             BindExtraProperties(logicBlock, service, boundInterfaceProperties);
@@ -48,11 +42,12 @@ namespace Vion.Dale.Sdk.Configuration.Services
             {
                 var propertyType = property.PropertyType;
 
-                var implementedServiceInterfaces = GetImplementedServiceInterfaces(propertyType);
-                var hasServiceProperties = HasServicePropertiesOrMeasuringPoints(propertyType);
+                var implementedServiceInterfaces = ServiceSurface.GetImplementedServiceInterfaces(propertyType);
 
-                // Skip if neither service interfaces nor service-property attributes present.
-                if (implementedServiceInterfaces.Length == 0 && !hasServiceProperties)
+                // Skip if neither service interfaces nor service-property attributes present. The same
+                // predicate decides whether a property-bound interface endpoint has an owning service for
+                // its RFC 0019 relation half — hence the shared helper.
+                if (!ServiceSurface.IsServiceBearing(propertyType))
                 {
                     continue;
                 }
@@ -82,21 +77,6 @@ namespace Vion.Dale.Sdk.Configuration.Services
             }
         }
 
-        private static bool HasServicePropertiesOrMeasuringPoints(Type type)
-        {
-            var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
-
-            foreach (var prop in properties)
-            {
-                if (prop.GetCustomAttribute<ServicePropertyAttribute>() != null || prop.GetCustomAttribute<ServiceMeasuringPointAttribute>() != null)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
         private static void BindServiceWithInterfaces(object serviceObject, string serviceIdentifier, Type[] implementedServiceInterfaces, ServiceBinder binder)
         {
             var boundInterfaceProperties = new HashSet<string>();
@@ -105,21 +85,11 @@ namespace Vion.Dale.Sdk.Configuration.Services
             // Process all interface implementations using non-generic approach
             foreach (var iface in implementedServiceInterfaces)
             {
-                service.Implements(iface,
-                                   decl =>
-                                   {
-                                       BindInterfaceProperties(serviceObject, iface, decl, boundInterfaceProperties);
-                                       AutoDetectServiceRelationsForInterface(serviceObject, iface, decl);
-                                   });
+                service.Implements(iface, decl => BindInterfaceProperties(serviceObject, iface, decl, boundInterfaceProperties));
             }
 
             // Then bind extra properties (not mapped to an interface)
             BindExtraProperties(serviceObject, service, boundInterfaceProperties);
-        }
-
-        private static Type[] GetImplementedServiceInterfaces(Type type)
-        {
-            return type.GetInterfaces().Where(i => i.GetCustomAttribute<ServiceInterfaceAttribute>() != null).ToArray();
         }
 
         private static void BindInterfaceProperties(object logicBlock, Type interfaceType, ServiceDeclarationBase serviceDecl, HashSet<string> boundInterfaceProperties)
@@ -174,50 +144,6 @@ namespace Vion.Dale.Sdk.Configuration.Services
             foreach (var prop in extraMeasuringPoints)
             {
                 service.BindMeasuringPointWithCompiledExpression(prop.Name, logicBlock, prop);
-            }
-        }
-
-        private static void AutoDetectServiceRelationsForInterface(object logicBlock, Type serviceInterfaceType, ServiceDeclarationBase serviceDecl)
-        {
-            var logicBlockType = logicBlock.GetType();
-
-            // Get all ServiceRelationAttributes for this specific service interface
-            var serviceRelationAttributes = serviceInterfaceType.GetCustomAttributes<ServiceRelationAttribute>().ToList();
-
-            // Get all implemented logic interfaces on the logic block
-            var implementedLogicInterfaces = logicBlockType.GetInterfaces().Where(i => i.GetCustomAttribute<LogicInterfaceAttribute>() != null).ToList();
-            var interfaceAttributes = logicBlockType.GetCustomAttributes<LogicBlockInterfaceBindingAttribute>().ToList();
-
-            foreach (var serviceRelationAttribute in serviceRelationAttributes)
-            {
-                // find the corresponding logic interface implemented by the logic block
-                var matchingImplementedLogicInterfaces = implementedLogicInterfaces.Where(li => li.IsAssignableFrom(serviceRelationAttribute.FunctionInterfaceType)).ToList();
-
-                if (matchingImplementedLogicInterfaces.Count == 1)
-                {
-                    var implementedLogicInterface = matchingImplementedLogicInterfaces.Single();
-
-                    // Look for explicit attribute for this interface, use explicit attribute or create default
-                    var interfaceAttribute = interfaceAttributes.FirstOrDefault(attr => attr.ForInterface == implementedLogicInterface);
-                    var interfaceIdentifier = interfaceAttribute?.Identifier ?? implementedLogicInterface.Name;
-
-                    // Create auto-detected relation info
-                    var relationInfo = new ServiceRelationInfo
-                                       {
-                                           RelationType = serviceRelationAttribute.RelationType,
-                                           InterfaceIdentifier = interfaceIdentifier,
-                                           InterfaceTypeFullName = ReflectionHelper.GetDisplayFullName(serviceRelationAttribute.FunctionInterfaceType),
-                                           Direction = serviceRelationAttribute.Direction,
-                                           Annotations = serviceRelationAttribute.Annotations,
-                                       };
-
-                    // Register the auto-detected relation directly via ServiceDeclarationBase
-                    serviceDecl.RegisterServiceRelation(relationInfo);
-                }
-                else if (matchingImplementedLogicInterfaces.Count > 1)
-                {
-                    // Multiple matches - cannot auto-detect currently, additional conventions would be needed
-                }
             }
         }
 

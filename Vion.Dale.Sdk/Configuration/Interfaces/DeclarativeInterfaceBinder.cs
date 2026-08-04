@@ -13,6 +13,7 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
     {
         public static void BindInterfacesFromAttributes(object logicBlock,
                                                         IInterfaceFactory interfaceFactory,
+                                                        ServiceBinder serviceBinder,
                                                         BindingMode mode,
                                                         IReadOnlyDictionary<string, JsonNode?>? parameterContext)
         {
@@ -20,13 +21,18 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
 
             // Handle class-based interfaces with automatic detection. Class-implemented interfaces are not
             // gateable (no member to carry [IncludedWhen] — DALE043 enforces this), so they bind unconditionally.
-            BindClassBasedInterfaces(logicBlock, interfaceFactory, type);
+            BindClassBasedInterfaces(logicBlock, interfaceFactory, serviceBinder, type);
 
             // Handle property-based interfaces with automatic detection (the RFC 0016 gateable path).
-            BindPropertyBasedInterfaces(logicBlock, interfaceFactory, type, mode, parameterContext);
+            BindPropertyBasedInterfaces(logicBlock,
+                                        interfaceFactory,
+                                        serviceBinder,
+                                        type,
+                                        mode,
+                                        parameterContext);
         }
 
-        private static void BindClassBasedInterfaces(object logicBlock, IInterfaceFactory interfaceFactory, Type type)
+        private static void BindClassBasedInterfaces(object logicBlock, IInterfaceFactory interfaceFactory, ServiceBinder serviceBinder, Type type)
         {
             // Get all implementation interfaces that the class implements
             var implementedLogicInterfaces = GetImplementedLogicInterfaces(type);
@@ -42,12 +48,18 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
                                    interfaceAttributes,
                                    interfaceFactory,
                                    null,
-                                   null);
+                                   null,
+                                   serviceBinder,
+
+                                   // RFC 0019: a class-implemented endpoint belongs to the root service, which the
+                                   // service binder creates unconditionally from the class name.
+                                   type.Name);
             }
         }
 
         private static void BindPropertyBasedInterfaces(object logicBlock,
                                                         IInterfaceFactory interfaceFactory,
+                                                        ServiceBinder serviceBinder,
                                                         Type type,
                                                         BindingMode mode,
                                                         IReadOnlyDictionary<string, JsonNode?>? parameterContext)
@@ -85,6 +97,11 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
                 // Get explicitly defined interface attributes for the property
                 var interfaceAttributes = property.GetCustomAttributes<LogicBlockInterfaceBindingAttribute>().ToList();
 
+                // RFC 0019: the component service that owns this property's endpoints — the same service the
+                // service binder mints from the property name. A component without a service surface has no
+                // node in the cloud graph, so its endpoints own no relation half (null); DALE045 warns.
+                var owningServiceIdentifier = ServiceSurface.IsServiceBearing(propertyType) ? property.Name : null;
+
                 // Process each implemented interface
                 foreach (var implementedLogicInterface in implementedLogicInterfaces)
                 {
@@ -97,7 +114,9 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
                                        interfaceAttributes,
                                        interfaceFactory,
                                        defaultIdentifier,
-                                       includedWhen);
+                                       includedWhen,
+                                       serviceBinder,
+                                       owningServiceIdentifier);
                 }
             }
         }
@@ -107,7 +126,9 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
                                                List<LogicBlockInterfaceBindingAttribute> interfaceAttributes,
                                                IInterfaceFactory interfaceFactory,
                                                string? defaultIdentifier,
-                                               string? includedWhen)
+                                               string? includedWhen,
+                                               ServiceBinder serviceBinder,
+                                               string? owningServiceIdentifier)
         {
             // Look for explicit attribute for this interface, use explicit attribute or create default
             var interfaceAttribute = interfaceAttributes.FirstOrDefault(attr => attr.ForInterface == implementedLogicInterface) ??
@@ -118,6 +139,76 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
 
             var logicSendInterfaceInstance = CreateLogicSendInterface(interfaceFactory, logicSendInterfaceType, implementedLogicInterface, identifier, implementation);
             ApplyMetadata(logicSendInterfaceInstance, interfaceAttribute, includedWhen);
+
+            RegisterServiceRelations(implementedLogicInterface, identifier, serviceBinder, owningServiceIdentifier);
+        }
+
+        /// <summary>
+        ///     RFC 0019: derives this endpoint's service-relation halves from the <c>[ServiceRelation]</c>
+        ///     declarations on the contract its logic interface belongs to — one half per declaration, on the
+        ///     service that owns the endpoint.
+        ///     <para>
+        ///         The load-bearing invariant: the half is registered <b>here</b>, by the same code path that
+        ///         just minted <paramref name="identifier" />, so a relation's <c>interfaceIdentifier</c> can
+        ///         never diverge from the endpoint's actual wiring identifier (class-level override, bare
+        ///         interface name, or <c>{Property}_{Interface}</c>). There is no second resolution rule.
+        ///     </para>
+        ///     <para>
+        ///         Registration is keyed by service identifier, so it is order-independent with respect to the
+        ///         service binder that creates those services afterwards — the introspection joins by key.
+        ///     </para>
+        /// </summary>
+        private static void RegisterServiceRelations(Type implementedLogicInterface, string identifier, ServiceBinder serviceBinder, string? owningServiceIdentifier)
+        {
+            var contractType = implementedLogicInterface.GetCustomAttribute<LogicInterfaceAttribute>()?.ContractType;
+            if (contractType == null)
+            {
+                return;
+            }
+
+            var relationAttributes = contractType.GetCustomAttributes<ServiceRelationAttribute>().ToList();
+            if (relationAttributes.Count == 0)
+            {
+                return;
+            }
+
+            var contractAttribute = contractType.GetCustomAttribute<LogicBlockContractAttribute>();
+            if (contractAttribute == null)
+            {
+                throw new InvalidOperationException($"[ServiceRelation] on '{contractType.FullName}' requires the class to also carry [LogicBlockContract] — " +
+                                                    "the relation's two sides are the contract's BetweenInterface / AndInterface.");
+            }
+
+            foreach (var relationAttribute in relationAttributes)
+            {
+                // Validate before the owning-service check so a mis-declared contract fails loudly even on a
+                // block whose endpoint would not have emitted a half anyway.
+                var namesBetweenSide = relationAttribute.OutwardsInterface == contractAttribute.BetweenInterface;
+                if (!namesBetweenSide && relationAttribute.OutwardsInterface != contractAttribute.AndInterface)
+                {
+                    throw new
+                        InvalidOperationException($"[ServiceRelation(RelationType = \"{relationAttribute.RelationType}\")] on '{contractType.FullName}' declares OutwardsInterface = " +
+                                                  $"\"{relationAttribute.OutwardsInterface}\", which is neither the contract's BetweenInterface (\"{contractAttribute.BetweenInterface}\") " +
+                                                  $"nor its AndInterface (\"{contractAttribute.AndInterface}\").");
+                }
+
+                // No owning service → no node in the cloud graph to anchor the edge to (RFC 0019 §4.2). The
+                // endpoint still binds and wires; the omission is flagged at compile time by DALE045.
+                if (owningServiceIdentifier == null)
+                {
+                    continue;
+                }
+
+                serviceBinder.RegisterServiceRelation(owningServiceIdentifier,
+                                                      new ServiceRelationInfo
+                                                      {
+                                                          RelationType = relationAttribute.RelationType,
+                                                          InterfaceIdentifier = identifier,
+                                                          InterfaceTypeFullName = ReflectionHelper.GetDisplayFullName(implementedLogicInterface),
+                                                          Direction = implementedLogicInterface.Name == relationAttribute.OutwardsInterface ?
+                                                                          ServiceRelationDirection.Outwards : ServiceRelationDirection.Inwards,
+                                                      });
+            }
         }
 
         private static Type[] GetImplementedLogicInterfaces(Type type)
