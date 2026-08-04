@@ -536,9 +536,14 @@ namespace Vion.Dale.Sdk.Core
             // were supplied), encoded to the shared JSON-scalar form. Definition mode binds the full set.
             var parameterContext = mode == BindingMode.Live ? InclusionGate.BuildParameterContext(this) : null;
 
-            DeclarativeInterfaceBinder.BindInterfacesFromAttributes(this, configurationBuilder.Interfaces, mode, parameterContext);
+            // RFC 0019: the interface binder also registers the contract-carried service-relation halves, so it
+            // needs the service binder. Order stays irrelevant — halves are keyed by service identifier and the
+            // introspection joins by key, so the services created below pick up halves registered above.
+            var serviceBinder = (ServiceBinder)configurationBuilder.Services;
+
+            DeclarativeInterfaceBinder.BindInterfacesFromAttributes(this, configurationBuilder.Interfaces, serviceBinder, mode, parameterContext);
             DeclarativeContractBinder.BindContractsFromAttributes(this, configurationBuilder.Contracts, mode, parameterContext);
-            DeclarativeServiceBinder.BindServicesFromAttributes(this, (ServiceBinder)configurationBuilder.Services, mode, parameterContext);
+            DeclarativeServiceBinder.BindServicesFromAttributes(this, serviceBinder, mode, parameterContext);
             DeclarativeTimerBinder.BindTimersFromAttributes(this, configurationBuilder.Timers);
         }
 

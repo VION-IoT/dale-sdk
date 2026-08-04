@@ -1,9 +1,5 @@
 ﻿using System;
-using System.Linq;
 using System.Linq.Expressions;
-using System.Reflection;
-using Vion.Dale.Sdk.Configuration.Interfaces;
-using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.Sdk.Configuration.Services
 {
@@ -61,51 +57,6 @@ namespace Vion.Dale.Sdk.Configuration.Services
                                           sourceSetter != null ? (s, v) => sourceSetter((TSource)s, (TProp)v!) : null);
 
             return this;
-        }
-
-        /// <summary>
-        ///     Defines a relationship between this service and a function interface instance.
-        ///     The relation type and direction are determined from the ServiceRelationAttribute on TServiceInterface.
-        /// </summary>
-        public ServiceDeclaration<TServiceInterface> DefineRelation<TInterface>(TInterface logicSendInterfaceInstance)
-            where TInterface : ILogicSenderInterface
-        {
-            var serviceInterfaceType = typeof(TServiceInterface);
-            var functionInterfaceType = logicSendInterfaceInstance.LogicInterfaceType;
-
-            // Get the relation attribute from TServiceInterface
-            var serviceRelationAttribute =
-                serviceInterfaceType.GetCustomAttributes<ServiceRelationAttribute>().FirstOrDefault(a => a.FunctionInterfaceType == functionInterfaceType);
-            if (serviceRelationAttribute == null)
-            {
-                throw new InvalidOperationException($"Service interface {serviceInterfaceType.Name} does not have a ServiceRelationAttribute declaration.");
-            }
-
-            // Find the interface identifier from the instance
-            var interfaceIdentifier = FindInterfaceIdentifier(logicSendInterfaceInstance);
-
-            // Create relation info
-            var relationInfo = new ServiceRelationInfo
-                               {
-                                   RelationType = serviceRelationAttribute.RelationType,
-                                   InterfaceIdentifier = interfaceIdentifier,
-                                   InterfaceTypeFullName = ReflectionHelper.GetDisplayFullName(functionInterfaceType),
-                                   Direction = serviceRelationAttribute.Direction,
-                                   Annotations = serviceRelationAttribute.Annotations,
-                               };
-
-            RegisterServiceRelation(relationInfo);
-
-            return this;
-        }
-
-        private static string FindInterfaceIdentifier<TInterface>(TInterface interfaceInstance)
-            where TInterface : ILogicSenderInterface
-        {
-            // For now, return the instance's identifier property if available
-            // In a more complete implementation, you'd have a registry of interface instances to identifiers
-            return interfaceInstance.GetType().GetProperty(nameof(LogicSenderInterfaceBase.Identifier))?.GetValue(interfaceInstance)?.ToString() ??
-                   throw new InvalidOperationException("Could not determine interface identifier from instance.");
         }
     }
 }

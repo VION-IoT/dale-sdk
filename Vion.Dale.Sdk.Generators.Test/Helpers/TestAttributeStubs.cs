@@ -180,6 +180,15 @@ namespace Vion.Dale.Sdk.Core
         public required string AndInterface { get; init; }
     }
 
+    // RFC 0019 contract-carried service relations.
+    [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
+    public sealed class ServiceRelationAttribute : Attribute
+    {
+        public required string RelationType { get; init; }
+
+        public required string OutwardsInterface { get; init; }
+    }
+
     [AttributeUsage(AttributeTargets.Struct)]
     public class CommandAttribute : Attribute
     {
@@ -267,6 +276,21 @@ namespace Vion.Dale.Sdk.Configuration.Contract
     [AttributeUsage(AttributeTargets.Interface)]
     public class ServiceProviderContractTypeAttribute : Attribute
     {
+    }
+}
+
+namespace Vion.Dale.Sdk.CodeGeneration
+{
+    // Emitted by LogicClassGenerator onto every generated contract interface; test sources hand-write it
+    // because the generator does not run in analyzer test compilations.
+    [AttributeUsage(AttributeTargets.Interface)]
+    public class LogicInterfaceAttribute : Attribute
+    {
+        public required Type MatchingInterface { get; init; }
+
+        public required Type SenderInterface { get; init; }
+
+        public required Type ContractType { get; init; }
     }
 }
 
