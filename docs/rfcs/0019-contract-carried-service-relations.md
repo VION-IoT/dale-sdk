@@ -413,25 +413,33 @@ mappings referencing undeclared interfaces.
   the declaration; skew degrades to "no row" — the same partial-adoption semantics cloud-api has
   today, never a crash. Documented in the attribute's XML docs.
 
-### 4.8 Migration (this repo, same PR)
+### 4.8 Migration (this repo, two steps)
 
-- **PingPong** (the only real example): move the declaration to the contract —
-  `[ServiceRelation(RelationType = "PingPong", OutwardsInterface = "IPong")]` on
+Sequencing constraint: `examples/*` reference **published** `Vion.Dale.*` packages (not project
+references — see CLAUDE.md "Building"), so example migration cannot ship in the SDK PR; it
+follows the release that carries the new attribute, in the usual example-bump PR
+(`scripts/set-version.ps1 -Scope references` flow). Everything inside `Vion.Dale.Sdk` itself is
+same-PR.
+
+- **PingPong** (the only real example — *post-release step*): move the declaration to the
+  contract — `[ServiceRelation(RelationType = "PingPong", OutwardsInterface = "IPong")]` on
   `Contracts/PingPong.cs`; delete both interface-level attributes. Note this **flips** the emitted
   direction versus today (Ping was Outwards): under the documented convention the *responder*
   (Pong, the provider) is the outwards side — the example previously demonstrated the opposite of
   LightToToggle, and one of them had to flip. Regenerate the checked-in publish JSON.
-- **LightToToggle**: delete the orphan `ILightService`/`IToggleService`/`IOtherService` from
-  `Vion.Dale.Sdk/Examples/` (dead code shipped in the SDK assembly; would not compile against the
-  new shape). The `Toggling` contract may carry a doc-example `[ServiceRelation]` instead.
-- **Tests** (net-new; none exist):
+- **LightToToggle** (*SDK PR*): delete the orphan `ILightService`/`IToggleService`/`IOtherService`
+  from `Vion.Dale.Sdk/Examples/` (dead code shipped in the SDK assembly; would not compile against
+  the new shape). The `Toggling` contract may carry a doc-example `[ServiceRelation]` instead.
+- **Tests** (*SDK PR*; net-new — none exist):
   - Introspection: dual-role class (cascade — one inward + one outward, same type, distinct
     identifiers); component halves with `{Property}_{Interface}` identifiers on component
     services; property-level `Identifier` override flowing into the half; non-service-bearing
     component emits no half; multiple `[ServiceRelation]` per contract; RFC 0016-gated
     property endpoint (Definition emits, Live omits when gated out); invalid `OutwardsInterface`
     throws.
-  - Golden JSON: PingPong publish JSON asserted (shape pin the integrator asked for).
+  - Golden shape pin (the pin the integrator asked for): introspection-level assertions on the
+    emitted `inwardRelations`/`outwardRelations` JSON in the SDK PR (project-referenced tests
+    build against the working tree); the PingPong publish JSON follows in the example bump.
   - Analyzer tests for DALE045 per house pattern.
 - **Docs**: XML docs on the attribute are the canonical convention statement (the request asked
   for exactly "a line in the XML docs"); this RFC is the prose reference.
