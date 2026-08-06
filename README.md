@@ -14,6 +14,14 @@ cd MyLibrary
 dale dev            # local DevHost with a web UI on http://localhost:5000
 ```
 
+## Naming things
+
+The identifiers in a published library — the block's full type name, service and property names,
+contract and interface identifiers, enum and struct type names, custom group keys, and the library's
+own `PackageId` — double as the keys the cloud files integrator-authored translations under. Renaming
+one orphans its translations, and `PackageId` is unique across the whole platform. The rules, and the
+one knob that decouples a C# rename from its identifier: [docs/identifier-stability.md](docs/identifier-stability.md).
+
 ## Building from source
 
 ```bash

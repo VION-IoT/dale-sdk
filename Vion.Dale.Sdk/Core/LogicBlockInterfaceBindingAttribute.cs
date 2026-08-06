@@ -11,6 +11,17 @@ namespace Vion.Dale.Sdk.Core
     ///     (each <see cref="LogicBlockInterfaceBindingAttribute" /> targets one interface via
     ///     <see cref="ForInterface" />).
     /// </summary>
+    /// <remarks>
+    ///     <see cref="DefaultName" /> — and the role names the endpoint's contract declares via
+    ///     <see cref="LogicBlockContractAttribute.BetweenDefaultName" /> /
+    ///     <see cref="LogicBlockContractAttribute.AndDefaultName" /> — are translatable in the cloud, keyed
+    ///     by the block's full type name and this binding's <see cref="Identifier" />. Since the identifier
+    ///     defaults to a C# name (<c>{PropertyName}_{InterfaceName}</c> for a property-bound endpoint, the
+    ///     bare interface name for a class-implemented one), renaming the property, the interface or the
+    ///     class normally mints a new key and orphans the translations authored against the old one —
+    ///     setting <see cref="Identifier" /> explicitly is what decouples the two. See
+    ///     <c>docs/identifier-stability.md</c>.
+    /// </remarks>
     [PublicApi]
     [AttributeUsage(AttributeTargets.Property | AttributeTargets.Class, AllowMultiple = true)]
     public class LogicBlockInterfaceBindingAttribute : Attribute
@@ -18,8 +29,18 @@ namespace Vion.Dale.Sdk.Core
         /// <summary>The interface this binding metadata applies to.</summary>
         public Type ForInterface { get; }
 
+        /// <summary>
+        ///     Stable identifier for this interface binding. Defaults to <c>{PropertyName}_{InterfaceName}</c>
+        ///     (property-bound) or the bare interface name (class-implemented). Pin it to rename the
+        ///     property, interface or class without changing the introspected identity (see the remarks on
+        ///     this attribute) — it is the only knob that decouples the two.
+        /// </summary>
         public string? Identifier { get; init; }
 
+        /// <summary>
+        ///     Human-readable name for the interface endpoint. Translatable (see the remarks on this
+        ///     attribute); the value here is the source default and the permanent fallback.
+        /// </summary>
         public string? DefaultName { get; init; }
 
         public string[] Tags { get; init; } = Array.Empty<string>();

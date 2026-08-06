@@ -17,7 +17,8 @@ namespace Vion.Dale.Sdk.Core
         ///     Override the displayed label. Falls back to schema.title (primitives) or the
         ///     C# property name. For enum-/struct-typed properties (where schema.title is
         ///     identity-bearing), this is the only way to set a UI label distinct from the
-        ///     CLR type name.
+        ///     CLR type name. Translatable in the cloud under the annotated member's title key
+        ///     (see the remarks on <see cref="ServicePropertyAttribute" />).
         /// </summary>
         public string? DisplayName { get; init; }
 
@@ -30,6 +31,9 @@ namespace Vion.Dale.Sdk.Core
         ///     the dashboard renders as a generic section with the raw key as the header.
         ///     Section order is set by [LogicBlock(Groups = ...)]; default order is the
         ///     platform-defined order. Within-group order is by <see cref="Order" />.
+        ///     A custom key is both the section label and that label's translation key, so
+        ///     editing the key orphans its translations; the well-known
+        ///     <see cref="PropertyGroup" /> keys are translated by the platform itself.
         /// </summary>
         public string? Group { get; init; }
 
