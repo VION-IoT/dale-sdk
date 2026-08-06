@@ -15,25 +15,16 @@ namespace Vion.Dale.Sdk.Core
     /// </summary>
     /// <remarks>
     ///     <see cref="Title" /> and <see cref="Description" /> are translatable in the cloud, keyed by the
-    ///     block's full type name plus two identifiers that are <b>plain C# names</b>: the owning service
-    ///     (the logic-block class name for the root service, the holding property's name for a component
-    ///     service) and the member itself (this property's name). This attribute has no <c>Identifier</c>
-    ///     override — renaming the property, its component property, or the class mints new keys and
-    ///     orphans the translations authored against the old ones, which then have to be re-attached by
-    ///     hand in the dashboard's Translations tab. A member carrying both this attribute and
-    ///     <see cref="ServiceMeasuringPointAttribute" /> is <b>one</b> translatable member: one title key,
-    ///     one description key. See <c>docs/identifier-stability.md</c>.
+    ///     block's full type name plus two <b>C# names</b>: the owning service (the logic-block class name,
+    ///     or the holding property's name for a component service) and this property's name. There is no
+    ///     <c>Identifier</c> override — renaming any of them orphans the translations. See
+    ///     <c>docs/identifier-stability.md</c>.
     /// </remarks>
     [PublicApi]
     [AttributeUsage(AttributeTargets.Property)]
     public class ServicePropertyAttribute : Attribute, IThrottleConfigured
     {
-        /// <summary>
-        ///     Display label for the property. Routes into <c>schema.title</c> — or, for enum- and
-        ///     struct-typed properties whose <c>schema.title</c> is identity-bearing, into
-        ///     <c>presentation.displayName</c>. Translatable (see the remarks on this attribute); the
-        ///     value here is the source default and the permanent fallback.
-        /// </summary>
+        /// <summary>Display label for the property. Translatable (see the remarks on this attribute).</summary>
         public string? Title { get; init; }
 
         /// <summary>

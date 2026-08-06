@@ -69,8 +69,10 @@ Every key is prefixed with the library's `<PackageId>` — the value in your lib
 
 1. **PackageId is unique across all integrators on the platform**, compared case-insensitively
    (NuGet id semantics). `dale upload` — and creating a library — fails with **409 Conflict** when the
-   id is already registered by someone else. The message says the id is taken; it deliberately does not
-   say by whom. Use a vendor-prefixed id (`Acme.Chargers`), the same discipline nuget.org asks for.
+   id is already registered by someone else, and reports it as such even under `--skip-duplicate`,
+   which skips only a re-upload of a version you already published. The message says the id is taken;
+   it deliberately does not say by whom. Use a vendor-prefixed id (`Acme.Chargers`), the same
+   discipline nuget.org asks for.
    Re-uploading *your own* library is matched case-insensitively too, so a nuspec that differs only in
    casing lands on the library it belongs to instead of colliding with it.
 2. **Changing your own PackageId re-namespaces every key in the library** — the single most expensive

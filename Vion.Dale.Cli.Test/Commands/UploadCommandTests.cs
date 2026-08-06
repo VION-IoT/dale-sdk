@@ -83,6 +83,36 @@ namespace Vion.Dale.Cli.Test.Commands
             Assert.IsFalse(args.Any(a => a.StartsWith("-p:Version=", StringComparison.Ordinal)), "No version property when --version is not passed.");
         }
 
+        // Both bodies are ConflictException envelopes from cloud-api's upload path — only the message
+        // separates the version-already-uploaded case (skippable) from the package-id case (never).
+        [TestMethod]
+        public void IsVersionAlreadyExistsConflict_TrueForADuplicateVersion()
+        {
+            Assert.IsTrue(UploadCommand.IsVersionAlreadyExistsConflict("""
+                                                                       {"statusCode":409,"exceptionType":"ConflictException",
+                                                                        "message":"A version with the same package version already exists"}
+                                                                       """));
+        }
+
+        [TestMethod]
+        public void IsVersionAlreadyExistsConflict_FalseWhenAnotherIntegratorOwnsThePackageId()
+        {
+            // The regression this guards: treating this as "already exists, skipping" reports a failed
+            // publish as success — and CI uploads with --skip-duplicate.
+            Assert.IsFalse(UploadCommand.IsVersionAlreadyExistsConflict("""
+                                                                        {"statusCode":409,"exceptionType":"ConflictException",
+                                                                         "message":"Package id 'Acme.Inversion' is already registered on the platform. Package ids are globally unique and compared case-insensitively."}
+                                                                        """));
+        }
+
+        [TestMethod]
+        public void IsVersionAlreadyExistsConflict_FalseForAnUnrecognisedConflict()
+        {
+            Assert.IsFalse(UploadCommand.IsVersionAlreadyExistsConflict("""{"statusCode":409,"message":"Something new and unexplained"}"""));
+            Assert.IsFalse(UploadCommand.IsVersionAlreadyExistsConflict(""));
+            Assert.IsFalse(UploadCommand.IsVersionAlreadyExistsConflict(null));
+        }
+
         private string CreateNupkg(string fileName, string nuspec)
         {
             var path = Path.Combine(_tempDir, fileName);

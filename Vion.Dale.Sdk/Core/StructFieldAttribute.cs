@@ -8,19 +8,15 @@ namespace Vion.Dale.Sdk.Core
     /// </summary>
     /// <remarks>
     ///     <see cref="Title" /> and <see cref="Description" /> are translatable in the cloud, keyed by the
-    ///     struct's <b>short type name</b> (the wire's <c>schema.title</c> — the namespace never travels)
-    ///     and the field's <b>camelCase wire name</b>, which is the constructor parameter's name with a
-    ///     lower-cased first letter. Renaming the struct type orphans every field's translations; renaming
-    ///     a parameter orphans that field's. See <c>docs/identifier-stability.md</c>.
+    ///     struct's <b>short type name</b> (the namespace is not part of the key) and the field's
+    ///     <b>camelCase wire name</b> — the constructor parameter's name, first letter lower-cased.
+    ///     Renaming either orphans the translations. See <c>docs/identifier-stability.md</c>.
     /// </remarks>
     [PublicApi]
     [AttributeUsage(AttributeTargets.Parameter | AttributeTargets.Property)]
     public class StructFieldAttribute : Attribute
     {
-        /// <summary>
-        ///     Display label for the field. Translatable (see the remarks on this attribute); the value
-        ///     here is the source default and the permanent fallback.
-        /// </summary>
+        /// <summary>Display label for the field. Translatable (see the remarks on this attribute).</summary>
         public string? Title { get; init; }
 
         /// <summary>Long-form description for the field. Separately translatable, like <see cref="Title" />.</summary>

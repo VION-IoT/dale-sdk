@@ -2,6 +2,7 @@ using System;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Vion.Dale.Cli.Auth;
@@ -59,7 +60,7 @@ namespace Vion.Dale.Cli.Infrastructure
                 HttpStatusCode.Unauthorized => new DaleAuthException("Session expired. Run `dale login` again."),
                 HttpStatusCode.Forbidden => new DaleAuthException("Access denied. Check your integrator permissions."),
                 HttpStatusCode.NotFound => new DaleAuthException($"Endpoint not found: {request.RequestUri}"),
-                _ => new DaleAuthException($"API error {(int)response.StatusCode}: {body}"),
+                _ => new DaleAuthException($"API error {(int)response.StatusCode}: {DescribeError(body)}"),
             };
         }
 
@@ -77,6 +78,44 @@ namespace Vion.Dale.Cli.Infrastructure
         {
             using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
             return await SendAsync(request, accessToken, cancellationToken, allowedStatuses);
+        }
+
+        /// <summary>
+        ///     The human-readable part of a cloud API error response. The API wraps every failure in
+        ///     <c>{ statusCode, exceptionType, exceptionId, message }</c>, and printing that envelope
+        ///     verbatim buries the one sentence the user needs. Falls back to the raw body when the response
+        ///     is not that shape (an HTML error page from a proxy, say).
+        /// </summary>
+        internal static string DescribeError(string? body)
+        {
+            if (string.IsNullOrWhiteSpace(body))
+            {
+                return "(no response body)";
+            }
+
+            try
+            {
+                using var document = JsonDocument.Parse(body!);
+                if (document.RootElement.ValueKind == JsonValueKind.Object)
+                {
+                    // Case-tolerant lookup: the envelope is camelCase on the wire, but nothing about an
+                    // error path should hinge on the server's serializer settings.
+                    foreach (var property in document.RootElement.EnumerateObject())
+                    {
+                        if (string.Equals(property.Name, "message", StringComparison.OrdinalIgnoreCase) && property.Value.ValueKind == JsonValueKind.String &&
+                            property.Value.GetString() is { } message && !string.IsNullOrWhiteSpace(message))
+                        {
+                            return message.Trim();
+                        }
+                    }
+                }
+            }
+            catch (JsonException)
+            {
+                // Not JSON — show whatever came back rather than nothing.
+            }
+
+            return body!;
         }
     }
 }
