@@ -13,15 +13,24 @@ namespace Vion.Dale.Sdk.Core
     ///         cloud that is also surfaced as live state (e.g. grid-meter power).
     ///     </para>
     /// </summary>
+    /// <remarks>
+    ///     <see cref="Title" /> and <see cref="Description" /> are translatable in the cloud, keyed by the
+    ///     block's full type name plus two <b>C# names</b>: the owning service (the logic-block class name,
+    ///     or the holding property's name for a component service) and this property's name. There is no
+    ///     <c>Identifier</c> override — renaming any of them orphans the translations. See
+    ///     <c>docs/identifier-stability.md</c>.
+    /// </remarks>
     [PublicApi]
     [AttributeUsage(AttributeTargets.Property)]
     public class ServiceMeasuringPointAttribute : Attribute, IThrottleConfigured
     {
+        /// <summary>Display label for the measuring point. Translatable (see the remarks on this attribute).</summary>
         public string? Title { get; init; }
 
         /// <summary>
         ///     Long-form description for tooltips, search, and accessibility. Routes into
-        ///     <c>schema.description</c>. Independent of <see cref="Title" />.
+        ///     <c>schema.description</c>. Independent of <see cref="Title" />, and separately
+        ///     translatable (see the remarks on this attribute).
         /// </summary>
         public string? Description { get; init; }
 

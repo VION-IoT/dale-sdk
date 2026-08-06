@@ -102,6 +102,13 @@ namespace Vion.Dale.Cli.Commands
                                                                            skipDuplicate);
                                           if (response.StatusCode == HttpStatusCode.Conflict)
                                           {
+                                              var conflictBody = await response.Content.ReadAsStringAsync();
+                                              if (!IsVersionAlreadyExistsConflict(conflictBody))
+                                              {
+                                                  DaleConsole.Error($"Upload failed: {DaleHttpClient.DescribeError(conflictBody)}");
+                                                  return 1;
+                                              }
+
                                               DaleConsole.WriteJsonResult(new
                                                                           {
                                                                               status = "skipped", reason = "version_exists", packageId = project.PackageId,
@@ -164,7 +171,16 @@ namespace Vion.Dale.Cli.Commands
                                                                                                         parseResult.GetValue(releaseNotesOption),
                                                                                                         skipDuplicate);
                                                                        responseBody = await response.Content.ReadAsStringAsync();
-                                                                       versionAlreadyExists = response.StatusCode == HttpStatusCode.Conflict;
+                                                                       if (response.StatusCode == HttpStatusCode.Conflict)
+                                                                       {
+                                                                           versionAlreadyExists = IsVersionAlreadyExistsConflict(responseBody);
+                                                                           if (!versionAlreadyExists)
+                                                                           {
+                                                                               errorMessage = $"Upload failed: {DaleHttpClient.DescribeError(responseBody)}";
+                                                                               failed = true;
+                                                                               return;
+                                                                           }
+                                                                       }
                                                                    }
                                                                    catch (Exception ex)
                                                                    {
@@ -233,6 +249,21 @@ namespace Vion.Dale.Cli.Commands
             }
 
             return null;
+        }
+
+        /// <summary>
+        ///     Tells the upload endpoint's two 409s apart. Both are <c>ConflictException</c> server-side, so
+        ///     only the message distinguishes "this exact version was already uploaded" — the one
+        ///     <c>--skip-duplicate</c> is for — from "this package id belongs to another integrator", which
+        ///     is a hard failure: package ids are globally unique across the platform, so the fix is to
+        ///     rename the package, not to retry. Anything unrecognised counts as the latter; reporting a
+        ///     conflict we don't understand as a successful skip is the one outcome that hides a failed
+        ///     publish (CI uploads with <c>--skip-duplicate</c>).
+        /// </summary>
+        internal static bool IsVersionAlreadyExistsConflict(string? body)
+        {
+            var message = DaleHttpClient.DescribeError(body);
+            return message.Contains("version", StringComparison.OrdinalIgnoreCase) && message.Contains("already exists", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>

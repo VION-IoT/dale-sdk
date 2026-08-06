@@ -11,12 +11,23 @@ namespace Vion.Dale.Sdk.Core
     ///     the two are consumed by different binders (in-process actor link vs MQTT
     ///     service-provider adapter).
     /// </summary>
+    /// <remarks>
+    ///     <see cref="DefaultName" /> is translatable in the cloud, keyed by the block's full type name and
+    ///     this binding's <see cref="Identifier" /> — which defaults to the annotated property's name, so
+    ///     renaming that property orphans the translations unless <see cref="Identifier" /> is pinned. See
+    ///     <c>docs/identifier-stability.md</c>.
+    /// </remarks>
     [PublicApi]
     [AttributeUsage(AttributeTargets.Property)]
     public class ServiceProviderContractBindingAttribute : Attribute
     {
+        /// <summary>
+        ///     Stable identifier for this contract binding. Defaults to the annotated property's name; pin
+        ///     it to rename the property without changing the identifier.
+        /// </summary>
         public string? Identifier { get; init; }
 
+        /// <summary>Human-readable name for the contract. Translatable (see the remarks on this attribute).</summary>
         public string? DefaultName { get; init; }
 
         /// <summary>

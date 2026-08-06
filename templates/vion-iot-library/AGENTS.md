@@ -61,6 +61,20 @@ LogicBlocks extend `LogicBlockBase` and use declarative attributes:
 | `[LogicBlockInterfaceBinding(typeof(IFoo))]` | Logic-block interface binding metadata: `Identifier`, `DefaultName`, `Multiplicity` (`LinkMultiplicity`), `Tags`. |
 | `[Severity(StatusSeverity.X)]` / `[EnumLabel("…")]` | Per-enum-member annotations: severity for status-indicator colouring; display label for the dashboard. |
 
+### Names are contracts once uploaded
+
+Every display string above (`Title`, `Description`, `DefaultName`, `[EnumLabel]`, `[StructField]`,
+custom group labels) can be **translated** in the cloud, and the translations are filed under keys
+derived from the **identifiers**: the block's full type name *including its namespace*, the service
+and property C# names, `Identifier` values, enum/struct short type names and member names, the group
+key string, and the library's `<PackageId>`. Renaming any of them mints a new key and orphans the
+translations authored against the old one — nothing breaks (the compiled string is always the
+fallback), but re-attaching is manual, per language. So: get names right before the first
+`dale upload`. Afterwards, `[ServiceProviderContractBinding(Identifier = "…")]` and
+`[LogicBlockInterfaceBinding(Identifier = "…")]` are the only knobs that let a C# rename keep its
+identifier; services and properties have none. `<PackageId>` is unique platform-wide
+(case-insensitive) — a 409 from `dale upload` means another integrator already registered it.
+
 ## Project Structure
 
 ```
