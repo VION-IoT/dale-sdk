@@ -84,6 +84,13 @@ namespace Vion.Dale.Sdk.Core
         ///     default) means no deadband — only the value-equality dedup floor runs. Validated by analyzers
         ///     DALE034 (type) / DALE035 (format).
         /// </summary>
+        /// <remarks>
+        ///     On an <c>ImmutableArray&lt;T&gt;</c> measuring point, no deadband is needed to keep a
+        ///     rebuilt-but-identical table off the wire — the dedup floor compares array content, so a table
+        ///     reassigned every cycle emits only when a row actually changed. Reach for <c>MinChange</c> plus a
+        ///     custom <c>IChangeThreshold&lt;ImmutableArray&lt;T&gt;&gt;</c> when rows should also be considered
+        ///     unchanged within a per-field tolerance.
+        /// </remarks>
         public string? MinChange { get; init; }
 
         /// <summary>

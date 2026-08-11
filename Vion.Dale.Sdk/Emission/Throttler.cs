@@ -34,8 +34,9 @@ namespace Vion.Dale.Sdk.Emission
 
         public OfferResult Offer(object? value, DateTimeOffset now)
         {
-            // 1. Value-equality floor: an offered value equal to the last emitted is always dropped.
-            if (HasEmitted && Equals(LastEmitted, value))
+            // 1. Value-equality floor: an offered value equal to the last emitted is always dropped. Content
+            //    equality for ImmutableArray<T> — see EmissionEquality.
+            if (HasEmitted && EmissionEquality.AreEqual(LastEmitted, value))
             {
                 return OfferResult.Drop;
             }

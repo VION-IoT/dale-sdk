@@ -860,7 +860,9 @@ namespace Vion.Dale.Sdk.Core
                             continue;
                         }
 
-                        if (throttler.HasEmitted && Equals(throttler.LastEmitted, current))
+                        // Same comparison as the floor, so a rebuilt-but-identical ImmutableArray<T> table is
+                        // not re-emitted on stop either.
+                        if (throttler.HasEmitted && EmissionEquality.AreEqual(throttler.LastEmitted, current))
                         {
                             continue;
                         }

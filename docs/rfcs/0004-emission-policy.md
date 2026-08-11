@@ -1,6 +1,22 @@
 # RFC 0004: Emission policy — throttling, deadband & dedup for service properties and measuring points
 
-Status: **Accepted** (revised 2026-06-22) — ready for implementation. Author: jonas.bertsch. Original draft: 2026-05-31.
+Status: **Accepted** (revised 2026-08-11) — implemented. Author: jonas.bertsch. Original draft: 2026-05-31.
+
+> **Revision note (2026-08-11) — the floor compares `ImmutableArray<T>` by content.** The shipped floor
+> compared with a bare `Equals`, which for `ImmutableArray<T>` is *reference equality of the underlying
+> array* — so the one collection shape a service element may use (DALE008 bans `T[]`, `List<T>` and
+> friends) was the one shape the floor could never fire for. A per-row table rebuilt each control cycle
+> republished every `MinInterval` forever, carrying no news, with nothing to warn the author
+> ([DF-50](https://github.com/VION-IoT/logic-block-libraries/blob/main/docs/dale-preview-feedback.md)).
+> This RFC always claimed to cover `ImmutableArray` ([Background](#background--verified-facts-that-constrain-the-design)),
+> so the fix is to the implementation, not the design: the floor now routes through
+> `EmissionEquality.AreEqual`, which uses `IStructuralEquatable` (a length check plus an element walk,
+> recursing into nested arrays) and falls back to `Equals` for every other shape. Element types are
+> closed and all carry correct value equality (DALE003 scalars; DALE016 flat `readonly record struct`),
+> so no reference-equality hole is left. The [stop-drain](#behaviour-details) uses the same comparison.
+> **Observable change:** array-typed members that used to republish on every interval now go quiet while
+> unchanged. Custom `IChangeThreshold<ImmutableArray<T>>` implementations are unaffected — per-field
+> tolerances are still their job.
 
 > **Revision note (2026-06-22).** The original draft was written against a single, free-running
 > wall-clock DevHost. Since then **deterministic stepping (RFC 0008)** and **scenarios (RFC 0006)**
@@ -55,7 +71,7 @@ This RFC adds a declarative **emission policy** — leading-edge throttle + valu
 
 ## Background — verified facts that constrain the design
 
-**Metalama already dedups exact-equal sets.** The SDK applies the stock `Metalama.Patterns.Observability` `[Observable]` aspect ([MetalamaFabric.cs](../../Vion.Dale.Sdk/MetalamaFabric.cs)). Its generated setter skips raising `PropertyChanged` when the value is unchanged — **but asymmetrically**: value types use `!=` (exact), reference types (incl. `string`) use `object.ReferenceEquals` (identity only). So a rebuilt-but-equal record / `ImmutableArray` / struct still fires every cycle. Our value-equality floor exists to close exactly that gap; we do **not** re-implement exact dedup for scalars.
+**Metalama already dedups exact-equal sets.** The SDK applies the stock `Metalama.Patterns.Observability` `[Observable]` aspect ([MetalamaFabric.cs](../../Vion.Dale.Sdk/MetalamaFabric.cs)). Its generated setter skips raising `PropertyChanged` when the value is unchanged — **but asymmetrically**: value types use `!=` (exact), reference types (incl. `string`) use `object.ReferenceEquals` (identity only). So a rebuilt-but-equal record / `ImmutableArray` / struct still fires every cycle. Our value-equality floor exists to close exactly that gap; we do **not** re-implement exact dedup for scalars. Note that closing it for `ImmutableArray<T>` takes more than an `Equals` call — `ImmutableArray<T>` implements `IEquatable<ImmutableArray<T>>` as reference equality of the underlying array, so the floor compares its content explicitly (`EmissionEquality`, revision note above).
 
 **Single chokepoint per kind.** Every runtime property change reaches `LogicBlockBase` through one event: `ServiceBinder` subscribes to each source's `INotifyPropertyChanged` and raises `ServicePropertyValueChanged` (and the measuring-point equivalent), whose **sole** consumer is `HandleServicePropertyValueChanged` (subscribed in the `LogicBlockBase` ctor). That handler does a bare `SendTo(_servicePropertyHandlerActorRef, …)` today (`LogicBlockBase.cs:451`; measuring point `:468`). This is the right single place for the per-block gate — downstream of Metalama dedup, upstream of every network cost.
 
@@ -71,14 +87,14 @@ The per-property gate, evaluated on each change the gate receives (already INPC-
 
 ```
 Offer(value, now):
-  1. if EqualityComparer.Default.Equals(lastEmitted, value)   -> Drop      # value-equality floor — always on, incl. under Immediate
+  1. if EmissionEquality.AreEqual(lastEmitted, value)         -> Drop      # value-equality floor — always on, incl. under Immediate
   2. if policy.Immediate            -> EmitNow                              # bypass throttle + deadband (not the floor)
   3. if policy.HasThreshold && !threshold.Exceeds(lastEmitted, value, minChange) -> Drop   # deadband
   4. if now - lastEmitAt >= policy.MinInterval -> EmitNow
   5. else -> Hold(deadline = lastEmitAt + MinInterval)
 ```
 
-- Step 1 (floor) is **always on, including under `Immediate`**; for value types it's a no-op (Metalama already filtered exact-equal), so its net effect is **value-equality for struct/reference types** (emitting a rebuilt-but-equal value is never useful, even for an `Immediate` flag).
+- Step 1 (floor) is **always on, including under `Immediate`**; for scalars it's a no-op (Metalama already filtered exact-equal), so its net effect is **value equality for struct/reference types and content equality for `ImmutableArray<T>`** (emitting a rebuilt-but-equal value is never useful, even for an `Immediate` flag). The comparison lives in `EmissionEquality.AreEqual`: `IStructuralEquatable` when the value offers it — `ImmutableArray<T>`, including nested — else `Equals`. It runs to completion only when the values are equal, which is exactly when it saves a serialize plus a retained publish; a changed value short-circuits at the first differing element.
 - Step 2 (`Immediate`) bypasses the throttle **and** the deadband, but not the floor.
 - Step 3 (deadband) only when `MinChange` is set; it subsumes the floor. A sub-threshold change is `Drop`ped (not held), so the visible value may lag the current value by up to `MinChange` during operation — the deadband contract. The [stop-drain](#behaviour-details) restores exactness.
 - On `EmitNow`: emit, `lastEmitted = value`, `lastEmitAt = now`, clear pending.
