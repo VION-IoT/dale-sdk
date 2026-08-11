@@ -36,6 +36,7 @@ jobs:
           - Vion.Examples.ToggleLight
           - Vion.Examples.Energy
           - Vion.Examples.ModbusRtu
+          - Vion.Examples.ModbusTcp
           - Vion.Examples.Presentation
           - Vion.Examples.RichTypes
           - Vion.Examples.Emission

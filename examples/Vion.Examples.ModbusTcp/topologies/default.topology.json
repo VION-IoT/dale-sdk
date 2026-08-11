@@ -1,0 +1,19 @@
+{
+  "$schema": "./.dale/topology.schema.json",
+  "id": "default",
+  "logicBlockInstances": [
+    {
+      "typeFullName": "Vion.Examples.ModbusTcp.LogicBlocks.ModbusTcpSimServer",
+      "name": "SimServer"
+    },
+    {
+      "typeFullName": "Vion.Examples.ModbusTcp.LogicBlocks.ModbusTcpDebugClient",
+      "name": "DebugClient",
+      "instantiationParameters": {
+        "WatchSlotCount": 3
+      }
+    }
+  ],
+  "interfaceMappings": [],
+  "contractMappings": []
+}
