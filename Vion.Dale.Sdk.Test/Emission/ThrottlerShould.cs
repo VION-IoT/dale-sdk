@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Immutable;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Emission;
@@ -84,6 +85,38 @@ namespace Vion.Dale.Sdk.Test.Emission
             var result = throttler.Offer(rebuilt, T0 + TimeSpan.FromSeconds(1));
 
             Assert.AreEqual(EmitAction.Drop, result.Action);
+        }
+
+        [TestMethod]
+        public void DropARebuiltEqualImmutableArrayTableViaTheFloor()
+        {
+            // DF-50: a per-row table rebuilt each control cycle and assigned. ImmutableArray<T>'s IEquatable is
+            // reference equality of the underlying array, so without a content compare the floor can never fire
+            // and the table republishes every MinInterval forever, carrying no news.
+            var throttler = new Throttler(Policy(valueType: typeof(ImmutableArray<Sample>)));
+
+            var table = ImmutableArray.Create(new Sample(1, "x"), new Sample(2, "y"));
+            var rebuilt = ImmutableArray.Create(new Sample(1, "x"), new Sample(2, "y"));
+
+            Assert.AreEqual(EmitAction.Emit, throttler.Offer(table, T0).Action);
+
+            var result = throttler.Offer(rebuilt, T0 + TimeSpan.FromSeconds(10));
+
+            Assert.AreEqual(EmitAction.Drop, result.Action);
+            Assert.IsFalse(throttler.HasPending);
+        }
+
+        [TestMethod]
+        public void EmitAnImmutableArrayTableWhoseRowsActuallyChanged()
+        {
+            var throttler = new Throttler(Policy(valueType: typeof(ImmutableArray<Sample>)));
+
+            Assert.AreEqual(EmitAction.Emit, throttler.Offer(ImmutableArray.Create(new Sample(1, "x")), T0).Action);
+
+            // One field of one row differs -> real news, interval elapsed -> Emit.
+            var result = throttler.Offer(ImmutableArray.Create(new Sample(1, "changed")), T0 + TimeSpan.FromSeconds(1));
+
+            Assert.AreEqual(EmitAction.Emit, result.Action);
         }
 
         [TestMethod]
