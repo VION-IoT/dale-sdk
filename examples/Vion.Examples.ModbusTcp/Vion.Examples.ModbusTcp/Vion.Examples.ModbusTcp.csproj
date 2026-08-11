@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netstandard2.1</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <ImplicitUsings>false</ImplicitUsings>
+        <Nullable>enable</Nullable>
+
+        <!-- NuGet package metadata -->
+        <PackageId>Vion.Examples.ModbusTcp</PackageId>
+        <Version>0.10.1</Version>
+        <Authors>Vion</Authors>
+        <Company>Vion</Company>
+        <Description>Interactive Modbus TCP debug client: read and write arbitrary registers and coils with configurable field types and byte/word order, plus a simulated device so it runs without hardware.</Description>
+        <IsPackable>false</IsPackable>
+
+        <!--debug information from the source generator-->
+        <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+        <CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)Generated</CompilerGeneratedFilesOutputPath>
+    </PropertyGroup>
+
+    <!-- SDK refs: the published packages by default. `dotnet build -p:DaleLocalSource=true` swaps them for
+         local project refs (incl. the source generator + Metalama, which don't flow through a project ref) so
+         you can test working-tree SDK changes against this example without editing the csproj. -->
+    <ItemGroup Condition="'$(DaleLocalSource)' != 'true'">
+        <PackageReference Include="Vion.Dale.Sdk" Version="0.10.1"/>
+        <PackageReference Include="Vion.Dale.Sdk.Modbus.Tcp" Version="0.10.1"/>
+    </ItemGroup>
+    <ItemGroup Condition="'$(DaleLocalSource)' == 'true'">
+        <ProjectReference Include="..\..\..\Vion.Dale.Sdk\Vion.Dale.Sdk.csproj"/>
+        <ProjectReference Include="..\..\..\Vion.Dale.Sdk.Generators\Vion.Dale.Sdk.Generators.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer"/>
+        <PackageReference Include="Metalama.Patterns.Observability" Version="2026.1.18"/>
+        <ProjectReference Include="..\..\..\Vion.Dale.Sdk.Modbus.Tcp\Vion.Dale.Sdk.Modbus.Tcp.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--shim to be able to use readonly record structs in netstandard2.1-->
+        <PackageReference Include="IsExternalInit" Version="1.0.3">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <!--shim to be able to use required members in netstandard2.1-->
+        <PackageReference Include="RequiredMemberAttribute" Version="1.0.0">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+    </ItemGroup>
+
+</Project>

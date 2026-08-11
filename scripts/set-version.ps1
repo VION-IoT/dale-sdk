@@ -44,6 +44,7 @@ $exampleMainProjectsWithVersion = @(
     "examples\Vion.Examples.Energy\Vion.Examples.Energy\Vion.Examples.Energy.csproj",
     "examples\Vion.Examples.ToggleLight\Vion.Examples.ToggleLight\Vion.Examples.ToggleLight.csproj",
     "examples\Vion.Examples.ModbusRtu\Vion.Examples.ModbusRtu\Vion.Examples.ModbusRtu.csproj",
+    "examples\Vion.Examples.ModbusTcp\Vion.Examples.ModbusTcp\Vion.Examples.ModbusTcp.csproj",
     "examples\Vion.Examples.Presentation\Vion.Examples.Presentation\Vion.Examples.Presentation.csproj",
     "examples\Vion.Examples.RichTypes\Vion.Examples.RichTypes\Vion.Examples.RichTypes.csproj",
     "examples\Vion.Examples.Emission\Vion.Examples.Emission\Vion.Examples.Emission.csproj",
@@ -108,6 +109,19 @@ $exampleProjects = @(
     @{
         Path              = "examples\Vion.Examples.ModbusRtu\Vion.Examples.ModbusRtu.Test\Vion.Examples.ModbusRtu.Test.csproj"
         PackageReferences = @("Vion.Dale.Sdk.TestKit", "Vion.Dale.Sdk.Modbus.Rtu.TestKit")
+    },
+    # ModbusTcp example
+    @{
+        Path              = "examples\Vion.Examples.ModbusTcp\Vion.Examples.ModbusTcp\Vion.Examples.ModbusTcp.csproj"
+        PackageReferences = @("Vion.Dale.Sdk", "Vion.Dale.Sdk.Modbus.Tcp")
+    },
+    @{
+        Path              = "examples\Vion.Examples.ModbusTcp\Vion.Examples.ModbusTcp.DevHost\Vion.Examples.ModbusTcp.DevHost.csproj"
+        PackageReferences = @("Vion.Dale.DevHost.Web")
+    },
+    @{
+        Path              = "examples\Vion.Examples.ModbusTcp\Vion.Examples.ModbusTcp.Test\Vion.Examples.ModbusTcp.Test.csproj"
+        PackageReferences = @("Vion.Dale.Sdk.TestKit", "Vion.Dale.Sdk.Modbus.Tcp.TestKit")
     },
     # Presentation example (no Test project — pack/upload only; demonstrates declarative-presentation surface)
     @{
