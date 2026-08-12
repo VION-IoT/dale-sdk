@@ -41,7 +41,12 @@ Verify the result under the [VION-IoT profile on nuget.org](https://www.nuget.or
 
 ### After a release: update example/template references
 
-The templates and examples in this repo reference the SDK as NuGet packages. After a release, bump their `PackageReference` versions to match:
+**Every release obliges this bump — it is part of releasing, not a follow-up.** The templates,
+examples and `libraries/` in this repo reference the SDK as NuGet packages, and their checked-in
+versions must match a published `Vion.Dale.*` release (preview or stable). Skipping it leaves the next
+commit shipping references to a version that is no longer current, and — because `dale upload` reads
+each example's `<Version>` and the workflow passes `--skip-duplicate` — leaves the upload silently
+doing nothing.
 
 ```bash
 pwsh scripts/set-version.ps1 -Version X.Y.Z -Scope references
@@ -49,7 +54,22 @@ git add -A && git commit -m "Bump example/template refs to X.Y.Z"
 git push
 ```
 
+`set-version.ps1` updates two things: the `PackageReference` versions across the template and example
+projects, and the `<Version>` of the one packable project per example (the DevHost and Test projects do
+not pack).
+
+Then check what the bump should *show*. A release that adds a capability is the moment to demonstrate
+it in an example — several releases in this repo have carried an example change in the same breath
+(`Guid` support, string formats, emission policy, service relations). Ask what the new version lets an
+author do that the examples do not yet show.
+
 (Note: the `Vion.Dale.Cli` package rewrites its bundled template's `PackageReference` versions at pack time to match its own `$(Version)` — see `Vion.Dale.Cli.csproj`. So the `dale new` output is always self-consistent regardless of when `set-version.ps1` last ran.)
+
+### After a release: answer the consumer
+
+Where the release resolves a `DF-nn` entry in `logic-block-libraries`'
+`docs/dale-preview-feedback.md`, answer it in that file naming the version — the consumer is holding a
+workaround until they know they can drop it.
 
 ## Version immutability
 
