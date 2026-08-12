@@ -113,8 +113,10 @@ Every one of these was a review finding, not a suggestion:
 
 ## 6. Colours come from the tokens
 
-`app.css` uses `var(--…)` for every colour — 519 references, and **zero** colour literals except four
+`app.css` uses `var(--…)` for every colour — 520 references, and **zero** colour literals except four
 `rgba(0, 0, 0, α)` shadows and scrims, which are not themed values. Tokens live in `tokens.css`.
+(Count with `grep -o 'var(--' app.css | wc -l`; a regex expecting `var(--name)` misses the one token
+that carries a fallback, `var(--font-mono, monospace)`.)
 
 This is fully conformant today and cheap to keep that way: a literal colour in a rule is a finding, and
 it was a real one — *"the black borders look off in dardk mode and hardcoded"*. Check both themes

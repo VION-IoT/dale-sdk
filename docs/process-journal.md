@@ -40,6 +40,16 @@ Append at the bottom, newest last. Naming the taxonomy check a correction maps t
 [`.claude/commands/vion-code-review.md`](../.claude/commands/vion-code-review.md) § 5) is worth the four
 characters — retro-1's open question is which of them actually fire.
 
+Two markers earn their keystrokes because [`process-metrics.md`](process-metrics.md) counts them and
+nothing else can produce them:
+
+- **`(second ask)`** on a `review` line the user has now had to make **twice**. Each one is a standing
+  candidate for promotion to an analyzer, a gate, or a convention rule.
+- **`(escape)`** on a `review` line for work that had already passed `/vion-code-review` — the review
+  ran and missed it. This is the loop-quality signal; it is the number that should fall.
+
+Both go at the end of the line, before the D-number.
+
 **Record what happened, not what should change** — the fix is the retro's job, and pre-judging it here
 loses the evidence.
 
@@ -56,3 +66,6 @@ it was felt.
 2026-08-12 · brief · — · briefs to this repo have been asserting `IDevHostControl` is `[PublicApi]` and predicting snapshot churn from DevHost changes. It carries no such attribute and `Vion.Dale.DevHost` declares no `PublicApiNamespace`, so no DevHost change can move the manifest. One implementing session lost a step regenerating a snapshot that could not drift.
 2026-08-12 · review · — · `ScenarioStep`'s XML summary still lists `digitalInput`/`analogInput`, deleted by RFC 0010. Found while verifying doc claims for retro-0; filed rather than folded into the substrate PR. (D2)
 2026-08-12 · review · retro-0 · The user asked for a correctness pass over the freshly-written convention docs; it found eight wrong claims in text that read as confident — a miscounted analyzer registry, a wrong `Diagnostic.Create` overload, two overstated frequency counts, a wrong assembly breakdown, and an over-generalised `Identifier=` decoupling rule. Every one came from reasoning about the code instead of reading it. This is D10 firing on the substrate itself. (D10)
+2026-08-12 · review · #128 · First `/vion-code-review` run in this repo, on the PR that installs it. Found the PublicApi §8 mechanism stated **backwards** — `[PublicApi]` types are the manifest gate, `[assembly: PublicApiNamespace]` only drives grouping and DALE014/015 — with `Modbus.Core` (12 marked types, no assembly attribute, in the manifest) as the counterexample sitting inside my own list. Also two counts still wrong after the correctness pass above: MSTest 15→16 (`Vion.Dale.Cli.Test` uses the split packages) and 519→520 `var(--` (a token with a fallback). (second ask) (D10)
+2026-08-12 · review · #128 · Same run: `process-metrics.md` defined `second asks` and `escapes` as journal markers that `process-journal.md` never documented, so two columns could only have been filled from memory — the failure the journal exists to prevent. Markers now defined at the site that has to produce them. (D9)
+2026-08-12 · infra · #128 · CI `pack` broke on a toolchain shift, not on the change: with no `global.json`, the runner floated to .NET SDK 10.0.400, whose `Microsoft.CodeAnalysis.Razor.Compiler.dll` needs Roslyn 5.9 while Metalama Compiler bundles 5.5 (`LAMA0625`). Fails at build, before test and style even run, on `Vion.Dale.DevHost.Web`. Blocks every PR; main last built green 2026-08-11.

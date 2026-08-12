@@ -6,7 +6,7 @@ Read this before writing or changing a test.
 
 | Where | Framework | Count today |
 | --- | --- | --- |
-| SDK-internal test projects (`Vion.Dale.*.Test`) | **MSTest** | 15 |
+| SDK-internal test projects (`Vion.Dale.*.Test`) | **MSTest** | 16 (all of them) |
 | Consumer-facing — `examples/*.Test`, `libraries/*.Test`, `templates/*.Test` | **xunit.v3** | 10 |
 
 Both are present in the solution on purpose: the second group models what a library author writes, and
@@ -16,6 +16,10 @@ in xunit, or a new example test written in MSTest, is a finding — match the si
 `Vion.Dale.DevHost.Xunit` is not a test project; it is the xunit integration package and references
 `xunit.v3.extensibility.core`. Its own test project, `Vion.Dale.DevHost.Xunit.Test`, is MSTest, because
 it tests SDK code.
+
+Most SDK test projects reference the `MSTest` meta-package; `Vion.Dale.Cli.Test` references
+`MSTest.TestAdapter` + `MSTest.TestFramework` separately. Both are MSTest — grep for either form when
+counting.
 
 ## 2. A test pins behaviour, not the process that produced it
 

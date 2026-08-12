@@ -81,7 +81,7 @@ function Show-Drift {
         # Measured against HEAD, so a local run also lists the developer's own uncommitted edits.
         # Under -Verify the checkout is clean, so there it is exactly what cleanup changed.
         Write-Host '  modified vs HEAD (a local run also lists edits you made yourself):'
-        git diff --stat -- $Tracked
+        git diff HEAD --stat -- $Tracked
     }
     if ($Untracked.Count -gt 0) {
         # `git diff` cannot render these — they have no committed side to diff against.
@@ -145,7 +145,11 @@ try {
     # rewrite them (environment-dependent, not enforced via locked-mode here) and cleanupcode
     # never touches them. Consider drift on everything except those. Filtering in PowerShell
     # avoids git pathspec/glob quoting quirks under pwsh.
-    $trackedDrift = @(git diff --name-only | Where-Object { $_ -and ($_ -notmatch $notCodeStyle) })
+    #
+    # `git diff HEAD`, not bare `git diff`: the latter compares the working tree against the INDEX,
+    # so drift in a file the developer had already `git add`ed would be invisible here. In CI the
+    # index equals HEAD and the two are identical; locally — the only place this prints — they are not.
+    $trackedDrift = @(git diff HEAD --name-only | Where-Object { $_ -and ($_ -notmatch $notCodeStyle) })
     $untrackedDrift = @($hashBefore.Keys | Where-Object {
             (Test-Path -LiteralPath $_ -PathType Leaf) -and
             (Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash -ne $hashBefore[$_]

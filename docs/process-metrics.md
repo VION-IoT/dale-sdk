@@ -12,6 +12,13 @@ checked against this table — deciding what to change remains the retro's job.
 No harvest script yet, deliberately — hand-fill a few rounds first; script the columns once they stop
 changing.
 
+**Why a schema before there is data.** A column here is a standing instruction to the journal: `second
+asks` and `escapes` exist as columns *because* they made
+[`process-journal.md`](process-journal.md) define the `(second ask)` and `(escape)` markers, and
+without the markers neither number could ever be produced. A column with no defined input is not a
+measurement, it is a wish — `gate catches` was dropped for exactly that reason and comes back when a
+round can name the command that fills it.
+
 ## Columns and counting rules
 
 - **round** — the retro note (dated file in `docs/retro/`).
@@ -20,11 +27,11 @@ changing.
 - **review lines** — new `review` journal entries in the window; **/PR** = review lines ÷ merged PRs.
   No pre-loop baseline exists: retro-0 mined 288 follow-up turns across 26 sessions, but those are
   turns, not corrections, and the two are not comparable. The first row after retro-0 sets the baseline.
-- **second asks** — `review` lines marked "(second ask)": things the human had to say twice. Each is a
-  standing candidate for absorption into a gate, check, or convention rule.
-- **escapes** — corrections that reached the human on work that had already passed
-  `/vion-code-review` (the review ran and missed it). The loop-quality number: the
-  gate > check > prose ordering is working when this falls.
+- **second asks** — `review` lines carrying the `(second ask)` marker: things the human had to say
+  twice. Each is a standing candidate for absorption into an analyzer, a gate, or a convention rule.
+- **escapes** — `review` lines carrying the `(escape)` marker: corrections on work that had already
+  passed `/vion-code-review`. The loop-quality number: the analyzer/gate > check > prose ordering is
+  working when this falls.
 - **D-hits** — which taxonomy checks the journal lines actually name (`D1`…`D10`), as a tally. Retro-0's
   open question is precisely this: the taxonomy is mined from what the lead *said*, not from what the
   review command *catches*. A check that never fires in three rounds is a candidate for deletion; one
@@ -36,13 +43,11 @@ changing.
 - **consumer lines** — `consumer` journal entries: friction in the SDK-user feedback loop. This repo's
   distinguishing signal — most work here is triggered by a `DF-nn` entry from a consuming library, and a
   defect that reaches a consumer costs a release cycle, not a rebuild.
-- **gate catches** — CI failures by gate (build, test, style, snapshot) on PR branches in the window:
-  violations stopped before any human saw them.
 - **releases** — tags cut in the window. Each one obliges an example/template/library reference bump
   ([`releasing.md`](releasing.md)); a release without its bump is a `release` journal line.
 - **journal other · acted** — non-review journal lines added, and total lines the round marked acted-on.
 - **notes** — anything a number can't say.
 
-| round | window | merged PRs | review lines (/PR) | second asks | escapes | D-hits | brief lines | consumer lines | gate catches | releases | journal other · acted | notes |
-| ----- | ------ | ---------- | ------------------ | ----------- | ------- | ------ | ----------- | -------------- | ------------ | -------- | --------------------- | ----- |
-| [retro-0](retro/2026-08-12-review-mining-round.md) | 2026-06-12..2026-08-12 | 70 | n/a — 288 follow-up turns / 26 sessions (not comparable) | n/a | n/a | n/a | n/a | n/a | not counted | 31 (18 stable, 13 preview) | 3 · 0 | Baseline round: mined transcripts because no journal existed. Every "n/a" is a column the journal will fill from here — none is a zero. One release every other day is this repo's tempo; the example-bump obligation rides on all 31. |
+| round | window | merged PRs | review lines (/PR) | second asks | escapes | D-hits | brief lines | consumer lines | releases | journal other · acted | notes |
+| ----- | ------ | ---------- | ------------------ | ----------- | ------- | ------ | ----------- | -------------- | -------- | --------------------- | ----- |
+| [retro-0](retro/2026-08-12-review-mining-round.md) | 2026-06-12..2026-08-12 | 70 | n/a — 288 follow-up turns / 26 sessions (not comparable) | n/a | n/a | n/a | n/a | n/a | 31 (18 stable, 13 preview) | 4 · 0 | Baseline round: mined transcripts because no journal existed. Every "n/a" is a column the journal will fill from here — none is a zero. One release every other day is this repo's tempo; the example-bump obligation rides on all 31. |
