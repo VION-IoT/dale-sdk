@@ -10,6 +10,54 @@ The Vion Dale SDK is an IoT runtime SDK for actor-based logic blocks. This repos
 
 The private Vion Dale runtime lives in a separate repository and consumes the packages published from here as NuGet packages.
 
+This file is the always-loaded contract. Detail lives in the convention docs below, loaded when you do
+the work they govern — **read the linked doc before doing the matching work, and follow it.**
+
+## Read before you write
+
+| When you're… | Read |
+| --- | --- |
+| adding or changing an attribute, a public type or member, an analyzer, or anything reaching the introspection JSON | [`docs/sdk-surface-conventions.md`](docs/sdk-surface-conventions.md) — surface minimalism, XML-doc style, delete-don't-deprecate, the analyzer obligation and the **Metalama blind spot**, PublicApi snapshots |
+| writing or modifying a test | [`docs/testing-conventions.md`](docs/testing-conventions.md) — MSTest inside / xunit.v3 outside, analyzer tests vs the real compilation, packed-artifact verification, determinism |
+| touching `Vion.Dale.DevHost*`, the scenario runner, or stepping | [`docs/devhost-conventions.md`](docs/devhost-conventions.md) — the demonstrate-don't-assert verify loop, clock modes, the four scenario-step definition sites; the SPA's own contract is [`Vion.Dale.DevHost.Web/CLAUDE.md`](Vion.Dale.DevHost.Web/CLAUDE.md) |
+| renaming anything that reaches introspection (service, member, contract, interface, enum member, enum/struct type, PackageId) | [`docs/identifier-stability.md`](docs/identifier-stability.md) — these identifiers are the cloud's translation keys |
+| adding a CLI command | [`Vion.Dale.Cli/CLAUDE.md`](Vion.Dale.Cli/CLAUDE.md) |
+| cutting a release, or bumping examples after one | [`docs/releasing.md`](docs/releasing.md) |
+| reviewing a change before a PR | `/vion-code-review branch` — [`.claude/commands/vion-code-review.md`](.claude/commands/vion-code-review.md) |
+
+**Before writing new code, read similar existing files** in the same area and replicate their
+structure. Do not invent new patterns; name the precedent you followed.
+
+**Design docs go in [`docs/rfcs/`](docs/rfcs/)** as numbered `NNNN-slug.md`, matching the header of the
+existing ones. `docs/superpowers/` is **gitignored** (`.gitignore:300`) per architecture decision 0011,
+so anything a planning skill writes there cannot be committed — `git check-ignore` is the tell. Redirect
+anything meant to last to `docs/rfcs/`. Cross-repo specs live in `../architecture/specs/`, never here.
+
+## Working agreement
+
+1. **Branch and PR, never straight to main.** Work on a feature branch and open a PR. (Exceptions are
+   explicit and rare — the user says "do it right on main".)
+2. **Do not commit until the user has seen the change.** Show the diff and wait. When explicitly told
+   to commit and open a PR, do the whole sequence without stopping in the middle.
+3. **Merge `main` in before opening the PR**, and again before pushing if `main` moved. This repo
+   releases every other day; a branch is stale fast.
+4. **Run `pwsh scripts/cleanup-code.ps1 -Changed` before `gh pr create`** — automatically, without
+   being asked. Style drift is this repo's most repeated CI failure.
+5. **The snapshot bot commits to your PR head.** CI regenerates `docs/snapshots/*` and pushes them
+   onto the branch. Pull and reconcile before pushing again; never force-push over it.
+6. **Push back when a request violates a convention here**, and say which one. A defence of a
+   deliberate exception is welcome; silently complying is not.
+7. **When the user corrects produced work in-session** — a convention violation, approach pushback, a
+   behaviour fix, or a reply choosing which review findings to apply — append a one-line `review` entry
+   to [`docs/process-journal.md`](docs/process-journal.md) **in the commit that carries the fix**.
+   Format and triggers: that file's header. It is the only durable record; transcripts age out and
+   assistant memory does not leave one machine.
+8. **Verify before claiming done.** Say what you actually ran — build, tests, cleanup, the
+   `devhost-smoke` skill, `gh pr checks` after each push. A green local run says nothing about CI, and
+   a DevHost change is shown working, not asserted.
+9. **After a release, bump the examples, template and libraries** ([`docs/releasing.md`](docs/releasing.md)).
+   A release without its bump leaves the next commit shipping inconsistent references.
+
 ## Repository Structure
 
 ```
@@ -30,7 +78,9 @@ Vion.Dale.DevHost.SmokeHost/ Project-referencing smoke fixture — synthetic blo
 Vion.Dale.Cli/              CLI tool (dotnet global tool `dale`) — see Vion.Dale.Cli/CLAUDE.md
 Vion.Dale.Cli.Test/         CLI unit tests
 templates/                  Project template bundled as content inside Vion.Dale.Cli (source used by `dale new`)
-examples/                   Example LogicBlock libraries (not in the main sln; see Phase 3b in the migration plan)
+examples/                   Example LogicBlock libraries — in Vion.Dale.Sdk.sln, referencing published packages
+libraries/                  First-party LogicBlock libraries shipped from here (Vion.Diagnostics)
+docs/                       Conventions, RFCs, snapshots, the process journal/metrics and retro notes
 scripts/                    Build / versioning / docs generation scripts
 ```
 
@@ -109,11 +159,11 @@ calls `publish-nuget.yml` with `gate: true`, which runs `scripts/cleanup-code.ps
 
 **Before opening a PR: run `pwsh scripts/cleanup-code.ps1 -Changed` (or the `/cleanup` slash command),
 review `git diff`, and commit any changes** — this keeps the CI style gate from failing the PR.
-`-Changed` scopes the cleanup to the `.cs` your branch touched and skips in ~0.5s when none did (the
-fast dev-loop path); the full-solution run (drop `-Changed`) and the CI `-Verify` gate stay the
-authoritative backstop. **Agents: do this automatically before `gh pr create`.** Do NOT run cleanup with
-`--profile="Built-in: Reformat Code"` — it differs from the DotSettings profile and fights
-cleanup-on-save.
+`-Changed` scopes the cleanup to the `.cs` your branch touched — including files you have not
+`git add`ed yet — and skips in ~0.5s when none did (the fast dev-loop path); the full-solution run
+(drop `-Changed`) and the CI `-Verify` gate stay the authoritative backstop. **Agents: do this
+automatically before `gh pr create`.** Do NOT run cleanup with `--profile="Built-in: Reformat Code"` —
+it differs from the DotSettings profile and fights cleanup-on-save.
 
 **Formatter escape hatch:** for the rare span where `cleanupcode` formats inconsistently
 across OSes (local vs the Linux CI runner) or where you intentionally hand-format (e.g. an
@@ -126,3 +176,18 @@ sparingly and locally, never to opt a whole file out.
 - `vion-iot/vion-contracts` — Shared DTOs (MQTT topics, payloads, FlatBuffers schemas, introspection models). Published as `Vion.Contracts`.
 - `vion-iot/dale` (private) — Vion Dale runtime. Consumes `Vion.Dale.Sdk`, `Vion.Dale.ProtoActor`, and `Vion.Dale.Plugin` as NuGet packages.
 - `documentation` — Public docs site (API reference auto-generated from this repo).
+- `logic-block-libraries` (ecocoach org, private) — the first real consumer of this SDK. Its
+  `docs/dale-preview-feedback.md` is the primary intake channel for SDK work: entries are numbered
+  `DF-nn`, and most features and fixes in this repo start there. When a `DF-nn` is resolved, answer it
+  in that file so the consumer knows their workaround can go.
+
+## How this file stays true
+
+One owner per rule: where a convention doc owns the subject, the rule lives there and this file links
+to it rather than restating it. Corrections and process friction go to
+[`docs/process-journal.md`](docs/process-journal.md) as they happen; a periodic retro
+([`docs/retro/`](docs/retro/)) reads the journal and promotes recurrences down the enforcement ladder —
+**a DALE analyzer or a CI gate > a `/vion-code-review` check > prose here**. This repo has the analyzer
+rung the sibling repos lack, and it is the cheapest of all: a diagnostic fires in the consumer's build,
+not only in ours. A rule that exists only as prose and keeps drawing the same correction is an
+enforcement gap, not a documentation gap.
