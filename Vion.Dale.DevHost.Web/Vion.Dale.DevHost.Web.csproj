@@ -1,4 +1,32 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+<!--
+    Plain Microsoft.NET.Sdk, NOT Microsoft.NET.Sdk.Web, even though this project serves HTTP.
+    Do not switch this back.
+
+    WHY. The Web SDK is for applications; this is a packable class library that happens to carry
+    API controllers and an embedded SPA. Using it pulled in the Razor SDK, which feeds
+    Microsoft.CodeAnalysis.Razor.Compiler.dll to the compiler as an analyzer — for a project with
+    zero .razor/.cshtml files. On .NET SDK 10.0.400 that analyzer requires Roslyn 5.9, which the
+    Metalama Compiler arriving transitively (Vion.Dale.DevHost -> Vion.Dale.Sdk) does not supply,
+    so every build in the repo failed with LAMA0625. Bumping Metalama does not fix it: the newest
+    release (2026.1.23) still bundles Roslyn 5.6.
+
+    ASP.NET Core types come from the FrameworkReference below — the documented way for a *library*
+    to compile against them. Controllers are still discovered normally (ApplicationPart at runtime;
+    the SDK type is irrelevant to that).
+
+    TWO CONSEQUENCES, both verified.
+
+    1. The package no longer carries staticwebassets/ (nor the build/*.props that wire them up).
+       That is dead weight removed, not a regression: WebHostService serves the SPA exclusively
+       through EmbeddedFileProvider over the EmbeddedResource below — UseDefaultFiles,
+       UseStaticFiles and MapFallbackToFile each pass that provider explicitly. The Web SDK was
+       shipping every SPA file a second time; the .nupkg went 823 KB -> 426 KB.
+    2. Microsoft.AspNetCore.Analyzers and Microsoft.AspNetCore.Mvc.Analyzers are no longer applied
+       here — they are contributed by the Web SDK, not by the FrameworkReference. That is a real
+       (small) loss of MVC/routing diagnostics over this project's few controllers, accepted
+       because the alternative is a repo-wide broken build.
+-->
+<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
         <ImplicitUsings>false</ImplicitUsings>
@@ -11,7 +39,13 @@
         <IsPackable>true</IsPackable>
     </PropertyGroup>
     <ItemGroup>
-        <!-- Embed the SPA build output -->
+        <!-- ASP.NET Core surface for a library: the Web SDK would imply this, plain Sdk does not. -->
+        <FrameworkReference Include="Microsoft.AspNetCore.App"/>
+    </ItemGroup>
+    <ItemGroup>
+        <!-- Embed the SPA build output. Under the Web SDK, wwwroot/** was ALSO implicitly Content;
+             under plain Sdk it is only what this line says, which is what the runtime reads
+             (EmbeddedFileProvider in WebHostService). -->
         <EmbeddedResource Include="wwwroot\**\*"/>
     </ItemGroup>
     <ItemGroup>
