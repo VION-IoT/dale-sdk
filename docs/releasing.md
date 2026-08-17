@@ -67,9 +67,10 @@ author do that the examples do not yet show.
 
 ### After a release: answer the consumer
 
-Where the release resolves a `DF-nn` entry in `logic-block-libraries`'
-`docs/dale-preview-feedback.md`, answer it in that file naming the version — the consumer is holding a
-workaround until they know they can drop it.
+Where the release resolves a Jira item from the "Dale SDK Feedback" epic (VION-62), the item's
+closing comment (written by `/fix`, naming the version) is the text the maintainer relays to the
+consumer's channel — the consumer is holding a workaround until they know they can drop it and does
+not read Jira.
 
 ## Version immutability
 

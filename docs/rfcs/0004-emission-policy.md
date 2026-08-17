@@ -7,7 +7,7 @@ Status: **Accepted** (revised 2026-08-11) — implemented. Author: jonas.bertsch
 > array* — so the one collection shape a service element may use (DALE008 bans `T[]`, `List<T>` and
 > friends) was the one shape the floor could never fire for. A per-row table rebuilt each control cycle
 > republished every `MinInterval` forever, carrying no news, with nothing to warn the author
-> ([DF-50](https://github.com/VION-IoT/logic-block-libraries/blob/main/docs/dale-preview-feedback.md)).
+> (consumer SDK-feedback entry DF-50).
 > This RFC always claimed to cover `ImmutableArray` ([Background](#background--verified-facts-that-constrain-the-design)),
 > so the fix is to the implementation, not the design: the floor now routes through
 > `EmissionEquality.AreEqual`, which uses `IStructuralEquatable` (a length check plus an element walk,
