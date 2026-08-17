@@ -54,5 +54,17 @@ namespace Vion.Dale.DevHost.SmokeHost.LogicBlocks
             EnableInput.InputChanged += (_, value) => IsEnabled = value;
             LevelInput.InputChanged += (_, value) => CurrentLevel = value;
         }
+
+        /// <inheritdoc />
+        protected override void Stopping()
+        {
+            // The fixture's coverage of the stop hook: DevHost teardown (and therefore host recycle) sends the
+            // domain stop, so this runs and the de-energised state is what the UI shows last before the
+            // generation is replaced — the drained final values, not the ones from before the shutdown.
+            // Deliberately service properties rather than a contract write: a best-effort HAL write from
+            // Stopping() needs the grace period VION-65 is about, and would be an unreliable smoke assertion.
+            IsEnabled = false;
+            CurrentLevel = 0;
+        }
     }
 }
