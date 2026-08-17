@@ -121,19 +121,32 @@ namespace Vion.Dale.DevHost
         {
             _logger.LogInformation("Development host stopping...");
 
+            // Domain stop BEFORE the hosted services, the inverse of the original order and the mirror of the
+            // runtime (block actors first, the MQTT client actor after). It matters here because the
+            // StopLogicBlockRequest handler's DrainThrottlers() publishes each member's exact final value, and
+            // those publishes must reach the event stream while WebHostService / SignalR is still up, so the UI
+            // shows final values before a recycle instead of losing them to an already-stopped server. (The
+            // handler's ClearRetainedMessages() is inert here — it raises ServicePropertyValueCleared, which no
+            // DevHost mock handler observes; it clears the runtime's retained MQTT state, which DevHost has none of.)
+            // The teardown cancellation token is deliberately not threaded in: RunAsync reaches here with an
+            // already-cancelled token on Ctrl+C, and the stop sequence is what must still run at that point.
+            // Never throws: DevLogicSystemInitializer.StopAsync downgrades every failure to a warning, and the
+            // resolve itself is guarded so a host that failed before the initializer existed still tears down.
+            try
+            {
+                await _serviceProvider.GetRequiredService<DevLogicSystemInitializer>().StopAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error while stopping the logic system; continuing teardown.");
+            }
+
             // Stop hosted services
             foreach (var hostedService in _hostedServices)
             {
                 _logger.LogDebug("Stopping hosted service: {ServiceType}", hostedService.GetType().Name);
                 await hostedService.StopAsync(cancellationToken);
             }
-
-            // TODO: Send stop messages to logic blocks
-            // foreach (var logicBlockConfig in _configuration.LogicBlocks)
-            // {
-            //     var actorRef = _actorSystem.LookupByName(...);
-            //     _actorSystem.SendTo(actorRef, new StopLogicBlockRequest());
-            // }
 
             _logger.LogInformation("Development host stopped");
         }

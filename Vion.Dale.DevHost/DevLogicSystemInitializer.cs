@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -72,6 +75,26 @@ namespace Vion.Dale.DevHost
     /// </summary>
     public class DevLogicSystemInitializer
     {
+        // The runtime's teardown timeouts (LogicSystemConfigurationInitializer.StopLogicBlockActorsAsync),
+        // kept identical so a block that is slow to stop behaves the same in development and in production.
+        // All three are VIRTUAL — ActorSystem routes them through the injected TimeProvider — which is why
+        // StopAsync also carries the real-time backstop.
+        private static readonly TimeSpan StopAcknowledgementTimeout = TimeSpan.FromSeconds(15);
+
+        private static readonly TimeSpan SnapshotTimeout = TimeSpan.FromSeconds(5);
+
+        private static readonly TimeSpan TerminateTimeout = TimeSpan.FromSeconds(5);
+
+        // The wall-clock bound on the whole teardown sequence — see the note in StopAsync. Generous by
+        // design: it is a last-resort backstop against a block that never acknowledges on a stepped host, not
+        // a performance budget, and a slow CI box must never trip it.
+        private static readonly TimeSpan StopSequenceBackstop = TimeSpan.FromSeconds(60);
+
+        // The slice termination keeps even when the sequence budget above is already spent.
+        private static readonly TimeSpan TerminateFloor = TimeSpan.FromSeconds(5);
+
+        private static readonly Regex LogicBlockActorNameRegex = new($"^({LogicBlockUtils.LogicBlockPrefix})", RegexOptions.Compiled);
+
         private readonly IActorSystem _actorSystem;
 
         private readonly ILogger<DevLogicSystemInitializer> _logger;
@@ -145,6 +168,128 @@ namespace Vion.Dale.DevHost
                                                                                                                    TimeSpan.FromSeconds(5));
 
             _logger.LogInformation("LogicBlocks started");
+        }
+
+        /// <summary>
+        ///     The mirror of <see cref="StartAsync" />: run the runtime's domain stop sequence over the logic
+        ///     block actors — stop acknowledgement, persistent-data snapshot, actor termination — before the
+        ///     host tears the actor system down.
+        ///     <para>
+        ///         Without it, <c>LogicBlockBase.Stopping()</c> is never invoked on any DevHost path: the
+        ///         actors are Proto-stopped straight from <c>DevHost.DisposeAsync</c>, so a block's stop hook
+        ///         — and the exact final values <c>DrainThrottlers</c> publishes with it — never run in
+        ///         development while they always run in the runtime.
+        ///     </para>
+        ///     Never throws: every step is downgraded to a warning so teardown always reaches actor
+        ///     termination, exactly like the runtime's own <c>StopLogicBlockActorsAsync</c>.
+        /// </summary>
+        public async Task StopAsync()
+        {
+            // Discover the actors from the process registry rather than from the configuration — the same
+            // GetLogicBlockActors() scan the runtime's StopLogicBlockActorsAsync uses. LookupByName (what
+            // StartAsync does) mints a PID whether or not the actor exists, so a configuration-driven stop
+            // would send into dead letters and ride out the full timeout for a host that was never started,
+            // or for a block whose creation failed and was recorded as a warning in CreateLogicBlockActors.
+            var logicBlockActors = GetLogicBlockActors();
+            if (logicBlockActors.Count == 0)
+            {
+                _logger.LogDebug("No LogicBlock actors to stop, skipping the domain stop sequence.");
+                return;
+            }
+
+            _logger.LogInformation("Stopping {Count} LogicBlocks...", logicBlockActors.Count);
+
+            // D2: one wall-clock deadline over the WHOLE sequence, deliberately NOT on the injected
+            // TimeProvider. The per-wait timeouts below are virtual — ActorSystem routes them through the
+            // injected clock and registers them in the virtual schedule — so on a stepped host, where nothing
+            // advances the fake clock during teardown, a block that never acks would leave a due-time that
+            // never arrives and hang teardown forever. Stopwatch is the system timer and is the only thing
+            // here that no clock mode can stall. The budget is generous on purpose: the normal path completes
+            // on the acks in milliseconds and never approaches it, so it only has to sit above the virtual
+            // budget (15 s + 5 s + 5 s) by enough that a slow CI box cannot trip it.
+            var sequenceStarted = Stopwatch.GetTimestamp();
+
+            await AwaitTeardownStepAsync(_actorSystem.SendAndWaitForAcknowledgementAsync<StopLogicBlockRequest, StopLogicBlockResponse>(logicBlockActors,
+                                             new StopLogicBlockRequest(),
+                                             StopAcknowledgementTimeout),
+                                         RemainingBackstop(sequenceStarted),
+                                         "waiting for LogicBlocks to acknowledge stop");
+
+            // D1: DevHost has no persistent data store — MockPersistentDataHandler debug-logs and drops
+            // everything — so the response is deliberately discarded. The request is sent anyway because
+            // message-sequence parity with the runtime is the fidelity gap being closed here, and it exercises
+            // the block's CreateSnapshot() / GetCurrentSnapshot() path including its uninitialised guard.
+            await AwaitTeardownStepAsync(_actorSystem.SendAndWaitForAcknowledgementAsync<GetPersistentDataSnapshotRequest, GetPersistentDataSnapshotResponse>(logicBlockActors,
+                                             new GetPersistentDataSnapshotRequest(),
+                                             SnapshotTimeout),
+                                         RemainingBackstop(sequenceStarted),
+                                         "collecting persistent data snapshots");
+
+            // Termination gets whatever is left of the deadline but never less than TerminateFloor: it is the
+            // step that actually releases the actors and their per-block DI scopes, so a deadline already
+            // consumed by a block that would not acknowledge must not skip it entirely.
+            await AwaitTeardownStepAsync(_actorSystem.StopActorsAndWaitAsync(logicBlockActors, TerminateTimeout),
+                                         Max(RemainingBackstop(sequenceStarted), TerminateFloor),
+                                         "waiting for LogicBlock actors to terminate");
+
+            _logger.LogInformation("LogicBlocks stopped");
+        }
+
+        // What is left of the sequence-wide wall-clock budget. Never negative: an exhausted budget yields
+        // TimeSpan.Zero, which cancels the next step immediately rather than reviving it with a fresh one.
+        private static TimeSpan RemainingBackstop(long sequenceStarted)
+        {
+            var remaining = StopSequenceBackstop - Stopwatch.GetElapsedTime(sequenceStarted);
+            return remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
+        }
+
+        private static TimeSpan Max(TimeSpan a, TimeSpan b)
+        {
+            return a > b ? a : b;
+        }
+
+        // The runtime's GetLogicBlockActors: every actor whose name carries the logic block prefix.
+        private List<IActorReference> GetLogicBlockActors()
+        {
+            return _actorSystem.FindByName(LogicBlockActorNameRegex);
+        }
+
+        /// <summary>
+        ///     Await one teardown step, bounded by <paramref name="backstop" /> of real time, and downgrade
+        ///     every failure to a warning — teardown continues to the next step whatever happens, mirroring
+        ///     the runtime, which records each <see cref="TimeoutException" /> as a warning on the result and
+        ///     carries on.
+        /// </summary>
+        private async Task AwaitTeardownStepAsync(Task step, TimeSpan backstop, string what)
+        {
+            using var backstopSource = new CancellationTokenSource(backstop);
+            try
+            {
+                await step.WaitAsync(backstopSource.Token);
+            }
+            catch (TimeoutException ex)
+            {
+                _logger.LogWarning(ex, "Timeout {What} during development host teardown; continuing.", what);
+            }
+            catch (OperationCanceledException) when (backstopSource.IsCancellationRequested)
+            {
+                // The wall-clock backstop tripped. The abandoned step keeps running on the actor system and
+                // will fault with its own TimeoutException once (and if) its virtual due-time arrives —
+                // observe that fault so it never resurfaces as an unobserved task exception on the finalizer.
+                Observe(step);
+                _logger.LogWarning("The teardown backstop elapsed after {Backstop} while {What}; continuing.", backstop, what);
+            }
+            catch (Exception ex)
+            {
+                // Includes a cancellation raised by the step itself rather than by the backstop — reported as
+                // what it is, so a future debugging round is not sent after a backstop that never fired.
+                _logger.LogWarning(ex, "Error {What} during development host teardown; continuing.", what);
+            }
+        }
+
+        private static void Observe(Task task)
+        {
+            _ = task.ContinueWith(static abandoned => _ = abandoned.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
         }
 
         private void CreateServiceProviderHandlers()
