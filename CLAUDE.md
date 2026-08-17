@@ -176,10 +176,20 @@ sparingly and locally, never to opt a whole file out.
 - `vion-iot/vion-contracts` — Shared DTOs (MQTT topics, payloads, FlatBuffers schemas, introspection models). Published as `Vion.Contracts`.
 - `vion-iot/dale` (private) — Vion Dale runtime. Consumes `Vion.Dale.Sdk`, `Vion.Dale.ProtoActor`, and `Vion.Dale.Plugin` as NuGet packages.
 - `documentation` — Public docs site (API reference auto-generated from this repo).
-- `logic-block-libraries` (ecocoach org, private) — the first real consumer of this SDK. Its
-  `docs/dale-preview-feedback.md` is the primary intake channel for SDK work: entries are numbered
-  `DF-nn`, and most features and fixes in this repo start there. When a `DF-nn` is resolved, answer it
-  in that file so the consumer knows their workaround can go.
+- `logic-block-libraries` (ecocoach org, private) — the first real consumer of this SDK, and the
+  origin of most features and fixes here.
+
+## Feedback intake
+
+Consumer and customer feedback on the SDK is curated **by the maintainer** into Jira items under the
+**"Dale SDK Feedback" epic (VION-62)** in the VION project, label `dale-sdk` — consumers do not file
+items. Turn a report (mail, chat, logs, an RFC-shaped proposal) into an item or a recorded dismissal
+with the `dale-sdk-feedback` skill ([`.claude/skills/dale-sdk-feedback/`](.claude/skills/dale-sdk-feedback/SKILL.md));
+it verifies against this repo before drafting, keeps items short, and never decides the fix. Picking,
+briefing and closing items is `/triage` + `/fix` in the architecture repo. When a release resolves an
+item, `/fix`'s closing comment is what the maintainer relays to the consumer — they don't read Jira.
+(Until 2026-08 the intake channel was a field log in `logic-block-libraries`, entries `DF-nn` — retired;
+its history is in that repo's git, and the numbers survive as `Origin` lines on the migrated items.)
 
 ## How this file stays true
 
