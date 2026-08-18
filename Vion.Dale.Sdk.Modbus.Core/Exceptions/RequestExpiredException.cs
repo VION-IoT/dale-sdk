@@ -34,15 +34,20 @@ namespace Vion.Dale.Sdk.Modbus.Core.Exceptions
         /// <param name="requestName">The name of the request that expired.</param>
         /// <param name="queuedWait">How long the request had been waiting.</param>
         /// <param name="maxQueuedAge">The maximum queued age that was in force.</param>
-        public RequestExpiredException(string requestName, TimeSpan queuedWait, TimeSpan maxQueuedAge) : base(string.Format(CultureInfo.InvariantCulture,
-                                                                                                                            "The '{0}' request expired in the local request queue after waiting {1:0.#} s (MaxQueuedAge {2:0.#} s); the device was not contacted.",
-                                                                                                                            requestName,
-                                                                                                                            queuedWait.TotalSeconds,
-                                                                                                                            maxQueuedAge.TotalSeconds))
+        public RequestExpiredException(string requestName, TimeSpan queuedWait, TimeSpan maxQueuedAge) : base(ExpiredMessage(requestName, queuedWait, maxQueuedAge))
         {
             RequestName = requestName;
             QueuedWait = queuedWait;
             MaxQueuedAge = maxQueuedAge;
+        }
+
+        private static string ExpiredMessage(string requestName, TimeSpan queuedWait, TimeSpan maxQueuedAge)
+        {
+            return string.Format(CultureInfo.InvariantCulture,
+                                 "The '{0}' request expired in the local request queue after waiting {1:0.#} s (MaxQueuedAge {2:0.#} s); the device was not contacted.",
+                                 requestName,
+                                 queuedWait.TotalSeconds,
+                                 maxQueuedAge.TotalSeconds);
         }
     }
 }

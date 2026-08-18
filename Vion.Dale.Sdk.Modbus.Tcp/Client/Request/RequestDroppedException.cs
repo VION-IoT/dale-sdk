@@ -26,13 +26,9 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
         ///     queue evicted.
         /// </summary>
         /// <param name="requestName">The name of the request that was dropped.</param>
-        /// <param name="queueCapacity">The capacity the queue was configured with.</param>
+        /// <param name="capacity">The capacity the queue was configured with.</param>
         /// <param name="overflowPolicy">The overflow policy that decided the eviction.</param>
-        public RequestDroppedException(string requestName, int queueCapacity, QueueOverflowPolicy overflowPolicy) : base(string.Format(CultureInfo.InvariantCulture,
-                                                                                                                                       "The '{0}' request was dropped before execution: the local request queue was full (capacity {1}, policy {2}); the device was not contacted.",
-                                                                                                                                       requestName,
-                                                                                                                                       queueCapacity,
-                                                                                                                                       overflowPolicy))
+        public RequestDroppedException(string requestName, int capacity, QueueOverflowPolicy overflowPolicy) : base(QueueFullMessage(requestName, capacity, overflowPolicy))
         {
             RequestName = requestName;
             Reason = RequestDropReason.QueueFull;
@@ -43,12 +39,24 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
         ///     after the client was disposed.
         /// </summary>
         /// <param name="requestName">The name of the request that was dropped.</param>
-        public RequestDroppedException(string requestName) : base(string.Format(CultureInfo.InvariantCulture,
-                                                                                "The '{0}' request was dropped before execution: the client was disposed.",
-                                                                                requestName))
+        public RequestDroppedException(string requestName) : base(ClientDisposedMessage(requestName))
         {
             RequestName = requestName;
             Reason = RequestDropReason.ClientDisposed;
+        }
+
+        private static string QueueFullMessage(string requestName, int capacity, QueueOverflowPolicy overflowPolicy)
+        {
+            return string.Format(CultureInfo.InvariantCulture,
+                                 "The '{0}' request was dropped before execution: the local request queue was full (capacity {1}, policy {2}); the device was not contacted.",
+                                 requestName,
+                                 capacity,
+                                 overflowPolicy);
+        }
+
+        private static string ClientDisposedMessage(string requestName)
+        {
+            return string.Format(CultureInfo.InvariantCulture, "The '{0}' request was dropped before execution: the client was disposed.", requestName);
         }
     }
 }
