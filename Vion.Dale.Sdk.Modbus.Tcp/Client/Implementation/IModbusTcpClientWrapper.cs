@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Vion.Dale.Sdk.Modbus.Core.Conversion;
 using Vion.Dale.Sdk.Modbus.Core.Exceptions;
+using Vion.Dale.Sdk.Modbus.Tcp.Diagnostics;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
 {
@@ -67,6 +68,17 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         ///     This method is idempotent - calling it when already disconnected has no effect.
         /// </remarks>
         Task DisconnectAsync(CancellationToken cancellationToken);
+
+        /// <summary>
+        ///     Supplies the accumulator this wrapper records its connect and disconnect events into.
+        /// </summary>
+        /// <param name="accumulator">The owning client's connection accumulator.</param>
+        /// <remarks>
+        ///     Called by the owning client once, after the container has constructed both. The wrapper is resolved from
+        ///     the container and has no reference back to its client, so the accumulator cannot be a constructor
+        ///     dependency.
+        /// </remarks>
+        void SetConnectionAccumulator(ModbusTcpConnectionAccumulator accumulator);
 
         #endregion
 

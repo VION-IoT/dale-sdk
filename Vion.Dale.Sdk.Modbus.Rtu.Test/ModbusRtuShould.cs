@@ -1,11 +1,13 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Time.Testing;
 using Moq;
 using Vion.Contracts.FlatBuffers.Hw.Modbus;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Messages;
 using Vion.Dale.Sdk.Modbus.Core.Conversion;
+using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
 using Vion.Dale.Sdk.Modbus.Core.Exceptions;
 using Vion.Dale.Sdk.Modbus.Core.Validation;
 using Vion.Dale.Sdk.Utils;
@@ -54,18 +56,20 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
                                                                            0,
                                                                            0,
                                                                            RequestTime,
-                                                                           RequestTime,
+                                                                           TimeSpan.FromSeconds(5),
+                                                                           null,
                                                                            Guid.NewGuid(),
-                                                                           (_, _) => { });
+                                                                           (_, _, _) => { });
 
         private static readonly WriteModbusRtuRequest WriteRequestStub = new(ModbusFunctionCode.None,
                                                                              0,
                                                                              0,
                                                                              [],
                                                                              RequestTime,
-                                                                             RequestTime,
+                                                                             TimeSpan.FromSeconds(5),
+                                                                             null,
                                                                              Guid.NewGuid(),
-                                                                             _ => { });
+                                                                             (_, _) => { });
 
         public enum TargetMethod
         {
@@ -88,11 +92,17 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
 
         private readonly Mock<IModbusDataConverter> _dataConverterMock = new();
 
+        private readonly Mock<IActorDispatcher> _dispatcherMock = new();
+
         private readonly Mock<IActorReference> _handlerRefMock = new();
 
         private readonly Mock<ILogger<ModbusRtu>> _loggerMock = new();
 
+        private readonly List<Action> _pendingDispatcherActions = [];
+
         private readonly Mock<IModbusRtuRequestFactory> _requestFactoryMock = new();
+
+        private readonly FakeTimeProvider _timeProvider = new(RequestTime);
 
         private readonly Mock<IModbusValidator> _validatorMock = new();
 
@@ -128,10 +138,15 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
                                  _requestFactoryMock.Object,
                                  _dataConverterMock.Object,
                                  _validatorMock.Object,
+                                 _timeProvider,
                                  _loggerMock.Object);
             _sut.SetLogicBlockContractId(new LogicBlockContractId(new LogicBlockId(LogicBlockIdValue), ContractIdentifier));
             _sut.SetLinkedContractHandler(_handlerRefMock.Object);
             _sut.IsEnabled = true;
+
+            // Errors reach the caller through its dispatcher, never inside the call. Draining the dispatcher
+            // inline keeps these tests about what the contract does rather than about the actor hop.
+            _dispatcherMock.Setup(dispatcher => dispatcher.InvokeSynchronized(It.IsAny<Action>())).Callback<Action>(action => _pendingDispatcherActions.Add(action));
 
             SetupReadArrayCapture<bool>(processResponse => _capturedBoolArrayProcessResponse = processResponse);
             SetupReadArrayCapture<byte>(processResponse => _capturedByteArrayProcessResponse = processResponse);
@@ -219,11 +234,35 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             Exception? capturedException = null;
 
             // Act
-            InvokeMethod(targetMethod, exception => capturedException = exception);
+            InvokeMethod(targetMethod, (exception, _) => capturedException = exception);
 
-            // Assert
+            // Assert — the failure is delivered through the dispatcher, not inside the call.
+            Assert.IsNull(capturedException);
+            DrainDispatcher();
             Assert.AreSame(expectedException, capturedException);
             _actorContextMock.Verify(actorContext => actorContext.SendTo(It.IsAny<IActorReference>(), It.IsAny<object>(), It.IsAny<Dictionary<string, string>?>()), Times.Never);
+        }
+
+        [TestMethod]
+        public void RecordAValidationFailureAsInvalidInTheLinkSummary()
+        {
+            // Arrange
+            _validatorMock.Setup(validator => validator.ValidateUnitIdentifier(It.IsAny<int>())).Throws(new InvalidUnitIdentifierException(1));
+            ModbusReceipt? capturedReceipt = null;
+
+            // Act
+            InvokeMethod(TargetMethod.ReadCoils, (_, receipt) => capturedReceipt = receipt);
+            DrainDispatcher();
+
+            // Assert
+            Assert.AreEqual(ModbusOutcome.Invalid, capturedReceipt!.Value.Outcome);
+            Assert.AreEqual(ModbusOutcome.Invalid, _sut.Link.LastFailureOutcome);
+
+            // A caller error says nothing about the device, so the link verdict must not move.
+            Assert.AreEqual(ModbusLinkState.Unknown, _sut.Link.State);
+            Assert.AreEqual(0, _sut.Link.SuccessCount);
+            Assert.AreEqual(0, _sut.Link.TimeoutCount);
+            Assert.AreEqual(0, _sut.Link.TransportErrorCount);
         }
 
         [TestMethod]
@@ -270,7 +309,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             _sut.SetLogicBlockContractId(new LogicBlockContractId(new LogicBlockId(string.Empty), ContractIdentifier));
 
             // Act
-            _sut.ReadDiscreteInputs(UnitIdentifier, StartingAddress, Quantity, _ => { });
+            _sut.ReadDiscreteInputs(UnitIdentifier, StartingAddress, Quantity, _dispatcherMock.Object, (_, _) => { });
 
             // Assert
             _actorContextMock.Verify(actorContext => actorContext.SendTo(It.IsAny<IActorReference>(), It.IsAny<object>(), It.IsAny<Dictionary<string, string>?>()), Times.Never);
@@ -284,14 +323,21 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             var responseException = new Exception();
             byte[]? capturedData = null;
             Exception? capturedException = null;
+            ModbusReceipt? capturedReceipt = null;
             var response = new ReadModbusRtuResponse(responseData,
                                                      responseException,
-                                                     (data, exception) =>
+                                                     (data, exception, receipt) =>
                                                      {
                                                          capturedData = data;
                                                          capturedException = exception;
+                                                         capturedReceipt = receipt;
                                                      },
-                                                     Guid.NewGuid());
+                                                     Guid.NewGuid(),
+                                                     RequestTime,
+                                                     RequestTime.AddMilliseconds(5),
+                                                     RequestTime.AddMilliseconds(25),
+                                                     250,
+                                                     ModbusOutcome.Timeout);
 
             // Act
             _sut.HandleContractMessage(new ContractMessage<ReadModbusRtuResponse>(default, response));
@@ -299,6 +345,9 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             // Assert
             Assert.AreSame(responseData, capturedData);
             Assert.AreSame(responseException, capturedException);
+            Assert.AreEqual(ModbusOutcome.Timeout, capturedReceipt!.Value.Outcome);
+            Assert.AreEqual(TimeSpan.FromMilliseconds(5), capturedReceipt.Value.QueuedWait);
+            Assert.AreEqual(TimeSpan.FromMilliseconds(20), capturedReceipt.Value.RoundTrip);
         }
 
         [TestMethod]
@@ -307,7 +356,14 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             // Arrange
             var responseException = new Exception();
             Exception? capturedException = null;
-            var response = new WriteModbusRtuResponse(responseException, exception => capturedException = exception, Guid.NewGuid());
+            var response = new WriteModbusRtuResponse(responseException,
+                                                      (exception, _) => capturedException = exception,
+                                                      Guid.NewGuid(),
+                                                      RequestTime,
+                                                      RequestTime.AddMilliseconds(5),
+                                                      RequestTime.AddMilliseconds(25),
+                                                      250,
+                                                      ModbusOutcome.DeviceError);
 
             // Act
             _sut.HandleContractMessage(new ContractMessage<WriteModbusRtuResponse>(default, response));
@@ -324,7 +380,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             _dataConverterMock.Setup(converter => converter.ConvertBitsToBools(It.IsAny<Memory<byte>>(), Quantity)).Returns(expectedBools);
 
             // Act
-            _sut.ReadDiscreteInputs(UnitIdentifier, StartingAddress, Quantity, _ => { });
+            _sut.ReadDiscreteInputs(UnitIdentifier, StartingAddress, Quantity, _dispatcherMock.Object, (_, _) => { });
 
             // Assert
             VerifyCreateReadArrayInvoked<bool>(ModbusFunctionCode.ReadDiscreteInputs, Quantity);
@@ -341,7 +397,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             _dataConverterMock.Setup(converter => converter.ConvertBitsToBools(It.IsAny<Memory<byte>>(), Quantity)).Returns(expectedBools);
 
             // Act
-            _sut.ReadCoils(UnitIdentifier, StartingAddress, Quantity, _ => { });
+            _sut.ReadCoils(UnitIdentifier, StartingAddress, Quantity, _dispatcherMock.Object, (_, _) => { });
 
             // Assert
             VerifyCreateReadArrayInvoked<bool>(ModbusFunctionCode.ReadCoils, Quantity);
@@ -357,7 +413,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             const bool value = true;
 
             // Act
-            _sut.WriteSingleCoil(UnitIdentifier, StartingAddress, value);
+            _sut.WriteSingleCoil(UnitIdentifier, StartingAddress, value, _dispatcherMock.Object);
 
             // Assert
             _dataConverterMock.Verify(converter => converter.ToByte(value), Times.Once);
@@ -371,7 +427,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             bool[] values = [true, false, true, true];
 
             // Act
-            _sut.WriteMultipleCoils(UnitIdentifier, StartingAddress, values);
+            _sut.WriteMultipleCoils(UnitIdentifier, StartingAddress, values, _dispatcherMock.Object);
 
             // Assert
             _dataConverterMock.Verify(converter => converter.CastToBytes(values), Times.Once);
@@ -384,7 +440,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             // Arrange
 
             // Act
-            _sut.ReadInputRegistersRaw(UnitIdentifier, StartingAddress, Quantity, _ => { });
+            _sut.ReadInputRegistersRaw(UnitIdentifier, StartingAddress, Quantity, _dispatcherMock.Object, (_, _) => { });
 
             // Assert
             VerifyCreateReadArrayInvoked<byte>(ModbusFunctionCode.ReadInputRegisters, Quantity);
@@ -395,7 +451,12 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         [TestMethod]
         public void ReadInputRegistersAsShort()
         {
-            ReadRegistersAs(() => _sut.ReadInputRegistersAsShort(UnitIdentifier, StartingAddress, Quantity, _ => { }, byteOrder: ByteOrder),
+            ReadRegistersAs(() => _sut.ReadInputRegistersAsShort(UnitIdentifier,
+                                                                 StartingAddress,
+                                                                 Quantity,
+                                                                 _dispatcherMock.Object,
+                                                                 (_, _) => { },
+                                                                 byteOrder: ByteOrder),
                             ModbusFunctionCode.ReadInputRegisters,
                             Quantity,
                             new short[] { 1, 2 },
@@ -406,7 +467,12 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         [TestMethod]
         public void ReadInputRegistersAsUShort()
         {
-            ReadRegistersAs(() => _sut.ReadInputRegistersAsUShort(UnitIdentifier, StartingAddress, Quantity, _ => { }, byteOrder: ByteOrder),
+            ReadRegistersAs(() => _sut.ReadInputRegistersAsUShort(UnitIdentifier,
+                                                                  StartingAddress,
+                                                                  Quantity,
+                                                                  _dispatcherMock.Object,
+                                                                  (_, _) => { },
+                                                                  byteOrder: ByteOrder),
                             ModbusFunctionCode.ReadInputRegisters,
                             Quantity,
                             new ushort[] { 1, 2 },
@@ -420,7 +486,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             ReadRegistersAs(() => _sut.ReadInputRegistersAsInt(UnitIdentifier,
                                                                StartingAddress,
                                                                Count,
-                                                               _ => { },
+                                                               _dispatcherMock.Object,
+                                                               (_, _) => { },
                                                                byteOrder: ByteOrder,
                                                                wordOrder: WordOrder32),
                             ModbusFunctionCode.ReadInputRegisters,
@@ -438,7 +505,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             ReadRegistersAs(() => _sut.ReadInputRegistersAsUInt(UnitIdentifier,
                                                                 StartingAddress,
                                                                 Count,
-                                                                _ => { },
+                                                                _dispatcherMock.Object,
+                                                                (_, _) => { },
                                                                 byteOrder: ByteOrder,
                                                                 wordOrder: WordOrder32),
                             ModbusFunctionCode.ReadInputRegisters,
@@ -456,7 +524,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             ReadRegistersAs(() => _sut.ReadInputRegistersAsFloat(UnitIdentifier,
                                                                  StartingAddress,
                                                                  Count,
-                                                                 _ => { },
+                                                                 _dispatcherMock.Object,
+                                                                 (_, _) => { },
                                                                  byteOrder: ByteOrder,
                                                                  wordOrder: WordOrder32),
                             ModbusFunctionCode.ReadInputRegisters,
@@ -474,7 +543,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             ReadRegistersAs(() => _sut.ReadInputRegistersAsLong(UnitIdentifier,
                                                                 StartingAddress,
                                                                 Count,
-                                                                _ => { },
+                                                                _dispatcherMock.Object,
+                                                                (_, _) => { },
                                                                 byteOrder: ByteOrder,
                                                                 wordOrder: WordOrder64),
                             ModbusFunctionCode.ReadInputRegisters,
@@ -492,7 +562,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             ReadRegistersAs(() => _sut.ReadInputRegistersAsULong(UnitIdentifier,
                                                                  StartingAddress,
                                                                  Count,
-                                                                 _ => { },
+                                                                 _dispatcherMock.Object,
+                                                                 (_, _) => { },
                                                                  byteOrder: ByteOrder,
                                                                  wordOrder: WordOrder64),
                             ModbusFunctionCode.ReadInputRegisters,
@@ -510,7 +581,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             ReadRegistersAs(() => _sut.ReadInputRegistersAsDouble(UnitIdentifier,
                                                                   StartingAddress,
                                                                   Count,
-                                                                  _ => { },
+                                                                  _dispatcherMock.Object,
+                                                                  (_, _) => { },
                                                                   byteOrder: ByteOrder,
                                                                   wordOrder: WordOrder64),
                             ModbusFunctionCode.ReadInputRegisters,
@@ -534,7 +606,12 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             _dataConverterMock.Setup(converter => converter.ConvertBytesToString(It.IsAny<Memory<byte>>(), It.IsAny<TextEncoding>())).Returns(expectedString);
 
             // Act
-            _sut.ReadInputRegistersAsString(UnitIdentifier, StartingAddress, Quantity, _ => { }, textEncoding: textEncoding);
+            _sut.ReadInputRegistersAsString(UnitIdentifier,
+                                            StartingAddress,
+                                            Quantity,
+                                            _dispatcherMock.Object,
+                                            (_, _) => { },
+                                            textEncoding: textEncoding);
 
             // Assert
             VerifyCreateReadSingleInvoked<string>(ModbusFunctionCode.ReadInputRegisters, Quantity);
@@ -549,7 +626,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             // Arrange
 
             // Act
-            _sut.ReadHoldingRegistersRaw(UnitIdentifier, StartingAddress, Quantity, _ => { });
+            _sut.ReadHoldingRegistersRaw(UnitIdentifier, StartingAddress, Quantity, _dispatcherMock.Object, (_, _) => { });
 
             // Assert
             VerifyCreateReadArrayInvoked<byte>(ModbusFunctionCode.ReadHoldingRegisters, Quantity);
@@ -560,7 +637,12 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         [TestMethod]
         public void ReadHoldingRegistersAsShort()
         {
-            ReadRegistersAs(() => _sut.ReadHoldingRegistersAsShort(UnitIdentifier, StartingAddress, Quantity, _ => { }, byteOrder: ByteOrder),
+            ReadRegistersAs(() => _sut.ReadHoldingRegistersAsShort(UnitIdentifier,
+                                                                   StartingAddress,
+                                                                   Quantity,
+                                                                   _dispatcherMock.Object,
+                                                                   (_, _) => { },
+                                                                   byteOrder: ByteOrder),
                             ModbusFunctionCode.ReadHoldingRegisters,
                             Quantity,
                             new short[] { 1, 2 },
@@ -571,7 +653,12 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         [TestMethod]
         public void ReadHoldingRegistersAsUShort()
         {
-            ReadRegistersAs(() => _sut.ReadHoldingRegistersAsUShort(UnitIdentifier, StartingAddress, Quantity, _ => { }, byteOrder: ByteOrder),
+            ReadRegistersAs(() => _sut.ReadHoldingRegistersAsUShort(UnitIdentifier,
+                                                                    StartingAddress,
+                                                                    Quantity,
+                                                                    _dispatcherMock.Object,
+                                                                    (_, _) => { },
+                                                                    byteOrder: ByteOrder),
                             ModbusFunctionCode.ReadHoldingRegisters,
                             Quantity,
                             new ushort[] { 1, 2 },
@@ -585,7 +672,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             ReadRegistersAs(() => _sut.ReadHoldingRegistersAsInt(UnitIdentifier,
                                                                  StartingAddress,
                                                                  Count,
-                                                                 _ => { },
+                                                                 _dispatcherMock.Object,
+                                                                 (_, _) => { },
                                                                  byteOrder: ByteOrder,
                                                                  wordOrder: WordOrder32),
                             ModbusFunctionCode.ReadHoldingRegisters,
@@ -603,7 +691,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             ReadRegistersAs(() => _sut.ReadHoldingRegistersAsUInt(UnitIdentifier,
                                                                   StartingAddress,
                                                                   Count,
-                                                                  _ => { },
+                                                                  _dispatcherMock.Object,
+                                                                  (_, _) => { },
                                                                   byteOrder: ByteOrder,
                                                                   wordOrder: WordOrder32),
                             ModbusFunctionCode.ReadHoldingRegisters,
@@ -621,7 +710,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             ReadRegistersAs(() => _sut.ReadHoldingRegistersAsFloat(UnitIdentifier,
                                                                    StartingAddress,
                                                                    Count,
-                                                                   _ => { },
+                                                                   _dispatcherMock.Object,
+                                                                   (_, _) => { },
                                                                    byteOrder: ByteOrder,
                                                                    wordOrder: WordOrder32),
                             ModbusFunctionCode.ReadHoldingRegisters,
@@ -639,7 +729,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             ReadRegistersAs(() => _sut.ReadHoldingRegistersAsLong(UnitIdentifier,
                                                                   StartingAddress,
                                                                   Count,
-                                                                  _ => { },
+                                                                  _dispatcherMock.Object,
+                                                                  (_, _) => { },
                                                                   byteOrder: ByteOrder,
                                                                   wordOrder: WordOrder64),
                             ModbusFunctionCode.ReadHoldingRegisters,
@@ -657,7 +748,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             ReadRegistersAs(() => _sut.ReadHoldingRegistersAsULong(UnitIdentifier,
                                                                    StartingAddress,
                                                                    Count,
-                                                                   _ => { },
+                                                                   _dispatcherMock.Object,
+                                                                   (_, _) => { },
                                                                    byteOrder: ByteOrder,
                                                                    wordOrder: WordOrder64),
                             ModbusFunctionCode.ReadHoldingRegisters,
@@ -675,7 +767,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             ReadRegistersAs(() => _sut.ReadHoldingRegistersAsDouble(UnitIdentifier,
                                                                     StartingAddress,
                                                                     Count,
-                                                                    _ => { },
+                                                                    _dispatcherMock.Object,
+                                                                    (_, _) => { },
                                                                     byteOrder: ByteOrder,
                                                                     wordOrder: WordOrder64),
                             ModbusFunctionCode.ReadHoldingRegisters,
@@ -699,7 +792,12 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             _dataConverterMock.Setup(converter => converter.ConvertBytesToString(It.IsAny<Memory<byte>>(), It.IsAny<TextEncoding>())).Returns(expectedString);
 
             // Act
-            _sut.ReadHoldingRegistersAsString(UnitIdentifier, StartingAddress, Quantity, _ => { }, textEncoding: textEncoding);
+            _sut.ReadHoldingRegistersAsString(UnitIdentifier,
+                                              StartingAddress,
+                                              Quantity,
+                                              _dispatcherMock.Object,
+                                              (_, _) => { },
+                                              textEncoding: textEncoding);
 
             // Assert
             VerifyCreateReadSingleInvoked<string>(ModbusFunctionCode.ReadHoldingRegisters, Quantity);
@@ -715,7 +813,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             const short value = 42;
 
             // Act
-            _sut.WriteSingleHoldingRegister(UnitIdentifier, StartingAddress, value, byteOrder: ByteOrder);
+            _sut.WriteSingleHoldingRegister(UnitIdentifier, StartingAddress, value, _dispatcherMock.Object, byteOrder: ByteOrder);
 
             // Assert
             _dataConverterMock.Verify(converter => converter.GetBytes(value), Times.Once);
@@ -730,7 +828,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             const ushort value = 42;
 
             // Act
-            _sut.WriteSingleHoldingRegister(UnitIdentifier, StartingAddress, value, byteOrder: ByteOrder);
+            _sut.WriteSingleHoldingRegister(UnitIdentifier, StartingAddress, value, _dispatcherMock.Object, byteOrder: ByteOrder);
 
             // Assert
             _dataConverterMock.Verify(converter => converter.GetBytes(value), Times.Once);
@@ -744,7 +842,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             // Arrange
 
             // Act
-            _sut.WriteMultipleHoldingRegistersRaw(UnitIdentifier, StartingAddress, RegisterBytes);
+            _sut.WriteMultipleHoldingRegistersRaw(UnitIdentifier, StartingAddress, RegisterBytes, _dispatcherMock.Object);
 
             // Assert
             VerifyCreateWriteInvoked(ModbusFunctionCode.WriteMultipleRegisters, RegisterBytes);
@@ -753,19 +851,26 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         [TestMethod]
         public void WriteMultipleHoldingRegistersAsShort()
         {
-            WriteHoldingRegistersAs(values => _sut.WriteMultipleHoldingRegistersAsShort(UnitIdentifier, StartingAddress, values, byteOrder: ByteOrder), new short[] { 1, 2 });
+            WriteHoldingRegistersAs(values => _sut.WriteMultipleHoldingRegistersAsShort(UnitIdentifier, StartingAddress, values, _dispatcherMock.Object, byteOrder: ByteOrder),
+                                    new short[] { 1, 2 });
         }
 
         [TestMethod]
         public void WriteMultipleHoldingRegistersAsUShort()
         {
-            WriteHoldingRegistersAs(values => _sut.WriteMultipleHoldingRegistersAsUShort(UnitIdentifier, StartingAddress, values, byteOrder: ByteOrder), new ushort[] { 1, 2 });
+            WriteHoldingRegistersAs(values => _sut.WriteMultipleHoldingRegistersAsUShort(UnitIdentifier, StartingAddress, values, _dispatcherMock.Object, byteOrder: ByteOrder),
+                                    new ushort[] { 1, 2 });
         }
 
         [TestMethod]
         public void WriteMultipleHoldingRegistersAsInt()
         {
-            WriteHoldingRegistersAs(values => _sut.WriteMultipleHoldingRegistersAsInt(UnitIdentifier, StartingAddress, values, byteOrder: ByteOrder, wordOrder: WordOrder32),
+            WriteHoldingRegistersAs(values => _sut.WriteMultipleHoldingRegistersAsInt(UnitIdentifier,
+                                                                                      StartingAddress,
+                                                                                      values,
+                                                                                      _dispatcherMock.Object,
+                                                                                      byteOrder: ByteOrder,
+                                                                                      wordOrder: WordOrder32),
                                     [1, 2],
                                     VerifySwapWords32Invoked);
         }
@@ -773,7 +878,12 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         [TestMethod]
         public void WriteMultipleHoldingRegistersAsUInt()
         {
-            WriteHoldingRegistersAs(values => _sut.WriteMultipleHoldingRegistersAsUInt(UnitIdentifier, StartingAddress, values, byteOrder: ByteOrder, wordOrder: WordOrder32),
+            WriteHoldingRegistersAs(values => _sut.WriteMultipleHoldingRegistersAsUInt(UnitIdentifier,
+                                                                                       StartingAddress,
+                                                                                       values,
+                                                                                       _dispatcherMock.Object,
+                                                                                       byteOrder: ByteOrder,
+                                                                                       wordOrder: WordOrder32),
                                     [1U, 2U],
                                     VerifySwapWords32Invoked);
         }
@@ -781,7 +891,12 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         [TestMethod]
         public void WriteMultipleHoldingRegistersAsFloat()
         {
-            WriteHoldingRegistersAs(values => _sut.WriteMultipleHoldingRegistersAsFloat(UnitIdentifier, StartingAddress, values, byteOrder: ByteOrder, wordOrder: WordOrder32),
+            WriteHoldingRegistersAs(values => _sut.WriteMultipleHoldingRegistersAsFloat(UnitIdentifier,
+                                                                                        StartingAddress,
+                                                                                        values,
+                                                                                        _dispatcherMock.Object,
+                                                                                        byteOrder: ByteOrder,
+                                                                                        wordOrder: WordOrder32),
                                     [1.1f, 2.2f],
                                     VerifySwapWords32Invoked);
         }
@@ -789,7 +904,12 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         [TestMethod]
         public void WriteMultipleHoldingRegistersAsLong()
         {
-            WriteHoldingRegistersAs(values => _sut.WriteMultipleHoldingRegistersAsLong(UnitIdentifier, StartingAddress, values, byteOrder: ByteOrder, wordOrder: WordOrder64),
+            WriteHoldingRegistersAs(values => _sut.WriteMultipleHoldingRegistersAsLong(UnitIdentifier,
+                                                                                       StartingAddress,
+                                                                                       values,
+                                                                                       _dispatcherMock.Object,
+                                                                                       byteOrder: ByteOrder,
+                                                                                       wordOrder: WordOrder64),
                                     [1L, 2L],
                                     VerifySwapWords64Invoked);
         }
@@ -797,7 +917,12 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         [TestMethod]
         public void WriteMultipleHoldingRegistersAsULong()
         {
-            WriteHoldingRegistersAs(values => _sut.WriteMultipleHoldingRegistersAsULong(UnitIdentifier, StartingAddress, values, byteOrder: ByteOrder, wordOrder: WordOrder64),
+            WriteHoldingRegistersAs(values => _sut.WriteMultipleHoldingRegistersAsULong(UnitIdentifier,
+                                                                                        StartingAddress,
+                                                                                        values,
+                                                                                        _dispatcherMock.Object,
+                                                                                        byteOrder: ByteOrder,
+                                                                                        wordOrder: WordOrder64),
                                     [1UL, 2UL],
                                     VerifySwapWords64Invoked);
         }
@@ -805,7 +930,12 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         [TestMethod]
         public void WriteMultipleHoldingRegistersAsDouble()
         {
-            WriteHoldingRegistersAs(values => _sut.WriteMultipleHoldingRegistersAsDouble(UnitIdentifier, StartingAddress, values, byteOrder: ByteOrder, wordOrder: WordOrder64),
+            WriteHoldingRegistersAs(values => _sut.WriteMultipleHoldingRegistersAsDouble(UnitIdentifier,
+                                                                                         StartingAddress,
+                                                                                         values,
+                                                                                         _dispatcherMock.Object,
+                                                                                         byteOrder: ByteOrder,
+                                                                                         wordOrder: WordOrder64),
                                     [1.1, 2.2],
                                     VerifySwapWords64Invoked);
         }
@@ -821,34 +951,55 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             const string value = "test";
 
             // Act
-            _sut.WriteMultipleHoldingRegistersAsString(UnitIdentifier, StartingAddress, value, textEncoding: textEncoding);
+            _sut.WriteMultipleHoldingRegistersAsString(UnitIdentifier, StartingAddress, value, _dispatcherMock.Object, textEncoding: textEncoding);
 
             // Assert
             _dataConverterMock.Verify(converter => converter.ConvertStringToBytes(value, textEncoding), Times.Once);
             VerifyCreateWriteInvoked(ModbusFunctionCode.WriteMultipleRegisters, RegisterBytes);
         }
 
-        private void InvokeMethod(TargetMethod targetMethod, Action<Exception>? errorCallback = null)
+        private void DrainDispatcher()
+        {
+            var pending = _pendingDispatcherActions.ToArray();
+            _pendingDispatcherActions.Clear();
+            foreach (var action in pending)
+            {
+                action();
+            }
+        }
+
+        private void InvokeMethod(TargetMethod targetMethod, Action<Exception, ModbusReceipt>? errorCallback = null)
         {
             switch (targetMethod)
             {
                 case TargetMethod.ReadDiscreteInputs:
-                    _sut.ReadDiscreteInputs(UnitIdentifier, StartingAddress, Quantity, _ => { }, errorCallback);
+                    _sut.ReadDiscreteInputs(UnitIdentifier,
+                                            StartingAddress,
+                                            Quantity,
+                                            _dispatcherMock.Object,
+                                            (_, _) => { },
+                                            errorCallback);
                     break;
                 case TargetMethod.ReadCoils:
-                    _sut.ReadCoils(UnitIdentifier, StartingAddress, Quantity, _ => { }, errorCallback);
+                    _sut.ReadCoils(UnitIdentifier,
+                                   StartingAddress,
+                                   Quantity,
+                                   _dispatcherMock.Object,
+                                   (_, _) => { },
+                                   errorCallback);
                     break;
                 case TargetMethod.WriteSingleCoil:
-                    _sut.WriteSingleCoil(UnitIdentifier, StartingAddress, true, errorCallback: errorCallback);
+                    _sut.WriteSingleCoil(UnitIdentifier, StartingAddress, true, _dispatcherMock.Object, errorCallback: errorCallback);
                     break;
                 case TargetMethod.WriteMultipleCoils:
-                    _sut.WriteMultipleCoils(UnitIdentifier, StartingAddress, [true, false], errorCallback: errorCallback);
+                    _sut.WriteMultipleCoils(UnitIdentifier, StartingAddress, [true, false], _dispatcherMock.Object, errorCallback: errorCallback);
                     break;
                 case TargetMethod.ReadInputRegistersAsFloat:
                     _sut.ReadInputRegistersAsFloat(UnitIdentifier,
                                                    StartingAddress,
                                                    Count,
-                                                   _ => { },
+                                                   _dispatcherMock.Object,
+                                                   (_, _) => { },
                                                    errorCallback,
                                                    ByteOrder,
                                                    WordOrder32);
@@ -857,7 +1008,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
                     _sut.ReadHoldingRegistersAsInt(UnitIdentifier,
                                                    StartingAddress,
                                                    Count,
-                                                   _ => { },
+                                                   _dispatcherMock.Object,
+                                                   (_, _) => { },
                                                    errorCallback,
                                                    ByteOrder,
                                                    WordOrder32);
@@ -866,6 +1018,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
                     _sut.WriteMultipleHoldingRegistersAsDouble(UnitIdentifier,
                                                                StartingAddress,
                                                                [1.1, 2.2, 3.3],
+                                                               _dispatcherMock.Object,
                                                                errorCallback: errorCallback,
                                                                byteOrder: ByteOrder,
                                                                wordOrder: WordOrder64);
@@ -921,17 +1074,24 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
                                                                            It.IsAny<ushort>(),
                                                                            It.IsAny<ushort>(),
                                                                            It.IsAny<TimeSpan>(),
+                                                                           It.IsAny<TimeSpan?>(),
                                                                            It.IsAny<Func<Memory<byte>, T[]>>(),
-                                                                           It.IsAny<Action<T[]>>(),
-                                                                           It.IsAny<Action<Exception>?>()))
-                               .Callback<ModbusFunctionCode, int, ushort, ushort, TimeSpan, Func<Memory<byte>, T[]>, Action<T[]>, Action<Exception>?>((_,
-                                   _,
-                                   _,
-                                   _,
-                                   _,
-                                   processResponse,
-                                   _,
-                                   _) => capture(processResponse))
+                                                                           It.IsAny<IActorDispatcher>(),
+                                                                           It.IsAny<Action<T[], ModbusReceipt>>(),
+                                                                           It.IsAny<Action<Exception, ModbusReceipt>?>(),
+                                                                           It.IsAny<ModbusLinkAccumulator>()))
+                               .Callback<ModbusFunctionCode, int, ushort, ushort, TimeSpan, TimeSpan?, Func<Memory<byte>, T[]>, IActorDispatcher, Action<T[], ModbusReceipt>,
+                                   Action<Exception, ModbusReceipt>?, ModbusLinkAccumulator>((_,
+                                                                                              _,
+                                                                                              _,
+                                                                                              _,
+                                                                                              _,
+                                                                                              _,
+                                                                                              processResponse,
+                                                                                              _,
+                                                                                              _,
+                                                                                              _,
+                                                                                              _) => capture(processResponse))
                                .Returns(ReadRequestStub);
         }
 
@@ -942,40 +1102,40 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
                                                                            It.IsAny<ushort>(),
                                                                            It.IsAny<ushort>(),
                                                                            It.IsAny<TimeSpan>(),
+                                                                           It.IsAny<TimeSpan?>(),
                                                                            It.IsAny<Func<Memory<byte>, T>>(),
-                                                                           It.IsAny<Action<T>>(),
-                                                                           It.IsAny<Action<Exception>?>()))
-                               .Callback<ModbusFunctionCode, int, ushort, ushort, TimeSpan, Func<Memory<byte>, T>, Action<T>, Action<Exception>?>((_,
-                                   _,
-                                   _,
-                                   _,
-                                   _,
-                                   processResponse,
-                                   _,
-                                   _) => capture(processResponse))
+                                                                           It.IsAny<IActorDispatcher>(),
+                                                                           It.IsAny<Action<T, ModbusReceipt>>(),
+                                                                           It.IsAny<Action<Exception, ModbusReceipt>?>(),
+                                                                           It.IsAny<ModbusLinkAccumulator>()))
+                               .Callback<ModbusFunctionCode, int, ushort, ushort, TimeSpan, TimeSpan?, Func<Memory<byte>, T>, IActorDispatcher, Action<T, ModbusReceipt>,
+                                   Action<Exception, ModbusReceipt>?, ModbusLinkAccumulator>((_,
+                                                                                              _,
+                                                                                              _,
+                                                                                              _,
+                                                                                              _,
+                                                                                              _,
+                                                                                              processResponse,
+                                                                                              _,
+                                                                                              _,
+                                                                                              _,
+                                                                                              _) => capture(processResponse))
                                .Returns(ReadRequestStub);
         }
 
         private void SetupWriteCapture()
         {
-            _requestFactoryMock
-                .Setup(factory => factory.CreateWriteRequest(It.IsAny<ModbusFunctionCode>(),
-                                                             It.IsAny<int>(),
-                                                             It.IsAny<ushort>(),
-                                                             It.IsAny<byte[]>(),
-                                                             It.IsAny<TimeSpan>(),
-                                                             It.IsAny<Action?>(),
-                                                             It.IsAny<Action<Exception>?>()))
-                .Callback<ModbusFunctionCode, int, ushort, byte[], TimeSpan, Action?, Action<Exception>?>((_,
-                                                                                                           _,
-                                                                                                           _,
-                                                                                                           data,
-                                                                                                           _,
-                                                                                                           _,
-                                                                                                           _) =>
-                                                                                                          {
-                                                                                                          })
-                .Returns(WriteRequestStub);
+            _requestFactoryMock.Setup(factory => factory.CreateWriteRequest(It.IsAny<ModbusFunctionCode>(),
+                                                                            It.IsAny<int>(),
+                                                                            It.IsAny<ushort>(),
+                                                                            It.IsAny<byte[]>(),
+                                                                            It.IsAny<TimeSpan>(),
+                                                                            It.IsAny<TimeSpan?>(),
+                                                                            It.IsAny<IActorDispatcher>(),
+                                                                            It.IsAny<Action<ModbusReceipt>?>(),
+                                                                            It.IsAny<Action<Exception, ModbusReceipt>?>(),
+                                                                            It.IsAny<ModbusLinkAccumulator>()))
+                               .Returns(WriteRequestStub);
         }
 
         private void VerifyCreateReadArrayInvoked<T>(ModbusFunctionCode expectedFunctionCode, ushort expectedQuantity)
@@ -985,9 +1145,12 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
                                                                             StartingAddress,
                                                                             expectedQuantity,
                                                                             It.IsAny<TimeSpan>(),
+                                                                            It.IsAny<TimeSpan?>(),
                                                                             It.IsAny<Func<Memory<byte>, T[]>>(),
-                                                                            It.IsAny<Action<T[]>>(),
-                                                                            It.IsAny<Action<Exception>?>()),
+                                                                            It.IsAny<IActorDispatcher>(),
+                                                                            It.IsAny<Action<T[], ModbusReceipt>>(),
+                                                                            It.IsAny<Action<Exception, ModbusReceipt>?>(),
+                                                                            It.IsAny<ModbusLinkAccumulator>()),
                                        Times.Once);
         }
 
@@ -998,9 +1161,12 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
                                                                             StartingAddress,
                                                                             expectedQuantity,
                                                                             It.IsAny<TimeSpan>(),
+                                                                            It.IsAny<TimeSpan?>(),
                                                                             It.IsAny<Func<Memory<byte>, T>>(),
-                                                                            It.IsAny<Action<T>>(),
-                                                                            It.IsAny<Action<Exception>?>()),
+                                                                            It.IsAny<IActorDispatcher>(),
+                                                                            It.IsAny<Action<T, ModbusReceipt>>(),
+                                                                            It.IsAny<Action<Exception, ModbusReceipt>?>(),
+                                                                            It.IsAny<ModbusLinkAccumulator>()),
                                        Times.Once);
         }
 
@@ -1011,8 +1177,11 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
                                                                              StartingAddress,
                                                                              expectedData,
                                                                              It.IsAny<TimeSpan>(),
-                                                                             It.IsAny<Action?>(),
-                                                                             It.IsAny<Action<Exception>?>()),
+                                                                             It.IsAny<TimeSpan?>(),
+                                                                             It.IsAny<IActorDispatcher>(),
+                                                                             It.IsAny<Action<ModbusReceipt>?>(),
+                                                                             It.IsAny<Action<Exception, ModbusReceipt>?>(),
+                                                                             It.IsAny<ModbusLinkAccumulator>()),
                                        Times.Once);
         }
 

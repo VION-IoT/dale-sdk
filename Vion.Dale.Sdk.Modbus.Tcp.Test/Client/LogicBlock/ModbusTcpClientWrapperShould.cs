@@ -6,6 +6,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Time.Testing;
 using Moq;
 using Vion.Dale.Sdk.Modbus.Core.Conversion;
 using Vion.Dale.Sdk.Modbus.Core.Exceptions;
@@ -68,6 +69,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
 
         private readonly byte[] _registerBytes = [0x22, 0xB2, 0xC3, 0xB4];
 
+        private readonly FakeTimeProvider _timeProvider = new();
+
         private readonly Mock<IModbusValidator> _validatorMock = new();
 
         private ModbusTcpClientWrapper _sut = null!;
@@ -75,7 +78,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         [TestInitialize]
         public async Task InitializeAsync()
         {
-            _sut = new ModbusTcpClientWrapper(_clientProxyMock.Object, _validatorMock.Object, _dataConverterMock.Object, _loggerMock.Object);
+            _sut = new ModbusTcpClientWrapper(_clientProxyMock.Object, _validatorMock.Object, _dataConverterMock.Object, _timeProvider, _loggerMock.Object);
 
             // Pre-connect to establish baseline connection state.
             // This ensures tests only detect reconnection when settings change during the test, not from the initial IpAddress assignment.

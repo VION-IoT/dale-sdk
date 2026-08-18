@@ -3,6 +3,10 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
 using Moq;
 using Vion.Contracts.FlatBuffers.Hw.Modbus;
+using Vion.Dale.Sdk.Abstractions;
+using Vion.Dale.Sdk.Modbus.Core.Conversion;
+using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
+using Vion.Dale.Sdk.Modbus.Core.Exceptions;
 
 namespace Vion.Dale.Sdk.Modbus.Rtu.Test
 {
@@ -31,6 +35,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
 
         private static readonly TimeSpan OperationTimeout = TimeSpan.FromSeconds(5);
 
+        private static readonly TimeSpan MaxQueuedAge = TimeSpan.FromSeconds(30);
+
         private static readonly DateTime CreatedAt = new(2026,
                                                          1,
                                                          1,
@@ -39,7 +45,17 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
                                                          0,
                                                          DateTimeKind.Utc);
 
-        private static readonly DateTime ExpiresAt = CreatedAt + OperationTimeout;
+        private static readonly ModbusReceipt SuccessReceipt = new(CreatedAt.AddMilliseconds(25),
+                                                                   250,
+                                                                   TimeSpan.FromMilliseconds(20),
+                                                                   TimeSpan.FromMilliseconds(5),
+                                                                   ModbusOutcome.Success);
+
+        private static readonly ModbusReceipt TimeoutReceipt = SuccessReceipt with { Outcome = ModbusOutcome.Timeout };
+
+        private readonly ModbusLinkAccumulator _accumulator = new();
+
+        private readonly Mock<IActorDispatcher> _dispatcherMock = new();
 
         private readonly Mock<ILogger<ModbusRtuRequestFactory>> _loggerMock = new();
 
@@ -48,6 +64,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         private int[]? _arraySuccessCallbackInput;
 
         private Exception? _errorCallbackInput;
+
+        private ModbusReceipt? _receipt;
 
         private int? _singleSuccessCallbackInput;
 
@@ -59,7 +77,94 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         public void Initialize()
         {
             _sut = new ModbusRtuRequestFactory(_timeProvider, _loggerMock.Object);
+
+            // Callbacks now travel the caller's dispatcher, exactly as on Modbus TCP. Run them inline so these
+            // tests keep asserting the factory's behaviour rather than the actor hop.
+            _dispatcherMock.Setup(dispatcher => dispatcher.InvokeSynchronized(It.IsAny<Action>())).Callback<Action>(action => action());
         }
+
+        [TestMethod]
+        public void RecordEveryCompletedTransactionInTheLinkAccumulator()
+        {
+            // Arrange
+            var request = CreateArrayReadRequest(_ => ArrayResult);
+
+            // Act
+            request.Callback(ResponseData, null, SuccessReceipt);
+            request.Callback(null, new OperationTimeoutException(), TimeoutReceipt);
+
+            // Assert
+            var summary = _accumulator.Snapshot(0);
+            Assert.AreEqual(1, summary.SuccessCount);
+            Assert.AreEqual(1, summary.TimeoutCount);
+            Assert.AreEqual(ModbusLinkState.Faulted, summary.State);
+        }
+
+        private ReadModbusRtuRequest CreateArrayReadRequest(Func<Memory<byte>, int[]> processResponse, Action<Exception, ModbusReceipt>? errorCallback = null)
+        {
+            return _sut.CreateReadRequest(ReadFunctionCode,
+                                          UnitIdentifier,
+                                          StartingAddress,
+                                          Quantity,
+                                          OperationTimeout,
+                                          MaxQueuedAge,
+                                          processResponse,
+                                          _dispatcherMock.Object,
+                                          (input, receipt) =>
+                                          {
+                                              _arraySuccessCallbackInput = input;
+                                              _receipt = receipt;
+                                          },
+                                          errorCallback,
+                                          _accumulator);
+        }
+
+        private ReadModbusRtuRequest CreateSingleReadRequest(Func<Memory<byte>, int> processResponse, Action<Exception, ModbusReceipt>? errorCallback = null)
+        {
+            return _sut.CreateReadRequest(ReadFunctionCode,
+                                          UnitIdentifier,
+                                          StartingAddress,
+                                          Quantity,
+                                          OperationTimeout,
+                                          MaxQueuedAge,
+                                          processResponse,
+                                          _dispatcherMock.Object,
+                                          (input, receipt) =>
+                                          {
+                                              _singleSuccessCallbackInput = input;
+                                              _receipt = receipt;
+                                          },
+                                          errorCallback,
+                                          _accumulator);
+        }
+
+        private WriteModbusRtuRequest CreateWriteRequest(Action<ModbusReceipt>? successCallback = null, Action<Exception, ModbusReceipt>? errorCallback = null)
+        {
+            return _sut.CreateWriteRequest(WriteFunctionCode,
+                                           UnitIdentifier,
+                                           WriteAddress,
+                                           WriteData,
+                                           OperationTimeout,
+                                           MaxQueuedAge,
+                                           _dispatcherMock.Object,
+                                           successCallback,
+                                           errorCallback,
+                                           _accumulator);
+        }
+
+        private static void AssertReadRequestParameters(ReadModbusRtuRequest request)
+        {
+            Assert.AreEqual(ReadFunctionCode, request.FunctionCode);
+            Assert.AreEqual((byte)UnitIdentifier, request.UnitId);
+            Assert.AreEqual(StartingAddress, request.StartingAddress);
+            Assert.AreEqual(Quantity, request.Quantity);
+            Assert.AreEqual(CreatedAt, request.CreatedAt);
+            Assert.AreEqual(OperationTimeout, request.OperationTimeout);
+            Assert.AreEqual(MaxQueuedAge, request.MaxQueuedAge);
+            Assert.AreNotEqual(Guid.Empty, request.CorrelationId);
+        }
+
+        #region Read - array result
 
         [TestMethod]
         public void PopulateReadArrayRequestWithProvidedParameters()
@@ -67,14 +172,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             // Arrange
 
             // Act
-            var request = _sut.CreateReadRequest(ReadFunctionCode,
-                                                 UnitIdentifier,
-                                                 StartingAddress,
-                                                 Quantity,
-                                                 OperationTimeout,
-                                                 _ => ArrayResult,
-                                                 input => _arraySuccessCallbackInput = input,
-                                                 null);
+            var request = CreateArrayReadRequest(_ => ArrayResult);
 
             // Assert
             AssertReadRequestParameters(request);
@@ -84,20 +182,14 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         public void InvokeSuccessCallbackWithProcessedResultWhenReadArrayCallbackSucceeds()
         {
             // Arrange
-            var request = _sut.CreateReadRequest(ReadFunctionCode,
-                                                 UnitIdentifier,
-                                                 StartingAddress,
-                                                 Quantity,
-                                                 OperationTimeout,
-                                                 _ => ArrayResult,
-                                                 input => _arraySuccessCallbackInput = input,
-                                                 null);
+            var request = CreateArrayReadRequest(_ => ArrayResult);
 
             // Act
-            request.Callback(ResponseData, null);
+            request.Callback(ResponseData, null, SuccessReceipt);
 
             // Assert
             CollectionAssert.AreEqual(ArrayResult, _arraySuccessCallbackInput);
+            Assert.AreEqual(SuccessReceipt, _receipt);
         }
 
         [TestMethod]
@@ -105,38 +197,35 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         {
             // Arrange
             var expectedException = new InvalidOperationException("transport failure");
-            var request = _sut.CreateReadRequest(ReadFunctionCode,
-                                                 UnitIdentifier,
-                                                 StartingAddress,
-                                                 Quantity,
-                                                 OperationTimeout,
-                                                 _ => ArrayResult,
-                                                 input => _arraySuccessCallbackInput = input,
-                                                 exception => _errorCallbackInput = exception);
+            var request = CreateArrayReadRequest(_ => ArrayResult,
+                                                 (exception, receipt) =>
+                                                 {
+                                                     _errorCallbackInput = exception;
+                                                     _receipt = receipt;
+                                                 });
 
             // Act
-            request.Callback(null, expectedException);
+            request.Callback(null, expectedException, TimeoutReceipt);
 
             // Assert
             Assert.AreSame(expectedException, _errorCallbackInput);
             Assert.IsNull(_arraySuccessCallbackInput);
+            Assert.AreEqual(ModbusOutcome.Timeout, _receipt!.Value.Outcome);
         }
 
         [TestMethod]
         public void InvokeErrorCallbackWhenArrayProcessResponseThrows()
         {
             // Arrange
-            var request = _sut.CreateReadRequest(ReadFunctionCode,
-                                                 UnitIdentifier,
-                                                 StartingAddress,
-                                                 Quantity,
-                                                 OperationTimeout,
-                                                 (Func<Memory<byte>, int[]>)(_ => throw new InvalidOperationException("processing failed")),
-                                                 input => _arraySuccessCallbackInput = input,
-                                                 exception => _errorCallbackInput = exception);
+            var request = CreateArrayReadRequest((Func<Memory<byte>, int[]>)(_ => throw new InvalidOperationException("processing failed")),
+                                                 (exception, receipt) =>
+                                                 {
+                                                     _errorCallbackInput = exception;
+                                                     _receipt = receipt;
+                                                 });
 
             // Act
-            request.Callback(ResponseData, null);
+            request.Callback(ResponseData, null, SuccessReceipt);
 
             // Assert
             Assert.IsInstanceOfType<InvalidOperationException>(_errorCallbackInput);
@@ -144,38 +233,66 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        public void ReclassifySuccessAsProtocolErrorWhenArrayProcessResponseThrows()
+        {
+            // Arrange — the device answered, so the handler stamped Success; reading its answer is what failed.
+            var request = CreateArrayReadRequest((Func<Memory<byte>, int[]>)(_ => throw new ModbusResponseAlignmentException(UnitIdentifier, StartingAddress, 5, 4)),
+                                                 (exception, receipt) =>
+                                                 {
+                                                     _errorCallbackInput = exception;
+                                                     _receipt = receipt;
+                                                 });
+
+            // Act
+            request.Callback(ResponseData, null, SuccessReceipt);
+
+            // Assert
+            Assert.AreEqual(ModbusOutcome.ProtocolError, _receipt!.Value.Outcome);
+            Assert.AreEqual(1, _accumulator.Snapshot(0).ProtocolErrorCount);
+            Assert.AreEqual(0, _accumulator.Snapshot(0).SuccessCount);
+        }
+
+        [TestMethod]
+        public void ReclassifySuccessAsInvalidWhenArrayProcessResponseRejectsTheRequestedConversion()
+        {
+            // Arrange
+            var request = CreateArrayReadRequest((Func<Memory<byte>, int[]>)(_ => throw new UnsupportedByteOrderException((ByteOrder)99)),
+                                                 (exception, receipt) =>
+                                                 {
+                                                     _errorCallbackInput = exception;
+                                                     _receipt = receipt;
+                                                 });
+
+            // Act
+            request.Callback(ResponseData, null, SuccessReceipt);
+
+            // Assert
+            Assert.AreEqual(ModbusOutcome.Invalid, _receipt!.Value.Outcome);
+        }
+
+        [TestMethod]
         public void NotThrowWhenReadArrayTransportFailsAndErrorCallbackIsNull()
         {
             // Arrange
-            var request = _sut.CreateReadRequest(ReadFunctionCode,
-                                                 UnitIdentifier,
-                                                 StartingAddress,
-                                                 Quantity,
-                                                 OperationTimeout,
-                                                 _ => ArrayResult,
-                                                 input => _arraySuccessCallbackInput = input,
-                                                 null);
+            var request = CreateArrayReadRequest(_ => ArrayResult);
 
             // Act / Assert
-            request.Callback(null, new Exception());
+            request.Callback(null, new Exception(), TimeoutReceipt);
         }
 
         [TestMethod]
         public void NotThrowWhenReadArrayProcessResponseThrowsAndErrorCallbackIsNull()
         {
             // Arrange
-            var request = _sut.CreateReadRequest(ReadFunctionCode,
-                                                 UnitIdentifier,
-                                                 StartingAddress,
-                                                 Quantity,
-                                                 OperationTimeout,
-                                                 (Func<Memory<byte>, int[]>)(_ => throw new InvalidOperationException("processing failed")),
-                                                 input => _arraySuccessCallbackInput = input,
-                                                 null);
+            var request = CreateArrayReadRequest((Func<Memory<byte>, int[]>)(_ => throw new InvalidOperationException("processing failed")));
 
             // Act / Assert
-            request.Callback(ResponseData, null);
+            request.Callback(ResponseData, null, SuccessReceipt);
         }
+
+        #endregion
+
+        #region Read - single result
 
         [TestMethod]
         public void PopulateReadSingleRequestWithProvidedParameters()
@@ -183,14 +300,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             // Arrange
 
             // Act
-            var request = _sut.CreateReadRequest(ReadFunctionCode,
-                                                 UnitIdentifier,
-                                                 StartingAddress,
-                                                 Quantity,
-                                                 OperationTimeout,
-                                                 _ => SingleResult,
-                                                 input => _singleSuccessCallbackInput = input,
-                                                 null);
+            var request = CreateSingleReadRequest(_ => SingleResult);
 
             // Assert
             AssertReadRequestParameters(request);
@@ -200,20 +310,14 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         public void InvokeSuccessCallbackWithProcessedResultWhenReadSingleCallbackSucceeds()
         {
             // Arrange
-            var request = _sut.CreateReadRequest(ReadFunctionCode,
-                                                 UnitIdentifier,
-                                                 StartingAddress,
-                                                 Quantity,
-                                                 OperationTimeout,
-                                                 _ => SingleResult,
-                                                 input => _singleSuccessCallbackInput = input,
-                                                 null);
+            var request = CreateSingleReadRequest(_ => SingleResult);
 
             // Act
-            request.Callback(ResponseData, null);
+            request.Callback(ResponseData, null, SuccessReceipt);
 
             // Assert
             Assert.AreEqual(SingleResult, _singleSuccessCallbackInput);
+            Assert.AreEqual(SuccessReceipt, _receipt);
         }
 
         [TestMethod]
@@ -221,17 +325,15 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         {
             // Arrange
             var expectedException = new InvalidOperationException("transport failure");
-            var request = _sut.CreateReadRequest(ReadFunctionCode,
-                                                 UnitIdentifier,
-                                                 StartingAddress,
-                                                 Quantity,
-                                                 OperationTimeout,
-                                                 _ => SingleResult,
-                                                 input => _singleSuccessCallbackInput = input,
-                                                 exception => _errorCallbackInput = exception);
+            var request = CreateSingleReadRequest(_ => SingleResult,
+                                                  (exception, receipt) =>
+                                                  {
+                                                      _errorCallbackInput = exception;
+                                                      _receipt = receipt;
+                                                  });
 
             // Act
-            request.Callback(null, expectedException);
+            request.Callback(null, expectedException, TimeoutReceipt);
 
             // Assert
             Assert.AreSame(expectedException, _errorCallbackInput);
@@ -242,17 +344,15 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         public void InvokeErrorCallbackWhenSingleProcessResponseThrows()
         {
             // Arrange
-            var request = _sut.CreateReadRequest(ReadFunctionCode,
-                                                 UnitIdentifier,
-                                                 StartingAddress,
-                                                 Quantity,
-                                                 OperationTimeout,
-                                                 (Func<Memory<byte>, int>)(_ => throw new InvalidOperationException("processing failed")),
-                                                 input => _singleSuccessCallbackInput = input,
-                                                 exception => _errorCallbackInput = exception);
+            var request = CreateSingleReadRequest((Func<Memory<byte>, int>)(_ => throw new InvalidOperationException("processing failed")),
+                                                  (exception, receipt) =>
+                                                  {
+                                                      _errorCallbackInput = exception;
+                                                      _receipt = receipt;
+                                                  });
 
             // Act
-            request.Callback(ResponseData, null);
+            request.Callback(ResponseData, null, SuccessReceipt);
 
             // Assert
             Assert.IsInstanceOfType<InvalidOperationException>(_errorCallbackInput);
@@ -263,35 +363,25 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         public void NotThrowWhenReadSingleTransportFailsAndErrorCallbackIsNull()
         {
             // Arrange
-            var request = _sut.CreateReadRequest(ReadFunctionCode,
-                                                 UnitIdentifier,
-                                                 StartingAddress,
-                                                 Quantity,
-                                                 OperationTimeout,
-                                                 _ => SingleResult,
-                                                 input => _singleSuccessCallbackInput = input,
-                                                 null);
+            var request = CreateSingleReadRequest(_ => SingleResult);
 
             // Act / Assert
-            request.Callback(null, new Exception());
+            request.Callback(null, new Exception(), TimeoutReceipt);
         }
 
         [TestMethod]
         public void NotThrowWhenReadSingleProcessResponseThrowsAndErrorCallbackIsNull()
         {
             // Arrange
-            var request = _sut.CreateReadRequest(ReadFunctionCode,
-                                                 UnitIdentifier,
-                                                 StartingAddress,
-                                                 Quantity,
-                                                 OperationTimeout,
-                                                 (Func<Memory<byte>, int>)(_ => throw new InvalidOperationException("processing failed")),
-                                                 input => _singleSuccessCallbackInput = input,
-                                                 null);
+            var request = CreateSingleReadRequest((Func<Memory<byte>, int>)(_ => throw new InvalidOperationException("processing failed")));
 
             // Act / Assert
-            request.Callback(ResponseData, null);
+            request.Callback(ResponseData, null, SuccessReceipt);
         }
+
+        #endregion
+
+        #region Write
 
         [TestMethod]
         public void PopulateWriteRequestWithProvidedParameters()
@@ -299,13 +389,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             // Arrange
 
             // Act
-            var request = _sut.CreateWriteRequest(WriteFunctionCode,
-                                                  UnitIdentifier,
-                                                  WriteAddress,
-                                                  WriteData,
-                                                  OperationTimeout,
-                                                  null,
-                                                  null);
+            var request = CreateWriteRequest();
 
             // Assert
             Assert.AreEqual(WriteFunctionCode, request.FunctionCode);
@@ -313,7 +397,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             Assert.AreEqual(WriteAddress, request.Address);
             Assert.AreSame(WriteData, request.Data);
             Assert.AreEqual(CreatedAt, request.CreatedAt);
-            Assert.AreEqual(ExpiresAt, request.ExpiresAt);
+            Assert.AreEqual(OperationTimeout, request.OperationTimeout);
+            Assert.AreEqual(MaxQueuedAge, request.MaxQueuedAge);
             Assert.AreNotEqual(Guid.Empty, request.CorrelationId);
         }
 
@@ -321,19 +406,18 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         public void InvokeSuccessCallbackWhenWriteCallbackSucceeds()
         {
             // Arrange
-            var request = _sut.CreateWriteRequest(WriteFunctionCode,
-                                                  UnitIdentifier,
-                                                  WriteAddress,
-                                                  WriteData,
-                                                  OperationTimeout,
-                                                  () => _writeSuccessCallbackInvoked = true,
-                                                  null);
+            var request = CreateWriteRequest(receipt =>
+                                             {
+                                                 _writeSuccessCallbackInvoked = true;
+                                                 _receipt = receipt;
+                                             });
 
             // Act
-            request.Callback(null);
+            request.Callback(null, SuccessReceipt);
 
             // Assert
             Assert.IsTrue(_writeSuccessCallbackInvoked);
+            Assert.AreEqual(SuccessReceipt, _receipt);
         }
 
         [TestMethod]
@@ -341,63 +425,42 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         {
             // Arrange
             var expectedException = new InvalidOperationException("write failure");
-            var request = _sut.CreateWriteRequest(WriteFunctionCode,
-                                                  UnitIdentifier,
-                                                  WriteAddress,
-                                                  WriteData,
-                                                  OperationTimeout,
-                                                  () => _writeSuccessCallbackInvoked = true,
-                                                  exception => _errorCallbackInput = exception);
+            var request = CreateWriteRequest(_ => _writeSuccessCallbackInvoked = true,
+                                             (exception, receipt) =>
+                                             {
+                                                 _errorCallbackInput = exception;
+                                                 _receipt = receipt;
+                                             });
 
             // Act
-            request.Callback(expectedException);
+            request.Callback(expectedException, TimeoutReceipt);
 
             // Assert
             Assert.AreSame(expectedException, _errorCallbackInput);
             Assert.IsFalse(_writeSuccessCallbackInvoked);
+            Assert.AreEqual(ModbusOutcome.Timeout, _receipt!.Value.Outcome);
         }
 
         [TestMethod]
         public void NotThrowWhenWriteSucceedsAndSuccessCallbackIsNull()
         {
             // Arrange
-            var request = _sut.CreateWriteRequest(WriteFunctionCode,
-                                                  UnitIdentifier,
-                                                  WriteAddress,
-                                                  WriteData,
-                                                  OperationTimeout,
-                                                  null,
-                                                  null);
+            var request = CreateWriteRequest();
 
             // Act / Assert
-            request.Callback(null);
+            request.Callback(null, SuccessReceipt);
         }
 
         [TestMethod]
         public void NotThrowWhenWriteFailsAndErrorCallbackIsNull()
         {
             // Arrange
-            var request = _sut.CreateWriteRequest(WriteFunctionCode,
-                                                  UnitIdentifier,
-                                                  WriteAddress,
-                                                  WriteData,
-                                                  OperationTimeout,
-                                                  null,
-                                                  null);
+            var request = CreateWriteRequest();
 
             // Act / Assert
-            request.Callback(new Exception());
+            request.Callback(new Exception(), TimeoutReceipt);
         }
 
-        private static void AssertReadRequestParameters(ReadModbusRtuRequest request)
-        {
-            Assert.AreEqual(ReadFunctionCode, request.FunctionCode);
-            Assert.AreEqual((byte)UnitIdentifier, request.UnitId);
-            Assert.AreEqual(StartingAddress, request.StartingAddress);
-            Assert.AreEqual(Quantity, request.Quantity);
-            Assert.AreEqual(CreatedAt, request.CreatedAt);
-            Assert.AreEqual(ExpiresAt, request.ExpiresAt);
-            Assert.AreNotEqual(Guid.Empty, request.CorrelationId);
-        }
+        #endregion
     }
 }

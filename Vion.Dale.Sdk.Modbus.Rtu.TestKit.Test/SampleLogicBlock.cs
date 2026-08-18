@@ -1,6 +1,7 @@
 using System;
 using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Core;
+using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
 
 namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
 {
@@ -25,23 +26,68 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
 
         public Exception? LastError { get; private set; }
 
+        /// <summary>The receipt of the last read that completed, whichever way it ended.</summary>
+        public ModbusReceipt? LastReadReceipt { get; private set; }
+
+        /// <summary>The receipt of the last write that completed, whichever way it ended.</summary>
+        public ModbusReceipt? LastWriteReceipt { get; private set; }
+
         public SampleLogicBlock(ILogger logger) : base(logger)
         {
         }
 
         public void ReadVoltages()
         {
-            Modbus.ReadInputRegistersAsFloat(UnitId, VoltagesAddress, 3, values => LastVoltages = values, error => LastError = error);
+            Modbus.ReadInputRegistersAsFloat(UnitId,
+                                             VoltagesAddress,
+                                             3,
+                                             this,
+                                             (values, receipt) =>
+                                             {
+                                                 LastVoltages = values;
+                                                 LastReadReceipt = receipt;
+                                             },
+                                             (error, receipt) =>
+                                             {
+                                                 LastError = error;
+                                                 LastReadReceipt = receipt;
+                                             });
         }
 
         public void ReadCurrents()
         {
-            Modbus.ReadInputRegistersAsFloat(UnitId, CurrentsAddress, 3, values => LastCurrents = values, error => LastError = error);
+            Modbus.ReadInputRegistersAsFloat(UnitId,
+                                             CurrentsAddress,
+                                             3,
+                                             this,
+                                             (values, receipt) =>
+                                             {
+                                                 LastCurrents = values;
+                                                 LastReadReceipt = receipt;
+                                             },
+                                             (error, receipt) =>
+                                             {
+                                                 LastError = error;
+                                                 LastReadReceipt = receipt;
+                                             });
         }
 
         public void WriteSetpoint(short value)
         {
-            Modbus.WriteSingleHoldingRegister(UnitId, SetpointAddress, value, () => WriteSuccessCount++, error => LastError = error);
+            Modbus.WriteSingleHoldingRegister(UnitId,
+                                              SetpointAddress,
+                                              value,
+                                              this,
+                                              receipt =>
+                                              {
+                                                  WriteSuccessCount++;
+                                                  LastWriteReceipt = receipt;
+                                              },
+                                              (error, receipt) =>
+                                              {
+                                                  LastError = error;
+                                                  LastWriteReceipt = receipt;
+                                              });
         }
 
         protected override void Ready()

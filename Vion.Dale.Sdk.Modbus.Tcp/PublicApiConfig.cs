@@ -3,4 +3,5 @@ using Vion.Dale.Sdk.Core;
 [assembly: PublicApiNamespace("Vion.Dale.Sdk.Modbus.Tcp")]
 [assembly: PublicApiNamespace("Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock")]
 [assembly: PublicApiNamespace("Vion.Dale.Sdk.Modbus.Tcp.Client.Request")]
+[assembly: PublicApiNamespace("Vion.Dale.Sdk.Modbus.Tcp.Diagnostics")]
 [assembly: PublicApiNamespace("Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock")]

@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Modbus.Core.Conversion;
 using Vion.Dale.Sdk.Modbus.Core.Exceptions;
 using Vion.Dale.Sdk.Modbus.Core.Validation;
+using Vion.Dale.Sdk.Modbus.Tcp.Diagnostics;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
 {
@@ -21,18 +22,33 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
 
         private readonly ILogger<ModbusTcpClientWrapper> _logger;
 
+        private readonly TimeProvider _timeProvider;
+
         private readonly IModbusValidator _validator;
+
+        private ModbusTcpConnectionAccumulator? _connectionAccumulator;
 
         private bool _disposed;
 
         private bool _reconnectRequired;
 
-        public ModbusTcpClientWrapper(IModbusTcpClientProxy clientProxy, IModbusValidator validator, IModbusDataConverter dataConverter, ILogger<ModbusTcpClientWrapper> logger)
+        public ModbusTcpClientWrapper(IModbusTcpClientProxy clientProxy,
+                                      IModbusValidator validator,
+                                      IModbusDataConverter dataConverter,
+                                      TimeProvider timeProvider,
+                                      ILogger<ModbusTcpClientWrapper> logger)
         {
             _clientProxy = clientProxy;
             _validator = validator;
             _dataConverter = dataConverter;
+            _timeProvider = timeProvider;
             _logger = logger;
+        }
+
+        /// <inheritdoc />
+        public void SetConnectionAccumulator(ModbusTcpConnectionAccumulator accumulator)
+        {
+            _connectionAccumulator = accumulator;
         }
 
         #region Connection
@@ -86,6 +102,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
             }
 
             _clientProxy.Disconnect();
+            _connectionAccumulator?.RecordDisconnected();
             LogDisconnected(IpAddress!, Port);
 
             return Task.CompletedTask;
@@ -107,8 +124,20 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
             }
 
             LogConnecting(IpAddress, Port);
-            await _clientProxy.ConnectAsync(IpAddress, Port, ConnectionTimeout, cancellationToken);
+            _connectionAccumulator?.RecordConnectAttempt();
+            var startedAt = _timeProvider.GetTimestamp();
+            try
+            {
+                await _clientProxy.ConnectAsync(IpAddress, Port, ConnectionTimeout, cancellationToken);
+            }
+            catch (Exception)
+            {
+                _connectionAccumulator?.RecordConnectFailed(_timeProvider.GetUtcNow().UtcDateTime);
+                throw;
+            }
+
             _reconnectRequired = false;
+            _connectionAccumulator?.RecordConnected(_timeProvider.GetUtcNow().UtcDateTime, _timeProvider.GetElapsedTime(startedAt));
             LogConnected(IpAddress, Port);
         }
 

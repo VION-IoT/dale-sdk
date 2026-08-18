@@ -2,16 +2,25 @@
 using System.Net;
 using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Abstractions;
+using Vion.Dale.Sdk.Modbus.Core.Client;
 using Vion.Dale.Sdk.Modbus.Core.Conversion;
+using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.Request;
+using Vion.Dale.Sdk.Modbus.Tcp.Diagnostics;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
 {
     /// <inheritdoc />
     public partial class LogicBlockModbusTcpClient : ILogicBlockModbusTcpClient
     {
+        private static readonly TimeSpan DefaultMaxQueuedAge = TimeSpan.FromSeconds(30);
+
         private readonly IModbusTcpClientWrapper _clientWrapper;
+
+        private readonly ModbusTcpConnectionAccumulator _connectionAccumulator = new();
+
+        private readonly ModbusLinkAccumulator _linkAccumulator = new();
 
         private readonly ILogger<LogicBlockModbusTcpClient> _logger;
 
@@ -34,6 +43,11 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
             _clientWrapper = clientWrapper;
             _clientWrapper.ConnectionTimeout = TimeSpan.FromSeconds(3);
             _clientWrapper.Port = 502;
+
+            // The container builds the wrapper and the queue without knowing which client will own them, so the
+            // accumulators are handed over here rather than injected. These are the seams the diagnostics hang off.
+            _clientWrapper.SetConnectionAccumulator(_connectionAccumulator);
+            _requestQueue.MaxQueuedAge = DefaultMaxQueuedAge;
         }
 
         #region Client
@@ -58,9 +72,15 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                     return;
                 }
 
-                _requestQueue.Initialize(QueueCapacity, QueueOverflowPolicy);
+                _requestQueue.Initialize(QueueCapacity, QueueOverflowPolicy, _linkAccumulator);
                 _requestQueueInitialized = true;
             }
+        }
+
+        /// <inheritdoc />
+        public ModbusLinkSummary Link
+        {
+            get => _linkAccumulator.Snapshot(_requestQueue.QueuedRequestCount);
         }
 
         [LoggerMessage(Level = LogLevel.Information, Message = "Client enabled.")]
@@ -93,6 +113,22 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         public int QueuedRequestCount
         {
             get => _requestQueue.QueuedRequestCount;
+        }
+
+        /// <inheritdoc />
+        public TimeSpan? MaxQueuedAge
+        {
+            get => _requestQueue.MaxQueuedAge;
+
+            set
+            {
+                if (value is { } age && age <= TimeSpan.Zero)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(value), age, $"{nameof(MaxQueuedAge)} must be greater than zero, or null to disable the check.");
+                }
+
+                _requestQueue.MaxQueuedAge = value;
+            }
         }
 
         #endregion
@@ -145,6 +181,12 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         }
 
         /// <inheritdoc />
+        public ModbusTcpConnectionSummary Connection
+        {
+            get => _connectionAccumulator.Snapshot();
+        }
+
+        /// <inheritdoc />
         public void Disconnect(IActorDispatcher dispatcher, Action? successCallback = null, Action<Exception>? errorCallback = null)
         {
             if (!IsEnabled)
@@ -153,7 +195,11 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
-            _requestQueue.Enqueue(nameof(Disconnect), dispatcher, cancellationToken => _clientWrapper.DisconnectAsync(cancellationToken), successCallback, errorCallback);
+            _requestQueue.EnqueueControlOperation(nameof(Disconnect),
+                                                  dispatcher,
+                                                  cancellationToken => _clientWrapper.DisconnectAsync(cancellationToken),
+                                                  successCallback,
+                                                  errorCallback);
         }
 
         #endregion
@@ -170,8 +216,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                        ushort startingAddress,
                                        ushort quantity,
                                        IActorDispatcher dispatcher,
-                                       Action<bool[]> successCallback,
-                                       Action<Exception>? errorCallback = null,
+                                       Action<bool[], ModbusReceipt> successCallback,
+                                       Action<Exception, ModbusReceipt>? errorCallback = null,
                                        TimeSpan? operationTimeout = null)
         {
             if (!IsEnabled)
@@ -200,8 +246,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                               ushort startingAddress,
                               ushort quantity,
                               IActorDispatcher dispatcher,
-                              Action<bool[]> successCallback,
-                              Action<Exception>? errorCallback = null,
+                              Action<bool[], ModbusReceipt> successCallback,
+                              Action<Exception, ModbusReceipt>? errorCallback = null,
                               TimeSpan? operationTimeout = null)
         {
             if (!IsEnabled)
@@ -223,8 +269,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                     ushort registerAddress,
                                     bool value,
                                     IActorDispatcher dispatcher,
-                                    Action? successCallback = null,
-                                    Action<Exception>? errorCallback = null,
+                                    Action<ModbusReceipt>? successCallback = null,
+                                    Action<Exception, ModbusReceipt>? errorCallback = null,
                                     TimeSpan? operationTimeout = null)
         {
             if (!IsEnabled)
@@ -246,8 +292,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                        ushort startingAddress,
                                        bool[] values,
                                        IActorDispatcher dispatcher,
-                                       Action? successCallback = null,
-                                       Action<Exception>? errorCallback = null,
+                                       Action<ModbusReceipt>? successCallback = null,
+                                       Action<Exception, ModbusReceipt>? errorCallback = null,
                                        TimeSpan? operationTimeout = null)
         {
             if (!IsEnabled)
@@ -277,8 +323,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                           ushort startingAddress,
                                           ushort quantity,
                                           IActorDispatcher dispatcher,
-                                          Action<byte[]> successCallback,
-                                          Action<Exception>? errorCallback = null,
+                                          Action<byte[], ModbusReceipt> successCallback,
+                                          Action<Exception, ModbusReceipt>? errorCallback = null,
                                           TimeSpan? operationTimeout = null)
         {
             if (!IsEnabled)
@@ -303,8 +349,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                               ushort startingAddress,
                                               ushort quantity,
                                               IActorDispatcher dispatcher,
-                                              Action<short[]> successCallback,
-                                              Action<Exception>? errorCallback = null,
+                                              Action<short[], ModbusReceipt> successCallback,
+                                              Action<Exception, ModbusReceipt>? errorCallback = null,
                                               ByteOrder byteOrder = ByteOrder.MsbToLsb,
                                               TimeSpan? operationTimeout = null)
         {
@@ -331,8 +377,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                ushort startingAddress,
                                                ushort quantity,
                                                IActorDispatcher dispatcher,
-                                               Action<ushort[]> successCallback,
-                                               Action<Exception>? errorCallback = null,
+                                               Action<ushort[], ModbusReceipt> successCallback,
+                                               Action<Exception, ModbusReceipt>? errorCallback = null,
                                                ByteOrder byteOrder = ByteOrder.MsbToLsb,
                                                TimeSpan? operationTimeout = null)
         {
@@ -359,8 +405,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                             ushort startingAddress,
                                             uint count,
                                             IActorDispatcher dispatcher,
-                                            Action<int[]> successCallback,
-                                            Action<Exception>? errorCallback = null,
+                                            Action<int[], ModbusReceipt> successCallback,
+                                            Action<Exception, ModbusReceipt>? errorCallback = null,
                                             ByteOrder byteOrder = ByteOrder.MsbToLsb,
                                             WordOrder32 wordOrder = WordOrder32.MswToLsw,
                                             TimeSpan? operationTimeout = null)
@@ -389,8 +435,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                              ushort startingAddress,
                                              uint count,
                                              IActorDispatcher dispatcher,
-                                             Action<uint[]> successCallback,
-                                             Action<Exception>? errorCallback = null,
+                                             Action<uint[], ModbusReceipt> successCallback,
+                                             Action<Exception, ModbusReceipt>? errorCallback = null,
                                              ByteOrder byteOrder = ByteOrder.MsbToLsb,
                                              WordOrder32 wordOrder = WordOrder32.MswToLsw,
                                              TimeSpan? operationTimeout = null)
@@ -419,8 +465,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                               ushort startingAddress,
                                               uint count,
                                               IActorDispatcher dispatcher,
-                                              Action<float[]> successCallback,
-                                              Action<Exception>? errorCallback = null,
+                                              Action<float[], ModbusReceipt> successCallback,
+                                              Action<Exception, ModbusReceipt>? errorCallback = null,
                                               ByteOrder byteOrder = ByteOrder.MsbToLsb,
                                               WordOrder32 wordOrder = WordOrder32.MswToLsw,
                                               TimeSpan? operationTimeout = null)
@@ -449,8 +495,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                              ushort startingAddress,
                                              uint count,
                                              IActorDispatcher dispatcher,
-                                             Action<long[]> successCallback,
-                                             Action<Exception>? errorCallback = null,
+                                             Action<long[], ModbusReceipt> successCallback,
+                                             Action<Exception, ModbusReceipt>? errorCallback = null,
                                              ByteOrder byteOrder = ByteOrder.MsbToLsb,
                                              WordOrder64 wordOrder = WordOrder64.ABCD,
                                              TimeSpan? operationTimeout = null)
@@ -479,8 +525,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                               ushort startingAddress,
                                               uint count,
                                               IActorDispatcher dispatcher,
-                                              Action<ulong[]> successCallback,
-                                              Action<Exception>? errorCallback = null,
+                                              Action<ulong[], ModbusReceipt> successCallback,
+                                              Action<Exception, ModbusReceipt>? errorCallback = null,
                                               ByteOrder byteOrder = ByteOrder.MsbToLsb,
                                               WordOrder64 wordOrder = WordOrder64.ABCD,
                                               TimeSpan? operationTimeout = null)
@@ -509,8 +555,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                ushort startingAddress,
                                                uint count,
                                                IActorDispatcher dispatcher,
-                                               Action<double[]> successCallback,
-                                               Action<Exception>? errorCallback = null,
+                                               Action<double[], ModbusReceipt> successCallback,
+                                               Action<Exception, ModbusReceipt>? errorCallback = null,
                                                ByteOrder byteOrder = ByteOrder.MsbToLsb,
                                                WordOrder64 wordOrder = WordOrder64.ABCD,
                                                TimeSpan? operationTimeout = null)
@@ -539,8 +585,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                ushort startingAddress,
                                                ushort quantity,
                                                IActorDispatcher dispatcher,
-                                               Action<string> successCallback,
-                                               Action<Exception>? errorCallback = null,
+                                               Action<string, ModbusReceipt> successCallback,
+                                               Action<Exception, ModbusReceipt>? errorCallback = null,
                                                TextEncoding textEncoding = TextEncoding.Ascii,
                                                TimeSpan? operationTimeout = null)
         {
@@ -571,8 +617,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                             ushort startingAddress,
                                             ushort quantity,
                                             IActorDispatcher dispatcher,
-                                            Action<byte[]> successCallback,
-                                            Action<Exception>? errorCallback = null,
+                                            Action<byte[], ModbusReceipt> successCallback,
+                                            Action<Exception, ModbusReceipt>? errorCallback = null,
                                             TimeSpan? operationTimeout = null)
         {
             if (!IsEnabled)
@@ -597,8 +643,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                 ushort startingAddress,
                                                 ushort quantity,
                                                 IActorDispatcher dispatcher,
-                                                Action<short[]> successCallback,
-                                                Action<Exception>? errorCallback = null,
+                                                Action<short[], ModbusReceipt> successCallback,
+                                                Action<Exception, ModbusReceipt>? errorCallback = null,
                                                 ByteOrder byteOrder = ByteOrder.MsbToLsb,
                                                 TimeSpan? operationTimeout = null)
         {
@@ -625,8 +671,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                  ushort startingAddress,
                                                  ushort quantity,
                                                  IActorDispatcher dispatcher,
-                                                 Action<ushort[]> successCallback,
-                                                 Action<Exception>? errorCallback = null,
+                                                 Action<ushort[], ModbusReceipt> successCallback,
+                                                 Action<Exception, ModbusReceipt>? errorCallback = null,
                                                  ByteOrder byteOrder = ByteOrder.MsbToLsb,
                                                  TimeSpan? operationTimeout = null)
         {
@@ -653,8 +699,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                               ushort startingAddress,
                                               uint count,
                                               IActorDispatcher dispatcher,
-                                              Action<int[]> successCallback,
-                                              Action<Exception>? errorCallback = null,
+                                              Action<int[], ModbusReceipt> successCallback,
+                                              Action<Exception, ModbusReceipt>? errorCallback = null,
                                               ByteOrder byteOrder = ByteOrder.MsbToLsb,
                                               WordOrder32 wordOrder = WordOrder32.MswToLsw,
                                               TimeSpan? operationTimeout = null)
@@ -683,8 +729,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                ushort startingAddress,
                                                uint count,
                                                IActorDispatcher dispatcher,
-                                               Action<uint[]> successCallback,
-                                               Action<Exception>? errorCallback = null,
+                                               Action<uint[], ModbusReceipt> successCallback,
+                                               Action<Exception, ModbusReceipt>? errorCallback = null,
                                                ByteOrder byteOrder = ByteOrder.MsbToLsb,
                                                WordOrder32 wordOrder = WordOrder32.MswToLsw,
                                                TimeSpan? operationTimeout = null)
@@ -713,8 +759,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                 ushort startingAddress,
                                                 uint count,
                                                 IActorDispatcher dispatcher,
-                                                Action<float[]> successCallback,
-                                                Action<Exception>? errorCallback = null,
+                                                Action<float[], ModbusReceipt> successCallback,
+                                                Action<Exception, ModbusReceipt>? errorCallback = null,
                                                 ByteOrder byteOrder = ByteOrder.MsbToLsb,
                                                 WordOrder32 wordOrder = WordOrder32.MswToLsw,
                                                 TimeSpan? operationTimeout = null)
@@ -743,8 +789,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                ushort startingAddress,
                                                uint count,
                                                IActorDispatcher dispatcher,
-                                               Action<long[]> successCallback,
-                                               Action<Exception>? errorCallback = null,
+                                               Action<long[], ModbusReceipt> successCallback,
+                                               Action<Exception, ModbusReceipt>? errorCallback = null,
                                                ByteOrder byteOrder = ByteOrder.MsbToLsb,
                                                WordOrder64 wordOrder = WordOrder64.ABCD,
                                                TimeSpan? operationTimeout = null)
@@ -773,8 +819,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                 ushort startingAddress,
                                                 uint count,
                                                 IActorDispatcher dispatcher,
-                                                Action<ulong[]> successCallback,
-                                                Action<Exception>? errorCallback = null,
+                                                Action<ulong[], ModbusReceipt> successCallback,
+                                                Action<Exception, ModbusReceipt>? errorCallback = null,
                                                 ByteOrder byteOrder = ByteOrder.MsbToLsb,
                                                 WordOrder64 wordOrder = WordOrder64.ABCD,
                                                 TimeSpan? operationTimeout = null)
@@ -803,8 +849,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                  ushort startingAddress,
                                                  uint count,
                                                  IActorDispatcher dispatcher,
-                                                 Action<double[]> successCallback,
-                                                 Action<Exception>? errorCallback = null,
+                                                 Action<double[], ModbusReceipt> successCallback,
+                                                 Action<Exception, ModbusReceipt>? errorCallback = null,
                                                  ByteOrder byteOrder = ByteOrder.MsbToLsb,
                                                  WordOrder64 wordOrder = WordOrder64.ABCD,
                                                  TimeSpan? operationTimeout = null)
@@ -833,8 +879,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                  ushort startingAddress,
                                                  ushort quantity,
                                                  IActorDispatcher dispatcher,
-                                                 Action<string> successCallback,
-                                                 Action<Exception>? errorCallback = null,
+                                                 Action<string, ModbusReceipt> successCallback,
+                                                 Action<Exception, ModbusReceipt>? errorCallback = null,
                                                  TextEncoding textEncoding = TextEncoding.Ascii,
                                                  TimeSpan? operationTimeout = null)
         {
@@ -861,8 +907,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                ushort registerAddress,
                                                short value,
                                                IActorDispatcher dispatcher,
-                                               Action? successCallback = null,
-                                               Action<Exception>? errorCallback = null,
+                                               Action<ModbusReceipt>? successCallback = null,
+                                               Action<Exception, ModbusReceipt>? errorCallback = null,
                                                ByteOrder byteOrder = ByteOrder.MsbToLsb,
                                                TimeSpan? operationTimeout = null)
         {
@@ -889,8 +935,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                ushort registerAddress,
                                                ushort value,
                                                IActorDispatcher dispatcher,
-                                               Action? successCallback = null,
-                                               Action<Exception>? errorCallback = null,
+                                               Action<ModbusReceipt>? successCallback = null,
+                                               Action<Exception, ModbusReceipt>? errorCallback = null,
                                                ByteOrder byteOrder = ByteOrder.MsbToLsb,
                                                TimeSpan? operationTimeout = null)
         {
@@ -917,8 +963,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                      ushort startingAddress,
                                                      byte[] values,
                                                      IActorDispatcher dispatcher,
-                                                     Action? successCallback = null,
-                                                     Action<Exception>? errorCallback = null,
+                                                     Action<ModbusReceipt>? successCallback = null,
+                                                     Action<Exception, ModbusReceipt>? errorCallback = null,
                                                      TimeSpan? operationTimeout = null)
         {
             if (!IsEnabled)
@@ -943,8 +989,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                          ushort startingAddress,
                                                          short[] values,
                                                          IActorDispatcher dispatcher,
-                                                         Action? successCallback = null,
-                                                         Action<Exception>? errorCallback = null,
+                                                         Action<ModbusReceipt>? successCallback = null,
+                                                         Action<Exception, ModbusReceipt>? errorCallback = null,
                                                          ByteOrder byteOrder = ByteOrder.MsbToLsb,
                                                          TimeSpan? operationTimeout = null)
         {
@@ -971,8 +1017,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                           ushort startingAddress,
                                                           ushort[] values,
                                                           IActorDispatcher dispatcher,
-                                                          Action? successCallback = null,
-                                                          Action<Exception>? errorCallback = null,
+                                                          Action<ModbusReceipt>? successCallback = null,
+                                                          Action<Exception, ModbusReceipt>? errorCallback = null,
                                                           ByteOrder byteOrder = ByteOrder.MsbToLsb,
                                                           TimeSpan? operationTimeout = null)
         {
@@ -999,8 +1045,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                        ushort startingAddress,
                                                        int[] values,
                                                        IActorDispatcher dispatcher,
-                                                       Action? successCallback = null,
-                                                       Action<Exception>? errorCallback = null,
+                                                       Action<ModbusReceipt>? successCallback = null,
+                                                       Action<Exception, ModbusReceipt>? errorCallback = null,
                                                        ByteOrder byteOrder = ByteOrder.MsbToLsb,
                                                        WordOrder32 wordOrder = WordOrder32.MswToLsw,
                                                        TimeSpan? operationTimeout = null)
@@ -1029,8 +1075,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                         ushort startingAddress,
                                                         uint[] values,
                                                         IActorDispatcher dispatcher,
-                                                        Action? successCallback = null,
-                                                        Action<Exception>? errorCallback = null,
+                                                        Action<ModbusReceipt>? successCallback = null,
+                                                        Action<Exception, ModbusReceipt>? errorCallback = null,
                                                         ByteOrder byteOrder = ByteOrder.MsbToLsb,
                                                         WordOrder32 wordOrder = WordOrder32.MswToLsw,
                                                         TimeSpan? operationTimeout = null)
@@ -1059,8 +1105,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                          ushort startingAddress,
                                                          float[] values,
                                                          IActorDispatcher dispatcher,
-                                                         Action? successCallback = null,
-                                                         Action<Exception>? errorCallback = null,
+                                                         Action<ModbusReceipt>? successCallback = null,
+                                                         Action<Exception, ModbusReceipt>? errorCallback = null,
                                                          ByteOrder byteOrder = ByteOrder.MsbToLsb,
                                                          WordOrder32 wordOrder = WordOrder32.MswToLsw,
                                                          TimeSpan? operationTimeout = null)
@@ -1089,8 +1135,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                         ushort startingAddress,
                                                         long[] values,
                                                         IActorDispatcher dispatcher,
-                                                        Action? successCallback = null,
-                                                        Action<Exception>? errorCallback = null,
+                                                        Action<ModbusReceipt>? successCallback = null,
+                                                        Action<Exception, ModbusReceipt>? errorCallback = null,
                                                         ByteOrder byteOrder = ByteOrder.MsbToLsb,
                                                         WordOrder64 wordOrder = WordOrder64.ABCD,
                                                         TimeSpan? operationTimeout = null)
@@ -1119,8 +1165,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                          ushort startingAddress,
                                                          ulong[] values,
                                                          IActorDispatcher dispatcher,
-                                                         Action? successCallback = null,
-                                                         Action<Exception>? errorCallback = null,
+                                                         Action<ModbusReceipt>? successCallback = null,
+                                                         Action<Exception, ModbusReceipt>? errorCallback = null,
                                                          ByteOrder byteOrder = ByteOrder.MsbToLsb,
                                                          WordOrder64 wordOrder = WordOrder64.ABCD,
                                                          TimeSpan? operationTimeout = null)
@@ -1149,8 +1195,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                           ushort startingAddress,
                                                           double[] values,
                                                           IActorDispatcher dispatcher,
-                                                          Action? successCallback = null,
-                                                          Action<Exception>? errorCallback = null,
+                                                          Action<ModbusReceipt>? successCallback = null,
+                                                          Action<Exception, ModbusReceipt>? errorCallback = null,
                                                           ByteOrder byteOrder = ByteOrder.MsbToLsb,
                                                           WordOrder64 wordOrder = WordOrder64.ABCD,
                                                           TimeSpan? operationTimeout = null)
@@ -1179,8 +1225,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                           ushort startingAddress,
                                                           string value,
                                                           IActorDispatcher dispatcher,
-                                                          Action? successCallback = null,
-                                                          Action<Exception>? errorCallback = null,
+                                                          Action<ModbusReceipt>? successCallback = null,
+                                                          Action<Exception, ModbusReceipt>? errorCallback = null,
                                                           TextEncoding textEncoding = TextEncoding.Ascii,
                                                           TimeSpan? operationTimeout = null)
         {

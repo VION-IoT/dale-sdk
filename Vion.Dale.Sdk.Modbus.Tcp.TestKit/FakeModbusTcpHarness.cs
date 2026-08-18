@@ -22,6 +22,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
     ///     ctx.FlushPendingActions();
     ///     Assert.AreEqual(0x12345678u, sut.Power);
     ///     </code>
+    ///     Pass <c>ctx.TimeProvider</c> to put the client's receipts, link summary and <c>MaxQueuedAge</c> on the test's
+    ///     virtual clock.
     /// </summary>
     [PublicApi]
     public sealed class FakeModbusTcpHarness : IDisposable
@@ -31,16 +33,34 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
         /// <summary>The fake proxy — pre-populate registers, inject faults, inspect histories.</summary>
         public FakeModbusTcpClientProxy Proxy { get; }
 
+        /// <summary>
+        ///     The queue the client runs on — set <c>Hold</c> and call <c>Drain()</c> to put virtual time between enqueue and
+        ///     execution.
+        /// </summary>
+        public SynchronousRequestQueue Queue { get; }
+
         /// <summary>The fully wired client to inject into the SUT.</summary>
         public ILogicBlockModbusTcpClient Client { get; }
 
-        public FakeModbusTcpHarness() : this(new FakeModbusTcpClientProxy())
+        public FakeModbusTcpHarness() : this(new FakeModbusTcpClientProxy(), TimeProvider.System)
         {
         }
 
-        public FakeModbusTcpHarness(FakeModbusTcpClientProxy proxy)
+        public FakeModbusTcpHarness(FakeModbusTcpClientProxy proxy) : this(proxy, TimeProvider.System)
+        {
+        }
+
+        public FakeModbusTcpHarness(TimeProvider timeProvider) : this(new FakeModbusTcpClientProxy(), timeProvider)
+        {
+        }
+
+        public FakeModbusTcpHarness(FakeModbusTcpClientProxy proxy, TimeProvider timeProvider)
         {
             Proxy = proxy ?? throw new ArgumentNullException(nameof(proxy));
+            if (timeProvider == null)
+            {
+                throw new ArgumentNullException(nameof(timeProvider));
+            }
 
             // The internal ServiceProvider is here for a specific reason: ModbusTcpClientWrapper,
             // RequestFactory, and BitConverterProxy are internal to their assemblies, so the TestKit
@@ -51,11 +71,16 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
             var services = new ServiceCollection();
             services.AddSingleton<ILoggerFactory>(NullLoggerFactory.Instance);
             services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
+
+            // Registered before AddDaleModbusTcpSdk so its TryAddSingleton(TimeProvider.System) keeps ours:
+            // the request factory and the wrapper stamp every receipt and connect duration from it.
+            services.AddSingleton(timeProvider);
             services.AddDaleModbusTcpSdk();
             services.AddSingleton<IModbusTcpClientProxy>(Proxy);
             services.AddSingleton<IRequestQueue, SynchronousRequestQueue>();
 
             _serviceProvider = services.BuildServiceProvider();
+            Queue = (SynchronousRequestQueue)_serviceProvider.GetRequiredService<IRequestQueue>();
             Client = _serviceProvider.GetRequiredService<ILogicBlockModbusTcpClient>();
         }
 

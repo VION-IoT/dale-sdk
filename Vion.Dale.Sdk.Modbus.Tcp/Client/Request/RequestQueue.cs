@@ -1,9 +1,10 @@
-﻿using System;
+using System;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Abstractions;
+using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
 {
@@ -13,6 +14,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
 
         private readonly IRequestFactory _requestFactory;
 
+        private ModbusLinkAccumulator? _accumulator;
+
         private Channel<IRequest>? _channel;
 
         // ReSharper disable once NotAccessedField.Local
@@ -21,6 +24,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
         private CancellationTokenSource? _cts;
 
         private bool _disposed;
+
+        // Written on the actor thread, read on the consumer thread. Stored as ticks (with -1 for "no limit") so a
+        // 32-bit gateway cannot observe a half-written TimeSpan? and silently apply a different policy.
+        private long _maxQueuedAgeTicks = -1;
 
         public RequestQueue(IRequestFactory requestFactory, ILogger<RequestQueue> logger)
         {
@@ -35,12 +42,27 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
         }
 
         /// <inheritdoc />
-        public void Initialize(int capacity, QueueOverflowPolicy overflowPolicy)
+        public TimeSpan? MaxQueuedAge
+        {
+            get
+            {
+                var ticks = Interlocked.Read(ref _maxQueuedAgeTicks);
+
+                return ticks < 0 ? null : TimeSpan.FromTicks(ticks);
+            }
+
+            set => Interlocked.Exchange(ref _maxQueuedAgeTicks, value?.Ticks ?? -1);
+        }
+
+        /// <inheritdoc />
+        public void Initialize(int capacity, QueueOverflowPolicy overflowPolicy, ModbusLinkAccumulator accumulator)
         {
             if (_channel != null)
             {
                 throw new InvalidOperationException($"{nameof(RequestQueue)} is already initialized.");
             }
+
+            _accumulator = accumulator;
 
             var fullMode = overflowPolicy switch
             {
@@ -58,7 +80,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
                                                            AllowSynchronousContinuations =
                                                                false, // Prevent synchronous continuations to avoid blocking the channel writer thread.
                                                        },
-                                                       request => { request.HandleRequestFailed(new RequestDroppedException(request.Name, "queue full")); });
+                                                       request => { request.HandleRequestFailed(new RequestDroppedException(request.Name, capacity, overflowPolicy)); });
             LogQueueCreated(capacity, overflowPolicy);
 
             _cts = new CancellationTokenSource();
@@ -69,8 +91,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
         public void Enqueue<T>(string requestName,
                                IActorDispatcher dispatcher,
                                Func<CancellationToken, Task<T[]>> operation,
-                               Action<T[]> successCallback,
-                               Action<Exception>? errorCallback)
+                               Action<T[], ModbusReceipt> successCallback,
+                               Action<Exception, ModbusReceipt>? errorCallback)
             where T : unmanaged
         {
             var request = _requestFactory.Create(requestName,
@@ -78,6 +100,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
                                                  operation,
                                                  successCallback,
                                                  errorCallback,
+                                                 RequireAccumulator(),
                                                  _logger);
             EnqueueCore(request);
         }
@@ -86,27 +109,49 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
         public void Enqueue<T>(string requestName,
                                IActorDispatcher dispatcher,
                                Func<CancellationToken, Task<T>> operation,
-                               Action<T> successCallback,
-                               Action<Exception>? errorCallback)
+                               Action<T, ModbusReceipt> successCallback,
+                               Action<Exception, ModbusReceipt>? errorCallback)
         {
             var request = _requestFactory.Create(requestName,
                                                  dispatcher,
                                                  operation,
                                                  successCallback,
                                                  errorCallback,
+                                                 RequireAccumulator(),
                                                  _logger);
             EnqueueCore(request);
         }
 
         /// <inheritdoc />
-        public void Enqueue(string requestName, IActorDispatcher dispatcher, Func<CancellationToken, Task> operation, Action? successCallback, Action<Exception>? errorCallback)
+        public void Enqueue(string requestName,
+                            IActorDispatcher dispatcher,
+                            Func<CancellationToken, Task> operation,
+                            Action<ModbusReceipt>? successCallback,
+                            Action<Exception, ModbusReceipt>? errorCallback)
         {
             var request = _requestFactory.Create(requestName,
                                                  dispatcher,
                                                  operation,
                                                  successCallback,
                                                  errorCallback,
+                                                 RequireAccumulator(),
                                                  _logger);
+            EnqueueCore(request);
+        }
+
+        /// <inheritdoc />
+        public void EnqueueControlOperation(string requestName,
+                                            IActorDispatcher dispatcher,
+                                            Func<CancellationToken, Task> operation,
+                                            Action? successCallback,
+                                            Action<Exception>? errorCallback)
+        {
+            var request = _requestFactory.CreateControlOperation(requestName,
+                                                                 dispatcher,
+                                                                 operation,
+                                                                 successCallback,
+                                                                 errorCallback,
+                                                                 _logger);
             EnqueueCore(request);
         }
 
@@ -115,6 +160,11 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
         {
             Dispose(true);
             GC.SuppressFinalize(this);
+        }
+
+        private ModbusLinkAccumulator RequireAccumulator()
+        {
+            return _accumulator ?? throw new InvalidOperationException($"{nameof(RequestQueue)} is not initialized.");
         }
 
         private void EnqueueCore(IRequest request)
@@ -133,7 +183,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
             {
                 // TryWrite only returns false if BoundedChannelFullMode.Wait were set and the channel were full, which is not supported here, or when the channel is completed.
                 LogRequestDroppedChannelCompleted(request.Name, request.Id);
-                request.HandleRequestFailed(new RequestDroppedException(request.Name, "queue disposed"));
+                request.HandleRequestFailed(new RequestDroppedException(request.Name));
             }
         }
 
@@ -164,7 +214,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
             LogProcessingRequest(request.Name, request.Id);
             try
             {
-                await request.ExecuteAsync(token).ConfigureAwait(false);
+                await request.ExecuteAsync(token, MaxQueuedAge).ConfigureAwait(false);
             }
             catch (Exception exception)
             {
