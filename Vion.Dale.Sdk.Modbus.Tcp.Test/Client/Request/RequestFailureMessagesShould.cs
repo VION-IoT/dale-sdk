@@ -1,11 +1,12 @@
 using System;
+using System.Net;
 using Vion.Dale.Sdk.Modbus.Core.Exceptions;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.Request;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
 {
     /// <summary>
-    ///     The text of these two failures is a shipped surface, not a log line: a consumer publishes
+    ///     The text of these failures is a shipped surface, not a log line: a consumer publishes
     ///     <c>exception.Message</c> straight onto a service property, and a commissioning engineer reads it while
     ///     deciding whether the wiring is wrong. Each one has to say that the device was never contacted.
     /// </summary>
@@ -48,6 +49,28 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
                             exception.Message);
             Assert.AreEqual(TimeSpan.FromMilliseconds(31_200), exception.QueuedWait);
             Assert.AreEqual(TimeSpan.FromSeconds(30), exception.MaxQueuedAge);
+        }
+
+        [TestMethod]
+        public void NameTheUnreachableEndpointAndWhenTheClientWillTryItAgain()
+        {
+            // Arrange / Act
+            var nextAttemptAt = new DateTime(2026,
+                                             8,
+                                             18,
+                                             12,
+                                             0,
+                                             4,
+                                             200,
+                                             DateTimeKind.Utc);
+            var exception = new LinkBackoffException(IPAddress.Parse("10.0.0.5"), 502, 3, nextAttemptAt, TimeSpan.FromMilliseconds(4_200));
+
+            // Assert
+            Assert.AreEqual("The request was not attempted: the client is backing off after 3 consecutive failed connects to 10.0.0.5:502 " +
+                            "(next attempt in 4.2 s); the device was not contacted.",
+                            exception.Message);
+            Assert.AreEqual(nextAttemptAt, exception.NextAttemptAt);
+            Assert.AreEqual(3, exception.ConsecutiveConnectFailures);
         }
     }
 }

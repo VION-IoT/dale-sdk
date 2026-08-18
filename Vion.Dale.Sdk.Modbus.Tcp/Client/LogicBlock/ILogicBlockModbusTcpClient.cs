@@ -40,9 +40,27 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
     ///         <see cref="RequestDropReason.ClientDisposed" />, and requests already queued or in flight are cancelled.
     ///     </para>
     ///     <para>
+    ///         Link policy. A timeout, transport error or protocol error on an established connection closes the
+    ///         socket, so the next operation reconnects: a peer that dropped and came back is reached again without
+    ///         operator action, and a stray response cannot be read as the next transaction's answer. Only failed
+    ///         connects drive the backoff — from the second consecutive one the client waits
+    ///         <see cref="ConnectBackoff" /> (1 second), doubling per further failure up to
+    ///         <see cref="ConnectBackoffMax" /> (30 seconds). Operations issued during that wait fail immediately with
+    ///         a <see cref="LinkBackoffException" /> and an <c>Outcome.BackedOff</c> receipt, so the queue drains
+    ///         instead of filling and the device is not contacted once per queued request. A successful connect, a
+    ///         <em>changed</em> <see cref="IpAddress" /> or <see cref="Port" />, or re-enabling the client ends the
+    ///         wait, so a corrected address takes effect on the very next operation. Setting an address or port to the
+    ///         value already in force does nothing.
+    ///     </para>
+    ///     <para>
+    ///         No operation is ever retried automatically. Reads are re-polled by construction, and repeating a write
+    ///         after a fault is not safe to decide for the caller — a pulse would be written twice.
+    ///     </para>
+    ///     <para>
     ///         Compared with Modbus RTU: this client owns its socket and its queue, so
     ///         <see cref="QueuedRequestCount" /> is real, overflow is per client, and <see cref="Connection" /> exists.
-    ///         Its default operation timeout is 1 second.
+    ///         Its default operation timeout is 1 second. RTU has no link policy: there is no connection to back off
+    ///         from.
     ///     </para>
     ///     <para>
     ///         For the exceptions that reach an error callback, see the documentation for
@@ -114,7 +132,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// </exception>
         /// <remarks>
         ///     Changes to this property do not trigger an immediate reconnect. The new port will be used when the next read or
-        ///     write operation is executed.
+        ///     write operation is executed, and ends any connect backoff. Setting the port already in force does nothing.
         /// </remarks>
         int Port { get; set; }
 
@@ -126,9 +144,31 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// </exception>
         /// <remarks>
         ///     Changes to this property do not trigger an immediate reconnect. The new IP address will be used when the next read
-        ///     or write operation is executed.
+        ///     or write operation is executed, and ends any connect backoff — so a corrected address applies at once. Setting the
+        ///     address already in force does nothing.
         /// </remarks>
         string? IpAddress { get; set; }
+
+        /// <summary>
+        ///     Gets or sets how long the client waits after the second consecutive failed connect. Default is 1 second.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException">
+        ///     Thrown when the value is not greater than zero, or exceeds <see cref="ConnectBackoffMax" />.
+        /// </exception>
+        /// <remarks>
+        ///     Can be changed at any time. The wait doubles per further consecutive failure up to
+        ///     <see cref="ConnectBackoffMax" />; setting both to the same value gives a constant wait, and there is no
+        ///     value that turns the backoff off.
+        /// </remarks>
+        TimeSpan ConnectBackoff { get; set; }
+
+        /// <summary>
+        ///     Gets or sets the longest the client waits between connection attempts. Default is 30 seconds.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException">
+        ///     Thrown when the value is smaller than <see cref="ConnectBackoff" />.
+        /// </exception>
+        TimeSpan ConnectBackoffMax { get; set; }
 
         /// <summary>
         ///     Gets a snapshot of the socket: whether it is up, and how connection attempts have gone.

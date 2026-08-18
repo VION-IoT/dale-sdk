@@ -4,8 +4,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Modbus.Core.Conversion;
+using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
 using Vion.Dale.Sdk.Modbus.Core.Exceptions;
 using Vion.Dale.Sdk.Modbus.Core.Validation;
+using Vion.Dale.Sdk.Modbus.Tcp.Client.Request;
 using Vion.Dale.Sdk.Modbus.Tcp.Diagnostics;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
@@ -15,6 +17,13 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         private const int BytesPer32BitValue = 4;
 
         private const int BytesPer64BitValue = 8;
+
+        // The backoff is armed from here on: a single failure is a transient the next request pays for anyway.
+        private const int ConnectFailuresBeforeBackoff = 2;
+
+        private static readonly TimeSpan DefaultConnectBackoff = TimeSpan.FromSeconds(1);
+
+        private static readonly TimeSpan DefaultConnectBackoffMax = TimeSpan.FromSeconds(30);
 
         private readonly IModbusTcpClientProxy _clientProxy;
 
@@ -26,7 +35,17 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
 
         private readonly IModbusValidator _validator;
 
-        private ModbusTcpConnectionAccumulator? _connectionAccumulator;
+        // Written on the block's actor thread, read on the queue consumer: kept as ticks behind Interlocked so a
+        // 32-bit gateway cannot read half of one value and half of another, which is a silent policy change.
+        private long _backoffUntilTicks;
+
+        private long _connectBackoffMaxTicks = DefaultConnectBackoffMax.Ticks;
+
+        private long _connectBackoffTicks = DefaultConnectBackoff.Ticks;
+
+        // Never null: the link policy keys off the consecutive-failure run this holds, so it has to work whether or
+        // not an owning client has handed its own accumulator over yet.
+        private ModbusTcpConnectionAccumulator _connectionAccumulator = new();
 
         private bool _disposed;
 
@@ -43,12 +62,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
             _dataConverter = dataConverter;
             _timeProvider = timeProvider;
             _logger = logger;
+            _connectionAccumulator.UseClock(timeProvider);
         }
 
         /// <inheritdoc />
         public void SetConnectionAccumulator(ModbusTcpConnectionAccumulator accumulator)
         {
             _connectionAccumulator = accumulator;
+            _connectionAccumulator.UseClock(_timeProvider);
         }
 
         #region Connection
@@ -72,9 +93,17 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
 
             set
             {
+                // Re-setting the value in force is a no-op: a consumer that re-applies its whole configuration
+                // whenever one field is edited would otherwise drop the connection on every unrelated edit.
+                if (field == value)
+                {
+                    return;
+                }
+
                 field = value;
                 LogPortSet(value);
                 _reconnectRequired = true;
+                ClearConnectBackoff(nameof(Port));
             }
         }
 
@@ -85,10 +114,38 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
 
             set
             {
+                if (Equals(field, value))
+                {
+                    return;
+                }
+
                 field = value;
                 LogIpAddressSet(value!);
                 _reconnectRequired = true;
+                ClearConnectBackoff(nameof(IpAddress));
             }
+        }
+
+        /// <inheritdoc />
+        public TimeSpan ConnectBackoff
+        {
+            get => TimeSpan.FromTicks(Interlocked.Read(ref _connectBackoffTicks));
+
+            set => Interlocked.Exchange(ref _connectBackoffTicks, value.Ticks);
+        }
+
+        /// <inheritdoc />
+        public TimeSpan ConnectBackoffMax
+        {
+            get => TimeSpan.FromTicks(Interlocked.Read(ref _connectBackoffMaxTicks));
+
+            set => Interlocked.Exchange(ref _connectBackoffMaxTicks, value.Ticks);
+        }
+
+        /// <inheritdoc />
+        public void ResetConnectBackoff(string change)
+        {
+            ClearConnectBackoff(change);
         }
 
         /// <inheritdoc />
@@ -102,7 +159,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
             }
 
             _clientProxy.Disconnect();
-            _connectionAccumulator?.RecordDisconnected();
+            _connectionAccumulator.RecordDisconnected();
             LogDisconnected(IpAddress!, Port);
 
             return Task.CompletedTask;
@@ -116,6 +173,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
                 return;
             }
 
+            ThrowIfBackingOff();
+
             await DisconnectAsync(cancellationToken);
 
             if (IpAddress == null)
@@ -124,7 +183,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
             }
 
             LogConnecting(IpAddress, Port);
-            _connectionAccumulator?.RecordConnectAttempt();
+            _connectionAccumulator.RecordConnectAttempt();
             var startedAt = _timeProvider.GetTimestamp();
             try
             {
@@ -132,13 +191,109 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
             }
             catch (Exception)
             {
-                _connectionAccumulator?.RecordConnectFailed(_timeProvider.GetUtcNow().UtcDateTime);
+                var failedAt = _timeProvider.GetUtcNow().UtcDateTime;
+                _connectionAccumulator.RecordConnectFailed(failedAt);
+                ArmConnectBackoff(failedAt);
+
                 throw;
             }
 
             _reconnectRequired = false;
-            _connectionAccumulator?.RecordConnected(_timeProvider.GetUtcNow().UtcDateTime, _timeProvider.GetElapsedTime(startedAt));
+            var wasBackingOff = Interlocked.Exchange(ref _backoffUntilTicks, 0) != 0;
+            _connectionAccumulator.RecordConnected(_timeProvider.GetUtcNow().UtcDateTime, _timeProvider.GetElapsedTime(startedAt));
             LogConnected(IpAddress, Port);
+            if (wasBackingOff)
+            {
+                LogConnectBackoffEnded(IpAddress, Port);
+            }
+        }
+
+        /// <summary>
+        ///     Fails the request outright while a backoff is still running, so a device that cannot be reached is not
+        ///     contacted once per queued request. An elapsed backoff lets exactly one attempt through.
+        /// </summary>
+        private void ThrowIfBackingOff()
+        {
+            var backoffUntilTicks = Interlocked.Read(ref _backoffUntilTicks);
+            if (backoffUntilTicks == 0)
+            {
+                return;
+            }
+
+            var nextAttemptAt = new DateTime(backoffUntilTicks, DateTimeKind.Utc);
+            var now = _timeProvider.GetUtcNow().UtcDateTime;
+            if (now >= nextAttemptAt)
+            {
+                return;
+            }
+
+            throw new LinkBackoffException(IpAddress ?? IPAddress.None, Port, _connectionAccumulator.ConsecutiveConnectFailures, nextAttemptAt, nextAttemptAt - now);
+        }
+
+        private void ArmConnectBackoff(DateTime failedAt)
+        {
+            var consecutiveConnectFailures = _connectionAccumulator.ConsecutiveConnectFailures;
+            if (consecutiveConnectFailures < ConnectFailuresBeforeBackoff)
+            {
+                return;
+            }
+
+            var backoff = Exponential(ConnectBackoff, consecutiveConnectFailures - ConnectFailuresBeforeBackoff, ConnectBackoffMax);
+            var nextAttemptAt = failedAt + backoff;
+            Interlocked.Exchange(ref _backoffUntilTicks, nextAttemptAt.Ticks);
+            _connectionAccumulator.RecordConnectBackoff(backoff, nextAttemptAt);
+            LogConnectBackoffArmed(IpAddress!, Port, consecutiveConnectFailures, backoff, nextAttemptAt);
+        }
+
+        private void ClearConnectBackoff(string change)
+        {
+            var wasBackingOff = Interlocked.Exchange(ref _backoffUntilTicks, 0) != 0;
+            _connectionAccumulator.ResetConnectBackoff();
+            if (wasBackingOff)
+            {
+                LogConnectBackoffReset(change);
+            }
+        }
+
+        /// <summary>
+        ///     Closes the socket after a fault that says the stream can no longer be trusted, so the next request
+        ///     reconnects instead of continuing on a half-open connection or reading a stray response.
+        /// </summary>
+        private void CloseSocketOnWireFault(Exception exception)
+        {
+            var outcome = ModbusOutcomeClassifier.Classify(exception);
+            if (outcome is not (ModbusOutcome.Timeout or ModbusOutcome.TransportError or ModbusOutcome.ProtocolError))
+            {
+                return;
+            }
+
+            _reconnectRequired = true;
+            if (!_clientProxy.IsConnected)
+            {
+                return;
+            }
+
+            _clientProxy.Disconnect();
+            _connectionAccumulator.RecordDisconnected();
+            LogSocketClosedAfterWireFault(IpAddress!, Port, outcome);
+        }
+
+        /// <summary><paramref name="unit" /> doubled <paramref name="doublings" /> times, capped at <paramref name="max" />.</summary>
+        private static TimeSpan Exponential(TimeSpan unit, int doublings, TimeSpan max)
+        {
+            var ticks = unit.Ticks;
+            for (var doubling = 0; doubling < doublings; doubling++)
+            {
+                // Stopping before the multiplication rather than after keeps a long run of failures from overflowing.
+                if (ticks >= max.Ticks / 2)
+                {
+                    return max;
+                }
+
+                ticks *= 2;
+            }
+
+            return ticks >= max.Ticks ? max : TimeSpan.FromTicks(ticks);
         }
 
         [LoggerMessage(Level = LogLevel.Debug, Message = "Connect timeout set to {ConnectionTimeout}")]
@@ -167,6 +322,22 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
 
         [LoggerMessage(Level = LogLevel.Information, Message = "Disconnected from {IpAddress}:{Port}")]
         partial void LogDisconnected(IPAddress ipAddress, int port);
+
+        // Transitions only. A line per backed-off or reconnecting request would put tens of lines a second through
+        // the edge log pipeline for the length of an outage; what a single request did is on its receipt.
+        [LoggerMessage(Level = LogLevel.Warning,
+                       Message =
+                           "Backing off from {IpAddress}:{Port} for {Backoff} after {ConsecutiveConnectFailures} consecutive failed connects; next attempt at {NextAttemptAt:O}")]
+        partial void LogConnectBackoffArmed(IPAddress ipAddress, int port, int consecutiveConnectFailures, TimeSpan backoff, DateTime nextAttemptAt);
+
+        [LoggerMessage(Level = LogLevel.Information, Message = "Connect backoff to {IpAddress}:{Port} ended: the connection was established")]
+        partial void LogConnectBackoffEnded(IPAddress ipAddress, int port);
+
+        [LoggerMessage(Level = LogLevel.Information, Message = "Connect backoff cleared by a change to {Change}; the next request attempts a connection")]
+        partial void LogConnectBackoffReset(string change);
+
+        [LoggerMessage(Level = LogLevel.Warning, Message = "Closed the socket to {IpAddress}:{Port} after a {Outcome}; the next request reconnects")]
+        partial void LogSocketClosedAfterWireFault(IPAddress ipAddress, int port, ModbusOutcome outcome);
 
         #endregion
 
@@ -942,7 +1113,16 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
             }
             catch (OperationCanceledException) when (timeoutCts is { IsCancellationRequested: true })
             {
-                throw new OperationTimeoutException();
+                var timeout = new OperationTimeoutException();
+                CloseSocketOnWireFault(timeout);
+
+                throw timeout;
+            }
+            catch (Exception exception)
+            {
+                CloseSocketOnWireFault(exception);
+
+                throw;
             }
             finally
             {
@@ -970,7 +1150,16 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
             }
             catch (OperationCanceledException) when (timeoutCts is { IsCancellationRequested: true })
             {
-                throw new OperationTimeoutException();
+                var timeout = new OperationTimeoutException();
+                CloseSocketOnWireFault(timeout);
+
+                throw timeout;
+            }
+            catch (Exception exception)
+            {
+                CloseSocketOnWireFault(exception);
+
+                throw;
             }
             finally
             {

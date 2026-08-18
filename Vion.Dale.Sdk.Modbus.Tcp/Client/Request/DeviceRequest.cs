@@ -91,7 +91,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
 
         private void Complete(ModbusReceipt receipt, Exception exception)
         {
-            if (receipt.Outcome is ModbusOutcome.Expired or ModbusOutcome.Dropped)
+            if (receipt.Outcome is ModbusOutcome.BackedOff or ModbusOutcome.Expired or ModbusOutcome.Dropped)
             {
                 LogRequestNotExecuted(Name, receipt.Outcome, Id, exception);
             }

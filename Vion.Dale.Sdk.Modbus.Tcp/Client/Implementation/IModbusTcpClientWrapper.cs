@@ -24,7 +24,17 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
     ///         called concurrently with other operations.
     ///         Changes take effect on the next connection attempt (for <see cref="ConnectionTimeout" />) or the next
     ///         read/write operation (for <see cref="IpAddress" /> and
-    ///         <see cref="Port" />).
+    ///         <see cref="Port" />). Setting <see cref="IpAddress" /> or <see cref="Port" /> to the value already in
+    ///         force does nothing at all.
+    ///     </para>
+    ///     <para>
+    ///         Link policy. A <c>Timeout</c>, <c>TransportError</c> or <c>ProtocolError</c> on an established
+    ///         connection closes the socket, so the next operation reconnects. From the second consecutive failed
+    ///         connect the wrapper waits <see cref="ConnectBackoff" />, doubling per further failure up to
+    ///         <see cref="ConnectBackoffMax" />, and every operation that arrives during that wait throws a
+    ///         <c>LinkBackoffException</c> without contacting the device. A successful connect, a changed
+    ///         <see cref="IpAddress" /> or <see cref="Port" />, or <see cref="ResetConnectBackoff" /> ends the wait.
+    ///         Operations are never retried automatically.
     ///     </para>
     /// </remarks>
     public interface IModbusTcpClientWrapper : IDisposable
@@ -44,7 +54,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         /// </summary>
         /// <remarks>
         ///     Changes to this property do not trigger an immediate reconnect. The new port will be used when the next read or
-        ///     write operation is executed.
+        ///     write operation is executed, and ends any connect backoff. Setting the port already in force does nothing.
         /// </remarks>
         int Port { get; set; }
 
@@ -53,9 +63,35 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         /// </summary>
         /// <remarks>
         ///     Changes to this property do not trigger an immediate reconnect. The new IP address will be used when the next read
-        ///     or write operation is executed.
+        ///     or write operation is executed, and ends any connect backoff. Setting the address already in force does nothing.
         /// </remarks>
         IPAddress? IpAddress { get; set; }
+
+        /// <summary>
+        ///     Gets or sets how long the wrapper waits after the second consecutive failed connect. Default is 1 second.
+        /// </summary>
+        /// <remarks>
+        ///     Doubles per further consecutive failure, capped at <see cref="ConnectBackoffMax" />. The owning client
+        ///     validates the value; the wrapper applies whatever it is given.
+        /// </remarks>
+        TimeSpan ConnectBackoff { get; set; }
+
+        /// <summary>
+        ///     Gets or sets the longest wait between connection attempts. Default is 30 seconds.
+        /// </summary>
+        TimeSpan ConnectBackoffMax { get; set; }
+
+        /// <summary>
+        ///     Ends any connect backoff, so the next operation attempts a connection immediately.
+        /// </summary>
+        /// <param name="change">
+        ///     The configuration change that superseded the failed attempts, named for the transition log line.
+        /// </param>
+        /// <remarks>
+        ///     A changed <see cref="IpAddress" /> or <see cref="Port" /> does this by itself; the owning client calls
+        ///     this for the changes it owns, such as being re-enabled.
+        /// </remarks>
+        void ResetConnectBackoff(string change);
 
         /// <summary>
         ///     Disconnects from the Modbus TCP device if connected.

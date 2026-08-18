@@ -20,7 +20,13 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Diagnostics
     ///         the device's own response time.
     ///     </para>
     ///     <para>
-    ///         Counts are for the lifetime of the client instance and are never reset.
+    ///         Counts are for the lifetime of the client instance and are never reset — except
+    ///         <c>ConsecutiveConnectFailures</c>, which is a run rather than a total.
+    ///     </para>
+    ///     <para>
+    ///         <c>CurrentBackoff</c> and <c>NextAttemptAt</c> are filled once the client is waiting between connection
+    ///         attempts, and <c>State</c> is <c>BackingOff</c> while that wait is still running. Both are cleared by a
+    ///         successful connect or by a configuration change that supersedes the failures.
     ///     </para>
     /// </remarks>
     /// <param name="State">Whether a socket is currently open.</param>
@@ -28,7 +34,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Diagnostics
     /// <param name="LastConnectFailureAt">When a connection attempt last failed.</param>
     /// <param name="ConnectAttemptCount">How many connection attempts have been made.</param>
     /// <param name="ConnectFailureCount">How many connection attempts have failed.</param>
-    /// <param name="ConsecutiveConnectFailures">Failed attempts since the last successful one.</param>
+    /// <param name="ConsecutiveConnectFailures">
+    ///     Failed attempts since the last successful one or the last configuration
+    ///     change.
+    /// </param>
     /// <param name="LastConnectDuration">How long the last successful handshake took.</param>
     /// <param name="CurrentBackoff">How long the client is waiting before its next connection attempt.</param>
     /// <param name="NextAttemptAt">When the client will attempt to connect again.</param>
