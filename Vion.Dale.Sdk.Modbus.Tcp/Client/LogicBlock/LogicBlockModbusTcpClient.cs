@@ -59,6 +59,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
 
             set
             {
+                var wasEnabled = field;
                 field = value;
                 if (!value)
                 {
@@ -67,6 +68,13 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 }
 
                 LogClientEnabled();
+                if (!wasEnabled)
+                {
+                    // Re-enabling is how a block says its configuration is complete again, so it supersedes the
+                    // failed connects that armed any backoff.
+                    _clientWrapper.ResetConnectBackoff(nameof(IsEnabled));
+                }
+
                 if (_requestQueueInitialized)
                 {
                     return;
@@ -178,6 +186,49 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
             get => _clientWrapper.ConnectionTimeout;
 
             set => _clientWrapper.ConnectionTimeout = value;
+        }
+
+        /// <inheritdoc />
+        public TimeSpan ConnectBackoff
+        {
+            get => _clientWrapper.ConnectBackoff;
+
+            set
+            {
+                if (value <= TimeSpan.Zero)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(value), value, $"{nameof(ConnectBackoff)} must be greater than zero.");
+                }
+
+                if (value > _clientWrapper.ConnectBackoffMax)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(value),
+                                                          value,
+                                                          $"{nameof(ConnectBackoff)} must not exceed {nameof(ConnectBackoffMax)}, which is {_clientWrapper.ConnectBackoffMax}. " +
+                                                          $"Raise {nameof(ConnectBackoffMax)} first.");
+                }
+
+                _clientWrapper.ConnectBackoff = value;
+            }
+        }
+
+        /// <inheritdoc />
+        public TimeSpan ConnectBackoffMax
+        {
+            get => _clientWrapper.ConnectBackoffMax;
+
+            set
+            {
+                if (value < _clientWrapper.ConnectBackoff)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(value),
+                                                          value,
+                                                          $"{nameof(ConnectBackoffMax)} must be at least {nameof(ConnectBackoff)}, which is {_clientWrapper.ConnectBackoff}. " +
+                                                          $"Lower {nameof(ConnectBackoff)} first.");
+                }
+
+                _clientWrapper.ConnectBackoffMax = value;
+            }
         }
 
         /// <inheritdoc />

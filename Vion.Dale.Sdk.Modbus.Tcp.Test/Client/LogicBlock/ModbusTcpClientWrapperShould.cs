@@ -220,6 +220,74 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [DataRow(TargetMethod.ReadCoilsAsync)]
+        [DataRow(TargetMethod.WriteSingleCoilAsync)]
+        public async Task NotReconnectWhenThePortAlreadyInForceIsSetAgain(TargetMethod targetMethod)
+        {
+            // Arrange — the first consumer re-applies port and timeouts whenever any field is edited, so re-setting
+            // the value in force must not cost the connection.
+            _clientProxyMock.Setup(clientProxy => clientProxy.IsConnected).Returns(true);
+            _sut.Port = 1502;
+            await InvokeMethodAsync(targetMethod);
+            _clientProxyMock.Invocations.Clear();
+
+            // Act
+            _sut.Port = 1502;
+            await InvokeMethodAsync(targetMethod);
+
+            // Assert
+            _clientProxyMock.Verify(clientProxy => clientProxy.ConnectAsync(It.IsAny<IPAddress>(), It.IsAny<int>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()),
+                                    Times.Never);
+            _clientProxyMock.Verify(clientProxy => clientProxy.Disconnect(), Times.Never);
+        }
+
+        [TestMethod]
+        [DataRow(TargetMethod.ReadCoilsAsync)]
+        [DataRow(TargetMethod.WriteSingleCoilAsync)]
+        public async Task NotReconnectWhenTheIpAddressAlreadyInForceIsSetAgain(TargetMethod targetMethod)
+        {
+            // Arrange
+            _clientProxyMock.Setup(clientProxy => clientProxy.IsConnected).Returns(true);
+
+            // Act — the same address the initialization connected with.
+            _sut.IpAddress = IPAddress.Loopback;
+            await InvokeMethodAsync(targetMethod);
+
+            // Assert
+            _clientProxyMock.Verify(clientProxy => clientProxy.ConnectAsync(It.IsAny<IPAddress>(), It.IsAny<int>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()),
+                                    Times.Never);
+            _clientProxyMock.Verify(clientProxy => clientProxy.Disconnect(), Times.Never);
+        }
+
+        [TestMethod]
+        [DataRow(TargetMethod.ReadCoilsAsync)]
+        [DataRow(TargetMethod.WriteSingleCoilAsync)]
+        public async Task CloseTheSocketWhenAnOperationFaultsOnTheWire(TargetMethod targetMethod)
+        {
+            // Arrange — a peer that answered before and now returns a frame the request cannot be matched to.
+            _clientProxyMock.Setup(clientProxy => clientProxy.IsConnected).Returns(true);
+            SetUpOperationFault(targetMethod, new ModbusException("no specific exception code"));
+
+            // Act / Assert
+            await Assert.ThrowsAsync<ModbusException>(() => InvokeMethodAsync(targetMethod));
+            _clientProxyMock.Verify(clientProxy => clientProxy.Disconnect(), Times.Once);
+        }
+
+        [TestMethod]
+        [DataRow(TargetMethod.ReadCoilsAsync)]
+        [DataRow(TargetMethod.WriteSingleCoilAsync)]
+        public async Task KeepTheSocketWhenAnOperationFailsForAReasonThatIsNotTheWire(TargetMethod targetMethod)
+        {
+            // Arrange — disposal, not a fault: closing here would hide a socket that is still good.
+            _clientProxyMock.Setup(clientProxy => clientProxy.IsConnected).Returns(true);
+            SetUpOperationFault(targetMethod, new OperationCanceledException());
+
+            // Act / Assert
+            await Assert.ThrowsAsync<OperationCanceledException>(() => InvokeMethodAsync(targetMethod));
+            _clientProxyMock.Verify(clientProxy => clientProxy.Disconnect(), Times.Never);
+        }
+
+        [TestMethod]
         [DataRow(TargetMethod.ReadDiscreteInputsAsync)]
         [DataRow(TargetMethod.ReadCoilsAsync)]
         [DataRow(TargetMethod.WriteSingleCoilAsync)]
@@ -1025,6 +1093,23 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
 
             // Assert
             _clientProxyMock.Verify(clientProxy => clientProxy.Dispose(), Times.Never);
+        }
+
+        private void SetUpOperationFault(TargetMethod targetMethod, Exception exception)
+        {
+            switch (targetMethod)
+            {
+                case TargetMethod.ReadCoilsAsync:
+                    _clientProxyMock.Setup(clientProxy => clientProxy.ReadCoilsAsync(It.IsAny<int>(), It.IsAny<ushort>(), It.IsAny<ushort>(), It.IsAny<CancellationToken>()))
+                                    .ThrowsAsync(exception);
+                    break;
+                case TargetMethod.WriteSingleCoilAsync:
+                    _clientProxyMock.Setup(clientProxy => clientProxy.WriteSingleCoilAsync(It.IsAny<int>(), It.IsAny<ushort>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+                                    .ThrowsAsync(exception);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(targetMethod), targetMethod, "Only the two operations these tests drive are set up here.");
+            }
         }
 
         private async Task InvokeMethodAsync(TargetMethod targetMethod, TimeSpan? operationTimeout = null, CancellationToken? cancellationToken = null)

@@ -16,6 +16,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
             return exception switch
             {
                 RequestExpiredException => ModbusOutcome.Expired,
+                LinkBackoffException => ModbusOutcome.BackedOff,
                 RequestDroppedException { Reason: RequestDropReason.QueueFull } => ModbusOutcome.Dropped,
                 RequestDroppedException => ModbusOutcome.Cancelled,
 

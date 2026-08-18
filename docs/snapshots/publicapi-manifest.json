@@ -85,6 +85,7 @@
     "Vion.Dale.Sdk.Modbus.Rtu.TestKit.ModbusResponseBuilder",
     "Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock.ILogicBlockModbusTcpClient",
     "Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock.ILogicBlockModbusTcpClientFactory",
+    "Vion.Dale.Sdk.Modbus.Tcp.Client.Request.LinkBackoffException",
     "Vion.Dale.Sdk.Modbus.Tcp.Client.Request.QueueOverflowPolicy",
     "Vion.Dale.Sdk.Modbus.Tcp.Client.Request.RequestDropReason",
     "Vion.Dale.Sdk.Modbus.Tcp.Client.Request.RequestDroppedException",
