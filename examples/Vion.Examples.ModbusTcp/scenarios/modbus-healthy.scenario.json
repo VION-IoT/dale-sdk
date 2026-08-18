@@ -23,6 +23,7 @@
     { "label": "polls are landing", "waitUntil": { "property": "DebugClient.Link.successCount", "above": 3 }, "timeoutSeconds": 20 },
     { "label": "the watch slot decoded pi", "waitUntil": { "property": "DebugClient.Watch1.Value", "equals": 3.14159274, "tolerance": 0.0001 }, "timeoutSeconds": 20 },
 
+    { "label": "the headline pill follows the SDK's verdict", "expect": { "property": "DebugClient.LinkHealth", "equals": "Online" } },
     { "label": "a receipt carried the wire time", "expect": { "property": "DebugClient.Link.lastRoundTrip", "notEquals": null } },
     { "label": "and the block stamped it", "expect": { "property": "DebugClient.LastReadAt", "notEquals": null } },
     { "label": "nothing failed", "expect": { "property": "DebugClient.Link.timeoutCount", "equals": 0 } },
@@ -31,7 +32,7 @@
     { "label": "one socket, connected once", "expect": { "property": "DebugClient.Connection.connectAttemptCount", "equals": 1 } },
     { "label": "no backoff is armed", "expect": { "property": "DebugClient.Connection.nextAttemptAt", "equals": null } }
   ],
-  "watch": ["DebugClient.Link.state", "DebugClient.Connection.state", "DebugClient.Link.successCount", "DebugClient.Watch1.Value"],
+  "watch": ["DebugClient.Link.state", "DebugClient.Connection.state", "DebugClient.Link.successCount", "DebugClient.Watch1.Value", "DebugClient.LinkHealth"],
   "judge": [
     { "text": "The Diagnostics group shows Link and Connection as structs, not as a row of hand-kept counters — the block publishes what the SDK accumulated." }
   ]

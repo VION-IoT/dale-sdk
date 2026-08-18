@@ -57,24 +57,32 @@ The tour below uses the bundled `SimServer` and takes about a minute.
 
 The tour above is about *what the device says*. This one is about *what happens when it stops saying
 it* — the client's own reconnect and backoff policy, which since SDK 0.10.4 the block does not have to
-write. Everything you look at here is in the **Diagnostics** group: `Link` (the verdict on the device)
-and `Connection` (the verdict on the socket), both published as whole structs straight from the client.
+write. What you look at is the headline pill in **Status** — the SDK's own verdict, not a tally this
+block keeps — plus the **Diagnostics** group behind it: `Link` (the verdict on the device) and
+`Connection` (the verdict on the socket), both published as whole structs straight from the client.
 It takes about a minute.
 
-1. **Nothing to connect to.** Set *Port* to `15021`, which nothing is listening on. On the next poll
-   `Link → State` goes `Faulted`. Two consecutive failed connects later `Connection → State` goes
-   `BackingOff`, with a `NextAttemptAt` and a `CurrentBackoff` that doubles from 1 s towards 30 s.
+The endpoint and the policy knobs are two editable structs — *Connection* (address, port, unit id, both
+timeouts) and *Link policy* (max queued age, connect backoff, backoff max) — so each edit is one value.
+The DevHost's struct form takes durations as ISO-8601 strings (`PT3S`, `PT500MS`) and gives the nullable
+*Max queued age* an ∅ toggle for "off".
+
+1. **Nothing to connect to.** Edit the port inside *Connection* to `15021`, which nothing is listening
+   on. On the next poll the headline pill goes **Faulted** and `Link → State` with it. Two consecutive
+   failed connects later `Connection → State` goes `BackingOff`, the pill follows to **Backing off**,
+   and a `NextAttemptAt` and a `CurrentBackoff` appear — the backoff doubles from 1 s towards 30 s.
    Requests issued during a backoff do not wait out a connect timeout — they fail fast, and
    `Link → BackedOffCount` climbs. Notice `Link → TransportErrorCount` rather than `TimeoutCount`: on
    localhost a closed port is *refused* immediately.
 
-2. **The fix applies at once.** Set *Port* back to `15020`. A **changed** address or port cancels the
+2. **The fix applies at once.** Put the port back to `15020`. A **changed** address or port cancels the
    backoff, so the very next poll connects — you do not wait out the remaining backoff.
 
-3. **Re-applying the same value does nothing.** Note `Connection → ConnectAttemptCount`, then set
-   *Port* to `15020` again. The count does not move and the socket is never dropped: the client's
-   setters detect an unchanged value. This is what lets a block re-apply its whole configuration on
-   every edit — as this one does — without an unrelated edit costing a reconnect.
+3. **Re-applying the same values does nothing.** Note `Connection → ConnectAttemptCount`, then save
+   *Connection* again without changing a field. The count does not move and the socket is never
+   dropped: the client's setters detect an unchanged value. That is what lets this block push all five
+   fields to the client on every edit — one reconfigure chokepoint, no diffing — without an unrelated
+   edit costing a reconnect.
 
 4. **The peer goes away, and comes back.** Turn `SimServer`'s *Server enabled* off mid-poll. The link
    faults, the socket closes, and the client falls into backoff on its own. Turn it back on and watch
@@ -90,10 +98,15 @@ It takes about a minute.
    (The simulator answers in well under a millisecond, so this is the one step you cannot make bite
    hard on localhost. A real device on a real network will.)
 
-6. **The slow variant.** Point *Server address* at a black-hole address such as `10.255.255.1` — one
-   the network drops rather than refuses. Now each attempt takes the full 3 s connect timeout before it
-   fails, which is what the same policy looks like against an unplugged device rather than a wrong
-   port.
+6. **The slow variant.** Point *Connection → Server address* at a black-hole address such as
+   `10.255.255.1` — one the network drops rather than refuses. Now each attempt takes the full
+   *Connection timeout* (3 s) before it fails, which is what the same policy looks like against an
+   unplugged device rather than a wrong port.
+
+Throughout, read the error strings alongside the pill: *Last error*, *Last read error* and *Last write
+error* all start with the SDK's outcome — `Timeout`, `TransportError`, `BackedOff`, `Expired`,
+`DeviceError` — so a local backlog never reads as a device fault, and a device that answered with an
+exception code never reads as an unreachable one.
 
 While the link is `Faulted` the block polls at *Poll interval while faulted* (5 s by default) instead
 of the normal interval — the recommended unattended pattern, and one line of block code: the client is
@@ -187,6 +200,27 @@ transaction (when the answer was observed, how long it took on the wire, how lon
 it ended) and accumulates them; the block just assigns the snapshot. *Last read at* and *Last round
 trip* are read straight off the poll's receipt, which is the only place they can be measured correctly
 — by the time a callback runs, the block's own mailbox has had a turn.
+
+The Status pill is folded from the same two summaries in the one place they are republished: backing
+off outranks faulted (both mean the device is silent, but backing off also means the client has stopped
+trying and requests are failing fast), and nothing local — a rejected quantity, an unparseable write
+value — can move it, because neither says anything about the device. Those surface in the error strings
+instead.
+
+## Where the configuration comes from
+
+*Connection* (address, port, unit id, connection timeout, operation timeout) and *Link policy* (max
+queued age, connect backoff, backoff max) are two editable `[StructField]`-annotated structs rather than
+eight flat properties. It is the shape the SDK's first consumer arrived at independently — one property,
+one setter, one reconfigure chokepoint — and it keeps the SDK's own types: `TimeSpan`, so the unit lives
+in the type rather than in a `…Ms` suffix, and a nullable `MaxQueuedAge`, so "off" stays `null` instead
+of becoming a `0` the block has to translate. Both setters push every field to both clients; that is
+safe precisely because the SDK's setters detect change, so re-supplying an unchanged endpoint neither
+reconnects nor cancels a backoff.
+
+(The DevHost's struct form renders the fields by their wire keys and takes durations as ISO-8601
+strings; the `[StructField]` titles, descriptions and formats are all in the introspection JSON and are
+what the cloud dashboard renders from.)
 
 If you are moving a block onto SDK 0.10.4, the recipe and the behaviour changes are in
 [`docs/migrations/0.10.4-modbus-client-surface.md`](../../docs/migrations/0.10.4-modbus-client-surface.md).

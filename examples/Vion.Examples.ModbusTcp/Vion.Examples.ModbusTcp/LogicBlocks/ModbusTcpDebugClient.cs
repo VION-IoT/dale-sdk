@@ -75,68 +75,55 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
 
         private readonly ILogicBlockModbusTcpClient _pollClient;
 
-        private int _connectBackoffMaxMs = 30000;
-
-        private int _connectBackoffMs = 1000;
-
         private bool _connectionEnabled = true;
 
-        private string _ipAddress = "127.0.0.1";
+        private ModbusTcpConnectionSettings _connectionSettings = new("127.0.0.1", 15020, 1, TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(1));
 
-        private int _maxQueuedAgeMs = 2000;
-
-        private int _operationTimeoutMs = 1000;
+        private ModbusTcpLinkPolicy _linkPolicy = new(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(30));
 
         private bool _pollInFlight;
 
-        private int _tcpPort = 15020;
-
         private bool _watchInFlight;
+
+        /// <summary>The unit identifier every request carries — one field of <see cref="ConnectionSettings" />.</summary>
+        private int UnitId
+        {
+            get => _connectionSettings.UnitId;
+        }
 
         // ── Connection ────────────────────────────────────────────────────────────
 
-        [ServiceProperty(Title = "Server address", StringFormat = StringFormats.Ipv4, Description = "IPv4 address of the Modbus TCP server.")]
-        [Presentation(Group = ConnectionGroup, Order = 10)]
-        public string IpAddress
+        [ServiceProperty(Title = "Connection", Description = "Where the client talks and how long it waits — endpoint, unit id and the two timeouts, edited as one value.")]
+        [Presentation(DisplayName = "Connection", Group = ConnectionGroup, Order = 10)]
+        public ModbusTcpConnectionSettings ConnectionSettings
         {
-            get => _ipAddress;
+            get => _connectionSettings;
 
             set
             {
-                if (_ipAddress == value)
-                {
-                    return;
-                }
-
-                _ipAddress = value;
+                _connectionSettings = value;
                 ApplyConnectionSettings();
             }
         }
 
-        [ServiceProperty(Title = "Port", Minimum = 1, Maximum = 65535, Description = "502 is the standard Modbus TCP port; the bundled sim server uses 15020.")]
-        [Presentation(Group = ConnectionGroup, Order = 20)]
-        public int TcpPort
+        [ServiceProperty(Title = "Link policy",
+                         Description = "What the client does when the device stops answering: how stale a queued request may get, and how long it waits between connect attempts.")]
+        [Presentation(DisplayName = "Link policy", Group = ConnectionGroup, Order = 20)]
+        public ModbusTcpLinkPolicy LinkPolicy
         {
-            get => _tcpPort;
+            get => _linkPolicy;
 
             set
             {
-                if (_tcpPort == value)
-                {
-                    return;
-                }
-
-                _tcpPort = value;
+                _linkPolicy = value;
                 ApplyConnectionSettings();
             }
         }
 
-        [ServiceProperty(Title = "Unit id", Minimum = 0, Maximum = 255, Description = "Slave / unit identifier sent with every request.")]
-        [Presentation(Group = ConnectionGroup, Order = 30)]
-        public int UnitId { get; set; } = 1;
-
+        // A switch, not a setting — it belongs beside the two structs rather than inside them, because
+        // turning traffic off is something you do to a configuration you want to keep.
         [ServiceProperty(Title = "Connection enabled", Description = "Turn off to stop all traffic without losing the settings.")]
-        [Presentation(Group = ConnectionGroup, Order = 40)]
+        [Presentation(Group = ConnectionGroup, Order = 30)]
         public bool ConnectionEnabled
         {
             get => _connectionEnabled;
@@ -149,95 +136,6 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
                 }
 
                 _connectionEnabled = value;
-                ApplyConnectionSettings();
-            }
-        }
-
-        [ServiceProperty(Title = "Operation timeout",
-                         Unit = "ms",
-                         Minimum = 50,
-                         Maximum = 60000,
-                         Description = "How long one request may take on the wire before it is abandoned.")]
-        [Presentation(Group = ConnectionGroup, Order = 50)]
-        public int OperationTimeoutMs
-        {
-            get => _operationTimeoutMs;
-
-            set
-            {
-                if (_operationTimeoutMs == value)
-                {
-                    return;
-                }
-
-                _operationTimeoutMs = value;
-                ApplyConnectionSettings();
-            }
-        }
-
-        [ServiceProperty(Title = "Max queued age",
-                         Unit = "ms",
-                         Minimum = 0,
-                         Maximum = 60000,
-                         Description =
-                             "A request that has waited longer than this is dropped instead of sent — set it near the poll interval so a backlog sheds stale reads rather than replaying them. 0 turns the check off.")]
-        [Presentation(Group = ConnectionGroup, Order = 60)]
-        public int MaxQueuedAgeMs
-        {
-            get => _maxQueuedAgeMs;
-
-            set
-            {
-                if (_maxQueuedAgeMs == value)
-                {
-                    return;
-                }
-
-                _maxQueuedAgeMs = value;
-                ApplyConnectionSettings();
-            }
-        }
-
-        [ServiceProperty(Title = "Connect backoff",
-                         Unit = "ms",
-                         Minimum = 100,
-                         Maximum = 60000,
-                         Description = "The wait before the second connect attempt after consecutive failures. It doubles per failure up to the maximum.")]
-        [Presentation(Group = ConnectionGroup, Order = 70)]
-        public int ConnectBackoffMs
-        {
-            get => _connectBackoffMs;
-
-            set
-            {
-                if (_connectBackoffMs == value)
-                {
-                    return;
-                }
-
-                _connectBackoffMs = value;
-                ApplyConnectionSettings();
-            }
-        }
-
-        [ServiceProperty(Title = "Connect backoff max",
-                         Unit = "ms",
-                         Minimum = 100,
-                         Maximum = 300000,
-                         Description = "The ceiling the backoff doubles up to. Setting it equal to the backoff makes the wait a constant.")]
-        [Presentation(Group = ConnectionGroup, Order = 80)]
-        public int ConnectBackoffMaxMs
-        {
-            get => _connectBackoffMaxMs;
-
-            set
-            {
-                if (_connectBackoffMaxMs == value)
-                {
-                    return;
-                }
-
-                _connectBackoffMaxMs = value;
                 ApplyConnectionSettings();
             }
         }
@@ -450,9 +348,9 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
 
         // ── Status & diagnostics ──────────────────────────────────────────────────
 
-        [ServiceProperty(Title = "Communication")]
-        [Presentation(DisplayName = "Communication", Group = PropertyGroup.Status, StatusIndicator = true, Importance = Importance.Primary)]
-        public CommStatus Comm { get; private set; } = CommStatus.Idle;
+        [ServiceProperty(Title = "Link", Description = "The polling connection at a glance — the SDK's own verdict on the device and the socket, not a tally this block keeps.")]
+        [Presentation(DisplayName = "Link", Group = PropertyGroup.Status, StatusIndicator = true, Importance = Importance.Primary)]
+        public LinkStatus LinkHealth { get; private set; } = LinkStatus.Unknown;
 
         // The SDK accumulates every receipt into these two snapshots, so there is nothing to count here:
         // ModbusLinkSummary and ModbusTcpConnectionSummary are flat readonly record structs of
@@ -520,10 +418,12 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
         // ── Connection handling ───────────────────────────────────────────────────
 
         /// <summary>
-        ///     Re-applies the whole configuration on every edit. The client's setters detect an unchanged value
-        ///     and do nothing, so editing the timeout does not drop a healthy socket — and there is no
-        ///     disable / re-enable cycle around the assignments, because re-enabling deliberately cancels a
-        ///     connect backoff and would hide the very behaviour this example exists to show.
+        ///     The one reconfigure chokepoint: every field of both structs is pushed to both clients on any
+        ///     edit. That is safe because the SDK's setters detect change — re-supplying the same IP or port
+        ///     is a no-op, so editing the operation timeout no longer drops a healthy socket or cancels a
+        ///     connect backoff. There is deliberately no disable / re-enable cycle around the assignments
+        ///     either: re-enabling resets the backoff, and that would hide the behaviour this example exists
+        ///     to show.
         /// </summary>
         private void ApplyConnectionSettings()
         {
@@ -531,19 +431,20 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
             {
                 try
                 {
-                    client.IpAddress = _ipAddress;
-                    client.Port = _tcpPort;
-                    client.DefaultOperationTimeout = TimeSpan.FromMilliseconds(_operationTimeoutMs);
-                    client.MaxQueuedAge = _maxQueuedAgeMs > 0 ? TimeSpan.FromMilliseconds(_maxQueuedAgeMs) : null;
-                    client.ConnectBackoff = TimeSpan.FromMilliseconds(_connectBackoffMs);
-                    client.ConnectBackoffMax = TimeSpan.FromMilliseconds(Math.Max(_connectBackoffMaxMs, _connectBackoffMs));
+                    client.IpAddress = _connectionSettings.IpAddress;
+                    client.Port = _connectionSettings.Port;
+                    client.ConnectionTimeout = _connectionSettings.ConnectionTimeout;
+                    client.DefaultOperationTimeout = _connectionSettings.OperationTimeout;
+                    client.MaxQueuedAge = _linkPolicy.MaxQueuedAge;
+                    client.ConnectBackoff = _linkPolicy.ConnectBackoff;
+                    client.ConnectBackoffMax = _linkPolicy.ConnectBackoffMax < _linkPolicy.ConnectBackoff ? _linkPolicy.ConnectBackoff : _linkPolicy.ConnectBackoffMax;
                     client.IsEnabled = _connectionEnabled;
                 }
-                catch (FormatException ex)
+                catch (Exception ex) when (ex is FormatException or ArgumentOutOfRangeException)
                 {
-                    // A half-typed address arrives here on every keystroke — report it, keep the block alive.
+                    // A half-typed address or a zero duration arrives here on every keystroke — report it,
+                    // keep the block alive.
                     LastError = ex.Message;
-                    Comm = CommStatus.Error;
                     _logger.LogDebug(ex, "Invalid Modbus TCP connection settings");
                 }
             }
@@ -578,14 +479,22 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
         }
 
         /// <summary>
-        ///     Republishes the SDK's accumulated snapshots. Nothing is computed here — the counters, latencies
-        ///     and link verdict all come from the receipts the client already recorded.
+        ///     Republishes the SDK's accumulated snapshots and folds the two of them into the headline pill.
+        ///     Nothing is counted here — the counters, latencies and both verdicts come from the receipts the
+        ///     client already recorded.
         /// </summary>
         private void RefreshDiagnostics()
         {
             Link = _pollClient.Link;
             Connection = _pollClient.Connection;
             CommandLink = _commandClient.Link;
+
+            LinkHealth = Connection.State == ModbusTcpConnectionState.BackingOff ? LinkStatus.BackingOff : Link.State switch
+            {
+                ModbusLinkState.Online => LinkStatus.Online,
+                ModbusLinkState.Faulted => LinkStatus.Faulted,
+                _ => LinkStatus.Unknown,
+            };
         }
 
         private void WatchTick()
@@ -639,7 +548,7 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
                                                slot.WordOrder64);
                     slot.Value = Convert.ToDouble(decoded, CultureInfo.InvariantCulture);
                     slot.Status = "OK";
-                    Comm = CommStatus.Ok;
+                    RefreshDiagnostics();
                 }
                 catch (Exception ex)
                 {
@@ -801,15 +710,15 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
             LastRoundTripMs = receipt.RoundTrip.TotalMilliseconds;
             LastReadError = string.Empty;
             LastReadInfo = $"{FunctionCode(function)} @ {address} x {quantity} — {receipt.Outcome}, {LastRoundTripMs:F1} ms";
-            Comm = CommStatus.Ok;
             RefreshDiagnostics();
         }
 
+        // A rejected quantity or address never reaches the device, so it says nothing about the link and
+        // must not move the status pill — it belongs in the error strings only.
         private void FailRead(string message)
         {
             LastReadError = message;
             LastError = message;
-            Comm = CommStatus.Error;
         }
 
         /// <summary>
@@ -916,7 +825,6 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
             {
                 LastWriteError = string.Empty;
                 LastWriteInfo = $"{WriteFunctionCode(WriteFunction)} @ {address} — {receipt.Outcome}, {receipt.RoundTrip.TotalMilliseconds:F1} ms";
-                Comm = CommStatus.Ok;
                 RefreshDiagnostics();
             }
 
@@ -1114,11 +1022,11 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
             }
         }
 
+        // As with FailRead: a value that could not be parsed never left the block.
         private void FailWrite(string message)
         {
             LastWriteError = message;
             LastError = message;
-            Comm = CommStatus.Error;
         }
 
         // ── Shared helpers ────────────────────────────────────────────────────────
@@ -1126,7 +1034,6 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
         private void RegisterFailure(Exception ex)
         {
             LastError = Describe(ex);
-            Comm = CommStatus.Error;
             RefreshDiagnostics();
             _logger.LogDebug(ex, "Modbus TCP debug client operation failed");
         }

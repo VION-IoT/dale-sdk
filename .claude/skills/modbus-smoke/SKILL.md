@@ -58,12 +58,13 @@ pwsh scripts/smoke-modbus.ps1 -Scenario modbus-link-policy -NoBuild
 - **`modbus-healthy`** — the floor: socket `Connected`, link `Online`, polls landing, the watch slot
   decoding π out of input registers 6-7, a receipt carrying the wire time, and zero timeouts,
   transport errors and drops.
-- **`modbus-link-policy`** — the whole v0.10.4 policy in one run: re-applying the same port is a no-op
-  (the socket is never dropped), an unreachable port faults the link and arms the connect backoff with
-  a `nextAttemptAt`, requests then fail fast as `BackedOff`, a corrected port ends the backoff and
-  reconnects, stopping and restarting the simulator's listener recovers with **no operator action on
-  the client**, and the client driven at its minimum poll interval with every watch slot active stays
-  `Online` — a local backlog is not a device fault.
+- **`modbus-link-policy`** — the whole v0.10.4 policy in one run: re-supplying the entire unchanged
+  `ConnectionSettings` struct is a no-op (the socket is never dropped), an unreachable port faults the
+  link and arms the connect backoff with a `nextAttemptAt`, requests then fail fast as `BackedOff`, a
+  corrected port ends the backoff and reconnects, stopping and restarting the simulator's listener
+  recovers with **no operator action on the client**, and the client driven at its minimum poll interval
+  with every watch slot active stays `Online` — a local backlog is not a device fault. The headline pill
+  is asserted alongside the two summaries at each transition.
 
 `MaxQueuedAge` and the `Expired` outcome are deliberately **not** asserted: the simulated server
 answers in well under a millisecond, so no cadence the client can generate builds a queue deep enough
@@ -91,12 +92,19 @@ Start-Process dotnet -ArgumentList "$dir\bin\Debug\net10.0\Vion.Examples.ModbusT
 Poll `http://localhost:5000/api/control/status` until it answers (`stepped:false`), then navigate to
 `http://localhost:5000` and check:
 
-- `DebugClient` → **Diagnostics** renders `Link`, `Connection` and `Command link` as structs — every
+- `DebugClient` → **Status** shows one pill, `LinkHealth`, folded from `Link.State` and
+  `Connection.State`; **Diagnostics** renders `Link`, `Connection` and `Command link` as structs — every
   field labelled, no row of hand-kept counters — plus *Last read at* as a relative time and the *Last
   round trip* chart.
+- `DebugClient` → **connection** renders the two editable structs, *Connection* and *Link policy*, each
+  with a **Form** / **Raw JSON** editor: the int fields carry their ranges (`1 – 65535`, `0 – 255`), the
+  `TimeSpan` fields take ISO-8601 strings (`PT3S`), and the nullable *Max queued age* has an ∅ toggle.
+  Note what the DevHost form does *not* do: it keys the fields by their camelCase wire names and ignores
+  the `[StructField]` titles/descriptions/formats, which are present in the introspection JSON. That is
+  a DevHost gap, not an example one — check the JSON, not the form, when reviewing struct annotations.
 - Open the **Player**, run `modbus-link-policy`, and watch `Connection.state` move
-  `Connected → Disconnected → BackingOff → Connected` and `Link.state` move `Online → Faulted → Online`
-  as the steps go by. The watch panel pins those two paths.
+  `Connected → Disconnected → BackingOff → Connected`, `Link.state` move `Online → Faulted → Online`,
+  and the pill follow them `Online → Faulted → Backing off → Online`. The watch panel pins all three.
 - The one thing Tier 1 cannot assert: set *Max queued age* to `1` ms by hand while the poll and watch
   intervals are at their minimum, and watch `Link.expiredCount` tick — then confirm `Link.state` stays
   `Online`, because an expiry is a local outcome and never faults the device.

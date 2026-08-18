@@ -118,20 +118,33 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
     }
 
     /// <summary>
-    ///     Outcome of the most recent Modbus transaction, whatever issued it.
+    ///     The one-glance verdict on the polling connection, folded from the two the SDK keeps: the link's
+    ///     view of the device and the socket's own state. Nothing here is counted or inferred locally — a
+    ///     failed parse or a bad address shows up in the error strings, not in this pill, because neither
+    ///     says anything about the device.
     /// </summary>
-    public enum CommStatus
+    /// <remarks>
+    ///     <see cref="BackingOff" /> outranks <see cref="Faulted" />: both mean the device is not answering,
+    ///     but backing off additionally means the client has stopped trying for now and requests are failing
+    ///     fast. That is the state an operator most needs to recognise, because it is the one where the
+    ///     symptom (instant failures) looks least like the cause (an unreachable endpoint).
+    /// </remarks>
+    public enum LinkStatus
     {
         [Severity(StatusSeverity.Neutral)]
-        [EnumLabel("Idle")]
-        Idle,
+        [EnumLabel("Unknown")]
+        Unknown,
 
         [Severity(StatusSeverity.Success)]
-        [EnumLabel("OK")]
-        Ok,
+        [EnumLabel("Online")]
+        Online,
 
         [Severity(StatusSeverity.Error)]
-        [EnumLabel("Error")]
-        Error,
+        [EnumLabel("Faulted")]
+        Faulted,
+
+        [Severity(StatusSeverity.Warning)]
+        [EnumLabel("Backing off")]
+        BackingOff,
     }
 }
