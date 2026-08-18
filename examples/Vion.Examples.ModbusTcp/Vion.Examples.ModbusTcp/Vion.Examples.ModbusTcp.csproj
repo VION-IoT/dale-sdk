@@ -8,7 +8,7 @@
 
         <!-- NuGet package metadata -->
         <PackageId>Vion.Examples.ModbusTcp</PackageId>
-        <Version>0.10.1</Version>
+        <Version>0.10.4</Version>
         <Authors>Vion</Authors>
         <Company>Vion</Company>
         <Description>Interactive Modbus TCP debug client: read and write arbitrary registers and coils with configurable field types and byte/word order, plus a simulated device so it runs without hardware.</Description>
@@ -23,8 +23,8 @@
          local project refs (incl. the source generator + Metalama, which don't flow through a project ref) so
          you can test working-tree SDK changes against this example without editing the csproj. -->
     <ItemGroup Condition="'$(DaleLocalSource)' != 'true'">
-        <PackageReference Include="Vion.Dale.Sdk" Version="0.10.1"/>
-        <PackageReference Include="Vion.Dale.Sdk.Modbus.Tcp" Version="0.10.1"/>
+        <PackageReference Include="Vion.Dale.Sdk" Version="0.10.4"/>
+        <PackageReference Include="Vion.Dale.Sdk.Modbus.Tcp" Version="0.10.4"/>
     </ItemGroup>
     <ItemGroup Condition="'$(DaleLocalSource)' == 'true'">
         <ProjectReference Include="..\..\..\Vion.Dale.Sdk\Vion.Dale.Sdk.csproj"/>

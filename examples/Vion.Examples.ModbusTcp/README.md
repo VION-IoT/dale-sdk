@@ -53,6 +53,56 @@ The tour below uses the bundled `SimServer` and takes about a minute.
    registers`, *Address* `10`, *Field type* `Float32`. Its value is a sine wave with a 60-second period,
    charted as a measuring point.
 
+## Watch the link policy
+
+The tour above is about *what the device says*. This one is about *what happens when it stops saying
+it* — the client's own reconnect and backoff policy, which since SDK 0.10.4 the block does not have to
+write. Everything you look at here is in the **Diagnostics** group: `Link` (the verdict on the device)
+and `Connection` (the verdict on the socket), both published as whole structs straight from the client.
+It takes about a minute.
+
+1. **Nothing to connect to.** Set *Port* to `15021`, which nothing is listening on. On the next poll
+   `Link → State` goes `Faulted`. Two consecutive failed connects later `Connection → State` goes
+   `BackingOff`, with a `NextAttemptAt` and a `CurrentBackoff` that doubles from 1 s towards 30 s.
+   Requests issued during a backoff do not wait out a connect timeout — they fail fast, and
+   `Link → BackedOffCount` climbs. Notice `Link → TransportErrorCount` rather than `TimeoutCount`: on
+   localhost a closed port is *refused* immediately.
+
+2. **The fix applies at once.** Set *Port* back to `15020`. A **changed** address or port cancels the
+   backoff, so the very next poll connects — you do not wait out the remaining backoff.
+
+3. **Re-applying the same value does nothing.** Note `Connection → ConnectAttemptCount`, then set
+   *Port* to `15020` again. The count does not move and the socket is never dropped: the client's
+   setters detect an unchanged value. This is what lets a block re-apply its whole configuration on
+   every edit — as this one does — without an unrelated edit costing a reconnect.
+
+4. **The peer goes away, and comes back.** Turn `SimServer`'s *Server enabled* off mid-poll. The link
+   faults, the socket closes, and the client falls into backoff on its own. Turn it back on and watch
+   the client recover **with no operator action on it at all** — no reconnect button, no restart.
+
+5. **Too much cadence is not a fault.** Turn all three watch slots on and drop *Poll interval* and
+   *Watch interval* to `100` ms. `Link → LastQueuedWait` and `MaxQueuedWait` grow — that is time
+   requests spend waiting their turn locally — while `Link → State` stays `Online`. Local outcomes are
+   counted but never fault the device, so a congested client stays distinguishable from a broken one.
+   Now set *Max queued age* to `1` ms: requests that wait longer than that are dropped rather than
+   sent, `Link → ExpiredCount` ticks, and the state is *still* `Online`.
+
+   (The simulator answers in well under a millisecond, so this is the one step you cannot make bite
+   hard on localhost. A real device on a real network will.)
+
+6. **The slow variant.** Point *Server address* at a black-hole address such as `10.255.255.1` — one
+   the network drops rather than refuses. Now each attempt takes the full 3 s connect timeout before it
+   fails, which is what the same policy looks like against an unplugged device rather than a wrong
+   port.
+
+While the link is `Faulted` the block polls at *Poll interval while faulted* (5 s by default) instead
+of the normal interval — the recommended unattended pattern, and one line of block code: the client is
+already reconnecting on its own schedule, so polling a dead device at full rate only fills the log.
+
+Steps 1-5 are also committed as a replayable scenario. `pwsh scripts/smoke-modbus.ps1` from the repo
+root runs it (and a healthy baseline) against a freshly booted host and prints the report; the same
+files are in the DevHost's own Player under **modbus-healthy** and **modbus-link-policy**.
+
 ## Simulated register map
 
 All addresses are protocol (base-0). The simulator advances once per second; `tick` below is the number
@@ -123,6 +173,23 @@ wildly wrong, with `LswToMsw` it is the kW figure the device meant.
   configuration time by the `WatchSlotCount` instantiation parameter (RFC 0016); slots above the count
   do not exist rather than sitting empty.
 - `LogicBlocks/ModbusTcpSimServer.cs` — the simulated device described above.
+- `scenarios/` — two committed scenarios (RFC 0006): `modbus-healthy` and `modbus-link-policy`, the
+  replayable form of the two tours. They run in the DevHost Player, from `pwsh scripts/smoke-modbus.ps1`,
+  and in CI through `Vion.Examples.ModbusTcp.IntegrationTest`, which drives the same files headlessly.
+  All three run on the **real** clock: the client's sockets and timeouts are real time, so a stepped
+  host would never let a connect backoff elapse.
+
+## Where the diagnostics come from
+
+The Diagnostics group publishes `Link`, `Connection` and `Command link` — the SDK's own accumulated
+summaries — rather than counters this block keeps. The client stamps a `ModbusReceipt` on every
+transaction (when the answer was observed, how long it took on the wire, how long it waited first, how
+it ended) and accumulates them; the block just assigns the snapshot. *Last read at* and *Last round
+trip* are read straight off the poll's receipt, which is the only place they can be measured correctly
+— by the time a callback runs, the block's own mailbox has had a turn.
+
+If you are moving a block onto SDK 0.10.4, the recipe and the behaviour changes are in
+[`docs/migrations/0.10.4-modbus-client-surface.md`](../../docs/migrations/0.10.4-modbus-client-surface.md).
 
 ## Limitations
 

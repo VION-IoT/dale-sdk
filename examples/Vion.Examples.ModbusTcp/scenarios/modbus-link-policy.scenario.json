@@ -1,0 +1,78 @@
+{
+  "$schema": "./.dale/scenario.schema.json",
+  "version": 1,
+  "id": "modbus-link-policy",
+  "title": "Modbus TCP — the link policy, end to end",
+  "description": "Drives the whole v0.10.4 link policy against a real client/server pair on 127.0.0.1:15020: an unreachable port faults the link and arms the connect backoff, a corrected port applies at once, re-applying the same port is a no-op, a peer that goes away and comes back recovers with no operator action, and a client driven at its maximum cadence stays Online because a local backlog is not a device fault. Real clock only — the sockets, the connect timeout and the operation timeout are real time, so under a stepped host a backoff would never elapse and every round trip would read zero. The backoff is pinned to a constant 5 s (max == initial) so the backed-off window is long enough to observe, and the run needs a freshly booted host because it asserts absolute connect counts — scripts/smoke-modbus.ps1 resets the host before applying.",
+  "topology": "default",
+  "setup": [
+    { "set": "DebugClient.ReadFunction", "value": "InputRegisters" },
+    { "set": "DebugClient.ModbusTcpDebugClient.Address", "value": 0 },
+    { "set": "DebugClient.Quantity", "value": 10 },
+    { "set": "DebugClient.PollIntervalMs", "value": 500 },
+    { "set": "DebugClient.WatchIntervalMs", "value": 500 },
+    { "set": "DebugClient.FaultedPollIntervalMs", "value": 1000 },
+    { "set": "DebugClient.ConnectBackoffMs", "value": 5000 },
+    { "set": "DebugClient.ConnectBackoffMaxMs", "value": 5000 },
+    { "set": "DebugClient.OperationTimeoutMs", "value": 1000 },
+    { "set": "DebugClient.MaxQueuedAgeMs", "value": 2000 }
+  ],
+  "steps": [
+    { "label": "healthy — the socket is up", "waitUntil": { "property": "DebugClient.Connection.state", "equals": "Connected" }, "timeoutSeconds": 20 },
+    { "label": "healthy — the device answers", "waitUntil": { "property": "DebugClient.Link.state", "equals": "Online" }, "timeoutSeconds": 20 },
+    { "label": "healthy — polls are landing", "waitUntil": { "property": "DebugClient.Link.successCount", "above": 2 }, "timeoutSeconds": 20 },
+    { "label": "healthy — a receipt carried the wire time", "expect": { "property": "DebugClient.Link.lastRoundTrip", "notEquals": null } },
+
+    { "label": "no-op — exactly one connect so far", "expect": { "property": "DebugClient.Connection.connectAttemptCount", "equals": 1 } },
+    { "label": "no-op — re-apply the port it already has", "set": "DebugClient.TcpPort", "value": 15020 },
+    { "label": "no-op — give it two poll intervals to react", "advance": { "seconds": 2 } },
+    { "label": "no-op — the socket was never dropped", "expect": { "property": "DebugClient.Connection.connectAttemptCount", "equals": 1 } },
+    { "label": "no-op — and it is still connected", "expect": { "property": "DebugClient.Connection.state", "equals": "Connected" } },
+
+    { "label": "fault — point it at a port nothing listens on", "set": "DebugClient.TcpPort", "value": 15021 },
+    { "label": "fault — the link faults on the first failed request", "waitUntil": { "property": "DebugClient.Link.state", "equals": "Faulted" }, "timeoutSeconds": 30 },
+    { "label": "fault — the second consecutive failed connect arms the backoff", "waitUntil": { "property": "DebugClient.Connection.state", "equals": "BackingOff" }, "timeoutSeconds": 30 },
+    { "label": "fault — the backoff names its next attempt", "expect": { "property": "DebugClient.Connection.nextAttemptAt", "notEquals": null } },
+    { "label": "fault — and how long it is waiting", "expect": { "property": "DebugClient.Connection.currentBackoff", "notEquals": null } },
+    { "label": "fault — a refused connect is a transport error, not a timeout", "expect": { "property": "DebugClient.Link.transportErrorCount", "above": 0 } },
+    { "label": "fault — requests now fail fast instead of waiting on a socket", "waitUntil": { "property": "DebugClient.Link.backedOffCount", "above": 0 }, "timeoutSeconds": 30 },
+    { "label": "fault — let three more polls go by inside the backoff window", "advance": { "seconds": 3 } },
+    { "label": "fault — and they keep being refused fast", "expect": { "property": "DebugClient.Link.backedOffCount", "above": 1 } },
+
+    { "label": "fix — put the port back", "set": "DebugClient.TcpPort", "value": 15020 },
+    { "label": "fix — a changed port ends the backoff, so the next attempt connects", "waitUntil": { "property": "DebugClient.Connection.state", "equals": "Connected" }, "timeoutSeconds": 30 },
+    { "label": "fix — and the device answers again", "waitUntil": { "property": "DebugClient.Link.state", "equals": "Online" }, "timeoutSeconds": 30 },
+    { "label": "fix — no backoff is armed any more", "expect": { "property": "DebugClient.Connection.currentBackoff", "equals": null } },
+
+    { "label": "peer drop — stop the simulator's listener", "set": "SimServer.ServerEnabled", "value": false },
+    { "label": "peer drop — the link faults again", "waitUntil": { "property": "DebugClient.Link.state", "equals": "Faulted" }, "timeoutSeconds": 30 },
+    { "label": "peer drop — and the client falls back into backoff by itself", "waitUntil": { "property": "DebugClient.Connection.state", "equals": "BackingOff" }, "timeoutSeconds": 30 },
+    { "label": "recovery — bring the listener back", "set": "SimServer.ServerEnabled", "value": true },
+    { "label": "recovery — no operator action on the client: it reconnects itself", "waitUntil": { "property": "DebugClient.Connection.state", "equals": "Connected" }, "timeoutSeconds": 40 },
+    { "label": "recovery — and the link reads Online again", "waitUntil": { "property": "DebugClient.Link.state", "equals": "Online" }, "timeoutSeconds": 40 },
+
+    { "label": "cadence — poll at the minimum interval", "set": "DebugClient.PollIntervalMs", "value": 100 },
+    { "label": "cadence — watch at the minimum interval too", "set": "DebugClient.WatchIntervalMs", "value": 100 },
+    { "label": "cadence — with every watch slot active", "set": "DebugClient.Watch1.Enabled", "value": true },
+    { "label": "cadence — slot two", "set": "DebugClient.Watch2.Enabled", "value": true },
+    { "label": "cadence — slot three", "set": "DebugClient.Watch3.Enabled", "value": true },
+    { "label": "cadence — run it hard for five seconds", "advance": { "seconds": 5 } },
+    { "label": "cadence — a local backlog is not a device fault: the link still reads Online", "expect": { "property": "DebugClient.Link.state", "equals": "Online" } },
+    { "label": "cadence — the socket held", "expect": { "property": "DebugClient.Connection.state", "equals": "Connected" } },
+    { "label": "cadence — and the traffic really was flowing", "expect": { "property": "DebugClient.Link.successCount", "above": 50 } },
+    { "label": "cadence — restore the poll interval", "set": "DebugClient.PollIntervalMs", "value": 500 },
+    { "label": "cadence — and the watch interval", "set": "DebugClient.WatchIntervalMs", "value": 500 }
+  ],
+  "watch": [
+    "DebugClient.Link.state",
+    "DebugClient.Connection.state",
+    "DebugClient.Link.successCount",
+    "DebugClient.Link.backedOffCount",
+    "DebugClient.Link.transportErrorCount",
+    "DebugClient.Connection.connectAttemptCount"
+  ],
+  "judge": [
+    { "text": "Every transition here came from the SDK's own link policy — nothing in the example retries, reconnects or classifies a failure. The only operator actions are the port and the simulator's listener." },
+    { "text": "MaxQueuedAge and the Expired outcome are deliberately not asserted: the simulated server answers in well under a millisecond, so no cadence this client can generate builds a queue deep enough to age a request out. Watch that one by hand — the README's 'Watch the link policy' tour shows how." }
+  ]
+}

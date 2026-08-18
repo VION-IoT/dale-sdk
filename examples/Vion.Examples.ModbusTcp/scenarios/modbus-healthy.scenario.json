@@ -1,0 +1,38 @@
+{
+  "$schema": "./.dale/scenario.schema.json",
+  "version": 1,
+  "id": "modbus-healthy",
+  "title": "Modbus TCP — healthy poll baseline",
+  "description": "The floor the link-policy scenario builds on: with SimServer listening on 127.0.0.1:15020 and DebugClient pointed at it, the poll loop reads, the watch slot decodes, and the SDK's link summary says Online with no failures of any kind. Real clock — the sockets and timeouts are real time, so a stepped host would never let a round trip elapse.",
+  "topology": "default",
+  "setup": [
+    { "set": "DebugClient.ReadFunction", "value": "InputRegisters" },
+    { "set": "DebugClient.ModbusTcpDebugClient.Address", "value": 6 },
+    { "set": "DebugClient.Quantity", "value": 2 },
+    { "set": "DebugClient.ReadFieldType", "value": "Float32" },
+    { "set": "DebugClient.PollIntervalMs", "value": 500 },
+    { "set": "DebugClient.WatchIntervalMs", "value": 500 },
+    { "set": "DebugClient.Watch1.Enabled", "value": true },
+    { "set": "DebugClient.Watch1.Function", "value": "InputRegisters" },
+    { "set": "DebugClient.Watch1.Address", "value": 6 },
+    { "set": "DebugClient.Watch1.FieldType", "value": "Float32" }
+  ],
+  "steps": [
+    { "label": "the socket is up", "waitUntil": { "property": "DebugClient.Connection.state", "equals": "Connected" }, "timeoutSeconds": 20 },
+    { "label": "the device answered", "waitUntil": { "property": "DebugClient.Link.state", "equals": "Online" }, "timeoutSeconds": 20 },
+    { "label": "polls are landing", "waitUntil": { "property": "DebugClient.Link.successCount", "above": 3 }, "timeoutSeconds": 20 },
+    { "label": "the watch slot decoded pi", "waitUntil": { "property": "DebugClient.Watch1.Value", "equals": 3.14159274, "tolerance": 0.0001 }, "timeoutSeconds": 20 },
+
+    { "label": "a receipt carried the wire time", "expect": { "property": "DebugClient.Link.lastRoundTrip", "notEquals": null } },
+    { "label": "and the block stamped it", "expect": { "property": "DebugClient.LastReadAt", "notEquals": null } },
+    { "label": "nothing failed", "expect": { "property": "DebugClient.Link.timeoutCount", "equals": 0 } },
+    { "label": "nothing faulted the transport", "expect": { "property": "DebugClient.Link.transportErrorCount", "equals": 0 } },
+    { "label": "nothing was shed", "expect": { "property": "DebugClient.Link.droppedCount", "equals": 0 } },
+    { "label": "one socket, connected once", "expect": { "property": "DebugClient.Connection.connectAttemptCount", "equals": 1 } },
+    { "label": "no backoff is armed", "expect": { "property": "DebugClient.Connection.nextAttemptAt", "equals": null } }
+  ],
+  "watch": ["DebugClient.Link.state", "DebugClient.Connection.state", "DebugClient.Link.successCount", "DebugClient.Watch1.Value"],
+  "judge": [
+    { "text": "The Diagnostics group shows Link and Connection as structs, not as a row of hand-kept counters — the block publishes what the SDK accumulated." }
+  ]
+}

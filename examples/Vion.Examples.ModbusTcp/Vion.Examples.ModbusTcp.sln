@@ -1,4 +1,4 @@
-
+﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.14.36603.0
@@ -8,6 +8,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vion.Examples.ModbusTcp", "Vion.Examples.ModbusTcp\Vion.Examples.ModbusTcp.csproj", "{A08000F2-F269-4BB7-A845-83BD5DC4097B}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vion.Examples.ModbusTcp.Test", "Vion.Examples.ModbusTcp.Test\Vion.Examples.ModbusTcp.Test.csproj", "{E7170C93-013E-4B84-86B8-26107403AE00}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vion.Examples.ModbusTcp.IntegrationTest", "Vion.Examples.ModbusTcp.IntegrationTest\Vion.Examples.ModbusTcp.IntegrationTest.csproj", "{B4A91C27-6E30-4F55-9A18-2C7D6B0E84F3}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -27,6 +29,10 @@ Global
 		{E7170C93-013E-4B84-86B8-26107403AE00}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E7170C93-013E-4B84-86B8-26107403AE00}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E7170C93-013E-4B84-86B8-26107403AE00}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B4A91C27-6E30-4F55-9A18-2C7D6B0E84F3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B4A91C27-6E30-4F55-9A18-2C7D6B0E84F3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B4A91C27-6E30-4F55-9A18-2C7D6B0E84F3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B4A91C27-6E30-4F55-9A18-2C7D6B0E84F3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

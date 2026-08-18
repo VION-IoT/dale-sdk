@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using Moq;
 using Vion.Dale.Sdk.Modbus.Core.Conversion;
+using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
 using Vion.Dale.Sdk.Modbus.Core.Exceptions;
 using Vion.Dale.Sdk.Modbus.Tcp.TestKit;
 using Vion.Dale.Sdk.TestKit;
@@ -155,13 +156,21 @@ namespace Vion.Examples.ModbusTcp.Test
             Sut.Quantity = 1;
             Sut.PollingEnabled = true;
             Sut.PollIntervalMs = 500;
+
+            // Hold the faulted interval at the healthy one, so this test measures the in-flight gate rather
+            // than the slow-down (which has its own test below).
+            Sut.FaultedPollIntervalMs = 500;
             var ctx = Sut.CreateTestContext().Build();
 
             ctx.AdvanceTime(TimeSpan.FromMilliseconds(1600));
 
             Assert.Equal(3, _fixture.PollProxy.ReadHistory.Count);
-            Assert.Equal(3, Sut.ErrorCount);
-            Assert.Equal(0, Sut.QueuedPollRequests);
+
+            // The SDK's own accumulation, not a counter this block keeps: three timeouts, nothing left
+            // queued, and a link the client has decided is faulted.
+            Assert.Equal(3, Sut.Link.TimeoutCount);
+            Assert.Equal(0, Sut.Link.QueueDepth);
+            Assert.Equal(ModbusLinkState.Faulted, Sut.Link.State);
         }
 
         [Fact]
@@ -191,7 +200,11 @@ namespace Vion.Examples.ModbusTcp.Test
             Assert.Contains("IllegalDataAddress", Sut.LastReadError);
             Assert.Contains("0x02", Sut.LastReadError);
             Assert.Equal(CommStatus.Error, Sut.Comm);
-            Assert.Equal(1, Sut.ErrorCount);
+
+            // A device that answers with an exception code is a *reachable* device: the outcome is a device
+            // error and the link stays Online. Only a timeout or a transport failure faults it.
+            Assert.Equal(1, Sut.CommandLink.DeviceErrorCount);
+            Assert.Equal(ModbusLinkState.Online, Sut.CommandLink.State);
         }
 
         [Fact]
@@ -222,6 +235,37 @@ namespace Vion.Examples.ModbusTcp.Test
 
             _fixture.PollProxy.VerifyReadSent(times: Times.Exactly(3));
             Assert.Empty(_fixture.CommandProxy.ReadHistory);
+        }
+
+        [Fact]
+        public void PollSlowerOnceTheLinkFaults()
+        {
+            // The unattended pattern: the client reconnects on its own schedule, so polling a device that is
+            // not answering at full rate only adds failed requests. Link.State is what the block reads to
+            // decide — it is the SDK's verdict on the device, not a guess from the last exception.
+            for (var attempt = 0; attempt < 5; attempt++)
+            {
+                _fixture.PollProxy.EnqueueReadTimeout(1, 0);
+            }
+
+            _fixture.SeedHoldingRegisters(0, new byte[] { 0x00, 0x01 });
+            Sut.ReadFunction = ReadFunction.HoldingRegisters;
+            Sut.Address = 0;
+            Sut.Quantity = 1;
+            Sut.PollingEnabled = true;
+            Sut.PollIntervalMs = 500;
+            Sut.FaultedPollIntervalMs = 5000;
+            var ctx = Sut.CreateTestContext().Build();
+
+            ctx.AdvanceTime(TimeSpan.FromMilliseconds(1600));
+
+            // The first poll faults the link; the next one is 5 s out, so it has not happened yet.
+            Assert.Equal(ModbusLinkState.Faulted, Sut.Link.State);
+            Assert.Single(_fixture.PollProxy.ReadHistory);
+
+            ctx.AdvanceTime(TimeSpan.FromMilliseconds(4000));
+
+            Assert.Equal(2, _fixture.PollProxy.ReadHistory.Count);
         }
 
         [Fact]
@@ -312,7 +356,8 @@ namespace Vion.Examples.ModbusTcp.Test
 
             Assert.StartsWith("FC4 @ 10 x 1", Sut.LastReadInfo);
             Assert.Equal(CommStatus.Ok, Sut.Comm);
-            Assert.Equal(1, Sut.TxCount);
+            Assert.Equal(1, Sut.CommandLink.SuccessCount);
+            Assert.NotNull(Sut.LastReadAt);
             Assert.Equal("42", Sut.Registers[0].Interpreted);
         }
     }

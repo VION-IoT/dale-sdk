@@ -27,7 +27,9 @@ namespace Vion.Examples.ModbusRtu.Test
 
             // Simulate both responses (each reads 1 register = 2 bytes for float)
             _sut.Modbus.SimulateReadResponse(ctx, ModbusResponseBuilder.FromFloats(230f), 0);
+            ctx.FlushPendingActions();
             _sut.Modbus.SimulateReadResponse(ctx, ModbusResponseBuilder.FromFloats(230f), 0);
+            ctx.FlushPendingActions();
 
             Assert.False(_sut.TestRunning);
             Assert.Equal(2, _sut.CompletedReads);
@@ -88,7 +90,9 @@ namespace Vion.Examples.ModbusRtu.Test
             _sut.StartTest = true;
 
             _sut.Modbus.SimulateReadResponse(ctx, ModbusResponseBuilder.FromFloats(230f), 0);
+            ctx.FlushPendingActions();
             _sut.Modbus.SimulateReadError(ctx, new TimeoutException("timeout"), 0);
+            ctx.FlushPendingActions();
 
             Assert.False(_sut.TestRunning);
             Assert.Equal(1, _sut.CompletedReads);

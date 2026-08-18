@@ -186,6 +186,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vion.Examples.ModbusTcp.Dev
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vion.Examples.ModbusTcp.Test", "examples\Vion.Examples.ModbusTcp\Vion.Examples.ModbusTcp.Test\Vion.Examples.ModbusTcp.Test.csproj", "{861B3218-3C65-42A3-83F8-1987E1C05C36}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Vion.Examples.ModbusTcp.IntegrationTest", "examples\Vion.Examples.ModbusTcp\Vion.Examples.ModbusTcp.IntegrationTest\Vion.Examples.ModbusTcp.IntegrationTest.csproj", "{7D3E2A41-9C58-4E6B-B0A2-5F1C4D8E93B7}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -1024,6 +1026,18 @@ Global
 		{861B3218-3C65-42A3-83F8-1987E1C05C36}.Release|x64.Build.0 = Release|Any CPU
 		{861B3218-3C65-42A3-83F8-1987E1C05C36}.Release|x86.ActiveCfg = Release|Any CPU
 		{861B3218-3C65-42A3-83F8-1987E1C05C36}.Release|x86.Build.0 = Release|Any CPU
+		{7D3E2A41-9C58-4E6B-B0A2-5F1C4D8E93B7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7D3E2A41-9C58-4E6B-B0A2-5F1C4D8E93B7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7D3E2A41-9C58-4E6B-B0A2-5F1C4D8E93B7}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{7D3E2A41-9C58-4E6B-B0A2-5F1C4D8E93B7}.Debug|x64.Build.0 = Debug|Any CPU
+		{7D3E2A41-9C58-4E6B-B0A2-5F1C4D8E93B7}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{7D3E2A41-9C58-4E6B-B0A2-5F1C4D8E93B7}.Debug|x86.Build.0 = Debug|Any CPU
+		{7D3E2A41-9C58-4E6B-B0A2-5F1C4D8E93B7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7D3E2A41-9C58-4E6B-B0A2-5F1C4D8E93B7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7D3E2A41-9C58-4E6B-B0A2-5F1C4D8E93B7}.Release|x64.ActiveCfg = Release|Any CPU
+		{7D3E2A41-9C58-4E6B-B0A2-5F1C4D8E93B7}.Release|x64.Build.0 = Release|Any CPU
+		{7D3E2A41-9C58-4E6B-B0A2-5F1C4D8E93B7}.Release|x86.ActiveCfg = Release|Any CPU
+		{7D3E2A41-9C58-4E6B-B0A2-5F1C4D8E93B7}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -1072,6 +1086,7 @@ Global
 		{6AFA5162-811E-4CF9-AAEA-5DB2A9C6026C} = {F14AB8A8-0D85-45A6-AF41-62DFAD08A206}
 		{622F023B-D735-4C13-8876-C5D214A4DCFA} = {F14AB8A8-0D85-45A6-AF41-62DFAD08A206}
 		{861B3218-3C65-42A3-83F8-1987E1C05C36} = {F14AB8A8-0D85-45A6-AF41-62DFAD08A206}
+		{7D3E2A41-9C58-4E6B-B0A2-5F1C4D8E93B7} = {F14AB8A8-0D85-45A6-AF41-62DFAD08A206}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {7A2E39A5-0BE2-4F45-B8D3-E4E366913D90}
