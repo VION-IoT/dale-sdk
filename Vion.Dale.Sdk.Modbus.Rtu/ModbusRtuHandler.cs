@@ -7,6 +7,7 @@ using Vion.Contracts.FlatBuffers.Hw.Modbus;
 using Vion.Contracts.Mqtt;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Messages;
+using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
 using Vion.Dale.Sdk.Modbus.Core.Exceptions;
 using Vion.Dale.Sdk.Mqtt;
 using Vion.Dale.Sdk.Utils;
@@ -168,17 +169,18 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
                 var payload = GetModbusResponsePayload.GetRootAsGetModbusResponsePayload(message.GetFlatBufferPayload());
                 if (payload.ResponseCode == ModbusResponseCode.Ok)
                 {
-                    PublishResponse(pendingRequest.LogicBlockContractId, payload.GetDataArray(), null, pendingRequest.Callback, correlationId);
+                    PublishResponse(pendingRequest, payload.GetDataArray(), null, ModbusOutcome.Success, correlationId);
                 }
                 else
                 {
                     var modbusException = new ModbusException((ModbusExceptionCode)payload.ResponseCode, payload.ErrorMessage ?? string.Empty);
-                    PublishResponse(pendingRequest.LogicBlockContractId, null, modbusException, pendingRequest.Callback, correlationId);
+                    PublishResponse(pendingRequest, null, modbusException, ModbusOutcome.DeviceError, correlationId);
                 }
             }
             catch (Exception exception)
             {
-                PublishResponse(pendingRequest.LogicBlockContractId, null, exception, pendingRequest.Callback, correlationId);
+                // The device answered but the payload could not be read: a protocol fault, not a device refusal.
+                PublishResponse(pendingRequest, null, exception, ModbusOutcome.ProtocolError, correlationId);
             }
         }
 
@@ -188,22 +190,28 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
             var request = message.Data;
             LogReceivedReadRequest(logicBlockContractId, request.CorrelationId);
 
+            var unpublished = new PendingReadRequest(logicBlockContractId, request.Callback, request.CreatedAt, null, DateTime.MinValue);
+
             var limitReached = CheckPendingRequestLimit();
             if (limitReached)
             {
-                PublishResponse(logicBlockContractId, null, _requestLimitException, request.Callback, request.CorrelationId);
+                PublishResponse(unpublished, null, _requestLimitException, ModbusOutcome.Dropped, request.CorrelationId);
                 return;
             }
 
             if (!_serviceProviderContractIds.TryGetValue(logicBlockContractId, out var serviceProviderContractId))
             {
-                PublishResponse(logicBlockContractId, null, new ServiceProviderContractMappingNotFoundException(logicBlockContractId), request.Callback, request.CorrelationId);
+                PublishResponse(unpublished, null, new ServiceProviderContractMappingNotFoundException(logicBlockContractId), ModbusOutcome.Invalid, request.CorrelationId);
                 return;
             }
 
-            if (_timeProvider.GetUtcNow().UtcDateTime >= request.ExpiresAt)
+            var publishedAt = _timeProvider.GetUtcNow().UtcDateTime;
+            if (request.MaxQueuedAge is { } maxQueuedAge && publishedAt - request.CreatedAt > maxQueuedAge)
             {
-                PublishResponse(logicBlockContractId, null, _timeoutException, request.Callback, request.CorrelationId);
+                // The hop from the block to this handler took longer than the value stays useful; publishing now
+                // would put a read nobody wants any more onto a bus shared with every other binding.
+                var expired = new RequestExpiredException(request.FunctionCode.ToString(), publishedAt - request.CreatedAt, maxQueuedAge);
+                PublishResponse(unpublished, null, expired, ModbusOutcome.Expired, request.CorrelationId);
                 return;
             }
 
@@ -212,12 +220,15 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
             var payload = CreateGetModbusPayload(request.FunctionCode, request.UnitId, request.StartingAddress, request.Quantity);
             PublishRequest(requestTopic, responseTopic, request.CorrelationId, nameof(GetModbusPayload), payload);
 
-            _pendingReadRequests[request.CorrelationId] = new PendingReadRequest(logicBlockContractId, request.Callback, request.CreatedAt, request.ExpiresAt);
-            LogAddedPendingReadRequest(logicBlockContractId, request.ExpiresAt, _pendingReadRequests.Count, request.CorrelationId);
+            // The operation timeout covers the wire only, so it starts here and not when the block issued the call.
+            var expiresAt = publishedAt + request.OperationTimeout;
+            _pendingReadRequests[request.CorrelationId] = new PendingReadRequest(logicBlockContractId, request.Callback, request.CreatedAt, publishedAt, expiresAt);
+            LogAddedPendingReadRequest(logicBlockContractId, expiresAt, _pendingReadRequests.Count, request.CorrelationId);
         }
 
-        private void PublishResponse(LogicBlockContractId logicBlockContractId, byte[]? data, Exception? exception, Action<byte[]?, Exception?> callback, Guid correlationId)
+        private void PublishResponse(PendingReadRequest pendingRequest, byte[]? data, Exception? exception, ModbusOutcome outcome, Guid correlationId)
         {
+            var logicBlockContractId = pendingRequest.LogicBlockContractId;
             if (!_actorReferences.TryGetValue(logicBlockContractId, out var actorReference))
             {
                 if (exception == null)
@@ -233,7 +244,18 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
             }
 
             LogSendingReadResponseToLogicBlock(logicBlockContractId, correlationId);
-            var responseMessage = new ReadModbusRtuResponse(data, exception, callback, correlationId);
+
+            // Stamped here, on the handler actor, the moment the response was observed - before the hop to the
+            // block, so a block that is slow to drain its mailbox cannot move these instants.
+            var responseMessage = new ReadModbusRtuResponse(data,
+                                                            exception,
+                                                            pendingRequest.Callback,
+                                                            correlationId,
+                                                            pendingRequest.CreatedAt,
+                                                            pendingRequest.PublishedAt,
+                                                            _timeProvider.GetUtcNow().UtcDateTime,
+                                                            _timeProvider.GetTimestamp(),
+                                                            outcome);
             ActorContext.SendTo(actorReference, new ContractMessage<ReadModbusRtuResponse>(logicBlockContractId, responseMessage));
         }
 
@@ -318,17 +340,18 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
                 var payload = SetModbusResponsePayload.GetRootAsSetModbusResponsePayload(message.GetFlatBufferPayload());
                 if (payload.ResponseCode == ModbusResponseCode.Ok)
                 {
-                    PublishResponse(pendingRequest.LogicBlockContractId, null, pendingRequest.Callback, correlationId);
+                    PublishResponse(pendingRequest, null, ModbusOutcome.Success, correlationId);
                 }
                 else
                 {
                     var modbusException = new ModbusException((ModbusExceptionCode)payload.ResponseCode, payload.ErrorMessage ?? string.Empty);
-                    PublishResponse(pendingRequest.LogicBlockContractId, modbusException, pendingRequest.Callback, correlationId);
+                    PublishResponse(pendingRequest, modbusException, ModbusOutcome.DeviceError, correlationId);
                 }
             }
             catch (Exception exception)
             {
-                PublishResponse(pendingRequest.LogicBlockContractId, exception, pendingRequest.Callback, correlationId);
+                // The device answered but the payload could not be read: a protocol fault, not a device refusal.
+                PublishResponse(pendingRequest, exception, ModbusOutcome.ProtocolError, correlationId);
             }
         }
 
@@ -338,22 +361,26 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
             var request = message.Data;
             LogReceivedWriteRequest(logicBlockContractId, request.CorrelationId);
 
+            var unpublished = new PendingWriteRequest(logicBlockContractId, request.Callback, request.CreatedAt, null, DateTime.MinValue);
+
             var limitReached = CheckPendingRequestLimit();
             if (limitReached)
             {
-                PublishResponse(logicBlockContractId, _requestLimitException, request.Callback, request.CorrelationId);
+                PublishResponse(unpublished, _requestLimitException, ModbusOutcome.Dropped, request.CorrelationId);
                 return;
             }
 
             if (!_serviceProviderContractIds.TryGetValue(logicBlockContractId, out var serviceProviderContractId))
             {
-                PublishResponse(logicBlockContractId, new ServiceProviderContractMappingNotFoundException(logicBlockContractId), request.Callback, request.CorrelationId);
+                PublishResponse(unpublished, new ServiceProviderContractMappingNotFoundException(logicBlockContractId), ModbusOutcome.Invalid, request.CorrelationId);
                 return;
             }
 
-            if (_timeProvider.GetUtcNow().UtcDateTime >= request.ExpiresAt)
+            var publishedAt = _timeProvider.GetUtcNow().UtcDateTime;
+            if (request.MaxQueuedAge is { } maxQueuedAge && publishedAt - request.CreatedAt > maxQueuedAge)
             {
-                PublishResponse(logicBlockContractId, _timeoutException, request.Callback, request.CorrelationId);
+                var expired = new RequestExpiredException(request.FunctionCode.ToString(), publishedAt - request.CreatedAt, maxQueuedAge);
+                PublishResponse(unpublished, expired, ModbusOutcome.Expired, request.CorrelationId);
                 return;
             }
 
@@ -362,12 +389,15 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
             var payload = CreateSetModbusPayload(request.FunctionCode, request.UnitId, request.Address, request.Data);
             PublishRequest(requestTopic, responseTopic, request.CorrelationId, nameof(SetModbusPayload), payload);
 
-            _pendingWriteRequests[request.CorrelationId] = new PendingWriteRequest(logicBlockContractId, request.Callback, request.CreatedAt, request.ExpiresAt);
-            LogAddedPendingWriteRequest(logicBlockContractId, request.ExpiresAt, _pendingWriteRequests.Count, request.CorrelationId);
+            // The operation timeout covers the wire only, so it starts here and not when the block issued the call.
+            var expiresAt = publishedAt + request.OperationTimeout;
+            _pendingWriteRequests[request.CorrelationId] = new PendingWriteRequest(logicBlockContractId, request.Callback, request.CreatedAt, publishedAt, expiresAt);
+            LogAddedPendingWriteRequest(logicBlockContractId, expiresAt, _pendingWriteRequests.Count, request.CorrelationId);
         }
 
-        private void PublishResponse(LogicBlockContractId logicBlockContractId, Exception? exception, Action<Exception?> callback, Guid correlationId)
+        private void PublishResponse(PendingWriteRequest pendingRequest, Exception? exception, ModbusOutcome outcome, Guid correlationId)
         {
+            var logicBlockContractId = pendingRequest.LogicBlockContractId;
             if (!_actorReferences.TryGetValue(logicBlockContractId, out var actorReference))
             {
                 if (exception == null)
@@ -383,7 +413,14 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
             }
 
             LogSendingWriteResponseToLogicBlock(logicBlockContractId, correlationId);
-            var responseMessage = new WriteModbusRtuResponse(exception, callback, correlationId);
+            var responseMessage = new WriteModbusRtuResponse(exception,
+                                                             pendingRequest.Callback,
+                                                             correlationId,
+                                                             pendingRequest.CreatedAt,
+                                                             pendingRequest.PublishedAt,
+                                                             _timeProvider.GetUtcNow().UtcDateTime,
+                                                             _timeProvider.GetTimestamp(),
+                                                             outcome);
             ActorContext.SendTo(actorReference, new ContractMessage<WriteModbusRtuResponse>(logicBlockContractId, responseMessage));
         }
 
@@ -467,9 +504,19 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
             return limitReached;
         }
 
-        private readonly record struct PendingReadRequest(LogicBlockContractId LogicBlockContractId, Action<byte[]?, Exception?> Callback, DateTime CreatedAt, DateTime ExpiresAt);
+        private readonly record struct PendingReadRequest(
+            LogicBlockContractId LogicBlockContractId,
+            Action<byte[]?, Exception?, ModbusReceipt> Callback,
+            DateTime CreatedAt,
+            DateTime? PublishedAt,
+            DateTime ExpiresAt);
 
-        private readonly record struct PendingWriteRequest(LogicBlockContractId LogicBlockContractId, Action<Exception?> Callback, DateTime CreatedAt, DateTime ExpiresAt);
+        private readonly record struct PendingWriteRequest(
+            LogicBlockContractId LogicBlockContractId,
+            Action<Exception?, ModbusReceipt> Callback,
+            DateTime CreatedAt,
+            DateTime? PublishedAt,
+            DateTime ExpiresAt);
 
         [LoggerMessage(Level = LogLevel.Error, Message = "Received MQTT message with missing or invalid correlation ID (Topic={Topic})")]
         private partial void LogInvalidCorrelationId(string topic);
@@ -570,7 +617,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
 
                 LogCompletingExpiredReadRequest(pendingRequest.CreatedAt, pendingRequest.ExpiresAt, correlationId, pendingRequest.LogicBlockContractId);
                 _pendingReadRequests.Remove(correlationId);
-                PublishResponse(pendingRequest.LogicBlockContractId, null, _timeoutException, pendingRequest.Callback, correlationId);
+                PublishResponse(pendingRequest, null, _timeoutException, ModbusOutcome.Timeout, correlationId);
             }
 
             foreach (var (correlationId, pendingRequest) in _pendingWriteRequests)
@@ -582,7 +629,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
 
                 LogCompletingExpiredWriteRequest(pendingRequest.CreatedAt, pendingRequest.ExpiresAt, correlationId, pendingRequest.LogicBlockContractId);
                 _pendingWriteRequests.Remove(correlationId);
-                PublishResponse(pendingRequest.LogicBlockContractId, _timeoutException, pendingRequest.Callback, correlationId);
+                PublishResponse(pendingRequest, _timeoutException, ModbusOutcome.Timeout, correlationId);
             }
         }
 
@@ -620,7 +667,9 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
         ///     Initializes a new instance of the <see cref="PendingRequestsLimitReachedException" /> class.
         /// </summary>
         /// <param name="maxPendingRequests">The maximum number of pending requests allowed.</param>
-        public PendingRequestsLimitReachedException(int maxPendingRequests) : base($"The pending requests limit of {maxPendingRequests} has been reached.")
+        public PendingRequestsLimitReachedException(int maxPendingRequests) :
+            base($"The runtime-wide Modbus RTU pending request limit of {maxPendingRequests} has been reached, so the request was dropped before execution; " +
+                 "one handler serves every Modbus RTU binding on this runtime, so another logic block may be the cause. The device was not contacted.")
         {
         }
     }

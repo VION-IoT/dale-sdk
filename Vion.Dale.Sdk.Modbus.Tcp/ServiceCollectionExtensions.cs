@@ -35,8 +35,9 @@ namespace Vion.Dale.Sdk.Modbus.Tcp
             serviceCollection.AddTransient<ILogicBlockModbusTcpServer, LogicBlockModbusTcpServer>();
             serviceCollection.AddTransient<IModbusTcpServerProxy, ModbusTcpServerProxy>();
 
-            // The server proxy timestamps client writes via TimeProvider. The full SDK registers it too
-            // (AddDaleSdk); TryAdd keeps that and any test-supplied FakeTimeProvider authoritative.
+            // The server proxy timestamps client writes, and the client stamps every request's receipt, via
+            // TimeProvider. The full SDK registers it too (AddDaleSdk); TryAdd keeps that and any test-supplied
+            // FakeTimeProvider authoritative.
             serviceCollection.TryAddSingleton(TimeProvider.System);
 
             return serviceCollection;

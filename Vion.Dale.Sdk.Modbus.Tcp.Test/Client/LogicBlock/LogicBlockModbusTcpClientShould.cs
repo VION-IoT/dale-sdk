@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Modbus.Core.Conversion;
+using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.Request;
@@ -35,9 +36,13 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
 
         private readonly Mock<IModbusTcpClientWrapper> _clientWrapperMock = new();
 
+        private readonly Action<Exception> _controlErrorCallback = _ => { };
+
+        private readonly Action _controlSuccessCallback = () => { };
+
         private readonly Mock<IActorDispatcher> _dispatcherMock = new();
 
-        private readonly Action<Exception?> _errorCallback = _ => { };
+        private readonly Action<Exception, ModbusReceipt> _errorCallback = (_, _) => { };
 
         private readonly Mock<ILogger<LogicBlockModbusTcpClient>> _loggerMock = new();
 
@@ -45,7 +50,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
 
         private readonly Mock<IRequestQueue> _requestQueueMock = new();
 
-        private readonly Action _voidResultSuccessCallback = () => { };
+        private readonly Action<ModbusReceipt> _voidResultSuccessCallback = _ => { };
 
         private Func<CancellationToken, Task>? _capturedOperation;
 
@@ -59,9 +64,18 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
             _requestQueueMock.Setup(queue => queue.Enqueue(It.IsAny<string>(),
                                                            It.IsAny<IActorDispatcher>(),
                                                            It.IsAny<Func<CancellationToken, Task>>(),
-                                                           It.IsAny<Action?>(),
-                                                           It.IsAny<Action<Exception?>>()))
-                             .Callback<string, IActorDispatcher, Func<CancellationToken, Task>, Action?, Action<Exception?>>((_, _, operation, _, _) =>
+                                                           It.IsAny<Action<ModbusReceipt>?>(),
+                                                           It.IsAny<Action<Exception, ModbusReceipt>?>()))
+                             .Callback<string, IActorDispatcher, Func<CancellationToken, Task>, Action<ModbusReceipt>?, Action<Exception, ModbusReceipt>
+                                 ?>((_, _, operation, _, _) =>
+                                        _capturedOperation = operation);
+
+            _requestQueueMock.Setup(queue => queue.EnqueueControlOperation(It.IsAny<string>(),
+                                                                           It.IsAny<IActorDispatcher>(),
+                                                                           It.IsAny<Func<CancellationToken, Task>>(),
+                                                                           It.IsAny<Action?>(),
+                                                                           It.IsAny<Action<Exception>?>()))
+                             .Callback<string, IActorDispatcher, Func<CancellationToken, Task>, Action?, Action<Exception>?>((_, _, operation, _, _) =>
                                  _capturedOperation = operation);
         }
 
@@ -74,7 +88,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
             _sut.IsEnabled = true;
 
             // Assert
-            _requestQueueMock.Verify(queue => queue.Initialize(It.IsAny<int>(), It.IsAny<QueueOverflowPolicy>()), Times.Once);
+            _requestQueueMock.Verify(queue => queue.Initialize(It.IsAny<int>(), It.IsAny<QueueOverflowPolicy>(), It.IsAny<ModbusLinkAccumulator>()), Times.Once);
         }
 
         [TestMethod]
@@ -89,7 +103,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
             _sut.IsEnabled = true;
 
             // Assert
-            _requestQueueMock.Verify(queue => queue.Initialize(It.IsAny<int>(), It.IsAny<QueueOverflowPolicy>()), Times.Never);
+            _requestQueueMock.Verify(queue => queue.Initialize(It.IsAny<int>(), It.IsAny<QueueOverflowPolicy>(), It.IsAny<ModbusLinkAccumulator>()), Times.Never);
         }
 
         [TestMethod]
@@ -106,7 +120,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
             _sut.IsEnabled = true;
 
             // Assert
-            _requestQueueMock.Verify(queue => queue.Initialize(capacity, overflowPolicy), Times.Once);
+            _requestQueueMock.Verify(queue => queue.Initialize(capacity, overflowPolicy, It.IsAny<ModbusLinkAccumulator>()), Times.Once);
         }
 
         [TestMethod]
@@ -277,7 +291,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
             _sut.Disconnect(_dispatcherMock.Object);
 
             // Assert
-            VerifyVoidResultRequestNotEnqueued();
+            VerifyControlOperationNotEnqueued();
         }
 
         [TestMethod]
@@ -287,11 +301,11 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
             _sut.IsEnabled = true;
 
             // Act
-            _sut.Disconnect(_dispatcherMock.Object, _voidResultSuccessCallback, _errorCallback);
+            _sut.Disconnect(_dispatcherMock.Object, _controlSuccessCallback, _controlErrorCallback);
             await (_capturedOperation?.Invoke(CancellationToken.None) ?? Task.CompletedTask);
 
             // Assert
-            VerifyVoidResultRequestEnqueued(nameof(_sut.Disconnect));
+            VerifyControlOperationEnqueued(nameof(_sut.Disconnect));
             _clientWrapperMock.Verify(clientWrapper => clientWrapper.DisconnectAsync(It.IsAny<CancellationToken>()), Times.Once);
         }
 
@@ -2233,10 +2247,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
             _clientWrapperMock.Verify(wrapper => wrapper.Dispose(), Times.Never);
         }
 
-        private static Action<T[]> ArrayResultSuccessCallback<T>()
+        private static Action<T[], ModbusReceipt> ArrayResultSuccessCallback<T>()
             where T : unmanaged
         {
-            return _ => { };
+            return (_, _) => { };
         }
 
         private void SetupArrayResultOperationCapture<T>()
@@ -2245,9 +2259,13 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
             _requestQueueMock.Setup(queue => queue.Enqueue(It.IsAny<string>(),
                                                            It.IsAny<IActorDispatcher>(),
                                                            It.IsAny<Func<CancellationToken, Task<T[]>>>(),
-                                                           It.IsAny<Action<T[]>>(),
-                                                           It.IsAny<Action<Exception?>>()))
-                             .Callback<string, IActorDispatcher, Func<CancellationToken, Task<T[]>>, Action<T[]>?, Action<Exception?>>((_, _, operation, _, _) =>
+                                                           It.IsAny<Action<T[], ModbusReceipt>>(),
+                                                           It.IsAny<Action<Exception, ModbusReceipt>?>()))
+                             .Callback<string, IActorDispatcher, Func<CancellationToken, Task<T[]>>, Action<T[], ModbusReceipt>, Action<Exception, ModbusReceipt>?>((_,
+                                     _,
+                                     operation,
+                                     _,
+                                     _) =>
                                  _capturedOperation = operation);
         }
 
@@ -2257,12 +2275,12 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
             _requestQueueMock.Verify(queue => queue.Enqueue(It.IsAny<string>(),
                                                             It.IsAny<IActorDispatcher>(),
                                                             It.IsAny<Func<CancellationToken, Task<T[]>>>(),
-                                                            It.IsAny<Action<T[]>>(),
-                                                            It.IsAny<Action<Exception?>>()),
+                                                            It.IsAny<Action<T[], ModbusReceipt>>(),
+                                                            It.IsAny<Action<Exception, ModbusReceipt>?>()),
                                      Times.Never);
         }
 
-        private void VerifyArrayResultRequestEnqueued<T>(string requestName, Action<T[]> successCallback)
+        private void VerifyArrayResultRequestEnqueued<T>(string requestName, Action<T[], ModbusReceipt> successCallback)
             where T : unmanaged
         {
             _requestQueueMock.Verify(queue => queue.Enqueue(requestName, _dispatcherMock.Object, It.IsAny<Func<CancellationToken, Task<T[]>>>(), successCallback, _errorCallback),
@@ -2274,15 +2292,19 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
             _requestQueueMock.Setup(queue => queue.Enqueue(It.IsAny<string>(),
                                                            It.IsAny<IActorDispatcher>(),
                                                            It.IsAny<Func<CancellationToken, Task<T>>>(),
-                                                           It.IsAny<Action<T>>(),
-                                                           It.IsAny<Action<Exception?>>()))
-                             .Callback<string, IActorDispatcher, Func<CancellationToken, Task<T>>, Action<T>?, Action<Exception?>>((_, _, operation, _, _) =>
+                                                           It.IsAny<Action<T, ModbusReceipt>>(),
+                                                           It.IsAny<Action<Exception, ModbusReceipt>?>()))
+                             .Callback<string, IActorDispatcher, Func<CancellationToken, Task<T>>, Action<T, ModbusReceipt>, Action<Exception, ModbusReceipt>?>((_,
+                                     _,
+                                     operation,
+                                     _,
+                                     _) =>
                                  _capturedOperation = operation);
         }
 
-        private static Action<T> SingleResultSuccessCallback<T>()
+        private static Action<T, ModbusReceipt> SingleResultSuccessCallback<T>()
         {
-            return _ => { };
+            return (_, _) => { };
         }
 
         private void VerifySingleRequestResultNotEnqueued()
@@ -2290,12 +2312,12 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
             _requestQueueMock.Verify(queue => queue.Enqueue(It.IsAny<string>(),
                                                             It.IsAny<IActorDispatcher>(),
                                                             It.IsAny<Func<CancellationToken, Task<string>>>(),
-                                                            It.IsAny<Action<string>>(),
-                                                            It.IsAny<Action<Exception?>>()),
+                                                            It.IsAny<Action<string, ModbusReceipt>>(),
+                                                            It.IsAny<Action<Exception, ModbusReceipt>?>()),
                                      Times.Never);
         }
 
-        private void VerifySingleRequestResultEnqueued(string requestName, Action<string> successCallback)
+        private void VerifySingleRequestResultEnqueued(string requestName, Action<string, ModbusReceipt> successCallback)
         {
             _requestQueueMock.Verify(queue => queue.Enqueue(requestName,
                                                             _dispatcherMock.Object,
@@ -2310,8 +2332,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
             _requestQueueMock.Verify(queue => queue.Enqueue(It.IsAny<string>(),
                                                             It.IsAny<IActorDispatcher>(),
                                                             It.IsAny<Func<CancellationToken, Task>>(),
-                                                            It.IsAny<Action?>(),
-                                                            It.IsAny<Action<Exception?>>()),
+                                                            It.IsAny<Action<ModbusReceipt>?>(),
+                                                            It.IsAny<Action<Exception, ModbusReceipt>?>()),
                                      Times.Never);
         }
 
@@ -2322,6 +2344,26 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
                                                             It.IsAny<Func<CancellationToken, Task>>(),
                                                             _voidResultSuccessCallback,
                                                             _errorCallback),
+                                     Times.Once);
+        }
+
+        private void VerifyControlOperationNotEnqueued()
+        {
+            _requestQueueMock.Verify(queue => queue.EnqueueControlOperation(It.IsAny<string>(),
+                                                                            It.IsAny<IActorDispatcher>(),
+                                                                            It.IsAny<Func<CancellationToken, Task>>(),
+                                                                            It.IsAny<Action?>(),
+                                                                            It.IsAny<Action<Exception>?>()),
+                                     Times.Never);
+        }
+
+        private void VerifyControlOperationEnqueued(string requestName)
+        {
+            _requestQueueMock.Verify(queue => queue.EnqueueControlOperation(requestName,
+                                                                            _dispatcherMock.Object,
+                                                                            It.IsAny<Func<CancellationToken, Task>>(),
+                                                                            _controlSuccessCallback,
+                                                                            _controlErrorCallback),
                                      Times.Once);
         }
     }

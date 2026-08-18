@@ -1,4 +1,5 @@
 using System;
+using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
 using Vion.Dale.Sdk.TestKit;
 
 namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
@@ -26,9 +27,12 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
 
             // Act
             _sut.Modbus.SimulateReadResponse(_context, ModbusResponseBuilder.FromFloats(230.5f, 231.0f, 229.8f), SampleLogicBlock.VoltagesAddress);
+            _context.FlushPendingActions();
 
             // Assert
             Assert.HasCount(3, _sut.LastVoltages);
+            Assert.IsNotNull(_sut.LastReadReceipt);
+            Assert.AreEqual(ModbusOutcome.Success, _sut.LastReadReceipt!.Value.Outcome);
             Assert.AreEqual(230.5f, _sut.LastVoltages[0], 0.01f);
             Assert.AreEqual(231.0f, _sut.LastVoltages[1], 0.01f);
             Assert.AreEqual(229.8f, _sut.LastVoltages[2], 0.01f);
@@ -43,6 +47,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
 
             // Act
             _sut.Modbus.SimulateReadResponse(_context, ModbusResponseBuilder.FromFloats(5.2f, 4.8f, 5.0f), SampleLogicBlock.CurrentsAddress);
+            _context.FlushPendingActions();
 
             // Assert
             Assert.HasCount(3, _sut.LastCurrents);
@@ -58,9 +63,11 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
 
             // Act
             _sut.Modbus.SimulateReadError(_context, expectedError, SampleLogicBlock.VoltagesAddress);
+            _context.FlushPendingActions();
 
             // Assert
             Assert.AreSame(expectedError, _sut.LastError);
+            Assert.AreEqual(ModbusOutcome.TransportError, _sut.LastReadReceipt!.Value.Outcome);
         }
 
         [TestMethod]
@@ -71,9 +78,11 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
 
             // Act
             _sut.Modbus.SimulateWriteResponse(_context, SampleLogicBlock.SetpointAddress);
+            _context.FlushPendingActions();
 
             // Assert
             Assert.AreEqual(1, _sut.WriteSuccessCount);
+            Assert.AreEqual(ModbusOutcome.Success, _sut.LastWriteReceipt!.Value.Outcome);
         }
 
         [TestMethod]
@@ -85,6 +94,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
 
             // Act
             _sut.Modbus.SimulateWriteError(_context, expectedError, SampleLogicBlock.SetpointAddress);
+            _context.FlushPendingActions();
 
             // Assert
             Assert.AreSame(expectedError, _sut.LastError);

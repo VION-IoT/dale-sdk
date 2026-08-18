@@ -10,6 +10,7 @@ using Vion.Contracts.Constants;
 using Vion.Contracts.FlatBuffers.Hw.Modbus;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Messages;
+using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
 using Vion.Dale.Sdk.Modbus.Core.Exceptions;
 using Vion.Dale.Sdk.Mqtt;
 using Vion.Dale.Sdk.Utils;
@@ -63,9 +64,12 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
                                                    0,
                                                    DateTimeKind.Utc);
 
-        private static readonly DateTime FutureExpiration = Now.AddMinutes(1);
+        private static readonly TimeSpan OperationTimeout = TimeSpan.FromMinutes(1);
 
-        private static readonly DateTime PastExpiration = Now.AddMinutes(-1);
+        // The block issued this request two minutes ago; a MaxQueuedAge of one minute makes it too stale to publish.
+        private static readonly DateTime StaleCreatedAt = Now.AddMinutes(-2);
+
+        private static readonly TimeSpan MaxQueuedAge = TimeSpan.FromMinutes(1);
 
         private static readonly byte[] ResponseData = [0x01, 0x02, 0x03, 0x04];
 
@@ -174,23 +178,26 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
-        public async Task SendTimeoutReadResponseWhenRequestAlreadyExpired()
+        public async Task SendExpiredReadResponseWhenRequestIsOlderThanMaxQueuedAge()
         {
             // Arrange
             var correlationId = Guid.NewGuid();
             Exception? capturedException = null;
             byte[]? capturedData = null;
+            var capturedOutcome = ModbusOutcome.Success;
             var request = new ReadModbusRtuRequest(ReadFunctionCode,
                                                    UnitId,
                                                    StartingAddress,
                                                    Quantity,
-                                                   Now,
-                                                   PastExpiration,
+                                                   StaleCreatedAt,
+                                                   OperationTimeout,
+                                                   MaxQueuedAge,
                                                    correlationId,
-                                                   (data, exception) =>
+                                                   (data, exception, receipt) =>
                                                    {
                                                        capturedData = data;
                                                        capturedException = exception;
+                                                       capturedOutcome = receipt.Outcome;
                                                    });
 
             // Act
@@ -198,31 +205,40 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             InvokeCapturedReadResponseCallback();
 
             // Assert
-            Assert.IsInstanceOfType<OperationTimeoutException>(capturedException);
+            Assert.IsInstanceOfType<RequestExpiredException>(capturedException);
             Assert.IsNull(capturedData);
+            Assert.AreEqual(ModbusOutcome.Expired, capturedOutcome);
+            _actorContextMock.Verify(actorContext => actorContext.SendTo(_mqttClientActorRefMock.Object, It.IsAny<object>(), It.IsAny<Dictionary<string, string>?>()), Times.Never);
         }
 
         [TestMethod]
-        public async Task SendTimeoutWriteResponseWhenRequestAlreadyExpired()
+        public async Task SendExpiredWriteResponseWhenRequestIsOlderThanMaxQueuedAge()
         {
             // Arrange
             var correlationId = Guid.NewGuid();
             Exception? capturedException = null;
+            var capturedOutcome = ModbusOutcome.Success;
             var request = new WriteModbusRtuRequest(WriteFunctionCode,
                                                     UnitId,
                                                     WriteAddress,
                                                     WriteData,
-                                                    Now,
-                                                    PastExpiration,
+                                                    StaleCreatedAt,
+                                                    OperationTimeout,
+                                                    MaxQueuedAge,
                                                     correlationId,
-                                                    exception => capturedException = exception);
+                                                    (exception, receipt) =>
+                                                    {
+                                                        capturedException = exception;
+                                                        capturedOutcome = receipt.Outcome;
+                                                    });
 
             // Act
             await DispatchAsync(new ContractMessage<WriteModbusRtuRequest>(LinkedLogicBlockContractId, request));
             InvokeCapturedWriteResponseCallback();
 
             // Assert
-            Assert.IsInstanceOfType<OperationTimeoutException>(capturedException);
+            Assert.IsInstanceOfType<RequestExpiredException>(capturedException);
+            Assert.AreEqual(ModbusOutcome.Expired, capturedOutcome);
         }
 
         [TestMethod]
@@ -238,7 +254,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             Exception? capturedException = null;
 
             // Act
-            await SendReadRequestAsync(Guid.NewGuid(), (_, exception) => capturedException = exception);
+            await SendReadRequestAsync(Guid.NewGuid(), (_, exception, _) => capturedException = exception);
             InvokeCapturedReadResponseCallback();
 
             // Assert
@@ -259,7 +275,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             Exception? capturedException = null;
 
             // Act
-            await SendWriteRequestAsync(Guid.NewGuid(), exception => capturedException = exception);
+            await SendWriteRequestAsync(Guid.NewGuid(), (exception, _) => capturedException = exception);
             InvokeCapturedWriteResponseCallback();
 
             // Assert
@@ -275,7 +291,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             Exception? capturedException = null;
             byte[]? capturedData = null;
             await SendReadRequestAsync(correlationId,
-                                       (data, exception) =>
+                                       (data, exception, _) =>
                                        {
                                            capturedData = data;
                                            capturedException = exception;
@@ -298,7 +314,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             Exception? capturedException = null;
             byte[]? capturedData = null;
             await SendReadRequestAsync(correlationId,
-                                       (data, exception) =>
+                                       (data, exception, _) =>
                                        {
                                            capturedData = data;
                                            capturedException = exception;
@@ -319,7 +335,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             // Arrange
             var correlationId = Guid.NewGuid();
             Exception? capturedException = null;
-            await SendReadRequestAsync(correlationId, (_, exception) => capturedException = exception);
+            await SendReadRequestAsync(correlationId, (_, exception, _) => capturedException = exception);
 
             // Act
             await DispatchAsync(CreateMqttMessage(GetResponseTopic, [0x01, 0x02, 0x03], correlationId));
@@ -350,7 +366,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             Exception? capturedException = null;
             var callbackInvoked = false;
             await SendWriteRequestAsync(correlationId,
-                                        exception =>
+                                        (exception, _) =>
                                         {
                                             callbackInvoked = true;
                                             capturedException = exception;
@@ -371,7 +387,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             // Arrange
             var correlationId = Guid.NewGuid();
             Exception? capturedException = null;
-            await SendWriteRequestAsync(correlationId, exception => capturedException = exception);
+            await SendWriteRequestAsync(correlationId, (exception, _) => capturedException = exception);
 
             // Act
             await DispatchAsync(CreateSetResponseMqttMessage(correlationId, ModbusResponseCode.ServerDeviceFailure, "boom"));
@@ -387,7 +403,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             // Arrange
             var correlationId = Guid.NewGuid();
             Exception? capturedException = null;
-            await SendWriteRequestAsync(correlationId, exception => capturedException = exception);
+            await SendWriteRequestAsync(correlationId, (exception, _) => capturedException = exception);
 
             // Act
             await DispatchAsync(CreateMqttMessage(SetResponseTopic, [0x01, 0x02, 0x03], correlationId));
@@ -453,8 +469,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             // Arrange
             var correlationId = Guid.NewGuid();
             Exception? capturedException = null;
-            await SendReadRequestAsync(correlationId, (_, exception) => capturedException = exception);
-            _timeProvider.SetUtcNow(FutureExpiration.AddSeconds(1));
+            await SendReadRequestAsync(correlationId, (_, exception, _) => capturedException = exception);
+            _timeProvider.SetUtcNow(Now + OperationTimeout + TimeSpan.FromSeconds(1));
 
             // Act
             await TriggerExpirationCheckAsync();
@@ -470,8 +486,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             // Arrange
             var correlationId = Guid.NewGuid();
             Exception? capturedException = null;
-            await SendWriteRequestAsync(correlationId, exception => capturedException = exception);
-            _timeProvider.SetUtcNow(FutureExpiration.AddSeconds(1));
+            await SendWriteRequestAsync(correlationId, (exception, _) => capturedException = exception);
+            _timeProvider.SetUtcNow(Now + OperationTimeout + TimeSpan.FromSeconds(1));
 
             // Act
             await TriggerExpirationCheckAsync();
@@ -487,7 +503,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             // Arrange
             var correlationId = Guid.NewGuid();
             var callbackInvoked = false;
-            await SendReadRequestAsync(correlationId, (_, _) => callbackInvoked = true);
+            await SendReadRequestAsync(correlationId, (_, _, _) => callbackInvoked = true);
             _actorContextMock.Invocations.Clear();
 
             // Act
@@ -504,7 +520,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
             // Arrange
             var correlationId = Guid.NewGuid();
             var callbackInvoked = false;
-            await SendWriteRequestAsync(correlationId, _ => callbackInvoked = true);
+            await SendWriteRequestAsync(correlationId, (_, _) => callbackInvoked = true);
             _actorContextMock.Invocations.Clear();
 
             // Act
@@ -611,9 +627,10 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
                                                                StartingAddress,
                                                                Quantity,
                                                                Now,
-                                                               FutureExpiration,
+                                                               OperationTimeout,
+                                                               MaxQueuedAge,
                                                                correlationId,
-                                                               (_, _) => { });
+                                                               (_, _, _) => { });
                     return DispatchAsync(new ContractMessage<ReadModbusRtuRequest>(contractId, readRequest));
                 case TargetMethod.Write:
                     var writeRequest = new WriteModbusRtuRequest(WriteFunctionCode,
@@ -621,36 +638,39 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
                                                                  WriteAddress,
                                                                  WriteData,
                                                                  Now,
-                                                                 FutureExpiration,
+                                                                 OperationTimeout,
+                                                                 MaxQueuedAge,
                                                                  correlationId,
-                                                                 _ => { });
+                                                                 (_, _) => { });
                     return DispatchAsync(new ContractMessage<WriteModbusRtuRequest>(contractId, writeRequest));
                 default: throw new ArgumentOutOfRangeException(nameof(targetMethod), targetMethod, null);
             }
         }
 
-        private Task SendReadRequestAsync(Guid correlationId, Action<byte[]?, Exception?> callback)
+        private Task SendReadRequestAsync(Guid correlationId, Action<byte[]?, Exception?, ModbusReceipt> callback)
         {
             var request = new ReadModbusRtuRequest(ReadFunctionCode,
                                                    UnitId,
                                                    StartingAddress,
                                                    Quantity,
                                                    Now,
-                                                   FutureExpiration,
+                                                   OperationTimeout,
+                                                   MaxQueuedAge,
                                                    correlationId,
                                                    callback);
 
             return DispatchAsync(new ContractMessage<ReadModbusRtuRequest>(LinkedLogicBlockContractId, request));
         }
 
-        private Task SendWriteRequestAsync(Guid correlationId, Action<Exception?> callback)
+        private Task SendWriteRequestAsync(Guid correlationId, Action<Exception?, ModbusReceipt> callback)
         {
             var request = new WriteModbusRtuRequest(WriteFunctionCode,
                                                     UnitId,
                                                     WriteAddress,
                                                     WriteData,
                                                     Now,
-                                                    FutureExpiration,
+                                                    OperationTimeout,
+                                                    MaxQueuedAge,
                                                     correlationId,
                                                     callback);
 
@@ -676,7 +696,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
                                                                          It.IsAny<Dictionary<string, string>?>()),
                                      Times.AtLeastOnce);
             var response = ((ContractMessage<ReadModbusRtuResponse>)capturedMessage!).Data;
-            response.Callback(response.Data, response.Exception);
+            response.Callback(response.Data, response.Exception, response.ToReceipt());
         }
 
         private void InvokeCapturedWriteResponseCallback()
@@ -689,7 +709,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
                                                                          It.IsAny<Dictionary<string, string>?>()),
                                      Times.AtLeastOnce);
             var response = ((ContractMessage<WriteModbusRtuResponse>)capturedMessage!).Data;
-            response.Callback(response.Exception);
+            response.Callback(response.Exception, response.ToReceipt());
         }
 
         private static bool CaptureAndMatch(object message, ref object? captured, Func<object, bool> predicate)

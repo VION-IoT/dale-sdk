@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Vion.Dale.Sdk.Abstractions;
+using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.Request;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
@@ -23,9 +24,11 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
 
         private readonly TimeSpan TestTimeout = TimeSpan.FromSeconds(5);
 
+        private readonly ModbusLinkAccumulator _accumulator = new();
+
         private readonly Func<CancellationToken, Task<int[]>> _arrayRequestOperation = _ => Task.FromResult(Array.Empty<int>());
 
-        private readonly Action<int[]> _arraySuccessCallback = _ => { };
+        private readonly Action<int[], ModbusReceipt> _arraySuccessCallback = (_, _) => { };
 
         private readonly Mock<IActorDispatcher> _dispatcherMock = new();
 
@@ -37,13 +40,13 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
 
         private readonly Func<CancellationToken, Task<int>> _singleRequestOperation = _ => Task.FromResult(0);
 
-        private readonly Action<int> _singleSuccessCallback = _ => { };
+        private readonly Action<int, ModbusReceipt> _singleSuccessCallback = (_, _) => { };
 
         private readonly List<string> _startedRequestNames = [];
 
         private readonly Func<CancellationToken, Task> _voidRequestOperation = _ => Task.CompletedTask;
 
-        private readonly Action _voidSuccessCallback = () => { };
+        private readonly Action<ModbusReceipt> _voidSuccessCallback = _ => { };
 
         private CancellationTokenSource? _inflightRequestCts;
 
@@ -71,10 +74,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         public void ThrowExceptionWhenAlreadyInitialized()
         {
             // Arrange
-            _sut.Initialize(3, QueueOverflowPolicy.DropOldest);
+            _sut.Initialize(3, QueueOverflowPolicy.DropOldest, _accumulator);
 
             // Act / Assert
-            Assert.Throws<InvalidOperationException>(() => _sut.Initialize(5, QueueOverflowPolicy.RejectNew));
+            Assert.Throws<InvalidOperationException>(() => _sut.Initialize(5, QueueOverflowPolicy.RejectNew, _accumulator));
         }
 
         [TestMethod]
@@ -84,7 +87,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
             const QueueOverflowPolicy unsupportedPolicy = (QueueOverflowPolicy)999;
 
             // Act / Assert
-            Assert.Throws<NotSupportedException>(() => _sut.Initialize(5, unsupportedPolicy));
+            Assert.Throws<NotSupportedException>(() => _sut.Initialize(5, unsupportedPolicy, _accumulator));
         }
 
         [TestMethod]
@@ -124,7 +127,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
             var arrayStartedTcs = SetupArrayResultRequest();
             var singleStartedTcs = SetupSingleRequestResult();
             var voidStartedTcs = SetupVoidResultRequest();
-            _sut.Initialize(10, QueueOverflowPolicy.DropOldest);
+            _sut.Initialize(10, QueueOverflowPolicy.DropOldest, _accumulator);
 
             // Act
             _sut.Enqueue(ArrayRequestName, _dispatcherMock.Object, _arrayRequestOperation, _arraySuccessCallback, null);
@@ -145,7 +148,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
             var arrayStartedTcs = SetupArrayResultRequest();
             var singleStartedTcs = SetupSingleRequestResult();
             var voidStartedTcs = SetupVoidResultRequest();
-            _sut.Initialize(10, QueueOverflowPolicy.DropOldest);
+            _sut.Initialize(10, QueueOverflowPolicy.DropOldest, _accumulator);
 
             // Act
             _sut.Enqueue(ArrayRequestName, _dispatcherMock.Object, _arrayRequestOperation, _arraySuccessCallback, null);
@@ -166,7 +169,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
             var arrayStartedTcs = SetupArrayResultRequest(shouldThrow: true);
             var singleStartedTcs = SetupSingleRequestResult();
             var voidStartedTcs = SetupVoidResultRequest();
-            _sut.Initialize(10, QueueOverflowPolicy.DropOldest);
+            _sut.Initialize(10, QueueOverflowPolicy.DropOldest, _accumulator);
 
             // Act
             _sut.Enqueue(ArrayRequestName, _dispatcherMock.Object, _arrayRequestOperation, _arraySuccessCallback, null);
@@ -188,7 +191,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
             var arrayStartedTcs = SetupArrayResultRequest(true, cancellationToken: _inflightRequestCts.Token);
             SetupSingleRequestResult();
             SetupVoidResultRequest();
-            _sut.Initialize(2, QueueOverflowPolicy.DropOldest);
+            _sut.Initialize(2, QueueOverflowPolicy.DropOldest, _accumulator);
 
             // Act
             _sut.Enqueue(ArrayRequestName, _dispatcherMock.Object, _arrayRequestOperation, _arraySuccessCallback, null);
@@ -210,7 +213,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
             var arrayStartedTcs = SetupArrayResultRequest(true, cancellationToken: _inflightRequestCts.Token);
             SetupSingleRequestResult();
             SetupVoidResultRequest();
-            _sut.Initialize(2, QueueOverflowPolicy.DropNewest);
+            _sut.Initialize(2, QueueOverflowPolicy.DropNewest, _accumulator);
 
             // Act
             _sut.Enqueue(ArrayRequestName, _dispatcherMock.Object, _arrayRequestOperation, _arraySuccessCallback, null);
@@ -232,7 +235,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
             var arrayStartedTcs = SetupArrayResultRequest(true, cancellationToken: _inflightRequestCts.Token);
             SetupSingleRequestResult();
             SetupVoidResultRequest();
-            _sut.Initialize(2, QueueOverflowPolicy.RejectNew);
+            _sut.Initialize(2, QueueOverflowPolicy.RejectNew, _accumulator);
             const string expectedRejectedRequestName = $"{VoidRequestName}-2";
 
             // Act
@@ -255,7 +258,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
             var arrayStartedTcs = SetupArrayResultRequest(true, cancellationToken: _inflightRequestCts.Token);
             SetupSingleRequestResult();
             SetupVoidResultRequest();
-            _sut.Initialize(3, QueueOverflowPolicy.DropNewest);
+            _sut.Initialize(3, QueueOverflowPolicy.DropNewest, _accumulator);
 
             // Act
             _sut.Enqueue(ArrayRequestName, _dispatcherMock.Object, _arrayRequestOperation, _arraySuccessCallback, null);
@@ -271,7 +274,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         public void ReportZeroQueuedCountWhenQueueEmpty()
         {
             // Arrange
-            _sut.Initialize(10, QueueOverflowPolicy.DropOldest);
+            _sut.Initialize(10, QueueOverflowPolicy.DropOldest, _accumulator);
 
             // Act
             var requestCount = _sut.QueuedRequestCount;
@@ -287,7 +290,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
             var arrayStartedTcs = SetupArrayResultRequest();
             var singleStartedTcs = SetupSingleRequestResult();
             var voidStartedTcs = SetupVoidResultRequest();
-            _sut.Initialize(10, QueueOverflowPolicy.DropOldest);
+            _sut.Initialize(10, QueueOverflowPolicy.DropOldest, _accumulator);
 
             // Act
             _sut.Enqueue(ArrayRequestName, _dispatcherMock.Object, _arrayRequestOperation, _arraySuccessCallback, null);
@@ -306,7 +309,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
             SetupArrayResultRequest();
             SetupSingleRequestResult();
             SetupVoidResultRequest();
-            _sut.Initialize(10, QueueOverflowPolicy.RejectNew);
+            _sut.Initialize(10, QueueOverflowPolicy.RejectNew, _accumulator);
             _sut.Dispose();
 
             // Act
@@ -326,7 +329,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         public void NotThrowIfDisposedMultipleTimes()
         {
             // Arrange
-            _sut.Initialize(10, QueueOverflowPolicy.DropOldest);
+            _sut.Initialize(10, QueueOverflowPolicy.DropOldest, _accumulator);
 
             // Act / Assert
             _sut.Dispose();
@@ -340,14 +343,16 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
                 .Setup(factory => factory.Create(It.IsAny<string>(),
                                                  It.IsAny<IActorDispatcher>(),
                                                  It.IsAny<Func<CancellationToken, Task<int[]>>>(),
-                                                 It.IsAny<Action<int[]>>(),
-                                                 It.IsAny<Action<Exception>>(),
+                                                 It.IsAny<Action<int[], ModbusReceipt>>(),
+                                                 It.IsAny<Action<Exception, ModbusReceipt>>(),
+                                                 It.IsAny<ModbusLinkAccumulator>(),
                                                  It.IsAny<ILogger>()))
                 .Returns((string requestName,
                           IActorDispatcher _,
                           Func<CancellationToken, Task<int[]>> _,
-                          Action<int[]> _,
-                          Action<Exception> _,
+                          Action<int[], ModbusReceipt> _,
+                          Action<Exception, ModbusReceipt> _,
+                          ModbusLinkAccumulator _,
                           ILogger _) => SetupRequest(requestName, executionStartedTcs, shouldBlock, shouldThrow, cancellationToken));
 
             return executionStartedTcs;
@@ -360,14 +365,16 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
                 .Setup(factory => factory.Create(It.IsAny<string>(),
                                                  It.IsAny<IActorDispatcher>(),
                                                  It.IsAny<Func<CancellationToken, Task<int>>>(),
-                                                 It.IsAny<Action<int>>(),
-                                                 It.IsAny<Action<Exception>>(),
+                                                 It.IsAny<Action<int, ModbusReceipt>>(),
+                                                 It.IsAny<Action<Exception, ModbusReceipt>>(),
+                                                 It.IsAny<ModbusLinkAccumulator>(),
                                                  It.IsAny<ILogger>()))
                 .Returns((string requestName,
                           IActorDispatcher _,
                           Func<CancellationToken, Task<int>> _,
-                          Action<int> _,
-                          Action<Exception> _,
+                          Action<int, ModbusReceipt> _,
+                          Action<Exception, ModbusReceipt> _,
+                          ModbusLinkAccumulator _,
                           ILogger _) => SetupRequest(requestName, executionStartedTcs, shouldBlock, shouldThrow, cancellationToken));
 
             return executionStartedTcs;
@@ -380,14 +387,16 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
                 .Setup(factory => factory.Create(It.IsAny<string>(),
                                                  It.IsAny<IActorDispatcher>(),
                                                  It.IsAny<Func<CancellationToken, Task>>(),
-                                                 It.IsAny<Action>(),
-                                                 It.IsAny<Action<Exception>>(),
+                                                 It.IsAny<Action<ModbusReceipt>>(),
+                                                 It.IsAny<Action<Exception, ModbusReceipt>>(),
+                                                 It.IsAny<ModbusLinkAccumulator>(),
                                                  It.IsAny<ILogger>()))
                 .Returns((string requestName,
                           IActorDispatcher _,
                           Func<CancellationToken, Task> _,
-                          Action _,
-                          Action<Exception> _,
+                          Action<ModbusReceipt> _,
+                          Action<Exception, ModbusReceipt> _,
+                          ModbusLinkAccumulator _,
                           ILogger _) => SetupRequest(requestName, executionStartedTcs, shouldBlock, shouldThrow, cancellationToken));
 
             return executionStartedTcs;
@@ -397,7 +406,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         {
             var requestMock = new Mock<IRequest>();
             requestMock.SetupGet(request => request.Name).Returns(requestName);
-            requestMock.Setup(request => request.ExecuteAsync(It.IsAny<CancellationToken>()))
+            requestMock.Setup(request => request.ExecuteAsync(It.IsAny<CancellationToken>(), It.IsAny<TimeSpan?>()))
                        .Callback(() =>
                                  {
                                      _startedRequestNames.Add(requestName);

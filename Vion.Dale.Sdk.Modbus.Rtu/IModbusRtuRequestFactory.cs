@@ -1,5 +1,7 @@
-﻿using System;
+using System;
 using Vion.Contracts.FlatBuffers.Hw.Modbus;
+using Vion.Dale.Sdk.Abstractions;
+using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
 
 namespace Vion.Dale.Sdk.Modbus.Rtu
 {
@@ -16,19 +18,31 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
         /// <param name="unitIdentifier">The unit identifier (slave address) of the target device.</param>
         /// <param name="startingAddress">The starting address to read from.</param>
         /// <param name="quantity">The number of registers, coils or discrete inputs to read.</param>
-        /// <param name="operationTimeout">The timeout duration for the operation.</param>
+        /// <param name="operationTimeout">How long the device has to answer once the request has been published.</param>
+        /// <param name="maxQueuedAge">
+        ///     How stale the request may be when the handler picks it up, or <c>null</c> to publish it
+        ///     regardless.
+        /// </param>
         /// <param name="processResponse">A function to process the raw response bytes into the desired type.</param>
-        /// <param name="successCallback">The callback invoked with the processed result on successful completion.</param>
-        /// <param name="errorCallback">The callback invoked with the exception on failure.</param>
+        /// <param name="dispatcher">The dispatcher that invokes the callbacks on the calling logic block.</param>
+        /// <param name="successCallback">
+        ///     The callback invoked with the processed result and the transaction's receipt on
+        ///     successful completion.
+        /// </param>
+        /// <param name="errorCallback">The callback invoked with the exception and the transaction's receipt on failure.</param>
+        /// <param name="accumulator">The calling contract's link accumulator, fed with the request's receipt when it completes.</param>
         /// <returns>A <see cref="ReadModbusRtuRequest" /> configured with the specified parameters.</returns>
         ReadModbusRtuRequest CreateReadRequest<T>(ModbusFunctionCode functionCode,
                                                   int unitIdentifier,
                                                   ushort startingAddress,
                                                   ushort quantity,
                                                   TimeSpan operationTimeout,
+                                                  TimeSpan? maxQueuedAge,
                                                   Func<Memory<byte>, T[]> processResponse,
-                                                  Action<T[]> successCallback,
-                                                  Action<Exception>? errorCallback);
+                                                  IActorDispatcher dispatcher,
+                                                  Action<T[], ModbusReceipt> successCallback,
+                                                  Action<Exception, ModbusReceipt>? errorCallback,
+                                                  ModbusLinkAccumulator accumulator);
 
         /// <summary>
         ///     Creates a read request for a Modbus RTU device that returns a single value.
@@ -38,19 +52,31 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
         /// <param name="unitIdentifier">The unit identifier (slave address) of the target device.</param>
         /// <param name="startingAddress">The starting address to read from.</param>
         /// <param name="quantity">The number of registers, coils or discrete inputs to read.</param>
-        /// <param name="operationTimeout">The timeout duration for the operation.</param>
+        /// <param name="operationTimeout">How long the device has to answer once the request has been published.</param>
+        /// <param name="maxQueuedAge">
+        ///     How stale the request may be when the handler picks it up, or <c>null</c> to publish it
+        ///     regardless.
+        /// </param>
         /// <param name="processResponse">A function to process the raw response bytes into the desired type.</param>
-        /// <param name="successCallback">The callback invoked with the processed result on successful completion.</param>
-        /// <param name="errorCallback">The callback invoked with the exception on failure.</param>
+        /// <param name="dispatcher">The dispatcher that invokes the callbacks on the calling logic block.</param>
+        /// <param name="successCallback">
+        ///     The callback invoked with the processed result and the transaction's receipt on
+        ///     successful completion.
+        /// </param>
+        /// <param name="errorCallback">The callback invoked with the exception and the transaction's receipt on failure.</param>
+        /// <param name="accumulator">The calling contract's link accumulator, fed with the request's receipt when it completes.</param>
         /// <returns>A <see cref="ReadModbusRtuRequest" /> configured with the specified parameters.</returns>
         ReadModbusRtuRequest CreateReadRequest<T>(ModbusFunctionCode functionCode,
                                                   int unitIdentifier,
                                                   ushort startingAddress,
                                                   ushort quantity,
                                                   TimeSpan operationTimeout,
+                                                  TimeSpan? maxQueuedAge,
                                                   Func<Memory<byte>, T> processResponse,
-                                                  Action<T> successCallback,
-                                                  Action<Exception>? errorCallback);
+                                                  IActorDispatcher dispatcher,
+                                                  Action<T, ModbusReceipt> successCallback,
+                                                  Action<Exception, ModbusReceipt>? errorCallback,
+                                                  ModbusLinkAccumulator accumulator);
 
         /// <summary>
         ///     Creates a write request for a Modbus RTU device.
@@ -59,16 +85,25 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
         /// <param name="unitIdentifier">The unit identifier (slave address) of the target device.</param>
         /// <param name="address">The address to write to.</param>
         /// <param name="data">The byte array containing the data to write to the device.</param>
-        /// <param name="operationTimeout">The timeout duration for the operation.</param>
-        /// <param name="successCallback">The callback invoked on successful completion.</param>
-        /// <param name="errorCallback">The callback invoked with the exception on failure.</param>
+        /// <param name="operationTimeout">How long the device has to answer once the request has been published.</param>
+        /// <param name="maxQueuedAge">
+        ///     How stale the request may be when the handler picks it up, or <c>null</c> to publish it
+        ///     regardless.
+        /// </param>
+        /// <param name="dispatcher">The dispatcher that invokes the callbacks on the calling logic block.</param>
+        /// <param name="successCallback">The callback invoked with the transaction's receipt on successful completion.</param>
+        /// <param name="errorCallback">The callback invoked with the exception and the transaction's receipt on failure.</param>
+        /// <param name="accumulator">The calling contract's link accumulator, fed with the request's receipt when it completes.</param>
         /// <returns>A <see cref="WriteModbusRtuRequest" /> configured with the specified parameters.</returns>
         WriteModbusRtuRequest CreateWriteRequest(ModbusFunctionCode functionCode,
                                                  int unitIdentifier,
                                                  ushort address,
                                                  byte[] data,
                                                  TimeSpan operationTimeout,
-                                                 Action? successCallback,
-                                                 Action<Exception>? errorCallback);
+                                                 TimeSpan? maxQueuedAge,
+                                                 IActorDispatcher dispatcher,
+                                                 Action<ModbusReceipt>? successCallback,
+                                                 Action<Exception, ModbusReceipt>? errorCallback,
+                                                 ModbusLinkAccumulator accumulator);
     }
 }

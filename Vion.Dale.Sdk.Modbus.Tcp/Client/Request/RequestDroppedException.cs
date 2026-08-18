@@ -1,12 +1,12 @@
 using System;
+using System.Globalization;
 using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
 {
     /// <summary>
-    ///     Exception thrown when a request is dropped from the queue.
-    ///     This occurs when the queue is full and the overflow policy rejects the request,
-    ///     or when attempting to enqueue a request after the queue has been disposed.
+    ///     Thrown when a request is dropped before execution — because the queue was full, or because the client was
+    ///     disposed. The device was never contacted, so this says nothing about the link.
     /// </summary>
     [PublicApi]
     public class RequestDroppedException : Exception
@@ -17,13 +17,38 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
         public string RequestName { get; }
 
         /// <summary>
-        ///     Initializes a new instance of the <see cref="RequestDroppedException" /> class.
+        ///     Gets why the request was dropped.
+        /// </summary>
+        public RequestDropReason Reason { get; }
+
+        /// <summary>
+        ///     Initializes a new instance of the <see cref="RequestDroppedException" /> class for a request the full
+        ///     queue evicted.
         /// </summary>
         /// <param name="requestName">The name of the request that was dropped.</param>
-        /// <param name="reason">The reason the request was dropped (e.g., "queue full", "queue disposed").</param>
-        public RequestDroppedException(string requestName, string reason) : base($"The '{requestName}' request was dropped reason: {reason}.")
+        /// <param name="queueCapacity">The capacity the queue was configured with.</param>
+        /// <param name="overflowPolicy">The overflow policy that decided the eviction.</param>
+        public RequestDroppedException(string requestName, int queueCapacity, QueueOverflowPolicy overflowPolicy) : base(string.Format(CultureInfo.InvariantCulture,
+                                                                                                                                       "The '{0}' request was dropped before execution: the local request queue was full (capacity {1}, policy {2}); the device was not contacted.",
+                                                                                                                                       requestName,
+                                                                                                                                       queueCapacity,
+                                                                                                                                       overflowPolicy))
         {
             RequestName = requestName;
+            Reason = RequestDropReason.QueueFull;
+        }
+
+        /// <summary>
+        ///     Initializes a new instance of the <see cref="RequestDroppedException" /> class for a request enqueued
+        ///     after the client was disposed.
+        /// </summary>
+        /// <param name="requestName">The name of the request that was dropped.</param>
+        public RequestDroppedException(string requestName) : base(string.Format(CultureInfo.InvariantCulture,
+                                                                                "The '{0}' request was dropped before execution: the client was disposed.",
+                                                                                requestName))
+        {
+            RequestName = requestName;
+            Reason = RequestDropReason.ClientDisposed;
         }
     }
 }

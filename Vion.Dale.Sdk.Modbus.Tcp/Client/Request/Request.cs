@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Abstractions;
+using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
 {
@@ -10,15 +11,12 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
     {
         private readonly IActorDispatcher _dispatcher;
 
-        private readonly Action<Exception>? _errorCallback;
-
         private readonly ILogger _logger;
 
-        protected Request(string requestName, IActorDispatcher dispatcher, Action<Exception>? errorCallback, ILogger logger)
+        protected Request(string requestName, IActorDispatcher dispatcher, ILogger logger)
         {
             Name = requestName;
             _dispatcher = dispatcher;
-            _errorCallback = errorCallback;
             _logger = logger;
         }
 
@@ -29,19 +27,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
         public string Name { get; }
 
         /// <inheritdoc />
-        public abstract Task ExecuteAsync(CancellationToken cancellationToken);
+        public abstract Task ExecuteAsync(CancellationToken cancellationToken, TimeSpan? maxQueuedAge);
 
         /// <inheritdoc />
-        public void HandleRequestFailed(Exception exception)
-        {
-            LogRequestFailed(Name, Id, exception);
-            if (_errorCallback == null)
-            {
-                return;
-            }
-
-            TryInvokeCallback(() => _errorCallback(exception));
-        }
+        public abstract void HandleRequestFailed(Exception exception);
 
         protected void TryInvokeCallback(Action callback)
         {
@@ -59,7 +48,12 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
         protected partial void LogRequestSucceeded(string requestName, Guid requestId);
 
         [LoggerMessage(Level = LogLevel.Error, Message = "Request '{RequestName}' failed [{RequestId}]")]
-        private partial void LogRequestFailed(string requestName, Guid requestId, Exception exception);
+        protected partial void LogRequestFailed(string requestName, Guid requestId, Exception exception);
+
+        // Congestion and disposal are expected under load and on shutdown; at Error they turn a single fault into a
+        // flood in the gateway's log pipeline. The outcome on the receipt is what a block reacts to.
+        [LoggerMessage(Level = LogLevel.Debug, Message = "Request '{RequestName}' was not executed ({Outcome}) [{RequestId}]")]
+        protected partial void LogRequestNotExecuted(string requestName, ModbusOutcome outcome, Guid requestId, Exception exception);
 
         [LoggerMessage(Level = LogLevel.Error, Message = "Failed to invoke callback for request '{RequestName}' [{RequestId}]")]
         private partial void LogCallbackInvocationFailed(string requestName, Guid requestId, Exception exception);

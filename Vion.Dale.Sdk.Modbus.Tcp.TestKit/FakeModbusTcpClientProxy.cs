@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Time.Testing;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Modbus.Core.Exceptions;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation;
@@ -59,6 +60,24 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
         {
             get => _writeHistory;
         }
+
+        /// <summary>
+        ///     The virtual clock <see cref="ResponseDelay" /> and <see cref="ConnectDelay" /> advance. Set it to the
+        ///     same <c>FakeTimeProvider</c> the harness and the test context use.
+        /// </summary>
+        public FakeTimeProvider? Clock { get; set; }
+
+        /// <summary>
+        ///     Virtual time every read and write consumes before answering. Default is zero. Makes the receipt's
+        ///     <c>RoundTrip</c> and the link summary's round-trip extremes assertable; requires <see cref="Clock" />.
+        /// </summary>
+        public TimeSpan ResponseDelay { get; set; }
+
+        /// <summary>
+        ///     Virtual time every connection attempt consumes. Default is zero. Makes
+        ///     <c>Connection.LastConnectDuration</c> assertable; requires <see cref="Clock" />.
+        /// </summary>
+        public TimeSpan ConnectDelay { get; set; }
 
         /// <summary>
         ///     True after <c>ConnectAsync</c> has been called and before <c>Disconnect</c>.
@@ -215,6 +234,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
             // Record the attempt with its target IP/port regardless of outcome — tests inspecting
             // ConnectionHistory can correlate the target with their EnqueueConnectFailure calls.
             _connectionHistory.Add(new ConnectionEvent(ConnectionEventKind.Connect, ipAddress, port));
+            AdvanceClock(ConnectDelay, nameof(ConnectDelay));
             if (_pendingConnectFailures.Count > 0)
             {
                 throw _pendingConnectFailures.Dequeue();
@@ -233,21 +253,21 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
         Task<Memory<byte>> IModbusTcpClientProxy.ReadDiscreteInputsAsync(int unitIdentifier, ushort startingAddress, ushort quantity, CancellationToken cancellationToken)
         {
             _readHistory.Add(new ReadEvent(ReadEventKind.DiscreteInputs, unitIdentifier, startingAddress, quantity));
-            ThrowIfFaultEnqueued(OperationKind.Read, unitIdentifier, startingAddress);
+            AdvanceClockAndThrowIfFaultEnqueued(OperationKind.Read, unitIdentifier, startingAddress);
             return Task.FromResult<Memory<byte>>(PackBitsAsCoilBytes(_discreteInputs, unitIdentifier, startingAddress, quantity));
         }
 
         Task<Memory<byte>> IModbusTcpClientProxy.ReadCoilsAsync(int unitIdentifier, ushort startingAddress, ushort quantity, CancellationToken cancellationToken)
         {
             _readHistory.Add(new ReadEvent(ReadEventKind.Coils, unitIdentifier, startingAddress, quantity));
-            ThrowIfFaultEnqueued(OperationKind.Read, unitIdentifier, startingAddress);
+            AdvanceClockAndThrowIfFaultEnqueued(OperationKind.Read, unitIdentifier, startingAddress);
             return Task.FromResult<Memory<byte>>(PackBitsAsCoilBytes(_coils, unitIdentifier, startingAddress, quantity));
         }
 
         Task IModbusTcpClientProxy.WriteSingleCoilAsync(int unitIdentifier, ushort registerAddress, bool value, CancellationToken cancellationToken)
         {
             _writeHistory.Add(new WriteEvent(WriteEventKind.SingleCoil, unitIdentifier, registerAddress, new[] { value ? (byte)0xFF : (byte)0x00 }));
-            ThrowIfFaultEnqueued(OperationKind.Write, unitIdentifier, registerAddress);
+            AdvanceClockAndThrowIfFaultEnqueued(OperationKind.Write, unitIdentifier, registerAddress);
             _coils[(unitIdentifier, registerAddress)] = value;
             return Task.CompletedTask;
         }
@@ -261,7 +281,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
             }
 
             _writeHistory.Add(new WriteEvent(WriteEventKind.MultipleCoils, unitIdentifier, startingAddress, packed));
-            ThrowIfFaultEnqueued(OperationKind.Write, unitIdentifier, startingAddress);
+            AdvanceClockAndThrowIfFaultEnqueued(OperationKind.Write, unitIdentifier, startingAddress);
             for (var i = 0; i < values.Length; i++)
             {
                 _coils[(unitIdentifier, (ushort)(startingAddress + i))] = values[i];
@@ -273,14 +293,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
         Task<Memory<byte>> IModbusTcpClientProxy.ReadInputRegistersAsync(byte unitIdentifier, ushort startingAddress, ushort quantity, CancellationToken cancellationToken)
         {
             _readHistory.Add(new ReadEvent(ReadEventKind.InputRegisters, unitIdentifier, startingAddress, quantity));
-            ThrowIfFaultEnqueued(OperationKind.Read, unitIdentifier, startingAddress);
+            AdvanceClockAndThrowIfFaultEnqueued(OperationKind.Read, unitIdentifier, startingAddress);
             return Task.FromResult<Memory<byte>>(ReadRegisterBytes(_inputRegisters, unitIdentifier, startingAddress, quantity));
         }
 
         Task<Memory<byte>> IModbusTcpClientProxy.ReadHoldingRegistersAsync(byte unitIdentifier, ushort startingAddress, ushort quantity, CancellationToken cancellationToken)
         {
             _readHistory.Add(new ReadEvent(ReadEventKind.HoldingRegisters, unitIdentifier, startingAddress, quantity));
-            ThrowIfFaultEnqueued(OperationKind.Read, unitIdentifier, startingAddress);
+            AdvanceClockAndThrowIfFaultEnqueued(OperationKind.Read, unitIdentifier, startingAddress);
             return Task.FromResult<Memory<byte>>(ReadRegisterBytes(_holdingRegisters, unitIdentifier, startingAddress, quantity));
         }
 
@@ -293,7 +313,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
 
             // Defensive copy so the recorded snapshot doesn't alias the caller's buffer.
             _writeHistory.Add(new WriteEvent(WriteEventKind.SingleRegister, unitIdentifier, registerAddress, new[] { value[0], value[1] }));
-            ThrowIfFaultEnqueued(OperationKind.Write, unitIdentifier, registerAddress);
+            AdvanceClockAndThrowIfFaultEnqueued(OperationKind.Write, unitIdentifier, registerAddress);
             _holdingRegisters[(unitIdentifier, registerAddress)] = new[] { value[0], value[1] };
             return Task.CompletedTask;
         }
@@ -306,7 +326,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
             var snapshot = new byte[values.Length];
             Buffer.BlockCopy(values, 0, snapshot, 0, values.Length);
             _writeHistory.Add(new WriteEvent(WriteEventKind.MultipleRegisters, unitIdentifier, startingAddress, snapshot));
-            ThrowIfFaultEnqueued(OperationKind.Write, unitIdentifier, startingAddress);
+            AdvanceClockAndThrowIfFaultEnqueued(OperationKind.Write, unitIdentifier, startingAddress);
             StoreContiguous(_holdingRegisters, unitIdentifier, startingAddress, values);
             return Task.CompletedTask;
         }
@@ -327,12 +347,32 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
             Write,
         }
 
-        private void ThrowIfFaultEnqueued(OperationKind op, int unitId, ushort address)
+        // Called by every operation after it has recorded itself and before it answers, so the delay lands inside
+        // the window the SDK measures as the receipt's RoundTrip - on the fault path too, since a device that times
+        // out took time to do so.
+        private void AdvanceClockAndThrowIfFaultEnqueued(OperationKind op, int unitId, ushort address)
         {
+            AdvanceClock(ResponseDelay, nameof(ResponseDelay));
             if (TryDequeueFault(op, unitId, address, out var fault))
             {
                 throw fault!;
             }
+        }
+
+        private void AdvanceClock(TimeSpan delay, string propertyName)
+        {
+            if (delay <= TimeSpan.Zero)
+            {
+                return;
+            }
+
+            if (Clock == null)
+            {
+                throw new InvalidOperationException($"{propertyName} needs a virtual clock. Set {nameof(Clock)} to the test context's TimeProvider " +
+                                                    "(and pass the same one to FakeModbusTcpHarness) before using it.");
+            }
+
+            Clock.Advance(delay);
         }
 
         private static void EnsureRegisterByteAlignment(byte[] bytes, string paramName)

@@ -2,6 +2,7 @@ using System;
 using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Modbus.Core.Conversion;
+using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
@@ -20,6 +21,16 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
         // Plain property (not a ServiceProperty — Exception isn't in the supported type set).
         public Exception? LastReadError { get; private set; }
 
+        /// <summary>The receipt of the last read that completed, whichever way it ended.</summary>
+        public ModbusReceipt? LastReadReceipt { get; private set; }
+
+        /// <summary>The receipt of the last write that completed, whichever way it ended.</summary>
+        public ModbusReceipt? LastWriteReceipt { get; private set; }
+
+        /// <summary>The client's link summary, published as a single service property.</summary>
+        [ServiceProperty]
+        public ModbusLinkSummary Link { get; private set; }
+
         public SampleModbusTcpBlock(ILogicBlockModbusTcpClient client, ILogger logger) : base(logger)
         {
             _client = client;
@@ -34,8 +45,18 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
                                                40000,
                                                1,
                                                this,
-                                               values => Power = values[0],
-                                               ex => LastReadError = ex);
+                                               (values, receipt) =>
+                                               {
+                                                   Power = values[0];
+                                                   LastReadReceipt = receipt;
+                                                   Link = _client.Link;
+                                               },
+                                               (ex, receipt) =>
+                                               {
+                                                   LastReadError = ex;
+                                                   LastReadReceipt = receipt;
+                                                   Link = _client.Link;
+                                               });
         }
 
         /// <summary>
@@ -49,8 +70,12 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
                                                         40378,
                                                         new[] { value },
                                                         this,
-                                                        null,
-                                                        ex => LastReadError = ex,
+                                                        receipt => LastWriteReceipt = receipt,
+                                                        (ex, receipt) =>
+                                                        {
+                                                            LastReadError = ex;
+                                                            LastWriteReceipt = receipt;
+                                                        },
                                                         ByteOrder.MsbToLsb,
                                                         wordOrder);
         }
