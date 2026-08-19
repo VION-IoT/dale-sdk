@@ -3,7 +3,7 @@
   "version": 1,
   "id": "modbus-link-policy",
   "title": "Modbus TCP — the link policy, end to end",
-  "description": "Drives the whole v0.10.4 link policy against a real client/server pair on 127.0.0.1:15020: an unreachable port faults the link and arms the connect backoff, a corrected port applies at once, re-applying the identical connection struct is a no-op, a peer that goes away and comes back recovers with no operator action, and a client driven at its maximum cadence stays Online because a local backlog is not a device fault. Real clock only — the sockets, the connect timeout and the operation timeout are real time, so under a stepped host a backoff would never elapse and every round trip would read zero. The connect settings and the link-policy knobs are each one editable struct, so a step supplies the whole value — which is what makes the unchanged-config step a real test: the entire configuration is re-applied and nothing reconnects. The backoff is pinned to a constant 5 s (max == initial) so the backed-off window is long enough to observe, and the run needs a freshly booted host because it asserts absolute connect counts — scripts/smoke-modbus.ps1 resets the host before applying.",
+  "description": "Drives the whole v0.10.4 link policy against a real client/server pair on 127.0.0.1:15020: an unreachable port faults the link and arms the connect backoff, a wrong loopback address is refused because the simulator binds one address rather than 0.0.0.0, a corrected port applies at once, re-applying the identical connection struct is a no-op, a peer that goes away and comes back recovers with no operator action, and a client driven at its maximum cadence stays Online because a local backlog is not a device fault. Real clock only — the sockets, the connect timeout and the operation timeout are real time, so under a stepped host a backoff would never elapse and every round trip would read zero. The connect settings and the link-policy knobs are each one editable struct, so a step supplies the whole value — which is what makes the unchanged-config step a real test: the entire configuration is re-applied and nothing reconnects. The backoff is pinned to a constant 5 s (max == initial) so the backed-off window is long enough to observe, and the run needs a freshly booted host because it asserts absolute connect counts — scripts/smoke-modbus.ps1 resets the host before applying.",
   "topology": "default",
   "setup": [
     { "set": "DebugClient.ReadFunction", "value": "InputRegisters" },
@@ -42,6 +42,11 @@
     { "label": "fix — and the device answers again", "waitUntil": { "property": "DebugClient.Link.state", "equals": "Online" }, "timeoutSeconds": 30 },
     { "label": "fix — no backoff is armed any more", "expect": { "property": "DebugClient.Connection.currentBackoff", "equals": null } },
 
+    { "label": "wrong address — 127.0.0.2 is this machine, but nothing is bound there", "set": "DebugClient.ConnectionSettings", "value": { "ipAddress": "127.0.0.2", "port": 15020, "unitId": 1, "connectionTimeout": "PT3S", "operationTimeout": "PT1S" } },
+    { "label": "wrong address — so it is refused: the simulator binds one address, not 0.0.0.0", "waitUntil": { "property": "DebugClient.Link.state", "equals": "Faulted" }, "timeoutSeconds": 30 },
+    { "label": "wrong address — put the address back", "set": "DebugClient.ConnectionSettings", "value": { "ipAddress": "127.0.0.1", "port": 15020, "unitId": 1, "connectionTimeout": "PT3S", "operationTimeout": "PT1S" } },
+    { "label": "wrong address — and it answers again", "waitUntil": { "property": "DebugClient.Link.state", "equals": "Online" }, "timeoutSeconds": 30 },
+
     { "label": "peer drop — stop the simulator's listener", "set": "SimServer.ServerEnabled", "value": false },
     { "label": "peer drop — the link faults again", "waitUntil": { "property": "DebugClient.Link.state", "equals": "Faulted" }, "timeoutSeconds": 30 },
     { "label": "peer drop — and the client falls back into backoff by itself", "waitUntil": { "property": "DebugClient.Connection.state", "equals": "BackingOff" }, "timeoutSeconds": 30 },
@@ -73,6 +78,7 @@
   ],
   "judge": [
     { "text": "Every transition here came from the SDK's own link policy — nothing in the example retries, reconnects or classifies a failure. The only operator actions are the port and the simulator's listener." },
+    { "text": "The wrong-address step is the regression guard for the simulator's bind: on every OS the whole 127.0.0.0/8 range is this machine, so a server bound to 0.0.0.0 would answer on 127.0.0.2 and the link would truthfully read Online. It asserts Faulted only — which errno a refused or unroutable loopback address produces differs by OS, the outcome does not." },
     { "text": "MaxQueuedAge and the Expired outcome are deliberately not asserted: the simulated server answers in well under a millisecond, so no cadence this client can generate builds a queue deep enough to age a request out. Watch that one by hand — the README's 'Watch the link policy' tour shows how." }
   ]
 }

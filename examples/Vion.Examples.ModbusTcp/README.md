@@ -16,8 +16,10 @@ It ships with a simulated server, so you can run the whole thing without any har
    - Press `F5` to run
    - The browser should open automatically at `http://localhost:5000`
 
-The default topology starts two blocks: `SimServer` (listening on `127.0.0.1:15020`) and `DebugClient`
-(already pointed at it). No configuration needed to see traffic.
+The default topology starts two blocks: `SimServer` (binding `127.0.0.1:15020` — loopback only, so the
+simulated device is never reachable from the rest of the network) and `DebugClient` (already pointed at
+it). No configuration needed to see traffic. To reach the simulator from another machine, set
+`SimServer`'s *Listen address* to `0.0.0.0` or to the interface you want.
 
 ## Two things worth knowing before you start
 
@@ -103,6 +105,11 @@ The DevHost's struct form takes durations as ISO-8601 strings (`PT3S`, `PT500MS`
    *Connection timeout* (3 s) before it fails, which is what the same policy looks like against an
    unplugged device rather than a wrong port.
 
+**Every `127.0.0.x` address is this machine.** To make a connection fail, use a closed port (`15021`) or
+a black-hole address (`10.255.255.1`) — not another loopback IP. `127.0.0.2` does fail here, but only
+because `SimServer` binds `127.0.0.1` specifically; against a server bound to `0.0.0.0` — the SDK's
+default, and what most devices do — it would connect, and `Online` would be the truthful answer.
+
 Throughout, read the error strings alongside the pill: *Last error*, *Last read error* and *Last write
 error* all start with the SDK's outcome — `Timeout`, `TransportError`, `BackedOff`, `Expired`,
 `DeviceError` — so a local backlog never reads as a device fault, and a device that answered with an
@@ -154,8 +161,8 @@ of seconds since it started.
 
 ## Debugging a real device
 
-Turn `SimServer` off (or remove it from the topology), then set *Server address* and *Port* to your
-device. Most devices use port 502.
+Turn `SimServer` off (or remove it from the topology), then set *Connection → Server address* and
+*Port* to your device. Most devices use port 502.
 
 The Solar-Log™ Modbus TCP direct-marketing interface is a good worked example, because it documents
 exactly the trap this tool exists for: the byte order follows the Modbus standard (most significant
@@ -185,7 +192,9 @@ wildly wrong, with `LswToMsw` it is the kW figure the device meant.
 - `LogicBlocks/WatchSlot.cs` — one pinned register. How many slots an instance has is decided at
   configuration time by the `WatchSlotCount` instantiation parameter (RFC 0016); slots above the count
   do not exist rather than sitting empty.
-- `LogicBlocks/ModbusTcpSimServer.cs` — the simulated device described above.
+- `LogicBlocks/ModbusTcpSimServer.cs` — the simulated device described above. It binds `127.0.0.1`
+  rather than the SDK server's default `0.0.0.0`, so a wrong address stays wrong and the simulator does
+  not answer the network; *Listen address* opens it up when you want that.
 - `scenarios/` — two committed scenarios (RFC 0006): `modbus-healthy` and `modbus-link-policy`, the
   replayable form of the two tours. They run in the DevHost Player, from `pwsh scripts/smoke-modbus.ps1`,
   and in CI through `Vion.Examples.ModbusTcp.IntegrationTest`, which drives the same files headlessly.
@@ -206,6 +215,18 @@ off outranks faulted (both mean the device is silent, but backing off also means
 trying and requests are failing fast), and nothing local — a rejected quantity, an unparseable write
 value — can move it, because neither says anything about the device. Those surface in the error strings
 instead.
+
+Three things to know about what the pill covers:
+
+- **It is the poll connection's verdict.** *Read now* and every write travel the second, command
+  connection; `Command link` in Diagnostics is that one's summary.
+- **`Disabled` is the block's own word, not the SDK's.** A client switched off with *Connection enabled*
+  issues nothing, so its `Link` keeps the last verdict — correctly, since no newer evidence exists. Only
+  the block knows the silence is deliberate, so it overlays `Disabled` while leaving the SDK's snapshot
+  untouched.
+- **Polling off is not `Disabled`.** The connection is still up and *Read now* still uses it, so the
+  last verdict remains the best answer — and *Last read at*, shown as a relative time, is the staleness
+  signal that tells you how old that answer is.
 
 ## Where the configuration comes from
 

@@ -479,9 +479,11 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
         }
 
         /// <summary>
-        ///     Republishes the SDK's accumulated snapshots and folds the two of them into the headline pill.
-        ///     Nothing is counted here — the counters, latencies and both verdicts come from the receipts the
-        ///     client already recorded.
+        ///     Republishes the SDK's accumulated snapshots and folds them into the headline pill. Nothing is
+        ///     counted here — the counters, latencies and both verdicts come from the receipts the client
+        ///     already recorded. The one thing the block contributes is knowing it has switched the client
+        ///     off: a disabled client issues nothing, so its <c>Link</c> rightly keeps the last verdict, and a
+        ///     pill that mirrored it would go on claiming Online for a link nobody is using.
         /// </summary>
         private void RefreshDiagnostics()
         {
@@ -489,12 +491,13 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
             Connection = _pollClient.Connection;
             CommandLink = _commandClient.Link;
 
-            LinkHealth = Connection.State == ModbusTcpConnectionState.BackingOff ? LinkStatus.BackingOff : Link.State switch
-            {
-                ModbusLinkState.Online => LinkStatus.Online,
-                ModbusLinkState.Faulted => LinkStatus.Faulted,
-                _ => LinkStatus.Unknown,
-            };
+            LinkHealth = !_connectionEnabled ? LinkStatus.Disabled :
+                         Connection.State == ModbusTcpConnectionState.BackingOff ? LinkStatus.BackingOff : Link.State switch
+                         {
+                             ModbusLinkState.Online => LinkStatus.Online,
+                             ModbusLinkState.Faulted => LinkStatus.Faulted,
+                             _ => LinkStatus.Unknown,
+                         };
         }
 
         private void WatchTick()

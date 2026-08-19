@@ -347,6 +347,38 @@ namespace Vion.Examples.ModbusTcp.Test
         }
 
         [Fact]
+        public void SayDisabledRatherThanKeepClaimingTheLastVerdictOnceTheConnectionIsSwitchedOff()
+        {
+            // A switched-off client issues nothing, so the SDK's Link keeps its last verdict — correctly, as
+            // there is no newer evidence. Only the block knows the silence is deliberate, so only the block
+            // can say so; mirroring Link here would leave the pill claiming a link nobody is using.
+            _fixture.PollProxy.EnqueueConnectFailure(new SocketException(10061));
+            Sut.ReadFunction = ReadFunction.HoldingRegisters;
+            Sut.Address = 0;
+            Sut.Quantity = 1;
+            Sut.PollingEnabled = true;
+            Sut.PollIntervalMs = 500;
+            Sut.FaultedPollIntervalMs = 500;
+            var ctx = Sut.CreateTestContext().Build();
+
+            ctx.AdvanceTime(TimeSpan.FromMilliseconds(600));
+            Assert.Equal(LinkStatus.Faulted, Sut.LinkHealth);
+
+            Sut.ConnectionEnabled = false;
+
+            Assert.Equal(LinkStatus.Disabled, Sut.LinkHealth);
+
+            // The SDK's own snapshot is untouched — the block overlays the pill, it does not rewrite history.
+            Assert.Equal(ModbusLinkState.Faulted, Sut.Link.State);
+
+            _fixture.SeedHoldingRegisters(0, new byte[] { 0x00, 0x01 });
+            Sut.ConnectionEnabled = true;
+            ctx.AdvanceTime(TimeSpan.FromMilliseconds(600));
+
+            Assert.Equal(LinkStatus.Online, Sut.LinkHealth);
+        }
+
+        [Fact]
         public void ShowRawRegisterColumnsExactlyAsReceived()
         {
             _fixture.SeedHoldingRegisters(100, new byte[] { 0x12, 0x34, 0xFB, 0x2E });

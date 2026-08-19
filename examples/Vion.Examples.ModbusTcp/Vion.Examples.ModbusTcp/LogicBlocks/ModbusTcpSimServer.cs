@@ -15,8 +15,18 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
     ///     quickest way to see what a word-order mismatch does to a reading.
     /// </summary>
     /// <remarks>
-    ///     Listens on 15020 rather than the standard 502: an unprivileged port avoids elevation on any OS and
-    ///     cannot be confused with a real device on the network.
+    ///     <para>
+    ///         Listens on 15020 rather than the standard 502: an unprivileged port avoids elevation on any OS
+    ///         and cannot be confused with a real device on the network.
+    ///     </para>
+    ///     <para>
+    ///         It binds <c>127.0.0.1</c>, not the SDK server's default of <c>0.0.0.0</c>. A wildcard bind
+    ///         answers on every address this machine has — including every other <c>127.0.0.x</c>, which are
+    ///         all loopback — so pointing the debug client at a "wrong" address like <c>127.0.0.2</c> would
+    ///         still reach this server and the link would truthfully read Online. Binding one address keeps a
+    ///         wrong address wrong, and keeps a simulated device off the rest of the network. Set
+    ///         <see cref="ListenAddress" /> if you want to reach it from another machine.
+    ///     </para>
     /// </remarks>
     [LogicBlock(Name = "Modbus TCP Sim Server",
                 Icon = "server-line",
@@ -40,6 +50,8 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
 
         private readonly ILogicBlockModbusTcpServer _server;
 
+        private string _listenAddress = "127.0.0.1";
+
         private int _listenPort = 15020;
 
         private bool _serverEnabled = true;
@@ -60,6 +72,27 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
                 }
 
                 _serverEnabled = value;
+                ApplyServerConfiguration();
+            }
+        }
+
+        [ServiceProperty(Title = "Listen address",
+                         StringFormat = StringFormats.Ipv4,
+                         Description =
+                             "The address the listener binds. 127.0.0.1 keeps the simulated device on this machine; 0.0.0.0 answers on every address it has, including every other 127.0.0.x.")]
+        [Presentation(Group = PropertyGroup.Configuration)]
+        public string ListenAddress
+        {
+            get => _listenAddress;
+
+            set
+            {
+                if (_listenAddress == value)
+                {
+                    return;
+                }
+
+                _listenAddress = value;
                 ApplyServerConfiguration();
             }
         }
@@ -152,7 +185,10 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
         {
             try
             {
+                // Both the address and the port are settable only while the listener is down, which is what
+                // makes this a disable / apply / re-enable cycle rather than three assignments.
                 _server.IsEnabled = false;
+                _server.ListenAddress = _listenAddress;
                 _server.Port = _listenPort;
                 _server.IsEnabled = _serverEnabled;
                 LastError = string.Empty;

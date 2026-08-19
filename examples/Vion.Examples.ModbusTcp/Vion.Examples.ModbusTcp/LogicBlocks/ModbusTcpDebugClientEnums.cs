@@ -124,10 +124,24 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
     ///     says anything about the device.
     /// </summary>
     /// <remarks>
-    ///     <see cref="BackingOff" /> outranks <see cref="Faulted" />: both mean the device is not answering,
-    ///     but backing off additionally means the client has stopped trying for now and requests are failing
-    ///     fast. That is the state an operator most needs to recognise, because it is the one where the
-    ///     symptom (instant failures) looks least like the cause (an unreachable endpoint).
+    ///     <para>
+    ///         <see cref="BackingOff" /> outranks <see cref="Faulted" />: both mean the device is not
+    ///         answering, but backing off additionally means the client has stopped trying for now and
+    ///         requests are failing fast. That is the state an operator most needs to recognise, because it is
+    ///         the one where the symptom (instant failures) looks least like the cause (an unreachable
+    ///         endpoint).
+    ///     </para>
+    ///     <para>
+    ///         <see cref="Disabled" /> outranks everything, and it is the one member the SDK cannot supply.
+    ///         A client that is switched off issues nothing, so its <c>Link</c> keeps whatever it last
+    ///         decided — correctly, since no newer evidence exists — and a pill that mirrored it would keep
+    ///         reading Online for a link this block itself turned off. The block knows; the SDK does not.
+    ///     </para>
+    ///     <para>
+    ///         Polling being off is deliberately <b>not</b> one of these: the connection is still up and
+    ///         "Read now" still uses it, so the last verdict remains the best answer. <c>LastReadAt</c>'s
+    ///         relative time is the staleness signal there.
+    ///     </para>
     /// </remarks>
     public enum LinkStatus
     {
@@ -146,5 +160,10 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
         [Severity(StatusSeverity.Warning)]
         [EnumLabel("Backing off")]
         BackingOff,
+
+        // Appended rather than placed beside Unknown so the existing members keep their ordinals.
+        [Severity(StatusSeverity.Neutral)]
+        [EnumLabel("Disabled")]
+        Disabled,
     }
 }

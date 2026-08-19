@@ -5,8 +5,9 @@ description: Smoke-test the Modbus client surface end to end against a real clie
 
 # Modbus smoke test
 
-The Modbus TCP example is a genuine client/server pair — `ModbusTcpSimServer` listens on
-`127.0.0.1:15020` and `ModbusTcpDebugClient` talks to it over a real socket. That makes it the only
+The Modbus TCP example is a genuine client/server pair — `ModbusTcpSimServer` binds `127.0.0.1:15020`
+(loopback only, deliberately: a wildcard bind would answer on every `127.0.0.x`, so a "wrong" address
+would still reach it) and `ModbusTcpDebugClient` talks to it over a real socket. That makes it the only
 place in this repo where the SDK's link policy can be exercised for real: a refused connect, a peer
 that goes away, a backoff that actually elapses. The TestKit's fake client proxy answers from a
 register store and can prove none of it.
@@ -61,7 +62,9 @@ pwsh scripts/smoke-modbus.ps1 -Scenario modbus-link-policy -NoBuild
 - **`modbus-link-policy`** — the whole v0.10.4 policy in one run: re-supplying the entire unchanged
   `ConnectionSettings` struct is a no-op (the socket is never dropped), an unreachable port faults the
   link and arms the connect backoff with a `nextAttemptAt`, requests then fail fast as `BackedOff`, a
-  corrected port ends the backoff and reconnects, stopping and restarting the simulator's listener
+  corrected port ends the backoff and reconnects, a wrong loopback address (`127.0.0.2`) is refused
+  because the simulator binds one address rather than `0.0.0.0` — the regression guard for that bind —
+  stopping and restarting the simulator's listener
   recovers with **no operator action on the client**, and the client driven at its minimum poll interval
   with every watch slot active stays `Online` — a local backlog is not a device fault. The headline pill
   is asserted alongside the two summaries at each transition.
@@ -108,6 +111,10 @@ Poll `http://localhost:5000/api/control/status` until it answers (`stepped:false
 - The one thing Tier 1 cannot assert: set *Max queued age* to `1` ms by hand while the poll and watch
   intervals are at their minimum, and watch `Link.expiredCount` tick — then confirm `Link.state` stays
   `Online`, because an expiry is a local outcome and never faults the device.
+- The pill's one non-SDK state: turn *Connection enabled* off and it reads **Disabled** while `Link`
+  still shows the last verdict — the block overlays what only it knows, without rewriting the snapshot.
+  Turning *Polling enabled* off instead must **not** produce `Disabled`: the connection is still up, so
+  the last verdict holds and *Last read at* is the staleness signal.
 
 Tear down:
 
