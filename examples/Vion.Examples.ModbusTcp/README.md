@@ -66,8 +66,8 @@ It takes about a minute.
 
 The endpoint and the policy knobs are two editable structs — *Connection* (address, port, unit id, both
 timeouts) and *Link policy* (max queued age, connect backoff, backoff max) — so each edit is one value.
-The DevHost's struct form takes durations as ISO-8601 strings (`PT3S`, `PT500MS`) and gives the nullable
-*Max queued age* an ∅ toggle for "off".
+Each field shows its own label, a duration box takes `3s` as readily as `PT3S`, and the nullable *Max
+queued age* has an ∅ toggle for "off".
 
 1. **Nothing to connect to.** Edit the port inside *Connection* to `15021`, which nothing is listening
    on. On the next poll the headline pill goes **Faulted** and `Link → State` with it. Two consecutive
@@ -228,6 +228,29 @@ Three things to know about what the pill covers:
   last verdict remains the best answer — and *Last read at*, shown as a relative time, is the staleness
   signal that tells you how old that answer is.
 
+### Choosing how to surface the diagnostics in your own block
+
+This block publishes both summaries whole and folds a composite pill on top, because it is a debug tool
+and every field earns its place. Yours probably is not, so there are cheaper shapes:
+
+- **Publish `Link` and `Connection` as they are.** Since 0.10.5 both carry `[StructField]` titles and
+  descriptions, so they arrive labelled with no work from you — no wrapper type, no mapping code.
+- **Map the subset you care about into your own struct** with its own `[StructField]`s when eighteen
+  fields is more than a tile should hold. Three or four — state, last contact, a failure count, a round
+  trip — is usually a better dashboard citizen than the whole summary.
+- **Publish `Link.State` directly as the status pill.** `ModbusLinkState` ships its own `[EnumLabel]`s
+  and `[Severity]`s as of 0.10.5, so a `[Presentation(StatusIndicator = true)]` property assigned from
+  it is coloured correctly without an enum of your own. Reach for a composite like this block's
+  `LinkHealth` only when you actually need to fold in something the SDK cannot see — the socket's
+  backoff, or the fact that your block switched the client off.
+
+**One known gap.** The three enum-typed fields inside the summaries — `Link.state`,
+`Link.lastFailureOutcome` and `Connection.state` — do not carry their authored title to the wire: for an
+enum field `schema.title` holds the CLR type name, and the routing that would send the annotation
+elsewhere has no per-struct-field equivalent. The DevHost falls back to the bare wire key, so you see
+`state`; the cloud dashboard shows `ModbusLinkState` until the fix lands in `Vion.Contracts`. Every
+other field, and every description, is unaffected.
+
 ## Where the configuration comes from
 
 *Connection* (address, port, unit id, connection timeout, operation timeout) and *Link policy* (max
@@ -239,9 +262,10 @@ of becoming a `0` the block has to translate. Both setters push every field to b
 safe precisely because the SDK's setters detect change, so re-supplying an unchanged endpoint neither
 reconnects nor cancels a backoff.
 
-(The DevHost's struct form renders the fields by their wire keys and takes durations as ISO-8601
-strings; the `[StructField]` titles, descriptions and formats are all in the introspection JSON and are
-what the cloud dashboard renders from.)
+Since SDK 0.10.5 the DevHost honours the `[StructField]` annotations these carry: the title is the row
+label, `ipv4` and duration fields get the right input, and a duration reads back scaled (`910 ms`, not
+`PT0.91S`). Descriptions are deliberately not inline — they are one click away in the ▸ **docs &
+schema** pane, because an eighteen-field struct is a scannable grid or it is nothing.
 
 If you are moving a block onto SDK 0.10.4, the recipe and the behaviour changes are in
 [`docs/migrations/0.10.4-modbus-client-surface.md`](../../docs/migrations/0.10.4-modbus-client-surface.md).

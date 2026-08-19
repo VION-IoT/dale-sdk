@@ -100,11 +100,13 @@ Poll `http://localhost:5000/api/control/status` until it answers (`stepped:false
   field labelled, no row of hand-kept counters — plus *Last read at* as a relative time and the *Last
   round trip* chart.
 - `DebugClient` → **connection** renders the two editable structs, *Connection* and *Link policy*, each
-  with a **Form** / **Raw JSON** editor: the int fields carry their ranges (`1 – 65535`, `0 – 255`), the
-  `TimeSpan` fields take ISO-8601 strings (`PT3S`), and the nullable *Max queued age* has an ∅ toggle.
-  Note what the DevHost form does *not* do: it keys the fields by their camelCase wire names and ignores
-  the `[StructField]` titles/descriptions/formats, which are present in the introspection JSON. That is
-  a DevHost gap, not an example one — check the JSON, not the form, when reviewing struct annotations.
+  with a **Form** / **Raw JSON** editor: rows are labelled by their `[StructField]` title, the int
+  fields carry their ranges (`1 – 65535`, `0 – 255`), `address` gets an `ipv4` hint, the `TimeSpan`
+  fields take `3s` as well as `PT3S`, and the nullable *Max queued age* has an ∅ toggle. In the
+  **Diagnostics** viewer the SDK's own summaries are labelled too (`Link state`, `Round trip (last)`,
+  scaled to `910 ms` rather than `PT0.91S`) — all of it since 0.10.5. The one exception is an
+  enum-typed struct field, whose schema title carries the CLR type name, so `state` and
+  `lastFailureOutcome` fall back to the bare wire key; that is a `Vion.Contracts` gap, recorded.
 - Open the **Player**, run `modbus-link-policy`, and watch `Connection.state` move
   `Connected → Disconnected → BackingOff → Connected`, `Link.state` move `Online → Faulted → Online`,
   and the pill follow them `Online → Faulted → Backing off → Online`. The watch panel pins all three.
