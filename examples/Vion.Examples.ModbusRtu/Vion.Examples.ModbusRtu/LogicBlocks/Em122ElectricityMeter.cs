@@ -1,6 +1,7 @@
 using System;
 using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Core;
+using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
 using Vion.Dale.Sdk.Modbus.Rtu;
 
 namespace Vion.Examples.ModbusRtu.LogicBlocks
@@ -167,6 +168,11 @@ namespace Vion.Examples.ModbusRtu.LogicBlocks
         [Presentation(Group = PropertyGroup.Diagnostics)]
         public int ReadCount { get; private set; }
 
+        [ServiceProperty(Title = "Letzter Kontakt",
+                         Description = "Wann die letzte Antwort beobachtet wurde — aus der Quittung der Anfrage, nicht aus der Bearbeitungszeit dieses Blocks.")]
+        [Presentation(Group = PropertyGroup.Diagnostics, Format = Formats.Relative)]
+        public DateTime? LastContactAt { get; private set; }
+
         [ServiceProperty(Title = "Fehlgeschlagene Abfragen")]
         [Presentation(Group = PropertyGroup.Diagnostics)]
         public int ErrorCount { get; private set; }
@@ -174,6 +180,13 @@ namespace Vion.Examples.ModbusRtu.LogicBlocks
         [ServiceProperty(Title = "Letzter Fehler")]
         [Presentation(Group = PropertyGroup.Diagnostics)]
         public string LastError { get; private set; } = "";
+
+        // One [ServiceProperty] for the whole link: state, last contact, per-outcome counters and wire
+        // latencies, all accumulated by the SDK from the receipts. ReadCount / ErrorCount above stay because
+        // they count *this block's poll cycles* — Link counts transactions, and one cycle is eleven of them.
+        [ServiceProperty(Title = "Verbindung", Description = "Der Zustand der Modbus-Verbindung zum Gerät, wie ihn der Client aus den Quittungen der Anfragen ermittelt.")]
+        [Presentation(DisplayName = "Verbindung", Group = PropertyGroup.Diagnostics)]
+        public ModbusLinkSummary Link { get; private set; }
 
         // ── Constructor ──
 
@@ -196,13 +209,20 @@ namespace Vion.Examples.ModbusRtu.LogicBlocks
             Modbus.ReadInputRegistersAsFloat(UnitId,
                                              0,
                                              3,
-                                             values =>
+                                             this,
+                                             (values, receipt) =>
                                              {
                                                  VoltageL1 = values[0];
                                                  VoltageL2 = values[1];
                                                  VoltageL3 = values[2];
                                                  ReadCount++;
-                                                 _logger.LogDebug("Spannungen: L1={V1:F1}V L2={V2:F1}V L3={V3:F1}V", values[0], values[1], values[2]);
+                                                 LastContactAt = receipt.ReceivedAt;
+                                                 Link = Modbus.Link;
+                                                 _logger.LogDebug("Spannungen: L1={V1:F1}V L2={V2:F1}V L3={V3:F1}V in {RoundTrip:F0} ms",
+                                                                  values[0],
+                                                                  values[1],
+                                                                  values[2],
+                                                                  receipt.RoundTrip.TotalMilliseconds);
                                              },
                                              OnError);
 
@@ -210,7 +230,8 @@ namespace Vion.Examples.ModbusRtu.LogicBlocks
             Modbus.ReadInputRegistersAsFloat(UnitId,
                                              6,
                                              3,
-                                             values =>
+                                             this,
+                                             (values, _) =>
                                              {
                                                  CurrentL1 = values[0];
                                                  CurrentL2 = values[1];
@@ -223,7 +244,8 @@ namespace Vion.Examples.ModbusRtu.LogicBlocks
             Modbus.ReadInputRegistersAsFloat(UnitId,
                                              12,
                                              3,
-                                             values =>
+                                             this,
+                                             (values, _) =>
                                              {
                                                  ActivePowerL1 = values[0];
                                                  ActivePowerL2 = values[1];
@@ -237,7 +259,8 @@ namespace Vion.Examples.ModbusRtu.LogicBlocks
             Modbus.ReadInputRegistersAsFloat(UnitId,
                                              52,
                                              1,
-                                             values =>
+                                             this,
+                                             (values, _) =>
                                              {
                                                  TotalActivePower = values[0];
                                                  ReadCount++;
@@ -247,7 +270,8 @@ namespace Vion.Examples.ModbusRtu.LogicBlocks
             Modbus.ReadInputRegistersAsFloat(UnitId,
                                              56,
                                              1,
-                                             values =>
+                                             this,
+                                             (values, _) =>
                                              {
                                                  TotalApparentPower = values[0];
                                                  ReadCount++;
@@ -257,7 +281,8 @@ namespace Vion.Examples.ModbusRtu.LogicBlocks
             Modbus.ReadInputRegistersAsFloat(UnitId,
                                              60,
                                              1,
-                                             values =>
+                                             this,
+                                             (values, _) =>
                                              {
                                                  TotalReactivePower = values[0];
                                                  ReadCount++;
@@ -267,7 +292,8 @@ namespace Vion.Examples.ModbusRtu.LogicBlocks
             Modbus.ReadInputRegistersAsFloat(UnitId,
                                              62,
                                              1,
-                                             values =>
+                                             this,
+                                             (values, _) =>
                                              {
                                                  TotalPowerFactor = values[0];
                                                  ReadCount++;
@@ -277,7 +303,8 @@ namespace Vion.Examples.ModbusRtu.LogicBlocks
             Modbus.ReadInputRegistersAsFloat(UnitId,
                                              70,
                                              1,
-                                             values =>
+                                             this,
+                                             (values, _) =>
                                              {
                                                  Frequency = values[0];
                                                  ReadCount++;
@@ -289,7 +316,8 @@ namespace Vion.Examples.ModbusRtu.LogicBlocks
             Modbus.ReadInputRegistersAsFloat(UnitId,
                                              72,
                                              1,
-                                             values =>
+                                             this,
+                                             (values, _) =>
                                              {
                                                  ImportEnergy = values[0];
                                                  ReadCount++;
@@ -299,7 +327,8 @@ namespace Vion.Examples.ModbusRtu.LogicBlocks
             Modbus.ReadInputRegistersAsFloat(UnitId,
                                              74,
                                              1,
-                                             values =>
+                                             this,
+                                             (values, _) =>
                                              {
                                                  ExportEnergy = values[0];
                                                  ReadCount++;
@@ -309,7 +338,8 @@ namespace Vion.Examples.ModbusRtu.LogicBlocks
             Modbus.ReadInputRegistersAsFloat(UnitId,
                                              0x0156,
                                              1,
-                                             values =>
+                                             this,
+                                             (values, _) =>
                                              {
                                                  TotalEnergy = values[0];
                                                  ReadCount++;
@@ -330,21 +360,35 @@ namespace Vion.Examples.ModbusRtu.LogicBlocks
         private void WriteDemandPeriod(float minutes)
         {
             // EM122 demand period is a Float (2 registers) at holding register addr 2
-            Modbus.WriteMultipleHoldingRegistersAsFloat(UnitId, 2, new[] { minutes }, () => _logger.LogInformation("Bedarfsperiode auf {Minutes} min gesetzt", minutes), OnError);
+            Modbus.WriteMultipleHoldingRegistersAsFloat(UnitId,
+                                                        2,
+                                                        new[] { minutes },
+                                                        this,
+                                                        _ => _logger.LogInformation("Bedarfsperiode auf {Minutes} min gesetzt", minutes),
+                                                        OnError);
         }
 
         private void WriteResetEnergyCounters()
         {
             // EM122 reset register at 0xF010: write 0x0003 to reset energy counters
-            Modbus.WriteMultipleHoldingRegistersRaw(UnitId, 0xF010, new byte[] { 0x00, 0x03 }, () => _logger.LogInformation("Energiezähler zurückgesetzt"), OnError);
+            Modbus.WriteMultipleHoldingRegistersRaw(UnitId,
+                                                    0xF010,
+                                                    new byte[] { 0x00, 0x03 },
+                                                    this,
+                                                    _ => _logger.LogInformation("Energiezähler zurückgesetzt"),
+                                                    OnError);
         }
 
         // ── Error handling ──
 
-        private void OnError(Exception ex)
+        private void OnError(Exception ex, ModbusReceipt receipt)
         {
             ErrorCount++;
-            LastError = ex.Message;
+
+            // The receipt classifies the failure — a device error, a timeout, or a request that never left
+            // the queue — which the exception message alone does not always make obvious.
+            LastError = $"{receipt.Outcome}: {ex.Message}";
+            Link = Modbus.Link;
             _logger.LogWarning(ex, "Modbus-Fehler bei Adresse {UnitId}", UnitId);
         }
     }

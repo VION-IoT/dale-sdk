@@ -123,6 +123,12 @@ $exampleProjects = @(
         Path              = "examples\Vion.Examples.ModbusTcp\Vion.Examples.ModbusTcp.Test\Vion.Examples.ModbusTcp.Test.csproj"
         PackageReferences = @("Vion.Dale.Sdk.TestKit", "Vion.Dale.Sdk.Modbus.Tcp.TestKit")
     },
+    @{
+        # Headless scenario run over a real Modbus TCP socket pair (RFC 0003 + RFC 0006) — references the
+        # core DevHost package directly, for its scenario interpreter rather than a web UI.
+        Path              = "examples\Vion.Examples.ModbusTcp\Vion.Examples.ModbusTcp.IntegrationTest\Vion.Examples.ModbusTcp.IntegrationTest.csproj"
+        PackageReferences = @("Vion.Dale.DevHost")
+    },
     # Presentation example (no Test project — pack/upload only; demonstrates declarative-presentation surface)
     @{
         Path              = "examples\Vion.Examples.Presentation\Vion.Examples.Presentation\Vion.Examples.Presentation.csproj"

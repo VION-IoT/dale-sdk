@@ -1,14 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Modbus.Core.Conversion;
+using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
 using Vion.Dale.Sdk.Modbus.Core.Exceptions;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock;
+using Vion.Dale.Sdk.Modbus.Tcp.Diagnostics;
 
 namespace Vion.Examples.ModbusTcp.LogicBlocks
 {
@@ -76,60 +77,53 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
 
         private bool _connectionEnabled = true;
 
-        private string _ipAddress = "127.0.0.1";
+        private ModbusTcpConnectionSettings _connectionSettings = new("127.0.0.1", 15020, 1, TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(1));
 
-        private int _operationTimeoutMs = 1000;
+        private ModbusTcpLinkPolicy _linkPolicy = new(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(30));
 
         private bool _pollInFlight;
 
-        private int _tcpPort = 15020;
-
         private bool _watchInFlight;
+
+        /// <summary>The unit identifier every request carries — one field of <see cref="ConnectionSettings" />.</summary>
+        private int UnitId
+        {
+            get => _connectionSettings.UnitId;
+        }
 
         // ── Connection ────────────────────────────────────────────────────────────
 
-        [ServiceProperty(Title = "Server address", StringFormat = StringFormats.Ipv4, Description = "IPv4 address of the Modbus TCP server.")]
-        [Presentation(Group = ConnectionGroup, Order = 10)]
-        public string IpAddress
+        [ServiceProperty(Title = "Connection", Description = "Where the client talks and how long it waits — endpoint, unit id and the two timeouts, edited as one value.")]
+        [Presentation(DisplayName = "Connection", Group = ConnectionGroup, Order = 10)]
+        public ModbusTcpConnectionSettings ConnectionSettings
         {
-            get => _ipAddress;
+            get => _connectionSettings;
 
             set
             {
-                if (_ipAddress == value)
-                {
-                    return;
-                }
-
-                _ipAddress = value;
+                _connectionSettings = value;
                 ApplyConnectionSettings();
             }
         }
 
-        [ServiceProperty(Title = "Port", Minimum = 1, Maximum = 65535, Description = "502 is the standard Modbus TCP port; the bundled sim server uses 15020.")]
-        [Presentation(Group = ConnectionGroup, Order = 20)]
-        public int TcpPort
+        [ServiceProperty(Title = "Link policy",
+                         Description = "What the client does when the device stops answering: how stale a queued request may get, and how long it waits between connect attempts.")]
+        [Presentation(DisplayName = "Link policy", Group = ConnectionGroup, Order = 20)]
+        public ModbusTcpLinkPolicy LinkPolicy
         {
-            get => _tcpPort;
+            get => _linkPolicy;
 
             set
             {
-                if (_tcpPort == value)
-                {
-                    return;
-                }
-
-                _tcpPort = value;
+                _linkPolicy = value;
                 ApplyConnectionSettings();
             }
         }
 
-        [ServiceProperty(Title = "Unit id", Minimum = 0, Maximum = 255, Description = "Slave / unit identifier sent with every request.")]
-        [Presentation(Group = ConnectionGroup, Order = 30)]
-        public int UnitId { get; set; } = 1;
-
+        // A switch, not a setting — it belongs beside the two structs rather than inside them, because
+        // turning traffic off is something you do to a configuration you want to keep.
         [ServiceProperty(Title = "Connection enabled", Description = "Turn off to stop all traffic without losing the settings.")]
-        [Presentation(Group = ConnectionGroup, Order = 40)]
+        [Presentation(Group = ConnectionGroup, Order = 30)]
         public bool ConnectionEnabled
         {
             get => _connectionEnabled;
@@ -142,28 +136,6 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
                 }
 
                 _connectionEnabled = value;
-                ApplyConnectionSettings();
-            }
-        }
-
-        [ServiceProperty(Title = "Operation timeout",
-                         Unit = "ms",
-                         Minimum = 50,
-                         Maximum = 60000,
-                         Description = "How long one request may take on the wire before it is abandoned.")]
-        [Presentation(Group = ConnectionGroup, Order = 50)]
-        public int OperationTimeoutMs
-        {
-            get => _operationTimeoutMs;
-
-            set
-            {
-                if (_operationTimeoutMs == value)
-                {
-                    return;
-                }
-
-                _operationTimeoutMs = value;
                 ApplyConnectionSettings();
             }
         }
@@ -237,6 +209,15 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
         [ServiceProperty(Title = "Poll interval", Unit = "ms", Minimum = 100, Maximum = 60000)]
         [Presentation(Group = ReadGroup, Order = 110, VisibleWhen = "PollingEnabled")]
         public int PollIntervalMs { get; set; } = 1000;
+
+        [ServiceProperty(Title = "Poll interval while faulted",
+                         Unit = "ms",
+                         Minimum = 100,
+                         Maximum = 300000,
+                         Description =
+                             "The interval used while the link reads Faulted. Polling a device that is not answering at full rate buys nothing — the client reconnects on its own — so an unattended block slows down until the link recovers.")]
+        [Presentation(Group = ReadGroup, Order = 115, VisibleWhen = "PollingEnabled")]
+        public int FaultedPollIntervalMs { get; set; } = 5000;
 
         // A result table is state, not a time series — declaring it a measuring point would push a
         // 125-row array into the charting pipeline on every poll, and VisibleWhen is not evaluated for
@@ -367,36 +348,40 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
 
         // ── Status & diagnostics ──────────────────────────────────────────────────
 
-        [ServiceProperty(Title = "Communication")]
-        [Presentation(DisplayName = "Communication", Group = PropertyGroup.Status, StatusIndicator = true, Importance = Importance.Primary)]
-        public CommStatus Comm { get; private set; } = CommStatus.Idle;
+        [ServiceProperty(Title = "Link", Description = "The polling connection at a glance — the SDK's own verdict on the device and the socket, not a tally this block keeps.")]
+        [Presentation(DisplayName = "Link", Group = PropertyGroup.Status, StatusIndicator = true, Importance = Importance.Primary)]
+        public LinkStatus LinkHealth { get; private set; } = LinkStatus.Unknown;
 
-        [ServiceProperty(Title = "Transactions")]
-        [ServiceMeasuringPoint(Title = "Transactions", Kind = MeasuringPointKind.TotalIncreasing)]
-        [Presentation(Group = PropertyGroup.Diagnostics, Order = 10)]
-        public long TxCount { get; private set; }
+        // The SDK accumulates every receipt into these two snapshots, so there is nothing to count here:
+        // ModbusLinkSummary and ModbusTcpConnectionSummary are flat readonly record structs of
+        // service-property-legal types and publish as they are. Link is the verdict on the *device* — local
+        // outcomes (a backed-up queue, an expired request) are counted in it but never move Link.State, so a
+        // congested client stays distinguishable from a broken one. Connection is the verdict on the *socket*.
+        [ServiceProperty(Title = "Link", Description = "The polling connection's view of the device: state, last contact, per-outcome counters and latencies.")]
+        [Presentation(DisplayName = "Link", Group = PropertyGroup.Diagnostics, Order = 10)]
+        public ModbusLinkSummary Link { get; private set; }
 
-        [ServiceProperty(Title = "Errors")]
-        [ServiceMeasuringPoint(Title = "Errors", Kind = MeasuringPointKind.TotalIncreasing)]
-        [Presentation(Group = PropertyGroup.Diagnostics, Order = 20)]
-        public long ErrorCount { get; private set; }
+        [ServiceProperty(Title = "Connection", Description = "The polling connection's socket: connect attempts, failures, and the backoff the client is waiting out.")]
+        [Presentation(DisplayName = "Connection", Group = PropertyGroup.Diagnostics, Order = 20)]
+        public ModbusTcpConnectionSummary Connection { get; private set; }
 
-        [ServiceProperty(Title = "Last round trip", Unit = "ms", Description = "Measured from issuing the request to the callback, so queue waiting time is included.")]
+        [ServiceProperty(Title = "Command link", Description = "The same summary for the second connection — the one carrying the reads and writes you trigger by hand.")]
+        [Presentation(DisplayName = "Command link", Group = PropertyGroup.Diagnostics, Order = 30)]
+        public ModbusLinkSummary CommandLink { get; private set; }
+
+        [ServiceProperty(Title = "Last read at",
+                         Description = "When the last poll response was observed — taken from the transaction's receipt, not from when this block got round to it.")]
+        [Presentation(Group = PropertyGroup.Diagnostics, Order = 40, Format = Formats.Relative)]
+        public DateTime? LastReadAt { get; private set; }
+
+        [ServiceProperty(Title = "Last round trip", Unit = "ms", Description = "The receipt's wire time for the last poll — the queue wait is reported separately, in Link.")]
         [ServiceMeasuringPoint(Title = "Last round trip", Unit = "ms")]
-        [Presentation(Group = PropertyGroup.Diagnostics, Order = 30, Decimals = 1)]
+        [Presentation(Group = PropertyGroup.Diagnostics, Order = 50, Decimals = 1)]
         public double LastRoundTripMs { get; private set; }
 
         [ServiceProperty(Title = "Last error")]
-        [Presentation(Group = PropertyGroup.Diagnostics, Order = 40)]
-        public string LastError { get; private set; } = string.Empty;
-
-        [ServiceProperty(Title = "Queued poll requests", Description = "Backlog on the polling connection — grows when the device answers slower than the poll interval.")]
-        [Presentation(Group = PropertyGroup.Diagnostics, Order = 50)]
-        public int QueuedPollRequests { get; private set; }
-
-        [ServiceProperty(Title = "Queued command requests")]
         [Presentation(Group = PropertyGroup.Diagnostics, Order = 60)]
-        public int QueuedCommandRequests { get; private set; }
+        public string LastError { get; private set; } = string.Empty;
 
         public ModbusTcpDebugClient(ILogicBlockModbusTcpClientFactory clientFactory, IModbusDataConverter converter, ILogger logger) : base(logger)
         {
@@ -418,7 +403,7 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
         protected override void Starting()
         {
             ApplyConnectionSettings();
-            InvokeSynchronizedAfter(PollTick, TimeSpan.FromMilliseconds(PollIntervalMs));
+            InvokeSynchronizedAfter(PollTick, NextPollDelay());
             InvokeSynchronizedAfter(WatchTick, TimeSpan.FromMilliseconds(WatchIntervalMs));
         }
 
@@ -432,26 +417,39 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
 
         // ── Connection handling ───────────────────────────────────────────────────
 
+        /// <summary>
+        ///     The one reconfigure chokepoint: every field of both structs is pushed to both clients on any
+        ///     edit. That is safe because the SDK's setters detect change — re-supplying the same IP or port
+        ///     is a no-op, so editing the operation timeout no longer drops a healthy socket or cancels a
+        ///     connect backoff. There is deliberately no disable / re-enable cycle around the assignments
+        ///     either: re-enabling resets the backoff, and that would hide the behaviour this example exists
+        ///     to show.
+        /// </summary>
         private void ApplyConnectionSettings()
         {
             foreach (var client in new[] { _pollClient, _commandClient })
             {
                 try
                 {
-                    client.IsEnabled = false;
-                    client.IpAddress = _ipAddress;
-                    client.Port = _tcpPort;
-                    client.DefaultOperationTimeout = TimeSpan.FromMilliseconds(_operationTimeoutMs);
+                    client.IpAddress = _connectionSettings.IpAddress;
+                    client.Port = _connectionSettings.Port;
+                    client.ConnectionTimeout = _connectionSettings.ConnectionTimeout;
+                    client.DefaultOperationTimeout = _connectionSettings.OperationTimeout;
+                    client.MaxQueuedAge = _linkPolicy.MaxQueuedAge;
+                    client.ConnectBackoff = _linkPolicy.ConnectBackoff;
+                    client.ConnectBackoffMax = _linkPolicy.ConnectBackoffMax < _linkPolicy.ConnectBackoff ? _linkPolicy.ConnectBackoff : _linkPolicy.ConnectBackoffMax;
                     client.IsEnabled = _connectionEnabled;
                 }
-                catch (FormatException ex)
+                catch (Exception ex) when (ex is FormatException or ArgumentOutOfRangeException)
                 {
-                    // A half-typed address arrives here on every keystroke — report it, keep the block alive.
+                    // A half-typed address or a zero duration arrives here on every keystroke — report it,
+                    // keep the block alive.
                     LastError = ex.Message;
-                    Comm = CommStatus.Error;
                     _logger.LogDebug(ex, "Invalid Modbus TCP connection settings");
                 }
             }
+
+            RefreshDiagnostics();
         }
 
         // ── Polling ───────────────────────────────────────────────────────────────
@@ -466,9 +464,40 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
                 ExecuteRead(_pollClient, () => _pollInFlight = false);
             }
 
-            QueuedPollRequests = _pollClient.QueuedRequestCount;
-            QueuedCommandRequests = _commandClient.QueuedRequestCount;
-            InvokeSynchronizedAfter(PollTick, TimeSpan.FromMilliseconds(PollIntervalMs));
+            RefreshDiagnostics();
+            InvokeSynchronizedAfter(PollTick, NextPollDelay());
+        }
+
+        /// <summary>
+        ///     The recommended unattended pattern: while the link is faulted the client is already reconnecting
+        ///     on its own schedule, so polling at full rate only adds failed requests to count. One line, and it
+        ///     is the difference between a quiet log and a flood while a device is down overnight.
+        /// </summary>
+        private TimeSpan NextPollDelay()
+        {
+            return TimeSpan.FromMilliseconds(Link.State == ModbusLinkState.Faulted ? FaultedPollIntervalMs : PollIntervalMs);
+        }
+
+        /// <summary>
+        ///     Republishes the SDK's accumulated snapshots and folds them into the headline pill. Nothing is
+        ///     counted here — the counters, latencies and both verdicts come from the receipts the client
+        ///     already recorded. The one thing the block contributes is knowing it has switched the client
+        ///     off: a disabled client issues nothing, so its <c>Link</c> rightly keeps the last verdict, and a
+        ///     pill that mirrored it would go on claiming Online for a link nobody is using.
+        /// </summary>
+        private void RefreshDiagnostics()
+        {
+            Link = _pollClient.Link;
+            Connection = _pollClient.Connection;
+            CommandLink = _commandClient.Link;
+
+            LinkHealth = !_connectionEnabled ? LinkStatus.Disabled :
+                         Connection.State == ModbusTcpConnectionState.BackingOff ? LinkStatus.BackingOff : Link.State switch
+                         {
+                             ModbusLinkState.Online => LinkStatus.Online,
+                             ModbusLinkState.Faulted => LinkStatus.Faulted,
+                             _ => LinkStatus.Unknown,
+                         };
         }
 
         private void WatchTick()
@@ -510,7 +539,7 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
                 ReadWatchSlots(slots, index + 1);
             }
 
-            void OnBytes(byte[] bytes)
+            void OnBytes(byte[] bytes, ModbusReceipt _)
             {
                 try
                 {
@@ -522,8 +551,7 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
                                                slot.WordOrder64);
                     slot.Value = Convert.ToDouble(decoded, CultureInfo.InvariantCulture);
                     slot.Status = "OK";
-                    Comm = CommStatus.Ok;
-                    TxCount++;
+                    RefreshDiagnostics();
                 }
                 catch (Exception ex)
                 {
@@ -534,10 +562,11 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
                 ReadNext();
             }
 
-            void OnError(Exception ex)
+            void OnError(Exception ex, ModbusReceipt receipt)
             {
-                // One bad slot must not stop the others — record it and carry on down the list.
-                slot.Status = Describe(ex);
+                // One bad slot must not stop the others — record it and carry on down the list. The receipt
+                // names how it ended, which separates "the device said no" from "we never got that far".
+                slot.Status = $"{receipt.Outcome}: {Describe(ex)}";
                 RegisterFailure(ex);
                 ReadNext();
             }
@@ -597,30 +626,28 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
                 return;
             }
 
-            var stopwatch = Stopwatch.StartNew();
-
-            void OnError(Exception ex)
+            void OnError(Exception ex, ModbusReceipt receipt)
             {
-                LastReadError = Describe(ex);
+                LastReadError = $"{receipt.Outcome}: {Describe(ex)}";
                 RegisterFailure(ex);
                 completed?.Invoke();
             }
 
-            void OnBits(bool[] values)
+            void OnBits(bool[] values, ModbusReceipt receipt)
             {
                 Bits = values.Select((value, index) => new BitRow(address + index, value)).ToImmutableArray();
                 Registers = ImmutableArray<RegisterRow>.Empty;
-                CompleteRead(function, address, quantity, stopwatch);
+                CompleteRead(function, address, quantity, receipt);
                 completed?.Invoke();
             }
 
-            void OnRegisters(byte[] bytes)
+            void OnRegisters(byte[] bytes, ModbusReceipt receipt)
             {
                 try
                 {
                     Registers = BuildRegisterRows(bytes, address, quantity);
                     Bits = ImmutableArray<BitRow>.Empty;
-                    CompleteRead(function, address, quantity, stopwatch);
+                    CompleteRead(function, address, quantity, receipt);
                 }
                 catch (Exception ex)
                 {
@@ -674,21 +701,27 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
             }
         }
 
-        private void CompleteRead(ReadFunction function, int address, int quantity, Stopwatch stopwatch)
+        /// <summary>
+        ///     The receipt is what a poll handler wants: <see cref="ModbusReceipt.ReceivedAt" /> is when the
+        ///     answer was observed — stamped before the callback was handed to this block's mailbox, so it dates
+        ///     the transaction and not this block's backlog — and <see cref="ModbusReceipt.RoundTrip" /> is the
+        ///     time on the wire alone. Neither can be measured correctly from inside the callback.
+        /// </summary>
+        private void CompleteRead(ReadFunction function, int address, int quantity, ModbusReceipt receipt)
         {
-            LastRoundTripMs = stopwatch.Elapsed.TotalMilliseconds;
+            LastReadAt = receipt.ReceivedAt;
+            LastRoundTripMs = receipt.RoundTrip.TotalMilliseconds;
             LastReadError = string.Empty;
-            LastReadInfo = $"{FunctionCode(function)} @ {address} x {quantity} — OK, {LastRoundTripMs:F1} ms";
-            Comm = CommStatus.Ok;
-            TxCount++;
+            LastReadInfo = $"{FunctionCode(function)} @ {address} x {quantity} — {receipt.Outcome}, {LastRoundTripMs:F1} ms";
+            RefreshDiagnostics();
         }
 
+        // A rejected quantity or address never reaches the device, so it says nothing about the link and
+        // must not move the status pill — it belongs in the error strings only.
         private void FailRead(string message)
         {
             LastReadError = message;
             LastError = message;
-            Comm = CommStatus.Error;
-            ErrorCount++;
         }
 
         /// <summary>
@@ -790,20 +823,17 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
         private void ExecuteWrite()
         {
             var address = (ushort)WriteAddress;
-            var stopwatch = Stopwatch.StartNew();
 
-            void OnSuccess()
+            void OnSuccess(ModbusReceipt receipt)
             {
-                LastRoundTripMs = stopwatch.Elapsed.TotalMilliseconds;
                 LastWriteError = string.Empty;
-                LastWriteInfo = $"{WriteFunctionCode(WriteFunction)} @ {address} — OK, {LastRoundTripMs:F1} ms";
-                Comm = CommStatus.Ok;
-                TxCount++;
+                LastWriteInfo = $"{WriteFunctionCode(WriteFunction)} @ {address} — {receipt.Outcome}, {receipt.RoundTrip.TotalMilliseconds:F1} ms";
+                RefreshDiagnostics();
             }
 
-            void OnError(Exception ex)
+            void OnError(Exception ex, ModbusReceipt receipt)
             {
-                LastWriteError = Describe(ex);
+                LastWriteError = $"{receipt.Outcome}: {Describe(ex)}";
                 RegisterFailure(ex);
             }
 
@@ -850,7 +880,7 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
             }
         }
 
-        private void WriteSingleRegister(ushort address, Action onSuccess, Action<Exception> onError)
+        private void WriteSingleRegister(ushort address, Action<ModbusReceipt> onSuccess, Action<Exception, ModbusReceipt> onError)
         {
             var raw = ParseRegisterWord(WriteValue);
 
@@ -876,7 +906,7 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
             }
         }
 
-        private void WriteMultipleRegisters(ushort address, Action onSuccess, Action<Exception> onError)
+        private void WriteMultipleRegisters(ushort address, Action<ModbusReceipt> onSuccess, Action<Exception, ModbusReceipt> onError)
         {
             if (WriteFieldType == RegisterFieldType.String)
             {
@@ -995,12 +1025,11 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
             }
         }
 
+        // As with FailRead: a value that could not be parsed never left the block.
         private void FailWrite(string message)
         {
             LastWriteError = message;
             LastError = message;
-            Comm = CommStatus.Error;
-            ErrorCount++;
         }
 
         // ── Shared helpers ────────────────────────────────────────────────────────
@@ -1008,8 +1037,7 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
         private void RegisterFailure(Exception ex)
         {
             LastError = Describe(ex);
-            Comm = CommStatus.Error;
-            ErrorCount++;
+            RefreshDiagnostics();
             _logger.LogDebug(ex, "Modbus TCP debug client operation failed");
         }
 

@@ -1,6 +1,7 @@
 using System;
 using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Core;
+using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
 using Vion.Dale.Sdk.Modbus.Rtu;
 
 namespace Vion.Examples.ModbusRtu.LogicBlocks
@@ -15,6 +16,8 @@ namespace Vion.Examples.ModbusRtu.LogicBlocks
         private readonly ILogger _logger;
 
         private DateTime _testStartTime;
+
+        private TimeSpan _totalRoundTrip;
 
         // ── Contract ──
 
@@ -57,6 +60,9 @@ namespace Vion.Examples.ModbusRtu.LogicBlocks
         [Presentation(Group = PropertyGroup.Metric, Importance = Importance.Primary)]
         public double ReadsPerSecond { get; private set; }
 
+        // Averaged over the receipts' own round trips: the time each request spent on the wire, with the
+        // wait in the shared RTU queue excluded. Dividing the test duration by the completion count — the
+        // only thing possible before receipts — measured the queue instead, and under-reported the bus.
         [ServiceProperty(Title = "Durchschnittliche Latenz", Unit = "ms")]
         [Presentation(Group = PropertyGroup.Metric)]
         public double AverageLatencyMs { get; private set; }
@@ -68,6 +74,12 @@ namespace Vion.Examples.ModbusRtu.LogicBlocks
         [ServiceProperty(Title = "Fehlgeschlagene Anfragen")]
         [Presentation(Group = PropertyGroup.Metric)]
         public int FailedReads { get; private set; }
+
+        // A burst that overruns the shared RTU handler's pending-request limit fails as Dropped, not as a
+        // device problem — which is exactly the distinction a throughput test needs to report.
+        [ServiceProperty(Title = "Letzter Fehlergrund")]
+        [Presentation(Group = PropertyGroup.Metric)]
+        public ModbusOutcome? LastFailureOutcome { get; private set; }
 
         [ServiceProperty(Title = "Test läuft")]
         [Presentation(Group = PropertyGroup.Status)]
@@ -99,6 +111,7 @@ namespace Vion.Examples.ModbusRtu.LogicBlocks
             TestRunning = true;
             CompletedReads = 0;
             FailedReads = 0;
+            _totalRoundTrip = TimeSpan.Zero;
             _testStartTime = DateTime.UtcNow;
 
             var burstSize = BurstSize;
@@ -109,20 +122,27 @@ namespace Vion.Examples.ModbusRtu.LogicBlocks
             for (var i = 0; i < burstSize; i++)
             {
                 // Read input registers starting at address 0 (phase voltages — always available)
-                Modbus.ReadInputRegistersAsFloat(UnitId, 0, registerCount, _ => OnReadCompleted(burstSize), ex => OnReadFailed(burstSize, ex));
+                Modbus.ReadInputRegistersAsFloat(UnitId,
+                                                 0,
+                                                 registerCount,
+                                                 this,
+                                                 (_, receipt) => OnReadCompleted(burstSize, receipt),
+                                                 (ex, receipt) => OnReadFailed(burstSize, ex, receipt));
             }
         }
 
-        private void OnReadCompleted(int burstSize)
+        private void OnReadCompleted(int burstSize, ModbusReceipt receipt)
         {
             CompletedReads++;
+            _totalRoundTrip += receipt.RoundTrip;
             CheckTestComplete(burstSize);
         }
 
-        private void OnReadFailed(int burstSize, Exception ex)
+        private void OnReadFailed(int burstSize, Exception ex, ModbusReceipt receipt)
         {
             FailedReads++;
-            _logger.LogDebug(ex, "Lesefehler im Durchsatztest");
+            LastFailureOutcome = receipt.Outcome;
+            _logger.LogDebug(ex, "Lesefehler im Durchsatztest ({Outcome})", receipt.Outcome);
             CheckTestComplete(burstSize);
         }
 
@@ -138,7 +158,7 @@ namespace Vion.Examples.ModbusRtu.LogicBlocks
             var elapsed = DateTime.UtcNow - _testStartTime;
             LastTestDurationMs = elapsed.TotalMilliseconds;
             ReadsPerSecond = elapsed.TotalSeconds > 0 ? CompletedReads / elapsed.TotalSeconds : 0;
-            AverageLatencyMs = CompletedReads > 0 ? elapsed.TotalMilliseconds / CompletedReads : 0;
+            AverageLatencyMs = CompletedReads > 0 ? _totalRoundTrip.TotalMilliseconds / CompletedReads : 0;
 
             TestRunning = false;
 

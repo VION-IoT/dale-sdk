@@ -118,7 +118,10 @@ namespace Vion.Examples.ModbusTcp.Test
 
             Assert.NotEmpty(Sut.LastWriteError);
             Assert.Empty(_fixture.CommandProxy.WriteHistory);
-            Assert.Equal(CommStatus.Error, Sut.Comm);
+
+            // A value that could not be parsed never left the block, so it says nothing about the device:
+            // the headline stays where it was rather than reporting a link fault that did not happen.
+            Assert.Equal(LinkStatus.Unknown, Sut.LinkHealth);
         }
 
         [Fact]

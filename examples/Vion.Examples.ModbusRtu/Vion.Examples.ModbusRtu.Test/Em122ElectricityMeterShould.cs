@@ -1,5 +1,6 @@
 using System;
 using Moq;
+using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
 using Vion.Dale.Sdk.Modbus.Rtu.TestKit;
 using Vion.Dale.Sdk.TestKit;
 using Vion.Examples.ModbusRtu.LogicBlocks;
@@ -60,9 +61,14 @@ namespace Vion.Examples.ModbusRtu.Test
 
             _sut.FireTimer(lb => lb.Poll());
             _sut.Modbus.SimulateReadError(ctx, new TimeoutException("Device not responding"), 0);
+            ctx.FlushPendingActions();
 
             Assert.Equal(1, _sut.ErrorCount);
-            Assert.Equal("Device not responding", _sut.LastError);
+
+            // The receipt classifies the failure ahead of the message, so the pane says what kind of
+            // failure it was without the reader having to recognise the exception type.
+            Assert.Contains("Device not responding", _sut.LastError);
+            Assert.Equal(ModbusLinkState.Faulted, _sut.Link.State);
         }
 
         [Fact]
@@ -125,6 +131,7 @@ namespace Vion.Examples.ModbusRtu.Test
 
             _sut.FireTimer(lb => lb.Poll());
             _sut.Modbus.SimulateReadResponse(ctx, ModbusResponseBuilder.FromFloats(1200f, 1100f, 1150f), 12);
+            ctx.FlushPendingActions();
 
             Assert.Equal(1200f, _sut.ActivePowerL1, 0.01f);
             Assert.Equal(1100f, _sut.ActivePowerL2, 0.01f);
@@ -138,6 +145,7 @@ namespace Vion.Examples.ModbusRtu.Test
 
             _sut.FireTimer(lb => lb.Poll());
             _sut.Modbus.SimulateReadResponse(ctx, ModbusResponseBuilder.FromFloats(5.2f, 4.8f, 5.0f), 6);
+            ctx.FlushPendingActions();
 
             Assert.Equal(5.2f, _sut.CurrentL1, 0.01f);
             Assert.Equal(4.8f, _sut.CurrentL2, 0.01f);
@@ -151,11 +159,14 @@ namespace Vion.Examples.ModbusRtu.Test
 
             _sut.FireTimer(lb => lb.Poll());
             _sut.Modbus.SimulateReadResponse(ctx, ModbusResponseBuilder.FromFloats(230.5f, 231.0f, 229.8f), 0);
+            ctx.FlushPendingActions();
 
             Assert.Equal(230.5f, _sut.VoltageL1, 0.01f);
             Assert.Equal(231.0f, _sut.VoltageL2, 0.01f);
             Assert.Equal(229.8f, _sut.VoltageL3, 0.01f);
             Assert.Equal(1, _sut.ReadCount);
+            Assert.NotNull(_sut.LastContactAt);
+            Assert.Equal(ModbusLinkState.Online, _sut.Link.State);
         }
     }
 }

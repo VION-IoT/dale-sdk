@@ -21,6 +21,7 @@ the work they govern — **read the linked doc before doing the matching work, a
 | writing or modifying a test | [`docs/testing-conventions.md`](docs/testing-conventions.md) — MSTest inside / xunit.v3 outside, analyzer tests vs the real compilation, packed-artifact verification, determinism |
 | touching `Vion.Dale.DevHost*`, the scenario runner, or stepping | [`docs/devhost-conventions.md`](docs/devhost-conventions.md) — the demonstrate-don't-assert verify loop, clock modes, the four scenario-step definition sites; the SPA's own contract is [`Vion.Dale.DevHost.Web/CLAUDE.md`](Vion.Dale.DevHost.Web/CLAUDE.md) |
 | renaming anything that reaches introspection (service, member, contract, interface, enum member, enum/struct type, PackageId) | [`docs/identifier-stability.md`](docs/identifier-stability.md) — these identifiers are the cloud's translation keys |
+| touching `Vion.Dale.Sdk.Modbus.*` or either Modbus example | the `modbus-smoke` skill ([`.claude/skills/modbus-smoke/`](.claude/skills/modbus-smoke/SKILL.md)) — the link policy over a real socket pair on `127.0.0.1:15020`; real clock, ~1 min |
 | adding a CLI command | [`Vion.Dale.Cli/CLAUDE.md`](Vion.Dale.Cli/CLAUDE.md) |
 | cutting a release, or bumping examples after one | [`docs/releasing.md`](docs/releasing.md) |
 | reviewing a change before a PR | `/vion-code-review branch` — [`.claude/commands/vion-code-review.md`](.claude/commands/vion-code-review.md) |
@@ -80,7 +81,7 @@ Vion.Dale.Cli.Test/         CLI unit tests
 templates/                  Project template bundled as content inside Vion.Dale.Cli (source used by `dale new`)
 examples/                   Example LogicBlock libraries — in Vion.Dale.Sdk.sln, referencing published packages
 libraries/                  First-party LogicBlock libraries shipped from here (Vion.Diagnostics)
-docs/                       Conventions, RFCs, snapshots, the process journal/metrics and retro notes
+docs/                       Conventions, RFCs, migrations, snapshots, the process journal/metrics and retro notes
 scripts/                    Build / versioning / docs generation scripts
 ```
 
