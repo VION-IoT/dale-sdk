@@ -43,13 +43,22 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Diagnostics
     /// <param name="NextAttemptAt">When the client will attempt to connect again.</param>
     [PublicApi]
     public readonly record struct ModbusTcpConnectionSummary(
+        [StructField(Title = "Connection state", Description = "Whether a socket is open, closed, or waiting out a backoff.")]
         ModbusTcpConnectionState State,
+        [StructField(Title = "Last connected", Description = "When a socket was last established (UTC).")]
         DateTime? LastConnectedAt,
+        [StructField(Title = "Last connect failure", Description = "When a connection attempt last failed (UTC).")]
         DateTime? LastConnectFailureAt,
+        [StructField(Title = "Connect attempts", Description = "How many connection attempts have been made over the client's lifetime.")]
         long ConnectAttemptCount,
+        [StructField(Title = "Failed connects", Description = "How many of those attempts failed.")]
         long ConnectFailureCount,
+        [StructField(Title = "Consecutive failed connects", Description = "Failed attempts since the last successful connect or the last configuration change.")]
         int ConsecutiveConnectFailures,
+        [StructField(Title = "Last handshake", Description = "How long the last successful connect took; it is also part of that operation's round trip.")]
         TimeSpan? LastConnectDuration,
+        [StructField(Title = "Current backoff", Description = "How long the client is waiting before its next connection attempt.")]
         TimeSpan? CurrentBackoff,
+        [StructField(Title = "Next attempt", Description = "When the client will attempt to connect again (UTC).")]
         DateTime? NextAttemptAt);
 }
