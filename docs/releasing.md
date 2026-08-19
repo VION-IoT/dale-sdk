@@ -48,10 +48,14 @@ commit shipping references to a version that is no longer current, and — becau
 each example's `<Version>` and the workflow passes `--skip-duplicate` — leaves the upload silently
 doing nothing.
 
+It is still a change like any other, so it goes on a branch and through a PR (working agreement
+rule 1) — never straight to `main`:
+
 ```bash
+git switch -c chore/bump-refs-X.Y.Z
 pwsh scripts/set-version.ps1 -Version X.Y.Z -Scope references
 git add -A && git commit -m "Bump example/template refs to X.Y.Z"
-git push
+git push -u origin HEAD && gh pr create --fill
 ```
 
 `set-version.ps1` updates two things: the `PackageReference` versions across the template and example

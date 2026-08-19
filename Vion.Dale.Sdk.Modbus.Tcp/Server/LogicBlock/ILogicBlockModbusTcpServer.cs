@@ -16,6 +16,12 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
     ///         settings, then re-enable it (a port or address change is a rebind).
     ///     </para>
     ///     <para>
+    ///         It listens on all interfaces (<c>0.0.0.0</c>) unless told otherwise, because a logic-block-hosted
+    ///         server exists to be reached by Modbus masters elsewhere on the network. Set
+    ///         <see cref="ListenAddress" /> to bind one interface — loopback for a simulator that must not be
+    ///         reachable off the machine, or a specific NIC on a multi-homed device.
+    ///     </para>
+    ///     <para>
     ///         All register access happens inside <see cref="Sync(Action{IModbusServerSnapshot})" /> callbacks,
     ///         which execute synchronously on the caller's thread while holding the server lock — client requests
     ///         are served from the register buffers on background threads, and the lock makes each callback atomic

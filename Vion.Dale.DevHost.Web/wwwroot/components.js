@@ -7,9 +7,10 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from './vue.esm-browser.prod.js';
 import {
     buildVerificationReport, contractTypeShort, cssGroupKey, defaultOpen, describeExpect, describeOutputAssert, describeType, describeWaitUntil,
-    effectiveType, enumDisplay, enumMembers, formatTemporal, formatValue, gallerySamples,
+    effectiveType, enumDisplay, enumMembers, formatFieldValue, formatTemporal, formatValue, gallerySamples,
     GROUP_LABELS, groupItems, isNullable, isWritable, matchesFilter, orderedGroupKeys, parseFilter,
-    parseNamePath, presentationFacts, resolveAuthoredTitle, resolveDisplayName, resolveUnit, sampleJson, serviceMembers, severityFor,
+    parseDurationInput, parseNamePath, presentationFacts, resolveAuthoredTitle, resolveDisplayName, resolveFieldLabel, resolveUnit, sampleJson, serviceMembers, severityFor,
+    stringFieldFormat, temporalFieldFormat,
     sampleX, shortTypeName, signTone, stepRibbonGeometry, traceLaneKind, traceNumericBand, traceSeriesFor, traceStateBands,
     STEP_GLYPHS,
 } from './format.js';
@@ -359,11 +360,17 @@ export const JsonEditor = {
                 const t = effectiveType(fieldSchema);
                 return {
                     name,
+                    label: resolveFieldLabel(name, fieldSchema),
                     schema: fieldSchema,
                     type: t,
                     enums: enumMembers(fieldSchema),
                     nullable: isNullable(fieldSchema),
                     unit: resolveUnit(fieldSchema),
+                    // A TimeSpan field is a string field carrying format: duration. There is no duration
+                    // picker at top level either, so it stays a text box — one that takes "3s" as well as
+                    // "PT3S" and echoes back what it will actually write.
+                    duration: temporalFieldFormat(fieldSchema) === 'duration',
+                    stringFormat: stringFieldFormat(fieldSchema),
                     bounds: fieldSchema.minimum !== undefined || fieldSchema.maximum !== undefined
                         ? `${fieldSchema.minimum ?? '−∞'} – ${fieldSchema.maximum ?? '∞'}` : null,
                     description: fieldSchema.description || '',
@@ -400,9 +407,23 @@ export const JsonEditor = {
                 if (f.type === 'integer') out[f.name] = parseInt(raw, 10);
                 else if (f.type === 'number') out[f.name] = parseFloat(raw);
                 else if (f.type === 'boolean') out[f.name] = raw === 'true';
+                // Unparseable stays undefined so commitForm can name the field instead of writing junk.
+                else if (f.duration) out[f.name] = parseDurationInput(raw) ?? undefined;
                 else out[f.name] = raw;
             });
             return out;
+        };
+
+        // What a duration field will actually write, shown beside the box: the normalised wire form
+        // plus the humanized reading, or a refusal.
+        const durationHint = f => {
+            if (!f.duration || (f.nullable && nulls.value[f.name])) return '';
+            const raw = form.value[f.name];
+            if (raw === undefined || String(raw).trim() === '') return '';
+            const iso = parseDurationInput(raw);
+            if (iso === null) return 'not a duration';
+            const humanized = formatTemporal(iso, 'duration', 'humanize');
+            return iso === String(raw).trim() ? humanized : `${iso} — ${humanized}`;
         };
         const preview = computed(() => {
             void form.value;
@@ -431,6 +452,11 @@ export const JsonEditor = {
         const fillTemplate = () => { text.value = sample; dirty.value = true; };
         const commitForm = () => {
             const value = payload();
+            const badDuration = (fieldEntries.value || []).find(f => f.duration && value[f.name] === undefined);
+            if (badDuration) {
+                showError(`${props.item.identifier}.${badDuration.name} is not a duration — try "PT3S", "00:00:03" or "3s"`);
+                return;
+            }
             const bad = Object.entries(value).find(([, v]) => typeof v === 'number' && Number.isNaN(v));
             if (bad) {
                 showError(`${props.item.identifier}.${bad[0]} is not a number`);
@@ -457,6 +483,7 @@ export const JsonEditor = {
         return {
             tab, formSupported, fieldEntries, form, nulls, dirty, preview, text, sample, schemaJson,
             fillTemplate, commitForm, commitRaw, setNull, markDirty, nullable, fieldEditable, rawDraftHint,
+            durationHint,
         };
     },
     template: `
@@ -468,9 +495,12 @@ export const JsonEditor = {
             </div>
             <template v-if="formSupported && tab === 'form'">
                 <div v-for="f in fieldEntries" :key="f.name" class="field-row" :title="f.description">
-                    <span class="mono field-name">{{ f.name }}</span>
+                    <span class="field-label">{{ f.label }}</span>
+                    <code v-if="f.label !== f.name" class="mono field-name">{{ f.name }}</code>
                     <span v-if="f.bounds" class="field-bounds">{{ f.bounds }}</span>
+                    <span v-if="f.stringFormat" class="field-bounds">{{ f.stringFormat }}</span>
                     <span class="item-spacer"></span>
+                    <span v-if="durationHint(f)" class="field-bounds">{{ durationHint(f) }}</span>
                     <template v-if="fieldEditable(f)">
                         <select v-if="f.enums" :value="form[f.name]" @change="markDirty(); form[f.name] = $event.target.value">
                             <option v-for="m in f.enums" :key="m" :value="m">{{ m }}</option>
@@ -482,6 +512,7 @@ export const JsonEditor = {
                         <input v-else :type="f.type === 'integer' || f.type === 'number' ? 'number' : 'text'"
                                :step="f.type === 'integer' ? '1' : 'any'"
                                :min="f.schema.minimum" :max="f.schema.maximum" :value="form[f.name]"
+                               :placeholder="f.duration ? 'PT3S or 3s' : (f.stringFormat || '')"
                                @input="markDirty(); form[f.name] = $event.target.value">
                     </template>
                     <span v-if="f.unit" class="unit">{{ f.unit }}</span>
@@ -531,9 +562,14 @@ export const StructViewer = {
         const t = effectiveType(schema);
         const enumLabels = (props.item.presentation || {}).enumLabels || null;
 
+        // Per-field presentation comes from the field's own schema — [StructField] Title / Description
+        // land inline there (structs have no presentation sibling). `label` is the authored title where
+        // there is one; `name` stays visible either way, because that is the key a scenario addresses.
         const fieldDefs = objectSchema => Object.entries((objectSchema && objectSchema.properties) || {})
             .map(([name, fieldSchema]) => ({
                 name,
+                label: resolveFieldLabel(name, fieldSchema),
+                schema: fieldSchema,
                 unit: resolveUnit(fieldSchema),
                 description: fieldSchema.description || '',
                 enums: enumMembers(fieldSchema) !== null,
@@ -555,10 +591,12 @@ export const StructViewer = {
             return key !== undefined ? row[key] : undefined;
         };
 
+        // Temporal fields go through the same formatter a top-level TimeSpan / DateTime property gets,
+        // so a round trip reads "00:00:03" rather than the raw "PT3S" off the wire.
         const fmtCell = (value, field) => {
             if (value === null || value === undefined) return '—';
             if (field && field.enums && typeof value === 'string') return enumDisplay(null, value);
-            return formatValue(value);
+            return formatFieldValue(value, field && field.schema);
         };
 
         const objectRows = computed(() => mode !== 'object' ? [] :
@@ -580,7 +618,8 @@ export const StructViewer = {
             <div v-if="empty" class="viewer-empty">∅ — no value published</div>
             <template v-else-if="mode === 'object'">
                 <div v-for="f in objectRows" :key="f.name" class="viewer-field" :title="f.description">
-                    <span class="mono viewer-name">{{ f.name }}</span>
+                    <span class="viewer-label">{{ f.label }}</span>
+                    <code v-if="f.label !== f.name" class="mono viewer-name">{{ f.name }}</code>
                     <span class="item-spacer"></span>
                     <span class="mono viewer-value">{{ f.value }}</span>
                     <span v-if="f.unit" class="unit">{{ f.unit }}</span>
@@ -591,8 +630,8 @@ export const StructViewer = {
                     <thead>
                         <tr>
                             <th class="viewer-idx">#</th>
-                            <th v-for="f in fields" :key="f.name" :title="f.description">
-                                {{ f.name }}<span v-if="f.unit" class="unit"> {{ f.unit }}</span>
+                            <th v-for="f in fields" :key="f.name" :title="f.description || f.name">
+                                {{ f.label }}<span v-if="f.unit" class="unit"> {{ f.unit }}</span>
                             </th>
                         </tr>
                     </thead>

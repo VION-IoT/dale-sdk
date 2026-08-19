@@ -11,7 +11,8 @@ namespace Vion.Dale.Sdk.Modbus.Core.Diagnostics
     ///     <para>
     ///         Read it whenever you want it — every read returns a consistent snapshot, taken without blocking the
     ///         transaction that is updating it. Every field is a service-property-legal type, so the whole summary can
-    ///         be published as one <c>[ServiceProperty]</c>.
+    ///         be published as one <c>[ServiceProperty]</c>, and every field carries a title and a description so it
+    ///         reads without a projection.
     ///     </para>
     ///     <para>
     ///         <c>State</c> moves only on outcomes that reached the wire: <c>Success</c> and <c>DeviceError</c> set
@@ -52,22 +53,40 @@ namespace Vion.Dale.Sdk.Modbus.Core.Diagnostics
     /// <param name="QueueDepth">Requests waiting to be dispatched right now.</param>
     [PublicApi]
     public readonly record struct ModbusLinkSummary(
+        [StructField(Title = "Link state", Description = "Verdict of the last transaction that reached the wire; locally decided outcomes leave it unchanged.")]
         ModbusLinkState State,
+        [StructField(Title = "Last contact", Description = "When the device last answered, with data or with a Modbus exception code (UTC).")]
         DateTime? LastContactAt,
+        [StructField(Title = "Last failure", Description = "When the last non-successful outcome was recorded, local ones included (UTC).")]
         DateTime? LastFailureAt,
+        [StructField(Title = "Last failure outcome", Description = "How that last non-successful transaction ended.")]
         ModbusOutcome? LastFailureOutcome,
+        [StructField(Title = "Successes", Description = "The device answered with the requested data.")]
         long SuccessCount,
+        [StructField(Title = "Device errors", Description = "The device answered with a Modbus exception code — the link is up, the request was wrong.")]
         long DeviceErrorCount,
+        [StructField(Title = "Timeouts", Description = "No answer arrived in time.")]
         long TimeoutCount,
+        [StructField(Title = "Transport errors", Description = "The socket or serial stream failed.")]
         long TransportErrorCount,
+        [StructField(Title = "Protocol errors", Description = "An answer arrived but was not a valid response for the request.")]
         long ProtocolErrorCount,
+        [StructField(Title = "Backed off", Description = "Not attempted: the client was waiting out a connect backoff.")]
         long BackedOffCount,
+        [StructField(Title = "Expired", Description = "Not attempted: the request aged out of the queue before dispatch.")]
         long ExpiredCount,
+        [StructField(Title = "Dropped", Description = "Not attempted: the request was evicted because the queue was full.")]
         long DroppedCount,
+        [StructField(Title = "Round trip (last)", Description = "Dispatch-to-response time of the last transaction that reached the wire.")]
         TimeSpan? LastRoundTrip,
+        [StructField(Title = "Round trip (min)", Description = "The shortest dispatch-to-response time seen.")]
         TimeSpan? MinRoundTrip,
+        [StructField(Title = "Round trip (max)", Description = "The longest dispatch-to-response time seen.")]
         TimeSpan? MaxRoundTrip,
+        [StructField(Title = "Queued wait (last)", Description = "How long the last transaction waited locally before dispatch.")]
         TimeSpan? LastQueuedWait,
+        [StructField(Title = "Queued wait (max)", Description = "The longest local wait before dispatch seen.")]
         TimeSpan? MaxQueuedWait,
+        [StructField(Title = "Queue depth", Description = "Requests waiting to be dispatched right now. TCP: requests waiting; RTU: always 0.")]
         int QueueDepth);
 }

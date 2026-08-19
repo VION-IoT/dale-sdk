@@ -186,6 +186,104 @@ export function parseDurationToMs(value) {
     return sign * totalMs;
 }
 
+// ── struct-field presentation ───────────────────────────────────────────────────
+// [StructField] Title / Description / StringFormat land INLINE in the field's schema
+// (schema.properties[<camelCaseName>].title / .description / .format), not in a presentation
+// sibling — struct fields have no presentation channel. These helpers are what the viewer and the
+// form read so the two surfaces cannot drift.
+
+// The operator-facing label for one struct field. The authored [StructField] Title wins, except
+// when schema.title is identity-bearing: for an enum- or struct-typed field the type name occupies
+// title and the authored one is dropped, so the wire key is the honest label. Callers keep showing
+// the wire key alongside — a scenario author addresses fields by it.
+export function resolveFieldLabel(name, fieldSchema) {
+    if (fieldSchema && fieldSchema.title && !hasIdentityBearingTitle(fieldSchema)) return fieldSchema.title;
+    return name;
+}
+
+// True when a struct field is a TimeSpan / DateTime, i.e. formats through formatTemporal rather
+// than formatValue. Returns the schema format ("duration" | "date-time") or null.
+export function temporalFieldFormat(fieldSchema) {
+    const f = fieldSchema && fieldSchema.format;
+    return f === 'duration' || f === 'date-time' ? f : null;
+}
+
+// The non-temporal advisory schema format of a string field ([StructField] StringFormat, e.g.
+// "ipv4") — shown as a hint on the input. Null for everything else.
+export function stringFieldFormat(fieldSchema) {
+    const f = fieldSchema && fieldSchema.format;
+    if (!f || temporalFieldFormat(fieldSchema)) return null;
+    return effectiveType(fieldSchema) === 'string' ? f : null;
+}
+
+// Format one struct-field value: temporal fields through formatTemporal (so a duration reads as a
+// time, not as the raw "PT3S" off the wire), everything else unchanged.
+export function formatFieldValue(value, fieldSchema) {
+    if (value === null || value === undefined) return '—';
+    const temporal = temporalFieldFormat(fieldSchema);
+    if (temporal === 'duration') return formatFieldDuration(value);
+    return temporal ? formatTemporal(value, temporal, null) : formatValue(value);
+}
+
+// Durations inside a diagnostics struct span sub-millisecond latencies and multi-minute backoffs in
+// the same grid, so the unit follows the magnitude instead of the fixed HH:mm:ss a top-level TimeSpan
+// gets — under which every round trip a real device answers reads "00:00:00".
+export function formatFieldDuration(value) {
+    const ms = parseDurationToMs(value);
+    if (ms === null || Number.isNaN(ms)) return String(value);
+    const magnitude = Math.abs(ms);
+    const trim = n => Number(n.toFixed(3)).toString();
+    if (magnitude < 1000) return `${trim(ms)} ms`;
+    if (magnitude < 60000) return `${trim(ms / 1000)} s`;
+    return formatTemporal(value, 'duration', null);
+}
+
+// Parse what a human types into a duration field and return the ISO-8601 wire form, or null when
+// nothing parses. Accepts the wire form itself ("PT3S"), the .NET TimeSpan form ("00:00:03"), and
+// shorthand — "3s", "1.5s", "500ms", "2m", "1h 30m", "1d". There is no duration picker anywhere in
+// the UI; this is what makes a plain text box usable.
+export function parseDurationInput(text) {
+    if (typeof text !== 'string') return null;
+    const raw = text.trim();
+    if (raw === '') return null;
+    if (/^-?P/i.test(raw) || /^-?(?:\d+\.)?\d{1,2}:\d{2}:\d{2}/.test(raw)) {
+        const direct = parseDurationToMs(raw);
+        return direct === null || Number.isNaN(direct) ? null : msToIso8601Duration(direct);
+    }
+
+    const units = { ms: 1, s: 1000, m: 60000, h: 3600000, d: 86400000 };
+    const pattern = /(\d+(?:\.\d+)?)\s*(ms|s|m|h|d)/gi;
+    let total = 0;
+    let matched = 0;
+    let remainder = raw;
+    let match;
+    while ((match = pattern.exec(raw)) !== null) {
+        total += parseFloat(match[1]) * units[match[2].toLowerCase()];
+        matched += 1;
+        remainder = remainder.replace(match[0], ' ');
+    }
+    if (matched === 0 || remainder.replace(/[\s-]/g, '') !== '') return null;
+    return msToIso8601Duration(/^\s*-/.test(raw) ? -total : total);
+}
+
+// Milliseconds → the ISO-8601 duration the DevHost's TimeSpan converter emits and accepts
+// (XmlConvert.ToString shape: "PT3S", "PT1M30S", "P1DT2H").
+export function msToIso8601Duration(ms) {
+    const sign = ms < 0 ? '-' : '';
+    let rest = Math.abs(ms);
+    const days = Math.floor(rest / 86400000);
+    rest -= days * 86400000;
+    const hours = Math.floor(rest / 3600000);
+    rest -= hours * 3600000;
+    const minutes = Math.floor(rest / 60000);
+    rest -= minutes * 60000;
+    const seconds = Math.round(rest) / 1000;
+
+    const time = (hours ? `${hours}H` : '') + (minutes ? `${minutes}M` : '')
+        + (seconds || (!days && !hours && !minutes) ? `${seconds}S` : '');
+    return `${sign}P${days ? `${days}D` : ''}${time ? `T${time}` : ''}`;
+}
+
 // Build a sample JSON value from a schema (best-effort) — the struct/array editor template.
 export function sampleJson(schema) {
     if (!schema) return null;

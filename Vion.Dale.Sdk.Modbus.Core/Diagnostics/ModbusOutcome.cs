@@ -20,33 +20,53 @@ namespace Vion.Dale.Sdk.Modbus.Core.Diagnostics
     public enum ModbusOutcome
     {
         /// <summary>The device answered with the requested data.</summary>
+        [EnumLabel("Success")]
+        [Severity(StatusSeverity.Success)]
         Success,
 
         /// <summary>The device answered with a Modbus exception code — the link is up, the request was wrong.</summary>
+        [EnumLabel("Device error")]
+        [Severity(StatusSeverity.Warning)]
         DeviceError,
 
         /// <summary>No answer arrived in time: an operation timeout, a connect timeout, or an expiry sweep.</summary>
+        [EnumLabel("Timeout")]
+        [Severity(StatusSeverity.Error)]
         Timeout,
 
         /// <summary>The socket or serial stream failed.</summary>
+        [EnumLabel("Transport error")]
+        [Severity(StatusSeverity.Error)]
         TransportError,
 
         /// <summary>An answer arrived but was not a valid response for the request.</summary>
+        [EnumLabel("Protocol error")]
+        [Severity(StatusSeverity.Error)]
         ProtocolError,
 
         /// <summary>Not attempted: the client is waiting out a connect backoff.</summary>
+        [EnumLabel("Backed off")]
+        [Severity(StatusSeverity.Warning)]
         BackedOff,
 
         /// <summary>Not attempted: the request aged past <see cref="Client.IModbusClient.MaxQueuedAge" /> before dispatch.</summary>
+        [EnumLabel("Expired")]
+        [Severity(StatusSeverity.Warning)]
         Expired,
 
         /// <summary>Not attempted: the request was evicted because the queue was full.</summary>
+        [EnumLabel("Dropped")]
+        [Severity(StatusSeverity.Warning)]
         Dropped,
 
         /// <summary>Not attempted: the call itself was invalid — a bad unit id, a missing address, an unsupported conversion.</summary>
+        [EnumLabel("Invalid")]
+        [Severity(StatusSeverity.Warning)]
         Invalid,
 
         /// <summary>Not attempted, or abandoned: the client was disposed or the queue was cancelled.</summary>
+        [EnumLabel("Cancelled")]
+        [Severity(StatusSeverity.Neutral)]
         Cancelled,
     }
 }
