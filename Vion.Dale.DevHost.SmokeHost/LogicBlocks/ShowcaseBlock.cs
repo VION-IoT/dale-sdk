@@ -32,6 +32,11 @@ namespace Vion.Dale.DevHost.SmokeHost.LogicBlocks
         [Presentation(DisplayName = "Position", Group = PropertyGroup.Status)]
         public Position CurrentPosition { get; private set; }
 
+        [ServiceProperty(Title = "Verbindung",
+                         Description = "Read-only struct whose fields carry [StructField] titles, help, a duration, a timestamp, an enum and an ipv4 string.")]
+        [Presentation(DisplayName = "Verbindung", Group = PropertyGroup.Status, Order = 5)]
+        public LinkProfile CurrentLink { get; private set; } = new(Mood.Calm, "127.0.0.1", TimeSpan.FromMilliseconds(1200), DateTime.UtcNow, null);
+
         [ServiceMeasuringPoint(Unit = "kW", Description = "Last 16 samples — rendered as a sparkline.")]
         [Presentation(DisplayName = "Trend", Group = PropertyGroup.Status, UiHint = UiHints.Sparkline, Order = 10)]
         public ImmutableArray<double> Trend { get; private set; } = ImmutableArray<double>.Empty;
@@ -73,6 +78,10 @@ namespace Vion.Dale.DevHost.SmokeHost.LogicBlocks
         [ServiceProperty(Title = "Heimatposition", Description = "Editable struct — one input per field.")]
         [Presentation(DisplayName = "Heimatposition", Group = PropertyGroup.Configuration, Order = 20)]
         public Position HomePosition { get; set; } = new(47.3769, 8.5417);
+
+        [ServiceProperty(Title = "Verbindungsprofil", Description = "Editable struct — titled fields, a duration box that takes \"3s\", an ipv4 hint and a nullable field.")]
+        [Presentation(DisplayName = "Verbindungsprofil", Group = PropertyGroup.Configuration, Order = 25)]
+        public LinkProfile DesiredLink { get; set; } = new(Mood.Calm, "127.0.0.1", TimeSpan.FromSeconds(3), DateTime.UtcNow, null);
 
         [ServiceProperty(Title = "Bevorzugte Stimmung", Description = "Nullable enum — null means 'auto'.")]
         [Presentation(DisplayName = "Bevorzugte Stimmung", Group = PropertyGroup.Configuration, Order = 30)]
@@ -146,6 +155,11 @@ namespace Vion.Dale.DevHost.SmokeHost.LogicBlocks
             Trend = ImmutableArray.Create(_trendBuffer);
 
             CurrentMood = (Mood)(_ticks / 5 % 3);
+            CurrentLink = new LinkProfile(CurrentMood,
+                                          DesiredLink.Address,
+                                          TimeSpan.FromMilliseconds(900 + _ticks % 600),
+                                          LastTickAt,
+                                          _ticks % 10 == 0 ? null : TimeSpan.FromMilliseconds(_ticks % 10 * 50));
             LastNote = CurrentMood == Mood.Overloaded ? $"N{_ticks:D4}: load high" : null;
         }
 
@@ -161,6 +175,23 @@ namespace Vion.Dale.DevHost.SmokeHost.LogicBlocks
         double X,
         [StructField(Title = "Y", Unit = "deg", Minimum = -180, Maximum = 180, Description = "Vertical coordinate.")]
         double Y);
+
+    /// <summary>
+    ///     The struct-field presentation fixture: an enum field (whose schema title is its type name, so the
+    ///     wire key is the honest label), an ipv4 string, a duration, a timestamp and a nullable duration.
+    ///     Rendered read-only by the StructViewer and writable by the flat-struct form.
+    /// </summary>
+    public readonly record struct LinkProfile(
+        [StructField(Title = "State", Description = "Enum field — the authored title is dropped, so this must fall back to the wire key.")]
+        Mood State,
+        [StructField(Title = "Server address", StringFormat = StringFormats.Ipv4, Description = "Where the client connects. The format is a hint, not validation.")]
+        string Address,
+        [StructField(Title = "Round trip (last)", Description = "Duration field — must read as a clock time, never as PT1.2S.")]
+        TimeSpan RoundTrip,
+        [StructField(Title = "Last contact", Description = "Timestamp field — must read as a date, never as an ISO string.")]
+        DateTime LastContactAt,
+        [StructField(Title = "Queued wait (last)", Description = "Nullable duration — the ∅ toggle applies here.")]
+        TimeSpan? QueuedWait);
 
     /// <summary>Status enum with per-member label + severity — exercises the status-pill render across value / nullable.</summary>
     public enum Mood

@@ -769,6 +769,7 @@ button { cursor: pointer; font-family: inherit; }
 .edit-toggle { font-family: var(--mono); }
 .edit-toggle.open { color: var(--accent); border-color: var(--accent); }
 
+
 .trigger-button {
     background: var(--vion-acc-bg-def-primary);
     color: var(--vion-acc-fg-def-primary);
@@ -837,7 +838,8 @@ button { cursor: pointer; font-family: inherit; }
 .editor-tabs button.active { color: var(--text); border-bottom-color: var(--accent); }
 
 .field-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; min-height: 28px; }
-.field-name { font-size: 12px; color: var(--text); }
+.field-label { font-size: 12px; color: var(--text); }
+.field-name { font-size: 11px; color: var(--text-faint); }
 .field-bounds { font-size: 10.5px; color: var(--text-faint); }
 .field-row input[type="number"] { width: 110px; }
 .field-row input[type="text"] { width: 190px; }
@@ -962,7 +964,8 @@ button { cursor: pointer; font-family: inherit; }
 .viewer-empty { color: var(--text-faint); font-size: 11.5px; }
 
 .viewer-field { display: flex; align-items: center; gap: 8px; padding: 2px 0; min-height: 24px; }
-.viewer-name { font-size: 11.5px; color: var(--text-dim); }
+.viewer-label { font-size: 12px; color: var(--text-dim); }
+.viewer-name { font-size: 11px; color: var(--text-faint); }
 .viewer-value { font-size: 12px; color: var(--text); }
 
 .viewer-table-wrap { overflow-x: auto; max-height: 320px; overflow-y: auto; }
