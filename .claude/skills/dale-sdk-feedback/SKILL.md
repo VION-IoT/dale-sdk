@@ -62,7 +62,15 @@ comments, never briefs, never implements.
 ## Title convention
 
 `<area>: <symptom or need>` — lowercase area from this closed list, then a plain clause of at
-most ~80 characters, no em-dash sub-clauses (details belong in the body):
+most ~80 characters, no em-dash sub-clauses (details belong in the body).
+
+**The clause follows the type.** A **Bug** names the symptom — what goes wrong today. A **Story**
+names the outcome to reach, phrased as a goal, because that is what the item is for; a Story
+titled with its symptom reads as a defect on every board and in every JQL result, whatever the
+type field says. `emission: whole-struct diagnostics default to a permanent 4 Hz emitter` is a
+Bug title on a Story; `emission: make publishing a diagnostics struct whole cheap by default` is
+the same item stated as the need. The body is unaffected — a Story's `## Need` describes today's
+cost either way.
 
 `sdk` · `emission` · `introspection` · `analyzers` · `modbus-tcp` · `modbus-rtu` · `testkit` ·
 `devhost` · `scenario` · `topology` · `cli` · `xunit` · `docs` · `runtime` (items routed outside
@@ -94,6 +102,7 @@ Say so, emit the finished draft, and name the skipped write so the curator can m
 | Trusting a commit's DF/issue number | Verify by content — numbers have drifted |
 | Duplicate check on open items only | Include resolved; a `Wird nicht gemacht` IS the recorded position |
 | Free-form or sentence-length summary | `<area>: <clause>` from the closed area list |
+| Titling a Story with its symptom | A Bug names what breaks; a Story names the outcome to reach |
 | Closing without an explicit `resolution` in the transition fields | Jira lets it through; the item goes half-dead — set it, then re-read to confirm |
 | Creating the item in the same breath as drafting it | The gate is explicit confirmation, every time |
 | A dismissal that lives only in chat | Closed item with resolution, or reply-on-record — never chat-only |
