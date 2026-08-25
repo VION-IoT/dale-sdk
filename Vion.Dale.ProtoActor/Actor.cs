@@ -46,7 +46,13 @@ namespace Vion.Dale.ProtoActor
                     // The actor has terminated. Dispose the per-actor DI scope so its resolved IDisposable
                     // dependencies are reclaimed. The receiver's own teardown (e.g. LogicBlockBase.Stopping(),
                     // which is driven by the domain stop request and runs before the actor is Proto-stopped)
-                    // has already completed by this point, so a just-issued safe-baseline write is not cut off.
+                    // has returned by this point — but that only means it stopped executing, not that a device
+                    // write it issued was delivered. Stopping() can merely enqueue such a write, and disposing
+                    // the scope here disposes the client that owns the queue, cancelling both what is queued and
+                    // the request in flight. The runtime therefore grants a bounded grace period before it
+                    // terminates the actors (DevHost deliberately does not — see DevLogicSystemInitializer.StopAsync),
+                    // so a just-issued safe-baseline write has a chance to reach the wire. That window is
+                    // best-effort: it buys time, it does not guarantee delivery.
                     _scope?.Dispose();
                     break;
 

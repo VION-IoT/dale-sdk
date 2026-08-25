@@ -225,6 +225,15 @@ namespace Vion.Dale.DevHost
                                          RemainingBackstop(sequenceStarted),
                                          "collecting persistent data snapshots");
 
+            // D3: the runtime pauses here for a stop grace period — a bounded, best-effort window that gives a
+            // device write a block enqueued in Stopping() a chance to reach the wire before termination disposes
+            // the per-block DI scopes and, with them, the clients that own the request queues. DevHost
+            // deliberately has none, and this is the one place the message sequence intentionally diverges. A
+            // wall-clock pause would be dead weight charged to every one of the 100+ `await using … Build()`
+            // teardowns in Vion.Dale.DevHost.Test, and a virtual one is worse: on a stepped host nothing advances
+            // the fake clock during teardown, so the pause would never elapse. Do not add one — the gap is
+            // decided, not an oversight.
+
             // Termination gets whatever is left of the deadline but never less than TerminateFloor: it is the
             // step that actually releases the actors and their per-block DI scopes, so a deadline already
             // consumed by a block that would not acknowledge must not skip it entirely.

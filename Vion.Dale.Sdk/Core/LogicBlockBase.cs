@@ -485,7 +485,8 @@ namespace Vion.Dale.Sdk.Core
         /// <summary>
         ///     Called once before the block is removed, after the runtime processes a stop request. The right place to
         ///     <b>release resources acquired during the block's lifetime</b>: detach event handlers attached in
-        ///     <see cref="Ready" />, cancel in-flight operations, dispose injected clients, flush pending I/O.
+        ///     <see cref="Ready" />, cancel in-flight operations, dispose clients the block created itself. A final
+        ///     safe-state device write can be issued here, but only best-effort — it may not reach the device.
         /// </summary>
         /// <remarks>
         ///     <para>
@@ -494,13 +495,20 @@ namespace Vion.Dale.Sdk.Core
         ///         <see cref="ServicePropertyAttribute" /> values behave normally.
         ///     </para>
         ///     <para>
-        ///         <b>Three things worth knowing:</b>
+        ///         <b>Four things worth knowing:</b>
         ///     </para>
         ///     <list type="bullet">
         ///         <item>
         ///             <b>Persistence snapshot is already captured.</b> The runtime captures the persistent-state snapshot
         ///             before calling Stopping, so writes to a <see cref="ServicePropertyAttribute" /> from inside Stopping
         ///             do <em>not</em> survive a restart.
+        ///         </item>
+        ///         <item>
+        ///             <b>A final device write can only be issued, never awaited.</b> A write from inside Stopping is
+        ///             only handed to the client; its completion arrives as a later message to this block, which
+        ///             cannot be processed while Stopping is still running. Issue it and return — never wait for it,
+        ///             never assume it arrived. The runtime allows a bounded, best-effort window before the block's
+        ///             clients are disposed, but a slow link can outlast it.
         ///         </item>
         ///         <item>
         ///             <b>Outbound emits are not guaranteed to be observed.</b> Linked blocks may already be shutting down;
