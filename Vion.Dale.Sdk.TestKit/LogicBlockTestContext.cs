@@ -26,6 +26,13 @@ namespace Vion.Dale.Sdk.TestKit
     ///         drain.
     ///     </para>
     /// </summary>
+    /// <remarks>
+    ///     Threading: enqueue from any thread, drive from the test thread. Recording a message and
+    ///     queueing an action are safe from any thread, so a block whose I/O client completes on a
+    ///     background thread works under this context. Driving — <see cref="AdvanceTime" />,
+    ///     <see cref="FlushPendingActions" /> and the <c>Verify</c> helpers — is for the test thread
+    ///     only; driving from two threads at once is not supported.
+    /// </remarks>
     [PublicApi]
     public class LogicBlockTestContext<TLogicBlock> : IActorContext
         where TLogicBlock : LogicBlockBase
@@ -39,6 +46,13 @@ namespace Vion.Dale.Sdk.TestKit
                                                                    0,
                                                                    0,
                                                                    TimeSpan.Zero);
+
+        // Guards both _pendingActions and _sentMessages against enqueue/record from background
+        // threads (see the threading note on the class). Entries are always taken under the gate and
+        // the action invoked outside it — mirroring Vion.Dale.DevHost.Control.VirtualSchedule's
+        // TryTakeNext — so an action that re-enters via SendToSelf, or that blocks on a background
+        // thread which itself needs to enqueue, cannot deadlock.
+        private readonly object _gate = new();
 
         // (Deadline, Action) tuples — deadlines come from the FakeTimeProvider's UtcNow at the
         // moment InvokeSynchronizedAfter was called, plus the requested delay. AdvanceTime
@@ -236,10 +250,13 @@ namespace Vion.Dale.Sdk.TestKit
         public IReadOnlyList<ContractMessage<TData>> GetContractMessages<TData>(string? contractIdentifier = null)
             where TData : struct
         {
-            return _sentMessages.Where(s => s.Message is ContractMessage<TData>)
-                                .Select(s => (ContractMessage<TData>)s.Message)
-                                .Where(m => contractIdentifier == null || m.LogicBlockContractId.ContractIdentifier == contractIdentifier)
-                                .ToList();
+            lock (_gate)
+            {
+                return _sentMessages.Where(s => s.Message is ContractMessage<TData>)
+                                    .Select(s => (ContractMessage<TData>)s.Message)
+                                    .Where(m => contractIdentifier == null || m.LogicBlockContractId.ContractIdentifier == contractIdentifier)
+                                    .ToList();
+            }
         }
 
         /// <summary>
@@ -247,7 +264,10 @@ namespace Vion.Dale.Sdk.TestKit
         /// </summary>
         public void ClearRecordedMessages()
         {
-            _sentMessages.Clear();
+            lock (_gate)
+            {
+                _sentMessages.Clear();
+            }
         }
 
         /// <summary>
@@ -256,7 +276,10 @@ namespace Vion.Dale.Sdk.TestKit
         ///     immediately before that action runs, so an action's own <c>UtcNow</c> read sees the time
         ///     it was scheduled for (not the post-advance target). Actions queued during dispatch with a
         ///     deadline still ≤ the target time fire in the same call (cascading); actions whose
-        ///     deadline lies beyond the target stay pending for a later <c>AdvanceTime</c>.
+        ///     deadline lies beyond the target stay pending for a later <c>AdvanceTime</c>. The clock
+        ///     only ever moves forward: an action queued from a background thread can carry a deadline
+        ///     this call has already passed, and it runs at the current virtual time rather than
+        ///     rewinding the clock.
         /// </summary>
         public void AdvanceTime(TimeSpan delta)
         {
@@ -275,32 +298,26 @@ namespace Vion.Dale.Sdk.TestKit
             _dispatching = true;
             try
             {
-                while (true)
+                // Take the entry under the gate, invoke it outside: a fired action may itself enqueue
+                // (a re-entrant SendToSelf) or wait on a background thread that needs to enqueue.
+                while (TryTakeNextDueAction(target, out var deadline, out var action))
                 {
-                    // Pick the next action whose deadline is in [now, target]. By repeatedly
-                    // finding the minimum we get deterministic deadline ordering even when actions
-                    // queued during dispatch land between already-due peers.
-                    var nextIndex = -1;
-                    var nextDeadline = DateTimeOffset.MaxValue;
-                    for (var i = 0; i < _pendingActions.Count; i++)
+                    // Forward only. A background thread reads the clock in the window between the
+                    // take above and this line, so the deadline it stamps can already be in the past
+                    // by the time its own entry is taken — and FakeTimeProvider throws rather than
+                    // going backwards, which would both fail the drive and consume the action. Such
+                    // an action runs at the current virtual time, as a late message does in
+                    // production. With a single-threaded enqueue this never trips: the queue's
+                    // minimum deadline is then always >= the clock, so the clock still lands on
+                    // every action's own deadline. Clamping here rather than setting the clock
+                    // under the gate keeps SetUtcNow — which fires whatever timers the
+                    // externally-owned FakeTimeProvider carries — out of the gate.
+                    if (deadline > TimeProvider.GetUtcNow())
                     {
-                        var d = _pendingActions[i].Deadline;
-                        if (d <= target && d < nextDeadline)
-                        {
-                            nextIndex = i;
-                            nextDeadline = d;
-                        }
+                        TimeProvider.SetUtcNow(deadline);
                     }
 
-                    if (nextIndex < 0)
-                    {
-                        break;
-                    }
-
-                    var (deadline, action) = _pendingActions[nextIndex];
-                    _pendingActions.RemoveAt(nextIndex);
-                    TimeProvider.SetUtcNow(deadline);
-                    action();
+                    action!();
                 }
 
                 // Land the clock at the requested target, regardless of where the last dispatched
@@ -338,8 +355,15 @@ namespace Vion.Dale.Sdk.TestKit
                 throw new InvalidOperationException("FlushPendingActions cannot be called recursively from within a fired action.");
             }
 
-            var snapshot = _pendingActions.ToList();
-            _pendingActions.Clear();
+            // Snapshot and clear as one step under the gate: an Add landing between the two was
+            // silently erased, and no retry can heal a lost action.
+            List<(DateTimeOffset Deadline, Action Action)> snapshot;
+            lock (_gate)
+            {
+                snapshot = _pendingActions.ToList();
+                _pendingActions.Clear();
+            }
+
             _dispatching = true;
             try
             {
@@ -361,7 +385,7 @@ namespace Vion.Dale.Sdk.TestKit
         /// </summary>
         public IReadOnlyList<TMessage> GetSentMessagesOfTypePublic<TMessage>()
         {
-            return _sentMessages.Where(s => s.Message is TMessage).Select(s => (TMessage)s.Message).ToList();
+            return GetSentMessagesOfType<TMessage>();
         }
 
         /// <summary>
@@ -409,9 +433,47 @@ namespace Vion.Dale.Sdk.TestKit
             throw new ArgumentException("Expression must be a property access, e.g. lb => lb.MyProperty", nameof(propertySelector));
         }
 
-        private IEnumerable<TMessage> GetSentMessagesOfType<TMessage>()
+        // Materialised, not lazy: a deferred Where().Select() would enumerate _sentMessages at the
+        // caller, outside the gate, so any guard placed here would be vacuous.
+        private IReadOnlyList<TMessage> GetSentMessagesOfType<TMessage>()
         {
-            return _sentMessages.Where(s => s.Message is TMessage).Select(s => (TMessage)s.Message);
+            lock (_gate)
+            {
+                return _sentMessages.Where(s => s.Message is TMessage).Select(s => (TMessage)s.Message).ToList();
+            }
+        }
+
+        // The minimum-deadline entry in [now, target], removed from the queue — or false when none is
+        // due. Mirrors VirtualSchedule.TryTakeNext: the entry is returned so the caller invokes it
+        // outside the gate. No sequence tie-break is needed; the strict `d < nextDeadline` scan keeps
+        // the lowest index among equal deadlines, which is insertion order.
+        private bool TryTakeNextDueAction(DateTimeOffset target, out DateTimeOffset deadline, out Action? action)
+        {
+            lock (_gate)
+            {
+                var nextIndex = -1;
+                var nextDeadline = DateTimeOffset.MaxValue;
+                for (var i = 0; i < _pendingActions.Count; i++)
+                {
+                    var d = _pendingActions[i].Deadline;
+                    if (d <= target && d < nextDeadline)
+                    {
+                        nextIndex = i;
+                        nextDeadline = d;
+                    }
+                }
+
+                if (nextIndex < 0)
+                {
+                    deadline = default;
+                    action = null;
+                    return false;
+                }
+
+                (deadline, action) = _pendingActions[nextIndex];
+                _pendingActions.RemoveAt(nextIndex);
+                return true;
+            }
         }
 
         #region IActorContext implementation, explicit to hide in tests
@@ -428,37 +490,49 @@ namespace Vion.Dale.Sdk.TestKit
 
         void IActorContext.SendTo(IActorReference target, object message, Dictionary<string, string>? headers)
         {
-            _sentMessages.Add((target, message, headers));
+            lock (_gate)
+            {
+                _sentMessages.Add((target, message, headers));
+            }
         }
 
         void IActorContext.SendToSelf(object message)
         {
-            _sentMessages.Add((_self, message, null));
-
-            // Mirror SendToSelfAfter's drain enlistment: in production the runtime dispatches
-            // InvokeActionMessage on its next message-pump iteration; in TestKit there is no pump,
-            // so we enlist with deadline = now so FlushPendingActions / AdvanceTime(>=0) drain it.
-            // Without this, LogicBlockBase.InvokeSynchronized(action) is silently lost under the
-            // TestKit (whereas InvokeSynchronizedAfter(action, TimeSpan.Zero) would work).
-            if (message is InvokeActionMessage actionMessage)
+            lock (_gate)
             {
-                _pendingActions.Add((TimeProvider.GetUtcNow(), actionMessage.Action));
+                _sentMessages.Add((_self, message, null));
+
+                // Mirror SendToSelfAfter's drain enlistment: in production the runtime dispatches
+                // InvokeActionMessage on its next message-pump iteration; in TestKit there is no pump,
+                // so we enlist with deadline = now so FlushPendingActions / AdvanceTime(>=0) drain it.
+                // Without this, LogicBlockBase.InvokeSynchronized(action) is silently lost under the
+                // TestKit (whereas InvokeSynchronizedAfter(action, TimeSpan.Zero) would work).
+                if (message is InvokeActionMessage actionMessage)
+                {
+                    _pendingActions.Add((TimeProvider.GetUtcNow(), actionMessage.Action));
+                }
             }
         }
 
         void IActorContext.SendToSelfAfter(object message, TimeSpan delay)
         {
-            _sentMessages.Add((_self, message, null));
-
-            if (message is InvokeActionMessage actionMessage)
+            lock (_gate)
             {
-                _pendingActions.Add((TimeProvider.GetUtcNow() + delay, actionMessage.Action));
+                _sentMessages.Add((_self, message, null));
+
+                if (message is InvokeActionMessage actionMessage)
+                {
+                    _pendingActions.Add((TimeProvider.GetUtcNow() + delay, actionMessage.Action));
+                }
             }
         }
 
         void IActorContext.RespondToSender(object message)
         {
-            _sentMessages.Add((_sender, message, null));
+            lock (_gate)
+            {
+                _sentMessages.Add((_sender, message, null));
+            }
         }
 
         #endregion
