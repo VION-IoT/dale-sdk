@@ -1,6 +1,6 @@
 # RFC 0018 — Per-block Modbus socket lifetime: scope-owned client/server + reuse-safe server bind (DF-46)
 
-- **Status:** Implemented (Part A + Part B) in dale-sdk — 2026-07-15; pending merge + release. The runtime (`dale`) is a **package bump, zero code change**.
+- **Status:** Implemented (Part A + Part B) in dale-sdk — 2026-07-15; pending merge + release. The runtime (`dale`) is a **package bump, zero code change**. **§9 corrected 2026-08-25** — the teardown-write claim it recorded as satisfied was not.
 - **Author:** jonas.bertsch
 - **Related:** RFC 0007 (Modbus-TCP server support — this extends its client/server *lifetime* story); RFC 0005 (observability — same `ActorSystem.CreateRootActorFromDi` spawn site). The Part A fix is **SDK-internal** (the block-instantiation path in `Vion.Dale.ProtoActor` + `Vion.Dale.DevHost`); the private `dale` runtime is involved only if its production initializer instantiates blocks at its own root-provider site rather than reusing the SDK spawn API (§4). Consumer: `logic-block-libraries` (the current `Stopping()` workaround). Origin: **DF-46** in the consumer's SDK-feedback field log (retired 2026-08 — history in `logic-block-libraries` git, `docs/dale-preview-feedback.md`).
 
@@ -111,9 +111,23 @@ The consumer currently papers over the **client leak** by having every Modbus bl
 
 ## 9. Implementation notes (2026-07-15)
 
+> **Correction (2026-08-25).** The claim below that a safe-baseline write "is not cut off" was **wrong, and
+> shipped wrong**. `Stopping()` having returned means only that the block stopped executing — it can merely
+> *enqueue* a device write, because the client delivers the completion as a message to the very actor that is
+> running `Stopping()`, so the block cannot wait for it. Disposing the per-actor scope then disposes the
+> client, and `RequestQueue.Dispose` completes the channel writer and cancels the CTS whose token every
+> queued request runs under — killing both the queue and the request in flight. §4's caveat bullet — *"a just-issued
+> fire-and-forget safe-baseline write must drain/settle before the scope disposes the client"* — had stated
+> the requirement correctly; §9 then recorded it as satisfied when nothing satisfied it, and a consumer
+> relied on that in the field (three device blocks writing a safe state from `Stopping()`, arriving only by
+> luck). The `dale` runtime now pauses for a bounded grace period between the persistent-data snapshot and
+> terminating the actors, so such a write has a chance to go out. It is a bounded delay, never a wait for
+> idle — nothing inspects queue depth — and on a degraded link it will often not be enough. §4 is left as
+> written; it was already right.
+
 Shipped in `dale-sdk` on branch `docs/df46-modbus-socket-lifetime` (RFC + code together):
 
-- **Part A — core (`Vion.Dale.ProtoActor`).** `Actor<T>` gained an optional `IServiceScope` disposed on Proto's terminal `Stopped`; `CreateRootActorFromDi` creates a per-actor scope, resolves the receiver from `scope.ServiceProvider`, hands it to the actor, and disposes it if construction fails before spawn. New `Vion.Dale.ProtoActor.Test` (the component had none) proves a DI-resolved `IDisposable` dependency is reclaimed on stop (RED→GREEN). The block's `Stopping()` runs first (it is driven by the domain stop request, before the actor is Proto-stopped), so a safe-baseline write is not cut off.
+- **Part A — core (`Vion.Dale.ProtoActor`).** `Actor<T>` gained an optional `IServiceScope` disposed on Proto's terminal `Stopped`; `CreateRootActorFromDi` creates a per-actor scope, resolves the receiver from `scope.ServiceProvider`, hands it to the actor, and disposes it if construction fails before spawn. New `Vion.Dale.ProtoActor.Test` (the component had none) proves a DI-resolved `IDisposable` dependency is reclaimed on stop (RED→GREEN). The block's `Stopping()` runs first (it is driven by the domain stop request, before the actor is Proto-stopped) — which was recorded here as meaning a safe-baseline write is not cut off. That does not follow; see the correction above.
 - **Part A — DevHost (`Vion.Dale.DevHost`).** `DevLogicSystemInitializer.CreateLogicBlockActors` switched from `GetService` + `CreateRootActorFor(pre-built instance)` to `CreateRootActorFromDi` — the same spawn production uses, so DevHost rides the same scoping. DevHost recycle already rebuilds the whole provider (so it never had the persistent-root leak); this is production parity + robustness, verified by the 189-test DevHost suite.
 - **Part B — server bind (`Vion.Dale.Sdk.Modbus.Tcp`).** New internal `ReuseAddressTcpClientProvider` (`ExclusiveAddressUse=false`) injected via `ModbusTcpServer.Start(ITcpClientProvider, leaveOpen: false)` — FluentModbus 5.3.2's public hook, no fork/upgrade. Every real-socket `ModbusTcpServerIntegrationShould` test now binds through it (green), plus a focused provider test.
 - **Verification.** Full solution green (1900+ tests) with the shared actor-lifecycle change — no block-lifecycle/stepping/scenario regression. **Runtime:** a `Vion.Dale.ProtoActor` package bump; no `dale` code change.
