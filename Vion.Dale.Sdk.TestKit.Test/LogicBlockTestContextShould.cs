@@ -1,7 +1,10 @@
 using System;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Time.Testing;
 using Moq;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Utils;
 
 namespace Vion.Dale.Sdk.TestKit.Test
@@ -528,6 +531,124 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
             Assert.IsTrue(completed, "FlushPendingActions must not unboundedly drain when an action re-schedules itself via InvokeSynchronizedAfter.");
             Assert.AreEqual(1, block.TickCount, "OnTick should fire exactly once per FlushPendingActions call.");
+        }
+
+        // --- Thread safety: enqueue from any thread, drive from the test thread (VION-63) ---
+
+        [TestMethod]
+        [DataRow(false, DisplayName = "drained by FlushPendingActions")]
+        [DataRow(true, DisplayName = "drained by AdvanceTime")]
+        public void DrainEveryActionExactlyOnceWhenEnqueuedFromBackgroundThreads(bool driveWithAdvanceTime)
+        {
+            // A block driven by a real I/O client (an ILogicBlockModbusTcpClient polling a real
+            // socket) marshals its completion callbacks onto the actor context from background
+            // socket-callback threads, so _pendingActions and _sentMessages take concurrent Adds
+            // while the test thread drains. Unguarded, the drain copied a torn snapshot — a default
+            // (DateTimeOffset, Action) tuple whose Action is null (NullReferenceException) or an
+            // Array.Copy over/under-run (IndexOutOfRangeException / ArgumentException) — and an Add
+            // landing between the old ToList() and Clear() was silently erased. A guarded queue is
+            // necessary but not sufficient for the AdvanceTime path: a deadline stamped from a clock
+            // read the drain has since moved past would take the clock backwards, which the
+            // FakeTimeProvider refuses. VION-63.
+            const int producerCount = 4;
+            const int actionsPerProducer = 2000;
+            const int totalActions = producerCount * actionsPerProducer;
+
+            // A non-zero advance is what makes this row more than a slower copy of the flush row:
+            // only a moving virtual clock produces the window in which a background thread stamps a
+            // deadline from a clock read the drain is about to leave behind. AdvanceTime(Zero) never
+            // moves the clock and exercises none of it.
+            var advanceStep = TimeSpan.FromMilliseconds(1);
+
+            var block = LogicBlockTestHelper.Create<SampleLogicBlock>();
+            var testContext = block.CreateTestContext().Build();
+            testContext.ClearRecordedMessages();
+
+            void Drive()
+            {
+                if (driveWithAdvanceTime)
+                {
+                    testContext.AdvanceTime(advanceStep);
+                }
+                else
+                {
+                    testContext.FlushPendingActions();
+                }
+            }
+
+            // The final pass has to empty the queue whatever the deadlines are: FlushPendingActions
+            // ignores them, AdvanceTime needs a window wider than any deadline still pending.
+            void DrainRemaining()
+            {
+                if (driveWithAdvanceTime)
+                {
+                    testContext.AdvanceTime(TimeSpan.FromDays(1));
+                }
+                else
+                {
+                    testContext.FlushPendingActions();
+                }
+            }
+
+            // One slot per enqueued action, so a lost action reads 0 and a double-run reads 2.
+            var runCounts = new int[totalActions];
+
+            // Dedicated threads released together, so the Adds genuinely overlap the drain instead
+            // of trickling in behind it — enqueueing after the drain has finished is vacuously green.
+            using var startLine = new Barrier(producerCount);
+            var producers = Enumerable.Range(0, producerCount)
+                                      .Select(producer => Task.Factory.StartNew(() =>
+                                                                                {
+                                                                                    startLine.SignalAndWait();
+                                                                                    for (var i = 0; i < actionsPerProducer; i++)
+                                                                                    {
+                                                                                        var index = producer * actionsPerProducer + i;
+
+                                                                                        void Run()
+                                                                                        {
+                                                                                            Interlocked.Increment(ref runCounts[index]);
+                                                                                        }
+
+                                                                                        // Both enqueue paths — SendToSelf stamps deadline = now, SendToSelfAfter
+                                                                                        // stamps now + delay — and both read the virtual clock while the drain is
+                                                                                        // moving it. The delays are sub-millisecond and widely spread on purpose:
+                                                                                        // they keep the drain marching through many distinct deadlines, which is
+                                                                                        // what opens the stale-clock-read window. A coarse or uniform delay piles
+                                                                                        // the queue up on one deadline, the clock never advances, and the row goes
+                                                                                        // vacuously green.
+                                                                                        if (index % 4 == 0)
+                                                                                        {
+                                                                                            block.InvokeSynchronized(Run);
+                                                                                        }
+                                                                                        else
+                                                                                        {
+                                                                                            block.InvokeSynchronizedAfter(Run, TimeSpan.FromTicks(1 + index % 997));
+                                                                                        }
+                                                                                    }
+                                                                                },
+                                                                                TaskCreationOptions.LongRunning))
+                                      .ToArray();
+            var enqueueing = Task.WhenAll(producers);
+
+            // Drive from the test thread while the producers run. Once every producer has completed
+            // its Adds happen-before the task completion, so a single further drain sweeps up
+            // whatever landed after the last in-loop pass — the outcome is deterministic even though
+            // the interleaving is not.
+            do
+            {
+                Drive();
+            }
+            while (!enqueueing.IsCompleted);
+
+            DrainRemaining();
+            enqueueing.GetAwaiter().GetResult(); // surface a producer-side failure as itself
+
+            Assert.AreEqual(totalActions,
+                            runCounts.Count(runs => runs == 1),
+                            "Every action enqueued from a background thread must run exactly once — none lost to a snapshot-then-clear gap, none run twice.");
+            Assert.HasCount(totalActions,
+                            testContext.GetSentMessagesOfTypePublic<LogicBlockBase.InvokeActionMessage>(),
+                            "Every action enqueued from a background thread must be recorded exactly once in the sent-message log.");
         }
     }
 }
