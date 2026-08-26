@@ -5,8 +5,11 @@
 #   upload-prod  gated by the GitHub `production` environment (required reviewer: vion-iot-developers team);
 #                re-packs and `dale upload --environment production`. No re-test — upload-test already
 #                validated this commit. `--skip-duplicate` makes re-pushing the same (packageId, <Version>)
-#                a no-op, so a release is just a <Version> bump in the library csproj (independent of the
-#                SDK; see scripts/set-version.ps1).
+#                a no-op, so a release is just a <Version> bump in the library csproj. Independent of the
+#                SDK's *tag* — no SDK release is needed to ship a library — but not tracked separately in
+#                practice: scripts/set-version.ps1 sets it to the SDK version along with the
+#                PackageReference, so a library ships on the release cadence unless someone bumps it by
+#                hand in between.
 #
 # Credentials are environment-scoped secrets: the `test` and `production` GitHub environments each carry
 # their own DALE_CI_CLIENT_ID/SECRET (different integrator service accounts). The integrator is auto-resolved

@@ -7,10 +7,12 @@ param(
     [string]$Scope = "references"
 )
 
-# Updates <PackageReference> versions in templates and examples after a new
-# Vion.Dale.* SDK release is published to the feed. SDK project versions
-# themselves are no longer stored in .csproj — they come from the git tag
-# at pack time (see .github/workflows/publish.yml and README "Releases").
+# Updates <PackageReference> versions in templates, examples AND libraries/ after
+# a new Vion.Dale.* SDK release is published to the feed, plus the own <Version>
+# of the one packable project per example and per library. Those three are exactly
+# what docs/releasing.md obliges bumping, so the bump is never partly manual.
+# SDK project versions themselves are no longer stored in .csproj — they come from
+# the git tag at pack time (see .github/workflows/publish.yml and README "Releases").
 
 $ErrorActionPreference = "Stop"
 
