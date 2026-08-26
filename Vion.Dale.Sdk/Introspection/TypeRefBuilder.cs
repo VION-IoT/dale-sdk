@@ -74,6 +74,18 @@ namespace Vion.Dale.Sdk.Introspection
         }
 
         /// <summary>
+        ///     Builds the <see cref="TypeRef" /> of a single positional struct field, honouring the
+        ///     parameter's nullable-reference annotation exactly as <see cref="BuildStructTypeRef" /> does.
+        ///     Exposed so callers that reason about a field's wire schema — notably
+        ///     <see cref="StructFieldPresentationBuilder" />, which must know whether the field's
+        ///     <c>title</c> slot is identity-bearing — need not re-derive it.
+        /// </summary>
+        internal static TypeRef BuildForStructField(ParameterInfo parameter)
+        {
+            return Build(parameter.ParameterType, IsNullableReferenceType(parameter));
+        }
+
+        /// <summary>
         ///     Returns <c>true</c> when <paramref name="type" /> is a <c>readonly record struct</c>.
         ///     The C# compiler emits <c>[IsReadOnlyAttribute]</c> on every <c>readonly struct</c>.
         ///     For the record part, older compilers (pre-C# 13 / .NET &lt; 10) emit a
@@ -117,6 +129,37 @@ namespace Vion.Dale.Sdk.Introspection
             }
 
             return char.ToLowerInvariant(s[0]) + s.Substring(1);
+        }
+
+        /// <summary>
+        ///     Peels <c>Nullable&lt;T&gt;</c> and <c>ImmutableArray&lt;T&gt;</c> wrappers recursively
+        ///     until a base type is reached. Returns the type if it is a readonly record struct,
+        ///     otherwise returns <c>null</c>.
+        /// </summary>
+        internal static Type? ExtractStructType(Type t)
+        {
+            while (true)
+            {
+                var u = Nullable.GetUnderlyingType(t);
+                if (u is not null)
+                {
+                    t = u;
+                    continue;
+                }
+
+                if (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(ImmutableArray<>))
+                {
+                    t = t.GetGenericArguments()[0];
+                    continue;
+                }
+
+                if (t.IsValueType && IsReadonlyRecordStruct(t))
+                {
+                    return t;
+                }
+
+                return null;
+            }
         }
 
         private static TypeRef Build(Type type, bool isNullableRef)
@@ -279,37 +322,6 @@ namespace Vion.Dale.Sdk.Introspection
             }
 
             return new StructTypeRef(structType.Name, fieldsBuilder.ToImmutable(), requiredBuilder.ToImmutable());
-        }
-
-        /// <summary>
-        ///     Peels <c>Nullable&lt;T&gt;</c> and <c>ImmutableArray&lt;T&gt;</c> wrappers recursively
-        ///     until a base type is reached. Returns the type if it is a readonly record struct,
-        ///     otherwise returns <c>null</c>.
-        /// </summary>
-        private static Type? ExtractStructType(Type t)
-        {
-            while (true)
-            {
-                var u = Nullable.GetUnderlyingType(t);
-                if (u is not null)
-                {
-                    t = u;
-                    continue;
-                }
-
-                if (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(ImmutableArray<>))
-                {
-                    t = t.GetGenericArguments()[0];
-                    continue;
-                }
-
-                if (t.IsValueType && IsReadonlyRecordStruct(t))
-                {
-                    return t;
-                }
-
-                return null;
-            }
         }
 
         /// <summary>

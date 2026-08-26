@@ -376,7 +376,7 @@ namespace Vion.Dale.Sdk.Introspection
             var typeRef = TypeRefBuilder.BuildForProperty(prop);
             var structFieldAnnotations = TypeRefBuilder.BuildStructFieldAnnotations(prop.PropertyType);
             var metadata = PropertyMetadataBuilder.Build(prop, typeRef, structFieldAnnotations);
-            var (schema, presentation, runtime) = ExtractSiblings(metadata);
+            var (schema, presentation, runtime) = ExtractSiblings(metadata, prop.PropertyType);
             runtime = ApplyInstantiationParameterRuntime(runtime, prop, binding, typeRef);
 
             return new LogicBlockIntrospectionResult.ServicePropertyInfo
@@ -399,7 +399,7 @@ namespace Vion.Dale.Sdk.Introspection
             var typeRef = TypeRefBuilder.BuildForProperty(ifaceProp);
             var structFieldAnnotations = TypeRefBuilder.BuildStructFieldAnnotations(ifaceProp.PropertyType);
             var metadata = PropertyMetadataBuilder.BuildSplit(ifaceProp, implProp, typeRef, structFieldAnnotations);
-            var (schema, presentation, runtime) = ExtractSiblings(metadata);
+            var (schema, presentation, runtime) = ExtractSiblings(metadata, ifaceProp.PropertyType);
             runtime = ApplyInstantiationParameterRuntime(runtime, implProp, binding, typeRef);
 
             return new LogicBlockIntrospectionResult.ServicePropertyInfo
@@ -417,7 +417,7 @@ namespace Vion.Dale.Sdk.Introspection
             var typeRef = TypeRefBuilder.BuildForProperty(prop);
             var structFieldAnnotations = TypeRefBuilder.BuildStructFieldAnnotations(prop.PropertyType);
             var metadata = PropertyMetadataBuilder.Build(prop, typeRef, structFieldAnnotations);
-            var (schema, presentation, runtime) = ExtractSiblings(metadata);
+            var (schema, presentation, runtime) = ExtractSiblings(metadata, prop.PropertyType);
             runtime = ApplyInstantiationParameterRuntime(runtime, prop, binding, typeRef);
 
             return new LogicBlockIntrospectionResult.ServiceMeasuringPointInfo
@@ -440,7 +440,7 @@ namespace Vion.Dale.Sdk.Introspection
             var typeRef = TypeRefBuilder.BuildForProperty(ifaceProp);
             var structFieldAnnotations = TypeRefBuilder.BuildStructFieldAnnotations(ifaceProp.PropertyType);
             var metadata = PropertyMetadataBuilder.BuildSplit(ifaceProp, implProp, typeRef, structFieldAnnotations);
-            var (schema, presentation, runtime) = ExtractSiblings(metadata);
+            var (schema, presentation, runtime) = ExtractSiblings(metadata, ifaceProp.PropertyType);
             runtime = ApplyInstantiationParameterRuntime(runtime, implProp, binding, typeRef);
 
             return new LogicBlockIntrospectionResult.ServiceMeasuringPointInfo
@@ -457,8 +457,14 @@ namespace Vion.Dale.Sdk.Introspection
         ///     JSON nodes — <c>schema</c>, <c>presentation</c>, <c>runtime</c> — as independent
         ///     <see cref="JsonNode" /> instances suitable for assignment to the introspection result DTO.
         ///     Each node is deep-cloned so it has no parent and can be safely reparented.
+        ///     <paramref name="schemaSourceType" /> is the CLR type the schema was built from — the same
+        ///     type <c>TypeRefBuilder.BuildStructFieldAnnotations</c> was handed — and drives the
+        ///     <c>presentation.fields</c> injection. Injecting here rather than at each caller is
+        ///     deliberate: all four emission paths (plain property, measuring point, and the two
+        ///     interface-bound variants) funnel through this method, so struct-field presentation
+        ///     cannot go missing on one of them by omission.
         /// </summary>
-        private static (JsonNode schema, JsonNode? presentation, JsonNode? runtime) ExtractSiblings(PropertyMetadata metadata)
+        private static (JsonNode schema, JsonNode? presentation, JsonNode? runtime) ExtractSiblings(PropertyMetadata metadata, Type schemaSourceType)
         {
             var fullDoc = (JsonObject)metadata.ToJson();
 
@@ -468,6 +474,7 @@ namespace Vion.Dale.Sdk.Introspection
             // presentation / runtime: null when the sibling was serialized as JSON null.
             var presentationNode = fullDoc["presentation"];
             var presentation = presentationNode is null ? null : presentationNode.DeepClone();
+            presentation = ApplyStructFieldPresentation(presentation, schemaSourceType);
             SortPresentationMaps(presentation as JsonObject);
 
             var runtimeNode = fullDoc["runtime"];
@@ -498,9 +505,37 @@ namespace Vion.Dale.Sdk.Introspection
                 return;
             }
 
+            SortOrderSensitiveMaps(presentation);
+
+            // VION-105's per-field node nests the same two maps one level down, and is itself keyed by
+            // field name off an ImmutableDictionary-backed walk — so both the field keys and each field's
+            // maps need the same treatment, or --export-config re-randomizes across processes again.
+            if (presentation["fields"] is not JsonObject fields)
+            {
+                return;
+            }
+
+            var sortedFields = new JsonObject();
+            foreach (var entry in fields.OrderBy(e => e.Key, StringComparer.Ordinal))
+            {
+                // Cloned because the value is still parented to `fields` until the assignment below replaces it.
+                var field = entry.Value?.DeepClone();
+                if (field is JsonObject fieldObject)
+                {
+                    SortOrderSensitiveMaps(fieldObject);
+                }
+
+                sortedFields[entry.Key] = field;
+            }
+
+            presentation["fields"] = sortedFields;
+        }
+
+        private static void SortOrderSensitiveMaps(JsonObject container)
+        {
             foreach (var mapName in OrderSensitivePresentationMaps)
             {
-                if (presentation[mapName] is not JsonObject map)
+                if (container[mapName] is not JsonObject map)
                 {
                     continue;
                 }
@@ -512,8 +547,33 @@ namespace Vion.Dale.Sdk.Introspection
                     sorted[entry.Key] = entry.Value?.DeepClone();
                 }
 
-                presentation[mapName] = sorted;
+                container[mapName] = sorted;
             }
+        }
+
+        /// <summary>
+        ///     VION-105: augments the opaque <c>presentation</c> sibling doc with a <c>fields</c> map
+        ///     carrying each struct field's authored label, enum-member labels and severities — the three
+        ///     things that have no inline slot on a field's own subschema (see
+        ///     <see cref="StructFieldPresentationBuilder" /> for why). <c>presentation</c> is opaque
+        ///     passthrough — cloud-api stores and serves it as a bare <c>JsonNode?</c> and the dale runtime
+        ///     never parses it — so the key rides it without a <c>Vion.Contracts</c> model change, mirroring
+        ///     <see cref="ApplyInstantiationParameterRuntime" /> on <c>runtime</c>. Returns the node
+        ///     untouched (<c>null</c> included) for a property with no struct-field presentation to carry,
+        ///     so an otherwise-empty <c>presentation</c> still serializes to JSON null.
+        /// </summary>
+        private static JsonNode? ApplyStructFieldPresentation(JsonNode? presentation, Type schemaSourceType)
+        {
+            var fields = StructFieldPresentationBuilder.Build(schemaSourceType);
+            if (fields is null)
+            {
+                return presentation;
+            }
+
+            var presentationObject = presentation as JsonObject ?? new JsonObject();
+            presentationObject["fields"] = fields;
+
+            return presentationObject;
         }
 
         /// <summary>

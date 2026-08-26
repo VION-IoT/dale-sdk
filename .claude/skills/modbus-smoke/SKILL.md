@@ -104,9 +104,15 @@ Poll `http://localhost:5000/api/control/status` until it answers (`stepped:false
   fields carry their ranges (`1 – 65535`, `0 – 255`), `address` gets an `ipv4` hint, the `TimeSpan`
   fields take `3s` as well as `PT3S`, and the nullable *Max queued age* has an ∅ toggle. In the
   **Diagnostics** viewer the SDK's own summaries are labelled too (`Link state`, `Round trip (last)`,
-  scaled to `910 ms` rather than `PT0.91S`) — all of it since 0.10.5. The one exception is an
-  enum-typed struct field, whose schema title carries the CLR type name, so `state` and
-  `lastFailureOutcome` fall back to the bare wire key; that is a `Vion.Contracts` gap, recorded.
+  scaled to `910 ms` rather than `PT0.91S`) — all of it since 0.10.5. An enum-typed struct field
+  keeps the CLR type name in its schema title, so the three of them take their label from
+  `presentation.fields` instead (VION-105): `Link.state` reads *Link state*,
+  `Link.lastFailureOutcome` reads *Last failure outcome*, `Connection.state` reads *Connection
+  state*, and all three render as severity-coloured pills. Two of the value labels are the
+  discriminating ones, because they differ from their member names: `Connection.state` reads
+  `Backing off (BackingOff)` and `lastFailureOutcome` reads `Device error (DeviceError)`.
+  `ModbusLinkState`'s own labels all equal their member names, so `Link.state` proves the pill and
+  the field label but says nothing about value labels.
 - Open the **Player**, run `modbus-link-policy`, and watch `Connection.state` move
   `Connected → Disconnected → BackingOff → Connected`, `Link.state` move `Online → Faulted → Online`,
   and the pill follow them `Online → Faulted → Backing off → Online`. The watch panel pins all three.

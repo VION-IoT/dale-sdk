@@ -31,7 +31,7 @@ function installVendoredDayjs() {
 globalThis.window = { dayjs: installVendoredDayjs() };
 
 const {
-    resolveFieldLabel, temporalFieldFormat, stringFieldFormat, formatFieldValue,
+    fieldPresentation, resolveFieldLabel, temporalFieldFormat, stringFieldFormat, formatFieldValue,
     parseDurationInput, msToIso8601Duration,
 } = await import('../wwwroot/format.js');
 
@@ -41,16 +41,44 @@ test('resolveFieldLabel prefers the authored [StructField] Title', () => {
     assert.equal(resolveFieldLabel('queueDepth', { type: 'integer', title: 'Queue depth' }), 'Queue depth');
 });
 
-test('resolveFieldLabel falls back to the wire name for an enum field, whose title is its type name', () => {
-    // The SDK puts the CLR enum type name in title; the authored Title is dropped (struct fields
-    // have no presentation channel to route it to). "ModbusLinkState" is not a field label.
+test('resolveFieldLabel takes an enum field label from presentation.fields, not from its type-name title', () => {
+    // The SDK puts the CLR enum type name in title — it is the cloud's translation key — and routes the
+    // authored Title to presentation.fields.<field>.displayName instead (VION-105). "ModbusLinkState" is
+    // never a field label.
+    const enumField = { type: 'string', title: 'ModbusLinkState', enum: ['Unknown', 'Online', 'Faulted'] };
+    assert.equal(resolveFieldLabel('state', enumField, { displayName: 'Link state' }), 'Link state');
+});
+
+test('resolveFieldLabel falls back to the wire name for an enum field with no per-field presentation', () => {
+    // An enum field whose author wrote no [StructField] Title: the type name must not leak out as a label.
     const enumField = { type: 'string', title: 'ModbusLinkState', enum: ['Unknown', 'Online', 'Faulted'] };
     assert.equal(resolveFieldLabel('state', enumField), 'state');
+    assert.equal(resolveFieldLabel('state', enumField, { enumLabels: { Online: 'Online' } }), 'state');
+});
+
+test('resolveFieldLabel prefers the authored displayName over an inline title', () => {
+    assert.equal(resolveFieldLabel('queueDepth', { type: 'integer', title: 'Queue depth' }, { displayName: 'Depth' }), 'Depth');
 });
 
 test('resolveFieldLabel falls back to the wire name when there is no title at all', () => {
     assert.equal(resolveFieldLabel('successCount', { type: 'integer' }), 'successCount');
     assert.equal(resolveFieldLabel('successCount', null), 'successCount');
+    assert.equal(resolveFieldLabel('successCount', null, null), 'successCount');
+});
+
+// ── per-field presentation lookup ───────────────────────────────────────────────
+
+test('fieldPresentation reads the node the SDK injects, and nothing else', () => {
+    const presentation = { displayName: 'Verbindung', fields: { state: { displayName: 'Link state' } } };
+    assert.deepEqual(fieldPresentation(presentation, 'state'), { displayName: 'Link state' });
+
+    // A field with no entry, a property with no fields node, and no presentation at all.
+    assert.equal(fieldPresentation(presentation, 'successCount'), null);
+    assert.equal(fieldPresentation({ displayName: 'Verbindung' }, 'state'), null);
+    assert.equal(fieldPresentation(null, 'state'), null);
+
+    // Never walk up Object.prototype for a field literally named like one of its members.
+    assert.equal(fieldPresentation(presentation, 'constructor'), null);
 });
 
 // ── formats ─────────────────────────────────────────────────────────────────────

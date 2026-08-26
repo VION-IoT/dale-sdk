@@ -76,6 +76,98 @@ namespace Vion.Dale.Sdk.Introspection
         }
 
         /// <summary>
+        ///     Returns true when the property's wire schema carries an identity-bearing
+        ///     <c>title</c> (enum or struct, possibly wrapped in Nullable or Array). For those
+        ///     types the property-level <c>Title</c> annotation must route to
+        ///     <c>Presentation.DisplayName</c>; routing it to <see cref="TypeAnnotations.Title" />
+        ///     would be silently dropped by the serializer because identity-set <c>schema.title</c>
+        ///     wins on the wire.
+        ///     <see cref="StructFieldPresentationBuilder" /> applies the same predicate one level down,
+        ///     to a struct field's own <see cref="TypeRef" /> — same rule, same reason.
+        /// </summary>
+        internal static bool HasIdentityBearingTitle(TypeRef typeRef)
+        {
+            return typeRef switch
+            {
+                EnumTypeRef => true,
+                StructTypeRef => true,
+                NullableTypeRef n => HasIdentityBearingTitle(n.Inner),
+                ArrayTypeRef a => HasIdentityBearingTitle(a.Items),
+                _ => false,
+            };
+        }
+
+        /// <summary>
+        ///     Reads <c>[Severity]</c> off each member of an enum type (peeling <c>Nullable&lt;T&gt;</c>)
+        ///     and returns a map of member-name → lowercase severity. Members without the attribute are
+        ///     omitted; returns null for a non-enum type or when no member carries one.
+        /// </summary>
+        internal static ImmutableDictionary<string, string>? ExtractStatusMappings(Type type)
+        {
+            // Only meaningful on (nullable-)enum types; silently ignore otherwise
+            // (DALE024 analyzer warns at compile time).
+            var enumType = Nullable.GetUnderlyingType(type) ?? type;
+            if (!enumType.IsEnum)
+            {
+                return null;
+            }
+
+            var builder = ImmutableDictionary.CreateBuilder<string, string>();
+            foreach (var name in Enum.GetNames(enumType))
+            {
+                var memberInfo = enumType.GetField(name);
+                var severity = memberInfo?.GetCustomAttribute<SeverityAttribute>();
+                if (severity is not null)
+                {
+                    builder[name] = severity.Severity.ToString().ToLowerInvariant();
+                }
+            }
+
+            return builder.Count > 0 ? builder.ToImmutable() : null;
+        }
+
+        /// <summary>
+        ///     Reads <c>[EnumLabel("...")]</c> off each member of an enum type (peeling
+        ///     <c>Nullable&lt;T&gt;</c> and <c>ImmutableArray&lt;T&gt;</c>) and returns a map of
+        ///     member-name → display label. Members without a label are omitted. Returns null for a
+        ///     non-enum type or when no member carries a label (so <see cref="Presentation.IsEmpty" />
+        ///     stays true in the absent case).
+        /// </summary>
+        internal static ImmutableDictionary<string, string>? ExtractEnumLabels(Type type)
+        {
+            var enumType = Nullable.GetUnderlyingType(type) ?? type;
+
+            // For array-of-enum properties, peek into the element type.
+            if (!enumType.IsEnum && enumType.IsGenericType)
+            {
+                var def = enumType.GetGenericTypeDefinition();
+                if (def == typeof(ImmutableArray<>))
+                {
+                    var elementType = enumType.GetGenericArguments()[0];
+                    enumType = Nullable.GetUnderlyingType(elementType) ?? elementType;
+                }
+            }
+
+            if (!enumType.IsEnum)
+            {
+                return null;
+            }
+
+            var builder = ImmutableDictionary.CreateBuilder<string, string>();
+            foreach (var name in Enum.GetNames(enumType))
+            {
+                var memberInfo = enumType.GetField(name);
+                var info = memberInfo?.GetCustomAttribute<EnumLabelAttribute>();
+                if (info?.Label is { } label)
+                {
+                    builder[name] = label;
+                }
+            }
+
+            return builder.Count > 0 ? builder.ToImmutable() : null;
+        }
+
+        /// <summary>
         ///     Per-field merge: class values win; class-null fields inherit from interface.
         /// </summary>
         private static Presentation MergePresentation(Presentation classP, Presentation interfaceP)
@@ -110,26 +202,6 @@ namespace Vion.Dale.Sdk.Introspection
         private static bool HasPublicSetter(PropertyInfo property)
         {
             return property.SetMethod is not null && property.SetMethod.IsPublic;
-        }
-
-        /// <summary>
-        ///     Returns true when the property's wire schema carries an identity-bearing
-        ///     <c>title</c> (enum or struct, possibly wrapped in Nullable or Array). For those
-        ///     types the property-level <c>Title</c> annotation must route to
-        ///     <c>Presentation.DisplayName</c>; routing it to <see cref="TypeAnnotations.Title" />
-        ///     would be silently dropped by the serializer because identity-set <c>schema.title</c>
-        ///     wins on the wire.
-        /// </summary>
-        private static bool HasIdentityBearingTitle(TypeRef typeRef)
-        {
-            return typeRef switch
-            {
-                EnumTypeRef => true,
-                StructTypeRef => true,
-                NullableTypeRef n => HasIdentityBearingTitle(n.Inner),
-                ArrayTypeRef a => HasIdentityBearingTitle(a.Items),
-                _ => false,
-            };
         }
 
         private static TypeAnnotations ExtractTypeAnnotations(ServicePropertyAttribute? sp,
@@ -217,7 +289,7 @@ namespace Vion.Dale.Sdk.Introspection
             var displayName = presentationAttr?.DisplayName ?? (hasIdentityTitle ? sp?.Title ?? mp?.Title : null);
 
             var statusMappings = ExtractStatusMappings(property, presentationAttr?.StatusIndicator ?? false);
-            var enumLabels = ExtractEnumLabels(property);
+            var enumLabels = ExtractEnumLabels(property.PropertyType);
 
             // UiHint: explicit value wins; StatusIndicator = true auto-emits "statusIndicator"
             // so dashboards can detect status-indicator properties by an explicit hint rather
@@ -265,71 +337,10 @@ namespace Vion.Dale.Sdk.Introspection
 
         private static ImmutableDictionary<string, string>? ExtractStatusMappings(PropertyInfo property, bool isStatusIndicator)
         {
-            if (!isStatusIndicator)
-            {
-                return null;
-            }
-
-            // Only meaningful on (nullable-)enum-typed properties; silently ignore otherwise
-            // (DALE024 analyzer warns at compile time).
-            var enumType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
-            if (!enumType.IsEnum)
-            {
-                return null;
-            }
-
-            var builder = ImmutableDictionary.CreateBuilder<string, string>();
-            foreach (var name in Enum.GetNames(enumType))
-            {
-                var memberInfo = enumType.GetField(name);
-                var severity = memberInfo?.GetCustomAttribute<SeverityAttribute>();
-                if (severity is not null)
-                {
-                    builder[name] = severity.Severity.ToString().ToLowerInvariant();
-                }
-            }
-
-            return builder.Count > 0 ? builder.ToImmutable() : null;
-        }
-
-        /// <summary>
-        ///     Reads <c>[EnumLabel("...")]</c> off each member of an enum-typed property and
-        ///     returns a map of member-name → display label. Members without a label are omitted.
-        ///     Returns null for non-enum properties or when no members carry a label (so
-        ///     <see cref="Presentation.IsEmpty" /> stays true in the absent case).
-        /// </summary>
-        private static ImmutableDictionary<string, string>? ExtractEnumLabels(PropertyInfo property)
-        {
-            var enumType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
-
-            // For array-of-enum properties, peek into the element type.
-            if (!enumType.IsEnum && enumType.IsGenericType)
-            {
-                var def = enumType.GetGenericTypeDefinition();
-                if (def == typeof(ImmutableArray<>))
-                {
-                    var elementType = enumType.GetGenericArguments()[0];
-                    enumType = Nullable.GetUnderlyingType(elementType) ?? elementType;
-                }
-            }
-
-            if (!enumType.IsEnum)
-            {
-                return null;
-            }
-
-            var builder = ImmutableDictionary.CreateBuilder<string, string>();
-            foreach (var name in Enum.GetNames(enumType))
-            {
-                var memberInfo = enumType.GetField(name);
-                var info = memberInfo?.GetCustomAttribute<EnumLabelAttribute>();
-                if (info?.Label is { } label)
-                {
-                    builder[name] = label;
-                }
-            }
-
-            return builder.Count > 0 ? builder.ToImmutable() : null;
+            // At property level the map is gated on [Presentation(StatusIndicator = true)], because that
+            // same flag is what routes the property to a status tile. A struct field has no tile, so
+            // StructFieldPresentationBuilder calls the ungated core below directly.
+            return isStatusIndicator ? ExtractStatusMappings(property.PropertyType) : null;
         }
 
         private static RuntimeMetadata ExtractRuntime(PropertyInfo property)
