@@ -161,11 +161,13 @@ namespace Vion.Dale.DevHost.Topologies
         // the lookup missed it, and present in the second, so its file was excluded from the probe. With a
         // single snapshot S there is no third case — either the declaring assembly is in S and the lookup
         // finds the type, or it is not in S and its path is not excluded, so the probe reaches its file.
-        // snapshotSource is where that snapshot comes from; tests substitute it to force the racing order
+        // The two cases are the whole space for the snapshot; the assembly-qualified Type.GetType fallback
+        // below sits deliberately outside it, because it can only widen the result, never miss one.
+        // snapshotSource is where the snapshot comes from; tests substitute it to force the racing order
         // deterministically. It is called exactly once per resolution — do not add a second call.
         internal static Type? ResolveType(string typeFullName, Func<Assembly[]>? snapshotSource = null)
         {
-            var snapshot = (snapshotSource ?? DefaultLoadedAssemblies)();
+            var snapshot = snapshotSource?.Invoke() ?? AppDomain.CurrentDomain.GetAssemblies();
 
             var loaded = FindInLoadedAssemblies(snapshot, typeFullName) ?? Type.GetType(typeFullName, false);
             if (loaded is not null)
@@ -194,11 +196,6 @@ namespace Vion.Dale.DevHost.Topologies
             }
 
             return null;
-        }
-
-        private static Assembly[] DefaultLoadedAssemblies()
-        {
-            return AppDomain.CurrentDomain.GetAssemblies();
         }
 
         private static Type? FindInLoadedAssemblies(Assembly[] loadedAssemblies, string typeFullName)
