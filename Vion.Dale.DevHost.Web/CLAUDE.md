@@ -48,8 +48,10 @@ Rules that keep it working:
 - **Draft + dirty pattern** for every writable control: local `text` ref + `dirty` flag; the live
   value flows into the control only while `!dirty` (a `watch`). This is the R0 edit-clobber
   guarantee — never bind a control's value directly to the store.
-- **Client state keys are name paths** (`blockName/serviceIdentifier/...`), never per-run GUIDs —
-  service ids regenerate every run; localStorage state must survive restarts.
+- **Client state keys are name paths** (`blockName/serviceIdentifier/...`), never service ids —
+  localStorage state must survive restarts, and a service id belongs to one host generation. (They are
+  derived from `blockId.serviceIdentifier` since VION-77, not per-run GUIDs, but that is an
+  implementation detail of the running host — do not start persisting them.)
 - **Wire keys are camelCased** by the serializer; introspection identifiers are PascalCase. Any
   lookup joining the two must be case-insensitive (see `primeInitialValues`).
 - **Rendering policy lives in `format.js`**, view wiring in `components.js`. A change to "how is a

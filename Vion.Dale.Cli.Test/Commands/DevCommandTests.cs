@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -90,6 +91,128 @@ namespace Vion.Dale.Cli.Test.Commands
             var exit = await DevCommand.RunWithBootWindowAsync(InfiniteAsync, () => false, TimeSpan.FromMilliseconds(150), TimeSpan.FromSeconds(5));
 
             Assert.AreEqual(1, exit);
+        }
+
+        [TestMethod]
+        [DataRow(1, DisplayName = "--export-config only")]
+        [DataRow(2, DisplayName = "--export-config and --export-topology")]
+        public async Task Export_StaleTargetFromAnEarlierRun_DoesNotCountAsAFreshExport(int targetCount)
+        {
+            // VION-70: completion is "the target appeared". A leftover from an earlier run satisfied the very
+            // first poll, so a host that wrote nothing was reported as a successful export. Both flags.
+            var (root, targets) = CreateStaleTargets(targetCount);
+            try
+            {
+                var exit = await DevCommand.RunExportAsync(targets, _ => Task.FromResult(0), TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+
+                Assert.AreEqual(1, exit, "A host that wrote nothing must fail even when a stale target is lying at the path.");
+                foreach (var target in targets)
+                {
+                    Assert.IsFalse(File.Exists(target), "The stale target must not survive the run — it would be read as this run's export.");
+                }
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        [TestMethod]
+        public async Task Export_StaleTargetOverwrittenByTheRun_Succeeds()
+        {
+            // The other half of the pair: clearing the target first must not break the normal path, where the
+            // host really does write and the fresh content is what the caller gets.
+            var (root, targets) = CreateStaleTargets(1);
+            try
+            {
+                var exit = await DevCommand.RunExportAsync(targets,
+                                                           _ =>
+                                                           {
+                                                               File.WriteAllText(targets[0], "fresh");
+                                                               return Task.FromResult(0);
+                                                           },
+                                                           TimeSpan.FromSeconds(5),
+                                                           TimeSpan.FromSeconds(5));
+
+                Assert.AreEqual(0, exit);
+                Assert.AreEqual("fresh", File.ReadAllText(targets[0]));
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        [TestMethod]
+        public async Task Export_TargetThatCannotBeCleared_FailsBeforeBootingTheHost()
+        {
+            // With something un-removable at the target path, "the file exists" can no longer mean "this run
+            // wrote it" — so refuse rather than boot a host whose success we could not tell from a stale file.
+            // A directory at the path is the portable way to make removal fail: File.Delete throws on it on
+            // every OS, where a read-only file is only undeletable on Windows (Unix unlink obeys the parent
+            // directory's permissions, and CI containers usually run as root).
+            var root = Path.Combine(Path.GetTempPath(), $"vion70-{Guid.NewGuid():N}");
+            var target = Path.Combine(root, "export-0.json");
+            Directory.CreateDirectory(target);
+            var booted = false;
+            try
+            {
+                var exit = await DevCommand.RunExportAsync(new[] { target },
+                                                           _ =>
+                                                           {
+                                                               booted = true;
+                                                               return Task.FromResult(0);
+                                                           },
+                                                           TimeSpan.FromSeconds(5),
+                                                           TimeSpan.FromSeconds(5));
+
+                Assert.AreEqual(1, exit);
+                Assert.IsFalse(booted, "The host must not be started when the target could not be cleared.");
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        [TestMethod]
+        public async Task Export_TargetDirectoryMissing_NamesThatAsTheCauseRatherThanAFailedRemoval()
+        {
+            // File.Delete throws DirectoryNotFoundException when the parent is absent, which would otherwise
+            // report a first-ever export into a new folder as "could not remove the previous export".
+            var root = Path.Combine(Path.GetTempPath(), $"vion70-{Guid.NewGuid():N}");
+            var target = Path.Combine(root, "nested", "export.json");
+            var booted = false;
+
+            var exit = await DevCommand.RunExportAsync(new[] { target },
+                                                       _ =>
+                                                       {
+                                                           booted = true;
+                                                           return Task.FromResult(0);
+                                                       },
+                                                       TimeSpan.FromSeconds(5),
+                                                       TimeSpan.FromSeconds(5));
+
+            Assert.AreEqual(1, exit);
+            Assert.IsFalse(booted, "A host that cannot write the export must not be started.");
+            Assert.IsFalse(Directory.Exists(root), "The export must not create directories it was not asked to create.");
+        }
+
+        // A scratch directory holding <paramref name="count" /> export targets that already exist — the
+        // leftover-from-an-earlier-run state VION-70 is about.
+        private static (string Root, string[] Targets) CreateStaleTargets(int count)
+        {
+            var root = Path.Combine(Path.GetTempPath(), $"vion70-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(root);
+
+            var targets = new string[count];
+            for (var i = 0; i < count; i++)
+            {
+                targets[i] = Path.Combine(root, $"export-{i}.json");
+                File.WriteAllText(targets[i], "{ \"stale\": true }");
+            }
+
+            return (root, targets);
         }
 
         // A run that never finishes on its own but honors cancellation — the shape of a real `dotnet run`

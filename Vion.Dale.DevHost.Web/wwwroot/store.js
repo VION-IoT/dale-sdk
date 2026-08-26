@@ -396,9 +396,10 @@ export async function resetHost() {
     }
 }
 
-// After a host recycle EVERYTHING server-side is new — service ids, values, control state. The
-// rendered config is stale the moment the connection blips, so both reconnect paths rebuild the
-// whole client state; only the dead-connection path additionally creates a fresh hub connection.
+// After a host recycle everything server-side is a new generation — values, control state, and the
+// wiring behind the (now derived, VION-77) service ids. The rendered config is stale the moment the
+// connection blips, so both reconnect paths rebuild the whole client state; only the dead-connection
+// path additionally creates a fresh hub connection.
 let reinitInFlight = false;
 
 async function reinitClientState() {
@@ -579,8 +580,9 @@ async function connectHub() {
 
     connection.onreconnecting(() => { store.connected = false; });
     // The connection survived (auto-reconnect) — but the host may have been RECYCLED meanwhile
-    // (reset): every service id changed and the rendered config is stale. Rebuild the client
-    // state; the existing connection stays.
+    // (reset), so the rendered config and every cached value belong to the previous generation.
+    // Service ids do NOT change across a recycle (VION-77), so they cannot be used to detect one —
+    // the blip is the signal. Rebuild the client state; the existing connection stays.
     connection.onreconnected(() => {
         store.connected = true;
         reinitClientState();

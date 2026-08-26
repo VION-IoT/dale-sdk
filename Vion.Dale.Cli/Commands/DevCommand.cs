@@ -125,16 +125,51 @@ namespace Vion.Dale.Cli.Commands
                                           exportFiles.Add(Path.GetFullPath(exportTopology));
                                       }
 
-                                      return await RunWithBootWindowAsync(token => DotnetRunner.RunAsync("run", runArguments, workingDir, token),
-                                                                          () => exportFiles.All(File.Exists),
-                                                                          TimeSpan.FromSeconds(120),
-                                                                          TimeSpan.FromSeconds(15));
+                                      return await RunExportAsync(exportFiles,
+                                                                  token => DotnetRunner.RunAsync("run", runArguments, workingDir, token),
+                                                                  TimeSpan.FromSeconds(120),
+                                                                  TimeSpan.FromSeconds(15));
                                   }
 
                                   return await DotnetRunner.RunAsync("run", runArguments, workingDir);
                               });
 
             return command;
+        }
+
+        /// <summary>
+        ///     Runs an export (<c>--export-config</c> / <c>--export-topology</c>) and returns the CLI exit
+        ///     code. Completion is detected by the target file appearing, so any pre-existing target is
+        ///     deleted first: a leftover from an earlier run would satisfy the very first poll, collapse the
+        ///     boot window to the grace period, and report a stale file as a fresh export (VION-70). Deleting
+        ///     costs the previous export when the run then fails — acceptable, because a target that survived
+        ///     into this run is stale by definition. A target that cannot be deleted (locked, read-only) is a
+        ///     hard failure: with it in place, exit 0 would no longer imply a freshly written export.
+        /// </summary>
+        internal static async Task<int> RunExportAsync(IReadOnlyList<string> exportFiles, Func<CancellationToken, Task<int>> run, TimeSpan bootWindow, TimeSpan graceAfterExport)
+        {
+            foreach (var file in exportFiles)
+            {
+                try
+                {
+                    File.Delete(file);
+                }
+                catch (DirectoryNotFoundException)
+                {
+                    // File.Delete reports an absent parent the same way it reports an undeletable file, and a
+                    // first-ever export into a new folder would otherwise be blamed on a failed removal.
+                    DaleConsole.Error($"The export target's folder does not exist: {Path.GetDirectoryName(file)}. Create it and re-run.");
+                    return 1;
+                }
+                catch (Exception ex)
+                {
+                    DaleConsole.Error($"Could not clear the export target at {file}: {ex.Message}. " +
+                                      "The target must be removable — otherwise a leftover would be reported as a fresh export.");
+                    return 1;
+                }
+            }
+
+            return await RunWithBootWindowAsync(run, () => exportFiles.All(File.Exists), bootWindow, graceAfterExport);
         }
 
         // Export modes are boot-dump-exit: DevHostWebRunner writes the file(s) and exits. A Program.cs that
