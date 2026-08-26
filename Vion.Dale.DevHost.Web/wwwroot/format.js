@@ -187,16 +187,27 @@ export function parseDurationToMs(value) {
 }
 
 // ── struct-field presentation ───────────────────────────────────────────────────
-// [StructField] Title / Description / StringFormat land INLINE in the field's schema
-// (schema.properties[<camelCaseName>].title / .description / .format), not in a presentation
-// sibling — struct fields have no presentation channel. These helpers are what the viewer and the
-// form read so the two surfaces cannot drift.
+// Most [StructField] data lands INLINE in the field's schema (schema.properties[<camelCaseName>]
+// .title / .description / .format). What cannot ride inline rides `presentation.fields[<name>]`
+// (VION-105): the authored Title of an enum-typed field, whose `title` slot is taken by the CLR
+// type name, plus the field enum's [EnumLabel] / [Severity] maps, which JSON Schema has no slot
+// for at all. That node is shaped like the property-level presentation node — displayName /
+// enumLabels / statusMappings. These helpers are what the viewer and the form read so the two
+// surfaces cannot drift.
 
-// The operator-facing label for one struct field. The authored [StructField] Title wins, except
-// when schema.title is identity-bearing: for an enum- or struct-typed field the type name occupies
-// title and the authored one is dropped, so the wire key is the honest label. Callers keep showing
-// the wire key alongside — a scenario author addresses fields by it.
-export function resolveFieldLabel(name, fieldSchema) {
+// The per-field presentation node for one struct field, or null.
+export function fieldPresentation(presentation, name) {
+    const fields = presentation && presentation.fields;
+    if (!fields || typeof fields !== 'object') return null;
+    return Object.prototype.hasOwnProperty.call(fields, name) ? fields[name] : null;
+}
+
+// The operator-facing label for one struct field. The authored displayName wins; then the inline
+// schema title, except when it is identity-bearing (an enum- or struct-typed field's type name);
+// then the wire key. Callers keep showing the wire key alongside — a scenario author addresses
+// fields by it.
+export function resolveFieldLabel(name, fieldSchema, fieldPres) {
+    if (fieldPres && fieldPres.displayName) return fieldPres.displayName;
     if (fieldSchema && fieldSchema.title && !hasIdentityBearingTitle(fieldSchema)) return fieldSchema.title;
     return name;
 }

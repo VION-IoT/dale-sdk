@@ -111,21 +111,50 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
         }
 
         [TestMethod]
-        public void LeaveAnEnumFieldsTitleCarryingItsTypeIdentityRatherThanTheAuthoredLabel()
+        public void RouteAnEnumFieldsAuthoredTitleToPresentationWhileItsSchemaTitleKeepsTheTypeIdentity()
         {
             // Arrange / Act
             var link = SchemaOf(nameof(DiagnosticsPublishingBlock.Link))["properties"]!.AsObject();
             var connection = SchemaOf(nameof(DiagnosticsPublishingBlock.Connection))["properties"]!.AsObject();
+            var linkFields = FieldPresentationOf(nameof(DiagnosticsPublishingBlock.Link));
+            var connectionFields = FieldPresentationOf(nameof(DiagnosticsPublishingBlock.Connection));
 
-            // Assert — the schema title of an enum-typed field is its CLR type name, not the field's
-            // [StructField] Title: the type identity wins, the same way it does for an enum-typed property
-            // (whose authored title is routed to presentation.displayName instead — a channel struct fields
-            // do not have). The Description does land. A client must therefore fall back to the wire name
-            // for a field whose title is identity-bearing; the DevHost does.
+            // Assert — the schema title of an enum-typed field stays its CLR type name: it is the cloud's
+            // translation key, and the type identity wins that slot. The authored [StructField] Title takes
+            // the second slot instead — presentation.fields.<field>.displayName (VION-105) — mirroring how an
+            // enum-typed *property*'s title routes to presentation.displayName. The Description lands inline
+            // either way.
             Assert.AreEqual(nameof(ModbusLinkState), link["state"]!["title"]!.GetValue<string>());
             Assert.AreEqual(nameof(ModbusOutcome), link["lastFailureOutcome"]!["title"]!.GetValue<string>());
             Assert.AreEqual(nameof(ModbusTcpConnectionState), connection["state"]!["title"]!.GetValue<string>());
             Assert.StartsWith("Verdict of the last transaction", link["state"]!["description"]!.GetValue<string>());
+
+            Assert.AreEqual("Link state", linkFields["state"]!["displayName"]!.GetValue<string>());
+            Assert.AreEqual("Last failure outcome", linkFields["lastFailureOutcome"]!["displayName"]!.GetValue<string>());
+            Assert.AreEqual("Connection state", connectionFields["state"]!["displayName"]!.GetValue<string>());
+
+            // A scalar field's title has an inline home, so it must NOT be duplicated here.
+            Assert.IsNull(linkFields["successCount"], "A scalar field's authored title belongs inline, in schema.title, and nowhere else.");
+        }
+
+        [TestMethod]
+        public void CarryTheEnumLabelsAndSeveritiesOfAFieldsEnumTypeAlongsideTheField()
+        {
+            // Arrange / Act
+            var link = FieldPresentationOf(nameof(DiagnosticsPublishingBlock.Link));
+            var state = link["state"]!.AsObject();
+            var outcome = link["lastFailureOutcome"]!.AsObject();
+
+            // Assert — the same [EnumLabel] / [Severity] a consumer gets by publishing Link.State as its own
+            // status-pill property now also reaches the field inside the summary, so a client rendering the
+            // struct shows "Backing off" and colours the row without a projection property. lastFailureOutcome
+            // is a ModbusOutcome?, so it also pins the Nullable<TEnum> peel.
+            Assert.AreEqual("Faulted", state["enumLabels"]![nameof(ModbusLinkState.Faulted)]!.GetValue<string>());
+            Assert.AreEqual("error", state["statusMappings"]![nameof(ModbusLinkState.Faulted)]!.GetValue<string>());
+
+            // A multi-word member: its label differs from its name, which is what makes this discriminating.
+            Assert.AreEqual("Device error", outcome["enumLabels"]![nameof(ModbusOutcome.DeviceError)]!.GetValue<string>());
+            Assert.AreEqual("warning", outcome["statusMappings"]![nameof(ModbusOutcome.DeviceError)]!.GetValue<string>());
         }
 
         [TestMethod]
@@ -170,6 +199,12 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
             Assert.AreEqual("error", outcomeSeverities[nameof(ModbusOutcome.TransportError)]!.GetValue<string>());
             Assert.AreEqual("neutral", outcomeSeverities[nameof(ModbusOutcome.Cancelled)]!.GetValue<string>());
             Assert.AreEqual("Transport error", outcome["enumLabels"]![nameof(ModbusOutcome.TransportError)]!.GetValue<string>());
+        }
+
+        /// <summary>The per-struct-field presentation map of a struct-typed property (VION-105).</summary>
+        private JsonObject FieldPresentationOf(string propertyIdentifier)
+        {
+            return PresentationOf(propertyIdentifier)["fields"]!.AsObject();
         }
 
         private JsonObject PresentationOf(string propertyIdentifier)

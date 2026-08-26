@@ -9,7 +9,7 @@ import {
     buildVerificationReport, contractTypeShort, cssGroupKey, defaultOpen, describeExpect, describeOutputAssert, describeType, describeWaitUntil,
     effectiveType, enumDisplay, enumMembers, formatFieldValue, formatTemporal, formatValue, gallerySamples,
     GROUP_LABELS, groupItems, isNullable, isWritable, matchesFilter, orderedGroupKeys, parseFilter,
-    parseDurationInput, parseNamePath, presentationFacts, resolveAuthoredTitle, resolveDisplayName, resolveFieldLabel, resolveUnit, sampleJson, serviceMembers, severityFor,
+    fieldPresentation, parseDurationInput, parseNamePath, presentationFacts, resolveAuthoredTitle, resolveDisplayName, resolveFieldLabel, resolveUnit, sampleJson, serviceMembers, severityFor,
     stringFieldFormat, temporalFieldFormat,
     sampleX, shortTypeName, signTone, stepRibbonGeometry, traceLaneKind, traceNumericBand, traceSeriesFor, traceStateBands,
     STEP_GLYPHS,
@@ -351,6 +351,7 @@ export const JsonEditor = {
     setup(props) {
         const live = useLive(props);
         const schema = props.item.schema || {};
+        const presentation = props.item.presentation || {};
         const nullable = isNullable(schema);
 
         // Flat-struct detection: an object whose every field is scalar / enum / string-format.
@@ -358,12 +359,17 @@ export const JsonEditor = {
             if (effectiveType(schema) !== 'object' || !schema.properties) return null;
             const entries = Object.entries(schema.properties).map(([name, fieldSchema]) => {
                 const t = effectiveType(fieldSchema);
+                const fieldPres = fieldPresentation(presentation, name);
                 return {
                     name,
-                    label: resolveFieldLabel(name, fieldSchema),
+                    label: resolveFieldLabel(name, fieldSchema, fieldPres),
                     schema: fieldSchema,
                     type: t,
                     enums: enumMembers(fieldSchema),
+                    // Value labels + severity of the field's own enum (VION-105) — the enum picker shows
+                    // the label, and the severity of the *drafted* member is what the author is choosing.
+                    enumLabels: (fieldPres && fieldPres.enumLabels) || null,
+                    statusMappings: (fieldPres && fieldPres.statusMappings) || null,
                     nullable: isNullable(fieldSchema),
                     unit: resolveUnit(fieldSchema),
                     // A TimeSpan field is a string field carrying format: duration. There is no duration
@@ -413,6 +419,11 @@ export const JsonEditor = {
             });
             return out;
         };
+
+        // The severity of the member currently drafted in an enum field, or null when the field's enum
+        // carries no [Severity] at all. Shown beside the picker so the author sees what they are choosing.
+        const draftSeverity = f => (f.statusMappings && !(f.nullable && nulls.value[f.name]) ? severityFor(f.statusMappings, form.value[f.name]) : null);
+        const enumOptionLabel = (f, member) => enumDisplay(f.enumLabels, member);
 
         // What a duration field will actually write, shown beside the box: the normalised wire form
         // plus the humanized reading, or a refusal.
@@ -483,7 +494,7 @@ export const JsonEditor = {
         return {
             tab, formSupported, fieldEntries, form, nulls, dirty, preview, text, sample, schemaJson,
             fillTemplate, commitForm, commitRaw, setNull, markDirty, nullable, fieldEditable, rawDraftHint,
-            durationHint,
+            durationHint, draftSeverity, enumOptionLabel,
         };
     },
     template: `
@@ -503,7 +514,7 @@ export const JsonEditor = {
                     <span v-if="durationHint(f)" class="field-bounds">{{ durationHint(f) }}</span>
                     <template v-if="fieldEditable(f)">
                         <select v-if="f.enums" :value="form[f.name]" @change="markDirty(); form[f.name] = $event.target.value">
-                            <option v-for="m in f.enums" :key="m" :value="m">{{ m }}</option>
+                            <option v-for="m in f.enums" :key="m" :value="m">{{ enumOptionLabel(f, m) }}</option>
                         </select>
                         <select v-else-if="f.type === 'boolean'" :value="form[f.name]" @change="markDirty(); form[f.name] = $event.target.value">
                             <option value="true">true</option>
@@ -515,6 +526,7 @@ export const JsonEditor = {
                                :placeholder="f.duration ? 'PT3S or 3s' : (f.stringFormat || '')"
                                @input="markDirty(); form[f.name] = $event.target.value">
                     </template>
+                    <span v-if="draftSeverity(f)" class="severity-pill" :class="draftSeverity(f)">{{ draftSeverity(f) }}</span>
                     <span v-if="f.unit" class="unit">{{ f.unit }}</span>
                     <label v-if="f.nullable" class="field-null">
                         <input type="checkbox" :checked="nulls[f.name]" @change="markDirty(); nulls[f.name] = $event.target.checked">∅
@@ -560,20 +572,28 @@ export const StructViewer = {
         const live = props.sample === undefined ? useLive(props) : computed(() => props.sample);
         const schema = props.item.schema || {};
         const t = effectiveType(schema);
-        const enumLabels = (props.item.presentation || {}).enumLabels || null;
+        const presentation = props.item.presentation || {};
+        const enumLabels = presentation.enumLabels || null;
 
-        // Per-field presentation comes from the field's own schema — [StructField] Title / Description
-        // land inline there (structs have no presentation sibling). `label` is the authored title where
-        // there is one; `name` stays visible either way, because that is the key a scenario addresses.
+        // Per-field presentation has two sources and resolveFieldLabel merges them: [StructField] Title /
+        // Description land inline on the field's own schema, while what has no inline slot — an enum
+        // field's authored title, and its enum's value labels and severities — rides
+        // presentation.fields[<name>] (VION-105). `name` stays visible either way, because that is the
+        // key a scenario addresses.
         const fieldDefs = objectSchema => Object.entries((objectSchema && objectSchema.properties) || {})
-            .map(([name, fieldSchema]) => ({
-                name,
-                label: resolveFieldLabel(name, fieldSchema),
-                schema: fieldSchema,
-                unit: resolveUnit(fieldSchema),
-                description: fieldSchema.description || '',
-                enums: enumMembers(fieldSchema) !== null,
-            }));
+            .map(([name, fieldSchema]) => {
+                const fieldPres = fieldPresentation(presentation, name);
+                return {
+                    name,
+                    label: resolveFieldLabel(name, fieldSchema, fieldPres),
+                    schema: fieldSchema,
+                    unit: resolveUnit(fieldSchema),
+                    description: fieldSchema.description || '',
+                    enums: enumMembers(fieldSchema) !== null,
+                    enumLabels: (fieldPres && fieldPres.enumLabels) || null,
+                    statusMappings: (fieldPres && fieldPres.statusMappings) || null,
+                };
+            });
 
         // mode: 'object' (field grid), 'table' (array of structs), 'list' (array of scalars)
         const elementSchema = t === 'array' ? schema.items || {} : null;
@@ -595,12 +615,16 @@ export const StructViewer = {
         // so a round trip reads "00:00:03" rather than the raw "PT3S" off the wire.
         const fmtCell = (value, field) => {
             if (value === null || value === undefined) return '—';
-            if (field && field.enums && typeof value === 'string') return enumDisplay(null, value);
+            if (field && field.enums && typeof value === 'string') return enumDisplay(field.enumLabels || null, value);
             return formatFieldValue(value, field && field.schema);
         };
 
+        // A field whose enum carries [Severity] renders as a status pill, the same treatment the
+        // property-level status indicator gets — severityFor already answers 'neutral' for an absent value.
+        const cellSeverity = (row, field) => (field.statusMappings ? severityFor(field.statusMappings, fieldValue(row, field.name)) : null);
+
         const objectRows = computed(() => mode !== 'object' ? [] :
-            fields.map(f => ({ ...f, value: fmtCell(fieldValue(live.value, f.name), f) })));
+            fields.map(f => ({ ...f, value: fmtCell(fieldValue(live.value, f.name), f), severity: cellSeverity(live.value, f) })));
         const tableRows = computed(() => mode !== 'table' || !Array.isArray(live.value) ? [] : live.value);
         const listItems = computed(() => {
             if (mode !== 'list' || !Array.isArray(live.value)) return [];
@@ -611,7 +635,7 @@ export const StructViewer = {
         const empty = computed(() => live.value === null || live.value === undefined
             || (Array.isArray(live.value) && live.value.length === 0));
 
-        return { mode, fields, objectRows, tableRows, listItems, empty, fieldValue, fmtCell };
+        return { mode, fields, objectRows, tableRows, listItems, empty, fieldValue, fmtCell, cellSeverity };
     },
     template: `
         <div class="struct-viewer">
@@ -621,7 +645,8 @@ export const StructViewer = {
                     <span class="viewer-label">{{ f.label }}</span>
                     <code v-if="f.label !== f.name" class="mono viewer-name">{{ f.name }}</code>
                     <span class="item-spacer"></span>
-                    <span class="mono viewer-value">{{ f.value }}</span>
+                    <span v-if="f.severity" class="severity-pill" :class="f.severity">{{ f.value }}</span>
+                    <span v-else class="mono viewer-value">{{ f.value }}</span>
                     <span v-if="f.unit" class="unit">{{ f.unit }}</span>
                 </div>
             </template>
@@ -638,7 +663,10 @@ export const StructViewer = {
                     <tbody>
                         <tr v-for="(row, i) in tableRows" :key="i">
                             <td class="viewer-idx">{{ i }}</td>
-                            <td v-for="f in fields" :key="f.name" class="mono">{{ fmtCell(fieldValue(row, f.name), f) }}</td>
+                            <td v-for="f in fields" :key="f.name" class="mono">
+                                <span v-if="f.statusMappings" class="severity-pill" :class="cellSeverity(row, f)">{{ fmtCell(fieldValue(row, f.name), f) }}</span>
+                                <template v-else>{{ fmtCell(fieldValue(row, f.name), f) }}</template>
+                            </td>
                         </tr>
                     </tbody>
                 </table>

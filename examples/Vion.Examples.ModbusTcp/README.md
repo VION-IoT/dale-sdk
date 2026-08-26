@@ -244,12 +244,13 @@ and every field earns its place. Yours probably is not, so there are cheaper sha
   `LinkHealth` only when you actually need to fold in something the SDK cannot see — the socket's
   backoff, or the fact that your block switched the client off.
 
-**One known gap.** The three enum-typed fields inside the summaries — `Link.state`,
-`Link.lastFailureOutcome` and `Connection.state` — do not carry their authored title to the wire: for an
-enum field `schema.title` holds the CLR type name, and the routing that would send the annotation
-elsewhere has no per-struct-field equivalent. The DevHost falls back to the bare wire key, so you see
-`state`; the cloud dashboard shows `ModbusLinkState` until the fix lands in `Vion.Contracts`. Every
-other field, and every description, is unaffected.
+**Where an enum field's label comes from.** For the three enum-typed fields inside the summaries —
+`Link.state`, `Link.lastFailureOutcome` and `Connection.state` — `schema.title` holds the CLR type name,
+because that is the cloud's translation key. Their authored title travels in a second slot instead:
+`presentation.fields.<field>.displayName`, alongside the field enum's `[EnumLabel]` and `[Severity]`
+maps. So a client reads *Link state* rather than `ModbusLinkState`, shows `Backing off` for the member
+`BackingOff`, and colours the row — no projection property needed. Every other field, and every
+description, lands inline in the schema as before.
 
 ## Where the configuration comes from
 

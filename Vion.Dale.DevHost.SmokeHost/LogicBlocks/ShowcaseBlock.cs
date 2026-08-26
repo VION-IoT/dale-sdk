@@ -177,12 +177,13 @@ namespace Vion.Dale.DevHost.SmokeHost.LogicBlocks
         double Y);
 
     /// <summary>
-    ///     The struct-field presentation fixture: an enum field (whose schema title is its type name, so the
-    ///     wire key is the honest label), an ipv4 string, a duration, a timestamp and a nullable duration.
+    ///     The struct-field presentation fixture: an enum field (whose schema title is its type name, so its
+    ///     authored title, value labels and severities ride presentation.fields instead — VION-105), an ipv4
+    ///     string, a duration, a timestamp and a nullable duration.
     ///     Rendered read-only by the StructViewer and writable by the flat-struct form.
     /// </summary>
     public readonly record struct LinkProfile(
-        [StructField(Title = "State", Description = "Enum field — the authored title is dropped, so this must fall back to the wire key.")]
+        [StructField(Title = "State", Description = "Enum field — its title has no inline slot, so it rides presentation.fields.state.displayName.")]
         Mood State,
         [StructField(Title = "Server address", StringFormat = StringFormats.Ipv4, Description = "Where the client connects. The format is a hint, not validation.")]
         string Address,
