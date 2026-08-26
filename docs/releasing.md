@@ -48,6 +48,18 @@ commit shipping references to a version that is no longer current, and — becau
 each example's `<Version>` and the workflow passes `--skip-duplicate` — leaves the upload silently
 doing nothing.
 
+**Wait for the packages, not for the green run.** The publish job reporting success is not the
+precondition — the packages landing on the feed is, and they land *one at a time*, minutes after the
+run goes green (PR #134 saw ~5 min, with the last package ~40 s behind the rest; the 0.10.8 bump saw
+~6 min). Bumping on the first green check fails restore for whichever package has not landed yet. The
+check is one loop over the referenced ids:
+
+```bash
+for p in vion.dale.sdk vion.dale.sdk.http vion.dale.sdk.digitalio vion.dale.sdk.digitalio.testkit          vion.dale.sdk.analogio vion.dale.sdk.analogio.testkit vion.dale.sdk.modbus.core          vion.dale.sdk.modbus.tcp vion.dale.sdk.modbus.tcp.testkit vion.dale.sdk.modbus.rtu          vion.dale.sdk.modbus.rtu.testkit vion.dale.sdk.testkit vion.dale.devhost vion.dale.devhost.web; do
+  curl -s "https://api.nuget.org/v3-flatcontainer/$p/index.json" | grep -q '"X.Y.Z"' || echo "missing: $p"
+done
+```
+
 It is still a change like any other, so it goes on a branch and through a PR (working agreement
 rule 1) — never straight to `main`:
 
@@ -58,9 +70,12 @@ git add -A && git commit -m "Bump example/template refs to X.Y.Z"
 git push -u origin HEAD && gh pr create --fill
 ```
 
-`set-version.ps1` updates two things: the `PackageReference` versions across the template and example
-projects, and the `<Version>` of the one packable project per example (the DevHost and Test projects do
-not pack).
+`set-version.ps1` covers **templates, examples and `libraries/`** — the same three the paragraph above
+obliges, so no part of the bump is manual. Per project it updates the `Vion.Dale.*` `PackageReference`
+versions, and for the one packable project per example and per library also its own `<Version>` (the
+DevHost and Test projects do not pack). A library's `<Version>` is what triggers its upload, so it
+tracks the SDK release here rather than being bumped separately — see
+[`upload-libraries.yml`](../.github/workflows/upload-libraries.yml).
 
 Then check what the bump should *show*. A release that adds a capability is the moment to demonstrate
 it in an example — several releases in this repo have carried an example change in the same breath

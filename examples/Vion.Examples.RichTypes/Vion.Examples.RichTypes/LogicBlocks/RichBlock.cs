@@ -113,10 +113,8 @@ namespace Vion.Examples.RichTypes.LogicBlocks
         ///     Writable struct property. Renders an editable form per field; the [StructField]
         ///     ranges drive validation, the per-field <see cref="StructFieldAttribute.Description" />
         ///     drives the input tooltips.
-        ///     Seeded rather than left null: a null struct renders nothing, and the point of the
-        ///     <c>Alarm</c> field is that you can see its label and severity pill without setting a value
-        ///     first. <c>Ok</c> is the seed because its label ("Alles in Ordnung") is the one that cannot
-        ///     be mistaken for its member name.
+        ///     Seeded rather than left null, because a null struct renders nothing at all and there would
+        ///     be no <c>Alarmzustand</c> label or pill to look at until an operator typed a value.
         /// </summary>
         [ServiceProperty(Description = "Operator-supplied target setpoint applied on the next control cycle.")]
         [Presentation(DisplayName = "Geplanter Sollwert", Group = PropertyGroup.Configuration, Order = 10)]
@@ -126,9 +124,8 @@ namespace Vion.Examples.RichTypes.LogicBlocks
         ///     Writable struct array. Renders as a flat editable table with one column per
         ///     [StructField]. Demonstrates how the per-field annotations propagate to array
         ///     elements without further configuration.
-        ///     Seeded with three rows on purpose: an empty array renders no rows, and the
-        ///     <c>Alarmzustand</c> column only proves anything if consecutive rows carry *different*
-        ///     members, so the severity colours differ down the column.
+        ///     Seeded with three rows carrying three different <c>Alarmzustand</c> members, so the column
+        ///     shows its severity colours side by side. An empty array would render no rows at all.
         /// </summary>
         [ServiceProperty(Description = "Time-of-day schedule — each row is a (DateTime, kW, V, Alarm) tuple applied at the given time.")]
         [Presentation(DisplayName = "Sollwert-Plan", Group = PropertyGroup.Configuration, Order = 20)]
@@ -323,13 +320,11 @@ namespace Vion.Examples.RichTypes.LogicBlocks
     ///     through ImmutableArray&lt;T&gt; element schemas the same way they do for a
     ///     single-value struct property.
     ///     <para />
-    ///     <c>Alarm</c> is the enum-inside-a-struct case (VION-105). Its <c>schema.title</c> is the CLR
-    ///     type name "AlarmState", so the authored Title, the per-member
-    ///     <see cref="EnumLabelAttribute" /> and the <see cref="SeverityAttribute" /> all travel in the
-    ///     <c>presentation.fields.alarm</c> sibling instead. Because this struct is surfaced both as a
+    ///     <c>Alarm</c> is the enum-typed field. An enum field's <c>schema.title</c> is its CLR type name,
+    ///     so the authored Title, the per-member labels and the severities travel beside the schema in
+    ///     <c>presentation.fields.alarm</c> rather than inline. Since this struct is surfaced both as a
     ///     nullable property (<see cref="RichBlock.PreferredSetpoint" />) and as an array
-    ///     (<see cref="RichBlock.Schedule" />), one field exercises all four render paths: the read-only
-    ///     struct grid, the writable struct form, the read-only array table and the writable array table.
+    ///     (<see cref="RichBlock.Schedule" />), that one field covers every struct render path a client has.
     /// </summary>
     public readonly record struct ScheduledSetpoint(
         [StructField(Title = "Zeitpunkt", Description = "Application time (UTC).")]
@@ -360,7 +355,7 @@ namespace Vion.Examples.RichTypes.LogicBlocks
     ///     wire identity; the label is purely cosmetic). Both work identically when the enum
     ///     appears as a single value, inside a nullable, inside an array, or as a field of a struct —
     ///     the last of these reaching a client through <c>presentation.fields</c> rather than inline,
-    ///     because a struct field's <c>schema.title</c> is taken by the CLR type name (VION-105).
+    ///     because a struct field's <c>schema.title</c> is taken by the CLR type name.
     /// </summary>
     public enum AlarmState
     {

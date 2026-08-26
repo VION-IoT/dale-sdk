@@ -37,9 +37,9 @@ namespace Vion.Diagnostics
     /// <summary>
     ///     Per-logic-block health; the <see cref="SeverityAttribute" /> drives the per-row status colour and
     ///     the <see cref="EnumLabelAttribute" /> the cell text. As a field of a struct rather than a property
-    ///     of its own, both reach a client through <c>presentation.fields.health</c> — an enum field's
-    ///     <c>schema.title</c> is taken by the CLR type name, which is why <c>Health</c> is the one field
-    ///     here that needs an explicit <c>Title</c> to be labelled at all (VION-105).
+    ///     of its own, both reach a client through <c>presentation.fields.health</c>. An enum field's
+    ///     <c>schema.title</c> is taken by the CLR type name, which is why <c>Health</c> needs an explicit
+    ///     <c>Title</c> to be labelled at all.
     /// </summary>
     public enum LogicBlockHealth
     {
