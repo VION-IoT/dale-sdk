@@ -117,6 +117,10 @@ namespace Vion.Dale.DevHost.Web
             var generation = 0;
             string? topologyId = null;
 
+            // The last topology that actually started. A switch onto a topology that cannot resolve falls
+            // back to it rather than taking the process down (see the catch below).
+            string? runningTopologyId = null;
+
             while (!cancellationToken.IsCancellationRequested)
             {
                 generation++;
@@ -125,7 +129,29 @@ namespace Vion.Dale.DevHost.Web
                 var resetRequested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
                 using var resetSubscription = host.Control.OnResetRequested(() => resetRequested.TrySetResult());
 
-                await host.StartAsync(cancellationToken);
+                try
+                {
+                    await host.StartAsync(cancellationToken);
+                }
+                catch (InvalidOperationException exception) when (topologyId != runningTopologyId && !cancellationToken.IsCancellationRequested)
+                {
+                    // A topology the UI switched to can refuse to resolve — e.g. it names a block whose
+                    // services.AddTransient<T>() line is missing, which DevHostIntrospection now rejects
+                    // (VION-66). Killing `dale dev` here would take away the very UI the operator needs to
+                    // pick another topology, so the supervisor reports the failure and recycles back onto the
+                    // topology that was running. Introspection throws before any hosted service starts, so
+                    // nothing was bound and the disposal at the end of this iteration is enough.
+                    //
+                    // The guard is `topologyId != runningTopologyId`: a BOOT generation (nothing running yet)
+                    // and a fallback that itself fails both fall through and terminate the process, as before.
+                    Console.WriteLine($"Topology '{topologyId}' cannot start — staying on " + (runningTopologyId is null ? "the default topology" : $"'{runningTopologyId}'") +
+                                      $".{Environment.NewLine}{exception.Message}");
+
+                    topologyId = runningTopologyId;
+                    continue;
+                }
+
+                runningTopologyId = topologyId;
 
                 if (TryExport(host))
                 {

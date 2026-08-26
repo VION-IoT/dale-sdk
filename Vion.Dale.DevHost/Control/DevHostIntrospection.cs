@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Vion.Contracts.Conventions;
 using Vion.Contracts.Introspection;
 using Vion.Contracts.Predicates;
+using Vion.Dale.Sdk.Configuration.Services;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Introspection;
 
@@ -243,11 +244,19 @@ namespace Vion.Dale.DevHost.Control
 
         private void Introspect()
         {
+            // Every topology block whose type has no DI registration. Collected across the whole loop and
+            // thrown once at the end — the parser's collect-then-report shape, so three bad blocks give one
+            // message rather than three runs (VION-66).
+            var unregistered = new List<string>();
+
             foreach (var block in _configuration.LogicBlocks)
             {
                 if (_serviceProvider.GetService(block.LogicBlockType) is not LogicBlockBase instance)
                 {
-                    _logger.LogWarning("Could not instantiate {Type} for introspection; skipping its control metadata.", block.LogicBlockType.Name);
+                    // The suggested call names the type in full: it has to compile wherever it is pasted, and
+                    // GetDisplayFullName also spells a nested type the way C# accepts it (Outer.Inner).
+                    var displayName = ReflectionHelper.GetDisplayFullName(block.LogicBlockType);
+                    unregistered.Add($"  - {displayName} (topology id '{block.Id}', name '{block.Name}'){Environment.NewLine}" + $"      services.AddTransient<{displayName}>();");
                     continue;
                 }
 
@@ -316,6 +325,13 @@ namespace Vion.Dale.DevHost.Control
 
                 _propertyToServiceId[block.Id] = map;
                 _serviceMemberToServiceId[block.Id] = serviceMap;
+            }
+
+            if (unregistered.Count != 0)
+            {
+                throw new InvalidOperationException($"Failed to instantiate the following logic blocks because they are not registered in the DI:{Environment.NewLine}" +
+                                                    string.Join(Environment.NewLine, unregistered) +
+                                                    $"{Environment.NewLine}Add each of those lines to the IConfigureServices implementation of the library that declares the block.");
             }
         }
 
