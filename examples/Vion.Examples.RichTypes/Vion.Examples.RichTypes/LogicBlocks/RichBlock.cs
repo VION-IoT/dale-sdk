@@ -113,19 +113,28 @@ namespace Vion.Examples.RichTypes.LogicBlocks
         ///     Writable struct property. Renders an editable form per field; the [StructField]
         ///     ranges drive validation, the per-field <see cref="StructFieldAttribute.Description" />
         ///     drives the input tooltips.
+        ///     Seeded rather than left null: a null struct renders nothing, and the point of the
+        ///     <c>Alarm</c> field is that you can see its label and severity pill without setting a value
+        ///     first. <c>Ok</c> is the seed because its label ("Alles in Ordnung") is the one that cannot
+        ///     be mistaken for its member name.
         /// </summary>
         [ServiceProperty(Description = "Operator-supplied target setpoint applied on the next control cycle.")]
         [Presentation(DisplayName = "Geplanter Sollwert", Group = PropertyGroup.Configuration, Order = 10)]
-        public ScheduledSetpoint? PreferredSetpoint { get; set; }
+        public ScheduledSetpoint? PreferredSetpoint { get; set; } = new ScheduledSetpoint(PlanTime(9, 30), 25.0, 230.0, AlarmState.Ok);
 
         /// <summary>
         ///     Writable struct array. Renders as a flat editable table with one column per
         ///     [StructField]. Demonstrates how the per-field annotations propagate to array
         ///     elements without further configuration.
+        ///     Seeded with three rows on purpose: an empty array renders no rows, and the
+        ///     <c>Alarmzustand</c> column only proves anything if consecutive rows carry *different*
+        ///     members, so the severity colours differ down the column.
         /// </summary>
-        [ServiceProperty(Description = "Time-of-day schedule — each row is a (DateTime, kW, V) tuple applied at the given time.")]
+        [ServiceProperty(Description = "Time-of-day schedule — each row is a (DateTime, kW, V, Alarm) tuple applied at the given time.")]
         [Presentation(DisplayName = "Sollwert-Plan", Group = PropertyGroup.Configuration, Order = 20)]
-        public ImmutableArray<ScheduledSetpoint> Schedule { get; set; } = ImmutableArray<ScheduledSetpoint>.Empty;
+        public ImmutableArray<ScheduledSetpoint> Schedule { get; set; } = ImmutableArray.Create(new ScheduledSetpoint(PlanTime(6), 12.5, 230.0, AlarmState.Ok),
+                                                                                                new ScheduledSetpoint(PlanTime(12), 48.0, 235.0, AlarmState.Warning),
+                                                                                                new ScheduledSetpoint(PlanTime(18), 60.0, 228.5, AlarmState.Critical));
 
         [ServiceProperty(Title = "Spannungs-Sollwert", Unit = "V", Minimum = 0, Maximum = 400, Description = "Statischer Spannungssollwert (Slider, da Min/Max gesetzt sind).")]
         [Presentation(Group = PropertyGroup.Configuration, Order = 30, UiHint = UiHints.Slider, Decimals = 1)]
@@ -283,6 +292,18 @@ namespace Vion.Examples.RichTypes.LogicBlocks
         protected override void Starting()
         {
         }
+
+        /// <summary>
+        ///     A fixed UTC time-of-day on an arbitrary seed date. The seeded schedule is deliberately
+        ///     constant rather than relative to <c>UtcNow</c>: it is a fixture to look at, and a scenario
+        ///     asserting on it should not depend on when the host booted.
+        /// </summary>
+        private static DateTime PlanTime(int hour, int minute = 0)
+        {
+            // SpecifyKind rather than a seven-argument DateTime ctor: it stamps the kind without shifting
+            // the value the way ToUniversalTime would, and it keeps the expression on one line.
+            return DateTime.SpecifyKind(new DateTime(2026, 1, 1).AddHours(hour).AddMinutes(minute), DateTimeKind.Utc);
+        }
     }
 
     /// <summary>
@@ -301,6 +322,14 @@ namespace Vion.Examples.RichTypes.LogicBlocks
     ///     Struct used inside an array — verifies per-StructField annotations propagate
     ///     through ImmutableArray&lt;T&gt; element schemas the same way they do for a
     ///     single-value struct property.
+    ///     <para />
+    ///     <c>Alarm</c> is the enum-inside-a-struct case (VION-105). Its <c>schema.title</c> is the CLR
+    ///     type name "AlarmState", so the authored Title, the per-member
+    ///     <see cref="EnumLabelAttribute" /> and the <see cref="SeverityAttribute" /> all travel in the
+    ///     <c>presentation.fields.alarm</c> sibling instead. Because this struct is surfaced both as a
+    ///     nullable property (<see cref="RichBlock.PreferredSetpoint" />) and as an array
+    ///     (<see cref="RichBlock.Schedule" />), one field exercises all four render paths: the read-only
+    ///     struct grid, the writable struct form, the read-only array table and the writable array table.
     /// </summary>
     public readonly record struct ScheduledSetpoint(
         [StructField(Title = "Zeitpunkt", Description = "Application time (UTC).")]
@@ -308,7 +337,9 @@ namespace Vion.Examples.RichTypes.LogicBlocks
         [StructField(Title = "Wirkleistung", Unit = "kW", Description = "Aktive Wirkleistung.")]
         double PowerSetpoint,
         [StructField(Title = "Spannung", Unit = "V", Description = "Spannungs-Sollwert.")]
-        double VoltageSetpoint);
+        double VoltageSetpoint,
+        [StructField(Title = "Alarmzustand", Description = "Erwarteter Alarmzustand für diesen Planschritt.")]
+        AlarmState Alarm);
 
     /// <summary>
     ///     Flat record struct with a secret member — showcases per-field
@@ -327,7 +358,9 @@ namespace Vion.Examples.RichTypes.LogicBlocks
     ///     Per-member <see cref="SeverityAttribute" /> drives the status-pill colour;
     ///     <see cref="EnumLabelAttribute" /> overrides the display label (the CLR name is the
     ///     wire identity; the label is purely cosmetic). Both work identically when the enum
-    ///     appears as a single value, inside a nullable, or inside an array.
+    ///     appears as a single value, inside a nullable, inside an array, or as a field of a struct —
+    ///     the last of these reaching a client through <c>presentation.fields</c> rather than inline,
+    ///     because a struct field's <c>schema.title</c> is taken by the CLR type name (VION-105).
     /// </summary>
     public enum AlarmState
     {

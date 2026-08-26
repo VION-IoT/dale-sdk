@@ -24,7 +24,7 @@ namespace Vion.Diagnostics
         int Errors,
         [StructField(Description = "Time of the last handled message; null if the block has never been active.")]
         DateTime? LastActivityUtc,
-        [StructField(Description = "Per-block health (OK / Warning / Critical).")]
+        [StructField(Title = "Health", Description = "Per-block health (OK / Warning / Critical).")]
         LogicBlockHealth Health);
 
     /// <summary>
@@ -34,7 +34,13 @@ namespace Vion.Diagnostics
     /// </summary>
     public readonly record struct RuntimeHealth(int MqttIngressBacklog, int PublisherBacklog, double PublishErrorsPerSec);
 
-    /// <summary>Per-logic-block health; the <see cref="SeverityAttribute" /> drives the per-row status colour.</summary>
+    /// <summary>
+    ///     Per-logic-block health; the <see cref="SeverityAttribute" /> drives the per-row status colour and
+    ///     the <see cref="EnumLabelAttribute" /> the cell text. As a field of a struct rather than a property
+    ///     of its own, both reach a client through <c>presentation.fields.health</c> — an enum field's
+    ///     <c>schema.title</c> is taken by the CLR type name, which is why <c>Health</c> is the one field
+    ///     here that needs an explicit <c>Title</c> to be labelled at all (VION-105).
+    /// </summary>
     public enum LogicBlockHealth
     {
         [Severity(StatusSeverity.Success)]
