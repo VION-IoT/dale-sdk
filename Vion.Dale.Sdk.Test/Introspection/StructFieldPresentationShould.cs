@@ -211,7 +211,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
             // Coordinates' fields are scalars with no Title — every annotation lands inline, so an
             // otherwise-empty presentation must still serialize to null rather than to `{"fields":{}}`.
             var result = LogicBlockIntrospection.IntrospectLogicBlock(new RichTypesLogicBlock(), _serviceProvider);
-            var location = result.Services.First().MeasuringPoints.First(m => m.Identifier == "Location");
+            var location = ServiceOf(result).MeasuringPoints.Single(m => m.Identifier == "Location");
 
             Assert.IsNull(location.Presentation);
         }
@@ -244,7 +244,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         private JsonObject PresentationOf(string identifier)
         {
-            var service = _result.Services.First();
+            var service = ServiceOf(_result);
             var presentation = service.Properties.FirstOrDefault(p => p.Identifier == identifier)?.Presentation ??
                                service.MeasuringPoints.FirstOrDefault(m => m.Identifier == identifier)?.Presentation;
 
@@ -254,12 +254,22 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         private JsonObject SchemaFields(string identifier)
         {
-            var service = _result.Services.First();
+            var service = ServiceOf(_result);
             var schema = service.Properties.FirstOrDefault(p => p.Identifier == identifier)?.Schema ??
                          service.MeasuringPoints.FirstOrDefault(m => m.Identifier == identifier)?.Schema;
 
             Assert.IsNotNull(schema, $"{identifier} was not emitted.");
             return (JsonObject)schema["properties"]!;
+        }
+
+        /// <summary>
+        ///     The block's root service, selected by identifier rather than by position: these fixtures
+        ///     deliberately mix interface-bound and extra members, and a positional pick would fail as a
+        ///     confusing missing-member assert if service ordering ever changed.
+        /// </summary>
+        private static LogicBlockIntrospectionResult.ServiceInfo ServiceOf(LogicBlockIntrospectionResult result)
+        {
+            return result.Services.Single(s => s.Identifier == nameof(LinkSummaryLogicBlock) || s.Identifier == nameof(RichTypesLogicBlock));
         }
     }
 }

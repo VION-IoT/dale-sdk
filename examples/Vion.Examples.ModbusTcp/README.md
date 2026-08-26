@@ -244,7 +244,8 @@ and every field earns its place. Yours probably is not, so there are cheaper sha
   `LinkHealth` only when you actually need to fold in something the SDK cannot see — the socket's
   backoff, or the fact that your block switched the client off.
 
-**Where an enum field's label comes from.** For the three enum-typed fields inside the summaries —
+**Where an enum field's label comes from** (from the next SDK release — the version this example
+pins predates it). For the three enum-typed fields inside the summaries —
 `Link.state`, `Link.lastFailureOutcome` and `Connection.state` — `schema.title` holds the CLR type name,
 because that is the cloud's translation key. Their authored title travels in a second slot instead:
 `presentation.fields.<field>.displayName`, alongside the field enum's `[EnumLabel]` and `[Severity]`
