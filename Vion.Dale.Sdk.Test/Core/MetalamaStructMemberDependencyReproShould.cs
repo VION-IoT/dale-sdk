@@ -93,14 +93,11 @@ namespace Vion.Dale.Sdk.Test.Core
             var sut = new StructMemberDependencyRepro();
             var raised = Subscribe(sut);
 
-            sut.Control = 1;
-            CollectionAssert.Contains(raised, "Control", "Positive control must fire in this same run.");
-            raised.Clear();
-
             // Currently failing: only "Stored" is raised — the sibling property that reads the whole field.
             // The member read off the struct value creates no dependency, so this member is permanently stale.
             sut.StoreReading(new MeterReading(11.5));
 
+            CollectionAssert.Contains(raised, "Stored", "Positive control at the SAME root: a whole-value read of the same field must raise. Raised: " + string.Join(", ", raised));
             CollectionAssert.Contains(raised,
                                       "ActivePowerTotalKw",
                                       "double? ActivePowerTotalKw => _stored?.ActivePowerTotalKw must re-publish. Raised: " + string.Join(", ", raised));
@@ -113,12 +110,11 @@ namespace Vion.Dale.Sdk.Test.Core
             var sut = new StructMemberDependencyRepro();
             var raised = Subscribe(sut);
 
-            sut.Control = 1;
-            CollectionAssert.Contains(raised, "Control", "Positive control must fire in this same run.");
-            raised.Clear();
-
             sut.StorePlainReading(new MeterReading(22.5));
 
+            CollectionAssert.Contains(raised,
+                                      "PlainStored",
+                                      "Positive control at the SAME root: a whole-value read of the same field must raise. Raised: " + string.Join(", ", raised));
             CollectionAssert.Contains(raised,
                                       "PlainActivePowerTotalKw",
                                       "double PlainActivePowerTotalKw => _plainStored.ActivePowerTotalKw must re-publish. Raised: " + string.Join(", ", raised));
@@ -170,9 +166,20 @@ namespace Vion.Dale.Sdk.Test.Core
         }
 
 #pragma warning disable DALE031 // Intentional antipattern under test — see the [Ignore] notes above.
+
+        // The field-backed members below ARE the subject of the test: `cleanupcode` collapses
+        // `private T _x;` + `public T X => _x;` into an auto-property and rewrites every `_x` read to
+        // `X`, which silently turns the field-rooted probes into property-rooted ones. Keep disabled.
+        // ReSharper disable ConvertToAutoProperty
+        // ReSharper disable ConvertToAutoPropertyWhenPossible
+        // ReSharper disable ConvertToAutoPropertyWithPrivateSetter
         private sealed class StructMemberDependencyRepro : LogicBlockBase
         {
             private MeterReading _plainStored;
+
+            private int _scalarField;
+
+            private MeterReading? _stored;
 
             [ServiceProperty]
             public int Control { get; set; }
@@ -184,15 +191,27 @@ namespace Vion.Dale.Sdk.Test.Core
             }
 
             [ServiceProperty]
-            public MeterReading? Stored { get; private set; }
+            public MeterReading? Stored
+            {
+                get => _stored;
+            }
 
             [ServiceProperty]
-            public int ScalarFromField { get; private set; }
+            public int ScalarFromField
+            {
+                get => _scalarField;
+            }
 
             [ServiceProperty]
             public double? ActivePowerTotalKw
             {
-                get => Stored?.ActivePowerTotalKw;
+                get => _stored?.ActivePowerTotalKw;
+            }
+
+            [ServiceProperty]
+            public MeterReading PlainStored
+            {
+                get => _plainStored;
             }
 
             [ServiceProperty]
@@ -236,7 +255,7 @@ namespace Vion.Dale.Sdk.Test.Core
 
             public void StoreReading(MeterReading reading)
             {
-                Stored = reading;
+                _stored = reading;
             }
 
             public void StorePlainReading(MeterReading reading)
@@ -246,13 +265,17 @@ namespace Vion.Dale.Sdk.Test.Core
 
             public void StoreScalar(int value)
             {
-                ScalarFromField = value;
+                _scalarField = value;
             }
 
             protected override void Ready()
             {
             }
         }
+
+        // ReSharper restore ConvertToAutoPropertyWithPrivateSetter
+        // ReSharper restore ConvertToAutoPropertyWhenPossible
+        // ReSharper restore ConvertToAutoProperty
 #pragma warning restore DALE031
     }
 }

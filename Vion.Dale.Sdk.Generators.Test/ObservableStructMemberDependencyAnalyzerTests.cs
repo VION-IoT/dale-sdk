@@ -170,7 +170,7 @@ public class MyBlock
             await AnalyzerTestBase.VerifyAnalyzerAsync<ObservableStructMemberDependencyAnalyzer>(source);
         }
 
-        // --- The trap, third root: an UNMARKED struct property. Asserted exempt until VION-81; the
+        // --- The trap, second root: an UNMARKED struct property. Asserted exempt until VION-81; the
         //     probe showed the shape is broken exactly like the marked one, because the aspect weaves
         //     every auto-property of the type, not only the [ServiceProperty] ones. ---
 
@@ -231,7 +231,7 @@ public class MyBlock
             await AnalyzerTestBase.VerifyAnalyzerAsync<ObservableStructMemberDependencyAnalyzer>(source);
         }
 
-        // --- The trap, second root: a private FIELD (VION-81). The aspect tracks the field itself as
+        // --- The trap, third root: a private FIELD (VION-81). The aspect tracks the field itself as
         //     a dependency root, but drops the member read off its struct value. ---
 
         [TestMethod]
@@ -317,7 +317,9 @@ public class MyBlock
             await AnalyzerTestBase.VerifyAnalyzerAsync<ObservableStructMemberDependencyAnalyzer>(source);
         }
 
-        // --- Over-fire guards the widening past the property root introduces ---
+        // --- Guards on roots that must stay silent. The first three are new risks the widening
+        //     introduces; the last two were already exempt under the old IPropertySymbol guard and are
+        //     pinned here so the rewrite cannot quietly lose them. ---
 
         [TestMethod]
         public async Task ReferenceTypeFieldMemberRead_NoDiagnostic()
@@ -342,7 +344,9 @@ public class MyBlock
         {
             // A readonly field cannot be reassigned after construction, so what it feeds can never go stale.
             // Not on the widening's required list — added because `private readonly TimeSpan _interval;` is a
-            // common shape and warning about it would be pure noise in a consumer build.
+            // common shape and warning about it would be pure noise. Its get-only-property twin is below; the
+            // two must stay in step, or the rule becomes "readonly fields are quiet, get-only properties are
+            // not", which no author can predict from the message.
             var source = @"
 using System;
 using Vion.Dale.Sdk.Core;
@@ -439,6 +443,69 @@ public class MyBlock
     [ServiceMeasuringPoint] public double Total => _other.Plan.Load;
 }";
             await AnalyzerTestBase.VerifyAnalyzerAsync<ObservableStructMemberDependencyAnalyzer>(source);
+        }
+
+        [TestMethod]
+        public async Task GetOnlyStructPropertyMemberRead_NoDiagnostic()
+        {
+            // The immutable-root twin of ReadOnlyStructFieldMemberRead_NoDiagnostic: no setter means no
+            // reassignment after construction, so nothing derived from it can go stale.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public readonly record struct Bands(double OffGrid, double Load);
+
+public class MyBlock
+{
+    [ServiceProperty] public Bands Plan { get; } = new Bands(1, 2);
+
+    [ServiceMeasuringPoint] public double Total => Plan.Load;
+}";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<ObservableStructMemberDependencyAnalyzer>(source);
+        }
+
+        // --- Pins on shapes that DO report, so the exemptions above cannot creep outwards ---
+
+        [TestMethod]
+        public async Task BaseClassStructPropertyMemberRead_ReportsDiagnostic()
+        {
+            // Deliberately NOT exempt, unlike the base-class FIELD above: Metalama weaves an inherited
+            // property of a woven type and reports no LAMA5164 for it, so DALE031 is the only signal.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public readonly record struct Bands(double OffGrid, double Load);
+
+public class MyBase
+{
+    [ServiceProperty] public Bands Plan { get; set; }
+}
+
+public class MyBlock : MyBase
+{
+    [ServiceMeasuringPoint] public double Total => {|#0:Plan.Load|};
+}";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE031_ObservableStructMemberDependencyNotTracked).WithLocation(0).WithArguments("Total", "Plan", "Load");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<ObservableStructMemberDependencyAnalyzer>(source, expected);
+        }
+
+        [TestMethod]
+        public async Task NullableScalarFieldHasValueRead_ReportsDiagnostic()
+        {
+            // `Nullable<double>` is a struct like any other and `HasValue` is a member read off it, so this
+            // fires — and it is a TRUE positive: assigning `_x` raises nothing for `Has`. Pinned because the
+            // idiom is common enough that a future reader will assume it is an over-fire and "fix" it.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public class MyBlock
+{
+    private double? _x;
+
+    [ServiceProperty] public bool Has => {|#0:_x.HasValue|};
+}";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE031_ObservableStructMemberDependencyNotTracked).WithLocation(0).WithArguments("Has", "_x", "HasValue");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<ObservableStructMemberDependencyAnalyzer>(source, expected);
         }
     }
 }

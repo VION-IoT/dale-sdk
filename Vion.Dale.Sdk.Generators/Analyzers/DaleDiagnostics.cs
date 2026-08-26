@@ -332,9 +332,8 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         ///     e.g. <c>Bands.Capacity</c>, or <c>_stored.ActivePowerTotalKw</c> off a private field. The
         ///     Metalama.Patterns.Observability aspect tracks whole-value changes and method calls, but NOT
         ///     direct struct-member reads, so the computed property is woven without a dependency on that value
-        ///     and never re-publishes when it changes — a silent, permanently-stale value with no other
-        ///     compile-time signal (the aspect emits no LAMA51xx for this shape; VION-81 verified that against
-        ///     both 2026.1.18 and 2026.1.25).
+        ///     and never re-publishes when it changes — a silent, permanently-stale value that the aspect itself
+        ///     reports no LAMA51xx for.
         /// </summary>
         public static readonly DiagnosticDescriptor DALE031_ObservableStructMemberDependencyNotTracked = new("DALE031",
                                                                                                              "Computed observable property reads an untracked member of a struct value",

@@ -123,18 +123,33 @@ Change tracking follows whole values, not their members. A computed property tha
 it goes permanently stale on MQTT and in the DevHost.
 
 ```csharp
-private MeterReading? _stored;
+private MeterReading _stored;
 
-// Stale forever — the member read creates no dependency.
+// Stale forever — the member read creates no dependency on _stored.
 [ServiceProperty]
-public double? ActivePowerKw => _stored?.ActivePowerKw;
+public double ActivePowerKw => _stored.ActivePowerKw;
 
-// Any of these work: read the whole value, call a method on it, or recompute on assignment.
+// Fix by reading the whole value...
 [ServiceProperty]
-public MeterReading? Reading => _stored;
+public MeterReading Reading => _stored;
+
+// ...or by calling a method on it — method calls are tracked...
+[ServiceProperty]
+public double ActivePowerKwViaMethod => _stored.ReadActivePowerKw();
+
+// ...or by recomputing on assignment, which is the pattern above.
+[ServiceProperty]
+public double ActivePowerKwRecomputed { get; private set; }
+
+public void Store(MeterReading reading)
+{
+    _stored = reading;
+    ActivePowerKwRecomputed = reading.ActivePowerKw;
+}
 ```
 
-`DALE031` reports this at build time.
+`DALE031` reports this at build time. It applies to any struct — including `DateTime`,
+`TimeSpan` and `Nullable<T>` — and to struct-typed properties as well as fields.
 
 ### Persistence
 

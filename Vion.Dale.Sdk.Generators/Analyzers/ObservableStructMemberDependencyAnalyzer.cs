@@ -15,9 +15,9 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
     ///     struct-member reads — so the computed property is woven without a dependency on that value and silently
     ///     never re-publishes when it changes.
     ///     <para>
-    ///         The root does not matter: a probe against a real Metalama compilation (VION-81, recorded in
-    ///         <c>Vion.Dale.Sdk.Test/Core/MetalamaComputedDependencyProbeShould.cs</c>) showed all three roots —
-    ///         an observable property, an unmarked property, and a private field — are woven as dependency roots
+    ///         The root does not matter: a probe against a real Metalama compilation (VION-81, kept as
+    ///         <c>Vion.Dale.Sdk.Test/Core/MetalamaStructMemberDependencyReproShould.cs</c>) showed all three roots
+    ///         — an observable property, an unmarked property, and a private field — are woven as dependency roots
     ///         and all three drop the member read. Whole-value reads (<c>=> Plan</c>, <c>=> _stored</c>) and
     ///         method calls (<c>Bands.Sum()</c>) ARE tracked, so they are deliberately not flagged.
     ///     </para>
@@ -173,12 +173,20 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             switch (instanceSymbol)
             {
                 case IPropertySymbol instanceProperty:
+                    // A get-only property is assigned in the constructor and never again, so what it feeds can
+                    // never go stale. Same reasoning as the readonly field below — keep the two in step.
+                    if (instanceProperty.SetMethod is null)
+                    {
+                        return false;
+                    }
+
                     instanceType = instanceProperty.Type;
                     return true;
 
                 case IFieldSymbol instanceField:
-                    // A field declared by a base type belongs to that type's dependency graph, and the base may
-                    // live in an assembly the aspect never touches — stay out of it.
+                    // A field declared by a base type is not one this type's aspect weaves: Metalama reports it
+                    // itself as LAMA5164 ("only private instance fields of the current type … are supported"),
+                    // so DALE031 here would be duplicate noise on a shape the author is already being told about.
                     if (!SymbolEqualityComparer.Default.Equals(instanceField.ContainingType, containingType))
                     {
                         return false;
