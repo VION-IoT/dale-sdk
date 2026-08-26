@@ -76,6 +76,17 @@ namespace Vion.Dale.Sdk.Test.Introspection
         [EnumLabel("Getrennt")]
         [Severity(StatusSeverity.Error)]
         Disconnected,
+
+        // Declared out of alphabetical order on purpose: the sorted-key-order test (VION-77) needs
+        // declaration order, hash order and sorted order to be three different sequences, and five members
+        // make an accidentally-sorted hash order unlikely enough for the test to discriminate.
+        [EnumLabel("Blockiert")]
+        [Severity(StatusSeverity.Warning)]
+        Blocked,
+
+        [EnumLabel("Aushandeln")]
+        [Severity(StatusSeverity.Neutral)]
+        Authenticating,
     }
 
     public enum OperatingMode
@@ -308,6 +319,27 @@ namespace Vion.Dale.Sdk.Test.Introspection
             Assert.AreEqual("neutral", mappings["Unknown"]?.GetValue<string>());
             Assert.AreEqual("success", mappings["Connected"]?.GetValue<string>());
             Assert.AreEqual("error", mappings["Disconnected"]?.GetValue<string>());
+        }
+
+        [TestMethod]
+        [DataRow("statusMappings")]
+        [DataRow("enumLabels")]
+        public void SerializeTheStatusAndLabelMapsInSortedKeyOrder(string mapName)
+        {
+            // VION-77: both maps are built as immutable dictionaries, and .NET randomizes string hashing per
+            // process — so the same assembly serialized them in a different order on every run, and
+            // `dale dev --export-config` wrote a different file each time.
+            // The assertion is sorted order, not "two serializations agree": two serializations inside one
+            // test process share a hash seed and agree with or without the canonicalization.
+            // DeviceConnectionState is declared Unknown, Connected, Disconnected, Blocked, Authenticating — so
+            // declaration order and sorted order are genuinely different documents, and only the fix produces
+            // the sorted one.
+            var map = GetProperty("ConnectionState").Presentation?[mapName] as JsonObject;
+
+            Assert.IsNotNull(map, $"ConnectionState must carry {mapName} for this test to mean anything.");
+
+            var keys = map.Select(entry => entry.Key).ToList();
+            CollectionAssert.AreEqual(new[] { "Authenticating", "Blocked", "Connected", "Disconnected", "Unknown" }, keys, $"{mapName} key order: {string.Join(", ", keys)}");
         }
 
         [TestMethod]

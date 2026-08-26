@@ -242,6 +242,28 @@ namespace Vion.Dale.DevHost.Control
                    };
         }
 
+        /// <summary>
+        ///     The service-config id for one service of one block. Derived from the pair that already
+        ///     identifies the service — the topology block id and the service identifier — so two runs of the
+        ///     same wired config mint the same ids and <c>dale dev --export-config</c> writes a byte-identical
+        ///     file (VION-77). These were <see cref="Guid.NewGuid" />, which made every export differ.
+        ///     The ids are process-local: both readers (the SPA's value keys and
+        ///     <see cref="DevHostControl" />'s write path) take them from the same in-process configuration,
+        ///     and a <c>*.topology.json</c> carries identifiers and names rather than service ids — so nothing
+        ///     committed pins them, and uniqueness matters exactly as much as it did with GUIDs. Service
+        ///     identifiers are unique within a block by construction, block ids are unique within a topology
+        ///     because <c>DevConfigurationBuilder.RejectDuplicateBlockIds</c> refuses to build otherwise, and
+        ///     the <c>.</c> separator cannot occur in a service identifier (a C# type or property name) — so
+        ///     the pair round-trips.
+        ///     The <c>lbsvc_</c> prefix keeps this space clear of the service-provider identifiers minted in
+        ///     <c>DevConfigurationBuilder</c> (<c>svc_{blockId}</c>, <c>svc_shared_{n}</c>), which reach
+        ///     committed topology files as <c>mappedServiceIdentifier</c>.
+        /// </summary>
+        internal static string ServiceIdFor(string blockId, string serviceIdentifier)
+        {
+            return $"lbsvc_{blockId}.{serviceIdentifier}";
+        }
+
         private void Introspect()
         {
             // Every topology block whose type has no DI registration. Collected across the whole loop and
@@ -274,7 +296,7 @@ namespace Vion.Dale.DevHost.Control
                 {
                     foreach (var service in result.Services)
                     {
-                        block.Services.Add(new DevServiceConfig { Id = Guid.NewGuid().ToString(), Identifier = service.Identifier });
+                        block.Services.Add(new DevServiceConfig { Id = ServiceIdFor(block.Id, service.Identifier), Identifier = service.Identifier });
                     }
                 }
 

@@ -144,6 +144,8 @@ namespace Vion.Dale.DevHost
         {
             var config = new DevConfiguration { TopologyName = _topologyName, ScenariosPath = _scenariosPath, TopologiesPath = _topologiesPath };
 
+            RejectDuplicateBlockIds();
+
             // Create logic block configs
             foreach (var handle in _handles)
             {
@@ -319,6 +321,29 @@ namespace Vion.Dale.DevHost
             }
 
             return result;
+        }
+
+        /// <summary>
+        ///     The block id keys the introspection results, the per-block name maps, and — since VION-77 —
+        ///     the derived service ids, so a duplicate silently routes one block's reads and writes onto
+        ///     another. Auto-assigned ids (<c>lb_{n}</c>) can collide with an explicitly passed one, because
+        ///     the counter only advances for the auto case. Fail the build with the offending ids named,
+        ///     the way an unregistered block does (VION-66), instead of booting a mis-wired host.
+        /// </summary>
+        private void RejectDuplicateBlockIds()
+        {
+            var duplicates = _handles.GroupBy(h => h.Id).Where(g => g.Count() > 1).ToList();
+            if (duplicates.Count == 0)
+            {
+                return;
+            }
+
+            var detail = string.Join(Environment.NewLine, duplicates.Select(g => $"  - '{g.Key}' used by {string.Join(", ", g.Select(h => $"'{h.Name}'"))}"));
+
+            throw new InvalidOperationException($"Duplicate logic-block ids in the topology:{Environment.NewLine}{detail}{Environment.NewLine}" +
+                                                "Ids must be unique — they key introspection, control reads/writes and service ids. " +
+                                                "Auto-assigned ids are 'lb_0', 'lb_1', … in order, so an explicit id of that form can collide with one; " +
+                                                "give the explicit blocks ids of their own.");
         }
 
         private LogicBlockHandle CreateHandle<T>(string? name, string? id)

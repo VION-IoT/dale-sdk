@@ -18,6 +18,9 @@ namespace Vion.Dale.Sdk.Introspection
 {
     public static class LogicBlockIntrospection
     {
+        // The presentation maps whose serialized key order must be canonicalized — see SortPresentationMaps.
+        private static readonly string[] OrderSensitivePresentationMaps = { "statusMappings", "enumLabels" };
+
         public static LogicBlockIntrospectionResult IntrospectLogicBlock(LogicBlockBase logicBlock, IServiceProvider serviceProvider)
         {
             Dictionary<string, LogicBlockContractBase> contracts = new();
@@ -465,11 +468,52 @@ namespace Vion.Dale.Sdk.Introspection
             // presentation / runtime: null when the sibling was serialized as JSON null.
             var presentationNode = fullDoc["presentation"];
             var presentation = presentationNode is null ? null : presentationNode.DeepClone();
+            SortPresentationMaps(presentation as JsonObject);
 
             var runtimeNode = fullDoc["runtime"];
             var runtime = runtimeNode is null ? null : runtimeNode.DeepClone();
 
             return (schema, presentation, runtime);
+        }
+
+        /// <summary>
+        ///     Canonicalizes the key order of the two presentation maps whose serialized order is otherwise
+        ///     non-reproducible. <see cref="PropertyMetadataBuilder" /> builds <c>statusMappings</c> and
+        ///     <c>enumLabels</c> as immutable dictionaries, and .NET randomizes string hashing per process —
+        ///     so the same assembly serialized them in a different order on every run, making
+        ///     <c>dale dev --export-config</c> write a different file each time and the parser's introspection
+        ///     JSON undiffable (VION-77).
+        ///     Sorting happens here rather than at the export boundary so <c>Vion.Dale.LogicBlockParser</c>'s
+        ///     output is canonical too. <c>schema</c> is deliberately left alone: JSON Schema has a
+        ///     conventional reading order and reordering it is churn nobody asked for.
+        /// </summary>
+        /// <remarks>
+        ///     The keys are written by <c>PropertyMetadataSerialization.ToJson</c> in <c>Vion.Contracts</c>,
+        ///     which is the eventual right home for this — deferred while this repo is pinned to 3.7.0.
+        /// </remarks>
+        private static void SortPresentationMaps(JsonObject? presentation)
+        {
+            if (presentation is null)
+            {
+                return;
+            }
+
+            foreach (var mapName in OrderSensitivePresentationMaps)
+            {
+                if (presentation[mapName] is not JsonObject map)
+                {
+                    continue;
+                }
+
+                var sorted = new JsonObject();
+                foreach (var entry in map.OrderBy(e => e.Key, StringComparer.Ordinal))
+                {
+                    // Cloned because the value is still parented to `map` until the assignment below replaces it.
+                    sorted[entry.Key] = entry.Value?.DeepClone();
+                }
+
+                presentation[mapName] = sorted;
+            }
         }
 
         /// <summary>
