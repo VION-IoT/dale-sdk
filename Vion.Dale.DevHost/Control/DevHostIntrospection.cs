@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Vion.Contracts.Conventions;
 using Vion.Contracts.Introspection;
 using Vion.Contracts.Predicates;
+using Vion.Dale.Sdk.Configuration.Services;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Introspection;
 
@@ -243,11 +244,20 @@ namespace Vion.Dale.DevHost.Control
 
         private void Introspect()
         {
+            // Every topology block whose type has no DI registration, collected across the whole loop and
+            // reported once at the end (VION-66). Registration is a real contract on the cloud path — the
+            // parser refuses to instantiate an unregistered block — so tolerating the gap here would preview
+            // a surface the packed plugin drops, and the skip itself surfaced downstream as a
+            // KeyNotFoundException in BuildLogicBlock plus a per-tick "unknown service id" warning flood.
+            // Collect-then-throw (the parser's shape) so three bad blocks give one message, not three runs.
+            var unregistered = new List<string>();
+
             foreach (var block in _configuration.LogicBlocks)
             {
                 if (_serviceProvider.GetService(block.LogicBlockType) is not LogicBlockBase instance)
                 {
-                    _logger.LogWarning("Could not instantiate {Type} for introspection; skipping its control metadata.", block.LogicBlockType.Name);
+                    unregistered.Add($"  - {ReflectionHelper.GetDisplayFullName(block.LogicBlockType)} (topology id '{block.Id}', name '{block.Name}')" +
+                                     $" — add services.AddTransient<{block.LogicBlockType.Name}>()");
                     continue;
                 }
 
@@ -316,6 +326,13 @@ namespace Vion.Dale.DevHost.Control
 
                 _propertyToServiceId[block.Id] = map;
                 _serviceMemberToServiceId[block.Id] = serviceMap;
+            }
+
+            if (unregistered.Count != 0)
+            {
+                throw new InvalidOperationException($"Failed to instantiate the following logic blocks because they are not registered in the DI:{Environment.NewLine}" +
+                                                    string.Join(Environment.NewLine, unregistered) +
+                                                    $"{Environment.NewLine}Register each one in the IConfigureServices implementation of the library that declares it.");
             }
         }
 
