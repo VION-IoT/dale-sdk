@@ -155,15 +155,25 @@ namespace Vion.Dale.DevHost.Topologies
         // library first). The probe removes that and the GC.KeepAlive ModuleInitializer shim a consumer would
         // otherwise need (DF-14). The DevHost app itself never reaches the fallback — it instantiates blocks
         // at startup, so their assemblies are already loaded.
-        private static Type? ResolveType(string typeFullName)
+        //
+        // ONE loaded-assembly snapshot feeds both halves (VION-69). Taking a second snapshot for the probe's
+        // exclusion set lost a type that another thread loaded in between: absent from the first snapshot, so
+        // the lookup missed it, and present in the second, so its file was excluded from the probe. With a
+        // single snapshot S there is no third case — either the declaring assembly is in S and the lookup
+        // finds the type, or it is not in S and its path is not excluded, so the probe reaches its file.
+        // snapshotSource is where that snapshot comes from; tests substitute it to force the racing order
+        // deterministically. It is called exactly once per resolution — do not add a second call.
+        internal static Type? ResolveType(string typeFullName, Func<Assembly[]>? snapshotSource = null)
         {
-            var loaded = FindInLoadedAssemblies(typeFullName) ?? Type.GetType(typeFullName, false);
+            var snapshot = (snapshotSource ?? DefaultLoadedAssemblies)();
+
+            var loaded = FindInLoadedAssemblies(snapshot, typeFullName) ?? Type.GetType(typeFullName, false);
             if (loaded is not null)
             {
                 return loaded;
             }
 
-            foreach (var path in ProbeAssemblyPaths())
+            foreach (var path in ProbeAssemblyPaths(snapshot))
             {
                 Assembly assembly;
                 try
@@ -186,16 +196,22 @@ namespace Vion.Dale.DevHost.Topologies
             return null;
         }
 
-        private static Type? FindInLoadedAssemblies(string typeFullName)
+        private static Assembly[] DefaultLoadedAssemblies()
         {
-            return AppDomain.CurrentDomain.GetAssemblies().Where(a => !a.IsDynamic).Select(a => a.GetType(typeFullName, false)).FirstOrDefault(t => t is not null);
+            return AppDomain.CurrentDomain.GetAssemblies();
+        }
+
+        private static Type? FindInLoadedAssemblies(Assembly[] loadedAssemblies, string typeFullName)
+        {
+            return loadedAssemblies.Where(a => !a.IsDynamic).Select(a => a.GetType(typeFullName, false)).FirstOrDefault(t => t is not null);
         }
 
         // Managed assemblies in the app base directory that aren't already loaded — the referenced-but-unloaded
-        // libraries an in-process host (especially a test host) may not have touched yet. The scan stops at the
-        // first assembly that declares the wanted type, so the only-error path (genuinely missing type) is the
-        // one that walks the whole directory.
-        private static IEnumerable<string> ProbeAssemblyPaths()
+        // libraries an in-process host (especially a test host) may not have touched yet. "Already loaded" is
+        // read from the caller's snapshot, never from a fresh one. The scan stops at the first assembly that
+        // declares the wanted type, so the only-error path (genuinely missing type) is the one that walks the
+        // whole directory.
+        private static IEnumerable<string> ProbeAssemblyPaths(Assembly[] loadedAssemblies)
         {
             var baseDirectory = AppContext.BaseDirectory;
             if (string.IsNullOrEmpty(baseDirectory) || !Directory.Exists(baseDirectory))
@@ -204,7 +220,7 @@ namespace Vion.Dale.DevHost.Topologies
             }
 
             var loadedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            foreach (var assembly in loadedAssemblies)
             {
                 if (assembly.IsDynamic)
                 {
