@@ -87,6 +87,33 @@ namespace Vion.Dale.Sdk.Test.Core
         }
 
         [TestMethod]
+        public void MethodCallOnStructField_RaisesPropertyChanged()
+        {
+            // Backs the "or call a method on it" remedy for a FIELD root, which until now was asserted only by
+            // a detection test. `_stored?.Scaled()` re-publishes where `_stored?.ActivePowerTotalKw` does not.
+            var sut = new StructMemberDependencyRepro();
+            var raised = Subscribe(sut);
+
+            sut.StoreReading(new MeterReading(11.5));
+
+            CollectionAssert.Contains(raised, "StoredScaled", "A method call through a nullable struct field is tracked. Raised: " + string.Join(", ", raised));
+        }
+
+        [TestMethod]
+        public void PublicFieldOfStructRead_RaisesPropertyChanged()
+        {
+            // Backs DALE031's exemption for struct FIELD reads. The aspect tracks `_pair.A` (conservatively,
+            // via the containing field) even though it reports LAMA5164 for it — so flagging it would tell the
+            // author their value goes stale when it does not. Contrast Total => Plan.Load, which is silent.
+            var sut = new StructMemberDependencyRepro();
+            var raised = Subscribe(sut);
+
+            sut.StorePair((1.0, 2.0));
+
+            CollectionAssert.Contains(raised, "PairA", "A public field of a struct is tracked, unlike a property of one. Raised: " + string.Join(", ", raised));
+        }
+
+        [TestMethod]
         [Ignore("Documents the Metalama [Observable] struct-member-read gap as filed on VION-81. Verified still broken in Metalama.Patterns.Observability 2026.1.18 and 2026.1.25. DALE031 guards against the antipattern in user code; re-enable this test after a future Metalama upgrade to verify the upstream fix.")]
         public void ComputedFromNullableStructField_RaisesPropertyChanged()
         {
@@ -155,7 +182,13 @@ namespace Vion.Dale.Sdk.Test.Core
             return raised;
         }
 
-        public readonly record struct MeterReading(double ActivePowerTotalKw);
+        public readonly record struct MeterReading(double ActivePowerTotalKw)
+        {
+            public double Scaled()
+            {
+                return ActivePowerTotalKw * 2;
+            }
+        }
 
         public readonly record struct Bands(double Load)
         {
@@ -175,6 +208,8 @@ namespace Vion.Dale.Sdk.Test.Core
         // ReSharper disable ConvertToAutoPropertyWithPrivateSetter
         private sealed class StructMemberDependencyRepro : LogicBlockBase
         {
+            private (double A, double B) _pair;
+
             private MeterReading _plainStored;
 
             private int _scalarField;
@@ -221,6 +256,22 @@ namespace Vion.Dale.Sdk.Test.Core
             }
 
             [ServiceProperty]
+            public double? StoredScaled
+            {
+                get => _stored?.Scaled();
+            }
+
+            // LAMA5164 says this field read "cannot be observed" — and yet the aspect raises for it, which is
+            // exactly why DALE031 must not flag it. Suppressed so the fixture costs no build warning.
+#pragma warning disable LAMA5164
+            [ServiceProperty]
+            public double PairA
+            {
+                get => _pair.A;
+            }
+#pragma warning restore LAMA5164
+
+            [ServiceProperty]
             public Bands Plan { get; set; }
 
             [ServiceProperty]
@@ -261,6 +312,11 @@ namespace Vion.Dale.Sdk.Test.Core
             public void StorePlainReading(MeterReading reading)
             {
                 _plainStored = reading;
+            }
+
+            public void StorePair((double A, double B) pair)
+            {
+                _pair = pair;
             }
 
             public void StoreScalar(int value)

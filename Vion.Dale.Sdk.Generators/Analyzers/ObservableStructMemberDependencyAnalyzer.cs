@@ -9,17 +9,18 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace Vion.Dale.Sdk.Generators.Analyzers
 {
     /// <summary>
-    ///     DALE031 — a computed observable property whose getter reads a <em>member</em> of a struct value the type
-    ///     holds (e.g. <c>Bands.Capacity</c>, or <c>_stored.ActivePowerTotalKw</c>). The
-    ///     Metalama.Patterns.Observability aspect tracks whole-value changes and method calls, but NOT direct
-    ///     struct-member reads — so the computed property is woven without a dependency on that value and silently
-    ///     never re-publishes when it changes.
+    ///     DALE031 — a computed observable property whose getter reads a <em>property</em> of a struct value the
+    ///     type holds (e.g. <c>Bands.Capacity</c>, or <c>_stored.ActivePowerTotalKw</c>). The
+    ///     Metalama.Patterns.Observability aspect tracks whole-value changes, method calls and struct FIELD reads,
+    ///     but NOT struct property reads — so the computed property is woven without a dependency on that value
+    ///     and silently never re-publishes when it changes.
     ///     <para>
     ///         The root does not matter: a probe against a real Metalama compilation (VION-81, kept as
     ///         <c>Vion.Dale.Sdk.Test/Core/MetalamaStructMemberDependencyReproShould.cs</c>) showed all three roots
     ///         — an observable property, an unmarked property, and a private field — are woven as dependency roots
-    ///         and all three drop the member read. Whole-value reads (<c>=> Plan</c>, <c>=> _stored</c>) and
-    ///         method calls (<c>Bands.Sum()</c>) ARE tracked, so they are deliberately not flagged.
+    ///         and all three drop the property read. Whole-value reads (<c>=> Plan</c>, <c>=> _stored</c>),
+    ///         method calls (<c>Bands.Sum()</c>) and public-field reads (<c>_pair.A</c>) ARE tracked, so they are
+    ///         deliberately not flagged — each is pinned by a runtime test in the repro above.
     ///     </para>
     /// </summary>
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -83,10 +84,15 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                     continue;
                 }
 
-                // The accessed member must be a field/property READ of the struct value. A method call
-                // (`Bands.Sum()`) resolves to a method symbol here — the aspect tracks those, so skip them.
+                // Only a PROPERTY read off the struct is dropped silently, and that is the whole trap.
+                // Two neighbours that look identical in source are not it, and flagging them would be wrong:
+                //   - a method call (`Bands.Sum()`, `_stored?.Scaled()`) resolves to a method symbol — the
+                //     aspect tracks those (verified at runtime by MetalamaStructMemberDependencyReproShould);
+                //   - a public FIELD of the struct (`_pair.A`, `Vector2.X`) IS tracked, conservatively via the
+                //     containing field, and the aspect reports LAMA5164 for it besides. Warning here would
+                //     tell the author their value goes stale when it does not.
                 var memberSymbol = context.SemanticModel.GetSymbolInfo(memberNode!, context.CancellationToken).Symbol;
-                if (memberSymbol is not IFieldSymbol && memberSymbol is not IPropertySymbol)
+                if (memberSymbol is not IPropertySymbol)
                 {
                     continue;
                 }

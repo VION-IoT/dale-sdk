@@ -118,9 +118,9 @@ public double Temperature
 
 ### Deriving a property from a struct value
 
-Change tracking follows whole values, not their members. A computed property that reads a
-**member** of a struct-typed field or property never re-publishes when that struct is reassigned —
-it goes permanently stale on MQTT and in the DevHost.
+Change tracking follows whole values, not their **properties**. A computed property that reads a
+property of a struct-typed field or property never re-publishes when that struct is reassigned — it
+goes permanently stale on MQTT and in the DevHost, with no other build-time signal.
 
 ```csharp
 private MeterReading _stored;
@@ -149,7 +149,9 @@ public void Store(MeterReading reading)
 ```
 
 `DALE031` reports this at build time. It applies to any struct — including `DateTime`,
-`TimeSpan` and `Nullable<T>` — and to struct-typed properties as well as fields.
+`TimeSpan`, `ImmutableArray<T>` and `Nullable<T>` — and to struct-typed properties as well as
+fields. Reading a public *field* of a struct (`_pair.A`) is fine: those are tracked. If a method
+you call turns out not to be trackable, Metalama says so itself with a `LAMA51xx` warning.
 
 ### Persistence
 

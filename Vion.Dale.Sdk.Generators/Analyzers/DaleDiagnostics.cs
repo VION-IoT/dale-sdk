@@ -328,16 +328,16 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
 
         /// <summary>
         ///     A computed observable property (an explicit/expression-bodied getter carrying [ServiceProperty]
-        ///     or [ServiceMeasuringPoint]) derives its value from a MEMBER of a struct value the type holds —
+        ///     or [ServiceMeasuringPoint]) derives its value from a PROPERTY of a struct value the type holds —
         ///     e.g. <c>Bands.Capacity</c>, or <c>_stored.ActivePowerTotalKw</c> off a private field. The
-        ///     Metalama.Patterns.Observability aspect tracks whole-value changes and method calls, but NOT
-        ///     direct struct-member reads, so the computed property is woven without a dependency on that value
-        ///     and never re-publishes when it changes — a silent, permanently-stale value that the aspect itself
-        ///     reports no LAMA51xx for.
+        ///     Metalama.Patterns.Observability aspect tracks whole-value changes, method calls and struct FIELD
+        ///     reads, but NOT struct property reads, so the computed property is woven without a dependency on
+        ///     that value and never re-publishes when it changes — a silent, permanently-stale value that the
+        ///     aspect itself reports no LAMA51xx for.
         /// </summary>
         public static readonly DiagnosticDescriptor DALE031_ObservableStructMemberDependencyNotTracked = new("DALE031",
                                                                                                              "Computed observable property reads an untracked member of a struct value",
-                                                                                                             "Property '{0}' reads '{1}.{2}', a member of the struct-typed field or property '{1}'. The Observability aspect does not track struct-member reads, so '{0}' will not re-publish when '{1}' changes. Derive '{0}' from scalar observable properties, recompute it where '{1}' is assigned, or call a method on '{1}' (method calls are tracked).",
+                                                                                                             "Property '{0}' reads '{1}.{2}', a property of the struct-typed field or property '{1}'. The Observability aspect does not track struct-property reads, so '{0}' will not re-publish when '{1}' changes. Derive '{0}' from scalar observable properties, recompute it where '{1}' is assigned, or call a method on '{1}' (method calls are tracked).",
                                                                                                              Category,
                                                                                                              DiagnosticSeverity.Warning,
                                                                                                              true);

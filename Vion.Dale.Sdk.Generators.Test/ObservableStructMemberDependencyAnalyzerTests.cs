@@ -507,5 +507,47 @@ public class MyBlock
             var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE031_ObservableStructMemberDependencyNotTracked).WithLocation(0).WithArguments("Has", "_x", "HasValue");
             await AnalyzerTestBase.VerifyAnalyzerAsync<ObservableStructMemberDependencyAnalyzer>(source, expected);
         }
+
+        [TestMethod]
+        public async Task StructPublicFieldRead_NoDiagnostic()
+        {
+            // A public FIELD of a struct is NOT the trap: the aspect tracks it (conservatively, via the
+            // containing field) and reports LAMA5164 for it besides. Only struct PROPERTY reads are dropped
+            // silently. Verified at runtime: assigning `_pair` raises "PairA".
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public class MyBlock
+{
+    private (double A, double B) _pair;
+
+    [ServiceProperty] public double PairA => _pair.A;
+}";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<ObservableStructMemberDependencyAnalyzer>(source);
+        }
+
+        [TestMethod]
+        public async Task StructMemberReadBehindHelperMethod_NoDiagnostic()
+        {
+            // A known MISS, pinned deliberately rather than left undiscovered: the getter delegates to a
+            // same-type helper that does the struct-member read, which is a whole-program question this
+            // syntax-local rule cannot answer. It is not silent, though — Metalama reports the shape itself
+            // as LAMA5162 ("the 'ComputeTotal()' method cannot be observed"), verified in a real build. If
+            // DALE031 is ever made interprocedural, this test is the one to invert.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public readonly record struct Bands(double OffGrid, double Load);
+
+public class MyBlock
+{
+    [ServiceProperty] public Bands Plan { get; set; }
+
+    [ServiceMeasuringPoint] public double Total => ComputeTotal();
+
+    private double ComputeTotal() => Plan.Load;
+}";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<ObservableStructMemberDependencyAnalyzer>(source);
+        }
     }
 }
