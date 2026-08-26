@@ -116,6 +116,26 @@ public double Temperature
 }
 ```
 
+### Deriving a property from a struct value
+
+Change tracking follows whole values, not their members. A computed property that reads a
+**member** of a struct-typed field or property never re-publishes when that struct is reassigned —
+it goes permanently stale on MQTT and in the DevHost.
+
+```csharp
+private MeterReading? _stored;
+
+// Stale forever — the member read creates no dependency.
+[ServiceProperty]
+public double? ActivePowerKw => _stored?.ActivePowerKw;
+
+// Any of these work: read the whole value, call a method on it, or recompute on assignment.
+[ServiceProperty]
+public MeterReading? Reading => _stored;
+```
+
+`DALE031` reports this at build time.
+
 ### Persistence
 
 `[ServiceProperty]` with a public setter is writable and persistent by default.
