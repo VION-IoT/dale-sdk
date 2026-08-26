@@ -116,6 +116,43 @@ public double Temperature
 }
 ```
 
+### Deriving a property from a struct value
+
+Change tracking follows whole values, not their **properties**. A computed property that reads a
+property of a struct-typed field or property never re-publishes when that struct is reassigned — it
+goes permanently stale on MQTT and in the DevHost, with no other build-time signal.
+
+```csharp
+private MeterReading _stored;
+
+// Stale forever — the member read creates no dependency on _stored.
+[ServiceProperty]
+public double ActivePowerKw => _stored.ActivePowerKw;
+
+// Fix by reading the whole value...
+[ServiceProperty]
+public MeterReading Reading => _stored;
+
+// ...or by calling a method on it — method calls are tracked...
+[ServiceProperty]
+public double ActivePowerKwViaMethod => _stored.ReadActivePowerKw();
+
+// ...or by recomputing on assignment, which is the pattern above.
+[ServiceProperty]
+public double ActivePowerKwRecomputed { get; private set; }
+
+public void Store(MeterReading reading)
+{
+    _stored = reading;
+    ActivePowerKwRecomputed = reading.ActivePowerKw;
+}
+```
+
+`DALE031` reports this at build time. It applies to any struct — including `DateTime`,
+`TimeSpan`, `ImmutableArray<T>` and `Nullable<T>` — and to struct-typed properties as well as
+fields. Reading a public *field* of a struct (`_pair.A`) is fine: those are tracked. If a method
+you call turns out not to be trackable, Metalama says so itself with a `LAMA51xx` warning.
+
 ### Persistence
 
 `[ServiceProperty]` with a public setter is writable and persistent by default.

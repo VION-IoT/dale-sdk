@@ -9,12 +9,19 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace Vion.Dale.Sdk.Generators.Analyzers
 {
     /// <summary>
-    ///     DALE031 — a computed observable property whose getter reads a <em>member</em> of a struct-typed
-    ///     observable property (e.g. <c>Bands.Capacity</c> where <c>Bands</c> is a struct <c>[ServiceProperty]</c>).
-    ///     The Metalama.Patterns.Observability aspect tracks whole-property changes and method calls on the struct
-    ///     property, but NOT direct struct-member reads — so the computed property is woven without a dependency
-    ///     on the struct property and silently never re-publishes when it changes. Method calls (<c>Bands.Sum()</c>)
-    ///     ARE tracked by the aspect, so they are deliberately not flagged.
+    ///     DALE031 — a computed observable property whose getter reads a <em>property</em> of a struct value the
+    ///     type holds (e.g. <c>Bands.Capacity</c>, or <c>_stored.ActivePowerTotalKw</c>). The
+    ///     Metalama.Patterns.Observability aspect tracks whole-value changes, method calls and struct FIELD reads,
+    ///     but NOT struct property reads — so the computed property is woven without a dependency on that value
+    ///     and silently never re-publishes when it changes.
+    ///     <para>
+    ///         The root does not matter: a probe against a real Metalama compilation (VION-81, kept as
+    ///         <c>Vion.Dale.Sdk.Test/Core/MetalamaStructMemberDependencyReproShould.cs</c>) showed all three roots
+    ///         — an observable property, an unmarked property, and a private field — are woven as dependency roots
+    ///         and all three drop the property read. Whole-value reads (<c>=> Plan</c>, <c>=> _stored</c>),
+    ///         method calls (<c>Bands.Sum()</c>) and public-field reads (<c>_pair.A</c>) ARE tracked, so they are
+    ///         deliberately not flagged — each is pinned by a runtime test in the repro above.
+    ///     </para>
     /// </summary>
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class ObservableStructMemberDependencyAnalyzer : DiagnosticAnalyzer
@@ -61,53 +68,148 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                 return;
             }
 
-            // One diagnostic per (computed property, struct property) dependency, even if read several times.
+            // One diagnostic per (computed property, struct-valued member) dependency, even if read several times.
             var reported = new HashSet<string>();
 
-            foreach (var memberAccess in getterBody.DescendantNodesAndSelf().OfType<MemberAccessExpressionSyntax>())
+            foreach (var node in getterBody.DescendantNodesAndSelf())
             {
+                if (!TryGetStructMemberRead(node, out var instance, out var memberNode, out var location))
+                {
+                    continue;
+                }
+
                 // `nameof(Bands.X)` is a compile-time constant, not a value read — it creates no dependency.
-                if (IsInsideNameof(memberAccess))
+                if (IsInsideNameof(node))
                 {
                     continue;
                 }
 
-                // The accessed member must be a field/property READ of the struct value. A method call
-                // (`Bands.Sum()`) resolves to a method symbol here — the aspect tracks those, so skip them.
-                var memberSymbol = context.SemanticModel.GetSymbolInfo(memberAccess, context.CancellationToken).Symbol;
-                if (memberSymbol is not IFieldSymbol && memberSymbol is not IPropertySymbol)
+                // Only a PROPERTY read off the struct is dropped silently, and that is the whole trap.
+                // Two neighbours that look identical in source are not it, and flagging them would be wrong:
+                //   - a method call (`Bands.Sum()`, `_stored?.Scaled()`) resolves to a method symbol — the
+                //     aspect tracks those (verified at runtime by MetalamaStructMemberDependencyReproShould);
+                //   - a public FIELD of the struct (`_pair.A`, `Vector2.X`) IS tracked, conservatively via the
+                //     containing field, and the aspect reports LAMA5164 for it besides. Warning here would
+                //     tell the author their value goes stale when it does not.
+                var memberSymbol = context.SemanticModel.GetSymbolInfo(memberNode!, context.CancellationToken).Symbol;
+                if (memberSymbol is not IPropertySymbol)
                 {
                     continue;
                 }
 
-                // Only `this`-relative access (`Bands.X` / `this.Bands.X`) is the intra-type trap. A member read
-                // through another object isn't tracked by this type's aspect regardless.
-                if (!IsThisRelative(memberAccess.Expression))
+                // Only `this`-relative access (`Bands.X` / `this.Bands.X` / `_stored.X`) is the intra-type trap.
+                // A member read through a local or another object isn't tracked by this type's aspect regardless.
+                if (!IsThisRelative(instance!))
                 {
                     continue;
                 }
 
-                // The instance must be an observable, struct-typed property of this type.
-                if (context.SemanticModel.GetSymbolInfo(memberAccess.Expression, context.CancellationToken).Symbol is not IPropertySymbol structProperty)
+                var instanceSymbol = context.SemanticModel.GetSymbolInfo(instance!, context.CancellationToken).Symbol;
+                if (!TryGetTrackableInstanceType(instanceSymbol, property.ContainingType, out var instanceType))
                 {
                     continue;
                 }
 
-                if (!structProperty.Type.IsValueType || !IsObservableServiceMember(structProperty))
+                // Only struct values lose the dependency. The aspect tracks child objects, so a member read
+                // off a reference-typed instance is fine.
+                if (!instanceType!.IsValueType)
                 {
                     continue;
                 }
 
-                if (!reported.Add(structProperty.Name))
+                if (!reported.Add(instanceSymbol!.Name))
                 {
                     continue;
                 }
 
                 context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE031_ObservableStructMemberDependencyNotTracked,
-                                                           memberAccess.GetLocation(),
+                                                           location!.GetLocation(),
                                                            property.Name,
-                                                           structProperty.Name,
+                                                           instanceSymbol.Name,
                                                            memberSymbol.Name));
+            }
+        }
+
+        // The two syntax shapes that read a member off an instance: `X.Member` and — for a nullable struct —
+        // `X?.Member`, which is a ConditionalAccessExpression and not a MemberAccessExpression at all. The
+        // nullable form is the one VION-81 was filed against, so it cannot be left to the first shape.
+        private static bool TryGetStructMemberRead(SyntaxNode node, out ExpressionSyntax? instance, out SyntaxNode? memberNode, out SyntaxNode? location)
+        {
+            switch (node)
+            {
+                case MemberAccessExpressionSyntax memberAccess:
+                    instance = memberAccess.Expression;
+                    memberNode = memberAccess;
+                    location = memberAccess;
+                    return true;
+
+                case ConditionalAccessExpressionSyntax conditional:
+                    // `_stored?.A.B` binds the whole chain; the first binding is the read off the struct.
+                    var binding = conditional.WhenNotNull.DescendantNodesAndSelf().OfType<MemberBindingExpressionSyntax>().FirstOrDefault();
+                    if (binding is null)
+                    {
+                        break;
+                    }
+
+                    instance = conditional.Expression;
+                    memberNode = binding;
+                    location = conditional;
+                    return true;
+            }
+
+            instance = null;
+            memberNode = null;
+            location = null;
+            return false;
+        }
+
+        // The instance whose member is read must be state this type owns and can reassign. VION-81 established
+        // that the aspect tracks a private field as a dependency root exactly as it tracks a property — and drops
+        // the member read off either — so both kinds qualify, observable-marked or not.
+        private static bool TryGetTrackableInstanceType(ISymbol? instanceSymbol, INamedTypeSymbol containingType, out ITypeSymbol? instanceType)
+        {
+            instanceType = null;
+
+            // A static is outside the instance's dependency graph entirely; flagging it is noise, not a finding.
+            if (instanceSymbol is null || instanceSymbol.IsStatic)
+            {
+                return false;
+            }
+
+            switch (instanceSymbol)
+            {
+                case IPropertySymbol instanceProperty:
+                    // A get-only property is assigned in the constructor and never again, so what it feeds can
+                    // never go stale. Same reasoning as the readonly field below — keep the two in step.
+                    if (instanceProperty.SetMethod is null)
+                    {
+                        return false;
+                    }
+
+                    instanceType = instanceProperty.Type;
+                    return true;
+
+                case IFieldSymbol instanceField:
+                    // A field declared by a base type is not one this type's aspect weaves: Metalama reports it
+                    // itself as LAMA5164 ("only private instance fields of the current type … are supported"),
+                    // so DALE031 here would be duplicate noise on a shape the author is already being told about.
+                    if (!SymbolEqualityComparer.Default.Equals(instanceField.ContainingType, containingType))
+                    {
+                        return false;
+                    }
+
+                    // A readonly field cannot be reassigned after construction, so the computed property it
+                    // feeds can never go stale. Warning about it would be pure noise in consumer builds.
+                    if (instanceField.IsReadOnly)
+                    {
+                        return false;
+                    }
+
+                    instanceType = instanceField.Type;
+                    return true;
+
+                default:
+                    return false;
             }
         }
 
