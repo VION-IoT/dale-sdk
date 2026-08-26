@@ -244,20 +244,19 @@ namespace Vion.Dale.DevHost.Control
 
         private void Introspect()
         {
-            // Every topology block whose type has no DI registration, collected across the whole loop and
-            // reported once at the end (VION-66). Registration is a real contract on the cloud path — the
-            // parser refuses to instantiate an unregistered block — so tolerating the gap here would preview
-            // a surface the packed plugin drops, and the skip itself surfaced downstream as a
-            // KeyNotFoundException in BuildLogicBlock plus a per-tick "unknown service id" warning flood.
-            // Collect-then-throw (the parser's shape) so three bad blocks give one message, not three runs.
+            // Every topology block whose type has no DI registration. Collected across the whole loop and
+            // thrown once at the end — the parser's collect-then-report shape, so three bad blocks give one
+            // message rather than three runs (VION-66).
             var unregistered = new List<string>();
 
             foreach (var block in _configuration.LogicBlocks)
             {
                 if (_serviceProvider.GetService(block.LogicBlockType) is not LogicBlockBase instance)
                 {
-                    unregistered.Add($"  - {ReflectionHelper.GetDisplayFullName(block.LogicBlockType)} (topology id '{block.Id}', name '{block.Name}')" +
-                                     $" — add services.AddTransient<{block.LogicBlockType.Name}>()");
+                    // The suggested call names the type in full: it has to compile wherever it is pasted, and
+                    // GetDisplayFullName also spells a nested type the way C# accepts it (Outer.Inner).
+                    var displayName = ReflectionHelper.GetDisplayFullName(block.LogicBlockType);
+                    unregistered.Add($"  - {displayName} (topology id '{block.Id}', name '{block.Name}'){Environment.NewLine}" + $"      services.AddTransient<{displayName}>();");
                     continue;
                 }
 
@@ -332,7 +331,7 @@ namespace Vion.Dale.DevHost.Control
             {
                 throw new InvalidOperationException($"Failed to instantiate the following logic blocks because they are not registered in the DI:{Environment.NewLine}" +
                                                     string.Join(Environment.NewLine, unregistered) +
-                                                    $"{Environment.NewLine}Register each one in the IConfigureServices implementation of the library that declares it.");
+                                                    $"{Environment.NewLine}Add each of those lines to the IConfigureServices implementation of the library that declares the block.");
             }
         }
 
