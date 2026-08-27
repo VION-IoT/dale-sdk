@@ -39,6 +39,14 @@ comments, never briefs, never implements.
    - By design / documented? RFCs, `docs/*-conventions.md`, RFC 0008 §11.7 boundaries.
    - Read the source path the report names. A report can be wrong in detail and right in
      substance — the item states what WE verified.
+   - **Walk the reporter's case top-down, not only the cited mechanism bottom-up.** Start from
+     the artifact the report names (contract, block, scenario) and trace the path it actually
+     takes — the first gate it hits may not be the one reported (VION-71: the cited null-read
+     was real and unreachable; the resolver's classification gate refused the motivating
+     contract upstream of it). Run the case when a cheap harness exists; a report in the
+     conditional mood ("would have to…") is one nobody has executed. The Origin line records
+     the depth reached: `reproduced` (ran it) · `traced` (walked the path end-to-end) ·
+     `not reproduced`.
 4. **Decide**: create (**Bug** | **Story**) · dismiss (duplicate → link the key;
    already-shipped → name the release; by-design → cite the rationale; out-of-scope;
    needs-info → name exactly what's missing) · park. **Route by scope**: SDK-surface work → the
@@ -100,6 +108,7 @@ Say so, emit the finished draft, and name the skipped write so the curator can m
 | Nominating the fix (in prose or via an acceptance criterion only one mechanism satisfies) | Done-when lists observable outcomes; hints, if any, are one line under `Directions` |
 | Caveats in section titles ("non-binding — decided at implementation time") | Plain section names; how to read them is the picker's rule (`/fix` brief), not item text |
 | Trusting a commit's DF/issue number | Verify by content — numbers have drifted |
+| Verifying the reported mechanism, not the reported case | Walk the named artifact top-down through the same path; state who it bites only after that walk |
 | Duplicate check on open items only | Include resolved; a `Wird nicht gemacht` IS the recorded position |
 | Free-form or sentence-length summary | `<area>: <clause>` from the closed area list |
 | Titling a Story with its symptom | A Bug names what breaks; a Story names the outcome to reach |
