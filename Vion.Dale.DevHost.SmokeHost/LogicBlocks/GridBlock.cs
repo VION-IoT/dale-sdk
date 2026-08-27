@@ -54,8 +54,10 @@ namespace Vion.Dale.DevHost.SmokeHost.LogicBlocks
         public void OnTick()
         {
             // Mirror the received demand onto the outbound setpoint command, so the multi-field output is live
-            // and assertable after a single `advance` — the same shape IoBlock uses for its HAL outputs.
-            Setpoint.Set(DemandValid, _scope, new SetpointLimits(ActivePowerW, ReactivePowerVar));
+            // and assertable after a single `advance` — the same shape IoBlock uses for its HAL outputs. With no
+            // valid demand there are no limits to carry, so the nested struct is omitted: a scenario addressing a
+            // field through it then gets told the command has no such scalar, rather than compared against null.
+            Setpoint.Set(DemandValid, _scope, DemandValid ? new SetpointLimits(ActivePowerW, ReactivePowerVar) : null);
         }
 
         /// <inheritdoc />

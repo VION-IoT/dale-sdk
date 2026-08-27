@@ -1,10 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
+using System.Net.Sockets;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Vion.Dale.DevHost.Control;
 using Vion.Dale.DevHost.Scenarios;
+using Vion.Dale.DevHost.Web;
 
 namespace Vion.Dale.DevHost.Test.Stepping
 {
@@ -206,7 +210,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
         }
 
         [TestMethod]
-        public async Task RejectAMisspelledField_AndAFieldOnASingleValueOutput()
+        public async Task RejectAMisspelledField_AndOneThatLandsOnANestedStruct()
         {
             await using var host = BuildSteppedGridHost();
             await host.StartAsync();
@@ -245,6 +249,80 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
             Assert.IsNotEmpty(errors);
             StringAssert.Contains(errors[0], "writes a single value");
+        }
+
+        [TestMethod]
+        public async Task FailAFieldTheCommandDidNotCarry_SayingSoRatherThanComparingAgainstNothing()
+        {
+            await using var host = BuildSteppedGridHost();
+            await host.StartAsync();
+
+            // The other half of the guard, and the one the resolver cannot pre-empt: `limits.activePowerW` IS an
+            // addressable field of this command, so the step validates — but with no demand driven the block
+            // writes no limits, and the field lands on nothing. That must fail and name the field, not compare a
+            // literal against a null the runner never read.
+            var scenario = ScenarioFile.Parse("""
+                                              {
+                                                "version": 1, "id": "sp-expect-absent-field", "topology": "grid",
+                                                "steps": [
+                                                  { "advance": { "seconds": 1 } },
+                                                  { "serviceProviderExpect": { "logicBlock": "grid", "contract": "Setpoint", "field": "limits.activePowerW", "notEquals": 1500 } }
+                                                ]
+                                              }
+                                              """);
+
+            var report = await ScenarioRunner.RunAsync(scenario, host.Control);
+
+            Assert.AreEqual(ScenarioRunStatus.Failed, report.Status, Join(report));
+            StringAssert.Contains(report.Steps[1].Detail!, "field 'limits.activePowerW' is not a scalar of the last written command");
+            StringAssert.Contains(report.Steps[1].Detail!, "\"limits\":null", StringComparison.Ordinal, "the captured command is shown so the author can see why");
+        }
+
+        [TestMethod]
+        public async Task StandDownTheStaticFieldCheck_WhenTheHostCouldNotDescribeTheContract()
+        {
+            await using var host = BuildSteppedGridHost();
+            await host.StartAsync();
+
+            // A contract the DevHost could not join to a handler type carries no field list. The resolver must
+            // then accept whatever the author wrote and leave the verdict to the runner's read — not reject a
+            // scenario it has no basis to judge.
+            var configuration = host.Control.GetConfiguration();
+            var contract = configuration.LogicBlocks.Single(b => b.Name == "grid").Contracts.Single(c => c.Identifier == "Setpoint");
+            Assert.IsTrue(contract.Annotations.Remove("scenarioOutputFields"), "the fixture must have carried the annotation to begin with");
+
+            var errors = new List<string>();
+            var resolved = new ScenarioResolver(configuration).ResolveStep(new ScenarioStep
+                                                                           {
+                                                                               ServiceProviderExpect = new ScenarioServiceProviderAssert
+                                                                                                       { LogicBlock = "grid", Contract = "Setpoint", Field = "anything.at.all" },
+                                                                           },
+                                                                           "steps[0]",
+                                                                           errors);
+
+            Assert.IsEmpty(errors, string.Join("; ", errors));
+            CollectionAssert.AreEqual(new[] { "anything", "at", "all" }, resolved.Contract!.FieldPath!.ToArray());
+        }
+
+        [TestMethod]
+        public async Task NotDemandAField_OfAContractThatIsAlsoDrivable()
+        {
+            await using var host = BuildSteppedGridHost();
+            await host.StartAsync();
+
+            // A handler may declare both an inbound and an outbound ([ScenarioWire] sanctions "and/or"). A
+            // serviceProviderSet has no field to give — the shape does not carry one — so the assert-side check
+            // must not fire on the drive path, or the author is handed an error they cannot act on.
+            var configuration = host.Control.GetConfiguration();
+            var contract = configuration.LogicBlocks.Single(b => b.Name == "grid").Contracts.Single(c => c.Identifier == "Demand");
+            contract.Annotations["scenarioOutputFields"] = new[] { "enforced", "limits.activePowerW" };
+
+            var errors = new List<string>();
+            new ScenarioResolver(configuration).ResolveStep(new ScenarioStep { ServiceProviderSet = new ScenarioServiceProviderRef { LogicBlock = "grid", Contract = "Demand" } },
+                                                            "steps[0]",
+                                                            errors);
+
+            Assert.IsEmpty(errors, string.Join("; ", errors));
         }
 
         [TestMethod]
@@ -289,6 +367,51 @@ namespace Vion.Dale.DevHost.Test.Stepping
         }
 
         [TestMethod]
+        [TestCategory("Smoke")]
+        public async Task CarryTheAddressableFieldsOverHttp_WhereTheEditorReadsThem()
+        {
+            var port = FreePort();
+            await using var host = DevHostBuilder.Create()
+                                                 .WithDi<SmokeHost.DependencyInjection>()
+                                                 .WithConfiguration(DevConfigurationBuilder.Create()
+                                                                                           .WithTopologyName("grid")
+                                                                                           .AddLogicBlock<SmokeHost.LogicBlocks.GridBlock>("grid")
+                                                                                           .AddLogicBlock<SmokeHost.LogicBlocks.IoBlock>("io")
+                                                                                           .Build())
+                                                 .WithDeterministicStepping()
+                                                 .WithWebUi(port)
+                                                 .Build();
+            await host.StartAsync();
+
+            // `scenarioOutputFields` is a literal in three places — the C# writer, the CLI validator, and the
+            // SPA editor's picker — and nothing else checks they agree. This pins the wire half: the key, its
+            // camelCase leaf paths, and the EMPTY list that tells the editor a scalar output takes no field.
+            using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
+            using var configuration = JsonDocument.Parse(await client.GetStringAsync("/api/configuration"));
+
+            var blocks = configuration.RootElement.GetProperty("logicBlocks").EnumerateArray().ToList();
+            var fields = Contract(blocks, "grid", "Setpoint").GetProperty("annotations").GetProperty("scenarioOutputFields");
+            CollectionAssert.AreEqual(new[] { "enforced", "scope", "limits.activePowerW", "limits.reactivePowerVar", "issuedAt" },
+                                      fields.EnumerateArray().Select(f => f.GetString()).ToArray(),
+                                      "the multi-field command's addressable leaves, in wire keys");
+
+            Assert.AreEqual(0,
+                            Contract(blocks, "io", "ActiveOutput").GetProperty("annotations").GetProperty("scenarioOutputFields").GetArrayLength(),
+                            "a single-value output carries an EMPTY list — the editor reads that as 'no field to address', not as 'undescribed'");
+
+            Assert.IsFalse(Contract(blocks, "grid", "Demand").GetProperty("annotations").TryGetProperty("scenarioOutputFields", out _),
+                           "an input contract has nothing to assert, so it carries no field list at all");
+
+            static JsonElement Contract(List<JsonElement> blocks, string block, string contract)
+            {
+                return blocks.Single(b => b.GetProperty("name").GetString() == block)
+                             .GetProperty("contracts")
+                             .EnumerateArray()
+                             .Single(c => c.GetProperty("identifier").GetString() == contract);
+            }
+        }
+
+        [TestMethod]
         public void RejectAServiceProviderExpect_InSetup()
         {
             var error = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse("""
@@ -317,6 +440,16 @@ namespace Vion.Dale.DevHost.Test.Stepping
             var mapping = control.GetConfiguration().LogicBlocks.Single(b => b.Name == "grid").ContractMappings.Single(m => m.ContractIdentifier == "Setpoint");
 
             return (mapping.MappedServiceProviderIdentifier, mapping.MappedServiceIdentifier, mapping.MappedContractIdentifier);
+        }
+
+        private static int FreePort()
+        {
+            using var listener = new TcpListener(System.Net.IPAddress.Loopback, 0);
+            listener.Start();
+            var port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
+            listener.Stop();
+
+            return port;
         }
 
         private static string Join(ScenarioRunReport report)

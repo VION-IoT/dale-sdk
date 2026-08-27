@@ -414,13 +414,14 @@ namespace Vion.Dale.DevHost.Scenarios
             }
 
             var handlerName = contract.Annotations.TryGetValue(ServiceProviderContractAnnotations.ContractHandlerActorName, out var handler) ? handler as string : null;
+            IReadOnlyList<string>? fieldPath = null;
 
-            if (!ResolveAssertField(contract,
-                                    contractId!,
-                                    field,
-                                    where,
-                                    errors,
-                                    out var fieldPath))
+            if (!forDrive && !ResolveAssertField(contract,
+                                                 contractId!,
+                                                 field,
+                                                 where,
+                                                 errors,
+                                                 out fieldPath))
             {
                 return null;
             }
@@ -434,7 +435,9 @@ namespace Vion.Dale.DevHost.Scenarios
         // and letting it through is exactly how a notEquals used to report satisfied having compared nothing — a
         // single-value output takes no field, and a misspelled field is named against what is available.
         // When the annotation is ABSENT the contract could not be joined to a handler type; the check stands down
-        // and the runner's read-time guard remains the gate. A drive carries no field and skips all of it.
+        // and the runner's read-time guard remains the gate. Only an assert reaches here: a handler may declare
+        // BOTH directions, and demanding a field of a serviceProviderSet on such a contract would be an error the
+        // author cannot act on (the drive shape carries no field).
         private static bool ResolveAssertField(ConfigurationOutput.LogicBlockContract contract,
                                                string contractId,
                                                string? field,

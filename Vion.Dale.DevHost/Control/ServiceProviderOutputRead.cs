@@ -2,8 +2,7 @@ namespace Vion.Dale.DevHost.Control
 {
     /// <summary>
     ///     Whether the value a block last wrote on a service-provider output contract could be read as a
-    ///     comparable scalar — and if not, why. The three states used to collapse into one <c>null</c>, which
-    ///     let a <c>notEquals</c> assertion report satisfied having compared nothing.
+    ///     comparable scalar — and if not, why.
     /// </summary>
     public enum ServiceProviderOutputState
     {

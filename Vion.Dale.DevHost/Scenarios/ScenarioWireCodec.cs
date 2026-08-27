@@ -130,13 +130,16 @@ namespace Vion.Dale.DevHost.Scenarios
 
         // The one property a single-field wire struct unwraps to on the wire, or null when the struct
         // serializes as a JSON object. The single owner of the unwrap rule: Encode writes through it, and
-        // OutputFieldPaths reports "no addressable field" for exactly the shapes it accepts.
+        // OutputFieldPaths reports "no addressable field" for exactly the shapes it accepts. A struct that
+        // declares no constructor at all (init-only properties) serializes as an object like any other — it must
+        // not throw, because OutputFieldPaths runs over every discovered handler when the configuration is built,
+        // not only when a block writes a command.
         private static PropertyInfo? UnwrappedField(Type structType)
         {
-            var constructor = structType.GetConstructors().OrderByDescending(c => c.GetParameters().Length).First();
-            var parameters = constructor.GetParameters();
+            var constructor = structType.GetConstructors().OrderByDescending(c => c.GetParameters().Length).FirstOrDefault();
+            var parameters = constructor?.GetParameters();
 
-            return parameters.Length == 1 ? structType.GetProperty(parameters[0].Name!) : null;
+            return parameters is { Length: 1 } ? structType.GetProperty(parameters[0].Name!) : null;
         }
     }
 }

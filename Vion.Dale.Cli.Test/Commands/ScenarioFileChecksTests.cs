@@ -157,6 +157,16 @@ namespace Vion.Dale.Cli.Test.Commands
 
             // A contract the host could not describe carries no annotation, and the check stands down.
             Assert.IsEmpty(Assert_("""{ "logicBlock": "Grid", "contract": "Opaque", "field": "anything", "equals": true }""").Errors);
+
+            // A handler may declare both directions, so a contract with a field list can still be DRIVEN. The
+            // drive shape carries no field, so demanding one there is an error the author could not act on.
+            var drive = ScenarioFileChecks.Validate("d.scenario.json",
+                                                    """
+                                                    { "version": 1, "id": "d", "topology": "fields",
+                                                      "steps": [ { "serviceProviderSet": { "logicBlock": "Grid", "contract": "Setpoint" }, "value": true } ] }
+                                                    """,
+                                                    FieldConfig);
+            Assert.IsEmpty(drive.Errors, string.Join("; ", drive.Errors));
         }
 
         [TestMethod]

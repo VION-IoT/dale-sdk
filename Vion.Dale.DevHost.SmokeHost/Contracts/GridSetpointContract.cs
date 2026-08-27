@@ -16,8 +16,10 @@ namespace Vion.Dale.DevHost.SmokeHost.Contracts
     ///     publish-time stamp. <see cref="IssuedAt" /> is stamped by the contract as it writes, from the wall
     ///     clock rather than the virtual one, so it is <b>deliberately non-deterministic</b> — a scenario asserts
     ///     the fields around it and leaves it alone. That is the shape this fixture exists to cover.
+    ///     <see cref="Limits" /> is absent while nothing is enforced, so a field path through it is addressable
+    ///     but not always readable — the case a scenario must be told about rather than silently pass.
     /// </summary>
-    public readonly record struct SetGridSetpoint(bool Enforced, DemandScope Scope, SetpointLimits Limits, DateTimeOffset IssuedAt);
+    public readonly record struct SetGridSetpoint(bool Enforced, DemandScope Scope, SetpointLimits? Limits, DateTimeOffset IssuedAt);
 
     /// <summary>
     ///     A synthetic third-party-shaped service-provider value <b>output</b> contract for the SmokeHost — the
@@ -29,7 +31,7 @@ namespace Vion.Dale.DevHost.SmokeHost.Contracts
     public interface IGridSetpoint
     {
         /// <summary>Write the setpoint command, stamped with the time it was issued.</summary>
-        void Set(bool enforced, DemandScope scope, SetpointLimits limits);
+        void Set(bool enforced, DemandScope scope, SetpointLimits? limits);
     }
 
     /// <summary>The consumer-side contract: builds the outbound wire struct and writes it to the handler.</summary>
@@ -41,7 +43,7 @@ namespace Vion.Dale.DevHost.SmokeHost.Contracts
         {
         }
 
-        public void Set(bool enforced, DemandScope scope, SetpointLimits limits)
+        public void Set(bool enforced, DemandScope scope, SetpointLimits? limits)
         {
             SendToContractHandler(new ContractMessage<SetGridSetpoint>(LogicBlockContractId, new SetGridSetpoint(enforced, scope, limits, DateTimeOffset.UtcNow)));
         }

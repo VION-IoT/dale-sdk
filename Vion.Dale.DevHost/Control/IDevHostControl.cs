@@ -142,8 +142,6 @@ namespace Vion.Dale.DevHost.Control
         ///     written, readable, or written-but-not-a-scalar. Pass <paramref name="fieldPath" /> to address one
         ///     field of a multi-field command — the wire keys of the command's JSON, dotted through a nested
         ///     struct and matched case-insensitively, e.g. <c>["limits", "activePowerW"]</c>.
-        ///     A read that yields no scalar is what a scenario assertion must fail on rather than compare
-        ///     against nothing.
         /// </summary>
         ServiceProviderOutputRead ReadServiceProviderOutput(string serviceProviderId, string serviceId, string contractId, IReadOnlyList<string>? fieldPath = null);
 

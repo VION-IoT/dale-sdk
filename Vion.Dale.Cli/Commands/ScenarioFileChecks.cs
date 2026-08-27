@@ -324,7 +324,7 @@ namespace Vion.Dale.Cli.Commands
 
                     if (config is not null)
                     {
-                        ResolveServiceProviderContract(step["serviceProviderSet"], config, where, errors);
+                        ResolveServiceProviderContract(step["serviceProviderSet"], config, where, errors, false);
                     }
                 }
                 else if (step.ContainsKey("serviceProviderExpect"))
@@ -337,7 +337,7 @@ namespace Vion.Dale.Cli.Commands
                         ValidateComparators("serviceProviderExpect", assert, false, where, errors);
                         if (config is not null)
                         {
-                            ResolveServiceProviderContract(assert, config, where, errors);
+                            ResolveServiceProviderContract(assert, config, where, errors, true);
                         }
                     }
                     else
@@ -694,7 +694,7 @@ namespace Vion.Dale.Cli.Commands
         // any [ServiceProviderContractType] contract on the block is addressable, so only existence is checked
         // here (block + contract) plus, for an expect, its field selector. Direction — a set must be a drivable
         // input, an expect an assertable output — is enforced authoritatively by the runner / ScenarioResolver.
-        private static void ResolveServiceProviderContract(JsonNode? reference, JsonNode config, string where, List<string> errors)
+        private static void ResolveServiceProviderContract(JsonNode? reference, JsonNode config, string where, List<string> errors, bool forAssert)
         {
             var blockName = reference?["logicBlock"]?.GetValue<string>();
             var contractId = reference?["contract"]?.GetValue<string>();
@@ -718,7 +718,10 @@ namespace Vion.Dale.Cli.Commands
                 return;
             }
 
-            ResolveServiceProviderField(reference, contract, contractId, where, errors);
+            if (forAssert)
+            {
+                ResolveServiceProviderField(reference, contract, contractId, where, errors);
+            }
         }
 
         // The serviceProviderExpect `field` selector, mirroring ScenarioResolver.ResolveAssertField against the
@@ -726,7 +729,8 @@ namespace Vion.Dale.Cli.Commands
         // contract as the `scenarioOutputFields` annotation (written by Vion.Dale.DevHost's DevHostIntrospection
         // from the handler's [ScenarioWire]) precisely so this offline validator can reach them: EMPTY means the
         // command is a single value with no addressable field, and an ABSENT key means the host could not join
-        // the contract to a handler — this check then stands down, as the runner's does.
+        // the contract to a handler — this check then stands down, as the runner's does. Asserts only: a handler
+        // may declare both directions, and a serviceProviderSet on such a contract carries no field to check.
         private static void ResolveServiceProviderField(JsonNode? reference, JsonNode contract, string contractId, string where, List<string> errors)
         {
             var field = reference?["field"]?.GetValue<string>();
