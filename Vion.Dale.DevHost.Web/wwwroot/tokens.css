@@ -1,7 +1,35 @@
-/* Vion design tokens - hand-synced port of the dashboard's generated src/css/tokens.scss
-   (Figma variables). Primitives + semantic layer; dark mode swaps def <-> inv exactly like
-   the dashboard, so [data-theme] themes stay compatible across both UIs. Do not hand-tune
-   values here - sync from the dashboard when its tokens change. */
+/* Vion design tokens - hand-synced port of the dashboard's src/css/tokens.scss (primitives
+   started as a Figma Variables export; the semantic map is authored there). Primitives +
+   semantic layer; dark mode swaps def <-> inv exactly like the dashboard, so [data-theme]
+   themes stay compatible across both UIs. Do not hand-tune values here - sync from the
+   dashboard when its tokens change.
+
+   MIRROR: dashboard's `src/css/tokens.scss` is the source of truth and names this file as its
+   mirror in its own header. Nothing compiles across the two repos, so nothing warns when they
+   drift - a primitive or a ramp changed there has to take the same change here.
+
+   Four rules the values below satisfy. The dashboard asserts all four in its sibling
+   `tokens.test.ts`; this repo has no equivalent test, so they live here as prose and the next
+   hand-sync has to re-read them:
+
+   1. No ramp may straddle carrara 600-950. That is the range the dashboard's `applyTheme`
+      overrides from a brand's `surfaceColor`, so a ramp with rungs on both sides renders one
+      brand-tinted step beside three stock ones. A ramp is branded (`bg` `inv`) or neutral
+      (`fg` and `brd`), never half of each.
+   2. `fg` and `brd` must not share a colour family within a mode, or a divider comes out the
+      same colour as body text. That is why `brd` `inv` is Wild Sand while `fg` `inv` is
+      Carrara.
+   3. Text contrast: `fg` `primary` / `secondary` / `tertiary` are held to 4.5:1 against the
+      surface they sit on (WCAG AA body text); `quartenary` is held to 3.0:1 instead. That
+      fourth rung is the faintest of every ramp and has never met AA for body text - five of
+      the status families sat between 3.74 and 4.48 before any of this - so 3.0 describes
+      reality where a flat 4.5 would not. It applies to `quartenary` alone; the other three
+      levels clear 4.5 comfortably and must keep doing so.
+   4. Borders are held to a different bar, and it is the one this file's VION-127 resync
+      repaired: every `brd` level must reach 1.25:1 against the surface it is drawn on. That is
+      not a WCAG figure - `brd` `primary` is deliberately faint - it is the floor below which a
+      border stops being visible at all (1.0 is invisible; dark `brd-def-primary` was exactly
+      1.000:1 before this). Adjacent `fg` levels must separate by 1.25:1 for the same reason. */
 
 @font-face {
     font-family: 'Mona Sans';
@@ -13,6 +41,13 @@
 }
 
 :root {
+    /* Tells the browser which way its *own* chrome should render - scrollbars first of all, but
+       also form-control defaults and the canvas behind the page. Nothing in the token system can
+       reach those: a scrollbar is painted by the browser, not by CSS we author, so without this a
+       dark page keeps a white scrollbar track down its side. The DevHost boots dark
+       (index.html:2), so this is not a corner case here. */
+    color-scheme: light;
+
     --vion-color-off-white: #ffffff;
     --vion-color-off-black: #000000;
     --vion-color-carrara-50: #f6f7f5;
@@ -25,7 +60,12 @@
     --vion-color-carrara-700: #5d5e4e;
     --vion-color-carrara-800: #4c4d41;
     --vion-color-carrara-900: #282921;
-    --vion-color-carrara-950: #282921;
+    /* No semantic token in this file points at 950 - `bg` inv stops at 900 and the `brd` ramps
+       are Wild Sand. It stays because the dashboard publishes it (its `applyTheme` generates and
+       writes it from a brand's `surfaceColor`) and this file mirrors that file: dropping it
+       breaks parity. It used to repeat 900 exactly, which is what made a dark-mode border
+       invisible against the dark page. */
+    --vion-color-carrara-950: #1c1c17;
     --vion-color-wild-sand-50: #fafafa;
     --vion-color-wild-sand-100: #f5f5f5;
     --vion-color-wild-sand-200: #e7e5e4;
@@ -80,7 +120,7 @@
     --vion-color-sepia-black-700: #d40101;
     --vion-color-sepia-black-800: #ae0606;
     --vion-color-sepia-black-900: #900c0c;
-    --vion-color-sepia-black-950: #900c0c;
+    --vion-color-sepia-black-950: #5e0808;
     --vion-color-amber-50: #ffffea;
     --vion-color-amber-100: #fffbc5;
     --vion-color-amber-200: #fff885;
@@ -115,17 +155,17 @@
     --vion-fg-def-tertiary: var(--vion-color-wild-sand-600);
     --vion-fg-def-quartenary: var(--vion-color-wild-sand-500);
     --vion-fg-inv-primary: var(--vion-color-off-white);
-    --vion-fg-inv-secondary: var(--vion-color-wild-sand-50);
-    --vion-fg-inv-tertiary: var(--vion-color-wild-sand-100);
-    --vion-fg-inv-quartenary: var(--vion-color-wild-sand-200);
-    --vion-brd-def-primary: var(--vion-color-carrara-100);
-    --vion-brd-def-secondary: var(--vion-color-carrara-200);
-    --vion-brd-def-tertiary: var(--vion-color-carrara-300);
-    --vion-brd-def-quartenary: var(--vion-color-carrara-400);
-    --vion-brd-inv-primary: var(--vion-color-carrara-950);
-    --vion-brd-inv-secondary: var(--vion-color-carrara-900);
-    --vion-brd-inv-tertiary: var(--vion-color-carrara-800);
-    --vion-brd-inv-quartenary: var(--vion-color-carrara-700);
+    --vion-fg-inv-secondary: var(--vion-color-carrara-200);
+    --vion-fg-inv-tertiary: var(--vion-color-carrara-300);
+    --vion-fg-inv-quartenary: var(--vion-color-carrara-400);
+    --vion-brd-def-primary: var(--vion-color-carrara-200);
+    --vion-brd-def-secondary: var(--vion-color-carrara-300);
+    --vion-brd-def-tertiary: var(--vion-color-carrara-400);
+    --vion-brd-def-quartenary: var(--vion-color-carrara-500);
+    --vion-brd-inv-primary: var(--vion-color-wild-sand-500);
+    --vion-brd-inv-secondary: var(--vion-color-wild-sand-400);
+    --vion-brd-inv-tertiary: var(--vion-color-wild-sand-300);
+    --vion-brd-inv-quartenary: var(--vion-color-wild-sand-200);
     --vion-acc-bg-def-primary: var(--vion-color-jagged-ice-700);
     --vion-acc-bg-def-secondary: var(--vion-color-jagged-ice-600);
     --vion-acc-bg-def-tertiary: var(--vion-color-jagged-ice-500);
@@ -249,6 +289,8 @@
 }
 
 [data-theme='dark'] {
+    color-scheme: dark;
+
     --vion-bg-def-primary: var(--vion-color-carrara-900);
     --vion-bg-def-secondary: var(--vion-color-carrara-800);
     --vion-bg-def-tertiary: var(--vion-color-carrara-700);
@@ -258,21 +300,21 @@
     --vion-bg-inv-tertiary: var(--vion-color-carrara-100);
     --vion-bg-inv-quartenary: var(--vion-color-carrara-200);
     --vion-fg-def-primary: var(--vion-color-off-white);
-    --vion-fg-def-secondary: var(--vion-color-wild-sand-50);
-    --vion-fg-def-tertiary: var(--vion-color-wild-sand-100);
-    --vion-fg-def-quartenary: var(--vion-color-wild-sand-200);
+    --vion-fg-def-secondary: var(--vion-color-carrara-200);
+    --vion-fg-def-tertiary: var(--vion-color-carrara-300);
+    --vion-fg-def-quartenary: var(--vion-color-carrara-400);
     --vion-fg-inv-primary: var(--vion-color-wild-sand-950);
     --vion-fg-inv-secondary: var(--vion-color-wild-sand-700);
     --vion-fg-inv-tertiary: var(--vion-color-wild-sand-600);
     --vion-fg-inv-quartenary: var(--vion-color-wild-sand-500);
-    --vion-brd-def-primary: var(--vion-color-carrara-950);
-    --vion-brd-def-secondary: var(--vion-color-carrara-900);
-    --vion-brd-def-tertiary: var(--vion-color-carrara-800);
-    --vion-brd-def-quartenary: var(--vion-color-carrara-700);
-    --vion-brd-inv-primary: var(--vion-color-carrara-100);
-    --vion-brd-inv-secondary: var(--vion-color-carrara-200);
-    --vion-brd-inv-tertiary: var(--vion-color-carrara-300);
-    --vion-brd-inv-quartenary: var(--vion-color-carrara-400);
+    --vion-brd-def-primary: var(--vion-color-wild-sand-500);
+    --vion-brd-def-secondary: var(--vion-color-wild-sand-400);
+    --vion-brd-def-tertiary: var(--vion-color-wild-sand-300);
+    --vion-brd-def-quartenary: var(--vion-color-wild-sand-200);
+    --vion-brd-inv-primary: var(--vion-color-carrara-200);
+    --vion-brd-inv-secondary: var(--vion-color-carrara-300);
+    --vion-brd-inv-tertiary: var(--vion-color-carrara-400);
+    --vion-brd-inv-quartenary: var(--vion-color-carrara-500);
     --vion-acc-bg-def-primary: var(--vion-color-jagged-ice-100);
     --vion-acc-bg-def-secondary: var(--vion-color-jagged-ice-200);
     --vion-acc-bg-def-tertiary: var(--vion-color-jagged-ice-300);
