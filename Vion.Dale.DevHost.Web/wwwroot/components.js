@@ -23,7 +23,7 @@ import {
 } from './store.js';
 import { allowsMultiple, autoConnect, defByType, gatedOutMappingProblems, problemsOf, residueOf } from './wiring.js';
 import {
-    contractRefs, contractValueEditor, findMember, kindOf, pathOptions,
+    contractOutputFields, contractRefs, contractValueEditor, findMember, kindOf, pathOptions,
     SETUP_KIND_IDS, STEP_KIND_IDS, stepErrors, valueEditorFor,
 } from './scenario-forms.js';
 import { compilePredicate, evaluateVisibility } from './predicates.js';
@@ -2258,6 +2258,25 @@ const ContractPicker = {
     template: `<Combobox :options="options" :label="label" placeholder="\u2014 contract \u2014" @pick="onPick"/>`,
 };
 
+// ── OutputFieldPicker (VION-71): which scalar of a multi-field command a serviceProviderExpect asserts.
+// Props: modelValue (the field path), contract (the {logicBlock, contract} ref the row points at). Offers
+// the contract's addressable leaves from the config; free-text so a host that could not describe the
+// contract (no `scenarioOutputFields` annotation) is still authorable by hand.
+const OutputFieldPicker = {
+    components: { Combobox },
+    props: {
+        modelValue: { type: String, default: '' },
+        contract: { type: Object, default: null },
+    },
+    emits: ['update:modelValue'],
+    setup(props, { emit }) {
+        const options = computed(() => (contractOutputFields(store.config, props.contract) || []).map(f => ({ value: f, label: f })));
+        const onPick = v => emit('update:modelValue', v);
+        return { options, onPick, current: computed(() => props.modelValue || '') };
+    },
+    template: `<Combobox :options="options" :label="current" :free-text="true" placeholder="\u2014 field \u2014" @pick="onPick"/>`,
+};
+
 // ── ValueEditor (Task 9): a schema-driven value editor that RECURSES into structs/arrays. ────────────
 // Props: schema (the value's JSON schema, or null ⇒ raw-JSON), modelValue (the current value). Emits
 // update:modelValue. The control is chosen by valueEditorFor(schema).control:
@@ -2388,7 +2407,7 @@ ValueEditor.components = { ValueEditor };
 // timeout deleted, new discriminator defaulted) keeping row.label. No local draft state except the
 // ValueEditor rawJson textarea.
 const StepRow = {
-    components: { PropertyPicker, ContractPicker, ValueEditor },
+    components: { PropertyPicker, ContractPicker, OutputFieldPicker, ValueEditor },
     props: {
         row: { type: Object, required: true },
         setupOnly: { type: Boolean, default: false },
@@ -2397,7 +2416,7 @@ const StepRow = {
         const dirty = () => { store.scenarioDraftDirty = true; };
         const kind = computed(() => kindOf(props.row));
         const kindOptions = computed(() => props.setupOnly ? SETUP_KIND_IDS : STEP_KIND_IDS);
-        const errors = computed(() => stepErrors(props.row, props.setupOnly));
+        const errors = computed(() => stepErrors(props.row, props.setupOnly, store.config));
         const hasErrors = computed(() => errors.value.length > 0);
 
         // Replace the row's shape in place: drop every discriminator + the cross-kind value/timeout fields,
@@ -2449,6 +2468,15 @@ const StepRow = {
             props.row.serviceProviderExpect = { ...props.row.serviceProviderExpect, logicBlock: v.logicBlock, contract: v.contract };
             dirty();
         };
+        const setSpField = v => {
+            // An empty box means "no field" — the whole-command form — so the key is dropped rather than
+            // written as "", which the server reads as a malformed field path.
+            const assert = props.row.serviceProviderExpect;
+            if (String(v || '').trim()) assert.field = v;
+            else delete assert.field;
+            dirty();
+        };
+        const spFieldText = computed(() => (props.row.serviceProviderExpect || {}).field || '');
         const onLabel = e => { props.row.label = e.target.value; dirty(); };
 
         // ── expect / waitUntil field accessors (bound to row[kind].*) ──
@@ -2516,7 +2544,7 @@ const StepRow = {
 
         return {
             kind, kindOptions, onKindChange, errors, hasErrors,
-            setSchema, spSetSchema, setSet, setValue, setSpSet, setSpExpect, onLabel,
+            setSchema, spSetSchema, setSet, setValue, setSpSet, setSpExpect, setSpField, spFieldText, onLabel,
             assertObj, onAssertProperty, onEquals, onTolerance, onTimeout, onSeconds, onMaxSeconds,
             equalsText, spEqualsText, onSpEquals, onSpTolerance, toleranceText, spToleranceText,
             timeoutText, secondsText, maxSecondsText, labelText,
@@ -2561,6 +2589,10 @@ const StepRow = {
 
                 <template v-else-if="isSpExpect">
                     <ContractPicker :model-value="row.serviceProviderExpect" @update:model-value="setSpExpect"/>
+                    <span class="step-field">
+                        <span class="mono topo-meta">field</span>
+                        <OutputFieldPicker :model-value="spFieldText" :contract="row.serviceProviderExpect" @update:model-value="setSpField"/>
+                    </span>
                     <span class="step-field">
                         <span class="mono topo-meta">equals</span>
                         <input type="text" class="control step-value-input" :value="spEqualsText" @input="onSpEquals">
@@ -2861,6 +2893,9 @@ export const PlayerPanel = {
         // Before the first run: pending-shaped rows from the file, so the working set is visible
         // immediately. After: the server report is the truth. Defensive against structurally invalid
         // files — the list keeps them clickable on purpose (the error panel explains them).
+        // "Block.Contract", or "Block.Contract.field" when one scalar of a multi-field command is addressed —
+        // matching the runner's own Target, so four asserts on the same contract read as four distinct rows.
+        const spExpectTarget = a => `${a.logicBlock}.${a.contract}${a.field ? '.' + a.field : ''}`;
         const fileSteps = section => {
             const raw = scenario.value && Array.isArray(scenario.value[section]) ? scenario.value[section] : [];
             return raw.map((s, i) => ({
@@ -2870,7 +2905,7 @@ export const PlayerPanel = {
                 spec: s.spec,
                 target: s.set !== undefined ? s.set
                     : s.serviceProviderSet ? `${s.serviceProviderSet.logicBlock}.${s.serviceProviderSet.contract}`
-                    : s.serviceProviderExpect ? `${s.serviceProviderExpect.logicBlock}.${s.serviceProviderExpect.contract}`
+                    : s.serviceProviderExpect ? spExpectTarget(s.serviceProviderExpect)
                     : s.waitUntil ? s.waitUntil.property
                     : s.expect ? s.expect.property
                     : s.advance ? ''

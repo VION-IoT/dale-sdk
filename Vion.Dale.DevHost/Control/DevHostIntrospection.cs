@@ -6,6 +6,9 @@ using Microsoft.Extensions.Logging;
 using Vion.Contracts.Conventions;
 using Vion.Contracts.Introspection;
 using Vion.Contracts.Predicates;
+using Vion.Dale.DevHost.Mocking;
+using Vion.Dale.DevHost.Scenarios;
+using Vion.Dale.Sdk.Configuration.Contract;
 using Vion.Dale.Sdk.Configuration.Services;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Introspection;
@@ -61,6 +64,13 @@ namespace Vion.Dale.DevHost.Control
         private readonly IServiceProvider _serviceProvider;
 
         private volatile bool _done;
+
+        // handler class name -> the addressable field leaves of that handler's [ScenarioWire] Outbound (empty
+        // for a scalar output, absent for an input-only handler). Cached against the loaded-assembly count
+        // rather than once: the plugin / I/O assemblies that declare handlers land during logic-system init,
+        // which can be after a first /api/configuration, and the type scan behind it is not free enough to
+        // repeat per request.
+        private (int Assemblies, Dictionary<string, IReadOnlyList<string>> ByHandler)? _outputFields;
 
         public DevHostIntrospection(DevConfiguration configuration, IServiceProvider serviceProvider, ILogger<DevHostIntrospection> logger)
         {
@@ -453,7 +463,7 @@ namespace Vion.Dale.DevHost.Control
                                                     {
                                                         Identifier = c.Identifier,
                                                         MatchingContractType = c.MatchingContractType,
-                                                        Annotations = c.Annotations,
+                                                        Annotations = WithOutputFields(c.Annotations),
                                                     })
                                        .ToList(),
                        ContractMappings = lb.ContractMappings
@@ -467,6 +477,52 @@ namespace Vion.Dale.DevHost.Control
                                             .ToList(),
                        InstantiationParameters = lb.InstantiationParameters,
                    };
+        }
+
+        // Add the outbound command's addressable field leaves to a contract's annotations, so a
+        // serviceProviderExpect `field` can be validated before a run — by the resolver here and by
+        // `dale scenario validate`, which only ever sees an exported configuration. The join is by the
+        // contract's own ContractHandlerActorName, the handler's class name; a contract whose handler is not
+        // loaded, declares no [ScenarioWire], or declares only an inbound gets no key, and the static checks
+        // stand down for it.
+        private Dictionary<string, object> WithOutputFields(Dictionary<string, object> annotations)
+        {
+            if (!annotations.TryGetValue(ServiceProviderContractAnnotations.ContractHandlerActorName, out var handler) || handler is not string handlerName ||
+                !OutputFieldsByHandler().TryGetValue(handlerName, out var fields))
+            {
+                return annotations;
+            }
+
+            // Copy rather than mutate: the introspection result's dictionary is cached in _results and shared
+            // by every configuration build.
+            return new Dictionary<string, object>(annotations) { [ScenarioWireFields.OutputFieldsAnnotationKey] = fields };
+        }
+
+        private Dictionary<string, IReadOnlyList<string>> OutputFieldsByHandler()
+        {
+            var assemblies = AppDomain.CurrentDomain.GetAssemblies().Where(assembly => !assembly.IsDynamic).ToArray();
+
+            lock (_gate)
+            {
+                if (_outputFields is { } cached && cached.Assemblies == assemblies.Length)
+                {
+                    return cached.ByHandler;
+                }
+
+                // The same convention scan DevLogicSystemInitializer uses to create the stand-ins, so the
+                // contracts described here are exactly the ones a scenario can drive or assert.
+                var byHandler = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+                foreach (var (handlerType, codec) in ServiceProviderContractHandlerScan.Discover(assemblies))
+                {
+                    if (codec.OutputFieldPaths is { } fields)
+                    {
+                        byHandler[handlerType.Name] = fields;
+                    }
+                }
+
+                _outputFields = (assemblies.Length, byHandler);
+                return byHandler;
+            }
         }
 
         private static ConfigurationOutput.Service BuildService(LogicBlockIntrospectionResult meta, DevServiceConfig s)

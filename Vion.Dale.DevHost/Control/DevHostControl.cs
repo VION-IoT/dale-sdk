@@ -358,7 +358,28 @@ namespace Vion.Dale.DevHost.Control
 
         public object? GetServiceProviderOutput(string serviceProviderId, string serviceId, string contractId)
         {
-            return _outputCache.TryGet(new ServiceProviderContractId(serviceProviderId, serviceId, contractId), out var value) ? JsonElementToComparable(value) : null;
+            return ReadServiceProviderOutput(serviceProviderId, serviceId, contractId).Value;
+        }
+
+        public ServiceProviderOutputRead ReadServiceProviderOutput(string serviceProviderId, string serviceId, string contractId, IReadOnlyList<string>? fieldPath = null)
+        {
+            if (!_outputCache.TryGet(new ServiceProviderContractId(serviceProviderId, serviceId, contractId), out var command))
+            {
+                return new ServiceProviderOutputRead { State = ServiceProviderOutputState.NeverWritten };
+            }
+
+            var captured = command.GetRawText();
+            if (DescendToField(command, fieldPath) is not { } leaf || leaf.ValueKind is JsonValueKind.Object or JsonValueKind.Array or JsonValueKind.Undefined)
+            {
+                return new ServiceProviderOutputRead { State = ServiceProviderOutputState.Unreadable, Captured = captured };
+            }
+
+            return new ServiceProviderOutputRead
+                   {
+                       State = ServiceProviderOutputState.Readable,
+                       Value = JsonElementToComparable(leaf),
+                       Captured = captured,
+                   };
         }
 
         public void PublishAllStates()
@@ -471,9 +492,40 @@ namespace Vion.Dale.DevHost.Control
             _events.ServiceProviderContractChanged -= OnServiceProviderContract;
         }
 
+        // Walk a captured command's JSON to the addressed field, or return null when a segment is missing. The
+        // lookup is CASE-INSENSITIVE, matching ScenarioRunner.ExtractField: the wire keys are camelCase while an
+        // author may write the C# PascalCase name, and the resolver normalises neither. With no field path the
+        // command passes through unchanged (the scalar case).
+        private static JsonElement? DescendToField(JsonElement command, IReadOnlyList<string>? fieldPath)
+        {
+            if (fieldPath is null || fieldPath.Count == 0)
+            {
+                return command;
+            }
+
+            var current = command;
+            foreach (var segment in fieldPath)
+            {
+                if (current.ValueKind != JsonValueKind.Object)
+                {
+                    return null;
+                }
+
+                var match = current.EnumerateObject().FirstOrDefault(p => string.Equals(p.Name, segment, StringComparison.OrdinalIgnoreCase));
+                if (match.Value.ValueKind == JsonValueKind.Undefined)
+                {
+                    return null;
+                }
+
+                current = match.Value;
+            }
+
+            return current;
+        }
+
         // Project a captured wire value to the comparable CLR scalar the comparators evaluate against — bool,
-        // double, string (enums round-trip by name). A struct/array payload has no scalar leaf in v1, so it reads
-        // as null (a serviceProviderExpect on a struct output is edge-of-vocabulary, like a struct expect).
+        // double, string (enums round-trip by name), or null for an explicit JSON null. Only ever reached with a
+        // scalar kind; ReadServiceProviderOutput refuses an object/array payload rather than reading it as null.
         private static object? JsonElementToComparable(JsonElement value)
         {
             return value.ValueKind switch

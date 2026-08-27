@@ -2,9 +2,9 @@
   "version": 1,
   "id": "grid-demand",
   "topology": "default",
-  "title": "Struct contract — drive a multi-field, nested-struct payload end to end (RFC 0010 / DF-27)",
-  "description": "serviceProviderSet drives a GridDemand wire struct (a bool, an enum-by-name, and a 1-level nested PowerLimits struct) into GridBlock through the real generic contract path. The block observes it and surfaces every field — including the nested ones — as service properties, asserted with expect. The non-HAL case the four old HAL step kinds could never address.",
-  "specs": ["smoke", "struct", "df-27"],
+  "title": "Struct contract — drive a multi-field, nested-struct payload end to end, and assert the multi-field command it produces (RFC 0010 / DF-27, VION-71)",
+  "description": "serviceProviderSet drives a GridDemand wire struct (a bool, an enum-by-name, and a 1-level nested PowerLimits struct) into GridBlock through the real generic contract path. The block observes it and surfaces every field — including the nested ones — as service properties, asserted with expect. It then mirrors the demand onto the GridSetpoint OUTPUT contract, whose command is likewise multi-field: serviceProviderExpect asserts it one scalar at a time with `field`, including a nested one, and leaves the publish-time stamp (issuedAt, deliberately non-deterministic) unasserted. The non-HAL case the four old HAL step kinds could never address, in both directions.",
+  "specs": ["smoke", "struct", "df-27", "vion-71"],
   "watch": ["GridBlock.DemandValid", "GridBlock.ActivePowerW"],
   "steps": [
     { "serviceProviderSet": { "logicBlock": "GridBlock", "contract": "Demand" },
@@ -13,6 +13,11 @@
     { "waitUntil": { "property": "GridBlock.DemandValid", "equals": true }, "timeoutSeconds": 5, "label": "wait until the block observes the demand" },
     { "expect": { "property": "GridBlock.Scope", "equals": "PerPhase" }, "label": "the enum field deserialized by name", "spec": "struct" },
     { "expect": { "property": "GridBlock.ActivePowerW", "equals": 1500, "tolerance": 0.01 }, "label": "a nested-struct field reached the block", "spec": "struct" },
-    { "expect": { "property": "GridBlock.ReactivePowerVar", "equals": 200, "tolerance": 0.01 }, "label": "the other nested-struct field reached the block", "spec": "struct" }
+    { "expect": { "property": "GridBlock.ReactivePowerVar", "equals": 200, "tolerance": 0.01 }, "label": "the other nested-struct field reached the block", "spec": "struct" },
+    { "advance": { "seconds": 1 }, "label": "fire the [Timer(1)] so the block writes the setpoint command" },
+    { "serviceProviderExpect": { "logicBlock": "GridBlock", "contract": "Setpoint", "field": "enforced", "equals": true }, "label": "a scalar field of the multi-field command", "spec": "vion-71" },
+    { "serviceProviderExpect": { "logicBlock": "GridBlock", "contract": "Setpoint", "field": "scope", "equals": "PerPhase" }, "label": "the enum field, by name", "spec": "vion-71" },
+    { "serviceProviderExpect": { "logicBlock": "GridBlock", "contract": "Setpoint", "field": "limits.activePowerW", "equals": 1500, "tolerance": 0.01 }, "label": "a NESTED field of the command", "spec": "vion-71" },
+    { "serviceProviderExpect": { "logicBlock": "GridBlock", "contract": "Setpoint", "field": "limits.reactivePowerVar", "above": 100 }, "label": "and a relational comparator on another nested field", "spec": "vion-71" }
   ]
 }

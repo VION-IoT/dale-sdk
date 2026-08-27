@@ -247,10 +247,11 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["logicBlock", "contract"],
-      "description": "A service-provider value-output contract reference (logicBlock + contract) plus exactly one comparator, checked against the value the block last wrote on that contract. Comparands are literals only (no relational { path } form).",
+      "description": "A service-provider value-output contract reference (logicBlock + contract), an optional field selecting one scalar of a multi-field command, plus exactly one comparator, checked against the value the block last wrote on that contract. Comparands are literals only (no relational { path } form).",
       "properties": {
         "logicBlock": { "type": "string" },
         "contract": { "type": "string" },
+        "field": { "type": "string", "description": "Which scalar of the command to compare, for a contract whose outbound carries more than one field — the wire keys, dotted through a nested struct (limits.activePowerW), matched case-insensitively. Required for such a contract (a whole command is not comparable) and rejected for one that writes a single value." },
         "above": { "type": "number" },
         "below": { "type": "number" },
         "equals": { "$ref": "#/$defs/comparand" },

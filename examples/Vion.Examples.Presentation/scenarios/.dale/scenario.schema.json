@@ -87,6 +87,42 @@
       "type": "string",
       "description": "Block.Property (when unambiguous within the block) or Block.Service.Property (the qualified form for multi-service blocks).",
       "enum": [
+        "ConditionalVisibilityDemo.AdvancedDiagnostics",
+        "ConditionalVisibilityDemo.BoostDurationSeconds",
+        "ConditionalVisibilityDemo.ConditionalVisibilityDemo.AdvancedDiagnostics",
+        "ConditionalVisibilityDemo.ConditionalVisibilityDemo.BoostDurationSeconds",
+        "ConditionalVisibilityDemo.ConditionalVisibilityDemo.CtPrimaryCurrent",
+        "ConditionalVisibilityDemo.ConditionalVisibilityDemo.DirectMeasurement",
+        "ConditionalVisibilityDemo.ConditionalVisibilityDemo.DownstreamSetpoint",
+        "ConditionalVisibilityDemo.ConditionalVisibilityDemo.EcoEnergySaved",
+        "ConditionalVisibilityDemo.ConditionalVisibilityDemo.EcoTargetPower",
+        "ConditionalVisibilityDemo.ConditionalVisibilityDemo.L3Voltage",
+        "ConditionalVisibilityDemo.ConditionalVisibilityDemo.Mode",
+        "ConditionalVisibilityDemo.ConditionalVisibilityDemo.NeutralCompensation",
+        "ConditionalVisibilityDemo.ConditionalVisibilityDemo.PhaseCount",
+        "ConditionalVisibilityDemo.ConditionalVisibilityDemo.PowerLimit",
+        "ConditionalVisibilityDemo.ConditionalVisibilityDemo.RampRate",
+        "ConditionalVisibilityDemo.ConditionalVisibilityDemo.ShowAdvanced",
+        "ConditionalVisibilityDemo.ConditionalVisibilityDemo.SimpleReadout",
+        "ConditionalVisibilityDemo.CtPrimaryCurrent",
+        "ConditionalVisibilityDemo.DirectMeasurement",
+        "ConditionalVisibilityDemo.Downstream.DownstreamLimit",
+        "ConditionalVisibilityDemo.Downstream.Enabled",
+        "ConditionalVisibilityDemo.Downstream.SyncedLimit",
+        "ConditionalVisibilityDemo.DownstreamLimit",
+        "ConditionalVisibilityDemo.DownstreamSetpoint",
+        "ConditionalVisibilityDemo.EcoEnergySaved",
+        "ConditionalVisibilityDemo.EcoTargetPower",
+        "ConditionalVisibilityDemo.Enabled",
+        "ConditionalVisibilityDemo.L3Voltage",
+        "ConditionalVisibilityDemo.Mode",
+        "ConditionalVisibilityDemo.NeutralCompensation",
+        "ConditionalVisibilityDemo.PhaseCount",
+        "ConditionalVisibilityDemo.PowerLimit",
+        "ConditionalVisibilityDemo.RampRate",
+        "ConditionalVisibilityDemo.ShowAdvanced",
+        "ConditionalVisibilityDemo.SimpleReadout",
+        "ConditionalVisibilityDemo.SyncedLimit",
         "PresentationDemo.ActivePower",
         "PresentationDemo.ApiKey",
         "PresentationDemo.AvgResponseTime",
@@ -401,35 +437,6 @@
         }
       }
     },
-    "waitStep": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "wait"
-      ],
-      "properties": {
-        "label": {
-          "$ref": "#/$defs/stepCommon/label"
-        },
-        "spec": {
-          "$ref": "#/$defs/stepCommon/spec"
-        },
-        "wait": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "seconds"
-          ],
-          "properties": {
-            "seconds": {
-              "type": "number",
-              "exclusiveMinimum": 0
-            }
-          }
-        }
-      },
-      "description": "Fixed wall-clock pause for stimulus pacing (non-deterministic). Prefer advance on a stepped host."
-    },
     "advanceStep": {
       "type": "object",
       "additionalProperties": false,
@@ -453,12 +460,12 @@
             "seconds": {
               "type": "number",
               "exclusiveMinimum": 0,
-              "description": "Virtual seconds to advance the stepped host\u0027s clock."
+              "description": "Seconds of time to let elapse \u2014 virtual on a stepped host, real wall-clock on a real-clock host."
             }
           }
         }
       },
-      "description": "Deterministic virtual-time advance (stepped host only). Fires every scheduled timer event within the budget."
+      "description": "Let time elapse by a fixed budget. Host-adaptive: a stepped host advances the virtual clock instantly and deterministically (firing every scheduled timer within the budget); a real-clock host waits the same span of real wall-clock time, during which real timers fire."
     },
     "settleStep": {
       "type": "object",
@@ -489,12 +496,12 @@
               "type": "number",
               "exclusiveMinimum": 0,
               "default": 60,
-              "description": "Maximum virtual seconds to spend waiting for convergence."
+              "description": "Maximum seconds (virtual on a stepped host, real on a real-clock host) to spend waiting for convergence."
             }
           }
         }
       },
-      "description": "Advance hop-by-hop until the targeted signals stop changing (stepped host only). The targeted set is settle.until when given, else the whole watch list. Converges when no targeted value changed across one hop; FAILS the step if the maxSeconds budget elapses while a target is still changing."
+      "description": "Let the targeted signals run until they stop changing. Host-adaptive: a stepped host advances hop-by-hop; a real-clock host polls until the targets hold steady across a short quiet window. The targeted set is settle.until when given, else the whole watch list. FAILS the step if the maxSeconds budget elapses while a target is still changing."
     },
     "serviceProviderRef": {
       "type": "object",
@@ -562,13 +569,17 @@
         "logicBlock",
         "contract"
       ],
-      "description": "A service-provider value-output contract reference (logicBlock \u002B contract) plus exactly one comparator, checked against the value the block last wrote on that contract. Comparands are literals only (no relational { path } form).",
+      "description": "A service-provider value-output contract reference (logicBlock \u002B contract), an optional field selecting one scalar of a multi-field command, plus exactly one comparator, checked against the value the block last wrote on that contract. Comparands are literals only (no relational { path } form).",
       "properties": {
         "logicBlock": {
           "type": "string"
         },
         "contract": {
           "type": "string"
+        },
+        "field": {
+          "type": "string",
+          "description": "Which scalar of the command to compare, for a contract whose outbound carries more than one field \u2014 the wire keys, dotted through a nested struct (limits.activePowerW), matched case-insensitively. Required for such a contract (a whole command is not comparable) and rejected for one that writes a single value."
         },
         "above": {
           "type": "number"
@@ -650,9 +661,6 @@
         },
         {
           "$ref": "#/$defs/expectStep"
-        },
-        {
-          "$ref": "#/$defs/waitStep"
         },
         {
           "$ref": "#/$defs/advanceStep"

@@ -169,11 +169,11 @@ namespace Vion.Dale.DevHost.Test
             Assert.IsTrue(JsonNode.DeepEquals(JsonNode.Parse(goldenMappings.GetRawText()), JsonNode.Parse(getMappings.GetRawText())),
                           $"interfaceMappings must match the golden.\nExpected:\n{goldenMappings.GetRawText()}\n\nActual:\n{getMappings.GetRawText()}");
 
-            // contractMappings must be completed to exactly the golden's 5 entries.
+            // contractMappings must be completed to exactly the golden's 6 entries.
             var goldenContracts = goldenRoot.GetProperty("contractMappings");
             var getContracts = getRoot.GetProperty("contractMappings");
 
-            Assert.AreEqual(5, getContracts.GetArrayLength(), $"Save must complete the 5 auto-mocked contract mappings. Actual contractMappings:\n{getContracts.GetRawText()}");
+            Assert.AreEqual(6, getContracts.GetArrayLength(), $"Save must complete the 6 auto-mocked contract mappings. Actual contractMappings:\n{getContracts.GetRawText()}");
 
             Assert.IsTrue(JsonNode.DeepEquals(JsonNode.Parse(goldenContracts.GetRawText()), JsonNode.Parse(getContracts.GetRawText())),
                           $"contractMappings must match the golden exactly (deterministic IDs).\nExpected:\n{goldenContracts.GetRawText()}\n\nActual:\n{getContracts.GetRawText()}");

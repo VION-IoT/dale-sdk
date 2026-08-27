@@ -213,7 +213,7 @@ namespace Vion.Dale.DevHost.Scenarios
                            {
                                "set" => step.Set!,
                                "serviceProviderSet" => $"{step.ServiceProviderSet!.LogicBlock}.{step.ServiceProviderSet.Contract}",
-                               "serviceProviderExpect" => $"{step.ServiceProviderExpect!.LogicBlock}.{step.ServiceProviderExpect.Contract}",
+                               "serviceProviderExpect" => ServiceProviderExpectTarget(step.ServiceProviderExpect!),
                                "waitUntil" => step.WaitUntil!.Property ?? string.Empty,
                                "expect" => step.Expect!.Property ?? string.Empty,
                                "advance" => string.Empty,
@@ -462,8 +462,8 @@ namespace Vion.Dale.DevHost.Scenarios
                     case "serviceProviderExpect":
                     {
                         var contract = resolved.Contract!;
-                        var live = control.GetServiceProviderOutput(contract.ServiceProviderId, contract.ServiceId, contract.ContractId);
-                        if (!ServiceProviderExpectStep(step.ServiceProviderExpect!, live, result))
+                        var read = control.ReadServiceProviderOutput(contract.ServiceProviderId, contract.ServiceId, contract.ContractId, contract.FieldPath);
+                        if (!ServiceProviderExpectStep(step.ServiceProviderExpect!, read, result))
                         {
                             Fail(result,
                                  report,
@@ -751,12 +751,21 @@ namespace Vion.Dale.DevHost.Scenarios
 
         // The serviceProviderExpect assertion (RFC 0010): a point-in-time check of the value the block last wrote
         // on a service-provider output contract, read from the generic output cache. Mirrors OutputAssertStep.
-        private static bool ServiceProviderExpectStep(ScenarioServiceProviderAssert assert, object? live, ScenarioStepResult result)
+        // A read that yielded no comparable value FAILS the step and says which of the two reasons it is —
+        // never written, or written and not a scalar. Comparing against it would report satisfied having
+        // asserted nothing: every comparator but notEquals fails against a missing value, and notEquals passes.
+        private static bool ServiceProviderExpectStep(ScenarioServiceProviderAssert assert, ServiceProviderOutputRead read, ScenarioStepResult result)
         {
-            var target = $"{assert.LogicBlock}.{assert.Contract}";
-            if (ScenarioConditions.IsSatisfied(assert, live))
+            var target = ServiceProviderExpectTarget(assert);
+            if (read.State != ServiceProviderOutputState.Readable)
             {
-                result.Detail = $"output held: {target} {DescribeServiceProviderExpect(assert)} (value {Display(live)})";
+                result.Detail = UnreadableOutputDetail(assert, target, read);
+                return false;
+            }
+
+            if (ScenarioConditions.IsSatisfied(assert, read.Value))
+            {
+                result.Detail = $"output held: {target} {DescribeServiceProviderExpect(assert)} (value {Display(read.Value)})";
                 return true;
             }
 
@@ -767,8 +776,31 @@ namespace Vion.Dale.DevHost.Scenarios
                                                     assert.NotEquals,
                                                     assert.OneOf,
                                                     assert.Tolerance,
-                                                    live);
+                                                    read.Value);
             return false;
+        }
+
+        // Why the step could not be evaluated. The two states send an author to very different places: nothing
+        // written means the block never reached the write (wrong wiring, a timer that never fired, a missing
+        // advance); written-but-not-a-scalar means the command is addressed wrongly, and the captured JSON is
+        // shown so the right `field` is one glance away.
+        private static string UnreadableOutputDetail(ScenarioServiceProviderAssert assert, string target, ServiceProviderOutputRead read)
+        {
+            if (read.State == ServiceProviderOutputState.NeverWritten)
+            {
+                return $"cannot evaluate {target}: the block has not written this contract yet — no command was captured this run";
+            }
+
+            return assert.Field is null ? $"cannot evaluate {target}: the last written command has no single value to compare ({read.Captured}) — address one scalar with 'field'" :
+                       $"cannot evaluate {target}: field '{assert.Field}' is not a scalar of the last written command ({read.Captured})";
+        }
+
+        // "Block.Contract" for a single-value output, "Block.Contract.field" when one field is addressed.
+        private static string ServiceProviderExpectTarget(ScenarioServiceProviderAssert assert)
+        {
+            var contract = $"{assert.LogicBlock}.{assert.Contract}";
+
+            return assert.Field is null ? contract : $"{contract}.{assert.Field}";
         }
 
         private static string DescribeServiceProviderExpect(ScenarioServiceProviderAssert assert)

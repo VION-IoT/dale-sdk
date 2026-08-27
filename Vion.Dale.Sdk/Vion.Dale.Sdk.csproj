@@ -23,6 +23,10 @@
         <InternalsVisibleTo Include="Vion.Dale.Sdk.TestKit"/>
         <InternalsVisibleTo Include="Vion.Dale.Sdk.Test"/>
         <InternalsVisibleTo Include="Vion.Dale.Sdk.TestKit.Test"/>
+        <!-- The DevHost reuses TypeRefBuilder's readonly-record-struct detection to flatten a [ScenarioWire]
+             wire struct into its addressable field leaves. That check is toolchain-sensitive (pre-C# 13 emits
+             <Clone>$, C# 13 emits PrintMembers) and a second copy would drift silently. -->
+        <InternalsVisibleTo Include="Vion.Dale.DevHost"/>
     </ItemGroup>
 
     <!--code generator project reference (compile time only reference). could be also a package reference, but it would be harder to debug the gho code generation	-->

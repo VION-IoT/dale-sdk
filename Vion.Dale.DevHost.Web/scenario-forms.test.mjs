@@ -3,6 +3,7 @@ import { KINDS, kindOf, STEP_KIND_IDS, SETUP_KIND_IDS } from './wwwroot/scenario
 import { stepErrors } from './wwwroot/scenario-forms.js';
 import { propertyPaths, contractRefs, structFieldPaths, pathOptions } from './wwwroot/scenario-forms.js';
 import { valueEditorFor, contractValueEditor } from './wwwroot/scenario-forms.js';
+import { contractOutputFields } from './wwwroot/scenario-forms.js';
 
 // The seven closed shapes, the four-vocabulary-sites source of truth (ScenarioStep.Kind).
 assert.deepEqual(STEP_KIND_IDS, ['set', 'serviceProviderSet', 'serviceProviderExpect', 'waitUntil', 'expect', 'advance', 'settle']);
@@ -77,3 +78,36 @@ assert.deepEqual(pathOptions(cfg, 'assert'), ['Grid.Phases.l1', 'Grid.Phases.l2'
 // 'watch' → all observables: the whole property AND its struct field leaves
 assert.deepEqual(pathOptions(cfg, 'watch'), ['Grid.Phases', 'Grid.Phases.l1', 'Grid.Phases.l2', 'Grid.Phases.l3', 'Grid.Reading', 'Grid.Setpoint']);
 console.log('task5 ok');
+
+// ── VION-71: the serviceProviderExpect `field` selector ──────────────────────────────────────────────
+// The host describes each output contract's addressable command leaves as the `scenarioOutputFields`
+// annotation; EMPTY means a single-value command, ABSENT means it could not be described.
+const spCfg = { logicBlocks: [ { name: 'Grid', services: [], contracts: [
+    { identifier: 'Setpoint', matchingContractType: 'GridSetpoint',
+      annotations: { scenarioOutputFields: ['enforced', 'scope', 'limits.activePowerW', 'issuedAt'] } },
+    { identifier: 'ActiveOutput', matchingContractType: 'DigitalOutput', annotations: { scenarioOutputFields: [] } },
+    { identifier: 'Opaque', matchingContractType: 'Whatever', annotations: {} },
+] } ] };
+assert.deepEqual(contractOutputFields(spCfg, { logicBlock: 'Grid', contract: 'ActiveOutput' }), []);
+assert.equal(contractOutputFields(spCfg, { logicBlock: 'Grid', contract: 'Opaque' }), null);
+
+const spExpect = (contract, field) => ({ serviceProviderExpect: { logicBlock: 'Grid', contract, ...(field === undefined ? {} : { field }) }, equals: true });
+// a multi-field command is not comparable whole — assert one scalar, and the error names them
+const whole = stepErrors(spExpect('Setpoint'), false, spCfg);
+assert.equal(whole.length, 1);
+assert.match(whole[0], /multi-field command/);
+assert.match(whole[0], /limits\.activePowerW/);
+// a valid field (case-insensitive, dotted through the nested struct) is clean
+assert.deepEqual(stepErrors(spExpect('Setpoint', 'limits.activePowerW'), false, spCfg), []);
+assert.deepEqual(stepErrors(spExpect('Setpoint', 'Limits.ActivePowerW'), false, spCfg), []);
+// a misspelled one is named against what is available
+assert.match(stepErrors(spExpect('Setpoint', 'enforcd'), false, spCfg)[0], /has no field 'enforcd'/);
+// a single-value output takes no field, and is clean without one
+assert.match(stepErrors(spExpect('ActiveOutput', 'value'), false, spCfg)[0], /writes a single value/);
+assert.deepEqual(stepErrors(spExpect('ActiveOutput'), false, spCfg), []);
+// an empty segment is a malformed path, and an undescribable contract draws no opinion either way
+assert.match(stepErrors(spExpect('Setpoint', 'limits.'), false, spCfg)[0], /not a field path/);
+assert.deepEqual(stepErrors(spExpect('Opaque', 'anything'), false, spCfg), []);
+// with no config the check stands down entirely (the server stays authoritative)
+assert.deepEqual(stepErrors(spExpect('Setpoint'), false), []);
+console.log('vion-71 ok');

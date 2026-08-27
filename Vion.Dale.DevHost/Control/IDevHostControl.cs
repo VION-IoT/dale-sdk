@@ -130,9 +130,22 @@ namespace Vion.Dale.DevHost.Control
         ///     Read the last value a logic block wrote on any <c>[ServiceProviderContractType]</c> value
         ///     <em>output</em> contract (RFC 0010 <c>serviceProviderExpect</c>) — one path for the four HAL
         ///     outputs and third-party scalar ones. Returns the captured value projected to a comparable scalar
-        ///     (bool, double, string), or <c>null</c> if the output has never been Set.
+        ///     (bool, double, string), or <c>null</c> when the output has never been written, was written as
+        ///     null, or carries no scalar leaf. Use
+        ///     <see cref="ReadServiceProviderOutput" /> to tell those apart, or to address one field of a
+        ///     multi-field command.
         /// </summary>
         object? GetServiceProviderOutput(string serviceProviderId, string serviceId, string contractId);
+
+        /// <summary>
+        ///     Read a service-provider value <em>output</em> contract and say what state the read is in: never
+        ///     written, readable, or written-but-not-a-scalar. Pass <paramref name="fieldPath" /> to address one
+        ///     field of a multi-field command — the wire keys of the command's JSON, dotted through a nested
+        ///     struct and matched case-insensitively, e.g. <c>["limits", "activePowerW"]</c>.
+        ///     A read that yields no scalar is what a scenario assertion must fail on rather than compare
+        ///     against nothing.
+        /// </summary>
+        ServiceProviderOutputRead ReadServiceProviderOutput(string serviceProviderId, string serviceId, string contractId, IReadOnlyList<string>? fieldPath = null);
 
         /// <summary>
         ///     Ask every mock handler to re-publish its current state — used by the web UI on (re)connect to
