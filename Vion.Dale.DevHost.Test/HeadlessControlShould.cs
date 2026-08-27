@@ -272,14 +272,14 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task GetServiceProviderOutput_IsNullUntilSet_ThenCarriesTheLastMirroredValue()
+        public async Task ReadServiceProviderOutput_ReportsNeverWrittenUntilSet_ThenCarriesTheLastMirroredValue()
         {
             // The generic read half (the complement of DriveServiceProviderContractAsync): the stand-in records
-            // what a block Sets and the control surface serves it via GetServiceProviderOutput, so a scenario can
-            // ASSERT an output. The SmokeHost IoBlock's [Timer(1)] OnTick mirrors IsEnabled -> ActiveOutput and
-            // CurrentLevel -> EchoOutput. Before any Set the getter returns null (the member never produced a
-            // value — distinct from a Set false / 0); after driving the inputs and firing the timer it carries
-            // the mirrored value.
+            // what a block Sets and the control surface serves it via ReadServiceProviderOutput, so a scenario
+            // can ASSERT an output. The SmokeHost IoBlock's [Timer(1)] OnTick mirrors IsEnabled -> ActiveOutput
+            // and CurrentLevel -> EchoOutput. Before any Set the read reports NeverWritten — which is a
+            // different fact from a Set false / 0, and the distinction the read exists to make; after driving
+            // the inputs and firing the timer it is Readable and carries the mirrored value.
             await using var host = BuildSteppedIoHost();
             await host.StartAsync();
 
@@ -294,11 +294,13 @@ namespace Vion.Dale.DevHost.Test
                 return io.Contracts.Single(c => c.Identifier == contractId).Annotations[ServiceProviderContractAnnotations.ContractHandlerActorName].ToString()!;
             }
 
-            // Never Set yet -> null.
-            Assert.IsNull(host.Control.GetServiceProviderOutput(active.MappedServiceProviderIdentifier, active.MappedServiceIdentifier, active.MappedContractIdentifier),
-                          "A digital output that has never been Set must read null.");
-            Assert.IsNull(host.Control.GetServiceProviderOutput(echo.MappedServiceProviderIdentifier, echo.MappedServiceIdentifier, echo.MappedContractIdentifier),
-                          "An analog output that has never been Set must read null.");
+            // Never Set yet -> NeverWritten, and no captured command to show.
+            var activeBefore = host.Control.ReadServiceProviderOutput(active.MappedServiceProviderIdentifier, active.MappedServiceIdentifier, active.MappedContractIdentifier);
+            Assert.AreEqual(ServiceProviderOutputState.NeverWritten, activeBefore.State, "A digital output that has never been Set must read as never written.");
+            Assert.IsNull(activeBefore.Captured, "Nothing was written, so there is no command to carry.");
+            Assert.AreEqual(ServiceProviderOutputState.NeverWritten,
+                            host.Control.ReadServiceProviderOutput(echo.MappedServiceProviderIdentifier, echo.MappedServiceIdentifier, echo.MappedContractIdentifier).State,
+                            "An analog output that has never been Set must read as never written.");
 
             // Drive the inputs, then advance one virtual second so OnTick fires and mirrors them onto the outputs.
             var enable = io.ContractMappings.Single(m => m.ContractIdentifier == "EnableInput");
@@ -315,12 +317,13 @@ namespace Vion.Dale.DevHost.Test
                                                                  JsonSerializer.SerializeToElement(3.3));
             await host.Control.AdvanceAsync(TimeSpan.FromSeconds(1));
 
-            Assert.IsTrue((bool)host.Control.GetServiceProviderOutput(active.MappedServiceProviderIdentifier, active.MappedServiceIdentifier, active.MappedContractIdentifier)!,
-                          "ActiveOutput must mirror IsEnabled=true after the timer fired.");
-            Assert.AreEqual(3.3,
-                            (double)host.Control.GetServiceProviderOutput(echo.MappedServiceProviderIdentifier, echo.MappedServiceIdentifier, echo.MappedContractIdentifier)!,
-                            0.001,
-                            "EchoOutput must mirror CurrentLevel=3.3 after the timer fired.");
+            var activeAfter = host.Control.ReadServiceProviderOutput(active.MappedServiceProviderIdentifier, active.MappedServiceIdentifier, active.MappedContractIdentifier);
+            Assert.AreEqual(ServiceProviderOutputState.Readable, activeAfter.State, "ActiveOutput was written, so it must read as readable.");
+            Assert.IsTrue((bool)activeAfter.Value!, "ActiveOutput must mirror IsEnabled=true after the timer fired.");
+
+            var echoAfter = host.Control.ReadServiceProviderOutput(echo.MappedServiceProviderIdentifier, echo.MappedServiceIdentifier, echo.MappedContractIdentifier);
+            Assert.AreEqual(ServiceProviderOutputState.Readable, echoAfter.State, "EchoOutput was written, so it must read as readable.");
+            Assert.AreEqual(3.3, (double)echoAfter.Value!, 0.001, "EchoOutput must mirror CurrentLevel=3.3 after the timer fired.");
         }
 
         private static DevConfiguration Config()

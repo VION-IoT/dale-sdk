@@ -443,16 +443,24 @@ namespace Vion.Dale.DevHost.Scenarios
 
     /// <summary>
     ///     A <c>serviceProviderExpect</c> auto-assertion (RFC 0010): a service-provider value <em>output</em>
-    ///     contract reference (<c>logicBlock</c> + <c>contract</c>) plus exactly one comparator, checked against
-    ///     the value the block last wrote on that contract. The generic replacement for <c>digitalOutput</c> /
-    ///     <c>analogOutput</c>; comparators and literal-only comparands are identical to those (no relational
-    ///     <c>{path}</c> form).
+    ///     contract reference (<c>logicBlock</c> + <c>contract</c>), an optional <c>field</c> selecting one
+    ///     scalar of a multi-field command, plus exactly one comparator, checked against the value the block
+    ///     last wrote on that contract. The generic replacement for <c>digitalOutput</c> / <c>analogOutput</c>;
+    ///     comparators and literal-only comparands are identical to those (no relational <c>{path}</c> form).
     /// </summary>
     public sealed class ScenarioServiceProviderAssert
     {
         public string? LogicBlock { get; init; }
 
         public string? Contract { get; init; }
+
+        /// <summary>
+        ///     Which scalar of the command to compare, for a contract whose outbound carries more than one
+        ///     field — the wire keys, dotted through a nested struct (<c>limits.activePowerW</c>), matched
+        ///     case-insensitively. Required for such a contract (a whole command is not comparable) and
+        ///     rejected for one that writes a single value.
+        /// </summary>
+        public string? Field { get; init; }
 
         public JsonElement Above { get; init; }
 
@@ -477,6 +485,11 @@ namespace Vion.Dale.DevHost.Scenarios
             if (string.IsNullOrWhiteSpace(Contract))
             {
                 yield return $"{shape}.contract is required";
+            }
+
+            if (Field is not null && Field.Split('.').Any(string.IsNullOrWhiteSpace))
+            {
+                yield return $"{shape}.field is not a field path (a wire key, optionally dotted through a nested struct)";
             }
 
             foreach (var error in ScenarioComparators.StructuralErrors(shape,

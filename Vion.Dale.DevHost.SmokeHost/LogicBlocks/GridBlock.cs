@@ -10,12 +10,25 @@ namespace Vion.Dale.DevHost.SmokeHost.LogicBlocks
     ///     <c>grid-demand</c> scenario drives it with <c>serviceProviderSet</c>; the block surfaces the fields
     ///     (including the nested ones) as service properties, asserted with <c>expect</c>. This is the
     ///     committed end-to-end proof of the RFC 0010 / DF-27 struct unblock through the real DevHost.
+    ///     <para>
+    ///         It also writes the <b>outbound</b> half, <see cref="IGridSetpoint" />: a timer mirrors the
+    ///         received demand onto a multi-field setpoint command carrying a publish-time stamp. That is the
+    ///         shape the four HAL outputs never had — their commands are single-field and round-trip as bare
+    ///         scalars — so it is what <c>serviceProviderExpect</c>'s <c>field</c> is asserted against.
+    ///     </para>
     /// </summary>
     [LogicBlock(Name = "Grid Demand", Icon = "flashlight-line")]
     public class GridBlock : LogicBlockBase
     {
+        // The received scope as its enum, for the outbound command. Scope above is the string projection the
+        // scenario asserts as a service property; the wire carries the enum and serializes it by name.
+        private DemandScope _scope;
+
         [ServiceProviderContractBinding(DefaultName = "Demand", Multiplicity = LinkMultiplicity.ZeroOrOne)]
         public IGridDemand Demand { get; private set; }
+
+        [ServiceProviderContractBinding(DefaultName = "Setpoint")]
+        public IGridSetpoint Setpoint { get; private set; }
 
         [ServiceProperty(Title = "Demand valid")]
         [Presentation(Group = PropertyGroup.Status, Importance = Importance.Primary)]
@@ -37,12 +50,23 @@ namespace Vion.Dale.DevHost.SmokeHost.LogicBlocks
         {
         }
 
+        [Timer(1)]
+        public void OnTick()
+        {
+            // Mirror the received demand onto the outbound setpoint command, so the multi-field output is live
+            // and assertable after a single `advance` — the same shape IoBlock uses for its HAL outputs. With no
+            // valid demand there are no limits to carry, so the nested struct is omitted: a scenario addressing a
+            // field through it then gets told the command has no such scalar, rather than compared against null.
+            Setpoint.Set(DemandValid, _scope, DemandValid ? new SetpointLimits(ActivePowerW, ReactivePowerVar) : null);
+        }
+
         /// <inheritdoc />
         protected override void Ready()
         {
             Demand.DemandReceived += (_, demand) =>
                                      {
                                          DemandValid = demand.Valid;
+                                         _scope = demand.Scope;
                                          Scope = demand.Scope.ToString();
                                          ActivePowerW = demand.Limits.ActivePowerW;
                                          ReactivePowerVar = demand.Limits.ReactivePowerVar;

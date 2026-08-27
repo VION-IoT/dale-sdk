@@ -67,6 +67,27 @@ namespace Vion.Dale.Cli.Test.Commands
                                                                        }
                                                                        """)!;
 
+        // Output contracts as the host describes them for a serviceProviderExpect `field`: a multi-field command
+        // (a nested leaf among them), a single-value one (EMPTY = nothing addressable), and one the host could
+        // not join to a handler (annotation ABSENT).
+        private static readonly JsonNode FieldConfig = JsonNode.Parse("""
+                                                                      {
+                                                                        "topologyName": "fields",
+                                                                        "logicBlocks": [
+                                                                          {
+                                                                            "name": "Grid",
+                                                                            "services": [],
+                                                                            "contracts": [
+                                                                              { "identifier": "Setpoint", "matchingContractType": "GridSetpoint",
+                                                                                "annotations": { "scenarioOutputFields": ["enforced", "scope", "limits.activePowerW", "issuedAt"] } },
+                                                                              { "identifier": "Active", "matchingContractType": "DigitalOutput", "annotations": { "scenarioOutputFields": [] } },
+                                                                              { "identifier": "Opaque", "matchingContractType": "Whatever", "annotations": {} }
+                                                                            ]
+                                                                          }
+                                                                        ]
+                                                                      }
+                                                                      """)!;
+
         [TestMethod]
         public void AcceptsAValidScenario()
         {
@@ -105,6 +126,47 @@ namespace Vion.Dale.Cli.Test.Commands
                                                       """,
                                                       Config);
             Assert.AreEqual(0, outcome.Errors.Count, string.Join("; ", outcome.Errors));
+        }
+
+        [TestMethod]
+        public void ChecksTheServiceProviderExpectFieldSelector_AgainstTheContractsDescribedCommand()
+        {
+            // The host describes each output contract's addressable command leaves as the scenarioOutputFields
+            // annotation, precisely so this offline validator can catch a bad `field` without booting a host.
+            static ScenarioCheckOutcome Assert_(string assertBody)
+            {
+                return ScenarioFileChecks.Validate("f.scenario.json",
+                                                   $$"""
+                                                     { "version": 1, "id": "f", "topology": "fields", "steps": [ { "serviceProviderExpect": {{assertBody}} } ] }
+                                                     """,
+                                                   FieldConfig);
+            }
+
+            // A whole multi-field command is not comparable — the error names what can be addressed instead.
+            var whole = Assert_("""{ "logicBlock": "Grid", "contract": "Setpoint", "notEquals": "x" }""").Errors.Single();
+            StringAssert.Contains(whole, "multi-field command");
+            StringAssert.Contains(whole, "limits.activePowerW");
+
+            // A valid field resolves, including a nested one and whatever casing the author wrote.
+            Assert.IsEmpty(Assert_("""{ "logicBlock": "Grid", "contract": "Setpoint", "field": "limits.activePowerW", "equals": 1500 }""").Errors);
+            Assert.IsEmpty(Assert_("""{ "logicBlock": "Grid", "contract": "Setpoint", "field": "Limits.ActivePowerW", "equals": 1500 }""").Errors);
+
+            StringAssert.Contains(Assert_("""{ "logicBlock": "Grid", "contract": "Setpoint", "field": "enforcd", "equals": true }""").Errors.Single(), "has no field 'enforcd'");
+            StringAssert.Contains(Assert_("""{ "logicBlock": "Grid", "contract": "Active", "field": "value", "equals": true }""").Errors.Single(), "writes a single value");
+            Assert.IsEmpty(Assert_("""{ "logicBlock": "Grid", "contract": "Active", "equals": true }""").Errors);
+
+            // A contract the host could not describe carries no annotation, and the check stands down.
+            Assert.IsEmpty(Assert_("""{ "logicBlock": "Grid", "contract": "Opaque", "field": "anything", "equals": true }""").Errors);
+
+            // A handler may declare both directions, so a contract with a field list can still be DRIVEN. The
+            // drive shape carries no field, so demanding one there is an error the author could not act on.
+            var drive = ScenarioFileChecks.Validate("d.scenario.json",
+                                                    """
+                                                    { "version": 1, "id": "d", "topology": "fields",
+                                                      "steps": [ { "serviceProviderSet": { "logicBlock": "Grid", "contract": "Setpoint" }, "value": true } ] }
+                                                    """,
+                                                    FieldConfig);
+            Assert.IsEmpty(drive.Errors, string.Join("; ", drive.Errors));
         }
 
         [TestMethod]

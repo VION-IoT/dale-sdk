@@ -324,19 +324,20 @@ namespace Vion.Dale.Cli.Commands
 
                     if (config is not null)
                     {
-                        ResolveServiceProviderContract(step["serviceProviderSet"], config, where, errors);
+                        ResolveServiceProviderContract(step["serviceProviderSet"], config, where, errors, false);
                     }
                 }
                 else if (step.ContainsKey("serviceProviderExpect"))
                 {
-                    // The generic value-output assert (RFC 0010): a logicBlock + contract ref plus one comparator
-                    // (literals only). Direction is the runner's authoritative check.
+                    // The generic value-output assert (RFC 0010): a logicBlock + contract ref, an optional field
+                    // selecting one scalar of a multi-field command, plus one comparator (literals only).
+                    // Direction is the runner's authoritative check.
                     if (step["serviceProviderExpect"] is JsonObject assert)
                     {
                         ValidateComparators("serviceProviderExpect", assert, false, where, errors);
                         if (config is not null)
                         {
-                            ResolveServiceProviderContract(assert, config, where, errors);
+                            ResolveServiceProviderContract(assert, config, where, errors, true);
                         }
                     }
                     else
@@ -691,9 +692,9 @@ namespace Vion.Dale.Cli.Commands
 
         // The lite resolution for a generic serviceProviderSet / serviceProviderExpect reference (RFC 0010):
         // any [ServiceProviderContractType] contract on the block is addressable, so only existence is checked
-        // here (block + contract). Direction — a set must be a drivable input, an expect an assertable output —
-        // is enforced authoritatively by the runner / ScenarioResolver.
-        private static void ResolveServiceProviderContract(JsonNode? reference, JsonNode config, string where, List<string> errors)
+        // here (block + contract) plus, for an expect, its field selector. Direction — a set must be a drivable
+        // input, an expect an assertable output — is enforced authoritatively by the runner / ScenarioResolver.
+        private static void ResolveServiceProviderContract(JsonNode? reference, JsonNode config, string where, List<string> errors, bool forAssert)
         {
             var blockName = reference?["logicBlock"]?.GetValue<string>();
             var contractId = reference?["contract"]?.GetValue<string>();
@@ -714,6 +715,49 @@ namespace Vion.Dale.Cli.Commands
             if (contract is null)
             {
                 errors.Add($"{where}: block '{blockName}' has no contract '{contractId}'");
+                return;
+            }
+
+            if (forAssert)
+            {
+                ResolveServiceProviderField(reference, contract, contractId, where, errors);
+            }
+        }
+
+        // The serviceProviderExpect `field` selector, mirroring ScenarioResolver.ResolveAssertField against the
+        // exported configuration. The addressable scalar leaves of the contract's outbound command ride on the
+        // contract as the `scenarioOutputFields` annotation (written by Vion.Dale.DevHost's DevHostIntrospection
+        // from the handler's [ScenarioWire]) precisely so this offline validator can reach them: EMPTY means the
+        // command is a single value with no addressable field, and an ABSENT key means the host could not join
+        // the contract to a handler — this check then stands down, as the runner's does. Asserts only: a handler
+        // may declare both directions, and a serviceProviderSet on such a contract carries no field to check.
+        private static void ResolveServiceProviderField(JsonNode? reference, JsonNode contract, string contractId, string where, List<string> errors)
+        {
+            var field = reference?["field"]?.GetValue<string>();
+            if (contract["annotations"]?["scenarioOutputFields"] is not JsonArray annotated)
+            {
+                return;
+            }
+
+            var available = annotated.Select(f => f?.GetValue<string>()).Where(f => f is not null).Select(f => f!).ToList();
+            if (field is null)
+            {
+                if (available.Count > 0)
+                {
+                    errors.Add($"{where}: contract '{contractId}' writes a multi-field command — a whole command is not comparable; " +
+                               $"assert one scalar with 'field' (available: {string.Join(", ", available)})");
+                }
+
+                return;
+            }
+
+            if (available.Count == 0)
+            {
+                errors.Add($"{where}: contract '{contractId}' writes a single value — assert it directly, without 'field'");
+            }
+            else if (!available.Any(f => string.Equals(f, field, StringComparison.OrdinalIgnoreCase)))
+            {
+                errors.Add($"{where}: contract '{contractId}' has no field '{field}' (available: {string.Join(", ", available)})");
             }
         }
 

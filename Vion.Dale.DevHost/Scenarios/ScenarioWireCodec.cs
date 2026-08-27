@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
@@ -34,6 +35,25 @@ namespace Vion.Dale.DevHost.Scenarios
         public bool CanAssert
         {
             get => _outbound is not null;
+        }
+
+        /// <summary>
+        ///     The scalar field leaves a <c>serviceProviderExpect</c> <c>field</c> may address on this
+        ///     contract's outbound command, or null when the contract has no outbound (an input). EMPTY when
+        ///     the outbound round-trips as a bare scalar (the single-field unwrap below) — such an output is
+        ///     asserted directly, with no field.
+        /// </summary>
+        public IReadOnlyList<string>? OutputFieldPaths
+        {
+            get
+            {
+                if (_outbound is null)
+                {
+                    return null;
+                }
+
+                return UnwrappedField(_outbound) is not null ? Array.Empty<string>() : ScenarioWireFields.LeafPaths(_outbound);
+            }
         }
 
         private ScenarioWireCodec(Type? inbound, Type? outbound)
@@ -102,18 +122,24 @@ namespace Vion.Dale.DevHost.Scenarios
         private static JsonElement Encode(object data)
         {
             var structType = data.GetType();
-            var constructor = structType.GetConstructors().OrderByDescending(c => c.GetParameters().Length).First();
-            var parameters = constructor.GetParameters();
-            if (parameters.Length == 1)
-            {
-                var field = structType.GetProperty(parameters[0].Name!);
-                if (field is not null)
-                {
-                    return JsonSerializer.SerializeToElement(field.GetValue(data), JsonSerialization.DefaultOptions);
-                }
-            }
+            var field = UnwrappedField(structType);
 
-            return JsonSerializer.SerializeToElement(data, JsonSerialization.DefaultOptions);
+            return field is not null ? JsonSerializer.SerializeToElement(field.GetValue(data), JsonSerialization.DefaultOptions) :
+                       JsonSerializer.SerializeToElement(data, JsonSerialization.DefaultOptions);
+        }
+
+        // The one property a single-field wire struct unwraps to on the wire, or null when the struct
+        // serializes as a JSON object. The single owner of the unwrap rule: Encode writes through it, and
+        // OutputFieldPaths reports "no addressable field" for exactly the shapes it accepts. A struct that
+        // declares no constructor at all (init-only properties) serializes as an object like any other — it must
+        // not throw, because OutputFieldPaths runs over every discovered handler when the configuration is built,
+        // not only when a block writes a command.
+        private static PropertyInfo? UnwrappedField(Type structType)
+        {
+            var constructor = structType.GetConstructors().OrderByDescending(c => c.GetParameters().Length).FirstOrDefault();
+            var parameters = constructor?.GetParameters();
+
+            return parameters is { Length: 1 } ? structType.GetProperty(parameters[0].Name!) : null;
         }
     }
 }

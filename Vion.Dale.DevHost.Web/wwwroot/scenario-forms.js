@@ -81,6 +81,23 @@ export function contractRefs(config) {
     return out;
 }
 
+// The scalar leaves a serviceProviderExpect `field` may address on a contract's outbound command — the
+// `scenarioOutputFields` annotation the host writes from the handler's [ScenarioWire] (see
+// Vion.Dale.DevHost/Scenarios/ScenarioWireFields.cs). EMPTY means the command is a single value with no
+// addressable field; null means the host could not describe it, so the editor offers no opinion.
+export function contractOutputFields(config, ref) {
+    if (!ref || !ref.logicBlock || !ref.contract) return null;
+    for (const lb of (config && config.logicBlocks) || []) {
+        if (lb.name !== ref.logicBlock) continue;
+        for (const c of lb.contracts || []) {
+            if (c.identifier !== ref.contract) continue;
+            const fields = c.annotations && c.annotations.scenarioOutputFields;
+            return Array.isArray(fields) ? fields : null;
+        }
+    }
+    return null;
+}
+
 // Resolve "Block.Property" (two-segment) to its member object (for schema / struct lookups). Ambiguous
 // Block.Service.Property is out of scope for v1 enumeration (the picker emits the 2-seg form).
 function findMember(config, path) {
@@ -121,8 +138,9 @@ export function pathOptions(config, mode) {
 // ---------------------------------------------------------------------------
 // Advisory mirror of ScenarioStep.StructuralErrors(setupOnlyShapes). The SERVER is authoritative (PUT
 // Save re-runs the real thing); this is for inline editor feedback. `hasValue` distinguishes an explicit
-// value (incl. null) from an absent one — the editor passes value !== undefined.
-export function stepErrors(step, setupOnly) {
+// value (incl. null) from an absent one — the editor passes value !== undefined. `config` is optional and
+// only enables the checks that need the host's view (today: the serviceProviderExpect field selector).
+export function stepErrors(step, setupOnly, config) {
     const errors = [];
     const shapes = STEP_KIND_IDS.filter(id => step && step[id] != null);
     if (shapes.length !== 1) {
@@ -150,8 +168,35 @@ export function stepErrors(step, setupOnly) {
     if (kind === 'serviceProviderExpect') {
         const a = step.serviceProviderExpect || {};
         if (!a.logicBlock || !a.contract) errors.push('serviceProviderExpect: logicBlock and contract are required');
+        if (a.field != null && String(a.field).split('.').some(seg => !seg.trim())) {
+            errors.push('serviceProviderExpect.field is not a field path (a wire key, optionally dotted through a nested struct)');
+        }
+        else fieldErrors(a, config).forEach(e => errors.push(e));
     }
     return errors;
+}
+
+// The config-dependent half of the serviceProviderExpect check, mirroring ScenarioResolver's
+// ResolveAssertField: a multi-field command must be asserted one scalar at a time (a whole command is not
+// comparable — asserting it is what let notEquals pass having compared nothing), a single-value output takes
+// no field, and a misspelled field is named against what is available. With no config, or a contract the
+// host could not describe, the check stands down exactly as the resolver's does.
+function fieldErrors(assert, config) {
+    const available = config ? contractOutputFields(config, assert) : null;
+    if (available === null) return [];
+    const field = assert.field;
+    if (field == null || field === '') {
+        return available.length
+            ? [`serviceProviderExpect: contract '${assert.contract}' writes a multi-field command \u2014 assert one scalar with 'field' (available: ${available.join(', ')})`]
+            : [];
+    }
+    if (!available.length) {
+        return [`serviceProviderExpect: contract '${assert.contract}' writes a single value \u2014 assert it directly, without 'field'`];
+    }
+    if (!available.some(f => f.toLowerCase() === String(field).toLowerCase())) {
+        return [`serviceProviderExpect: contract '${assert.contract}' has no field '${field}' (available: ${available.join(', ')})`];
+    }
+    return [];
 }
 
 // ---------------------------------------------------------------------------
@@ -188,12 +233,12 @@ export function contractValueEditor(contractType, valueSchema) {
 
 // Whole-draft errors (topology required; per-section step errors; empty watch / judge entries) — mirrors
 // ScenarioFile.StructuralErrors. Returns a flat list of `section[i]: message` strings.
-export function scenarioErrors(draft) {
+export function scenarioErrors(draft, config) {
     const errors = [];
     if (!draft) return ['scenario is empty'];
     if (!String(draft.topology || '').trim()) errors.push('topology is required');
-    (draft.setup || []).forEach((s, i) => stepErrors(s, true).forEach(e => errors.push(`setup[${i}]: ${e}`)));
-    (draft.steps || []).forEach((s, i) => stepErrors(s, false).forEach(e => errors.push(`steps[${i}]: ${e}`)));
+    (draft.setup || []).forEach((s, i) => stepErrors(s, true, config).forEach(e => errors.push(`setup[${i}]: ${e}`)));
+    (draft.steps || []).forEach((s, i) => stepErrors(s, false, config).forEach(e => errors.push(`steps[${i}]: ${e}`)));
     (draft.watch || []).forEach((w, i) => { if (!String(w || '').trim()) errors.push(`watch[${i}]: empty name path`); });
     (draft.judge || []).forEach((j, i) => { if (!String((j && j.text) || '').trim()) errors.push(`judge[${i}]: text is required`); });
     return errors;

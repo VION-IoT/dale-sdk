@@ -928,7 +928,7 @@ export function closeScenarioEditor() {
 }
 
 export function validateScenarioDraft() {
-    store.scenarioDraftErrors = scenarioErrors(store.scenarioDraft);
+    store.scenarioDraftErrors = scenarioErrors(store.scenarioDraft, store.config);
     return store.scenarioDraftErrors.length === 0;
 }
 

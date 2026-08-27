@@ -30,9 +30,10 @@ namespace Vion.Dale.DevHost.Scenarios
     ///     A contract reference resolved to its mocked endpoint (service provider / service / contract ids).
     ///     <see cref="HandlerName" /> is the generic stand-in's actor name (the contract's
     ///     <c>ContractHandlerActorName</c>) for the RFC 0010 <c>serviceProviderSet</c> drive; null for the
-    ///     legacy HAL steps, which address their well-known handlers by value type.
+    ///     legacy HAL steps, which address their well-known handlers by value type. <see cref="FieldPath" />
+    ///     carries a <c>serviceProviderExpect</c>'s <c>field</c> selector, split into wire-key segments.
     /// </summary>
-    internal sealed record ResolvedContract(string ServiceProviderId, string ServiceId, string ContractId, string? HandlerName = null);
+    internal sealed record ResolvedContract(string ServiceProviderId, string ServiceId, string ContractId, string? HandlerName = null, IReadOnlyList<string>? FieldPath = null);
 
     /// <summary>
     ///     The resolved addressing for one step — exactly one of <see cref="Property" /> / <see cref="Contract" />
@@ -130,11 +131,22 @@ namespace Vion.Dale.DevHost.Scenarios
                 }
 
                 case "serviceProviderSet":
-                    return new ResolvedStep(null, ResolveServiceProviderContract(step.ServiceProviderSet!.LogicBlock, step.ServiceProviderSet.Contract, true, where, errors));
+                    return new ResolvedStep(null,
+                                            ResolveServiceProviderContract(step.ServiceProviderSet!.LogicBlock,
+                                                                           step.ServiceProviderSet.Contract,
+                                                                           true,
+                                                                           null,
+                                                                           where,
+                                                                           errors));
 
                 case "serviceProviderExpect":
                     return new ResolvedStep(null,
-                                            ResolveServiceProviderContract(step.ServiceProviderExpect!.LogicBlock, step.ServiceProviderExpect.Contract, false, where, errors));
+                                            ResolveServiceProviderContract(step.ServiceProviderExpect!.LogicBlock,
+                                                                           step.ServiceProviderExpect.Contract,
+                                                                           false,
+                                                                           step.ServiceProviderExpect.Field,
+                                                                           where,
+                                                                           errors));
 
                 default: // advance / settle — no name path to resolve
                     return new ResolvedStep(null, null);
@@ -359,7 +371,12 @@ namespace Vion.Dale.DevHost.Scenarios
         // the contract's Consumers multiplicity — ZeroOrOne (single-writer, surfaced as the Consumers annotation)
         // is an output (assert only); the omitted default ZeroOrMore is an input (drivable). The resolved
         // ContractHandlerActorName names the generic stand-in the drive addresses.
-        private ResolvedContract? ResolveServiceProviderContract(string? blockName, string? contractId, bool forDrive, string where, List<string> errors)
+        private ResolvedContract? ResolveServiceProviderContract(string? blockName,
+                                                                 string? contractId,
+                                                                 bool forDrive,
+                                                                 string? field,
+                                                                 string where,
+                                                                 List<string> errors)
         {
             var block = _configuration.LogicBlocks.FirstOrDefault(b => b.Name == blockName);
             if (block is null)
@@ -397,8 +414,66 @@ namespace Vion.Dale.DevHost.Scenarios
             }
 
             var handlerName = contract.Annotations.TryGetValue(ServiceProviderContractAnnotations.ContractHandlerActorName, out var handler) ? handler as string : null;
+            IReadOnlyList<string>? fieldPath = null;
 
-            return new ResolvedContract(mapping.MappedServiceProviderIdentifier, mapping.MappedServiceIdentifier, mapping.MappedContractIdentifier, handlerName);
+            if (!forDrive && !ResolveAssertField(contract,
+                                                 contractId!,
+                                                 field,
+                                                 where,
+                                                 errors,
+                                                 out fieldPath))
+            {
+                return null;
+            }
+
+            return new ResolvedContract(mapping.MappedServiceProviderIdentifier, mapping.MappedServiceIdentifier, mapping.MappedContractIdentifier, handlerName, fieldPath);
+        }
+
+        // serviceProviderExpect's counterpart to expect's ValidateFieldPath / ValidateComparatorAgainstLeaf, run
+        // against the outbound command's addressable leaves (carried on the contract by DevHostIntrospection):
+        // a multi-field command must be asserted one scalar field at a time — a whole command has no scalar leaf,
+        // and letting it through is exactly how a notEquals used to report satisfied having compared nothing — a
+        // single-value output takes no field, and a misspelled field is named against what is available.
+        // When the annotation is ABSENT the contract could not be joined to a handler type; the check stands down
+        // and the runner's read-time guard remains the gate. Only an assert reaches here: a handler may declare
+        // BOTH directions, and demanding a field of a serviceProviderSet on such a contract would be an error the
+        // author cannot act on (the drive shape carries no field).
+        private static bool ResolveAssertField(ConfigurationOutput.LogicBlockContract contract,
+                                               string contractId,
+                                               string? field,
+                                               string where,
+                                               List<string> errors,
+                                               out IReadOnlyList<string>? fieldPath)
+        {
+            fieldPath = null;
+            var available = contract.Annotations.TryGetValue(ScenarioWireFields.OutputFieldsAnnotationKey, out var fields) ? fields as IReadOnlyList<string> : null;
+
+            if (field is null)
+            {
+                if (available is not { Count: > 0 })
+                {
+                    return true;
+                }
+
+                errors.Add($"{where}: contract '{contractId}' writes a multi-field command — a whole command is not comparable; " +
+                           $"assert one scalar with 'field' (available: {string.Join(", ", available)})");
+                return false;
+            }
+
+            if (available is { Count: 0 })
+            {
+                errors.Add($"{where}: contract '{contractId}' writes a single value — assert it directly, without 'field'");
+                return false;
+            }
+
+            if (available is not null && !available.Any(f => string.Equals(f, field, StringComparison.OrdinalIgnoreCase)))
+            {
+                errors.Add($"{where}: contract '{contractId}' has no field '{field}' (available: {string.Join(", ", available)})");
+                return false;
+            }
+
+            fieldPath = field.Split('.');
+            return true;
         }
 
         private bool IsReadOnly(ResolvedProperty property)
