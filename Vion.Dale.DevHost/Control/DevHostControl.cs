@@ -50,8 +50,9 @@ namespace Vion.Dale.DevHost.Control
 
         private readonly MessageTap _messageTap;
 
-        // The generic captured-output store the service-provider stand-ins write; read by GetServiceProviderOutput
-        // (serviceProviderExpect). Works for any value contract, unlike the typed _digitalOutputs/_analogOutputs.
+        // The generic captured-output store the service-provider stand-ins write; read by
+        // ReadServiceProviderOutput (serviceProviderExpect). Works for any value contract, unlike the typed
+        // _digitalOutputs/_analogOutputs.
         private readonly ServiceProviderOutputCache _outputCache;
 
         private readonly DevHostRunControl _runControl;
@@ -354,11 +355,6 @@ namespace Vion.Dale.DevHost.Control
             var handler = _actorSystem.LookupByName(handlerName);
             _actorSystem.SendTo(handler, new MockSetServiceProviderInputMessage(new ServiceProviderContractId(serviceProviderId, serviceId, contractId), value));
             return Task.CompletedTask;
-        }
-
-        public object? GetServiceProviderOutput(string serviceProviderId, string serviceId, string contractId)
-        {
-            return ReadServiceProviderOutput(serviceProviderId, serviceId, contractId).Value;
         }
 
         public ServiceProviderOutputRead ReadServiceProviderOutput(string serviceProviderId, string serviceId, string contractId, IReadOnlyList<string>? fieldPath = null)

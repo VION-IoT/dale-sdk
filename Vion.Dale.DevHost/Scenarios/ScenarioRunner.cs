@@ -750,7 +750,7 @@ namespace Vion.Dale.DevHost.Scenarios
         }
 
         // The serviceProviderExpect assertion (RFC 0010): a point-in-time check of the value the block last wrote
-        // on a service-provider output contract, read from the generic output cache. Mirrors OutputAssertStep.
+        // on a service-provider output contract, read from the generic output cache.
         // A read that yielded no comparable value FAILS the step and says which of the two reasons it is —
         // never written, or written and not a scalar. Comparing against it would report satisfied having
         // asserted nothing: every comparator but notEquals fails against a missing value, and notEquals passes.

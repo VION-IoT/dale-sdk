@@ -354,7 +354,6 @@ namespace Vion.Dale.DevHost.Test.Stepping
             Assert.AreEqual(ServiceProviderOutputState.Unreadable, whole.State);
             Assert.IsNotNull(whole.Captured, "the captured command is carried so a failing assert can show it");
             StringAssert.Contains(whole.Captured!, "activePowerW");
-            Assert.IsNull(host.Control.GetServiceProviderOutput(endpoint.Sp, endpoint.Svc, endpoint.Contract), "the scalar convenience read is unchanged");
 
             // A field: readable, case-insensitively, through the nested struct.
             var nested = host.Control.ReadServiceProviderOutput(endpoint.Sp, endpoint.Svc, endpoint.Contract, ["Limits", "ActivePowerW"]);

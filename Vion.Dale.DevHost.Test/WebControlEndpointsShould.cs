@@ -513,7 +513,7 @@ namespace Vion.Dale.DevHost.Test
             // IoBlock's digital + analog inputs over HTTP (each addressed by its stand-in handler name from the
             // configuration's contractHandlerActorName annotation), advance the stepped clock to quiesce, then
             // read the block's driven state back over HTTP. The mocked-output read-back is covered headlessly by
-            // GetServiceProviderOutput.
+            // ReadServiceProviderOutput.
             var port = FreePort();
             var config = DevConfigurationBuilder.Create().WithTopologyName("io").AddLogicBlock<SmokeHost.LogicBlocks.IoBlock>("io").Build();
             await using var host = DevHostBuilder.Create().WithDi<SmokeHost.DependencyInjection>().WithConfiguration(config).WithWebUi(port, true).Build();
