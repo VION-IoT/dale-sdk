@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "id": "provider-faces",
+  "topology": "default",
+  "title": "Provider faces — a simulator receives a command, confirms it, and drives its feedback contact",
+  "description": "The inverted side of the HAL contracts, with nothing paired to it. serviceProviderSet drives SetDigitalOutput INTO the DeviceSimBlock's IDigitalOutputProvider — legal because the provider handler declares that inbound — and the block reacts: it records the command, confirms back what it applied on the same contract, and drives its IDigitalInputProvider feedback contact. serviceProviderExpect asserts both outbounds. The analog pair runs the same loop, so all four trios are exercised. Then the take-up knob is switched off and the same command arrives again: the simulator records it and deliberately does nothing, so the last confirmation and the feedback contact stay where they were — hardware that ignored a command, modelled as block behaviour rather than host magic. Everything runs stepped, so the whole loop is deterministic.",
+  "specs": ["smoke", "hal", "provider"],
+  "watch": ["DeviceSimBlock.LastCommand", "DeviceSimBlock.Applied", "DeviceSimBlock.AppliedSetpoint", "DeviceSimBlock.ConfirmationCount"],
+  "steps": [
+    { "serviceProviderSet": { "logicBlock": "DeviceSimBlock", "contract": "ContactorProvider" }, "value": true, "label": "a digital output commands the simulated contactor closed" },
+    { "waitUntil": { "property": "DeviceSimBlock.LastCommand", "equals": true }, "timeoutSeconds": 5, "label": "wait until the simulator observes the command" },
+    { "expect": { "property": "DeviceSimBlock.Applied", "equals": true }, "label": "the simulated equipment applied it", "spec": "provider" },
+    { "serviceProviderExpect": { "logicBlock": "DeviceSimBlock", "contract": "ContactorProvider", "equals": true }, "label": "the provider confirmed the value it applied", "spec": "provider" },
+    { "serviceProviderExpect": { "logicBlock": "DeviceSimBlock", "contract": "FeedbackProvider", "equals": true }, "label": "the auxiliary contact was driven closed", "spec": "provider" },
+    { "serviceProviderSet": { "logicBlock": "DeviceSimBlock", "contract": "ContactorProvider" }, "value": false, "label": "the output commands it open again" },
+    { "waitUntil": { "property": "DeviceSimBlock.Applied", "equals": false }, "timeoutSeconds": 5, "label": "wait until the simulator releases" },
+    { "serviceProviderExpect": { "logicBlock": "DeviceSimBlock", "contract": "ContactorProvider", "equals": false }, "label": "the confirmation follows the release", "spec": "provider" },
+    { "serviceProviderExpect": { "logicBlock": "DeviceSimBlock", "contract": "FeedbackProvider", "equals": false }, "label": "and so does the auxiliary contact", "spec": "provider" },
+    { "expect": { "property": "DeviceSimBlock.ConfirmationCount", "equals": 2 }, "label": "two commands, two confirmations", "spec": "provider" },
+    { "serviceProviderSet": { "logicBlock": "DeviceSimBlock", "contract": "SetpointProvider" }, "value": 4.2, "label": "an analog output commands a setpoint — the same trio, the double twin" },
+    { "waitUntil": { "property": "DeviceSimBlock.AppliedSetpoint", "equals": 4.2, "tolerance": 0.001 }, "timeoutSeconds": 5, "label": "wait until the simulator applies the setpoint" },
+    { "serviceProviderExpect": { "logicBlock": "DeviceSimBlock", "contract": "SetpointProvider", "equals": 4.2, "tolerance": 0.001 }, "label": "the analog provider confirmed what it applied", "spec": "provider" },
+    { "serviceProviderExpect": { "logicBlock": "DeviceSimBlock", "contract": "ActualValueProvider", "equals": 4.2, "tolerance": 0.001 }, "label": "and drove the actual-value input to match", "spec": "provider" },
+    { "set": "DeviceSimBlock.TakesUpCommands", "value": false, "label": "the equipment stops taking up commands" },
+    { "waitUntil": { "property": "DeviceSimBlock.TakesUpCommands", "equals": false }, "timeoutSeconds": 5, "label": "wait until the knob is applied, so the next command lands on the changed behaviour" },
+    { "serviceProviderSet": { "logicBlock": "DeviceSimBlock", "contract": "ContactorProvider" }, "value": true, "label": "the output commands it closed again" },
+    { "waitUntil": { "property": "DeviceSimBlock.LastCommand", "equals": true }, "timeoutSeconds": 5, "label": "wait until the simulator observes the command it will ignore" },
+    { "expect": { "property": "DeviceSimBlock.Applied", "equals": false }, "label": "non-take-up — the command arrived and was not applied", "spec": "provider" },
+    { "expect": { "property": "DeviceSimBlock.ConfirmationCount", "equals": 2 }, "label": "and nothing was confirmed for it", "spec": "provider" },
+    { "serviceProviderExpect": { "logicBlock": "DeviceSimBlock", "contract": "ContactorProvider", "equals": false }, "label": "the last confirmation still reads the released value", "spec": "provider" },
+    { "serviceProviderExpect": { "logicBlock": "DeviceSimBlock", "contract": "FeedbackProvider", "equals": false }, "label": "and the auxiliary contact never moved", "spec": "provider" }
+  ]
+}

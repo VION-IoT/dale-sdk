@@ -1,4 +1,4 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 
 namespace Vion.Dale.Sdk.Generators.Analyzers
 {
@@ -578,5 +578,21 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                                                                                             DiagnosticSeverity.Error,
                                                                                             true,
                                                                                             customTags: new[] { WellKnownDiagnosticTags.CompilationEnd });
+
+        /// <summary>
+        ///     A type declared on <c>[ScenarioWire]</c> is not codec-representable. The scenario codec builds
+        ///     the wire value from JSON by reflecting over the struct's positional constructor, so the type
+        ///     must be a value struct whose members are all serializable leaves — primitives, string, enum,
+        ///     <c>DateTime</c> / <c>DateTimeOffset</c> / <c>TimeSpan</c> / <c>Guid</c>, nullables of those —
+        ///     or nested readonly record structs of the same, all the way down. A class, a delegate-typed
+        ///     member (a pending-operation callback, say) or any other reference-typed member cannot be built
+        ///     from a scenario value, and the contract would be silently undrivable and unassertable.
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE046_ScenarioWireTypeNotRepresentable = new("DALE046",
+                                                                                                   "ScenarioWire type is not codec-representable",
+                                                                                                   "{0}",
+                                                                                                   Category,
+                                                                                                   DiagnosticSeverity.Error,
+                                                                                                   true);
     }
 }

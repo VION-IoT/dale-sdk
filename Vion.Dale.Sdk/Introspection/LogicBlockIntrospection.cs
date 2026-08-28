@@ -227,6 +227,13 @@ namespace Vion.Dale.Sdk.Introspection
                                         // drives the contract (RFC 0010).
                                         annotations[ServiceProviderContractAnnotations.ContractHandlerActorName] = i.Value.ContractHandlerActorName;
 
+                                        // Development-only contracts (provider faces a simulator binds) are flagged
+                                        // for tooling; emitted only when set, like Consumers above.
+                                        if (attribute.DevelopmentOnly)
+                                        {
+                                            annotations[ServiceProviderContractAnnotations.DevelopmentOnly] = true;
+                                        }
+
                                         return new LogicBlockIntrospectionResult.ContractInfo
                                                {
                                                    Identifier = i.Key,

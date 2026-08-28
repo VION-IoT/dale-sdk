@@ -13,5 +13,12 @@ namespace Vion.Dale.Sdk.Configuration.Contract
         ///     stand-in registered under this name when a scenario drives the contract.
         /// </summary>
         public const string ContractHandlerActorName = "contractHandlerActorName";
+
+        /// <summary>
+        ///     Present and <c>true</c> when the contract type is declared
+        ///     <see cref="ServiceProviderContractTypeAttribute.DevelopmentOnly" /> — development and bench
+        ///     surface a simulator binds, which the production runtime refuses. Absent on an ordinary contract.
+        /// </summary>
+        public const string DevelopmentOnly = "developmentOnly";
     }
 }
