@@ -12,17 +12,27 @@ namespace Vion.Dale.DevHost.Scenarios
     ///     wire keys the codec serializes and dot through a nested struct (<c>limits.activePowerW</c>), the same
     ///     shape <c>expect</c> uses for a struct-typed member, and resolve case-insensitively at both ends.
     ///     <para>
-    ///         The list rides on the contract's <see cref="Control.ConfigurationOutput.LogicBlockContract.Annotations" />
-    ///         under <see cref="OutputFieldsAnnotationKey" />, so the resolver <em>and</em>
+    ///         Both lists ride on the contract's <see cref="Control.ConfigurationOutput.LogicBlockContract.Annotations" />
+    ///         — <see cref="OutputFieldsAnnotationKey" /> for the outbound command, <see cref="InputFieldsAnnotationKey" />
+    ///         for the inbound the service provider delivers — so the resolver <em>and</em>
     ///         <c>dale scenario validate</c> — which sees only an exported configuration, never a loaded
-    ///         assembly — can reject a missing or misspelled field before a run. An <b>empty</b> list means the
-    ///         outbound round-trips as a bare scalar (the codec's single-field unwrap), so it has no addressable
-    ///         field. An <b>absent</b> annotation means the DevHost could not join the contract to a handler
-    ///         type; the static checks then stand down and the runner's read-time guard is the only gate.
+    ///         assembly — can judge a step before a run. An <b>empty</b> list means the wire struct round-trips
+    ///         as a bare scalar (the codec's single-field unwrap), so it has no addressable field.
+    ///     </para>
+    ///     <para>
+    ///         The two keys carry different weight, because the two operations refuse for different reasons.
+    ///         <see cref="OutputFieldsAnnotationKey" /> validates a <c>field</c> selector: <b>absent</b> means the
+    ///         DevHost could not join the contract to a handler type, the static checks stand down, and the
+    ///         runner's read-time guard is the only gate. <see cref="InputFieldsAnnotationKey" /> is itself the
+    ///         drive gate: its <b>presence</b> is what makes a contract drivable with <c>serviceProviderSet</c>,
+    ///         because nothing can be delivered to a block on a contract whose handler declares no inbound.
     ///     </para>
     /// </summary>
     internal static class ScenarioWireFields
     {
+        /// <summary>The contract-annotation key carrying the inbound wire struct's field leaves — and the drive gate.</summary>
+        public const string InputFieldsAnnotationKey = "scenarioInputFields";
+
         /// <summary>The contract-annotation key carrying the outbound command's addressable field leaves.</summary>
         public const string OutputFieldsAnnotationKey = "scenarioOutputFields";
 

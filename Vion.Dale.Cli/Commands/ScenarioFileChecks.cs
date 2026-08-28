@@ -691,9 +691,10 @@ namespace Vion.Dale.Cli.Commands
         }
 
         // The lite resolution for a generic serviceProviderSet / serviceProviderExpect reference (RFC 0010):
-        // any [ServiceProviderContractType] contract on the block is addressable, so only existence is checked
-        // here (block + contract) plus, for an expect, its field selector. Direction — a set must be a drivable
-        // input, an expect an assertable output — is enforced authoritatively by the runner / ScenarioResolver.
+        // any [ServiceProviderContractType] contract on the block is addressable, so existence is checked here
+        // (block + contract) plus, per operation, the direction the exported configuration can speak to — a
+        // set's drivable inbound, an expect's field selector. The runner / ScenarioResolver stays the
+        // authority; these mirror it so `dale scenario validate` refuses in CI what a run would refuse.
         private static void ResolveServiceProviderContract(JsonNode? reference, JsonNode config, string where, List<string> errors, bool forAssert)
         {
             var blockName = reference?["logicBlock"]?.GetValue<string>();
@@ -722,6 +723,27 @@ namespace Vion.Dale.Cli.Commands
             {
                 ResolveServiceProviderField(reference, contract, contractId, where, errors);
             }
+            else
+            {
+                ResolveServiceProviderDrive(contract, contractId, where, errors);
+            }
+        }
+
+        // The serviceProviderSet drive gate, mirroring ScenarioResolver.ResolveServiceProviderContract against
+        // the exported configuration. A contract is drivable exactly when its handler declares a [ScenarioWire]
+        // Inbound, which the host surfaces as the `scenarioInputFields` annotation — so the PRESENCE of the key
+        // is the whole check, and its contents (the inbound's leaves, EMPTY for a bare scalar) are not read: a
+        // serviceProviderSet carries the whole wire value, never a field. Without an inbound a service provider
+        // has nothing to deliver, and the runner refuses the same step.
+        private static void ResolveServiceProviderDrive(JsonNode contract, string contractId, string where, List<string> errors)
+        {
+            if (contract["annotations"]?["scenarioInputFields"] is JsonArray)
+            {
+                return;
+            }
+
+            errors.Add($"{where}: contract '{contractId}' cannot be driven — its handler declares no [ScenarioWire] Inbound wire struct (or did not load), so a service provider has " +
+                       "nothing to deliver on it. Assert what the block writes on it with serviceProviderExpect");
         }
 
         // The serviceProviderExpect `field` selector, mirroring ScenarioResolver.ResolveAssertField against the

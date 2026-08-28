@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "id": "output-confirmation",
+  "topology": "default",
+  "title": "Output confirmations — drive what the provider echoes back, matching and mismatched",
+  "description": "The drive half of an output contract. After the IoBlock's [Timer(1)] has commanded its digital and analog outputs, serviceProviderSet drives the confirmation a service provider would send back on those same contracts — the DigitalOutputChanged / AnalogOutputChanged inbound — and the block's OutputChanged handlers surface it. First a truthful confirmation (the block sees no mismatch), then a deliberately WRONG one: the provider reports false on an output commanded true, which no real hardware would produce on demand, and the block's mismatch flag rises. Everything runs stepped, so the whole loop is deterministic.",
+  "specs": ["smoke", "hal", "confirmation"],
+  "watch": ["IoBlock.ConfirmedActive", "IoBlock.ConfirmedEcho", "IoBlock.ConfirmationMismatch"],
+  "steps": [
+    { "serviceProviderSet": { "logicBlock": "IoBlock", "contract": "EnableInput" }, "value": true, "label": "drive the digital input high" },
+    { "serviceProviderSet": { "logicBlock": "IoBlock", "contract": "LevelInput" }, "value": 3.3, "label": "drive the analog input to 3.3" },
+    { "waitUntil": { "property": "IoBlock.IsEnabled", "equals": true }, "timeoutSeconds": 5, "label": "wait until the block observes the digital input" },
+    { "advance": { "seconds": 1 }, "label": "fire the [Timer(1)] so the block commands both outputs" },
+    { "serviceProviderExpect": { "logicBlock": "IoBlock", "contract": "ActiveOutput", "equals": true }, "label": "the digital output was commanded true", "spec": "hal" },
+    { "serviceProviderSet": { "logicBlock": "IoBlock", "contract": "ActiveOutput" }, "value": true, "label": "the provider confirms the digital output as commanded" },
+    { "waitUntil": { "property": "IoBlock.ConfirmedActive", "equals": true }, "timeoutSeconds": 5, "label": "wait until the block observes the confirmation" },
+    { "expect": { "property": "IoBlock.ConfirmedActive", "equals": true }, "label": "OutputChanged reached the block", "spec": "confirmation" },
+    { "expect": { "property": "IoBlock.ConfirmationMismatch", "equals": false }, "label": "a truthful confirmation raises no mismatch", "spec": "confirmation" },
+    { "serviceProviderSet": { "logicBlock": "IoBlock", "contract": "EchoOutput" }, "value": 3.3, "label": "the provider confirms the analog output as commanded" },
+    { "waitUntil": { "property": "IoBlock.ConfirmedEcho", "equals": 3.3, "tolerance": 0.001 }, "timeoutSeconds": 5, "label": "wait until the analog confirmation arrives" },
+    { "expect": { "property": "IoBlock.ConfirmationMismatch", "equals": false }, "label": "the analog confirmation matches too", "spec": "confirmation" },
+    { "serviceProviderSet": { "logicBlock": "IoBlock", "contract": "ActiveOutput" }, "value": false, "label": "the provider now confirms FALSE on an output commanded true" },
+    { "waitUntil": { "property": "IoBlock.ConfirmationMismatch", "equals": true }, "timeoutSeconds": 5, "label": "wait until the block notices the disagreement" },
+    { "expect": { "property": "IoBlock.ConfirmedActive", "equals": false }, "label": "the block reports what the provider said, not what it asked for", "spec": "confirmation" },
+    { "expect": { "property": "IoBlock.ConfirmationMismatch", "equals": true }, "label": "commanded true, confirmed false — the mismatch is visible", "spec": "confirmation" }
+  ]
+}

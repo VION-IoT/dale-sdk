@@ -81,21 +81,34 @@ export function contractRefs(config) {
     return out;
 }
 
+// The contract node the host exported for a {logicBlock, contract} ref, or null when this config has no
+// such contract (an unknown target is the server's error to name, not the annotation readers' below).
+function findContract(config, ref) {
+    if (!ref || !ref.logicBlock || !ref.contract) return null;
+    for (const lb of (config && config.logicBlocks) || []) {
+        if (lb.name !== ref.logicBlock) continue;
+        for (const c of lb.contracts || []) if (c.identifier === ref.contract) return c;
+    }
+    return null;
+}
+
 // The scalar leaves a serviceProviderExpect `field` may address on a contract's outbound command — the
 // `scenarioOutputFields` annotation the host writes from the handler's [ScenarioWire] (see
 // Vion.Dale.DevHost/Scenarios/ScenarioWireFields.cs). EMPTY means the command is a single value with no
 // addressable field; null means the host could not describe it, so the editor offers no opinion.
 export function contractOutputFields(config, ref) {
-    if (!ref || !ref.logicBlock || !ref.contract) return null;
-    for (const lb of (config && config.logicBlocks) || []) {
-        if (lb.name !== ref.logicBlock) continue;
-        for (const c of lb.contracts || []) {
-            if (c.identifier !== ref.contract) continue;
-            const fields = c.annotations && c.annotations.scenarioOutputFields;
-            return Array.isArray(fields) ? fields : null;
-        }
-    }
-    return null;
+    const c = findContract(config, ref);
+    const fields = c && c.annotations && c.annotations.scenarioOutputFields;
+    return Array.isArray(fields) ? fields : null;
+}
+
+// The sibling `scenarioInputFields` annotation — the leaves of the inbound a serviceProviderSet delivers.
+// Its PRESENCE is what makes a contract drivable at all (the runner's gate), so this returns null both for
+// a contract with no declared inbound and for one this config does not carry; the caller distinguishes.
+export function contractInputFields(config, ref) {
+    const c = findContract(config, ref);
+    const fields = c && c.annotations && c.annotations.scenarioInputFields;
+    return Array.isArray(fields) ? fields : null;
 }
 
 // Resolve "Block.Property" (two-segment) to its member object (for schema / struct lookups). Ambiguous
@@ -160,6 +173,7 @@ export function stepErrors(step, setupOnly, config) {
         const r = step.serviceProviderSet || {};
         if (!r.logicBlock || !r.contract) errors.push('serviceProviderSet: logicBlock and contract are required');
         if (step.value === undefined) errors.push('serviceProviderSet requires value');
+        driveErrors(r, config).forEach(e => errors.push(e));
     }
     if (kind === 'expect' || kind === 'waitUntil') {
         const a = step[kind] || {};
@@ -174,6 +188,17 @@ export function stepErrors(step, setupOnly, config) {
         else fieldErrors(a, config).forEach(e => errors.push(e));
     }
     return errors;
+}
+
+// The config-dependent half of the serviceProviderSet check, mirroring ScenarioResolver's drive gate: a
+// contract is drivable exactly when its handler declares a [ScenarioWire] Inbound, which the host surfaces
+// as `scenarioInputFields`. With no config, or a contract this config does not carry, the check stands down
+// — the row is judged by the server on save.
+function driveErrors(ref, config) {
+    if (!config || !findContract(config, ref)) return [];
+    if (contractInputFields(config, ref) !== null) return [];
+    return [`serviceProviderSet: contract '${ref.contract}' cannot be driven — nothing declares an inbound wire struct for it; ` +
+            'assert what the block writes on it with serviceProviderExpect'];
 }
 
 // The config-dependent half of the serviceProviderExpect check, mirroring ScenarioResolver's

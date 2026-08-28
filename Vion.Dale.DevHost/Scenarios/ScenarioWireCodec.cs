@@ -38,6 +38,17 @@ namespace Vion.Dale.DevHost.Scenarios
         }
 
         /// <summary>
+        ///     The scalar field leaves of the inbound a <c>serviceProviderSet</c> delivers on this contract, or
+        ///     null when the contract declares no inbound — which is what makes it undrivable. EMPTY when the
+        ///     inbound round-trips as a bare scalar (the single-field unwrap below), the shape a digital input
+        ///     and an output confirmation both take.
+        /// </summary>
+        public IReadOnlyList<string>? InputFieldPaths
+        {
+            get => LeavesOf(_inbound);
+        }
+
+        /// <summary>
         ///     The scalar field leaves a <c>serviceProviderExpect</c> <c>field</c> may address on this
         ///     contract's outbound command, or null when the contract has no outbound (an input). EMPTY when
         ///     the outbound round-trips as a bare scalar (the single-field unwrap below) — such an output is
@@ -45,15 +56,7 @@ namespace Vion.Dale.DevHost.Scenarios
         /// </summary>
         public IReadOnlyList<string>? OutputFieldPaths
         {
-            get
-            {
-                if (_outbound is null)
-                {
-                    return null;
-                }
-
-                return UnwrappedField(_outbound) is not null ? Array.Empty<string>() : ScenarioWireFields.LeafPaths(_outbound);
-            }
+            get => LeavesOf(_outbound);
         }
 
         private ScenarioWireCodec(Type? inbound, Type? outbound)
@@ -126,6 +129,18 @@ namespace Vion.Dale.DevHost.Scenarios
 
             return field is not null ? JsonSerializer.SerializeToElement(field.GetValue(data), JsonSerialization.DefaultOptions) :
                        JsonSerializer.SerializeToElement(data, JsonSerialization.DefaultOptions);
+        }
+
+        // The addressable leaves of one declared wire struct, or null when that direction is undeclared. A
+        // struct the unwrap rule accepts has NO addressable leaf: it round-trips as its one scalar.
+        private static IReadOnlyList<string>? LeavesOf(Type? wireStruct)
+        {
+            if (wireStruct is null)
+            {
+                return null;
+            }
+
+            return UnwrappedField(wireStruct) is not null ? Array.Empty<string>() : ScenarioWireFields.LeafPaths(wireStruct);
         }
 
         // The one property a single-field wire struct unwraps to on the wire, or null when the struct

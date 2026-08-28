@@ -449,6 +449,20 @@ namespace Vion.Dale.DevHost.Test.Stepping
             Assert.IsFalse(Contract(blocks, "grid", "Demand").GetProperty("annotations").TryGetProperty("scenarioOutputFields", out _),
                            "an input contract has nothing to assert, so it carries no field list at all");
 
+            // The mirror key, and the drive gate (VION-131): its PRESENCE is what the resolver, the CLI
+            // validator and the page's JS all read as "this contract is drivable". Same three-way agreement.
+            var inbound = Contract(blocks, "grid", "Demand").GetProperty("annotations").GetProperty("scenarioInputFields");
+            CollectionAssert.AreEqual(new[] { "valid", "scope", "limits.activePowerW", "limits.reactivePowerVar" },
+                                      inbound.EnumerateArray().Select(f => f.GetString()).ToArray(),
+                                      "the inbound wire struct's leaves, in wire keys");
+
+            Assert.AreEqual(0,
+                            Contract(blocks, "io", "ActiveOutput").GetProperty("annotations").GetProperty("scenarioInputFields").GetArrayLength(),
+                            "an output confirmed by its provider IS drivable, and its confirmation is a bare scalar — an EMPTY list, not an absent key");
+
+            Assert.IsFalse(Contract(blocks, "grid", "Setpoint").GetProperty("annotations").TryGetProperty("scenarioInputFields", out _),
+                           "an outbound-only contract carries no inbound list at all — the absence is what refuses a serviceProviderSet");
+
             static JsonElement Contract(List<JsonElement> blocks, string block, string contract)
             {
                 return blocks.Single(b => b.GetProperty("name").GetString() == block)

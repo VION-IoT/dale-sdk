@@ -15,7 +15,7 @@ namespace Vion.Dale.Sdk.AnalogIo.Output
     /// <summary>
     ///     Handles communication between logic block analog output and the HAL via MQTT.
     /// </summary>
-    [ScenarioWire(Outbound = typeof(SetAnalogOutput))]
+    [ScenarioWire(Inbound = typeof(AnalogOutputChanged), Outbound = typeof(SetAnalogOutput))]
     public partial class AnalogOutputHandler : ServiceProviderHandlerBase
     {
         private readonly Dictionary<ServiceProviderContractId, string> _aoResponseTopics = [];

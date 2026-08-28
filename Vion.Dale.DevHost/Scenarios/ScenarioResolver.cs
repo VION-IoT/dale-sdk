@@ -370,9 +370,13 @@ namespace Vion.Dale.DevHost.Scenarios
         // RFC 0010). Any [ServiceProviderContractType] contract on the block is addressable. Direction is read
         // per operation, never as one binary classification: [ScenarioWire] is authoritative where it has
         // spoken, and the contract's Consumers multiplicity is the fallback.
-        //   DRIVE  — refused on a ZeroOrOne (single-writer) contract, i.e. an output. Per-operation symmetry for
-        //            this half (a ZeroOrOne contract whose handler declares an Inbound) is DEFERRED: it needs an
-        //            exported-configuration key that does not exist, and no such shape does either (VION-129).
+        //   DRIVE  — permitted exactly when the contract carries the scenarioInputFields annotation, which
+        //            DevHostIntrospection attaches only when the contract joined a loaded handler declaring an
+        //            Inbound. That IS the declaration a drive needs: without an inbound wire struct the codec
+        //            cannot build a message and the stand-in drops the drive, whatever the multiplicity says.
+        //            Consumers is no longer consulted here, so an output whose provider confirms back (a HAL
+        //            digital/analog output, ZeroOrOne, declaring DigitalOutputChanged/AnalogOutputChanged) is
+        //            drivable — a confirmation, including a deliberately mismatched one.
         //   ASSERT — permitted when the contract classifies as an output OR carries the scenarioOutputFields
         //            annotation, which DevHostIntrospection attaches only when the contract joined a loaded
         //            handler declaring an Outbound. That widening is what makes a BIDIRECTIONAL contract (both
@@ -404,9 +408,10 @@ namespace Vion.Dale.DevHost.Scenarios
 
             var isOutput = contract.Annotations.TryGetValue(LogicBlockWiringConventions.ConsumersAnnotationKey, out var consumers) &&
                            consumers as string == LogicBlockWiringConventions.ZeroOrOne;
-            if (forDrive && isOutput)
+            if (forDrive && !contract.Annotations.ContainsKey(ScenarioWireFields.InputFieldsAnnotationKey))
             {
-                errors.Add($"{where}: contract '{contractId}' is an output (single-writer) — assert it with serviceProviderExpect; it cannot be driven with serviceProviderSet");
+                errors.Add($"{where}: contract '{contractId}' cannot be driven — its handler declares no [ScenarioWire] Inbound wire struct (or did not load), so a service provider has " +
+                           "nothing to deliver on it. Assert what the block writes on it with serviceProviderExpect");
                 return null;
             }
 

@@ -15,7 +15,7 @@ namespace Vion.Dale.Sdk.DigitalIo.Output
     /// <summary>
     ///     Handles communication between logic block digital output and the HAL via MQTT.
     /// </summary>
-    [ScenarioWire(Outbound = typeof(SetDigitalOutput))]
+    [ScenarioWire(Inbound = typeof(DigitalOutputChanged), Outbound = typeof(SetDigitalOutput))]
     public partial class DigitalOutputHandler : ServiceProviderHandlerBase
     {
         private readonly Dictionary<ServiceProviderContractId, string> _doResponseTopics = [];
