@@ -224,7 +224,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["serviceProviderSet", "value"],
-      "description": "Drives any [ServiceProviderContractType] value INPUT contract from its wire value — a scalar for digital/analog, a JSON object for a struct contract (PPC). The generic replacement for digitalInput / analogInput (RFC 0010).",
+      "description": "Drives the wire value a service provider delivers on a [ServiceProviderContractType] contract — a scalar for digital/analog, a JSON object for a struct contract (PPC). Available on any contract whose handler declares a [ScenarioWire] inbound: an input, a bidirectional contract, or the confirmation an output's provider sends back. The generic replacement for digitalInput / analogInput (RFC 0010).",
       "properties": {
         "label": { "$ref": "#/$defs/stepCommon/label" },
         "spec": { "$ref": "#/$defs/stepCommon/spec" },

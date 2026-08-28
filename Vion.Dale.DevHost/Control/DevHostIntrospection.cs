@@ -65,12 +65,12 @@ namespace Vion.Dale.DevHost.Control
 
         private volatile bool _done;
 
-        // handler class name -> the addressable field leaves of that handler's [ScenarioWire] Outbound (empty
-        // for a scalar output, absent for an input-only handler). Cached against the loaded-assembly count
-        // rather than once: the plugin / I/O assemblies that declare handlers land during logic-system init,
-        // which can be after a first /api/configuration, and the type scan behind it is not free enough to
-        // repeat per request.
-        private (int Assemblies, Dictionary<string, IReadOnlyList<string>> ByHandler)? _outputFields;
+        // handler class name -> the addressable field leaves of that handler's [ScenarioWire] Inbound and
+        // Outbound (empty for a scalar wire, absent for a direction the handler does not declare). Cached
+        // against the loaded-assembly count rather than once: the plugin / I/O assemblies that declare handlers
+        // land during logic-system init, which can be after a first /api/configuration, and the type scan
+        // behind it is not free enough to repeat per request.
+        private (int Assemblies, Dictionary<string, ScenarioWireLeaves> ByHandler)? _wireLeaves;
 
         public DevHostIntrospection(DevConfiguration configuration, IServiceProvider serviceProvider, ILogger<DevHostIntrospection> logger)
         {
@@ -463,7 +463,7 @@ namespace Vion.Dale.DevHost.Control
                                                     {
                                                         Identifier = c.Identifier,
                                                         MatchingContractType = c.MatchingContractType,
-                                                        Annotations = WithOutputFields(c.Annotations),
+                                                        Annotations = WithScenarioWireFields(c.Annotations),
                                                     })
                                        .ToList(),
                        ContractMappings = lb.ContractMappings
@@ -479,48 +479,56 @@ namespace Vion.Dale.DevHost.Control
                    };
         }
 
-        // Add the outbound command's addressable field leaves to a contract's annotations, so a
-        // serviceProviderExpect `field` can be validated before a run — by the resolver here and by
-        // `dale scenario validate`, which only ever sees an exported configuration. The join is by the
-        // contract's own ContractHandlerActorName, the handler's class name; a contract whose handler is not
-        // loaded, declares no [ScenarioWire], or declares only an inbound gets no key, and the static checks
-        // stand down for it.
-        private Dictionary<string, object> WithOutputFields(Dictionary<string, object> annotations)
+        // Add each declared wire direction's field leaves to a contract's annotations, so a scenario step can
+        // be judged before a run — by the resolver here and by `dale scenario validate`, which only ever sees
+        // an exported configuration. The join is by the contract's own ContractHandlerActorName, the handler's
+        // class name; a contract whose handler is not loaded or declares no [ScenarioWire] gets neither key.
+        // The inbound key is the drive gate (its presence is what makes serviceProviderSet resolvable); the
+        // outbound key validates a serviceProviderExpect `field`, and its absence stands the static check down.
+        private Dictionary<string, object> WithScenarioWireFields(Dictionary<string, object> annotations)
         {
             if (!annotations.TryGetValue(ServiceProviderContractAnnotations.ContractHandlerActorName, out var handler) || handler is not string handlerName ||
-                !OutputFieldsByHandler().TryGetValue(handlerName, out var fields))
+                !WireLeavesByHandler().TryGetValue(handlerName, out var leaves))
             {
                 return annotations;
             }
 
             // Copy rather than mutate: the introspection result's dictionary is cached in _results and shared
             // by every configuration build.
-            return new Dictionary<string, object>(annotations) { [ScenarioWireFields.OutputFieldsAnnotationKey] = fields };
+            var enriched = new Dictionary<string, object>(annotations);
+            if (leaves.Inbound is { } inbound)
+            {
+                enriched[ScenarioWireFields.InputFieldsAnnotationKey] = inbound;
+            }
+
+            if (leaves.Outbound is { } outbound)
+            {
+                enriched[ScenarioWireFields.OutputFieldsAnnotationKey] = outbound;
+            }
+
+            return enriched;
         }
 
-        private Dictionary<string, IReadOnlyList<string>> OutputFieldsByHandler()
+        private Dictionary<string, ScenarioWireLeaves> WireLeavesByHandler()
         {
             var assemblies = AppDomain.CurrentDomain.GetAssemblies().Where(assembly => !assembly.IsDynamic).ToArray();
 
             lock (_gate)
             {
-                if (_outputFields is { } cached && cached.Assemblies == assemblies.Length)
+                if (_wireLeaves is { } cached && cached.Assemblies == assemblies.Length)
                 {
                     return cached.ByHandler;
                 }
 
                 // The same convention scan DevLogicSystemInitializer uses to create the stand-ins, so the
                 // contracts described here are exactly the ones a scenario can drive or assert.
-                var byHandler = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+                var byHandler = new Dictionary<string, ScenarioWireLeaves>(StringComparer.Ordinal);
                 foreach (var (handlerType, codec) in ServiceProviderContractHandlerScan.Discover(assemblies))
                 {
-                    if (codec.OutputFieldPaths is { } fields)
-                    {
-                        byHandler[handlerType.Name] = fields;
-                    }
+                    byHandler[handlerType.Name] = new ScenarioWireLeaves(codec.InputFieldPaths, codec.OutputFieldPaths);
                 }
 
-                _outputFields = (assemblies.Length, byHandler);
+                _wireLeaves = (assemblies.Length, byHandler);
                 return byHandler;
             }
         }
@@ -553,5 +561,9 @@ namespace Vion.Dale.DevHost.Control
                                                            .ToList(),
                    };
         }
+
+        // One handler's two [ScenarioWire] directions, each null when undeclared — the shape the two contract
+        // annotations are written from.
+        private readonly record struct ScenarioWireLeaves(IReadOnlyList<string>? Inbound, IReadOnlyList<string>? Outbound);
     }
 }

@@ -23,14 +23,14 @@ namespace Vion.Dale.DevHost.Mocking
     ///         publish messages, and nothing casts a looked-up handler to <see cref="IServiceProviderHandlerActor" />.
     ///     </para>
     ///     <para>
-    ///         <b>HAL bridge.</b> For the four built-in scalar HAL contracts it additionally raises the typed
-    ///         <see cref="DevHostEvents" /> (which feed the manual I/O panel in the SPA + the typed
-    ///         <c>GetDigitalOutput</c>/<c>GetAnalogOutput</c> caches) and echoes the output-confirmation back to
-    ///         the block (output-confirmation consumers subscribe to it) — discriminating digital from analog by
-    ///         JSON value kind. This serves the interactive I/O affordance, which is orthogonal to the committed
-    ///         scenario format (scenarios drive/assert through <c>serviceProviderSet</c>/<c>serviceProviderExpect</c>
-    ///         and the generic output cache). A custom value contract (object/array payload) is forwarded
-    ///         fire-and-forget with no typed event or echo, which is the value-contract model.
+    ///         <b>Every contract is handled the same way — there is no HAL special case.</b> A command a block
+    ///         writes is decoded, recorded in the <see cref="Control.ServiceProviderOutputCache" /> (the read
+    ///         source for <c>serviceProviderExpect</c>) and raised as the one generic
+    ///         <c>ServiceProviderContractChanged</c> event the SPA renders. It is <b>not echoed back</b> to the
+    ///         block: in production the confirmation comes from the provider over MQTT, so an output's
+    ///         <c>OutputChanged</c> fires here only when something drives the contract's declared inbound —
+    ///         a <c>serviceProviderSet</c>, or the control surface. That is what makes a wrong confirmation
+    ///         (commanded ≠ confirmed) testable. There are no typed per-family events or caches.
     ///     </para>
     /// </summary>
     internal sealed class ServiceProviderContractHandler : IActorReceiver
@@ -90,7 +90,7 @@ namespace Vion.Dale.DevHost.Mocking
         {
             if (!_codec.CanDrive)
             {
-                _logger.LogWarning("Drive ignored for {Contract}: its [ScenarioWire] declares no inbound struct (it is an output contract).", contract);
+                _logger.LogWarning("Drive ignored for {Contract}: its [ScenarioWire] declares no inbound struct, so there is nothing to deliver to the block.", contract);
                 return;
             }
 

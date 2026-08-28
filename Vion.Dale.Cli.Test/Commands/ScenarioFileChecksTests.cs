@@ -28,7 +28,7 @@ namespace Vion.Dale.Cli.Test.Commands
                                                                            "serviceMeasuringPoints": [ { "identifier": "CounterDoubled", "schema": { "type": "integer" } } ]
                                                                          }
                                                                        ],
-                                                                       "contracts": [ { "identifier": "EnableInput", "matchingContractType": "DigitalInput" } ],
+                                                                       "contracts": [ { "identifier": "EnableInput", "matchingContractType": "DigitalInput", "annotations": { "scenarioInputFields": [] } } ],
                                                                        "contractMappings": [ { "contractIdentifier": "EnableInput" } ]
                                                                      },
                                                                      {
@@ -67,9 +67,11 @@ namespace Vion.Dale.Cli.Test.Commands
                                                                        }
                                                                        """)!;
 
-        // Output contracts as the host describes them for a serviceProviderExpect `field`: a multi-field command
-        // (a nested leaf among them), a single-value one (EMPTY = nothing addressable), and one the host could
-        // not join to a handler (annotation ABSENT).
+        // Contracts as the host describes them per wire direction. Outbound, for a serviceProviderExpect
+        // `field`: a multi-field command (a nested leaf among them), a single-value one (EMPTY = nothing
+        // addressable), and one the host could not join to a handler (annotation ABSENT). Inbound, the drive
+        // gate: `Active` is an output its provider confirms, so it carries the key; `Setpoint` writes only, so
+        // it does not, and a serviceProviderSet on it is refused.
         private static readonly JsonNode FieldConfig = JsonNode.Parse("""
                                                                       {
                                                                         "topologyName": "fields",
@@ -80,8 +82,11 @@ namespace Vion.Dale.Cli.Test.Commands
                                                                             "contracts": [
                                                                               { "identifier": "Setpoint", "matchingContractType": "GridSetpoint",
                                                                                 "annotations": { "scenarioOutputFields": ["enforced", "scope", "limits.activePowerW", "issuedAt"] } },
-                                                                              { "identifier": "Active", "matchingContractType": "DigitalOutput", "annotations": { "scenarioOutputFields": [] } },
-                                                                              { "identifier": "Opaque", "matchingContractType": "Whatever", "annotations": {} }
+                                                                              { "identifier": "Active", "matchingContractType": "DigitalOutput",
+                                                                                "annotations": { "scenarioOutputFields": [], "scenarioInputFields": [] } },
+                                                                              { "identifier": "Opaque", "matchingContractType": "Whatever", "annotations": {} },
+                                                                              { "identifier": "Control", "matchingContractType": "PlantControl",
+                                                                                "annotations": { "scenarioOutputFields": ["valid", "activePowerKw"], "scenarioInputFields": ["valid", "supply.activePowerKw"] } }
                                                                             ]
                                                                           }
                                                                         ]
@@ -129,6 +134,36 @@ namespace Vion.Dale.Cli.Test.Commands
         }
 
         [TestMethod]
+        public void ChecksTheServiceProviderSetDriveGate_AgainstTheContractsDeclaredInbound()
+        {
+            // VION-131. A contract is drivable exactly when its handler declares a [ScenarioWire] Inbound, which
+            // the host surfaces as scenarioInputFields — the same predicate ScenarioResolver applies, so a
+            // scenario CI refuses here is one a run would refuse too, and vice versa.
+            static ScenarioCheckOutcome Drive(string contract)
+            {
+                return ScenarioFileChecks.Validate("d.scenario.json",
+                                                   $$"""
+                                                     { "version": 1, "id": "d", "topology": "fields",
+                                                       "steps": [ { "serviceProviderSet": { "logicBlock": "Grid", "contract": "{{contract}}" }, "value": true } ] }
+                                                     """,
+                                                   FieldConfig);
+            }
+
+            // An output whose provider confirms back carries the key (EMPTY — the confirmation is a bare
+            // scalar), and the presence alone is the pass: a drive carries the whole wire value, never a field.
+            Assert.IsEmpty(Drive("Active").Errors);
+
+            // An outbound-only contract carries no inbound at all — nothing could be delivered on it.
+            var refused = Drive("Setpoint").Errors.Single();
+            StringAssert.Contains(refused, "cannot be driven");
+            StringAssert.Contains(refused, "serviceProviderExpect");
+
+            // A contract the host could not describe reads the same way here as it does to the runner: with no
+            // declared inbound there is nothing to drive, so it is refused rather than deferred.
+            StringAssert.Contains(Drive("Opaque").Errors.Single(), "cannot be driven");
+        }
+
+        [TestMethod]
         public void ChecksTheServiceProviderExpectFieldSelector_AgainstTheContractsDescribedCommand()
         {
             // The host describes each output contract's addressable command leaves as the scenarioOutputFields
@@ -158,12 +193,13 @@ namespace Vion.Dale.Cli.Test.Commands
             // A contract the host could not describe carries no annotation, and the check stands down.
             Assert.IsEmpty(Assert_("""{ "logicBlock": "Grid", "contract": "Opaque", "field": "anything", "equals": true }""").Errors);
 
-            // A handler may declare both directions, so a contract with a field list can still be DRIVEN. The
-            // drive shape carries no field, so demanding one there is an error the author could not act on.
+            // A handler may declare both directions, so a contract with a multi-field command can still be
+            // DRIVEN. The drive shape carries no field, so demanding one there is an error the author could not
+            // act on — the assert-side check must not fire on the drive path (they share one resolver).
             var drive = ScenarioFileChecks.Validate("d.scenario.json",
                                                     """
                                                     { "version": 1, "id": "d", "topology": "fields",
-                                                      "steps": [ { "serviceProviderSet": { "logicBlock": "Grid", "contract": "Setpoint" }, "value": true } ] }
+                                                      "steps": [ { "serviceProviderSet": { "logicBlock": "Grid", "contract": "Control" }, "value": true } ] }
                                                     """,
                                                     FieldConfig);
             Assert.IsEmpty(drive.Errors, string.Join("; ", drive.Errors));

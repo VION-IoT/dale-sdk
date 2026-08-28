@@ -14,15 +14,19 @@ namespace Vion.Dale.Sdk.Abstractions
     ///         message from a JSON scenario value.
     ///     </para>
     ///     <para>
-    ///         Declare the inbound struct for an input contract (SP → block, driven by a scenario), and/or the
-    ///         outbound command struct for an output contract (block → SP, asserted by a scenario). Declaring
-    ///         BOTH makes one contract identifier drivable and assertable in the same scenario:
+    ///         Declare the inbound struct the service provider delivers (SP → block, driven by a scenario),
+    ///         and/or the outbound command struct the block writes (block → SP, asserted by a scenario).
+    ///         Declaring BOTH makes one contract identifier drivable and assertable in the same scenario —
+    ///         a bidirectional contract, or an output whose provider confirms back what it applied:
     ///         <code>
-    /// [ScenarioWire(Inbound = typeof(DigitalInputChanged))]   // an input — digital/analog input, PPC demand
-    /// [ScenarioWire(Outbound = typeof(SetDigitalOutput))]     // an output — digital/analog output
-    /// [ScenarioWire(Inbound = typeof(PpcDemandReceived),      // bidirectional — one contract, both directions
+    /// [ScenarioWire(Inbound = typeof(DigitalInputChanged))]     // an input — digital/analog input, PPC demand
+    /// [ScenarioWire(Inbound = typeof(DigitalOutputChanged),     // an output that is confirmed back
+    ///               Outbound = typeof(SetDigitalOutput))]
+    /// [ScenarioWire(Inbound = typeof(PpcDemandReceived),        // bidirectional — one contract, both directions
     ///               Outbound = typeof(PpcMeasurementSet))]
     ///         </code>
+    ///         A contract with no declared inbound cannot be driven; one with no declared outbound has nothing
+    ///         to assert.
     ///     </para>
     /// </summary>
     [PublicApi]

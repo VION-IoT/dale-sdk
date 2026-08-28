@@ -161,8 +161,10 @@ The scenario vocabulary gains exactly **one** generic pair and loses the four ha
   consumer; until it lands the value is untyped-but-runtime-checked, exactly like a struct `set` today).
 - **Direction is read off the contract**, never guessed, and **per operation** — `[ScenarioWire]` is
   authoritative wherever it has spoken, and `[ServiceProviderContractType].Consumers` is the fallback:
-  - **drive** — `Consumers = ZeroOrOne` (single-writer) ⇒ an output; a `serviceProviderSet` on it is a
-    validation error.
+  - **drive** — permitted when the contract's handler declares a `[ScenarioWire]` `Inbound`, signalled in
+    the exported configuration by the `scenarioInputFields` annotation. That declaration *is* what a drive
+    needs: without an inbound wire struct the codec cannot build a message. `Consumers` is not consulted,
+    so an output whose provider confirms back is drivable too (see the note below).
   - **assert** — permitted when the contract is an output **or** its handler declares a `[ScenarioWire]`
     `Outbound`. The second half is what makes a **bidirectional** contract assertable: one interface, one
     contract identifier carrying both wire directions (a PPC `demand` in / `measurement` out is the real
@@ -173,10 +175,15 @@ The scenario vocabulary gains exactly **one** generic pair and loses the four ha
     classification stays in the `or`: an annotation-only rule would newly refuse a genuine output whose
     handler did not load, where the runner's read-time guard is the right gate.
 
-  **Deferred (VION-129):** per-operation symmetry for the *drive* half — a `ZeroOrOne` contract whose
-  handler declares an `Inbound`. It would need a new exported-configuration key (nothing today carries
-  "can drive" the way `scenarioOutputFields` carries "can assert"), and there are zero instances of that
-  shape. `Consumers` remains the whole drive gate until one appears.
+  **Landed (VION-131):** per-operation symmetry for the *drive* half — a `ZeroOrOne` contract whose
+  handler declares an `Inbound` — was deferred here for want of both an exported-configuration key and an
+  instance of the shape. RFC 0020 §1 supplied the instance: `DigitalOutputHandler` / `AnalogOutputHandler`
+  declare `DigitalOutputChanged` / `AnalogOutputChanged` as their inbound, so a HAL output's confirmation
+  is scenario-drivable — including a *wrong* one, commanded ≠ confirmed. The key is
+  `scenarioInputFields`, the mirror of `scenarioOutputFields`, and it re-keys the drive gate above:
+  `Consumers` no longer decides a drive. Unlike the assert half the absence is not ambiguous enough to
+  matter — a contract with no declared inbound cannot be driven however it classifies, so no `or` is
+  needed and the resolver, `dale scenario validate` and the SPA all refuse on the same predicate.
 - `set` / `expect` / `waitUntil` / `advance` / `settle` / `wait` are untouched — those are the
   service-*property* and time planes, a different routing plane from the contract plane.
 
