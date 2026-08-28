@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -21,12 +21,17 @@ namespace Vion.Dale.DevHost.Xunit.Test
 
             var byId = rows.ToDictionary(r => (string)r.GetData()[0]!, r => (string)r.GetData()[1]!);
 
-            CollectionAssert.AreEquivalent(new[] { "showcase-tour", "io-control", "output-confirmation", "provider-faces", "grid-demand", "plant-control", "minimal-subset" },
+            CollectionAssert.AreEquivalent(new[]
+                                           {
+                                               "showcase-tour", "io-control", "output-confirmation", "provider-faces", "paired-loop", "grid-demand", "plant-control",
+                                               "minimal-subset",
+                                           },
                                            byId.Keys.ToList());
             Assert.AreEqual("default", byId["showcase-tour"]);
             Assert.AreEqual("default", byId["io-control"]);
             Assert.AreEqual("default", byId["output-confirmation"]);
             Assert.AreEqual("default", byId["provider-faces"]);
+            Assert.AreEqual("paired", byId["paired-loop"]);
             Assert.AreEqual("default", byId["grid-demand"]);
             Assert.AreEqual("default", byId["plant-control"]);
             Assert.AreEqual("minimal", byId["minimal-subset"]);
@@ -49,6 +54,10 @@ namespace Vion.Dale.DevHost.Xunit.Test
             var defaultRows = await Discover("default");
             CollectionAssert.AreEquivalent(new[] { "showcase-tour", "io-control", "output-confirmation", "provider-faces", "grid-demand", "plant-control" },
                                            defaultRows.Select(r => (string)r.GetData()[0]!).ToList());
+
+            var pairedRows = await Discover("paired");
+            Assert.HasCount(1, pairedRows);
+            Assert.AreEqual("paired-loop", (string)pairedRows[0].GetData()[0]!);
 
             var minimalRows = await Discover("minimal");
             Assert.HasCount(1, minimalRows);

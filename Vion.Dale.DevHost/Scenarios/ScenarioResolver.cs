@@ -52,6 +52,14 @@ namespace Vion.Dale.DevHost.Scenarios
     {
         private readonly ConfigurationOutput _configuration;
 
+        /// <summary>
+        ///     Non-fatal findings collected while resolving — reported on the run, never failing it. Today the
+        ///     only one is RFC 0020 §4.6: a <c>serviceProviderSet</c> onto an inbound a contract pairing also
+        ///     feeds. That is legal (last write wins) and occasionally what an author wants — seeding a loop, or
+        ///     overriding the peer for one step — but usually a bench-design smell worth seeing in the report.
+        /// </summary>
+        public List<string> Warnings { get; } = [];
+
         public ScenarioResolver(ConfigurationOutput configuration)
         {
             _configuration = configuration;
@@ -430,6 +438,11 @@ namespace Vion.Dale.DevHost.Scenarios
                 return null;
             }
 
+            if (forDrive)
+            {
+                WarnWhenAlsoFedByAPairing(blockName!, contractId!, where);
+            }
+
             var handlerName = contract.Annotations.TryGetValue(ServiceProviderContractAnnotations.ContractHandlerActorName, out var handler) ? handler as string : null;
             IReadOnlyList<string>? fieldPath = null;
 
@@ -444,6 +457,31 @@ namespace Vion.Dale.DevHost.Scenarios
             }
 
             return new ResolvedContract(mapping.MappedServiceProviderIdentifier, mapping.MappedServiceIdentifier, mapping.MappedContractIdentifier, handlerName, fieldPath);
+        }
+
+        // RFC 0020 §4.6: a drive onto an endpoint a materialised pairing direction also feeds is legal — the
+        // stand-in delivers whatever arrived last — but the two writers are invisible in the file, so the run
+        // says so. A WARNING, never an error: seeding a closed loop from a scenario is a legitimate bench move,
+        // and refusing it would make a paired topology untestable from its own scenarios.
+        private void WarnWhenAlsoFedByAPairing(string blockName, string contractId, string where)
+        {
+            foreach (var pairing in _configuration.ContractPairings)
+            {
+                var source = Feeds(pairing.A, pairing.B, pairing.AToB, blockName, contractId) ?? Feeds(pairing.B, pairing.A, pairing.BToA, blockName, contractId);
+                if (source is not null)
+                {
+                    Warnings.Add($"{where}: '{blockName}.{contractId}' is also fed by the pairing with '{source}' — both write the same inbound and the last write wins");
+                }
+            }
+
+            static string? Feeds(ConfigurationOutput.ContractPairingEndpoint source,
+                                 ConfigurationOutput.ContractPairingEndpoint fed,
+                                 bool materialised,
+                                 string blockName,
+                                 string contractId)
+            {
+                return materialised && fed.LogicBlockName == blockName && fed.ContractIdentifier == contractId ? $"{source.LogicBlockName}.{source.ContractIdentifier}" : null;
+            }
         }
 
         // serviceProviderExpect's counterpart to expect's ValidateFieldPath / ValidateComparatorAgainstLeaf, run

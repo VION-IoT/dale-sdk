@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -121,8 +121,10 @@ namespace Vion.Dale.DevHost
                 _logger.LogInformation("Initializing development logic system with {Count} LogicBlocks...", configuration.LogicBlocks.Count);
 
                 // Step 1: Create a generic stand-in per discovered service-provider handler (RFC 0010 — the
-                // convention scan that replaces the hardcoded four HAL mocks).
-                CreateServiceProviderHandlers();
+                // convention scan that replaces the hardcoded four HAL mocks), each carrying the topology's
+                // contract-pairing table (RFC 0020). Building the table validates it, so a pairing with no
+                // type-identical direction fails the host here rather than going quiet at runtime.
+                CreateServiceProviderHandlers(configuration);
 
                 // Step 2: Create mock service handlers (for service property/measuring point visibility)
                 CreateMockServiceHandlers();
@@ -301,12 +303,13 @@ namespace Vion.Dale.DevHost
             _ = task.ContinueWith(static abandoned => _ = abandoned.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
         }
 
-        private void CreateServiceProviderHandlers()
+        private void CreateServiceProviderHandlers(DevConfiguration configuration)
         {
             _logger.LogDebug("Discovering service-provider handlers (the same IServiceProviderHandlerActor scan the runtime uses)...");
 
             var events = _serviceProvider.GetRequiredService<DevHostEvents>();
             var outputCache = _serviceProvider.GetRequiredService<Control.ServiceProviderOutputCache>();
+            var introspection = _serviceProvider.GetRequiredService<Control.DevHostIntrospection>();
             var loggerFactory = _serviceProvider.GetRequiredService<ILoggerFactory>();
 
             // Mirror the runtime: scan the loaded assemblies for service-provider handler types. By this point
@@ -314,13 +317,29 @@ namespace Vion.Dale.DevHost
             // handlers (DigitalInputHandler … a consumer's PowerPlantControlGridHandler). Only handlers that
             // declare a [ScenarioWire] (value contracts) yield a codec and a stand-in.
             var assemblies = AppDomain.CurrentDomain.GetAssemblies().Where(assembly => !assembly.IsDynamic).ToArray();
+            var discovered = ServiceProviderContractHandlerScan.Discover(assemblies);
 
-            foreach (var (handlerType, codec) in ServiceProviderContractHandlerScan.Discover(assemblies))
+            // RFC 0020 §4.3: the wire-type identity check lives here rather than in the topology loader because
+            // the handler a contract talks to is carried by the contract INSTANCE the binder constructed —
+            // introspection, which has already run, is the only place that join exists. A pairing that can carry
+            // nothing throws, which InitializeAsync reports as a failed host start naming both declared types.
+            var pairings = ContractPairingTable.Build(configuration.ContractPairings,
+                                                      introspection.ContractHandlerActorName,
+                                                      discovered.ToDictionary(d => d.HandlerType.Name, d => d.Codec, StringComparer.Ordinal));
+
+            foreach (var (handlerType, codec) in discovered)
             {
                 // Registered under the handler's class name — the name the consumer's contract
                 // ContractHandlerActorName already looks up, so no production path changes.
                 var logger = loggerFactory.CreateLogger($"{nameof(ServiceProviderContractHandler)}({handlerType.Name})");
-                _actorSystem.CreateRootActorFor(() => new ServiceProviderContractHandler(logger, events, codec, outputCache), handlerType.Name, logger);
+                _actorSystem.CreateRootActorFor(() => new ServiceProviderContractHandler(logger,
+                                                                                         events,
+                                                                                         codec,
+                                                                                         outputCache,
+                                                                                         handlerType.Name,
+                                                                                         pairings),
+                                                handlerType.Name,
+                                                logger);
                 _serviceProviderHandlerNames.Add(handlerType.Name);
                 _logger.LogDebug("Created service-provider stand-in for {Handler}", handlerType.Name);
             }

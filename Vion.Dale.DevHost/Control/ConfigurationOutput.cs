@@ -25,6 +25,13 @@ namespace Vion.Dale.DevHost.Control
 
         public required List<InterfaceMapping> InterfaceMappings { get; set; }
 
+        /// <summary>
+        ///     RFC 0020: the contract endpoints this topology declares as one wire, with the directions that
+        ///     actually materialised. Empty on an unpaired topology. Read by the scenario resolver (a
+        ///     <c>serviceProviderSet</c> onto a fed endpoint is legal but warned about) and by the wiring view.
+        /// </summary>
+        public List<ContractPairing> ContractPairings { get; set; } = [];
+
         public class LogicBlock
         {
             public required string Id { get; set; }
@@ -161,6 +168,28 @@ namespace Vion.Dale.DevHost.Control
             public required string TargetLogicBlockName { get; set; }
 
             public required string TargetInterfaceIdentifier { get; set; }
+        }
+
+        /// <summary>One declared pairing and the directions the wire-type identity rule materialised (RFC 0020 §4.3).</summary>
+        public class ContractPairing
+        {
+            public required ContractPairingEndpoint A { get; set; }
+
+            public required ContractPairingEndpoint B { get; set; }
+
+            /// <summary>Whether <c>A</c>'s captured outbound is delivered as <c>B</c>'s inbound.</summary>
+            public required bool AToB { get; set; }
+
+            /// <summary>Whether <c>B</c>'s captured outbound is delivered as <c>A</c>'s inbound.</summary>
+            public required bool BToA { get; set; }
+        }
+
+        /// <summary>One side of a <see cref="ContractPairing" />, named the way a scenario addresses a contract.</summary>
+        public class ContractPairingEndpoint
+        {
+            public required string LogicBlockName { get; set; }
+
+            public required string ContractIdentifier { get; set; }
         }
 
         public class ContractMapping

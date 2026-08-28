@@ -40,6 +40,12 @@ namespace Vion.Dale.DevHost.Scenarios
         /// <summary>Validation failures (unresolvable name paths, topology mismatch detail) — empty on a clean run.</summary>
         public IReadOnlyList<string> ValidationErrors { get; set; } = Array.Empty<string>();
 
+        /// <summary>
+        ///     Non-fatal findings from the same up-front resolution — the run proceeds. Today: a
+        ///     <c>serviceProviderSet</c> onto an inbound a contract pairing also feeds (RFC 0020 §4.6).
+        /// </summary>
+        public IReadOnlyList<string> ValidationWarnings { get; set; } = Array.Empty<string>();
+
         public IReadOnlyList<ScenarioStepResult> Setup { get; set; } = Array.Empty<ScenarioStepResult>();
 
         public IReadOnlyList<ScenarioStepResult> Steps { get; set; } = Array.Empty<ScenarioStepResult>();
@@ -91,6 +97,7 @@ namespace Vion.Dale.DevHost.Scenarios
                        StartedAt = StartedAt,
                        ElapsedSeconds = ElapsedSeconds,
                        ValidationErrors = ValidationErrors.ToList(),
+                       ValidationWarnings = ValidationWarnings.ToList(),
                        Setup = Setup.Select(Copy).ToList(),
                        Steps = Steps.Select(Copy).ToList(),
                        Judge = Judge.Select(j => new ScenarioJudgmentResult { Text = j.Text, Spec = j.Spec, Status = j.Status }).ToList(),

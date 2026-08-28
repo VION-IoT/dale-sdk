@@ -1,4 +1,4 @@
-﻿using System.Threading.Tasks;
+using System.Threading.Tasks;
 using Vion.Dale.DevHost.Xunit;
 using Xunit.Sdk;
 
@@ -38,7 +38,7 @@ namespace Vion.Dale.DevHost.Xunit.Test
                 ran++;
             }
 
-            Assert.AreEqual(7, ran);
+            Assert.AreEqual(8, ran);
         }
     }
 }

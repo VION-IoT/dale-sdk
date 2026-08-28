@@ -316,6 +316,9 @@ namespace Vion.Dale.DevHost.Scenarios
                 return;
             }
 
+            // Non-fatal findings ride along on the report — the run proceeds (RFC 0020 §4.6).
+            report.ValidationWarnings = resolver.Warnings;
+
             var watchPaths = scenario.Watch;
 
             // Watch trace: a per-step timeseries of the watched values, for forensics / report-diffing (RFC

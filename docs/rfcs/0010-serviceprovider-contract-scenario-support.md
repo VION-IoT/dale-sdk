@@ -140,6 +140,14 @@ The author's only obligation is that one attribute line on the handler (which al
 struct). A source generator could derive it, but is deliberately out of scope — a whole generator to save
 one type-checked line is poor cost/benefit.
 
+**One wire struct per direction per handler** — `[ScenarioWire]` is `AllowMultiple = false` and carries a
+single `Inbound` and a single `Outbound`, so a contract that needs several inbound shapes (a
+request/response family, a per-operation surface) has no way to say so here. That is a deliberate limit,
+not an oversight: the scheduled generalisation point is Phase 2 of RFC 0020 (§6), whose request/response
+declaration surface is per-operation. Consumers of the declaration downstream — the DevHost codec, and the
+RFC 0020 pairing rule, which intersects declared *sets* of types — are written so that lifting the
+restriction stays local to this attribute.
+
 ### 3. One generic step pair; the four HAL kinds are deleted (format v2)
 
 The scenario vocabulary gains exactly **one** generic pair and loses the four hardcoded kinds:

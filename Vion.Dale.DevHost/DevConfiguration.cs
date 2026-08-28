@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text.Json.Nodes;
 
@@ -46,6 +46,41 @@ namespace Vion.Dale.DevHost
         public List<DevServiceProviderConfig> ServiceProviders { get; set; } = [];
 
         public List<DevInterfaceMapping> InterfaceMappings { get; set; } = [];
+
+        /// <summary>
+        ///     RFC 0020: contract endpoints declared as one wire. Resolved at build/load time from
+        ///     <c>DevConfigurationBuilder.PairContracts</c> or a topology file's <c>contractPairings</c>; the
+        ///     wire-type identity check and the runtime table are built when the host loads (the handler a
+        ///     contract talks to is known only once the blocks are introspected).
+        /// </summary>
+        public List<DevContractPairing> ContractPairings { get; set; } = [];
+    }
+
+    /// <summary>Two contract endpoints the topology declares as one wire (RFC 0020 §4.2). Symmetric.</summary>
+    public class DevContractPairing
+    {
+        public DevContractPairingEndpoint A { get; set; } = null!;
+
+        public DevContractPairingEndpoint B { get; set; } = null!;
+    }
+
+    /// <summary>
+    ///     One side of a <see cref="DevContractPairing" />: the (block, contract) it was declared as, joined to
+    ///     the endpoint triple that contract was auto-created on — what the stand-in addresses a forward with.
+    /// </summary>
+    public class DevContractPairingEndpoint
+    {
+        public string LogicBlockId { get; set; } = null!;
+
+        public string LogicBlockName { get; set; } = null!;
+
+        public string ContractIdentifier { get; set; } = null!;
+
+        public string ServiceProviderIdentifier { get; set; } = null!;
+
+        public string ServiceIdentifier { get; set; } = null!;
+
+        public string ContractEndpointIdentifier { get; set; } = null!;
     }
 
     public class DevLogicBlockConfig
