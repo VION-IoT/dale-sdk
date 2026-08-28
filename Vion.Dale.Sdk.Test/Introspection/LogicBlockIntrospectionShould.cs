@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Nodes;
@@ -9,6 +9,7 @@ using Moq;
 using Vion.Contracts.Conventions;
 using Vion.Contracts.Introspection;
 using Vion.Dale.Sdk.AnalogIo.Input;
+using Vion.Dale.Sdk.AnalogIo.Output;
 using Vion.Dale.Sdk.Configuration.Contract;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.DigitalIo.Input;
@@ -160,6 +161,37 @@ namespace Vion.Dale.Sdk.Test.Introspection
         public IAnalogInput Temperature { get; set; } = null!;
 
         public ContractTestLogicBlock() : base(new Mock<ILogger>().Object)
+        {
+        }
+
+        protected override void Ready()
+        {
+        }
+
+        protected override void Starting()
+        {
+        }
+    }
+
+    /// <summary>
+    ///     A simulator: it binds the four provider faces, which are the development-only inverses of the HAL
+    ///     contracts <see cref="ContractTestLogicBlock" /> binds.
+    /// </summary>
+    public class ProviderContractTestLogicBlock : LogicBlockBase
+    {
+        [ServiceProviderContractBinding(Identifier = "ButtonProvider")]
+        public IDigitalInputProvider Button { get; set; } = null!;
+
+        [ServiceProviderContractBinding(Identifier = "LedProvider")]
+        public IDigitalOutputProvider Led { get; set; } = null!;
+
+        [ServiceProviderContractBinding(Identifier = "TemperatureProvider")]
+        public IAnalogInputProvider Temperature { get; set; } = null!;
+
+        [ServiceProviderContractBinding(Identifier = "DimmerProvider")]
+        public IAnalogOutputProvider Dimmer { get; set; } = null!;
+
+        public ProviderContractTestLogicBlock() : base(NullLogger.Instance)
         {
         }
 
@@ -572,6 +604,45 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
             var temperature = result.Contracts.First(c => c.Identifier == "Temperature");
             Assert.AreEqual("AnalogInputHandler", temperature.Annotations[ServiceProviderContractAnnotations.ContractHandlerActorName]);
+        }
+
+        [TestMethod]
+        public void IntrospectDevelopmentOnlyAnnotationOnEveryProviderFace()
+        {
+            // Every provider face is development surface, so each carries the flag — and its contract-type
+            // name is the consumer face's name with the Provider suffix (a stable introspection identifier).
+            var block = new ProviderContractTestLogicBlock();
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            var expected = new Dictionary<string, string>
+                           {
+                               ["ButtonProvider"] = "DigitalInputProvider",
+                               ["LedProvider"] = "DigitalOutputProvider",
+                               ["TemperatureProvider"] = "AnalogInputProvider",
+                               ["DimmerProvider"] = "AnalogOutputProvider",
+                           };
+
+            foreach (var (identifier, contractType) in expected)
+            {
+                var contract = result.Contracts.First(c => c.Identifier == identifier);
+                Assert.AreEqual(contractType, contract.MatchingContractType);
+                Assert.IsTrue(contract.Annotations.TryGetValue(ServiceProviderContractAnnotations.DevelopmentOnly, out var flag) && flag is true,
+                              $"{identifier} must be flagged development-only.");
+            }
+        }
+
+        [TestMethod]
+        public void OmitTheDevelopmentOnlyAnnotationOnOrdinaryContracts()
+        {
+            // The flag is emitted only when set — an ordinary HAL contract's annotation bag is unchanged.
+            var block = new ContractTestLogicBlock();
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            foreach (var contract in result.Contracts)
+            {
+                Assert.IsFalse(contract.Annotations.ContainsKey(ServiceProviderContractAnnotations.DevelopmentOnly),
+                               $"{contract.Identifier} must not carry the development-only flag.");
+            }
         }
 
         [TestMethod]

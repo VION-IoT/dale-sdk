@@ -1,4 +1,4 @@
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Vion.Dale.DevHost.SmokeHost.LogicBlocks;
 using Vion.Dale.Sdk.Core;
 
@@ -11,6 +11,7 @@ namespace Vion.Dale.DevHost.SmokeHost
         {
             serviceCollection.AddTransient<ShowcaseBlock>();
             serviceCollection.AddTransient<IoBlock>();
+            serviceCollection.AddTransient<DeviceSimBlock>();
             serviceCollection.AddTransient<GridBlock>();
             serviceCollection.AddTransient<PlantBlock>();
             serviceCollection.AddTransient<SignalSourceBlock>();

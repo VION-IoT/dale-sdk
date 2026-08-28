@@ -17,6 +17,14 @@ namespace Vion.Dale.Sdk.Configuration.Contract
         /// </summary>
         public LinkMultiplicity Consumers { get; init; } = LinkMultiplicity.ZeroOrMore;
 
+        /// <summary>
+        ///     Marks the contract as development and bench surface — a simulator binds it to stand in for
+        ///     equipment that is not there. Default <c>false</c>. A block bound to such a contract is refused
+        ///     by the production runtime, so declare it only where running against real hardware would be
+        ///     wrong. Surfaced in the introspection metadata so tooling can tell the two apart.
+        /// </summary>
+        public bool DevelopmentOnly { get; init; }
+
         public ServiceProviderContractTypeAttribute(string serviceProviderContractType)
         {
             ServiceProviderContractType = serviceProviderContractType;

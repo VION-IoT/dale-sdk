@@ -1,4 +1,4 @@
-// Minimal attribute stubs for analyzer test compilations.
+﻿// Minimal attribute stubs for analyzer test compilations.
 // These mirror the real Vion.Dale.Sdk attributes' shapes so that test source code compiles
 // and the analyzers can match them by fully-qualified name.
 
@@ -276,6 +276,18 @@ namespace Vion.Dale.Sdk.Configuration.Contract
     [AttributeUsage(AttributeTargets.Interface)]
     public class ServiceProviderContractTypeAttribute : Attribute
     {
+    }
+}
+
+namespace Vion.Dale.Sdk.Abstractions
+{
+    // Declares the wire structs a service-provider contract carries, so a scenario can drive and assert it.
+    [AttributeUsage(AttributeTargets.Class)]
+    public sealed class ScenarioWireAttribute : Attribute
+    {
+        public Type? Inbound { get; init; }
+
+        public Type? Outbound { get; init; }
     }
 }
 
