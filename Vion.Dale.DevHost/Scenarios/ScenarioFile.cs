@@ -203,8 +203,9 @@ namespace Vion.Dale.DevHost.Scenarios
         public ScenarioServiceProviderRef? ServiceProviderSet { get; init; }
 
         /// <summary>
-        ///     Asserts the value a block last wrote on any <c>[ServiceProviderContractType]</c> value output contract (RFC
-        ///     0010, step-only).
+        ///     Asserts the value a block last wrote on a <c>[ServiceProviderContractType]</c> value contract (RFC 0010,
+        ///     step-only) — an output, or a bidirectional contract whose handler declares a <c>[ScenarioWire]</c>
+        ///     <c>Outbound</c>.
         /// </summary>
         public ScenarioServiceProviderAssert? ServiceProviderExpect { get; init; }
 

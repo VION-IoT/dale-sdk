@@ -233,10 +233,15 @@ Under `--stepped` the time-bearing steps run in **virtual time**: `advance` jump
 deterministically. `expect` steps auto-assert — `above` / `below` / `equals` (+ `tolerance`) / `notEquals` /
 `oneOf`, and a relational `{ "path": "Block.Other" }` comparand — and fail the run loudly; `judge[]` items
 are for human sign-off. For service-provider value contracts (the HAL digital/analog I/O and third-party
-contracts alike), `serviceProviderSet` **drives** an input contract from its wire value (a scalar or a JSON
-object) and `serviceProviderExpect` **asserts** the value the block last wrote on an output contract (a
-`logicBlock` + `contract` ref with the same comparators, literals only) — pair an output assert with
-`advance` / `waitUntil` so the timer/handler that drives the output has fired first. An agent stages a human's verification view by
+contracts alike), `serviceProviderSet` **drives** a contract from its wire value (a scalar or a JSON object)
+and `serviceProviderExpect` **asserts** the value the block last wrote on it (a `logicBlock` + `contract`
+ref with the same comparators, literals only; a multi-field command is asserted one scalar at a time with
+`field`) — pair an assert with `advance` / `waitUntil` so the timer/handler that writes the command has
+fired first. Direction is **per operation**, not one label on the contract: a drive needs an input (a
+single-writer `Consumers = ZeroOrOne` contract is an output and refuses one), and an assert needs an
+outbound wire struct. A **bidirectional** contract — one interface and one contract identifier whose
+handler declares `[ScenarioWire(Inbound = ..., Outbound = ...)]`, as a PPC `demand` in / `measurement` out
+does — is therefore driven *and* asserted in the same scenario. An agent stages a human's verification view by
 committing a scenario and citing its **id** in the PR.
 
 **Authoring loop:** (1) declare a dedicated, minimal `topologies/*.topology.json` with just the blocks the

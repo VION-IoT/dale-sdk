@@ -15,10 +15,13 @@ namespace Vion.Dale.Sdk.Abstractions
     ///     </para>
     ///     <para>
     ///         Declare the inbound struct for an input contract (SP → block, driven by a scenario), and/or the
-    ///         outbound command struct for an output contract (block → SP, asserted by a scenario):
+    ///         outbound command struct for an output contract (block → SP, asserted by a scenario). Declaring
+    ///         BOTH makes one contract identifier drivable and assertable in the same scenario:
     ///         <code>
     /// [ScenarioWire(Inbound = typeof(DigitalInputChanged))]   // an input — digital/analog input, PPC demand
     /// [ScenarioWire(Outbound = typeof(SetDigitalOutput))]     // an output — digital/analog output
+    /// [ScenarioWire(Inbound = typeof(PpcDemandReceived),      // bidirectional — one contract, both directions
+    ///               Outbound = typeof(PpcMeasurementSet))]
     ///         </code>
     ///     </para>
     /// </summary>
