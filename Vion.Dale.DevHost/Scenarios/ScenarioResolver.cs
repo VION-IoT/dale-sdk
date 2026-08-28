@@ -367,10 +367,20 @@ namespace Vion.Dale.DevHost.Scenarios
         }
 
         // Resolves a generic service-provider value-contract reference (serviceProviderSet / serviceProviderExpect,
-        // RFC 0010). Any [ServiceProviderContractType] contract on the block is addressable; direction is read off
-        // the contract's Consumers multiplicity — ZeroOrOne (single-writer, surfaced as the Consumers annotation)
-        // is an output (assert only); the omitted default ZeroOrMore is an input (drivable). The resolved
-        // ContractHandlerActorName names the generic stand-in the drive addresses.
+        // RFC 0010). Any [ServiceProviderContractType] contract on the block is addressable. Direction is read
+        // per operation, never as one binary classification: [ScenarioWire] is authoritative where it has
+        // spoken, and the contract's Consumers multiplicity is the fallback.
+        //   DRIVE  — refused on a ZeroOrOne (single-writer) contract, i.e. an output. Per-operation symmetry for
+        //            this half (a ZeroOrOne contract whose handler declares an Inbound) is DEFERRED: it needs an
+        //            exported-configuration key that does not exist, and no such shape does either (VION-129).
+        //   ASSERT — permitted when the contract classifies as an output OR carries the scenarioOutputFields
+        //            annotation, which DevHostIntrospection attaches only when the contract joined a loaded
+        //            handler declaring an Outbound. That widening is what makes a BIDIRECTIONAL contract (both
+        //            wire directions under one identifier, default ZeroOrMore, e.g. a PPC demand/measurement)
+        //            assertable — it classifies as an input, so the old binary gate refused it before any read.
+        //            The classification stays in the OR: an annotation-only rule would newly refuse a genuine
+        //            output whose handler did not load, where the runner's read-time guard is the right gate.
+        // The resolved ContractHandlerActorName names the generic stand-in the drive addresses.
         private ResolvedContract? ResolveServiceProviderContract(string? blockName,
                                                                  string? contractId,
                                                                  bool forDrive,
@@ -400,9 +410,11 @@ namespace Vion.Dale.DevHost.Scenarios
                 return null;
             }
 
-            if (!forDrive && !isOutput)
+            var writesACommand = contract.Annotations.ContainsKey(ScenarioWireFields.OutputFieldsAnnotationKey);
+            if (!forDrive && !isOutput && !writesACommand)
             {
-                errors.Add($"{where}: contract '{contractId}' is an input — drive it with serviceProviderSet; only an output (single-writer) is assertable with serviceProviderExpect");
+                errors.Add($"{where}: contract '{contractId}' is an input with nothing to assert — drive it with serviceProviderSet. Only an output (single-writer), " +
+                           "or a contract whose handler declares an Outbound wire struct, is assertable with serviceProviderExpect");
                 return null;
             }
 

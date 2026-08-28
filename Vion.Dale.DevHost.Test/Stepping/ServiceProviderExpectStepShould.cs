@@ -6,6 +6,7 @@ using System.Net.Sockets;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Vion.Contracts.Conventions;
 using Vion.Dale.DevHost.Control;
 using Vion.Dale.DevHost.Scenarios;
 using Vion.Dale.DevHost.Web;
@@ -121,6 +122,12 @@ namespace Vion.Dale.DevHost.Test.Stepping
                                  inputErrors);
             Assert.IsNotEmpty(inputErrors);
             StringAssert.Contains(inputErrors[0], "input");
+
+            // An inbound-only handler writes no command, so the widened gate (VION-129) must still refuse this
+            // one — and say which way out the author has, since "is an input" alone no longer implies "never
+            // assertable".
+            StringAssert.Contains(inputErrors[0], "nothing to assert");
+            StringAssert.Contains(inputErrors[0], "serviceProviderSet");
         }
 
         [TestMethod]
@@ -326,6 +333,47 @@ namespace Vion.Dale.DevHost.Test.Stepping
         }
 
         [TestMethod]
+        [TestCategory("Smoke")]
+        public async Task DriveAndAssertTheSameBidirectionalContract_InOneScenario()
+        {
+            await using var host = BuildSteppedPlantHost();
+            await host.StartAsync();
+
+            // VION-129. The classification is checked EXPLICITLY rather than inferred from a green run: if this
+            // contract were classified an output the assert gate would never have been consulted and the run
+            // below would prove nothing. IPlantControl declares no Consumers, so it carries no ZeroOrOne
+            // annotation and reads as an INPUT; what makes it assertable is its handler's [ScenarioWire]
+            // Outbound, surfaced as the scenarioOutputFields annotation on the same contract.
+            var contract = host.Control.GetConfiguration().LogicBlocks.Single(b => b.Name == "plant").Contracts.Single(c => c.Identifier == "Control");
+            Assert.IsFalse(contract.Annotations.ContainsKey(LogicBlockWiringConventions.ConsumersAnnotationKey),
+                           "the fixture must classify as an INPUT — otherwise the widened assert gate is never exercised");
+            CollectionAssert.AreEqual(new[] { "valid", "timestamp", "activePowerKw", "reactivePowerKvar" },
+                                      ((IReadOnlyList<string>)contract.Annotations["scenarioOutputFields"]).ToArray(),
+                                      "and it must carry the outbound command's leaves — the signal the gate widens on");
+
+            // One contract identifier, driven and asserted in the same scenario, through the multi-field path.
+            var scenario = ScenarioFile.Parse("""
+                                              {
+                                                "version": 1, "id": "sp-bidirectional", "topology": "plant",
+                                                "steps": [
+                                                  { "serviceProviderSet": { "logicBlock": "plant", "contract": "Control" },
+                                                    "value": { "valid": true, "scope": "PerPhase", "supply": { "activePowerKw": 12.5, "reactivePowerKvar": 3.5 } } },
+                                                  { "waitUntil": { "property": "plant.DemandValid", "equals": true }, "timeoutSeconds": 5 },
+                                                  { "advance": { "seconds": 1 } },
+                                                  { "serviceProviderExpect": { "logicBlock": "plant", "contract": "Control", "field": "valid", "equals": true } },
+                                                  { "serviceProviderExpect": { "logicBlock": "plant", "contract": "Control", "field": "activePowerKw", "equals": 12.5, "tolerance": 0.001 } },
+                                                  { "serviceProviderExpect": { "logicBlock": "plant", "contract": "Control", "field": "reactivePowerKvar", "above": 3 } }
+                                                ]
+                                              }
+                                              """);
+
+            var report = await ScenarioRunner.RunAsync(scenario, host.Control);
+
+            Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
+            Assert.AreEqual("plant.Control.valid", report.Steps[3].Target, "the assert names the field it read, on the same contract the first step drove");
+        }
+
+        [TestMethod]
         public async Task ReadAMultiFieldCommand_AsUnreadableRatherThanNull()
         {
             await using var host = BuildSteppedGridHost();
@@ -429,6 +477,13 @@ namespace Vion.Dale.DevHost.Test.Stepping
         private static IDevHost BuildSteppedGridHost()
         {
             var config = DevConfigurationBuilder.Create().WithTopologyName("grid").AddLogicBlock<SmokeHost.LogicBlocks.GridBlock>("grid").Build();
+            return DevHostBuilder.Create().WithDi<SmokeHost.DependencyInjection>().WithConfiguration(config).WithDeterministicStepping().Build();
+        }
+
+        // The VION-129 fixture: PlantBlock's Control contract carries BOTH wire directions under one identifier.
+        private static IDevHost BuildSteppedPlantHost()
+        {
+            var config = DevConfigurationBuilder.Create().WithTopologyName("plant").AddLogicBlock<SmokeHost.LogicBlocks.PlantBlock>("plant").Build();
             return DevHostBuilder.Create().WithDi<SmokeHost.DependencyInjection>().WithConfiguration(config).WithDeterministicStepping().Build();
         }
 

@@ -549,7 +549,7 @@
       "required": [
         "serviceProviderExpect"
       ],
-      "description": "A deterministic, point-in-time auto-assertion on the value a block last wrote on any [ServiceProviderContractType] value OUTPUT contract (CI-failing tier). The generic replacement for digitalOutput / analogOutput (RFC 0010).",
+      "description": "A deterministic, point-in-time auto-assertion on the value a block last wrote on a [ServiceProviderContractType] value contract (CI-failing tier) — an output, or a bidirectional contract whose handler declares a [ScenarioWire] Outbound. The generic replacement for digitalOutput / analogOutput (RFC 0010).",
       "properties": {
         "label": {
           "$ref": "#/$defs/stepCommon/label"

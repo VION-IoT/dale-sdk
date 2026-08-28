@@ -159,9 +159,24 @@ The scenario vocabulary gains exactly **one** generic pair and loses the four ha
 - The `value` is the contract's wire struct (a scalar for digital/analog, a JSON object for PPC).
   Per-topology schema enrichment types it (the DF-25 typed-`set`-value work — this RFC is its first real
   consumer; until it lands the value is untyped-but-runtime-checked, exactly like a struct `set` today).
-- **Direction is read off the contract**, never guessed: `[ServiceProviderContractType].Consumers`
-  multiplicity — `ZeroOrOne` (single-writer) ⇒ output (assert only); `ZeroOrMore` ⇒ input (drivable). A
-  `serviceProviderSet` on an output is a validation error.
+- **Direction is read off the contract**, never guessed, and **per operation** — `[ScenarioWire]` is
+  authoritative wherever it has spoken, and `[ServiceProviderContractType].Consumers` is the fallback:
+  - **drive** — `Consumers = ZeroOrOne` (single-writer) ⇒ an output; a `serviceProviderSet` on it is a
+    validation error.
+  - **assert** — permitted when the contract is an output **or** its handler declares a `[ScenarioWire]`
+    `Outbound`. The second half is what makes a **bidirectional** contract assertable: one interface, one
+    contract identifier carrying both wire directions (a PPC `demand` in / `measurement` out is the real
+    case), which declares no `Consumers` and so classifies as an input. It is signalled in the exported
+    configuration by the `scenarioOutputFields` annotation, which `DevHostIntrospection` attaches only
+    when the contract joined a loaded handler declaring an `Outbound` — so *present ⇒ the codec can
+    assert*. Absence stays three-way ambiguous (no join / no attribute / inbound-only), which is why the
+    classification stays in the `or`: an annotation-only rule would newly refuse a genuine output whose
+    handler did not load, where the runner's read-time guard is the right gate.
+
+  **Deferred (VION-129):** per-operation symmetry for the *drive* half — a `ZeroOrOne` contract whose
+  handler declares an `Inbound`. It would need a new exported-configuration key (nothing today carries
+  "can drive" the way `scenarioOutputFields` carries "can assert"), and there are zero instances of that
+  shape. `Consumers` remains the whole drive gate until one appears.
 - `set` / `expect` / `waitUntil` / `advance` / `settle` / `wait` are untouched — those are the
   service-*property* and time planes, a different routing plane from the contract plane.
 
@@ -334,7 +349,9 @@ Putting myself in the shoes of (a) a PPC author and (b) someone shipping a trivi
   binds silently (the exact DF-25 papercut). The authoring guide must say "your `value` matches your wire
   struct's fields (camelCase); typo = silent empty until DF-25." (2) The author must understand **which
   wire struct is the inbound one** (the `HandleContractMessage` case) vs the outbound command — obvious
-  for I/O, less so for a request/response contract (out of MVP scope, but the guide must say so). (3) The
+  for I/O, less so for a request/response contract (out of MVP scope, but the guide must say so) — and a
+  **bidirectional** contract declares both, which is now a first-class shape rather than a gap (VION-129;
+  the MVP's binary input/output rule refused its `serviceProviderExpect` before any read). (3) The
   direction rule (multiplicity ⇒ drivable vs assert-only) is implicit; the guide needs a one-liner so an
   author doesn't `serviceProviderSet` an output and get a confusing error.
 - **Verdict.** With the `Wire` convention + an authoring guide that states those three things, this is
