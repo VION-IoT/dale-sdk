@@ -20,7 +20,7 @@ namespace Vion.Dale.Sdk.AnalogIo.TestKit
         /// <param name="testContext">The test context for the logic block.</param>
         /// <param name="analogOutput">The analog output to verify, or null to verify any analog output.</param>
         /// <param name="value">The expected value, or null to skip value verification.</param>
-        /// <param name="tolerance">The tolerance for comparing the expected value.</param>
+        /// <param name="tolerance">The inclusive tolerance for the value comparison; the default of 0 means exact equality.</param>
         /// <param name="times">The expected number of times the output was set, or null for once.</param>
         public static void VerifyAnalogOutputSet<TLogicBlock>(this LogicBlockTestContext<TLogicBlock> testContext,
                                                               IAnalogOutput? analogOutput = null,
@@ -40,7 +40,7 @@ namespace Vion.Dale.Sdk.AnalogIo.TestKit
                 identifier = analogOutputImplementation.Identifier;
             }
 
-            testContext.VerifyContractMessageSent<SetAnalogOutput>("AnalogOutput", identifier, m => value == null || Math.Abs(m.Value - value.Value) < tolerance, times);
+            testContext.VerifyContractMessageSent<SetAnalogOutput>("AnalogOutput", identifier, m => value == null || Math.Abs(m.Value - value.Value) <= tolerance, times);
         }
 
         /// <summary>
@@ -50,7 +50,7 @@ namespace Vion.Dale.Sdk.AnalogIo.TestKit
         /// <param name="testContext">The test context for the logic block.</param>
         /// <param name="analogOutputProvider">The analog output provider to verify, or null to verify any.</param>
         /// <param name="value">The expected value, or null to skip value verification.</param>
-        /// <param name="tolerance">The tolerance for comparing the expected value.</param>
+        /// <param name="tolerance">The inclusive tolerance for the value comparison; the default of 0 means exact equality.</param>
         /// <param name="times">The expected number of confirmations, or null for once.</param>
         public static void VerifyAnalogOutputConfirmed<TLogicBlock>(this LogicBlockTestContext<TLogicBlock> testContext,
                                                                     IAnalogOutputProvider? analogOutputProvider = null,
@@ -72,7 +72,7 @@ namespace Vion.Dale.Sdk.AnalogIo.TestKit
 
             testContext.VerifyContractMessageSent<AnalogOutputChanged>("AnalogOutputProvider",
                                                                        identifier,
-                                                                       m => value == null || Math.Abs(m.Value - value.Value) < tolerance,
+                                                                       m => value == null || Math.Abs(m.Value - value.Value) <= tolerance,
                                                                        times);
         }
 
@@ -83,7 +83,7 @@ namespace Vion.Dale.Sdk.AnalogIo.TestKit
         /// <param name="testContext">The test context for the logic block.</param>
         /// <param name="analogInputProvider">The analog input provider to verify, or null to verify any.</param>
         /// <param name="value">The expected value, or null to skip value verification.</param>
-        /// <param name="tolerance">The tolerance for comparing the expected value.</param>
+        /// <param name="tolerance">The inclusive tolerance for the value comparison; the default of 0 means exact equality.</param>
         /// <param name="times">The expected number of drives, or null for once.</param>
         public static void VerifyAnalogInputDriven<TLogicBlock>(this LogicBlockTestContext<TLogicBlock> testContext,
                                                                 IAnalogInputProvider? analogInputProvider = null,
@@ -103,7 +103,7 @@ namespace Vion.Dale.Sdk.AnalogIo.TestKit
                 identifier = analogInputProviderImplementation.Identifier;
             }
 
-            testContext.VerifyContractMessageSent<AnalogInputChanged>("AnalogInputProvider", identifier, m => value == null || Math.Abs(m.Value - value.Value) < tolerance, times);
+            testContext.VerifyContractMessageSent<AnalogInputChanged>("AnalogInputProvider", identifier, m => value == null || Math.Abs(m.Value - value.Value) <= tolerance, times);
         }
     }
 }

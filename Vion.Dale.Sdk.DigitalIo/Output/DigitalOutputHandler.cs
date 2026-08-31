@@ -6,6 +6,7 @@ using Vion.Contracts.Constants;
 using Vion.Contracts.FlatBuffers.Hw.Do;
 using Vion.Contracts.Mqtt;
 using Vion.Dale.Sdk.Abstractions;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Messages;
 using Vion.Dale.Sdk.Mqtt;
 using Vion.Dale.Sdk.Utils;
@@ -15,6 +16,7 @@ namespace Vion.Dale.Sdk.DigitalIo.Output
     /// <summary>
     ///     Handles communication between logic block digital output and the HAL via MQTT.
     /// </summary>
+    [InternalApi]
     [ScenarioWire(Inbound = typeof(DigitalOutputChanged), Outbound = typeof(SetDigitalOutput))]
     public partial class DigitalOutputHandler : ServiceProviderHandlerBase
     {

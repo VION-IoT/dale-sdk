@@ -6,6 +6,7 @@ using Vion.Contracts.Constants;
 using Vion.Contracts.FlatBuffers.Hw.Ao;
 using Vion.Contracts.Mqtt;
 using Vion.Dale.Sdk.Abstractions;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Messages;
 using Vion.Dale.Sdk.Mqtt;
 using Vion.Dale.Sdk.Utils;
@@ -15,6 +16,7 @@ namespace Vion.Dale.Sdk.AnalogIo.Output
     /// <summary>
     ///     Handles communication between logic block analog output and the HAL via MQTT.
     /// </summary>
+    [InternalApi]
     [ScenarioWire(Inbound = typeof(AnalogOutputChanged), Outbound = typeof(SetAnalogOutput))]
     public partial class AnalogOutputHandler : ServiceProviderHandlerBase
     {

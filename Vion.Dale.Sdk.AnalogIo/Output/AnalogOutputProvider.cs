@@ -2,6 +2,7 @@ using System;
 using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Configuration.Contract;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Messages;
 using Vion.Dale.Sdk.Utils;
 
@@ -10,6 +11,7 @@ namespace Vion.Dale.Sdk.AnalogIo.Output
     /// <summary>
     ///     The provider side of an analog output, bound by a simulator standing in for the hardware.
     /// </summary>
+    [InternalApi]
     public partial class AnalogOutputProvider : LogicBlockContractBase, IAnalogOutputProvider
     {
         private readonly ILogger<AnalogOutputProvider> _logger;
