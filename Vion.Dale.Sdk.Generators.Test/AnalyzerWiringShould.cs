@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -15,10 +15,11 @@ namespace Vion.Dale.Sdk.Generators.Test
     ///     until #154 (sdk-surface-conventions § 5, "Known non-conforming code").
     ///     <para>
     ///         Verifying the reference is live used to mean breaking a real <c>[ScenarioWire]</c> declaration by
-    ///         hand and remembering to revert it. Instead each I/O project carries a committed
-    ///         <c>AnalyzerWiring/</c> probe — an invalid declaration excluded from every ordinary build — and
-    ///         this test compiles it with <c>-p:DaleAnalyzerWiringProbe=true</c> and requires DALE046 to fail
-    ///         the build. Remove the analyzer reference and this test goes red.
+    ///         hand and remembering to revert it. Instead one committed probe — <c>AnalyzerWiring/</c>, beside
+    ///         this test — holds an invalid declaration, and each I/O project links it in only under
+    ///         <c>-p:DaleAnalyzerWiringProbe=true</c>. This test runs that build and requires DALE046 to fail
+    ///         it. Remove the analyzer reference and this test goes red. The probe is nobody's source file by
+    ///         default, so no shipped project carries one that exists only to fail.
     ///     </para>
     ///     <para>
     ///         It shells out to <c>dotnet build</c> because that is the thing under test: the real MSBuild

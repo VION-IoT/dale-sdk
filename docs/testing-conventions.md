@@ -52,7 +52,9 @@ consumer's build looks like, and the difference has already shipped a dead analy
 - **An analyzer that is referenced is not necessarily running.** Proving it used to mean breaking a real
   declaration by hand and remembering to revert. The standing form is a committed probe: an invalid
   declaration excluded from the ordinary build, compiled by a test that shells out to `dotnet build` and
-  requires the diagnostic to fail it (`AnalyzerWiringShould`, `Vion.Dale.Sdk.DigitalIo/AnalyzerWiring/`).
+  requires the diagnostic to fail it (`AnalyzerWiringShould` +
+  `Vion.Dale.Sdk.Generators.Test/AnalyzerWiring/`, linked into the project under test — never a source file
+  of a shipped project).
 - **Test rules in combination, not only in isolation.** The supported-type gate is spread across
   `DALE003`, `DALE016` and `DALE008`; each one's tests passed while a newly supported value type was
   still rejected by a sibling rule, and it shipped broken.
