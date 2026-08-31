@@ -1,9 +1,12 @@
 name: Pack & Publish
-# Two jobs:
+# Three jobs:
 #   - publish: delegates the build/test/style gate (gate: true) + pack/push to
 #     VION-IoT/shared-workflows (publish-nuget.yml). The gate runs on every PR/main/tag
 #     this workflow triggers on, reusing the pack build — see the Code Style section in
 #     CLAUDE.md and VION-IoT/shared-workflows actions/dotnet-gate.
+#   - verify-packages: the artifact gate for the 0.11.1 class — a packed assembly whose
+#     AssemblyVersion disagrees with its package version. See the job below for why it
+#     runs here and what that placement does not cover.
 #   - drift-and-docs: dale-sdk specific — snapshot regen, drift detection,
 #     auto-commit on PR heads (main is branch-protected: bot pushes are
 #     impossible AND unnecessary — every change lands via a PR whose run
@@ -50,6 +53,44 @@ jobs:
     permissions:
       contents: read
     secrets: inherit
+
+  # Release 0.11.1 shipped three lib assemblies stamped 0.0.0.0 under correct nuspecs and
+  # every consumer of them died at startup. The packages were well-formed, the tests were
+  # green and the style gate was clean — only the dll bytes were stale, and nothing in the
+  # pipeline looked at those. This job does.
+  #
+  # Placement, honestly: the pack AND both pushes live inside the shared publish job, so
+  # this runs after the packages are already on the feeds. It reddens the run and names the
+  # package within a minute of a bad tag instead of leaving it to a consumer, which is the
+  # difference that mattered in 0.11.1 — but it does not prevent the push. Moving the same
+  # script between Pack and Push belongs in VION-IoT/shared-workflows (publish-nuget.yml).
+  #
+  # It is also, by nature, a release-time check: PR and main runs pack 0.0.0-ci.N, whose
+  # AssemblyVersion is 0.0.0.0 — the same value a clobbered assembly carries, so the shape
+  # is invisible there. What guards the PR is the behavioural test that owns the cause,
+  # Vion.Dale.Sdk.Generators.Test/AnalyzerWiringShould.
+  verify-packages:
+    if: github.actor != 'github-actions[bot]'
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: nupkg
+          path: ./artifacts
+
+      # The gate checking itself: fixtures built in a temp dir, no network, no build.
+      - name: Self-test the gate
+        shell: pwsh
+        run: ./scripts/verify-packed-assembly-versions.ps1 -SelfTest
+
+      - name: Verify packed assembly versions
+        shell: pwsh
+        run: ./scripts/verify-packed-assembly-versions.ps1 -PackagesDir ./artifacts
 
   drift-and-docs:
     if: github.actor != 'github-actions[bot]'
