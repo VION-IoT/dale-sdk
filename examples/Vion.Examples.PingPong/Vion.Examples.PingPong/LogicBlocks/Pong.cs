@@ -56,6 +56,9 @@ namespace Vion.Examples.PingPong.LogicBlocks
         /// <inheritdoc />
         protected override void Ready()
         {
+            // Fires in production, where the I/O module reports back what it applied — or off production when
+            // the output is paired to a provider face that confirms. This example is deliberately not paired,
+            // so here the event stays quiet; ToggleLight is the showcase for the paired loop.
             DigitalOutput.OutputChanged += (_, value) => { _logger.LogInformation("DO changed to {value}", value); };
         }
     }

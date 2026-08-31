@@ -154,7 +154,31 @@ Two things a simulator block must not become:
 - **A socket.** A simulator that opens a TCP server is invisible to the quiescence barrier and
   wall-clock forever. Contract-hosted sims step; that is the whole point.
 
-## 5. Checklist
+## 5. Simulating against a real gateway
+
+Everything above is one of **two** ways to stand in for a provider, and they are different
+mechanisms — not two settings of the same one. Pick by what you need to exercise.
+
+| | **Logic-level — pairing, in the DevHost** | **Transport-level — a real service provider** |
+|---|---|---|
+| What the peer is | a simulator block binding a provider face | a program on MQTT, speaking the real topics |
+| Where it runs | inside the DevHost, one actor hop | beside a real gateway, over the broker |
+| Determinism | stepped and quiescence-fenced; per-PR CI | wall-clock; a manual or nightly bench |
+| Fidelity | **the MQTT hop and the binary codec are bypassed** — the host forwards the value at the JSON layer the scenario codec already speaks | the encodings, topics, retention and correlation are the production ones |
+
+So the two are complements, not alternatives: the pairing bench proves your **logic** converges,
+deterministically and cheaply; a real service provider proves the **wire** — that your payloads
+encode, your topics route, your provider identity resolves. A bug that lives only in the codec or
+the topic layout is invisible to the first and caught by the second.
+
+The second tier is not a deployed simulator block. A provider face is development surface by
+declaration (`DevelopmentOnly = true`), and the boundary is hard on purpose: `dale pack` leaves a
+block bound to one out of the introspection JSON that travels to the cloud — naming it in the pack
+log — and the production runtime refuses to start such a configuration. Nothing relaxes that per
+environment. If you need a stand-in on a real gateway, write the service provider, not a logic
+block; it needs no development-only contract at all.
+
+## 6. Checklist
 
 - [ ] The provider face reuses the consumer face's wire structs — no copies.
 - [ ] `DevelopmentOnly = true` on every provider face, and the XML docs say why.

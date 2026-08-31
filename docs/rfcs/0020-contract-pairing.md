@@ -294,22 +294,45 @@ recursion: stand-ins never originate messages.
 A provider face exists to stand in for the real provider; running one against production MQTT
 would double-publish onto live HAL topics. The boundary is declarative, not conventional:
 
-- `[ServiceProviderContractType]` gains a flag (working name `DevelopmentOnly = true`), set on
-  every provider face. It reaches introspection as an annotation, so tooling can see it.
+- `[ServiceProviderContractType]` gains a flag, `DevelopmentOnly = true`, set on every provider
+  face. It reaches introspection as the `developmentOnly` contract annotation, emitted only when
+  true, so tooling can see it.
 - The **production runtime refuses to start** a configuration containing a block whose bindings
   include a `DevelopmentOnly` contract, with an error naming the block and contract — a loud
-  refusal, not the silent unmapped drop. (The check lives in the private `dale` runtime;
-  verifying its handler-discovery path and adding the refusal is a named cross-repo task of
-  Phase 1.)
-- Provider **handlers** register no MQTT topics and are excluded from production handler
-  registration; in the DevHost they are discovered by the existing `[ScenarioWire]` scan like
-  any other handler.
+  refusal, not the silent unmapped drop. The check lives in the private `dale` runtime
+  (VION-IoT/dale#56). It is the ladder's backstop: with the pack filter below in place, no
+  production configuration should ever reach it.
+- Provider **handlers** must not be registered by a production host, and each carries
+  `[DevelopmentOnlyHandler]` so a host can decide that from the handler type alone — there is no
+  handler-to-contract-type link to follow. An earlier draft of this section said they "register no
+  MQTT topics"; that is wrong in effect. Stood up, `GetMqttRegistration` returns an **empty**
+  routing key, and a host matching handlers by prefix or substring has its whole routing table
+  claimed by `Contains("")` — found by the dale runtime (VION-IoT/dale#56), which guarded itself
+  and reported the gap. In the DevHost they are discovered by the existing `[ScenarioWire]` scan
+  like any other handler.
+- The **pack path filters them out of the introspection JSON**: `dotnet pack` runs
+  `Vion.Dale.LogicBlockParser` with `--exclude-development-only`, so a block bound to a
+  development-only contract never reaches the cloud, and the pack log names each excluded block.
+  The assembly is packed unchanged (the types are inert data). `dale list` still shows such
+  blocks, marked. The enforcement ladder is pack excludes → runtime refuses (a backstop expected
+  never to fire); there is deliberately no cloud-side gate, because the cloud is never told these
+  blocks exist.
 - XML docs on every provider face state the constraint. Packaging is unchanged
   (`Vion.Dale.Sdk.DigitalIo` / `.AnalogIo`, beside the consumer faces) — the flag, not the
   package, is the boundary.
+- **Cross-repo coupling:** the dale runtime reads
+  `ServiceProviderContractTypeAttribute.DevelopmentOnly` **reflectively**, off the contract types
+  of the loaded plugin assembly. Moving the flag off the attribute — renaming it, replacing it
+  with a marker interface, deriving it from the introspection annotation instead — breaks that
+  refusal silently: neither repo gets a compile error.
 
 The TestKit is unaffected: provider faces bind and auto-map in unit tests like any contract, so
 simulators stay unit-testable.
+
+There is no third tier and no environment-aware relaxation of the boundary. Simulation against a
+real gateway is a **real service provider** at the MQTT layer — a program speaking the transport —
+not a logic block, so it needs nothing from this flag and no deployment ever carries a
+development-only-bound block. §10.4 records that decision and the v2 question it leaves open.
 
 ## 5. Worked cases
 
@@ -370,7 +393,8 @@ contracts (they already loop natively).
 | `dale` runtime (private, cross-repo) | refuse production configurations containing development-only contracts (§4.8); verify handler discovery excludes provider handlers |
 | `Vion.Dale.DevHost` | pairing table (topology loader + `DevConfigurationBuilder.PairContracts`), `Capture` forward, structural-compat predicate, drive-gate re-key on declared inbound + exported annotation, reworded no-echo pin, **fix the stale `ServiceProviderContractHandler` class doc** (`:25-33`) |
 | `Vion.Dale.DevHost` topology schema | `contractPairings` array; regenerated per-project schemas |
-| `Vion.Dale.Cli` | topology validation of pairings; scenario checks follow the drive-gate re-key |
+| `Vion.Dale.Cli` | topology validation of pairings; scenario checks follow the drive-gate re-key; `dale list` marks development-only blocks and `dale upload` repeats the pack notice |
+| `Vion.Dale.LogicBlockParser` + `Vion.Dale.Sdk.targets` | `--exclude-development-only`, passed on the pack path: development-only blocks are dropped from the emitted JSON and named in the pack log (§4.8) |
 | `Vion.Dale.DevHost.Web` | wiring view renders pairings; topology editor edits them; scenario forms unchanged |
 | `Vion.Dale.DevHost.SmokeHost` | ideal-I/O sim block (provider faces), a paired topology, scenarios proving: delivery, confirmation loop, DI drive, mismatch drive, stepped determinism; `devhost-smoke` coverage |
 | Docs | devhost-conventions section on pairing + a simulator-authoring recipe; identifier-stability note for the new contract-type names |
@@ -412,14 +436,38 @@ Their work, in their repo, once Phase 1 releases — relayed through the usual f
    properties (kept after VION-71) and their AGENTS.md "no DO→DI bridge" gotchas can retire as
    benches migrate.
 
-## 10. Decisions from review (2026-08-28)
+## 10. Decisions from review
+
+### 2026-08-28
 
 1. **Provider faces are development-only, declaratively** (was open: production semantics) —
-   §4.8. Same package; the `DevelopmentOnly` flag, XML docs, no-MQTT handlers and the production
-   runtime's refusal are the mechanism. Remaining detail: the flag's final name, and the named
-   cross-repo verification of the private runtime's handler discovery.
+   §4.8. Same package; the `DevelopmentOnly` flag, XML docs, handler exclusion and the production
+   runtime's refusal are the mechanism. Settled since: the flag shipped as `DevelopmentOnly`, and
+   the private runtime's handler discovery was verified cross-repo (VION-IoT/dale#56).
 2. **The analyzer ships with Phase 1** (was open: analyzer scope) — it is structurally the same
    attribute-walking family as the existing DALE diagnostics; §4.3 rung 3, §7.
 3. **Pairing rule tightened from shape-compatibility to wire-type identity** — §4.3. Provider
    faces are the pattern; a shape-based bridge (e.g. `IDigitalOutput`↔`IDigitalInput` directly)
    would resurrect the invisible-bridge model this RFC replaces.
+
+### 2026-08-31
+
+4. **Two simulation tiers, and the v1 line between them is hard** (was open: whether a simulator
+   could ever be deployed). There are exactly two ways to stand in for a provider, and they are
+   different mechanisms, not two settings of one:
+
+   - **Logic-level, in the DevHost, via pairing** — a simulator block binds a provider face and the
+     host re-delivers along a declared wire (this RFC). Deterministic and steppable, and it
+     **bypasses the MQTT hop and the binary codec entirely**: the pairing forwards the value at the
+     JSON layer the scenario codec already speaks (§4.1).
+   - **Transport-level, against a real gateway** — the peer is a **real service provider on MQTT**:
+     it publishes and subscribes the actual topics with the actual encodings. It is a program, not
+     a logic block, and it exercises exactly what the first tier skips.
+
+   So a "deployed simulator" is not a relaxation of §4.8 — it is the second tier, and it needs no
+   development-only contract at all. That is why v1 draws a hard line and the enforcement ladder
+   has no escape hatch: pack excludes, runtime refuses.
+
+   **Open for v2:** unifying service-provider and logic-block contracts. If a service provider and
+   a logic block could be the same kind of peer, "simulator as a deployable participant" becomes a
+   real question again — with the fidelity trade-off above as its first problem. Not now.
