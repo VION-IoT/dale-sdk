@@ -204,6 +204,36 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
     }
 
+    /// <summary>
+    ///     A block that binds one ordinary HAL contract and one provider face, the provider face gated by an
+    ///     <c>[IncludedWhen]</c> predicate — the shape the pack gate must still judge development-only.
+    /// </summary>
+    public class GatedProviderContractTestLogicBlock : LogicBlockBase
+    {
+        [ServiceProperty(Title = "Kanäle", Minimum = 1, Maximum = 2)]
+        [InstantiationParameter]
+        public int ChannelCount { get; init; } = 1;
+
+        [ServiceProviderContractBinding(Identifier = "LED")]
+        public IDigitalOutput Led { get; set; } = null!;
+
+        [IncludedWhen("ChannelCount >= 2")]
+        [ServiceProviderContractBinding(Identifier = "LedProvider")]
+        public IDigitalOutputProvider LedProvider { get; set; } = null!;
+
+        public GatedProviderContractTestLogicBlock() : base(new Mock<ILogger>().Object)
+        {
+        }
+
+        protected override void Ready()
+        {
+        }
+
+        protected override void Starting()
+        {
+        }
+    }
+
     [LogicBlock(Name = "KindBlock", Icon = "gauge-line")]
     public class MeasuringPointKindLogicBlock : LogicBlockBase
     {
@@ -643,6 +673,44 @@ namespace Vion.Dale.Sdk.Test.Introspection
                 Assert.IsFalse(contract.Annotations.ContainsKey(ServiceProviderContractAnnotations.DevelopmentOnly),
                                $"{contract.Identifier} must not carry the development-only flag.");
             }
+        }
+
+        [TestMethod]
+        public void ReportEveryDevelopmentOnlyContractOfASimulatorBlock()
+        {
+            // The pack gate's predicate: a block that binds any provider face is development surface, and the
+            // report names each binding so a pack log can say what the production artifact does not carry.
+            var block = new ProviderContractTestLogicBlock();
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            var developmentOnly = LogicBlockIntrospection.GetDevelopmentOnlyContracts(result);
+
+            CollectionAssert.AreEquivalent(new[] { "ButtonProvider", "LedProvider", "TemperatureProvider", "DimmerProvider" },
+                                           developmentOnly.Select(contract => contract.Identifier).ToList());
+        }
+
+        [TestMethod]
+        public void ReportNoDevelopmentOnlyContractForAProductionBlock()
+        {
+            var block = new ContractTestLogicBlock();
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            Assert.IsEmpty(LogicBlockIntrospection.GetDevelopmentOnlyContracts(result));
+        }
+
+        [TestMethod]
+        public void ReportADevelopmentOnlyContractEvenWhenItsBindingIsGated()
+        {
+            // Strict by design, and consistent with the production runtime's refusal: the flag is judged on the
+            // declaration, so an [IncludedWhen] gate cannot argue a block back into the production artifact.
+            var block = new GatedProviderContractTestLogicBlock();
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            var developmentOnly = LogicBlockIntrospection.GetDevelopmentOnlyContracts(result);
+
+            Assert.HasCount(1, developmentOnly);
+            Assert.AreEqual("LedProvider", developmentOnly[0].Identifier);
+            Assert.AreEqual("ChannelCount >= 2", result.Contracts.First(c => c.Identifier == "LedProvider").Annotations[LogicBlockWiringConventions.IncludedWhenAnnotationKey]);
         }
 
         [TestMethod]

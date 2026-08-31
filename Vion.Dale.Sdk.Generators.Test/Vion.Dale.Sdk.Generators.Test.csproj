@@ -22,6 +22,14 @@
         <ProjectReference Include="..\Vion.Dale.Sdk.Generators\Vion.Dale.Sdk.Generators.csproj"/>
     </ItemGroup>
 
+    <!-- The analyzer-wiring probe is source for OTHER projects' builds, never for this one: it names SDK
+         types this project does not reference. AnalyzerWiringShould links it into Vion.Dale.Sdk.DigitalIo /
+         .AnalogIo under -p:DaleAnalyzerWiringProbe=true and requires DALE046 to fail those builds. -->
+    <ItemGroup>
+        <Compile Remove="AnalyzerWiring\**"/>
+        <None Include="AnalyzerWiring\**"/>
+    </ItemGroup>
+
     <ItemGroup>
         <!-- Vendored predicate conformance vector (source: vion-contracts). Copied to output so the
              conformance test reads it beside the test assembly. -->

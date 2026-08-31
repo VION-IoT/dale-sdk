@@ -26,6 +26,16 @@
         </PackageReference>
     </ItemGroup>
 
+    <!-- The analyzer-wiring probe: a deliberately invalid [ScenarioWire] declaration that DALE046 must
+         reject. It is NOT a source file of this project - it lives with the test that owns it and is linked
+         in only under `dotnet build -p:DaleAnalyzerWiringProbe=true`, where the build MUST fail. That is the
+         standing proof the analyzer reference below is live and not merely present; nothing about it reaches
+         an ordinary build, the compiled assembly or the package. AnalyzerWiringShould runs it. -->
+    <ItemGroup Condition="'$(DaleAnalyzerWiringProbe)' == 'true'">
+        <Compile Include="..\Vion.Dale.Sdk.Generators.Test\AnalyzerWiring\ScenarioWireWiringProbe.cs"
+                 Link="AnalyzerWiring\ScenarioWireWiringProbe.cs"/>
+    </ItemGroup>
+
     <ItemGroup>
         <ProjectReference Include="..\Vion.Dale.Sdk\Vion.Dale.Sdk.csproj"/>
         <!-- The Dale analyzers, run over this project's own declarations. Compile-time only: without it the

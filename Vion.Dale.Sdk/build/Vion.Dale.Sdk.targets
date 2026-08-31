@@ -39,8 +39,12 @@
         <Message Text="Published DLL exists: True" Importance="high" Condition="Exists('$(PluginDllPath)')"/>
         <Message Text="Published DLL exists: False" Importance="high" Condition="!Exists('$(PluginDllPath)')"/>
 
-        <!-- Execute using dotnet with the output directory specified -->
-        <Exec Command="$(VionDaleLogicBlockParserPath) &quot;$(PluginDllPath)&quot; &quot;$(VionDalePluginInfoOutputPath)&quot;"
+        <!-- Execute using dotnet with the output directory specified.
+             The exclude-development-only switch keeps logic blocks bound to a development-only contract
+             (a provider face a simulator binds) out of the JSON that travels to the cloud: there is no
+             production deployment of such a block, and the parser names each excluded one in this log.
+             The assembly itself is packed unchanged. -->
+        <Exec Command="$(VionDaleLogicBlockParserPath) &quot;$(PluginDllPath)&quot; &quot;$(VionDalePluginInfoOutputPath)&quot; --exclude-development-only"
               WorkingDirectory="$(VionDalePublishDir)"
               ContinueOnError="false"
               ConsoleToMSBuild="true"

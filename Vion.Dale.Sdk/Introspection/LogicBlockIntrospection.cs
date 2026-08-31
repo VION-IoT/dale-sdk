@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -41,6 +41,23 @@ namespace Vion.Dale.Sdk.Introspection
                        Services = GetServices(serviceBinder, naturalPositions),
                        Annotations = logicBlockAnnotations,
                    };
+        }
+
+        /// <summary>
+        ///     The contract bindings of <paramref name="result" /> that are declared
+        ///     <see cref="ServiceProviderContractTypeAttribute.DevelopmentOnly" /> — the provider faces a
+        ///     simulator binds to stand in for equipment that is not there.
+        ///     <para>
+        ///         A block with any such binding is development and bench surface: the production runtime
+        ///         refuses to start it, and <c>dotnet pack</c> leaves it out of the introspection JSON that
+        ///         travels to the cloud. The judgement is on the declaration alone — a binding gated by
+        ///         <c>[IncludedWhen]</c> counts exactly like an ungated one, so a configuration cannot argue
+        ///         its way past the refusal.
+        ///     </para>
+        /// </summary>
+        public static IReadOnlyList<LogicBlockIntrospectionResult.ContractInfo> GetDevelopmentOnlyContracts(LogicBlockIntrospectionResult result)
+        {
+            return result.Contracts.Where(contract => contract.Annotations.TryGetValue(ServiceProviderContractAnnotations.DevelopmentOnly, out var flag) && flag is true).ToList();
         }
 
         /// <summary>

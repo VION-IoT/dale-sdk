@@ -1,4 +1,4 @@
-param(
+﻿param(
     [Parameter(Mandatory = $true)]
     [string]$Version,
 
@@ -370,4 +370,4 @@ foreach ($projectPath in $libraryMainProjectsWithVersion)
 }
 
 Write-Host "`n[+] Package references + example versions updated to $Version" -ForegroundColor Green
-Write-Host "Commit + push. Examples/templates are not part of the SDK .sln and build independently after restore." -ForegroundColor Gray
+Write-Host "Commit + push. Examples/templates are in Vion.Dale.Sdk.sln and reference the SDK as packages, so a solution build needs $Version restorable from a configured feed." -ForegroundColor Gray

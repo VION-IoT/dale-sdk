@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.CommandLine;
 using System.Diagnostics;
@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading;
@@ -330,7 +331,17 @@ namespace Vion.Dale.Cli.Commands
                                      ScenarioFileChecks.EnrichSchemaWithNamePaths(document, config);
                                  }
 
-                                 var json = document.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+                                 // Relaxed escaping, matching the source schema in Vion.Dale.DevHost: the default
+                                 // encoder escapes every non-ASCII character and a handful of ASCII ones, so an
+                                 // em-dash, an apostrophe or a set-membership sign came back as a numeric escape
+                                 // and every regeneration produced a phantom diff against a committed file that
+                                 // holds them literal. The output is a file, not an HTML embed, so the stricter
+                                 // escaping buys nothing here.
+                                 var json = document.ToJsonString(new JsonSerializerOptions
+                                                                  {
+                                                                      WriteIndented = true,
+                                                                      Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+                                                                  });
 
                                  // No -o: the schema IS the output (pipe or inspect it) — a schema command
                                  // should show a schema, not write to a magic location.

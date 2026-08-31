@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace Vion.Dale.Cli.Models
 {
@@ -22,6 +22,14 @@ namespace Vion.Dale.Cli.Models
         public List<string> Interfaces { get; set; } = new();
 
         public List<string> Contracts { get; set; } = new();
+
+        /// <summary>
+        ///     True when the block binds a development-only contract (a provider face a simulator binds).
+        ///     Such a block is bench surface: <c>dale pack</c> leaves it out of the introspection JSON that
+        ///     travels to the cloud, and the production runtime refuses to start it. Listed all the same —
+        ///     it is part of the project.
+        /// </summary>
+        public bool DevelopmentOnly { get; set; }
 
         public List<CliServiceOutput> Services { get; set; } = new();
     }
