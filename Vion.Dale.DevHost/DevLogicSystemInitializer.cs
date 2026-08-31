@@ -102,8 +102,13 @@ namespace Vion.Dale.DevHost
         private readonly IServiceProvider _serviceProvider;
 
         // The names the generic service-provider stand-ins were registered under (one per discovered
-        // [ScenarioWire] handler) — the contract link map is fanned out to exactly these (RFC 0010).
-        private readonly List<string> _serviceProviderHandlerNames = [];
+        // [ScenarioWire] handler) — the contract link map is fanned out to exactly these (RFC 0010), and the
+        // same registry hands the set to PublishAllStates (RFC 0020 §7). Resolved rather than injected: it is a
+        // per-generation singleton and this class is public, so the internal type stays off the constructor.
+        private ServiceProviderStandIns StandIns
+        {
+            get => _serviceProvider.GetRequiredService<ServiceProviderStandIns>();
+        }
 
         public DevLogicSystemInitializer(IActorSystem actorSystem, IServiceProvider serviceProvider, ILogger<DevLogicSystemInitializer> logger)
         {
@@ -340,7 +345,7 @@ namespace Vion.Dale.DevHost
                                                                                          pairings),
                                                 handlerType.Name,
                                                 logger);
-                _serviceProviderHandlerNames.Add(handlerType.Name);
+                StandIns.Add(handlerType.Name);
                 _logger.LogDebug("Created service-provider stand-in for {Handler}", handlerType.Name);
             }
         }
@@ -491,12 +496,12 @@ namespace Vion.Dale.DevHost
 
                 // Fan the full link map to every generic stand-in (each forwards only for the contracts it
                 // serves). Custom contracts come for free — the map is built from all contract mappings.
-                foreach (var handlerName in _serviceProviderHandlerNames)
+                foreach (var handlerName in StandIns.Names)
                 {
                     _actorSystem.SendTo(_actorSystem.LookupByName(handlerName), linkMessage);
                 }
 
-                _logger.LogInformation("Linked {Count} contract mappings to {Handlers} service-provider stand-ins", allMappings.Count, _serviceProviderHandlerNames.Count);
+                _logger.LogInformation("Linked {Count} contract mappings to {Handlers} service-provider stand-ins", allMappings.Count, StandIns.Names.Count);
             }
         }
 

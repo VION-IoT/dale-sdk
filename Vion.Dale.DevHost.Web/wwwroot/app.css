@@ -573,6 +573,14 @@ body {
     border-radius: var(--vion-border-radius-md);
 }
 .connection-badge i { color: var(--text-faint); font-style: normal; font-size: 10.5px; }
+/* A contract pairing (RFC 0020) is a different WIRE KIND from an interface link: same badge shape so the
+   panel reads as one row of wires, an info accent + a dashed edge so the two are never confused. */
+.connection-badge.pairing-badge {
+    background: var(--vion-info-bg-def-primary);
+    border: 1px dashed var(--vion-info-fg-def-tertiary);
+    color: var(--vion-info-fg-def-primary);
+}
+.connection-badge.pairing-badge i { color: var(--vion-info-fg-def-tertiary); }
 .io-row { display: flex; align-items: center; gap: 8px; padding: 4px 2px; }
 .io-name { font-size: 12px; }
 .contract-type-badge {
@@ -590,6 +598,8 @@ body {
 .contract-type-badge.sp { background: var(--vion-bg-def-tertiary); color: var(--vion-fg-def-secondary); }
 .scenario-only { font-size: 11px; font-style: italic; color: var(--vion-fg-def-tertiary); }
 .shared-badge { font-size: 10px; color: var(--vion-warning-fg-def-tertiary); }
+/* The same fact on the contract row itself — which peer endpoint this contract is one wire with. */
+.paired-badge { font-size: 10px; color: var(--vion-info-fg-def-tertiary); }
 
 /* ── groups ──────────────────────────────────────────────────────────────── */
 

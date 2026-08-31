@@ -13,11 +13,7 @@ using Vion.Contracts.Codec;
 using Vion.Contracts.TypeRef;
 using Vion.Dale.DevHost.Mocking;
 using Vion.Dale.Sdk.Abstractions;
-using Vion.Dale.Sdk.AnalogIo.Input;
-using Vion.Dale.Sdk.AnalogIo.Output;
 using Vion.Dale.Sdk.Diagnostics;
-using Vion.Dale.Sdk.DigitalIo.Input;
-using Vion.Dale.Sdk.DigitalIo.Output;
 using Vion.Dale.Sdk.Messages;
 using Vion.Dale.Sdk.Utils;
 
@@ -61,6 +57,9 @@ namespace Vion.Dale.DevHost.Control
         // next scheduled event. Held for the lazily built stepper.
         private readonly IVirtualSchedule _schedule;
 
+        // The stand-ins that were actually created for this generation — PublishAllStates addresses all of them.
+        private readonly ServiceProviderStandIns _standIns;
+
         private readonly List<Action<DevHostEvent>> _subscribers = new();
 
         // Deterministic stepping deps. Held but unused unless AdvanceAsync is called; the stepper (which
@@ -92,11 +91,13 @@ namespace Vion.Dale.DevHost.Control
                               InFlightActivityMonitor activityMonitor,
                               VirtualSchedule schedule,
                               TimeProvider timeProvider,
-                              ServiceProviderOutputCache outputCache)
+                              ServiceProviderOutputCache outputCache,
+                              ServiceProviderStandIns standIns)
         {
             _configuration = configuration;
             _events = events;
             _outputCache = outputCache;
+            _standIns = standIns;
             _logSink = logSink;
             _introspection = introspection;
             _actorSystem = actorSystem;
@@ -378,12 +379,18 @@ namespace Vion.Dale.DevHost.Control
                    };
         }
 
+        // Every value contract replays, not just the four HAL ones: the stand-ins are asked by the names they
+        // were actually created under (RFC 0010's convention scan), so a consumer's own contract and a provider
+        // face reach a late web subscriber exactly like a digital input does. Naming the four HAL handlers here
+        // was the last fragment of hardcoded contract support (RFC 0020 §7); the two mock handlers below are
+        // host-owned singletons — service properties and measuring points, not contracts — so they stay named.
         public void PublishAllStates()
         {
-            _actorSystem.SendTo(_actorSystem.LookupByName(nameof(DigitalInputHandler)), new MockPublishAllStatesMessage());
-            _actorSystem.SendTo(_actorSystem.LookupByName(nameof(DigitalOutputHandler)), new MockPublishAllStatesMessage());
-            _actorSystem.SendTo(_actorSystem.LookupByName(nameof(AnalogInputHandler)), new MockPublishAllStatesMessage());
-            _actorSystem.SendTo(_actorSystem.LookupByName(nameof(AnalogOutputHandler)), new MockPublishAllStatesMessage());
+            foreach (var handlerName in _standIns.Names)
+            {
+                _actorSystem.SendTo(_actorSystem.LookupByName(handlerName), new MockPublishAllStatesMessage());
+            }
+
             _actorSystem.SendTo(_actorSystem.LookupByName(nameof(MockServicePropertyHandler)), new MockPublishAllStatesMessage());
             _actorSystem.SendTo(_actorSystem.LookupByName(nameof(MockServiceMeasuringPointHandler)), new MockPublishAllStatesMessage());
         }

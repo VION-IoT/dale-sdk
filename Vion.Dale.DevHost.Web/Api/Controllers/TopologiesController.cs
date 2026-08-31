@@ -92,8 +92,10 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
         }
 
         /// <summary>
-        ///     Validate a draft topology (RFC 0013) without writing it: structural + catalog + compatibility,
-        ///     in-process against the live catalog. The draft may be un-named (a brand-new draft has no saved id).
+        ///     Validate a draft topology (RFC 0013) without writing it: structural + catalog + compatibility +
+        ///     the running host's own checks (the RFC 0020 wire-type identity rule), in-process against the live
+        ///     catalog. The store owns that sequence so validate and save cannot drift apart. The draft may be
+        ///     un-named (a brand-new draft has no saved id).
         /// </summary>
         [HttpPost("validate")]
         public async Task<IActionResult> Validate()
@@ -103,7 +105,7 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
 
             try
             {
-                DevTopologyLoader.Build(DevTopologyFile.Parse(raw));
+                _store.Validate(DevTopologyFile.Parse(raw));
                 return Ok(new { valid = true });
             }
             catch (InvalidDataException e)

@@ -47,7 +47,7 @@ namespace Vion.Dale.DevHost
                 // the same contract belongs in a simulator block, where it is visible in the topology.
                 if (a.LogicBlockId == b.LogicBlockId && a.ContractIdentifier == b.ContractIdentifier)
                 {
-                    errors.Add($"{where}: both endpoints are '{a.LogicBlockName}.{a.ContractIdentifier}' — a pairing joins two distinct endpoints; " +
+                    errors.Add($"{where}: both endpoints are '{a.LogicBlockName}.{a.ContractIdentifier}' — a pairing joins two distinct endpoints, " +
                                "an echo back onto the same contract is a simulator block's job, not the host's");
                     continue;
                 }

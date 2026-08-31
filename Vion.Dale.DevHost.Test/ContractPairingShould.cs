@@ -1,9 +1,14 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Net.Sockets;
+using System.Text;
 using System.Threading.Tasks;
 using Vion.Dale.DevHost.Scenarios;
 using Vion.Dale.DevHost.Topologies;
+using Vion.Dale.DevHost.Web;
 
 namespace Vion.Dale.DevHost.Test
 {
@@ -209,6 +214,134 @@ namespace Vion.Dale.DevHost.Test
             Assert.IsEmpty(DevTopologyLoader.Build(file).ContractPairings);
         }
 
+        [TestMethod]
+        [TestCategory("Smoke")]
+        public async Task RefuseAMismatchedPairingAtSaveAndValidateNamingBothDeclaredTypes()
+        {
+            // The identity rule of §4.3 needs the handler each contract talks to, which only an introspected
+            // block carries — so DevTopologyLoader.Build stays structural and a RUNNING host hands its
+            // introspection to the topology store. The editor's validate and its save then refuse a
+            // type-mismatched pairing where it was authored, instead of at the next host start. The boot-time
+            // refusal stays as well (the first test in this class) — Save is not the only way a file reaches a host.
+            var directory = Path.Combine(Path.GetTempPath(), "dale-pairing-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
+            var port = FreePort();
+
+            try
+            {
+                var config = DevConfigurationBuilder.Create()
+                                                    .WithTopologyName("running")
+                                                    .AddLogicBlock<SmokeHost.LogicBlocks.IoBlock>("IoBlock")
+                                                    .AddLogicBlock<SmokeHost.LogicBlocks.IdealIoBlock>("IdealIo")
+                                                    .Build();
+                config.TopologiesPath = directory;
+
+                await using var host = DevHostBuilder.Create().WithDi<SmokeHost.DependencyInjection>().WithConfiguration(config).WithWebUi(port).Build();
+                await host.StartAsync();
+
+                using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
+
+                // A digital output paired to an unrelated inbound-only contract: nothing either side declares is
+                // the same struct, so the pairing can carry nothing. GridBlock is deliberately NOT in the running
+                // topology — the check introspects the DRAFT's types, not the ones that happen to be wired.
+                var mismatched = TopologyJson("mismatched",
+                                              """
+                                              { "a": { "logicBlockName": "IoBlock", "contractIdentifier": "ActiveOutput" },
+                                                "b": { "logicBlockName": "GridBlock", "contractIdentifier": "Demand" } }
+                                              """);
+
+                var validate = await client.PostAsync("/api/topologies/validate", new StringContent(mismatched, Encoding.UTF8, "application/json"));
+                var validateBody = await validate.Content.ReadAsStringAsync();
+                Assert.AreEqual(HttpStatusCode.UnprocessableEntity, validate.StatusCode, validateBody);
+                StringAssert.Contains(validateBody, "SetDigitalOutput", "The refusal must name what was compared, not just that the pairing is wrong.");
+                StringAssert.Contains(validateBody, "GridDemandReceived");
+
+                var save = await client.PutAsync("/api/topologies/mismatched", new StringContent(mismatched, Encoding.UTF8, "application/json"));
+                var saveBody = await save.Content.ReadAsStringAsync();
+                Assert.AreEqual(HttpStatusCode.UnprocessableEntity, save.StatusCode, saveBody);
+                StringAssert.Contains(saveBody, "no type-identical direction");
+                Assert.IsFalse(File.Exists(Path.Combine(directory, "mismatched.topology.json")), "A refused save must not have written the file.");
+
+                // The canonical pair — a consumer face and its provider face — passes the same check.
+                var paired = TopologyJson("paired",
+                                          """
+                                          { "a": { "logicBlockName": "IoBlock", "contractIdentifier": "ActiveOutput" },
+                                            "b": { "logicBlockName": "IdealIo", "contractIdentifier": "OutputChannel" } }
+                                          """);
+                var ok = await client.PostAsync("/api/topologies/validate", new StringContent(paired, Encoding.UTF8, "application/json"));
+                Assert.AreEqual(HttpStatusCode.OK, ok.StatusCode, await ok.Content.ReadAsStringAsync());
+            }
+            finally
+            {
+                Directory.Delete(directory, true);
+            }
+        }
+
+        [TestMethod]
+        public void SaveAnUnpairedTopologyByteIdenticallyEvenAfterTheEditorTouchedItsPairings()
+        {
+            // The editor creates contractPairings on the first pair and drops the key with the last, but a draft
+            // that reaches the server carrying an EMPTY array must still land as an unpaired file: an author who
+            // added and then removed a pairing changed nothing, and the saved bytes have to say so.
+            var directory = Path.Combine(Path.GetTempPath(), "dale-pairing-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
+            try
+            {
+                var store = new DevTopologyStore(directory);
+                var plain = store.Save("plain", PlainTopologyJson(string.Empty));
+                var withoutKey = File.ReadAllText(plain);
+
+                var touched = store.Save("plain", PlainTopologyJson(""", "contractPairings": []"""));
+
+                Assert.AreEqual(withoutKey, File.ReadAllText(touched), "An empty pairing list must save exactly as no pairing list at all.");
+                StringAssert.DoesNotMatch(File.ReadAllText(touched), new System.Text.RegularExpressions.Regex("contractPairings"));
+            }
+            finally
+            {
+                Directory.Delete(directory, true);
+            }
+        }
+
+        [TestMethod]
+        public void KeepAPairedTopologysEntriesThroughAnUnrelatedEdit()
+        {
+            // The round-trip a paired bench depends on: the editor adds a block, saves, and the wires it never
+            // touched are still there. (p3 fixed the DRAFT's silent deletion; this pins the server half.)
+            var directory = Path.Combine(Path.GetTempPath(), "dale-pairing-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
+            try
+            {
+                var store = new DevTopologyStore(directory);
+                var pairing = """
+                              { "a": { "logicBlockName": "IoBlock", "contractIdentifier": "ActiveOutput" },
+                                "b": { "logicBlockName": "IdealIo", "contractIdentifier": "OutputChannel" } }
+                              """;
+
+                store.Save("bench", TopologyJson("bench", pairing));
+                var edited = store.Save("bench", TopologyJson("bench", pairing, true));
+
+                var reparsed = DevTopologyFile.Parse(File.ReadAllText(edited));
+                Assert.HasCount(4, reparsed.LogicBlockInstances!, "The unrelated edit added a fourth block.");
+                Assert.HasCount(1, reparsed.ContractPairings!, "An unrelated edit must not drop the pairing.");
+                Assert.AreEqual("OutputChannel", reparsed.ContractPairings![0].B!.ContractIdentifier);
+            }
+            finally
+            {
+                Directory.Delete(directory, true);
+            }
+        }
+
+        private static int FreePort()
+        {
+            // OS-assigned free port — avoids fixed-port collisions when this runs alongside the rest of the
+            // solution's test assemblies in parallel.
+            var listener = new TcpListener(IPAddress.Loopback, 0);
+            listener.Start();
+            var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+            listener.Stop();
+            return port;
+        }
+
         // The fixture's paired bench, built in C# so PairContracts is exercised alongside the file form.
         private static DevConfiguration PairedIoConfiguration()
         {
@@ -219,6 +352,34 @@ namespace Vion.Dale.DevHost.Test
                                           .PairContracts(io, "ActiveOutput", ideal, "OutputChannel")
                                           .PairContracts(io, "EnableInput", ideal, "InputChannel")
                                           .Build();
+        }
+
+        // The same three-block fixture Topology() parses, as raw JSON — what a topology editor PUTs.
+        // extraInstance adds an unrelated fourth block, standing in for "an edit that touched something else".
+        private static string TopologyJson(string id, string pairings, bool extraInstance = false)
+        {
+            var extra = extraInstance ? $$"""{ "typeFullName": "{{IdealIoType}}", "name": "Spare" },""" : string.Empty;
+            return $$"""
+                     {
+                       "id": "{{id}}",
+                       "logicBlockInstances": [
+                         {{extra}}
+                         { "typeFullName": "{{IoBlockType}}", "name": "IoBlock" },
+                         { "typeFullName": "{{IdealIoType}}", "name": "IdealIo" },
+                         { "typeFullName": "{{GridType}}", "name": "GridBlock" }
+                       ],
+                       "contractPairings": [ {{pairings}} ]
+                     }
+                     """;
+        }
+
+        // One unpaired block, with an optional extra top-level field — the "the editor touched pairings and
+        // put them back" draft.
+        private static string PlainTopologyJson(string extraField)
+        {
+            return $$"""
+                     { "id": "plain", "logicBlockInstances": [ { "typeFullName": "{{IoBlockType}}", "name": "IoBlock" } ]{{extraField}} }
+                     """;
         }
 
         private static DevTopologyFile Topology(string pairings)

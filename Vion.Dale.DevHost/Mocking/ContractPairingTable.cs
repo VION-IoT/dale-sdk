@@ -91,10 +91,13 @@ namespace Vion.Dale.DevHost.Mocking
 
                 if (aToB.Count == 0 && bToA.Count == 0)
                 {
+                    // No "; " inside a single message: the topology subsystem joins its errors with that separator
+                    // and the web layer splits them back, so a semicolon here would cut this sentence into two
+                    // error rows in the editor.
                     errors.Add($"{where}: '{Name(pairing.A)}' and '{Name(pairing.B)}' have no type-identical direction — " +
                                $"{Wires(pairing.A, a.Value)}, {Wires(pairing.B, b.Value)}. " +
-                               "A pairing delivers one side's declared outbound as the other side's identical declared inbound; " +
-                               "pair a contract with its provider face, which reuses the same wire structs.");
+                               "A pairing delivers one side's declared outbound as the other side's identical declared inbound, " +
+                               "so pair a contract with its provider face, which reuses the same wire structs.");
                     continue;
                 }
 
@@ -189,8 +192,14 @@ namespace Vion.Dale.DevHost.Mocking
 
             if (!codecsByHandler.TryGetValue(handlerName, out var codec))
             {
-                errors.Add($"{where}: '{Name(endpoint)}' is serviced by '{handlerName}', which declares no [ScenarioWire] (or did not load) — " +
-                           "a pairing carries the wire structs a handler declares, so an undeclared handler has no direction to offer");
+                // Two different faults, two different fixes — say which one it is rather than "no wire (or did
+                // not load)": a loaded handler needs a [ScenarioWire] added to it, an absent one needs its
+                // library referenced by this host.
+                errors.Add(ServiceProviderContractHandlerScan.IsHandlerTypeLoaded(handlerName) ?
+                               $"{where}: '{Name(endpoint)}' is serviced by '{handlerName}', which declares no [ScenarioWire] — " +
+                               "a pairing carries the wire structs a handler declares, so an undeclared handler has no direction to offer" :
+                               $"{where}: '{Name(endpoint)}' is serviced by '{handlerName}', which is not loaded — no service-provider handler of that name is " +
+                               "among this host's assemblies, so reference the library that declares it");
                 return null;
             }
 
