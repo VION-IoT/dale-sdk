@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Configuration.Contract;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Messages;
 using Vion.Dale.Sdk.Utils;
 
@@ -9,6 +10,7 @@ namespace Vion.Dale.Sdk.DigitalIo.Input
     /// <summary>
     ///     The provider side of a digital input, bound by a simulator standing in for the hardware.
     /// </summary>
+    [InternalApi]
     public partial class DigitalInputProvider : LogicBlockContractBase, IDigitalInputProvider
     {
         private readonly ILogger<DigitalInputProvider> _logger;

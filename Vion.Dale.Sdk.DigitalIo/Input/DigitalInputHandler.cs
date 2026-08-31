@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Vion.Contracts.FlatBuffers.Hw.Di;
 using Vion.Contracts.Mqtt;
 using Vion.Dale.Sdk.Abstractions;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Messages;
 using Vion.Dale.Sdk.Utils;
 
@@ -11,6 +12,7 @@ namespace Vion.Dale.Sdk.DigitalIo.Input
     /// <summary>
     ///     Handles communication between logic block digital inputs and the HAL via MQTT.
     /// </summary>
+    [InternalApi]
     [ScenarioWire(Inbound = typeof(DigitalInputChanged))]
     public partial class DigitalInputHandler : ServiceProviderHandlerBase
     {

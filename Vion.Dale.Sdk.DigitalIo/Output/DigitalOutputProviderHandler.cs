@@ -1,6 +1,7 @@
 using System;
 using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Abstractions;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Messages;
 
 namespace Vion.Dale.Sdk.DigitalIo.Output
@@ -10,6 +11,7 @@ namespace Vion.Dale.Sdk.DigitalIo.Output
     ///     the handler subscribes to no MQTT topic and moves no message, because the only host that routes a
     ///     provider contract is the development host, which stands in for this handler.
     /// </summary>
+    [InternalApi]
     [ScenarioWire(Inbound = typeof(SetDigitalOutput), Outbound = typeof(DigitalOutputChanged))]
     public class DigitalOutputProviderHandler : ServiceProviderHandlerBase
     {

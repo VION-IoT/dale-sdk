@@ -97,14 +97,14 @@ throw alone. That is the standing expectation here — *"The analyzer should be 
 usage"*, *"it must be clear to users what formats are valid for which type, and the SDK analyzer
 validating it, right?"* — and it is why
 [`DaleDiagnostics.cs`](../Vion.Dale.Sdk.Generators/Analyzers/DaleDiagnostics.cs) has allocated
-`DALE001`–`DALE045`, of which **43 are live**.
+`DALE001`–`DALE046`, of which **44 are live**.
 
 Adding one:
 
 - **Next free ID, one entry per ID**, following the house descriptor pattern. **IDs are never reused
   once retired** — the file says so, and it holds: `DALE006` (the deleted `[StatusIndicator]`) and
   `DALE029` (the fixed Metalama `field`-keyword bug) each leave a comment where the descriptor was.
-  That is why 45 IDs yield 43 descriptors.
+  That is why 46 IDs yield 44 descriptors.
 - **One ID may carry rules at two severities.** `DALE045` is the precedent: one `Error` descriptor,
   and advisory findings emitted through the `Diagnostic.Create(descriptor, location,
   effectiveSeverity, …)` overload with `DiagnosticSeverity.Warning`. Prefer that over two descriptors
@@ -204,6 +204,12 @@ decision and the catch logs a warning.
   marked types — not because they lack an opt-in. Mark one type in any of them and the manifest moves.
   (`IDevHostControl` has been described in briefs as `[PublicApi]`; it carries no such attribute, which
   is the only reason DevHost changes have not moved the snapshot.)
+- **Where a package's public types split into surface and plumbing, the wire structs are the surface.**
+  `Vion.Dale.Sdk.DigitalIo` / `.AnalogIo` mark their `[ScenarioWire]` structs `[PublicApi]` — an author
+  names them in a `[ScenarioWire]` declaration of their own ([`simulator-authoring.md`](simulator-authoring.md)
+  § 2, *"reuse the wire structs, do not copy them"*) and their fields are the scenario JSON's fields. The
+  contract classes and handlers beside them are `[InternalApi]`: they are public only because the TestKits
+  and the runtime live in other assemblies, and no public signature names them.
 - **`--exclude "*.Test"` is load-bearing, not hygiene.** `Vion.Dale.Sdk.Generators.Test` has five
   `[PublicApi]` types and would otherwise ship in the manifest. The five **TestKits** are not excluded —
   they are published packages and belong there.
@@ -229,3 +235,9 @@ Named rather than excused; the conventions above stand.
   `Emission`, `Gating`, `ModbusRtu`, `ModbusTcp` and `ToggleLight` carry it in three;
   `libraries/Vion.Diagnostics` and `templates/vion-iot-library` carry it in none. The working-tree
   build path is therefore not uniformly available (see [`devhost-conventions.md`](devhost-conventions.md) § 2).
+- **The analyzer pack does not run over every SDK project.** `Vion.Dale.Sdk`, `.DigitalIo`, `.AnalogIo`,
+  the SmokeHost and the examples reference `Vion.Dale.Sdk.Generators` as an `OutputItemType="Analyzer"`
+  project reference; `Vion.Dale.Sdk.Http`, `.Modbus.Core`, `.Modbus.Tcp` and `.Modbus.Rtu` do not, so
+  DALE014 and its siblings never judge their declarations — the § 5 blind spot, one level out. Adding the
+  reference is three lines and surfaces whatever those projects have accumulated; do it when next working
+  in one of them, not as a drive-by.

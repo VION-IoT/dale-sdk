@@ -1,7 +1,10 @@
-﻿namespace Vion.Dale.Sdk.DigitalIo.Input
+﻿using Vion.Dale.Sdk.Core;
+
+namespace Vion.Dale.Sdk.DigitalIo.Input
 {
     /// <summary>
     ///     Message from the <see cref="DigitalInputHandler" /> to a LogicBlock IO to notify about a digital input change.
     /// </summary>
+    [PublicApi]
     public readonly record struct DigitalInputChanged(bool Value);
 }

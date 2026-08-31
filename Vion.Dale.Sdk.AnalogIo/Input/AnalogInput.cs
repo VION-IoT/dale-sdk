@@ -2,6 +2,7 @@ using System;
 using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Configuration.Contract;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Messages;
 using Vion.Dale.Sdk.Utils;
 
@@ -10,6 +11,7 @@ namespace Vion.Dale.Sdk.AnalogIo.Input
     /// <summary>
     ///     Represents an analog input that can be used to communicate with hardware.
     /// </summary>
+    [InternalApi]
     public partial class AnalogInput : LogicBlockContractBase, IAnalogInput
     {
         private readonly ILogger<AnalogInput> _logger;

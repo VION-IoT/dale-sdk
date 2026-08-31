@@ -28,6 +28,9 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Vion.Dale.Sdk\Vion.Dale.Sdk.csproj"/>
+        <!-- The Dale analyzers, run over this project's own declarations. Compile-time only: without it the
+             reference [ScenarioWire] implementations were the one place DALE046 and its siblings never looked. -->
+        <ProjectReference Include="..\Vion.Dale.Sdk.Generators\Vion.Dale.Sdk.Generators.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer"/>
     </ItemGroup>
 
 </Project>
