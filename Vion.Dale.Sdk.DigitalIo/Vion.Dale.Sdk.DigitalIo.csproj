@@ -26,6 +26,17 @@
         </PackageReference>
     </ItemGroup>
 
+    <!-- The analyzer-wiring probe (AnalyzerWiring/): a deliberately invalid [ScenarioWire] declaration,
+         kept out of every ordinary build. `dotnet build -p:DaleAnalyzerWiringProbe=true` compiles it and MUST
+         fail with DALE046 — that is the standing proof the analyzer reference below is live and not merely
+         present. AnalyzerWiringShould (Vion.Dale.Sdk.Generators.Test) runs it. -->
+    <ItemGroup>
+        <Compile Remove="AnalyzerWiring\**"/>
+    </ItemGroup>
+    <ItemGroup Condition="'$(DaleAnalyzerWiringProbe)' == 'true'">
+        <Compile Include="AnalyzerWiring\**\*.cs"/>
+    </ItemGroup>
+
     <ItemGroup>
         <ProjectReference Include="..\Vion.Dale.Sdk\Vion.Dale.Sdk.csproj"/>
         <!-- The Dale analyzers, run over this project's own declarations. Compile-time only: without it the

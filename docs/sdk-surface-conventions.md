@@ -137,6 +137,14 @@ An analyzer that keys off contract interfaces must resolve them **both ways**:
 - **by name** — base-list identifiers matched against this compilation's contracts'
   `BetweenInterface` / `AndInterface` strings.
 
+**Whether an analyzer runs over a given project at all is a second, separate question**, and its
+answer is one line of MSBuild. `Vion.Dale.Sdk.DigitalIo` and `.AnalogIo` each carry a committed
+`AnalyzerWiring/` probe — an invalid `[ScenarioWire]` declaration kept out of every ordinary build —
+and [`AnalyzerWiringShould`](../Vion.Dale.Sdk.Generators.Test/AnalyzerWiringShould.cs) compiles it
+with `-p:DaleAnalyzerWiringProbe=true` and requires DALE046 to fail that build. Delete the analyzer
+`ProjectReference` and the test goes red. Copy the pair (probe file + two `ItemGroup`s) into any
+project whose analyzer coverage you want to hold.
+
 Pin it with a test whose contract interface is genuinely unresolved (the test expects `CS0246`
 alongside the Dale diagnostic). A test using a resolvable stub interface does not reproduce the real
 build and will pass either way. `ServiceRelationAnalyzer` /
