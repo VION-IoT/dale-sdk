@@ -22,8 +22,15 @@
   and hashed either side of the run for drift. Without that, a branch of brand-new files
   reported "clean" while every one of them had been reformatted.
 
+  -Verify refuses to run on a tree with uncommitted tracked changes (exit 2). Its drift
+  signal is `git diff HEAD`, which cannot tell cleanup's rewrites from the developer's own
+  edits, so on a dirty tree it reported style drift that was never about style. Two sessions
+  chased that phantom before committing and getting "Code style: clean" (process journal,
+  2026-08-28 and 2026-08-31). CI checks out clean, so the gate path is unaffected.
+
 .PARAMETER Verify
-  CI mode: after cleanup, fail with a non-zero exit code if anything changed.
+  CI mode: after cleanup, fail with a non-zero exit code if anything changed. Refuses to run
+  (exit 2) when the tree has uncommitted tracked changes - see the description.
 
 .PARAMETER NoBuild
   Skip `dotnet build` (use when the solution is already built, e.g. in CI where a
@@ -92,6 +99,23 @@ function Show-Drift {
 
 Push-Location $repoRoot
 try {
+    # -Verify's drift signal is `git diff HEAD` after the run, which cannot separate cleanup's rewrites
+    # from edits the developer already had in the tree - so on a dirty tree it reports "style drift" for
+    # changes that have nothing to do with style. Refuse up front, naming the cause, instead of running a
+    # full build + cleanup to produce a misleading verdict. Exit 2, distinct from the gate's own exit 1.
+    # Untracked files are exempt: they are judged by content hash either side of the run, which is exact.
+    if ($Verify) {
+        $uncommitted = @(git diff HEAD --name-only | Where-Object { $_ -and ($_ -notmatch $notCodeStyle) })
+        if ($uncommitted.Count -gt 0) {
+            Write-Host "-Verify needs a clean tree: $($uncommitted.Count) tracked file(s) have uncommitted changes."
+            Write-Host '  -Verify judges drift with `git diff HEAD`, so your own edits would be reported as style drift.'
+            Write-Host '  Commit them first, then re-run -Verify. To clean the tree instead, run without -Verify:'
+            Write-Host '    pwsh scripts/cleanup-code.ps1 -Changed'
+            $uncommitted | ForEach-Object { Write-Host "    $_" }
+            exit 2
+        }
+    }
+
     # -Changed scopes the (slow) full-solution cleanup to just the .cs this branch touched (vs origin/main +
     # the working tree). The profile is per-file, so the result is identical for those files — the dev-loop
     # fast path. Detect FIRST: when no .cs changed, skip restore+build+cleanup entirely. CI stays full (-Verify).
