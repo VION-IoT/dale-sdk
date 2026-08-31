@@ -34,15 +34,26 @@ namespace Vion.Dale.DevHost.Web.Services
 
         private readonly DevHostEvents _devHostEvents;
 
+        // The running host's introspection — handed to the topology store so an editor Save / validate applies
+        // the RFC 0020 wire-type identity rule, which needs introspected blocks and so cannot live in the
+        // host-independent DevTopologyLoader.Build.
+        private readonly DevHostIntrospection _introspection;
+
         private WebApplication? _app;
 
-        public WebHostService(WebHostConfiguration config, DevConfiguration devConfiguration, DevHostEvents devHostEvents, IDevHostControl control, DevBlockCatalog blockCatalog)
+        public WebHostService(WebHostConfiguration config,
+                              DevConfiguration devConfiguration,
+                              DevHostEvents devHostEvents,
+                              IDevHostControl control,
+                              DevBlockCatalog blockCatalog,
+                              DevHostIntrospection introspection)
         {
             _config = config;
             _devConfiguration = devConfiguration;
             _devHostEvents = devHostEvents;
             _control = control;
             _blockCatalog = blockCatalog;
+            _introspection = introspection;
         }
 
         public Task StartAsync(CancellationToken cancellationToken)
@@ -96,7 +107,7 @@ namespace Vion.Dale.DevHost.Web.Services
             builder.Services.AddSingleton<DevHostEventBroadcaster>();
             builder.Services.AddSingleton(new ScenarioStore(_devConfiguration.ScenariosPath));
             builder.Services.AddSingleton<ScenarioRunRegistry>();
-            builder.Services.AddSingleton(new DevTopologyStore(_devConfiguration.TopologiesPath));
+            builder.Services.AddSingleton(new DevTopologyStore(_devConfiguration.TopologiesPath, _introspection.ValidateContractPairings));
             builder.Services.AddSingleton(_blockCatalog);
 
             _app = builder.Build();

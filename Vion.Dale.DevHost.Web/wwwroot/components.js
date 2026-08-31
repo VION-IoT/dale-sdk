@@ -18,10 +18,10 @@ import {
     applyScenario, applySetup, baselineDelta, buildSharedContractLookup, changedCountForBlock,
     changedSinceBaseline, clearBaseline, clearPins, cloneTopology, closeScenario, closeScenarioEditor, closeTopologyEditor, collapseKey, connectionsForLb,
     advanceHost, currentValueFor, driveContract, editScenarioDraft, editTopology, halKey, historyFor, isPinned, judgeKey, loadTopologies, movePinAt, newScenarioDraft, newTopology, openScenario, openTopologyDetail, openTopologyList, pasteTopology, pauseHost, resetHost, resumeHost, stepHost,
-    saveScenarioDraft, saveTopologyDraft, setBaseline, setJudgeTick, setProperty, showError, store,
+    pairingsForLb, saveScenarioDraft, saveTopologyDraft, setBaseline, setJudgeTick, setProperty, showError, store,
     switchClockMode, switchTopology, toggleCollapsed, togglePin, validateScenarioDraft, validateTopologyDraft, valueKey,
 } from './store.js';
-import { allowsMultiple, autoConnect, defByType, gatedOutMappingProblems, problemsOf, residueOf } from './wiring.js';
+import { allowsMultiple, autoConnect, contractEndpoints, defByType, gatedOutMappingProblems, pairingProblemsOf, problemsOf, residueOf } from './wiring.js';
 import {
     contractOutputFields, contractRefs, contractValueEditor, findMember, kindOf, pathOptions,
     SETUP_KIND_IDS, STEP_KIND_IDS, stepErrors, valueEditorFor,
@@ -880,6 +880,11 @@ export const WiringSection = {
     props: ['lb', 'sharedLookup'],
     setup(props) {
         const connections = connectionsForLb(props.lb.id);
+        // RFC 0020: pairings are a SECOND wire kind through this panel — an interface link joins two blocks'
+        // logic interfaces, a pairing joins two service-provider contract endpoints. They render as their own
+        // badge row (and a per-contract marker below) so neither is mistaken for the other.
+        const pairings = pairingsForLb(props.lb.name);
+        const pairedFor = id => pairings.filter(p => p.ownContract === id);
         const contractInfoMap = {};
         (props.lb.contracts || []).forEach(c => { contractInfoMap[c.identifier] = c; });
         const contracts = (props.lb.contractMappings || []).map(cm => {
@@ -904,19 +909,25 @@ export const WiringSection = {
         const halValue = (c) => store.hal[halKey(c.spId, c.svcId, c.cId)];
         const onDi = (c, e) => driveContract(c.handler, c.spId, c.svcId, c.cId, e.target.checked);
         const onAi = (c, e) => driveContract(c.handler, c.spId, c.svcId, c.cId, parseFloat(e.target.value) || 0);
-        return { connections, contracts, halValue, onDi, onAi, fmt: formatValue };
+        return { connections, contracts, pairings, pairedFor, halValue, onDi, onAi, fmt: formatValue };
     },
     template: `
         <details v-if="connections.length || contracts.length" class="wiring">
-            <summary>wiring <span class="group-count">{{ connections.length }} links · {{ contracts.length }} contracts</span></summary>
+            <summary>wiring <span class="group-count">{{ connections.length }} links · {{ contracts.length }} contracts<template v-if="pairings.length"> · {{ pairings.length }} pairings</template></span></summary>
             <div class="connection-badges">
                 <span v-for="c in connections" class="connection-badge">
                     <b>{{ c.arrow }}</b> {{ c.otherName }} <i>via {{ c.sourceIface }} ↔ {{ c.targetIface }}</i>
+                </span>
+                <span v-for="(p, i) in pairings" :key="'pairing-' + i" class="connection-badge pairing-badge"
+                      :title="'contract pairing (RFC 0020) — one wire, delivered ' + p.deliveryHint">
+                    <b>paired {{ p.arrow }}</b> {{ p.otherName }} <i>{{ p.ownContract }} ↔ {{ p.otherContract }}</i>
                 </span>
             </div>
             <div v-for="c in contracts" :key="c.spId + c.svcId + c.cId" class="io-row">
                 <span class="contract-type-badge" :class="c.short.toLowerCase()" :title="c.type">{{ c.short }}</span>
                 <span class="mono io-name">{{ c.id }}</span>
+                <span v-for="(p, i) in pairedFor(c.id)" :key="'paired-' + i" class="paired-badge"
+                      :title="'paired with ' + p.otherName + '.' + p.otherContract">paired {{ p.arrow }} {{ p.otherName }}.{{ p.otherContract }}</span>
                 <span v-if="c.sharedWith.length" class="shared-badge">shared with {{ c.sharedWith.join(', ') }}</span>
                 <span class="item-spacer"></span>
                 <input v-if="c.short === 'DI'" class="toggle" type="checkbox" :checked="!!halValue(c)" @change="onDi(c, $event)">
@@ -1347,6 +1358,70 @@ const ResidueRow = {
     `,
 };
 
+// One declared contract pairing (RFC 0020) rendered as `blockA.contractA ⇄ blockB.contractB` with an unpair
+// button — the WiringRow shape, deliberately, because a pairing IS a wire; only the endpoints differ (contract
+// bindings, not logic interfaces). The '⇄' is the DECLARATION, which is symmetric: which directions actually
+// carry a value is the host's answer and shows in the running topology's wiring panel, not here.
+const PairingRow = {
+    props: ['pairing', 'index', 'problem'],
+    setup(props, { emit }) {
+        const remove = () => emit('unpair', props.index);
+        const hasProblem = computed(() => !!props.problem);
+        const problemMessage = computed(() => props.problem ? props.problem.message : '');
+        const side = end => end ? `${end.logicBlockName}.${end.contractIdentifier}` : '(incomplete)';
+        return { remove, hasProblem, problemMessage, side };
+    },
+    template: `
+        <div class="topo-row topo-wire-row" :class="{ 'topo-wire-bad': hasProblem }" :title="problemMessage">
+            <span class="mono topo-name">{{ side(pairing.a) }}</span>
+            <span class="topo-arrow">⇄</span>
+            <span class="mono topo-name">{{ side(pairing.b) }}</span>
+            <span v-if="hasProblem" class="topo-wire-note">{{ problemMessage }}</span>
+            <span class="item-spacer"></span>
+            <button type="button" class="theme-toggle" title="remove this pairing" @click="remove">✕</button>
+        </div>
+    `,
+};
+
+// Declare a new pairing: two endpoint pickers + add. Reuses the Combobox (the ⌘K-style picker the block and
+// wiring pickers already use — devhost-conventions §4) with the contract type as each row's meta, so an author
+// pairing a consumer face to its provider face can see the two types before committing. The button stays
+// disabled until both sides are chosen and distinct; everything else the server refuses is reported as a
+// problem on the row, where the message can be read rather than guessed at from a greyed-out button.
+const PairingPicker = {
+    components: { Combobox },
+    props: ['instances'],
+    emits: ['pair'],
+    setup(props, { emit }) {
+        const a = ref(null);
+        const b = ref(null);
+        const options = computed(() => contractEndpoints(store.definitions, props.instances || [])
+            .map(e => ({ value: e, label: e.label, meta: e.contractType })));
+        const labelOf = end => end ? end.label : '';
+        const sameEndpoint = computed(() => !!a.value && !!b.value && a.value.label === b.value.label);
+        const canPair = computed(() => !!a.value && !!b.value && !sameEndpoint.value);
+        const hint = computed(() => sameEndpoint.value ? 'a pairing joins two distinct endpoints' : '');
+        const add = () => {
+            if (!canPair.value) return;
+            emit('pair',
+                { logicBlockName: a.value.blockName, contractIdentifier: a.value.contractIdentifier },
+                { logicBlockName: b.value.blockName, contractIdentifier: b.value.contractIdentifier });
+            a.value = null;
+            b.value = null;
+        };
+        return { a, b, options, labelOf, canPair, hint, add, onPickA: v => { a.value = v; }, onPickB: v => { b.value = v; } };
+    },
+    template: `
+        <div class="topo-row topo-picker">
+            <Combobox class="topo-wire-pick" :options="options" :label="labelOf(a)" placeholder="pair contract…" @pick="onPickA"/>
+            <span class="topo-arrow">⇄</span>
+            <Combobox class="topo-wire-pick" :options="options" :label="labelOf(b)" placeholder="…with contract" @pick="onPickB"/>
+            <button type="button" class="theme-toggle topo-pick-add" :disabled="!canPair" @click="add">+ pair</button>
+            <span v-if="hint" class="topo-hint">{{ hint }}</span>
+        </div>
+    `,
+};
+
 // One block instance in the editor: the name/type/remove row, plus a per-instance [InstantiationParameter]
 // editor (RFC 0016) that expands on click. Inputs are picked from the definition's parameter schema (enum →
 // select, integer → number with bounds, string → text, bool → checkbox) and written straight onto the draft
@@ -1413,7 +1488,7 @@ const InstanceRow = {
 };
 
 const TopologyEditor = {
-    components: { BlockPicker, WiringRow, ResidueRow, InstanceRow },
+    components: { BlockPicker, WiringRow, ResidueRow, InstanceRow, PairingRow, PairingPicker },
     setup() {
         const draft = computed(() => store.topologyDraft);
         const instances = computed(() => (draft.value && draft.value.logicBlockInstances) || []);
@@ -1430,6 +1505,12 @@ const TopologyEditor = {
             if (!removed) return;
             d.logicBlockInstances.splice(index, 1);
             d.interfaceMappings = (d.interfaceMappings || []).filter(m => m.sourceLogicBlockName !== removed.name && m.targetLogicBlockName !== removed.name);
+            // A pairing naming the removed block is dangling too — drop it for the same reason (the server
+            // refuses it), and drop the key entirely when nothing is left, so an unpaired file stays unpaired.
+            if (d.contractPairings) {
+                d.contractPairings = d.contractPairings.filter(p => p.a && p.b && p.a.logicBlockName !== removed.name && p.b.logicBlockName !== removed.name);
+                if (!d.contractPairings.length) delete d.contractPairings;
+            }
             store.topologyDraftDirty = true;
         };
         const shortFor = typeFullName => shortTypeName(typeFullName);
@@ -1442,12 +1523,37 @@ const TopologyEditor = {
         // every draft mutation so conflicts surface before the server validate. The first problem per
         // mapping index drives that row's accent; the full list feeds the footer summary.
         const contractMappings = computed(() => (draft.value && draft.value.contractMappings) || []);
+
+        // ── contract pairings (RFC 0020) ───────────────────────────────────────────
+        // The draft carries contractPairings only when it HAS any — the key is created on the first pair and
+        // deleted with the last, so an unpaired topology round-trips through the editor byte-identically
+        // instead of gaining an empty array. pairingProblemsOf is the client mirror of the server's structural
+        // refusals; the wire-type identity rule (§4.3) needs the handlers and lands on validate / save.
+        const pairings = computed(() => (draft.value && draft.value.contractPairings) || []);
+        const pairingProblems = computed(() => pairingProblemsOf(store.definitions, instances.value, pairings.value));
+        const pairingProblemFor = index => pairingProblems.value.find(p => p.pairingIndex === index) || null;
+        const pair = (a, b) => {
+            const d = draft.value;
+            if (!d) return;
+            if (!d.contractPairings) d.contractPairings = [];
+            d.contractPairings.push({ a, b });
+            store.topologyDraftDirty = true;
+        };
+        const unpair = index => {
+            const d = draft.value;
+            if (!d || !d.contractPairings) return;
+            d.contractPairings.splice(index, 1);
+            if (!d.contractPairings.length) delete d.contractPairings;
+            store.topologyDraftDirty = true;
+        };
+
         // Merge the pure wiring problems (incompatible / over-wired) with the RFC 0016 gated-out check — a
         // mapping to an interface/contract the chosen parameters exclude. Both share the { mappingIndex, kind,
         // message } shape, so the per-wire accent and the footer summary render them uniformly.
         const problems = computed(() => [
             ...problemsOf(store.definitions, instances.value, mappings.value),
             ...gatedOutMappingProblems(store.definitions, instances.value, mappings.value, contractMappings.value),
+            ...pairingProblems.value,
         ]);
         const problemFor = index => problems.value.find(p => p.mappingIndex === index) || null;
         const hasProblems = computed(() => problems.value.length > 0);
@@ -1507,11 +1613,12 @@ const TopologyEditor = {
             if (ok && id) switchTopology(id);
         };
         // Any draft mutation invalidates a prior validate verdict.
-        watch([instances, mappings, () => draft.value && draft.value.id], () => { validated.value = false; }, { deep: true });
+        watch([instances, mappings, pairings, () => draft.value && draft.value.id], () => { validated.value = false; }, { deep: true });
 
         return {
             draft, instances, mappings, onIdInput, close, removeBlock, shortFor,
             residue, wire, unwire, runAutoConnect,
+            pairings, pairingProblemFor, pair, unpair,
             problems, problemFor, hasProblems, problemMessages,
             tab, rawText, showRaw, showForm, commitRaw,
             errors, hasErrors, showValid, validate, dirty, save, saveAndSwitch,
@@ -1554,6 +1661,11 @@ const TopologyEditor = {
                     <h3 class="topo-section">residue</h3>
                     <ResidueRow v-for="(e, i) in residue" :key="i" :entry="e" @wire="wire"/>
                 </template>
+
+                <h3 class="topo-section">contract pairings</h3>
+                <div v-if="!pairings.length" class="topo-meta">no pairings — pair a contract with a simulator's provider face to close a loop (RFC 0020)</div>
+                <PairingRow v-for="(p, i) in pairings" :key="'pairing-' + i" :pairing="p" :index="i" :problem="pairingProblemFor(i)" @unpair="unpair"/>
+                <PairingPicker :instances="instances" @pair="pair"/>
 
                 <div v-if="hasProblems" class="topo-problems">
                     <span class="topo-problems-head">⚠ {{ problems.length }} issue(s)</span>

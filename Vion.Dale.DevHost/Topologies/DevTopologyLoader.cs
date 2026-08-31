@@ -261,6 +261,15 @@ namespace Vion.Dale.DevHost.Topologies
     }
 
     /// <summary>
+    ///     A check a running host can apply to a built draft configuration on top of
+    ///     <see cref="DevTopologyLoader.Build" />'s host-independent structural rules — today the RFC 0020 §4.3
+    ///     wire-type identity rule, which needs the handler each contract talks to and therefore introspected
+    ///     blocks. Throws <see cref="InvalidDataException" /> listing every problem, the same shape
+    ///     <c>Build</c> throws, so every caller reports it identically.
+    /// </summary>
+    public delegate void TopologyHostCheck(DevConfiguration configuration);
+
+    /// <summary>
     ///     Discovery and persistence over <c>{cwd}/topologies/*.topology.json</c> for the switching UI and the
     ///     topology editor (RFC 0013) — rescan-on-read, like scenarios. Saving is path-confined to the directory
     ///     and disabled by <c>DALE_DEVHOST_READONLY_TOPOLOGIES=1</c>.
@@ -272,6 +281,11 @@ namespace Vion.Dale.DevHost.Topologies
 
         private static readonly Regex IdSlug = new("^[A-Za-z0-9][A-Za-z0-9._-]*$", RegexOptions.Compiled);
 
+        // Supplied by a running host; null in a host-independent context (the boot-time directory scan, the
+        // CLI's offline check, a unit test), where Build's structural rules are the whole verdict and the
+        // host's own start-up refusal stays the backstop.
+        private readonly TopologyHostCheck? _hostCheck;
+
         public string Directory { get; }
 
         public static bool IsReadOnly
@@ -279,9 +293,10 @@ namespace Vion.Dale.DevHost.Topologies
             get => Environment.GetEnvironmentVariable(ReadOnlyEnvVar) == "1";
         }
 
-        public DevTopologyStore(string? directory = null)
+        public DevTopologyStore(string? directory = null, TopologyHostCheck? hostCheck = null)
         {
             Directory = DevDataDirectory.Resolve("topologies", directory);
+            _hostCheck = hostCheck;
         }
 
         public IReadOnlyList<TopologyListEntry> List()
@@ -351,7 +366,7 @@ namespace Vion.Dale.DevHost.Topologies
                 throw new InvalidDataException($"id '{file.Id}' does not match the requested id '{id}'");
             }
 
-            var configuration = DevTopologyLoader.Build(file); // catalog + compatibility; throws InvalidDataException on any problem
+            var configuration = Validate(file);
             if (!TryGetPath(id, out var path))
             {
                 throw new InvalidDataException($"'{id}' is not a valid topology id");
@@ -370,7 +385,11 @@ namespace Vion.Dale.DevHost.Topologies
                                 Id = file.Id,
                                 LogicBlockInstances = file.LogicBlockInstances,
                                 InterfaceMappings = file.InterfaceMappings,
-                                ContractPairings = file.ContractPairings,
+
+                                // An EMPTY pairing list is written back as no list at all: an editor that added
+                                // and then removed a pairing must leave an unpaired file byte-identical, and a
+                                // saved `"contractPairings": []` would fail that even though it means nothing.
+                                ContractPairings = file.ContractPairings is { Count: > 0 } ? file.ContractPairings : null,
                                 ContractMappings = configuration.LogicBlocks
                                                                 .SelectMany(lb => lb.ContractMappings.Select(cm => new TopologyContractMapping
                                                                                                                    {
@@ -387,6 +406,21 @@ namespace Vion.Dale.DevHost.Topologies
             System.IO.Directory.CreateDirectory(Directory);
             File.WriteAllText(path, JsonSerializer.Serialize(completed, DevTopologyFile.SerializerOptions));
             return path;
+        }
+
+        /// <summary>
+        ///     Everything <see cref="Save" /> checks, minus the id match and the write: the catalog +
+        ///     interface-compatibility build, then the host check when a running host supplied one. This is what
+        ///     <c>POST /api/topologies/validate</c> runs on a draft that may not be named yet, so the editor's
+        ///     validate and its save reach exactly the same verdict — including the RFC 0020 wire-type identity
+        ///     rule, which would otherwise only refuse at the next host start. Throws
+        ///     <see cref="InvalidDataException" /> with every problem at once.
+        /// </summary>
+        public DevConfiguration Validate(DevTopologyFile file)
+        {
+            var configuration = DevTopologyLoader.Build(file);
+            _hostCheck?.Invoke(configuration);
+            return configuration;
         }
 
         // Windows file systems match names case-insensitively: without this check, 'Default' would load

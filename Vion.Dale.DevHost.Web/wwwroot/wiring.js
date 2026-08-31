@@ -170,6 +170,93 @@ export function gatedOutMappingProblems(definitions, instances, interfaceMapping
     return problems;
 }
 
+// ── contract pairings (RFC 0020) ────────────────────────────────────────────────────────────────────
+// A pairing declares two service-provider contract ENDPOINTS to be one wire, so the editor's vocabulary
+// here is (block, contract), never an endpoint triple and never an interface. Which directions actually
+// materialise is the host's answer (wire-type identity, §4.3) — the client has no handler wire types, so it
+// checks exactly the STRUCTURAL rules the server refuses on, and leaves the type verdict to validate/save.
+
+export function contractsOf(definitions, instance) {
+    const def = defByType(definitions, instance.typeFullName);
+    return def ? (def.contracts || []) : [];
+}
+// Whether a contract binding is gated OUT by [IncludedWhen] for the instance's chosen parameters (RFC 0016) —
+// the contract twin of interfaceGatedOut. Pairing one would declare a wire onto an endpoint that never exists.
+export function contractGatedOut(definitions, instance, contractIdentifier) {
+    const def = defByType(definitions, instance.typeFullName);
+    if (!def) return false;
+    const contract = (def.contracts || []).find(c => c.identifier === contractIdentifier);
+    return contract ? memberGatedOut(contract.includedWhen, def, instance) : false;
+}
+// Every pairable endpoint in the draft, in block order: { blockName, contractIdentifier, contractType, label }.
+// Gated-out contracts are omitted, matching how candidatesFor omits gated-out interfaces.
+export function contractEndpoints(definitions, instances) {
+    const endpoints = [];
+    for (const inst of instances || []) {
+        for (const contract of contractsOf(definitions, inst)) {
+            if (contractGatedOut(definitions, inst, contract.identifier)) continue;
+            endpoints.push({
+                blockName: inst.name,
+                contractIdentifier: contract.identifier,
+                contractType: contract.matchingContractType,
+                label: `${inst.name}.${contract.identifier}`,
+            });
+        }
+    }
+    return endpoints;
+}
+const pairingKey = e => `${e.logicBlockName} ${e.contractIdentifier}`;
+// Continuous, client-side checks over the draft's contractPairings — the mirror of the server's structural
+// refusals (DevTopologyFile.Parse + ContractPairingResolution.Resolve), so the author sees them while typing.
+// Returns [{ pairingIndex, kind, message }] with kind one of 'unknown-block' | 'unknown-contract' |
+// 'self-paired' | 'duplicate' | 'gated-out'. Type identity is deliberately absent: it needs the two handlers'
+// declared wire structs, which only the host knows, and validate/save reports it naming both types.
+export function pairingProblemsOf(definitions, instances, pairings) {
+    const problems = [];
+    const list = pairings || [];
+    const instByName = name => (instances || []).find(i => i.name === name) || null;
+    const seen = new Map();
+
+    const checkEndpoint = (endpoint, index, side) => {
+        if (!endpoint || !endpoint.logicBlockName || !endpoint.contractIdentifier) {
+            problems.push({ pairingIndex: index, kind: 'unknown-contract', message: `pairing ${index + 1} side ${side}: logicBlockName and contractIdentifier are both required` });
+            return false;
+        }
+        const inst = instByName(endpoint.logicBlockName);
+        if (!inst) {
+            problems.push({ pairingIndex: index, kind: 'unknown-block', message: `${endpoint.logicBlockName} is not a block in this topology` });
+            return false;
+        }
+        if (!contractsOf(definitions, inst).some(c => c.identifier === endpoint.contractIdentifier)) {
+            problems.push({ pairingIndex: index, kind: 'unknown-contract', message: `${endpoint.logicBlockName} has no contract ${endpoint.contractIdentifier}` });
+            return false;
+        }
+        if (contractGatedOut(definitions, inst, endpoint.contractIdentifier)) {
+            problems.push({ pairingIndex: index, kind: 'gated-out', message: `${endpoint.logicBlockName}.${endpoint.contractIdentifier} is gated out by the chosen parameters — this pairing would not exist at runtime` });
+        }
+        return true;
+    };
+
+    list.forEach((p, i) => {
+        const a = p && p.a, b = p && p.b;
+        const aOk = checkEndpoint(a, i, 'a'), bOk = checkEndpoint(b, i, 'b');
+        if (!aOk || !bOk) return;
+        if (pairingKey(a) === pairingKey(b)) {
+            problems.push({ pairingIndex: i, kind: 'self-paired', message: `both endpoints are ${a.logicBlockName}.${a.contractIdentifier} — an echo onto the same contract is a simulator block's job, not the host's` });
+            return;
+        }
+        // Symmetric, so (a,b) and (b,a) are the same wire — declaring it twice would read as fan-out.
+        const key = [pairingKey(a), pairingKey(b)].sort().join('|');
+        if (seen.has(key)) {
+            problems.push({ pairingIndex: i, kind: 'duplicate', message: `${a.logicBlockName}.${a.contractIdentifier} and ${b.logicBlockName}.${b.contractIdentifier} are already paired — a pairing is symmetric, so declare it once` });
+            return;
+        }
+        seen.set(key, i);
+    });
+
+    return problems;
+}
+
 export function autoConnect(definitions, instances, mappings) {
     const next = mappings.slice();
     const has = (sn, si, tn, ti) => next.some(m =>

@@ -46,6 +46,20 @@ Four consequences worth knowing before you rename anything:
 Identifiers are not source-code trivia you have to reverse-engineer: `dale list` prints the block full
 names, service, property, contract and interface identifiers exactly as introspection emits them.
 
+## One identifier that is not a translation key: the contract-type token
+
+`[ServiceProviderContractType("DigitalOutputProvider")]` names a *contract type*, not a display
+string. Nothing translates it — but it is the token the platform matches contracts on, so it is a
+stable identifier all the same, and it must be chosen once. It reaches introspection as
+`matchingContractType`, the runtime pairs a binding to its handler through it, and the DevHost's
+topology editor shows it beside each endpoint when authoring a `contractPairings` entry. Renaming one
+is a breaking change for every configuration that binds it, in a way a rename of a *translated*
+identifier is not — orphaned translations degrade gracefully; an orphaned contract type does not
+match. Provider faces (the inverse surfaces a simulator binds, see
+[`simulator-authoring.md`](simulator-authoring.md)) each add one, so pick the name with the same care
+as the consumer face's: the SDK's four are `DigitalOutputProvider`, `DigitalInputProvider`,
+`AnalogOutputProvider` and `AnalogInputProvider`.
+
 ## The one decoupling knob
 
 `Identifier =` on `[ServiceProviderContractBinding]` and `[LogicBlockInterfaceBinding]` pins the

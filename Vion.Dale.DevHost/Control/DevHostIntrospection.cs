@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
@@ -48,6 +49,11 @@ namespace Vion.Dale.DevHost.Control
         // EnsureIntrospected defensively, and the web server can serve concurrent requests, so the one-time
         // population must be thread-safe.
         private readonly object _gate = new();
+
+        // block TYPE → (contract identifier → ContractHandlerActorName), for draft topologies the running
+        // configuration knows nothing about (RFC 0020 §4.3 at Save / validate time). Filled lazily, guarded by
+        // _gate like the rest of the introspection state.
+        private readonly Dictionary<Type, IReadOnlyDictionary<string, string>> _handlerNamesByBlockType = new();
 
         private readonly ILogger<DevHostIntrospection> _logger;
 
@@ -255,6 +261,29 @@ namespace Vion.Dale.DevHost.Control
         }
 
         /// <summary>
+        ///     Apply the RFC 0020 §4.3 wire-type identity rule to a configuration that is NOT the running one —
+        ///     the draft a topology editor Save (or <c>POST /api/topologies/validate</c>) is checking. Throws
+        ///     <see cref="InvalidDataException" /> listing every problem, in the same words a host start refuses
+        ///     with, so a mismatched pairing is caught where it was authored instead of at the next boot.
+        ///     <para>
+        ///         <c>DevTopologyLoader.Build</c> deliberately stays host-independent (structure only): the rule
+        ///         needs the handler each contract talks to, and that name lives on the contract INSTANCE the
+        ///         binder constructs — so only a host with the block types loaded can answer it. A running host
+        ///         hands this method to its <c>DevTopologyStore</c>; without one (the CLI's offline check, a unit
+        ///         test) the structural rules stay the whole verdict and the boot-time refusal remains the backstop.
+        ///     </para>
+        /// </summary>
+        public void ValidateContractPairings(DevConfiguration draft)
+        {
+            if (draft.ContractPairings.Count == 0)
+            {
+                return;
+            }
+
+            ContractPairingTable.Build(draft.ContractPairings, (blockId, contractIdentifier) => HandlerOfDraftBlock(draft, blockId, contractIdentifier), WireCodecsByHandler());
+        }
+
+        /// <summary>
         ///     The service-config id for one service of one block. Derived from the pair that already
         ///     identifies the service — the topology block id and the service identifier — so two runs of the
         ///     same wired config mint the same ids and <c>dale dev --export-config</c> writes a byte-identical
@@ -320,6 +349,52 @@ namespace Vion.Dale.DevHost.Control
             var contract = result.Contracts.FirstOrDefault(c => c.Identifier == contractIdentifier);
             return contract?.Annotations is { } annotations && annotations.TryGetValue(ServiceProviderContractAnnotations.ContractHandlerActorName, out var handler) ?
                        handler as string : null;
+        }
+
+        // The draft's own (block id → type) join, then the type's contract → handler map below. The running
+        // host's _results cannot serve this: a draft mints fresh block ids, and may name types the running
+        // topology does not instantiate at all.
+        private string? HandlerOfDraftBlock(DevConfiguration draft, string blockId, string contractIdentifier)
+        {
+            var block = draft.LogicBlocks.FirstOrDefault(lb => lb.Id == blockId);
+            return block is null ? null : ContractHandlerActorNamesOfType(block.LogicBlockType).GetValueOrDefault(contractIdentifier);
+        }
+
+        // contract identifier → ContractHandlerActorName for one block TYPE, introspected off this host's own
+        // container (every WithDi<> block is registered there, whether or not the running topology uses it) and
+        // cached per type — introspecting a block constructs its contracts, which is not free and is the only
+        // way to read a name that lives on the instance. An unregistered type yields an empty map, so the
+        // pairing table reports "no such contract" and the block's own unregistered-type refusal stays the
+        // place that diagnoses the missing registration.
+        private IReadOnlyDictionary<string, string> ContractHandlerActorNamesOfType(Type blockType)
+        {
+            lock (_gate)
+            {
+                if (_handlerNamesByBlockType.TryGetValue(blockType, out var cached))
+                {
+                    return cached;
+                }
+
+                var names = new Dictionary<string, string>(StringComparer.Ordinal);
+                var instance = _serviceProvider.GetService(blockType) as LogicBlockBase;
+                try
+                {
+                    foreach (var contract in instance is null ? [] : LogicBlockIntrospection.IntrospectLogicBlock(instance, _serviceProvider).Contracts)
+                    {
+                        if (contract.Annotations.TryGetValue(ServiceProviderContractAnnotations.ContractHandlerActorName, out var handler) && handler is string handlerName)
+                        {
+                            names[contract.Identifier] = handlerName;
+                        }
+                    }
+                }
+                finally
+                {
+                    (instance as IDisposable)?.Dispose();
+                }
+
+                _handlerNamesByBlockType[blockType] = names;
+                return names;
+            }
         }
 
         // RFC 0020: the declared pairings, each carrying the directions the wire-type identity rule actually

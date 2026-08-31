@@ -1197,3 +1197,32 @@ export function connectionsForLb(lbId) {
     });
     return connections;
 }
+
+// RFC 0020 contract pairings touching this block, read off the SAME /api/configuration payload the wiring
+// panel already has — a pairing needs no endpoint of its own. Each entry carries this block's own contract,
+// the peer endpoint, and which directions the HOST actually materialised (aToB / bToA are derived from the
+// two handlers' declared wire types, so a one-way provider face reads one-way here too). Keyed by block NAME
+// because that is how a pairing is declared; a topology cannot repeat an instance name.
+export function pairingsForLb(lbName) {
+    const pairings = [];
+    if (!store.config || !store.config.contractPairings) return pairings;
+    store.config.contractPairings.forEach(p => {
+        if (!p || !p.a || !p.b) return;
+        const mineIsA = p.a.logicBlockName === lbName;
+        if (!mineIsA && p.b.logicBlockName !== lbName) return;
+        const own = mineIsA ? p.a : p.b, other = mineIsA ? p.b : p.a;
+        // "feeds" = this block's captured outbound is delivered as the peer's inbound; "receives" is the mirror.
+        const feeds = mineIsA ? !!p.aToB : !!p.bToA;
+        const receives = mineIsA ? !!p.bToA : !!p.aToB;
+        pairings.push({
+            ownContract: own.contractIdentifier,
+            otherName: other.logicBlockName,
+            otherContract: other.contractIdentifier,
+            feeds, receives,
+            arrow: feeds && receives ? '⇄' : feeds ? '→' : receives ? '←' : '—',
+            // Prose for the tooltip — the SPA keeps boolean logic out of template expressions (see its CLAUDE.md).
+            deliveryHint: feeds && receives ? 'both ways' : feeds ? 'to the peer only' : receives ? 'from the peer only' : 'in no direction',
+        });
+    });
+    return pairings;
+}

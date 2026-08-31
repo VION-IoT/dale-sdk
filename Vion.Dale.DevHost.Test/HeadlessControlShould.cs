@@ -326,6 +326,49 @@ namespace Vion.Dale.DevHost.Test
             Assert.AreEqual(3.3, (double)echoAfter.Value!, 0.001, "EchoOutput must mirror CurrentLevel=3.3 after the timer fired.");
         }
 
+        [TestMethod]
+        public async Task PublishAllStates_ReplaysEveryValueContract_NotOnlyTheFourHalOnes()
+        {
+            // A browser that connects after a value was written is primed by PublishAllStates (the SignalR
+            // hub's OnConnectedAsync). It used to ask the four HAL handlers by name, so a consumer's own value
+            // contract — or a provider face — stayed dark on that client until the next write. Now every
+            // discovered stand-in is asked, which is what "no hardcoded contract support" means (RFC 0020 §7).
+            // GridBlock.Demand is the non-HAL case: a third-party-shaped struct contract on GridDemandHandler.
+            var config = DevConfigurationBuilder.Create().WithTopologyName("grid").AddLogicBlock<SmokeHost.LogicBlocks.GridBlock>("grid").Build();
+            await using var host = DevHostBuilder.Create().WithDi<SmokeHost.DependencyInjection>().WithConfiguration(config).WithDeterministicStepping().Build();
+            await host.StartAsync();
+
+            var grid = host.Control.GetConfiguration().LogicBlocks.Single(b => b.Name == "grid");
+            var demand = grid.ContractMappings.Single(m => m.ContractIdentifier == "Demand");
+            var handler = grid.Contracts.Single(c => c.Identifier == "Demand").Annotations[ServiceProviderContractAnnotations.ContractHandlerActorName].ToString()!;
+            Assert.AreNotEqual("DigitalInputHandler", handler, "The fixture must be a NON-HAL contract for this test to mean anything.");
+
+            // Drive, and await the stand-in's OWN event for it — so the value is recorded before the replay is
+            // asked for and the assertion below cannot pass on the drive's echo.
+            Func<DevHostEvent, object?> onDemand = e => e is ServiceProviderContractChanged c && c.ContractId == demand.MappedContractIdentifier ? c.Value.GetRawText() : null;
+
+            var driven = host.Control.WaitForAsync(onDemand, TimeSpan.FromSeconds(15));
+            await host.Control.DriveServiceProviderContractAsync(handler,
+                                                                 demand.MappedServiceProviderIdentifier,
+                                                                 demand.MappedServiceIdentifier,
+                                                                 demand.MappedContractIdentifier,
+                                                                 JsonSerializer.SerializeToElement(new
+                                                                                                   {
+                                                                                                       valid = true, scope = "PerPhase",
+                                                                                                       limits = new { activePowerW = 1200.0, reactivePowerVar = 0.0 },
+                                                                                                   }));
+            Assert.IsNotNull(await driven, "The drive itself must reach the stand-in before the replay is asked for.");
+
+            // Subscribe LATE — exactly like a browser connecting mid-session — then ask for the replay and
+            // watch this contract's state arrive a SECOND time.
+            var replayed = host.Control.WaitForAsync(onDemand, TimeSpan.FromSeconds(15));
+            host.Control.PublishAllStates();
+
+            var observed = await replayed;
+            Assert.IsNotNull(observed, "A late subscriber must be primed with a non-HAL contract's state, not just the four HAL ones.");
+            StringAssert.Contains((string)observed, "1200", "The replayed value must be the one that was driven.");
+        }
+
         private static DevConfiguration Config()
         {
             return DevConfigurationBuilder.Create().AddLogicBlock<CounterBlock>("counter").Build();

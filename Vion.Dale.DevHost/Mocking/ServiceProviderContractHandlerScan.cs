@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using Vion.Dale.DevHost.Scenarios;
 using Vion.Dale.Sdk.Abstractions;
@@ -29,6 +30,19 @@ namespace Vion.Dale.DevHost.Mocking
             }
 
             return discovered;
+        }
+
+        /// <summary>
+        ///     Whether a handler class of that name is loaded at all — regardless of whether it declares a
+        ///     <c>[ScenarioWire]</c>. Only the refusal path asks (the RFC 0020 pairing table, when a contract's
+        ///     <c>ContractHandlerActorName</c> is not among the discovered codecs): a handler that is present but
+        ///     silent about its wire structs is an authoring problem in the handler, while one that is absent is a
+        ///     missing project reference — two different fixes, so they get two different messages.
+        /// </summary>
+        public static bool IsHandlerTypeLoaded(string handlerTypeName)
+        {
+            var assemblies = AppDomain.CurrentDomain.GetAssemblies().Where(assembly => !assembly.IsDynamic).ToArray();
+            return assemblies.GetConcreteTypes(typeof(IServiceProviderHandlerActor)).Any(t => string.Equals(t.Name, handlerTypeName, StringComparison.Ordinal));
         }
     }
 }

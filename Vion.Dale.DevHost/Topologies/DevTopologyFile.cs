@@ -147,7 +147,7 @@ namespace Vion.Dale.DevHost.Topologies
                     pairing.A.ContractIdentifier == pairing.B.ContractIdentifier)
                 {
                     errors.Add($"contractPairings[{index}]: both endpoints are '{pairing.A.LogicBlockName}.{pairing.A.ContractIdentifier}' — " +
-                               "a pairing joins two distinct endpoints; an echo back onto the same contract is a simulator block's job, not the host's");
+                               "a pairing joins two distinct endpoints, and an echo back onto the same contract is a simulator block's job, not the host's");
                 }
             }
 

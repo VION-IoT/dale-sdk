@@ -158,3 +158,62 @@ asserts is testing the recycle, not the scenario.
 
 Separately, on the drive path: a write to a **read-only or unknown** member returns `400` carrying
 `reason` and `property`, not a silent no-op.
+
+## 9. A contract pairing is a declared wire, and the host never transforms
+
+RFC 0020. A topology can declare that two **service-provider contract endpoints** are one wire:
+
+```json
+"contractPairings": [
+  { "a": { "logicBlockName": "IoBlock", "contractIdentifier": "ActiveOutput" },
+    "b": { "logicBlockName": "IdealIo", "contractIdentifier": "OutputChannel" } }
+]
+```
+
+The generic stand-in then re-delivers each side's captured outbound as the other side's inbound —
+one actor hop, at the JSON layer the scenario codec already speaks. **Nothing in the host decides
+anything.** Every behaviour a bench needs (a confirmation, a device reaction, a controller answer)
+lives in an ordinary simulator block bound to a *provider face*; how to write one is
+[`simulator-authoring.md`](simulator-authoring.md).
+
+**Where it is declared** — three equivalent places, one meaning:
+
+- the topology file's `contractPairings` (above), keyed on **(block, contract binding)** — never on
+  endpoint triples, because every contract already has an auto-created endpoint;
+- `DevConfigurationBuilder.PairContracts(blockA, "ContractA", blockB, "ContractB")` for a C# fixture;
+- the SPA topology editor's **contract pairings** section (add / remove), which writes the same array.
+
+**Which directions carry a value is derived, not declared.** The declaration is symmetric; `a→b`
+materialises only when a's handler declares an `Outbound` that is *the same struct type* as b's
+declared `Inbound`, and `b→a` likewise. So a digital output paired with its provider face carries the
+command one way and the confirmation the other, while a digital input paired with `IDigitalInputProvider`
+carries one way only. The wiring panel draws exactly what materialised (`⇄` / `→` / `←`) — read the
+arrow there rather than assuming the declaration is bidirectional.
+
+**What is refused, and where:**
+
+| Refused | Where it fires |
+|---|---|
+| an endpoint naming an undeclared block; both endpoints coinciding | topology parse (`DevTopologyFile.Parse`) |
+| a contract the block does not bind; the same pair declared twice | topology build (`DevTopologyLoader.Build`) — host-independent, so the CLI and a unit test see it too |
+| **no type-identical direction** — the pairing can carry nothing | the running host: at boot, *and* at editor Save / `POST /api/topologies/validate`, which the host hands an introspection-backed handler resolver. The message names **both** declared wire types, because the diagnosis is "wrong type", not a field diff. |
+| an endpoint whose handler declares no `[ScenarioWire]`, or is not loaded | same place, with the two cases worded apart (fix the handler vs. reference the library) |
+
+The strict posture is deliberate: a *declared* pairing that can carry nothing is an authoring mistake
+and must be loud. The scenario drive gate's stand-down is a different situation — absence there means
+"not drivable", an expected state.
+
+**Two invariants worth not breaking.** The forward happens in `Capture` **after** the output cache is
+written, so `serviceProviderExpect` still reads the command a paired output wrote. And the *drive*
+path must never consult the pairing table: a forward that re-entered it would let stand-ins originate
+messages, and a closed loop would converge on stand-in recursion instead of on block cadence (RFC 0020
+§4.7). Because every hop is a plain actor message, a paired loop is visible to the quiescence barrier —
+a closed-loop bench runs **stepped and deterministic**.
+
+The fixtures to read and to extend: `Vion.Dale.DevHost.SmokeHost/topologies/paired.topology.json`
+(two blocks, two pairings, one of them one-way) and
+`scenarios/paired-loop.scenario.json` (the whole loop end to end, stepped).
+
+**Round-trip rule for the editor:** a topology without pairings must save byte-identically, so the
+key is absent — not an empty array — when there are none. The client drops it with the last pairing
+and the server normalises an empty list to none; both halves are pinned by tests.
