@@ -19,6 +19,22 @@ namespace Vion.Dale.LogicBlockParser
 {
     internal class Program
     {
+        /// <summary>
+        ///     Opt-in filter for the pack path: leave every development-only logic block out of the emitted
+        ///     JSON. Passed by <c>Vion.Dale.Sdk.targets</c> on <c>dotnet pack</c>, so the artifact that travels
+        ///     to the cloud carries only production surface. Omitted everywhere else — <c>dale list</c> and the
+        ///     DevHost introspect the whole assembly.
+        /// </summary>
+        private const string ExcludeDevelopmentOnlyOption = "--exclude-development-only";
+
+        /// <summary>
+        ///     Prefix on every notice line the parser writes to stdout. Stable: <c>dale upload</c> captures the
+        ///     pack output rather than inheriting it, and repeats the lines carrying this prefix.
+        /// </summary>
+        private const string NoticePrefix = "Vion Dale: ";
+
+        private const string Usage = "Usage: Vion.Dale.LogicBlockParser.exe <path-to-plugin.dll> <output-json-path> [" + ExcludeDevelopmentOnlyOption + "]";
+
         private static readonly JsonSerializerOptions JsonOptions = new()
                                                                     {
                                                                         WriteIndented = true,
@@ -63,30 +79,35 @@ namespace Vion.Dale.LogicBlockParser
 
         private static int RunParser(string[] args)
         {
+            var excludeDevelopmentOnly = args.Any(argument => string.Equals(argument, ExcludeDevelopmentOnlyOption, StringComparison.OrdinalIgnoreCase));
+
+            // The options are ours, not the host's — strip them before the configuration builder sees them.
+            var positional = args.Where(argument => !argument.StartsWith("--", StringComparison.Ordinal)).ToArray();
+
             // Keep console for argument validation - critical errors
-            if (args.Length == 0 || string.IsNullOrEmpty(args[0]))
+            if (positional.Length == 0 || string.IsNullOrEmpty(positional[0]))
             {
                 Console.Error.WriteLine("Error: Missing plugin DLL path argument");
-                Console.Error.WriteLine("Usage: Vion.Dale.LogicBlockParser.exe <path-to-plugin.dll> <output-json-path>");
+                Console.Error.WriteLine(Usage);
                 return 1;
             }
 
-            if (args.Length == 1 || string.IsNullOrEmpty(args[1]))
+            if (positional.Length == 1 || string.IsNullOrEmpty(positional[1]))
             {
                 Console.Error.WriteLine("Error: Missing output json path argument");
-                Console.Error.WriteLine("Usage: Vion.Dale.LogicBlockParser.exe <path-to-plugin.dll> <output-json-path>");
+                Console.Error.WriteLine(Usage);
                 return 1;
             }
 
-            var builder = Host.CreateApplicationBuilder(args);
+            var builder = Host.CreateApplicationBuilder(positional);
             builder.Logging.ClearProviders();
             builder.Logging.AddConsole();
             builder.Services.AddDaleSdk();
 
             var logger = CreateLogger(builder);
 
-            var pluginDllPath = args[0];
-            var outputJsonPath = args[1];
+            var pluginDllPath = positional[0];
+            var outputJsonPath = positional[1];
 
             if (!File.Exists(pluginDllPath))
             {
@@ -150,6 +171,11 @@ namespace Vion.Dale.LogicBlockParser
                 logger.LogInformation(logicBlockName);
             }
 
+            if (excludeDevelopmentOnly)
+            {
+                logicBlockResults = ExcludeDevelopmentOnlyLogicBlocks(logicBlockResults);
+            }
+
             var result = new DalePluginInfo
                          {
                              PackageId = GetLogicBlockPackageId(pluginAssembly) ?? "Unknown",
@@ -160,6 +186,55 @@ namespace Vion.Dale.LogicBlockParser
 
             WriteResultsToFile(result, outputJsonPath, logger);
             return 0;
+        }
+
+        /// <summary>
+        ///     Drops every logic block that binds a development-only contract (a provider face) and names each
+        ///     one on stdout, so a <c>dotnet pack</c> log says which blocks the production artifact does not
+        ///     carry. The block is not an error — it is bench surface the cloud is never told about — so this
+        ///     is a notice, not a warning, and the packed assembly keeps the type either way.
+        /// </summary>
+        private static List<LogicBlockIntrospectionResult> ExcludeDevelopmentOnlyLogicBlocks(List<LogicBlockIntrospectionResult> logicBlockResults)
+        {
+            var kept = new List<LogicBlockIntrospectionResult>();
+            var excluded = new List<string>();
+
+            foreach (var logicBlockResult in logicBlockResults)
+            {
+                var developmentOnlyContracts = LogicBlockIntrospection.GetDevelopmentOnlyContracts(logicBlockResult);
+                if (developmentOnlyContracts.Count == 0)
+                {
+                    kept.Add(logicBlockResult);
+                    continue;
+                }
+
+                var bindings = string.Join(", ", developmentOnlyContracts.Select(contract => $"{contract.Identifier} ({contract.MatchingContractType})"));
+                excluded.Add($"  {logicBlockResult.TypeFullName} — binds {bindings}");
+            }
+
+            if (excluded.Count == 0)
+            {
+                return kept;
+            }
+
+            // Written straight to stdout rather than through the logger, and every line carries the same
+            // prefix: MSBuild echoes the parser's console output at high importance, so this is what makes the
+            // exclusion visible in a pack run, and the prefix is what lets `dale upload` — which captures the
+            // pack output instead of inheriting it — repeat the notice to its own user.
+            WriteNotice($"{excluded.Count} logic block(s) are development-only — not part of the production artifact:");
+            foreach (var line in excluded)
+            {
+                WriteNotice(line);
+            }
+
+            WriteNotice("The assembly is packed unchanged; only the introspection JSON the cloud reads is filtered.");
+
+            return kept;
+        }
+
+        private static void WriteNotice(string message)
+        {
+            Console.Out.WriteLine(NoticePrefix + message);
         }
 
         private static ILogger CreateLogger(HostApplicationBuilder builder)

@@ -1,4 +1,5 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Vion.Dale.Cli.Commands;
@@ -100,6 +101,30 @@ namespace Vion.Dale.Cli.Test.Commands
             Assert.IsNull(output.LogicBlocks[0].Services[0].IncludedWhen);
         }
 
+        [TestMethod]
+        public void MapToCliOutput_MarksABlockBoundToADevelopmentOnlyContract()
+        {
+            // The parser serializes annotation values as JSON, so the mirror hands the CLI a JsonElement —
+            // the shape `dale list` actually reads, not an in-process bool.
+            var output = ListCommand.MapToCliOutput(PluginInfoWithContract(DevelopmentOnlyAnnotations()), TestProject());
+
+            Assert.IsTrue(output.LogicBlocks[0].DevelopmentOnly);
+            CollectionAssert.Contains(output.LogicBlocks[0].Contracts, "LightChannel");
+        }
+
+        [TestMethod]
+        public void MapToCliOutput_LeavesAnOrdinaryBlockUnmarked()
+        {
+            var output = ListCommand.MapToCliOutput(PluginInfoWithContract(new Dictionary<string, object>()), TestProject());
+
+            Assert.IsFalse(output.LogicBlocks[0].DevelopmentOnly);
+        }
+
+        private static Dictionary<string, object> DevelopmentOnlyAnnotations()
+        {
+            return JsonSerializer.Deserialize<Dictionary<string, object>>("""{ "developmentOnly": true }""")!;
+        }
+
         private static DaleProject TestProject()
         {
             return new DaleProject
@@ -108,6 +133,31 @@ namespace Vion.Dale.Cli.Test.Commands
                        ProjectName = "Test",
                        ProjectDirectory = @"C:\tmp",
                        SdkVersion = "0.10.0",
+                   };
+        }
+
+        private static DalePluginInfo PluginInfoWithContract(Dictionary<string, object> contractAnnotations)
+        {
+            return new DalePluginInfo
+                   {
+                       PackageId = "Test.Package",
+                       PackageVersion = "1.0.0",
+                       LogicBlocks = new List<LogicBlockResult>
+                                     {
+                                         new()
+                                         {
+                                             TypeFullName = "Test.Blocks.IdealRelay",
+                                             Contracts = new List<ContractInfo>
+                                                         {
+                                                             new()
+                                                             {
+                                                                 Identifier = "LightChannel",
+                                                                 MatchingContractType = "DigitalOutputProvider",
+                                                                 Annotations = contractAnnotations,
+                                                             },
+                                                         },
+                                         },
+                                     },
                    };
         }
 

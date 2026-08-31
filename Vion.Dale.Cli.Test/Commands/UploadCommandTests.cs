@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -111,6 +111,31 @@ namespace Vion.Dale.Cli.Test.Commands
             Assert.IsFalse(UploadCommand.IsVersionAlreadyExistsConflict("""{"statusCode":409,"message":"Something new and unexplained"}"""));
             Assert.IsFalse(UploadCommand.IsVersionAlreadyExistsConflict(""));
             Assert.IsFalse(UploadCommand.IsVersionAlreadyExistsConflict(null));
+        }
+
+        [TestMethod]
+        public void ExtractPackNotices_KeepsTheParserNoticesAndNothingElse()
+        {
+            // `dale upload` captures the pack output instead of inheriting it, so the parser's notice — which
+            // logic blocks the production artifact does not carry — reaches the user only through this filter.
+            var packOutput = string.Join("\r\n",
+                                         "  Determining projects to restore...",
+                                         "Vion Dale: 1 logic block(s) are development-only — not part of the production artifact:",
+                                         "Vion Dale:   Vion.Examples.ToggleLight.LogicBlocks.IdealRelay — binds LightChannel (DigitalOutputProvider)",
+                                         "Vion Dale: The assembly is packed unchanged; only the introspection JSON the cloud reads is filtered.",
+                                         "  Successfully created package.");
+
+            var notices = UploadCommand.ExtractPackNotices(packOutput);
+
+            Assert.HasCount(3, notices);
+            Assert.AreEqual("1 logic block(s) are development-only — not part of the production artifact:", notices[0]);
+            Assert.Contains("IdealRelay", notices[1]);
+        }
+
+        [TestMethod]
+        public void ExtractPackNotices_IsEmptyForAnOrdinaryPack()
+        {
+            Assert.IsEmpty(UploadCommand.ExtractPackNotices("  Determining projects to restore...\r\n  Successfully created package."));
         }
 
         private string CreateNupkg(string fileName, string nuspec)

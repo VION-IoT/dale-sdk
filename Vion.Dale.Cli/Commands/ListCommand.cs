@@ -1,6 +1,7 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.CommandLine;
 using System.Linq;
+using System.Text.Json;
 using Spectre.Console;
 using Vion.Dale.Cli.Helpers;
 using Vion.Dale.Cli.Models;
@@ -10,6 +11,13 @@ namespace Vion.Dale.Cli.Commands
 {
     public static class ListCommand
     {
+        /// <summary>
+        ///     Contract annotation key the SDK emits for a contract type declared
+        ///     <c>DevelopmentOnly</c> (<c>ServiceProviderContractAnnotations.DevelopmentOnly</c>). Duplicated
+        ///     rather than referenced, like the rest of this mirror — the CLI takes no Vion dependency.
+        /// </summary>
+        private const string DevelopmentOnlyAnnotation = "developmentOnly";
+
         public static Command Create()
         {
             var command = new Command("list", "Show project info (logic blocks, contracts, properties, etc.)");
@@ -67,6 +75,7 @@ namespace Vion.Dale.Cli.Commands
                                              new List<string>(),
                                 Contracts = lb.Contracts?.Select(c => c.Identifier ?? string.Empty).Where(s => s != string.Empty).ToList() ??
                                             new List<string>(),
+                                DevelopmentOnly = IsDevelopmentOnly(lb),
                                 Services = lb.Services
                                              ?.Select(s => new CliServiceOutput
                                                            {
@@ -97,6 +106,32 @@ namespace Vion.Dale.Cli.Commands
             return output;
         }
 
+        /// <summary>
+        ///     Whether the block binds a contract the SDK declares development-only (a provider face). Read
+        ///     from the introspection annotation the parser emits — the same flag the pack gate filters on and
+        ///     the production runtime refuses. <c>dale list</c> shows such a block, marked; it never hides it.
+        /// </summary>
+        internal static bool IsDevelopmentOnly(LogicBlockResult logicBlock)
+        {
+            return logicBlock.Contracts?.Any(IsDevelopmentOnlyContract) == true;
+        }
+
+        private static bool IsDevelopmentOnlyContract(ContractInfo contract)
+        {
+            if (contract.Annotations is null || !contract.Annotations.TryGetValue(DevelopmentOnlyAnnotation, out var flag))
+            {
+                return false;
+            }
+
+            // The mirror deserializes annotation values as JsonElement; a value set in-process is a bool.
+            return flag switch
+            {
+                bool value => value,
+                JsonElement element => element.ValueKind == JsonValueKind.True,
+                _ => false,
+            };
+        }
+
         private static void RenderTable(DaleProject project, DalePluginInfo pluginInfo)
         {
             DaleConsole.Info($"Project: {project.ProjectName} (v{project.Version ?? "??"})");
@@ -117,7 +152,11 @@ namespace Vion.Dale.Cli.Commands
             {
                 var shortName = lb.TypeFullName.Split('.').Last();
 
-                var table = new Table().Border(TableBorder.Rounded).AddColumn(new TableColumn(shortName).NoWrap()).AddColumn(new TableColumn(string.Empty));
+                // A development-only block is listed like any other, marked — it is part of the project, it
+                // just never reaches the cloud (`dale pack` filters it out of the introspection JSON).
+                var header = IsDevelopmentOnly(lb) ? $"{Markup.Escape(shortName)} [yellow](development-only)[/]" : Markup.Escape(shortName);
+
+                var table = new Table().Border(TableBorder.Rounded).AddColumn(new TableColumn(header).NoWrap()).AddColumn(new TableColumn(string.Empty));
 
                 if (lb.Contracts.Count > 0)
                 {

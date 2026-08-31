@@ -1,4 +1,5 @@
-using System;
+﻿using System;
+using System.Collections.Generic;
 using System.CommandLine;
 using System.IO;
 using System.IO.Compression;
@@ -129,6 +130,7 @@ namespace Vion.Dale.Cli.Commands
                                   }
 
                                   // Human mode: progress bar with stages
+                                  var packNotices = new List<string>();
                                   var failed = false;
                                   var versionAlreadyExists = false;
                                   string? errorMessage = null;
@@ -143,6 +145,7 @@ namespace Vion.Dale.Cli.Commands
                                                                    var packResult = await DotnetRunner.RunCaptureAsync("pack",
                                                                                                                        BuildPackArgs(project, versionOverride),
                                                                                                                        project.ProjectDirectory);
+                                                                   packNotices = ExtractPackNotices(packResult.Output);
                                                                    if (packResult.ExitCode != 0)
                                                                    {
                                                                        errorMessage = "Pack failed.";
@@ -191,6 +194,13 @@ namespace Vion.Dale.Cli.Commands
 
                                                                    uploadTask.Value = 1;
                                                                });
+
+                                  // The pack output is captured, not inherited, so the parser's notices — which
+                                  // blocks were left out of the artifact the cloud reads — would otherwise vanish.
+                                  foreach (var notice in packNotices)
+                                  {
+                                      DaleConsole.Info(notice);
+                                  }
 
                                   if (failed)
                                   {
@@ -274,6 +284,22 @@ namespace Vion.Dale.Cli.Commands
         {
             var args = new[] { project.CsprojPath, "-c", "Release", "-p:IsPackable=true" };
             return string.IsNullOrWhiteSpace(version) ? args : args.Append($"-p:Version={version}").ToArray();
+        }
+
+        /// <summary>
+        ///     The notice lines <c>Vion.Dale.LogicBlockParser</c> writes during pack — today, which logic blocks
+        ///     were left out of the introspection JSON for being development-only. Identified by the parser's
+        ///     stable prefix; the prefix is stripped for display.
+        /// </summary>
+        internal static List<string> ExtractPackNotices(string packOutput)
+        {
+            const string noticePrefix = "Vion Dale: ";
+
+            return packOutput.Split('\n')
+                             .Select(line => line.Trim('\r', ' '))
+                             .Where(line => line.StartsWith(noticePrefix, StringComparison.Ordinal))
+                             .Select(line => line.Substring(noticePrefix.Length))
+                             .ToList();
         }
 
         /// <summary>
