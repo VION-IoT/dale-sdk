@@ -25,6 +25,23 @@ namespace Vion.Dale.DevHost.Scenarios
 
         private readonly Type? _outbound;
 
+        /// <summary>
+        ///     The wire struct types this handler declares as INBOUND — what a pairing may deliver onto it, and
+        ///     what a <c>serviceProviderSet</c> builds. A SET, not a single type: <c>[ScenarioWire]</c> carries
+        ///     one struct per direction today (RFC 0010), but the pairing rule of RFC 0020 §4.3 is an intersection
+        ///     over declared types, so lifting that restriction stays local to the attribute and this codec.
+        /// </summary>
+        public IReadOnlyCollection<Type> DeclaredInbound
+        {
+            get => _inbound is null ? Array.Empty<Type>() : new[] { _inbound };
+        }
+
+        /// <summary>The wire struct types this handler declares as OUTBOUND — the counterpart of <see cref="DeclaredInbound" />.</summary>
+        public IReadOnlyCollection<Type> DeclaredOutbound
+        {
+            get => _outbound is null ? Array.Empty<Type>() : new[] { _outbound };
+        }
+
         /// <summary>True when a scenario can DRIVE this contract (an input).</summary>
         public bool CanDrive
         {

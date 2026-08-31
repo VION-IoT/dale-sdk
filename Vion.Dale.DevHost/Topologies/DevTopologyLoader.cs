@@ -143,6 +143,25 @@ namespace Vion.Dale.DevHost.Topologies
                 existing.ContractEndpointIdentifier = mapping.MappedContractIdentifier ?? existing.ContractEndpointIdentifier;
             }
 
+            // RFC 0020: contract pairings resolve LAST, against the endpoints the two passes above settled — an
+            // explicit contractMappings override must be reflected in the endpoint a forward addresses. Structure
+            // only here (unknown contract, coinciding endpoints, a pair declared twice); the wire-type identity
+            // rule needs the handler each contract talks to, which is known once the blocks are introspected, so
+            // it runs at host load and refuses there naming both declared types.
+            var pairingErrors = new List<string>();
+            configuration.ContractPairings = ContractPairingResolution.Resolve(configuration,
+                                                                               (topology.ContractPairings ?? Array.Empty<TopologyContractPairing>()).Select(p =>
+                                                                                   new DeclaredContractPairing(handles[p.A!.LogicBlockName!].Id,
+                                                                                                               p.A.ContractIdentifier!,
+                                                                                                               handles[p.B!.LogicBlockName!].Id,
+                                                                                                               p.B.ContractIdentifier!)),
+                                                                               pairingErrors);
+
+            if (pairingErrors.Count > 0)
+            {
+                throw new InvalidDataException(string.Join("; ", pairingErrors));
+            }
+
             return configuration;
         }
 
@@ -351,6 +370,7 @@ namespace Vion.Dale.DevHost.Topologies
                                 Id = file.Id,
                                 LogicBlockInstances = file.LogicBlockInstances,
                                 InterfaceMappings = file.InterfaceMappings,
+                                ContractPairings = file.ContractPairings,
                                 ContractMappings = configuration.LogicBlocks
                                                                 .SelectMany(lb => lb.ContractMappings.Select(cm => new TopologyContractMapping
                                                                                                                    {

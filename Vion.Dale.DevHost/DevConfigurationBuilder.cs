@@ -19,6 +19,8 @@ namespace Vion.Dale.DevHost
 
         private readonly List<LogicBlockHandle> _handles = new();
 
+        private readonly List<DeclaredContractPairing> _pairedContracts = new();
+
         private readonly List<(LogicBlockHandle Lb1, string ContractId1, LogicBlockHandle Lb2, string ContractId2)> _sharedContracts = new();
 
         private bool _autoConnect;
@@ -140,6 +142,29 @@ namespace Vion.Dale.DevHost
             return this;
         }
 
+        /// <summary>
+        ///     Declare two service-provider contract endpoints to be ONE wire (RFC 0020) — the C# equivalent of a
+        ///     topology file's <c>contractPairings</c>. Each side's captured outbound is delivered as the other
+        ///     side's inbound, so a simulator block bound to a provider face closes the loop a real service
+        ///     provider would: a digital output's command reaches the simulator, and its confirmation reaches the
+        ///     block's <c>OutputChanged</c>.
+        ///     <para>
+        ///         The declaration is symmetric and needs no <see cref="ShareContract" /> — each contract keeps its
+        ///         own auto-created endpoint. Which directions materialise is derived from the two handlers'
+        ///         <c>[ScenarioWire]</c> types and checked when the host loads: a pairing with no type-identical
+        ///         direction is refused there, naming both declared types.
+        ///     </para>
+        /// </summary>
+        /// <exception cref="InvalidOperationException">
+        ///     Thrown by <see cref="Build" /> when an endpoint names a contract the block does not bind, when both
+        ///     endpoints are the same, or when the same pair is declared twice.
+        /// </exception>
+        public DevConfigurationBuilder PairContracts(LogicBlockHandle lb1, string contractId1, LogicBlockHandle lb2, string contractId2)
+        {
+            _pairedContracts.Add(new DeclaredContractPairing(lb1.Id, contractId1, lb2.Id, contractId2));
+            return this;
+        }
+
         public DevConfiguration Build()
         {
             var config = new DevConfiguration { TopologyName = _topologyName, ScenariosPath = _scenariosPath, TopologiesPath = _topologiesPath };
@@ -170,6 +195,15 @@ namespace Vion.Dale.DevHost
             if (_autoConnect)
             {
                 AutoConnectInterfaces(config);
+            }
+
+            // Pairings resolve against the endpoints auto-created above; structure only — the wire-type identity
+            // rule needs the handlers, so it runs when the host loads (RFC 0020 §4.3).
+            var pairingErrors = new List<string>();
+            config.ContractPairings = ContractPairingResolution.Resolve(config, _pairedContracts, pairingErrors);
+            if (pairingErrors.Count > 0)
+            {
+                throw new InvalidOperationException($"Invalid contract pairings: {string.Join("; ", pairingErrors)}");
             }
 
             return config;

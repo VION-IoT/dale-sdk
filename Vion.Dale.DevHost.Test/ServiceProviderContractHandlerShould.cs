@@ -19,12 +19,15 @@ namespace Vion.Dale.DevHost.Test
     ///     four hardcoded <c>MockHal*Handler</c> classes. It drives any <c>[ScenarioWire]</c> value contract
     ///     into its consuming block via the codec — the DF-27 unblock — and captures outbound commands, raising
     ///     the one generic <see cref="DevHostEvents.ServiceProviderContractChanged" /> event for the live UI and
-    ///     the <c>serviceProviderExpect</c> read source. No type-specific events, no output echo.
+    ///     the <c>serviceProviderExpect</c> read source. No type-specific events, no output echo — and, when the
+    ///     topology paired the endpoint, one forward of the captured value onto the peer stand-in (RFC 0020).
     /// </summary>
     [TestClass]
     public class ServiceProviderContractHandlerShould
     {
         private static readonly ServiceProviderContractId Sp = new("sp", "svc", "c");
+
+        private static readonly ServiceProviderContractId Peer = new("sp_peer", "svc_peer", "OutputChannel");
 
         private static readonly LogicBlockContractId Lb = new(new LogicBlockId("lb1"), "EnableInput");
 
@@ -89,11 +92,13 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public void Capture_an_output_command_raising_the_generic_event_without_echoing()
+        public void Capture_an_output_command_raising_the_generic_event_and_send_nothing_when_the_endpoint_is_unpaired()
         {
-            // An outbound command a block Set raises the one generic ServiceProviderContractChanged event (the
-            // SPA read-out + the serviceProviderExpect read source). The DevHost does NOT synthesize a typed
-            // output-confirmation back to the block — the real upstream confirms over MQTT, not the simulation.
+            // The DEFAULT, pinned (RFC 0020 §4.1): an outbound command a block Set raises the one generic
+            // ServiceProviderContractChanged event (the SPA read-out + the serviceProviderExpect read source) and
+            // goes nowhere else. The DevHost does NOT synthesize a typed output-confirmation back to the block —
+            // the real upstream confirms over MQTT, not the simulation — and with no pairing declared there is no
+            // peer to forward to either.
             var events = new DevHostEvents();
             var handler = NewHandler(typeof(ScalarOutputHandlerStub), events);
             var context = new RecordingActorContext();
@@ -110,7 +115,67 @@ namespace Vion.Dale.DevHost.Test
             Assert.AreEqual(Sp.ContractIdentifier, raised.ContractIdentifier);
             Assert.IsTrue(raised.Value.GetBoolean());
 
-            Assert.IsEmpty(context.Sent, "Capture must not echo a confirmation back to the block.");
+            Assert.IsEmpty(context.Sent, "Capture must neither echo a confirmation back to the block nor forward when nothing is paired.");
+        }
+
+        [TestMethod]
+        public void Forward_a_captured_command_to_the_paired_peer_stand_in()
+        {
+            // The pairing primitive: with the endpoint paired to a provider face whose declared inbound is the
+            // SAME wire struct, the captured value is re-driven onto the PEER stand-in as the ordinary drive
+            // message — no new message type, no transformation, and nothing sent back to the writing block.
+            var handler = NewHandler(typeof(ConfirmedOutputHandlerStub), handlerActorName: nameof(ConfirmedOutputHandlerStub), pairings: OutputPairedToItsProviderFace());
+            var context = new RecordingActorContext();
+            var consumer = new FakeActorReference();
+
+            Link(handler, context, consumer);
+            handler.HandleMessageAsync(new ContractMessage<SetScalar>(Lb, new SetScalar(true)), context);
+
+            var sent = context.Sent.Single();
+            Assert.AreSame(context.LookupByName(nameof(ScalarProviderHandlerStub)), sent.Target, "The forward addresses the PEER stand-in, not the writing block.");
+            var drive = (MockSetServiceProviderInputMessage)sent.Message;
+            Assert.AreEqual(Peer, drive.Contract);
+            Assert.IsTrue(drive.Value.GetBoolean());
+        }
+
+        [TestMethod]
+        public void Record_a_paired_command_in_the_output_cache_before_forwarding_it()
+        {
+            // serviceProviderExpect must still read what a PAIRED output wrote — the cache write happens before
+            // the forward, so pairing never costs an assertion.
+            var cache = new Control.ServiceProviderOutputCache();
+            var handler = NewHandler(typeof(ConfirmedOutputHandlerStub),
+                                     handlerActorName: nameof(ConfirmedOutputHandlerStub),
+                                     pairings: OutputPairedToItsProviderFace(),
+                                     outputCache: cache);
+            var context = new RecordingActorContext();
+
+            Link(handler, context, new FakeActorReference());
+            handler.HandleMessageAsync(new ContractMessage<SetScalar>(Lb, new SetScalar(true)), context);
+
+            Assert.IsTrue(cache.TryGet(Sp, out var recorded));
+            Assert.IsTrue(recorded.GetBoolean());
+        }
+
+        [TestMethod]
+        public void Never_consult_the_pairing_table_on_the_drive_path()
+        {
+            // RFC 0020 §4.7: only Capture forwards. A drive that also forwarded would let stand-ins originate
+            // messages, and a closed loop would converge on stand-in recursion rather than on block cadence.
+            var handler = NewHandler(typeof(ScalarProviderHandlerStub), handlerActorName: nameof(ScalarProviderHandlerStub), pairings: OutputPairedToItsProviderFace());
+            var context = new RecordingActorContext();
+            var consumer = new FakeActorReference();
+
+            handler.HandleMessageAsync(new LinkLogicBlockContractActors(new Dictionary<ServiceProviderContractId, Dictionary<LogicBlockContractId, IActorReference>>
+                                                                        {
+                                                                            [Peer] = new() { [Lb] = consumer },
+                                                                        }),
+                                       context);
+            handler.HandleMessageAsync(new MockSetServiceProviderInputMessage(Peer, Json("true")), context);
+
+            var sent = context.Sent.Single();
+            Assert.AreSame(consumer, sent.Target, "A drive reaches the mapped block and nothing else.");
+            Assert.IsInstanceOfType<ContractMessage<SetScalar>>(sent.Message);
         }
 
         [TestMethod]
@@ -128,10 +193,56 @@ namespace Vion.Dale.DevHost.Test
             Assert.IsEmpty(context.Sent);
         }
 
-        private static ServiceProviderContractHandler NewHandler(Type wireHandlerType, DevHostEvents? events = null)
+        private static ServiceProviderContractHandler NewHandler(Type wireHandlerType,
+                                                                 DevHostEvents? events = null,
+                                                                 string handlerActorName = "StandIn",
+                                                                 ContractPairingTable? pairings = null,
+                                                                 Control.ServiceProviderOutputCache? outputCache = null)
         {
             var codec = ScenarioWireCodec.ForHandler(wireHandlerType)!;
-            return new ServiceProviderContractHandler(NullLogger.Instance, events ?? new DevHostEvents(), codec, new Control.ServiceProviderOutputCache());
+            return new ServiceProviderContractHandler(NullLogger.Instance,
+                                                      events ?? new DevHostEvents(),
+                                                      codec,
+                                                      outputCache ?? new Control.ServiceProviderOutputCache(),
+                                                      handlerActorName,
+                                                      pairings ?? ContractPairingTable.Empty);
+        }
+
+        // The canonical pair: a confirmed output (SetScalar out / ScalarChanged in) wired to its provider face
+        // (the exact inverse). Type-identical in BOTH directions, so both forwards materialise.
+        private static ContractPairingTable OutputPairedToItsProviderFace()
+        {
+            var pairing = new DevContractPairing
+                          {
+                              A = new DevContractPairingEndpoint
+                                  {
+                                      LogicBlockId = "lb1",
+                                      LogicBlockName = "IoBlock",
+                                      ContractIdentifier = "ActiveOutput",
+                                      ServiceProviderIdentifier = Sp.ServiceProviderIdentifier,
+                                      ServiceIdentifier = Sp.ServiceIdentifier,
+                                      ContractEndpointIdentifier = Sp.ContractIdentifier,
+                                  },
+                              B = new DevContractPairingEndpoint
+                                  {
+                                      LogicBlockId = "lb2",
+                                      LogicBlockName = "IdealIo",
+                                      ContractIdentifier = "OutputChannel",
+                                      ServiceProviderIdentifier = Peer.ServiceProviderIdentifier,
+                                      ServiceIdentifier = Peer.ServiceIdentifier,
+                                      ContractEndpointIdentifier = Peer.ContractIdentifier,
+                                  },
+                          };
+
+            return ContractPairingTable.Build([pairing],
+                                              (blockId, _) => blockId == "lb1" ? nameof(ConfirmedOutputHandlerStub) : nameof(ScalarProviderHandlerStub),
+                                              new Dictionary<string, ScenarioWireCodec>
+                                              {
+                                                  [nameof(ConfirmedOutputHandlerStub)] =
+                                                      ScenarioWireCodec.ForHandler(typeof(ConfirmedOutputHandlerStub))!,
+                                                  [nameof(ScalarProviderHandlerStub)] =
+                                                      ScenarioWireCodec.ForHandler(typeof(ScalarProviderHandlerStub))!,
+                                              });
         }
 
         private static void Link(ServiceProviderContractHandler handler, IActorContext context, IActorReference consumer)
@@ -163,6 +274,18 @@ namespace Vion.Dale.DevHost.Test
         {
         }
 
+        // The shape of DigitalOutputHandler since VION-131: an output whose provider confirms back.
+        [ScenarioWire(Inbound = typeof(ScalarChanged), Outbound = typeof(SetScalar))]
+        private sealed class ConfirmedOutputHandlerStub
+        {
+        }
+
+        // Its provider face, exactly inverted — the identity that makes a pairing type-identical both ways.
+        [ScenarioWire(Inbound = typeof(SetScalar), Outbound = typeof(ScalarChanged))]
+        private sealed class ScalarProviderHandlerStub
+        {
+        }
+
         private readonly record struct ScalarChanged(bool On);
 
         private readonly record struct DemandChanged(bool Valid, DemandScope Scope, double ActivePowerW);
@@ -182,6 +305,8 @@ namespace Vion.Dale.DevHost.Test
 
         private sealed class RecordingActorContext : IActorContext
         {
+            private readonly Dictionary<string, IActorReference> _byName = new(StringComparer.Ordinal);
+
             public List<(IActorReference Target, object Message)> Sent { get; } = [];
 
             public IReadOnlyDictionary<string, string>? Headers
@@ -206,9 +331,15 @@ namespace Vion.Dale.DevHost.Test
             {
             }
 
+            // Stable per name, so a test can assert WHICH stand-in a forward addressed.
             public IActorReference LookupByName(string name)
             {
-                throw new NotSupportedException();
+                if (!_byName.TryGetValue(name, out var reference))
+                {
+                    _byName[name] = reference = new FakeActorReference();
+                }
+
+                return reference;
             }
         }
     }

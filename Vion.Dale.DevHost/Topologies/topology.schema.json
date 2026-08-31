@@ -51,6 +51,19 @@
         }
       }
     },
+    "contractPairings": {
+      "type": "array",
+      "description": "RFC 0020: pairs of service-provider contract endpoints declared as ONE wire — each side's captured outbound is delivered as the other side's inbound, so a simulator block bound to a provider face closes the loop a real service provider would. Keyed on (block, contract binding), not on endpoint triples. Symmetric: which directions materialise is derived from the two handlers' [ScenarioWire] types and validated when the host loads the topology.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["a", "b"],
+        "properties": {
+          "a": { "$ref": "#/$defs/contractPairingEndpoint" },
+          "b": { "$ref": "#/$defs/contractPairingEndpoint" }
+        }
+      }
+    },
     "contractMappings": {
       "type": "array",
       "description": "Optional explicit hardware-contract endpoint mappings; unlisted contracts are auto-mocked. Field names match `dale dev --export-config` (the 'mapped' prefix), so the two shapes no longer diverge.",
@@ -65,6 +78,17 @@
           "mappedServiceIdentifier": { "type": "string" },
           "mappedContractIdentifier": { "type": "string" }
         }
+      }
+    }
+  },
+  "$defs": {
+    "contractPairingEndpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["logicBlockName", "contractIdentifier"],
+      "properties": {
+        "logicBlockName": { "type": "string", "description": "A declared instance name." },
+        "contractIdentifier": { "type": "string", "description": "A service-provider contract binding on that instance." }
       }
     }
   }

@@ -52,6 +52,17 @@ namespace Vion.Dale.DevHost.Topologies
         /// <summary>Optional explicit endpoint mappings (e.g. shared contracts); unlisted contracts are auto-mocked.</summary>
         public IReadOnlyList<TopologyContractMapping>? ContractMappings { get; init; }
 
+        /// <summary>
+        ///     RFC 0020: optional declarations that two service-provider contract endpoints are ONE wire — each
+        ///     side's captured outbound is delivered as the other side's inbound, so a simulator block bound to a
+        ///     provider face closes the loop a real service provider would close. Symmetric; which directions
+        ///     actually materialise is derived from the two handlers' <c>[ScenarioWire]</c> declarations and
+        ///     validated when the host loads the topology. Omitted from serialization when null so topologies
+        ///     without pairings round-trip byte-identically.
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public IReadOnlyList<TopologyContractPairing>? ContractPairings { get; init; }
+
         /// <summary>Parse and structurally validate topology JSON, throwing with every problem at once.</summary>
         public static DevTopologyFile Parse(string json)
         {
@@ -124,6 +135,22 @@ namespace Vion.Dale.DevHost.Topologies
                 }
             }
 
+            foreach (var (pairing, index) in (file.ContractPairings ?? Array.Empty<TopologyContractPairing>()).Select((x, i) => (x, i)))
+            {
+                ValidatePairingEndpoint(pairing.A, $"contractPairings[{index}].a", names, errors);
+                ValidatePairingEndpoint(pairing.B, $"contractPairings[{index}].b", names, errors);
+
+                // Self-pairing is the dropped host-synthesised confirmation (RFC 0020 §4.5): an endpoint wired to
+                // itself would echo every command back as its own confirmation, which is exactly the magic this
+                // design replaces with a visible simulator block.
+                if (pairing.A is not null && pairing.B is not null && pairing.A.LogicBlockName == pairing.B.LogicBlockName &&
+                    pairing.A.ContractIdentifier == pairing.B.ContractIdentifier)
+                {
+                    errors.Add($"contractPairings[{index}]: both endpoints are '{pairing.A.LogicBlockName}.{pairing.A.ContractIdentifier}' — " +
+                               "a pairing joins two distinct endpoints; an echo back onto the same contract is a simulator block's job, not the host's");
+                }
+            }
+
             if (errors.Count > 0)
             {
                 throw new InvalidDataException(string.Join("; ", errors));
@@ -189,12 +216,41 @@ namespace Vion.Dale.DevHost.Topologies
                                                                                                               MappedContractIdentifier = cm.MappedContractIdentifier,
                                                                                                           }))
                                                        .ToList(),
+                       ContractPairings = configuration.ContractPairings.Count == 0 ? null : configuration.ContractPairings
+                                                                                                          .Select(cp => new TopologyContractPairing
+                                                                                                                      {
+                                                                                                                          A = new TopologyContractPairingEndpoint
+                                                                                                                              {
+                                                                                                                                  LogicBlockName = cp.A.LogicBlockName,
+                                                                                                                                  ContractIdentifier = cp.A.ContractIdentifier,
+                                                                                                                              },
+                                                                                                                          B = new TopologyContractPairingEndpoint
+                                                                                                                              {
+                                                                                                                                  LogicBlockName = cp.B.LogicBlockName,
+                                                                                                                                  ContractIdentifier = cp.B.ContractIdentifier,
+                                                                                                                              },
+                                                                                                                      })
+                                                                                                          .ToList(),
                    };
         }
 
         public string ToJson()
         {
             return JsonSerializer.Serialize(this, SerializerOptions);
+        }
+
+        private static void ValidatePairingEndpoint(TopologyContractPairingEndpoint? endpoint, string where, ICollection<string> declaredNames, ICollection<string> errors)
+        {
+            if (endpoint is null || string.IsNullOrEmpty(endpoint.LogicBlockName) || string.IsNullOrEmpty(endpoint.ContractIdentifier))
+            {
+                errors.Add($"{where}: logicBlockName and contractIdentifier are both required");
+                return;
+            }
+
+            if (!declaredNames.Contains(endpoint.LogicBlockName!))
+            {
+                errors.Add($"{where}: '{endpoint.LogicBlockName}' is not a declared instance");
+            }
         }
     }
 
@@ -226,6 +282,27 @@ namespace Vion.Dale.DevHost.Topologies
         public string? TargetLogicBlockName { get; init; }
 
         public string? TargetInterfaceIdentifier { get; init; }
+    }
+
+    /// <summary>
+    ///     RFC 0020 §4.2: two service-provider contract endpoints declared as one wire. Keyed on (block,
+    ///     contract binding), never on endpoint triples — every contract already has an auto-created endpoint,
+    ///     so a pairing needs nothing from <c>contractMappings</c>. The declaration is symmetric; the host
+    ///     derives which directions materialise from the two handlers' <c>[ScenarioWire]</c> types.
+    /// </summary>
+    public sealed class TopologyContractPairing
+    {
+        public TopologyContractPairingEndpoint? A { get; init; }
+
+        public TopologyContractPairingEndpoint? B { get; init; }
+    }
+
+    /// <summary>One side of a <see cref="TopologyContractPairing" /> — a contract binding on a declared instance.</summary>
+    public sealed class TopologyContractPairingEndpoint
+    {
+        public string? LogicBlockName { get; init; }
+
+        public string? ContractIdentifier { get; init; }
     }
 
     public sealed class TopologyContractMapping

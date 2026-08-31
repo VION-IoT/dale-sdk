@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "id": "paired-loop",
+  "topology": "paired",
+  "title": "Contract pairing — a digital output, an ideal I/O module, and a loop that closes",
+  "description": "The pairing primitive end to end (RFC 0020). The topology declares two wires: IoBlock.ActiveOutput ↔ IdealIo.OutputChannel and IoBlock.EnableInput ↔ IdealIo.InputChannel. Nothing in the host transforms anything — each side's captured outbound is re-delivered as the other side's identical declared inbound, and all the behaviour lives in the two blocks. The bench closes the simulated input contact with a knob on the simulator; the simulator's own timer drives its IDigitalInputProvider, so the paired IDigitalInput reaches IoBlock without a scenario step touching it. IoBlock's [Timer(1)] then commands its digital output, the command arrives at the provider face as SetReceived, the ideal module confirms exactly what it was commanded, and that confirmation lands on IoBlock.OutputChanged — live off production for the first time. serviceProviderExpect still reads the command IoBlock wrote, because Capture caches before it forwards. Then the knob opens the contact and the whole loop settles back. Everything runs stepped: the loop closes within virtual-time hops, so the run is deterministic and reproducible.",
+  "specs": ["smoke", "pairing"],
+  "watch": ["IoBlock.IsEnabled", "IoBlock.ConfirmedActive", "IoBlock.ConfirmationMismatch", "IdealIo.LastCommand"],
+  "steps": [
+    { "expect": { "property": "IoBlock.IsEnabled", "equals": false }, "label": "the contact starts open", "spec": "pairing" },
+    { "set": "IdealIo.InputClosed", "value": true, "label": "the bench closes the simulated input contact — a knob on the simulator, not a scenario drive" },
+    { "waitUntil": { "property": "IoBlock.IsEnabled", "equals": true }, "timeoutSeconds": 5, "label": "the paired digital input follows the simulator's own logic" },
+    { "waitUntil": { "property": "IdealIo.LastCommand", "equals": true }, "timeoutSeconds": 5, "label": "IoBlock's output command arrived at the provider face as SetReceived" },
+    { "expect": { "property": "IdealIo.CommandCount", "above": 0 }, "label": "the provider observed it, and says so", "spec": "pairing" },
+    {
+      "serviceProviderExpect": { "logicBlock": "IoBlock", "contract": "ActiveOutput", "equals": true },
+      "label": "the captured command is still readable on a PAIRED output — the cache is written before the forward",
+      "spec": "pairing"
+    },
+    { "waitUntil": { "property": "IoBlock.ConfirmedActive", "equals": true }, "timeoutSeconds": 5, "label": "and the confirmation came back through OutputChanged" },
+    { "expect": { "property": "IoBlock.ConfirmationMismatch", "equals": false }, "label": "an ideal module confirms exactly what it was commanded", "spec": "pairing" },
+    { "set": "IdealIo.InputClosed", "value": false, "label": "the bench opens the contact again" },
+    { "waitUntil": { "property": "IoBlock.IsEnabled", "equals": false }, "timeoutSeconds": 5, "label": "the input follows it open" },
+    { "waitUntil": { "property": "IoBlock.ConfirmedActive", "equals": false }, "timeoutSeconds": 5, "label": "the loop settles open — command, confirmation and contact agree again" },
+    { "expect": { "property": "IoBlock.ConfirmationMismatch", "equals": false }, "label": "and never disagreed on the way", "spec": "pairing" }
+  ]
+}

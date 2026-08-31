@@ -641,7 +641,17 @@ export async function cloneTopologyDraft(id) {
         const res = await fetch(`/api/topologies/${encodeURIComponent(id)}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const file = await res.json();
-        store.topologyDraft = { id: file.id || id, logicBlockInstances: file.logicBlockInstances || [], interfaceMappings: file.interfaceMappings || [], contractMappings: file.contractMappings || [] };
+        // contractPairings (RFC 0020) rides along UNEDITED and only when the file has it: the editor cannot
+        // author pairings yet (that is the wiring-view slice), and a draft that dropped them would silently
+        // delete a paired topology's wires on the next save. Conditional so an unpaired file still saves
+        // byte-identically instead of gaining an empty array.
+        store.topologyDraft = {
+            id: file.id || id,
+            logicBlockInstances: file.logicBlockInstances || [],
+            interfaceMappings: file.interfaceMappings || [],
+            contractMappings: file.contractMappings || [],
+            ...(file.contractPairings ? { contractPairings: file.contractPairings } : {}),
+        };
         store.topologyDraftDirty = false; store.topologyDraftErrors = [];
     } catch (err) { showError(`Could not load topology '${id}': ${err.message ?? err}`); }
 }
@@ -741,6 +751,7 @@ export async function pasteTopology() {
         logicBlockInstances: parsed.logicBlockInstances || [],
         interfaceMappings: parsed.interfaceMappings || [],
         contractMappings: parsed.contractMappings || [],
+        ...(parsed.contractPairings ? { contractPairings: parsed.contractPairings } : {}),
     };
     store.topologyDraftDirty = true;
     store.topologyDraftErrors = [];

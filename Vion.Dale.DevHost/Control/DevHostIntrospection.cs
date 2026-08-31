@@ -65,12 +65,13 @@ namespace Vion.Dale.DevHost.Control
 
         private volatile bool _done;
 
-        // handler class name -> the addressable field leaves of that handler's [ScenarioWire] Inbound and
-        // Outbound (empty for a scalar wire, absent for a direction the handler does not declare). Cached
-        // against the loaded-assembly count rather than once: the plugin / I/O assemblies that declare handlers
-        // land during logic-system init, which can be after a first /api/configuration, and the type scan
-        // behind it is not free enough to repeat per request.
-        private (int Assemblies, Dictionary<string, ScenarioWireLeaves> ByHandler)? _wireLeaves;
+        // handler class name -> that handler's [ScenarioWire] codec, which carries both the addressable field
+        // leaves per direction (empty for a scalar wire, null for a direction the handler does not declare) and
+        // the declared wire TYPES the RFC 0020 pairing rule intersects. Cached against the loaded-assembly count
+        // rather than once: the plugin / I/O assemblies that declare handlers land during logic-system init,
+        // which can be after a first /api/configuration, and the type scan behind it is not free enough to
+        // repeat per request.
+        private (int Assemblies, Dictionary<string, ScenarioWireCodec> ByHandler)? _wireCodecs;
 
         public DevHostIntrospection(DevConfiguration configuration, IServiceProvider serviceProvider, ILogger<DevHostIntrospection> logger)
         {
@@ -249,6 +250,7 @@ namespace Vion.Dale.DevHost.Control
                                                                                        .ToList(),
                                                                       })
                                                         .ToList(),
+                       ContractPairings = BuildContractPairings(),
                    };
         }
 
@@ -272,6 +274,84 @@ namespace Vion.Dale.DevHost.Control
         internal static string ServiceIdFor(string blockId, string serviceIdentifier)
         {
             return $"lbsvc_{blockId}.{serviceIdentifier}";
+        }
+
+        /// <summary>
+        ///     The <c>[ScenarioWire]</c> codec of every discovered service-provider handler, by class name — the
+        ///     same convention scan <see cref="DevLogicSystemInitializer" /> uses to create the stand-ins, so what
+        ///     is described here is exactly what a scenario can drive or assert and what a pairing can carry.
+        /// </summary>
+        internal Dictionary<string, ScenarioWireCodec> WireCodecsByHandler()
+        {
+            var assemblies = AppDomain.CurrentDomain.GetAssemblies().Where(assembly => !assembly.IsDynamic).ToArray();
+
+            lock (_gate)
+            {
+                if (_wireCodecs is { } cached && cached.Assemblies == assemblies.Length)
+                {
+                    return cached.ByHandler;
+                }
+
+                var byHandler = new Dictionary<string, ScenarioWireCodec>(StringComparer.Ordinal);
+                foreach (var (handlerType, codec) in ServiceProviderContractHandlerScan.Discover(assemblies))
+                {
+                    byHandler[handlerType.Name] = codec;
+                }
+
+                _wireCodecs = (assemblies.Length, byHandler);
+                return byHandler;
+            }
+        }
+
+        /// <summary>
+        ///     The handler-actor class name servicing one block's contract (its
+        ///     <c>ContractHandlerActorName</c>), or null when the block declares no such contract. The join the
+        ///     RFC 0020 pairing table hangs off — it is the one fact only an introspected block carries, because
+        ///     the name lives on the contract INSTANCE the binder constructed.
+        /// </summary>
+        internal string? ContractHandlerActorName(string blockId, string contractIdentifier)
+        {
+            EnsureIntrospected();
+            if (!_results.TryGetValue(blockId, out var result))
+            {
+                return null;
+            }
+
+            var contract = result.Contracts.FirstOrDefault(c => c.Identifier == contractIdentifier);
+            return contract?.Annotations is { } annotations && annotations.TryGetValue(ServiceProviderContractAnnotations.ContractHandlerActorName, out var handler) ?
+                       handler as string : null;
+        }
+
+        // RFC 0020: the declared pairings, each carrying the directions the wire-type identity rule actually
+        // materialised — the resolver reads them to warn about a serviceProviderSet onto an endpoint a pairing
+        // also feeds, and the wiring view draws them. Empty on an unpaired topology, so nothing changes there.
+        private List<ConfigurationOutput.ContractPairing> BuildContractPairings()
+        {
+            if (_configuration.ContractPairings.Count == 0)
+            {
+                return [];
+            }
+
+            var codecs = WireCodecsByHandler();
+            var fed = new HashSet<(string Source, string Fed)>(ContractPairingTable.FedDirections(_configuration.ContractPairings, ContractHandlerActorName, codecs)
+                                                                                   .Select(d => (Key(d.Source), Key(d.Fed))));
+
+            return _configuration.ContractPairings
+                                 .Select(p => new ConfigurationOutput.ContractPairing
+                                              {
+                                                  A = new ConfigurationOutput.ContractPairingEndpoint
+                                                      { LogicBlockName = p.A.LogicBlockName, ContractIdentifier = p.A.ContractIdentifier },
+                                                  B = new ConfigurationOutput.ContractPairingEndpoint
+                                                      { LogicBlockName = p.B.LogicBlockName, ContractIdentifier = p.B.ContractIdentifier },
+                                                  AToB = fed.Contains((Key(p.A), Key(p.B))),
+                                                  BToA = fed.Contains((Key(p.B), Key(p.A))),
+                                              })
+                                 .ToList();
+
+            static string Key(DevContractPairingEndpoint endpoint)
+            {
+                return $"{endpoint.LogicBlockId}.{endpoint.ContractIdentifier}";
+            }
         }
 
         private void Introspect()
@@ -488,7 +568,7 @@ namespace Vion.Dale.DevHost.Control
         private Dictionary<string, object> WithScenarioWireFields(Dictionary<string, object> annotations)
         {
             if (!annotations.TryGetValue(ServiceProviderContractAnnotations.ContractHandlerActorName, out var handler) || handler is not string handlerName ||
-                !WireLeavesByHandler().TryGetValue(handlerName, out var leaves))
+                !WireCodecsByHandler().TryGetValue(handlerName, out var codec))
             {
                 return annotations;
             }
@@ -496,41 +576,17 @@ namespace Vion.Dale.DevHost.Control
             // Copy rather than mutate: the introspection result's dictionary is cached in _results and shared
             // by every configuration build.
             var enriched = new Dictionary<string, object>(annotations);
-            if (leaves.Inbound is { } inbound)
+            if (codec.InputFieldPaths is { } inbound)
             {
                 enriched[ScenarioWireFields.InputFieldsAnnotationKey] = inbound;
             }
 
-            if (leaves.Outbound is { } outbound)
+            if (codec.OutputFieldPaths is { } outbound)
             {
                 enriched[ScenarioWireFields.OutputFieldsAnnotationKey] = outbound;
             }
 
             return enriched;
-        }
-
-        private Dictionary<string, ScenarioWireLeaves> WireLeavesByHandler()
-        {
-            var assemblies = AppDomain.CurrentDomain.GetAssemblies().Where(assembly => !assembly.IsDynamic).ToArray();
-
-            lock (_gate)
-            {
-                if (_wireLeaves is { } cached && cached.Assemblies == assemblies.Length)
-                {
-                    return cached.ByHandler;
-                }
-
-                // The same convention scan DevLogicSystemInitializer uses to create the stand-ins, so the
-                // contracts described here are exactly the ones a scenario can drive or assert.
-                var byHandler = new Dictionary<string, ScenarioWireLeaves>(StringComparer.Ordinal);
-                foreach (var (handlerType, codec) in ServiceProviderContractHandlerScan.Discover(assemblies))
-                {
-                    byHandler[handlerType.Name] = new ScenarioWireLeaves(codec.InputFieldPaths, codec.OutputFieldPaths);
-                }
-
-                _wireLeaves = (assemblies.Length, byHandler);
-                return byHandler;
-            }
         }
 
         private static ConfigurationOutput.Service BuildService(LogicBlockIntrospectionResult meta, DevServiceConfig s)
@@ -561,9 +617,5 @@ namespace Vion.Dale.DevHost.Control
                                                            .ToList(),
                    };
         }
-
-        // One handler's two [ScenarioWire] directions, each null when undeclared — the shape the two contract
-        // annotations are written from.
-        private readonly record struct ScenarioWireLeaves(IReadOnlyList<string>? Inbound, IReadOnlyList<string>? Outbound);
     }
 }

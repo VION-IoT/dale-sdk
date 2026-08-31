@@ -1,0 +1,26 @@
+{
+  "$schema": "./.dale/topology.schema.json",
+  "id": "paired",
+  "logicBlockInstances": [
+    {
+      "typeFullName": "Vion.Dale.DevHost.SmokeHost.LogicBlocks.IoBlock",
+      "name": "IoBlock"
+    },
+    {
+      "typeFullName": "Vion.Dale.DevHost.SmokeHost.LogicBlocks.IdealIoBlock",
+      "name": "IdealIo"
+    }
+  ],
+  "interfaceMappings": [],
+  "contractPairings": [
+    {
+      "a": { "logicBlockName": "IoBlock", "contractIdentifier": "ActiveOutput" },
+      "b": { "logicBlockName": "IdealIo", "contractIdentifier": "OutputChannel" }
+    },
+    {
+      "a": { "logicBlockName": "IoBlock", "contractIdentifier": "EnableInput" },
+      "b": { "logicBlockName": "IdealIo", "contractIdentifier": "InputChannel" }
+    }
+  ],
+  "contractMappings": []
+}
