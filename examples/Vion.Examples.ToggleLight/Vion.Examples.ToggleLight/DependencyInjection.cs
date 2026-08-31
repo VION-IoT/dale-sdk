@@ -10,6 +10,7 @@ namespace Vion.Examples.ToggleLight
         {
             services.AddTransient<Toggle>();
             services.AddTransient<Light>();
+            services.AddTransient<IdealRelay>();
         }
     }
 }

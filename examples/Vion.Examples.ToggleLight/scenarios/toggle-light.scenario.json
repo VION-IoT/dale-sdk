@@ -2,8 +2,8 @@
   "$schema": "./.dale/scenario.schema.json",
   "version": 1,
   "id": "toggle-light",
-  "title": "A button press turns the light on",
-  "description": "Drive the Toggle's digital input high; the press propagates over the IToggler → IToggleable contract and the Light switches on, counting the switch-on and accumulating on-time on its 1 s timer. Deterministic under `dale dev --stepped`.",
+  "title": "A button press turns the light on, and the relay confirms it",
+  "description": "Drive the Toggle's digital input high; the press propagates over the IToggler → IToggleable contract and the Light switches on, counting the switch-on and accumulating on-time on its 1 s timer. The light's digital output is paired with the IdealRelay's provider face in the topology, so the command it writes actually arrives somewhere: the relay receives it, confirms the value it applied, and that confirmation comes back on the light's OutputChanged as ConfirmedOn — the far side a workstation otherwise does not have. Pressing again switches the loop back off. Deterministic under `dale dev --stepped`.",
   "topology": "default",
   "setup": [
     { "set": "Light.ToggleMode", "value": "ToggleOnPressed" }
@@ -14,14 +14,26 @@
     { "label": "…and counts exactly one switch-on", "expect": { "property": "Light.TimesSwitchedOn", "equals": 1 } },
     { "label": "Hold it on for 3 s of virtual time", "advance": { "seconds": 3 } },
     { "label": "The light is still on", "expect": { "property": "Light.On", "equals": true } },
-    { "label": "…and its digital output mirrors the On state", "serviceProviderExpect": { "logicBlock": "Light", "contract": "DigitalOutput", "equals": true } }
+    { "label": "…and its digital output mirrors the On state", "serviceProviderExpect": { "logicBlock": "Light", "contract": "DigitalOutput", "equals": true } },
+    { "label": "The pairing delivered that command to the relay's provider face", "waitUntil": { "property": "Relay.LastCommand", "equals": true }, "timeoutSeconds": 5 },
+    { "label": "…exactly once", "expect": { "property": "Relay.CommandCount", "equals": 1 } },
+    { "label": "…and the relay's confirmation came back on OutputChanged", "waitUntil": { "property": "Light.ConfirmedOn", "equals": true }, "timeoutSeconds": 5 },
+    { "label": "Release the button (a release does not toggle in this mode)", "serviceProviderSet": { "logicBlock": "Toggle", "contract": "DigitalInput" }, "value": false },
+    { "label": "The light stays on", "expect": { "property": "Light.On", "equals": true } },
+    { "label": "Press it again", "serviceProviderSet": { "logicBlock": "Toggle", "contract": "DigitalInput" }, "value": true },
+    { "label": "The light switches off", "waitUntil": { "property": "Light.On", "equals": false }, "timeoutSeconds": 5 },
+    { "label": "…and the loop settles: the relay confirms the lamp went out too", "waitUntil": { "property": "Light.ConfirmedOn", "equals": false }, "timeoutSeconds": 5 },
+    { "label": "…on a second command, not a repeat of the first", "expect": { "property": "Relay.CommandCount", "equals": 2 } }
   ],
   "watch": [
     "Light.On",
+    "Light.ConfirmedOn",
     "Light.TimesSwitchedOn",
-    "Light.TotalTimeOn"
+    "Light.TotalTimeOn",
+    "Relay.LastCommand"
   ],
   "judge": [
-    { "text": "TotalTimeOn is about 3 s after the hold (the [Timer(1)] accumulates only while the light is on)" }
+    { "text": "TotalTimeOn is about 3 s after the hold (the [Timer(1)] accumulates only while the light is on)" },
+    { "text": "ConfirmedOn tracks On rather than leading it — the block's own state changes first, the confirmation follows a round trip later" }
   ]
 }
