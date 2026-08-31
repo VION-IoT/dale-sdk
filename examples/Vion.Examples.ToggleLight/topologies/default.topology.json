@@ -9,6 +9,10 @@
     {
       "typeFullName": "Vion.Examples.ToggleLight.LogicBlocks.Light",
       "name": "Light"
+    },
+    {
+      "typeFullName": "Vion.Examples.ToggleLight.LogicBlocks.IdealRelay",
+      "name": "Relay"
     }
   ],
   "interfaceMappings": [
@@ -17,6 +21,12 @@
       "sourceInterfaceIdentifier": "IToggler",
       "targetLogicBlockName": "Light",
       "targetInterfaceIdentifier": "IToggleable"
+    }
+  ],
+  "contractPairings": [
+    {
+      "a": { "logicBlockName": "Light", "contractIdentifier": "DigitalOutput" },
+      "b": { "logicBlockName": "Relay", "contractIdentifier": "LightChannel" }
     }
   ],
   "contractMappings": [

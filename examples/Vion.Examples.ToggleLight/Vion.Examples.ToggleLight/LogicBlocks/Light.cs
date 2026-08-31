@@ -45,6 +45,15 @@ namespace Vion.Examples.ToggleLight.LogicBlocks
             }
         }
 
+        /// <summary>
+        ///     What the relay on the far side of the digital output reported back. <see cref="On" /> is what
+        ///     this block asked for; this is what actually happened — the two agree only once the confirmation
+        ///     has arrived, and a bench whose far side is silent leaves it dark.
+        /// </summary>
+        [ServiceProperty(Title = "Ein bestätigt")]
+        [Presentation(Group = PropertyGroup.Status)]
+        public bool ConfirmedOn { get; private set; }
+
         [ServiceProperty(Title = "Anzahl Einschaltungen")]
         [Presentation(Group = PropertyGroup.Metric, Importance = Importance.Secondary)]
         public int TimesSwitchedOn { get; private set; }
@@ -88,12 +97,16 @@ namespace Vion.Examples.ToggleLight.LogicBlocks
         /// <inheritdoc />
         protected override void Ready()
         {
+            // The other half of a digital output: the far side reports what it applied. On a device that is
+            // the I/O module; in this example it is the IdealRelay block, joined to this output by the
+            // topology's contract pairing. Without such a far side the event simply never fires.
             DigitalOutput.OutputChanged += DigitalOutput_OutputChanged;
         }
 
         private void DigitalOutput_OutputChanged(object sender, bool e)
         {
             _logger.LogInformation("Digital output changed to {Value}", e);
+            ConfirmedOn = e;
         }
 
         private void SetDigitalOutput(bool value)

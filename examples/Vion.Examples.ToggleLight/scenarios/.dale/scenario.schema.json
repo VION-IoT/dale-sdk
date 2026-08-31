@@ -87,6 +87,8 @@
       "type": "string",
       "description": "Block.Property (when unambiguous within the block) or Block.Service.Property (the qualified form for multi-service blocks).",
       "enum": [
+        "Light.ConfirmedOn",
+        "Light.Light.ConfirmedOn",
         "Light.Light.On",
         "Light.Light.TimesSwitchedOn",
         "Light.Light.ToggleMode",
@@ -95,6 +97,10 @@
         "Light.TimesSwitchedOn",
         "Light.ToggleMode",
         "Light.TotalTimeOn",
+        "Relay.CommandCount",
+        "Relay.IdealRelay.CommandCount",
+        "Relay.IdealRelay.LastCommand",
+        "Relay.LastCommand",
         "Toggle.Mode",
         "Toggle.Toggle.Mode"
       ]
@@ -467,7 +473,7 @@
       "required": [
         "serviceProviderExpect"
       ],
-      "description": "A deterministic, point-in-time auto-assertion on the value a block last wrote on a [ServiceProviderContractType] value contract (CI-failing tier) — an output, or a bidirectional contract whose handler declares a [ScenarioWire] Outbound. The generic replacement for digitalOutput / analogOutput (RFC 0010).",
+      "description": "A deterministic, point-in-time auto-assertion on the value a block last wrote on a [ServiceProviderContractType] value contract (CI-failing tier) \u2014 an output, or a bidirectional contract whose handler declares a [ScenarioWire] Outbound. The generic replacement for digitalOutput / analogOutput (RFC 0010).",
       "properties": {
         "label": {
           "$ref": "#/$defs/stepCommon/label"
