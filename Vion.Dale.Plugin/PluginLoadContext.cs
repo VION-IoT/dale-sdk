@@ -80,6 +80,14 @@ namespace Vion.Dale.Plugin
         /// </summary>
         public void EagerlyLoadSharedExtensions()
         {
+            // Same tolerance the constructor's version scan applies: a caller pointing at a
+            // directory that is not there gets its own error, not a DirectoryNotFoundException
+            // raised one call after construction accepted the very same path.
+            if (!Directory.Exists(_pluginPath))
+            {
+                return;
+            }
+
             foreach (var dllPath in Directory.EnumerateFiles(_pluginPath, "*.dll"))
             {
                 var fullPath = Path.GetFullPath(dllPath);
@@ -94,7 +102,15 @@ namespace Vion.Dale.Plugin
                 if (HasDaleSharedAssemblyAttribute(fullPath))
                 {
                     // Trigger Load() which handles shared caching
-                    LoadFromAssemblyName(new AssemblyName(assemblyName));
+                    var assembly = LoadFromAssemblyName(new AssemblyName(assemblyName));
+
+                    // ...except when this context already holds the assembly: LoadFromAssemblyName
+                    // then returns it without routing through Load(), and Load() is the only writer
+                    // of the shared registry. The runtime loads a plugin's own dll by path before
+                    // calling this method, so a marked plugin assembly arrives on exactly that path
+                    // and would otherwise never reach the registry its IConfigureServices is
+                    // auto-invoked from. TryAdd so an instance another plugin already shared wins.
+                    SharedExtensionAssemblies.TryAdd(assemblyName, assembly);
                 }
             }
         }
@@ -156,18 +172,23 @@ namespace Vion.Dale.Plugin
             var pluginAssemblyPath = Path.Combine(_pluginPath, $"{assemblyName.Name}.dll");
             if (File.Exists(pluginAssemblyPath))
             {
-                // Fast path: already loaded and cached by another plugin
-                if (SharedExtensionAssemblies.TryGetValue(assemblyName.Name, out var cachedAssembly))
-                {
-                    _logger.LogInformation("Reusing shared extension {AssemblyName} {Version} (first loaded by another plugin)",
-                                           assemblyName.Name,
-                                           cachedAssembly.GetName().Version);
-                    return cachedAssembly;
-                }
-
                 var fullPath = Path.GetFullPath(pluginAssemblyPath);
+
+                // THIS plugin's own copy decides whether it shares, and the check comes before the
+                // cache: sharing on a simple-name cache hit alone hands a plugin that never applied
+                // the attribute another plugin's assembly, so its types silently become code it
+                // never shipped. The verdict is memoized per path, so the cost is a lookup.
                 if (HasDaleSharedAssemblyAttribute(fullPath))
                 {
+                    // Fast path: already loaded and cached by another plugin
+                    if (SharedExtensionAssemblies.TryGetValue(assemblyName.Name, out var cachedAssembly))
+                    {
+                        _logger.LogInformation("Reusing shared extension {AssemblyName} {Version} (first loaded by another plugin)",
+                                               assemblyName.Name,
+                                               cachedAssembly.GetName().Version);
+                        return cachedAssembly;
+                    }
+
                     lock (SharedExtensionLoadLock)
                     {
                         // Double-check after acquiring lock — another plugin may have loaded it
