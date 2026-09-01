@@ -18,11 +18,6 @@ namespace Vion.Dale.Plugin.Test.TestHelpers
     internal static class FixtureAssembly
     {
         /// <summary>
-        ///     Every fixture gets a name unique to its test run. The loader's shared-extension
-        ///     registry is keyed by simple name and lives for the lifetime of the process, so two
-        ///     tests reusing a name would resolve each other's assemblies.
-        /// </summary>
-        /// <summary>
         ///     A type in the stand-in SDK a fixture can derive from so its reference to that SDK
         ///     survives compilation.
         /// </summary>
@@ -41,6 +36,11 @@ namespace Vion.Dale.Plugin.Test.TestHelpers
             }
         }
 
+        /// <summary>
+        ///     Every fixture gets a name unique to its test run. The loader's shared-extension
+        ///     registry is keyed by simple name and lives for the lifetime of the process, so two
+        ///     tests reusing a name would resolve each other's assemblies.
+        /// </summary>
         public static string UniqueName(string prefix)
         {
             return $"{prefix}{Guid.NewGuid():N}";
@@ -57,7 +57,6 @@ namespace Vion.Dale.Plugin.Test.TestHelpers
         ///     Emits a minimal assembly named <paramref name="simpleName" /> into
         ///     <paramref name="directory" /> and returns its path.
         /// </summary>
-        /// <param name="assemblyVersion">Stamped as the assembly's version; <c>null</c> leaves the compiler default.</param>
         /// <param name="references">Assemblies the fixture references, on top of the runtime's own.</param>
         /// <param name="attributes">
         ///     Assembly-level attribute usages, written verbatim (e.g.
@@ -68,17 +67,18 @@ namespace Vion.Dale.Plugin.Test.TestHelpers
         ///     referenced assembly: the compiler drops an assembly reference nothing touches, and an
         ///     assembly reference row is precisely what the SDK version gate reads.
         /// </param>
+        /// <param name="fileName">
+        ///     The file name to write, without extension; defaults to <paramref name="simpleName" />.
+        ///     Pass a different one to build the assembly whose file name and simple name disagree.
+        /// </param>
         public static string Emit(string directory,
                                   string simpleName,
-                                  Version? assemblyVersion = null,
                                   IEnumerable<string>? references = null,
                                   IEnumerable<string>? attributes = null,
-                                  string body = "public class FixtureMarker { }")
+                                  string body = "public class FixtureMarker { }",
+                                  string? fileName = null)
         {
-            var source = string.Join(Environment.NewLine,
-                                     assemblyVersion == null ? string.Empty : $"[assembly: System.Reflection.AssemblyVersion(\"{assemblyVersion}\")]",
-                                     string.Join(Environment.NewLine, attributes ?? Array.Empty<string>()),
-                                     body);
+            var source = string.Join(Environment.NewLine, string.Join(Environment.NewLine, attributes ?? Array.Empty<string>()), body);
 
             var metadataReferences = RuntimeReferences.Concat((references ?? Array.Empty<string>()).Select(r => MetadataReference.CreateFromFile(r)));
             var compilation = CSharpCompilation.Create(simpleName,
@@ -86,7 +86,7 @@ namespace Vion.Dale.Plugin.Test.TestHelpers
                                                        metadataReferences,
                                                        new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
-            var path = Path.Combine(directory, $"{simpleName}.dll");
+            var path = Path.Combine(directory, $"{fileName ?? simpleName}.dll");
             var result = compilation.Emit(path);
             if (!result.Success)
             {

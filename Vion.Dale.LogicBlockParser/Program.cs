@@ -122,7 +122,7 @@ namespace Vion.Dale.LogicBlockParser
             //var pluginAssembly = typeof(LogicBlockBase).Assembly;
             var pluginAssembly = LoadPluginAssembly(pluginDllPath, logger);
             InvokeConfigureServicesFromPlugin(pluginAssembly, builder.Services, logger);
-            InvokeConfigureServicesFromSharedAssemblies(builder.Services, logger);
+            InvokeConfigureServicesFromSharedAssemblies(pluginAssembly, builder.Services, logger);
 
             var app = builder.Build();
 
@@ -293,10 +293,21 @@ namespace Vion.Dale.LogicBlockParser
             }
         }
 
-        private static void InvokeConfigureServicesFromSharedAssemblies(IServiceCollection serviceCollection, ILogger logger)
+        /// <summary>
+        ///     Registers services from the shared extension libraries the plugin pulled in. The
+        ///     plugin's own assembly is excluded: it reaches the shared registry too when it carries
+        ///     <c>[DaleSharedAssembly]</c>, and <see cref="InvokeConfigureServicesFromPlugin" /> has
+        ///     already run its registrations — invoking them twice registers every service twice.
+        /// </summary>
+        private static void InvokeConfigureServicesFromSharedAssemblies(Assembly pluginAssembly, IServiceCollection serviceCollection, ILogger logger)
         {
             foreach (var assembly in PluginLoadContext.GetLoadedSharedExtensionAssemblies())
             {
+                if (assembly == pluginAssembly)
+                {
+                    continue;
+                }
+
                 var configureServicesTypes = assembly.GetTypes().Where(t => typeof(IConfigureServices).IsAssignableFrom(t) && !t.IsAbstract).ToList();
                 foreach (var type in configureServicesTypes)
                 {

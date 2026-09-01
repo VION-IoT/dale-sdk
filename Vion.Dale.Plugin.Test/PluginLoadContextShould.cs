@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Runtime.Loader;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Vion.Dale.Plugin.Test.TestHelpers;
 using Vion.Dale.Sdk.Core;
 
@@ -31,7 +32,9 @@ namespace Vion.Dale.Plugin.Test
 
         private static readonly TimeSpan BindTimeout = TimeSpan.FromSeconds(30);
 
-        private RecordingLogger _logger = null!;
+        private readonly List<string> _directories = new();
+
+        private readonly ILogger _logger = NullLogger.Instance;
 
         private string _pluginDirectory = null!;
 
@@ -46,9 +49,8 @@ namespace Vion.Dale.Plugin.Test
         [TestInitialize]
         public void Initialize()
         {
-            _logger = new RecordingLogger();
-            _pluginDirectory = FixtureAssembly.CreateDirectory();
-            _stagingDirectory = FixtureAssembly.CreateDirectory();
+            _pluginDirectory = CreateDirectory();
+            _stagingDirectory = CreateDirectory();
         }
 
         [TestCleanup]
@@ -57,8 +59,19 @@ namespace Vion.Dale.Plugin.Test
             // Best-effort: a plugin load context is non-collectible (AC-PLUG-001.1), so any fixture
             // a test actually loaded stays locked for the lifetime of the process and its directory
             // cannot be removed. Leaving it is the cost of the fixtures; failing the test is not.
-            TryDelete(_pluginDirectory);
-            TryDelete(_stagingDirectory);
+            foreach (var directory in _directories)
+            {
+                try
+                {
+                    Directory.Delete(directory, true);
+                }
+                catch (IOException)
+                {
+                }
+                catch (UnauthorizedAccessException)
+                {
+                }
+            }
         }
 
         [TestMethod]
@@ -96,10 +109,10 @@ namespace Vion.Dale.Plugin.Test
             EmitBuiltAgainstSdk(_pluginDirectory, FixtureAssembly.UniqueName("Fixture"), standInSdk);
 
             // Act
-            _ = new PluginLoadContext(_pluginDirectory, PackageId, _logger);
+            var sut = new PluginLoadContext(_pluginDirectory, PackageId, _logger);
 
             // Assert
-            Assert.AreEqual(0, _logger.ErrorCount, "Minor, build and revision skew stays warn-and-continue.");
+            CollectionAssert.Contains(AssemblyLoadContext.All.ToList(), sut, "Minor, build and revision skew leaves a usable context behind.");
         }
 
         [TestMethod]
@@ -124,7 +137,6 @@ namespace Vion.Dale.Plugin.Test
             StringAssert.Contains(exception.Message, pluginVersion.ToString());
             StringAssert.Contains(exception.Message, SdkAssemblyName);
             StringAssert.Contains(exception.Message, "Rebuild the plugin");
-            Assert.AreEqual(1, _logger.ErrorCount);
         }
 
         [TestMethod]
@@ -134,10 +146,11 @@ namespace Vion.Dale.Plugin.Test
             // Arrange
             var missingDirectory = Path.Combine(Path.GetTempPath(), $"dale-missing-{Guid.NewGuid():N}");
 
-            // Act / Assert
-            // Completing construction is the behaviour: the gate cannot enumerate a directory that
-            // is not there, and a caller pointing at one gets its own error, not the gate's.
-            _ = new PluginLoadContext(missingDirectory, PackageId, _logger);
+            // Act
+            var sut = new PluginLoadContext(missingDirectory, PackageId, _logger);
+
+            // Assert
+            CollectionAssert.Contains(AssemblyLoadContext.All.ToList(), sut, "A directory the gate cannot enumerate is the caller's to report, not a construction failure.");
         }
 
         [TestMethod]
@@ -149,10 +162,10 @@ namespace Vion.Dale.Plugin.Test
             FixtureAssembly.Emit(_pluginDirectory, FixtureAssembly.UniqueName("Unrelated"));
 
             // Act
-            _ = new PluginLoadContext(_pluginDirectory, PackageId, _logger);
+            var sut = new PluginLoadContext(_pluginDirectory, PackageId, _logger);
 
             // Assert
-            Assert.AreEqual(0, _logger.ErrorCount, "A corrupt dll and an assembly that never references the SDK are both skipped, not failures.");
+            CollectionAssert.Contains(AssemblyLoadContext.All.ToList(), sut, "A corrupt dll and an assembly that never references the SDK are both skipped, not failures.");
         }
 
         [TestMethod]
@@ -171,7 +184,7 @@ namespace Vion.Dale.Plugin.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-PLUG-002.5")]
-        public void ReadNoSdkVersionFromFileThatIsNotAnAssembly()
+        public void ReadNoSdkVersionFromNonAssemblyFile()
         {
             // Arrange
             var corrupt = FixtureAssembly.EmitUnreadable(_pluginDirectory, FixtureAssembly.UniqueName("Corrupt"));
@@ -217,23 +230,26 @@ namespace Vion.Dale.Plugin.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-PLUG-002.7")]
-        public void RejectPluginOnFirstAssemblyFailingTheVersionCheck()
+        public void RejectPluginNamingOneFailingAssembly()
         {
             // Arrange
-            var standInSdk = FixtureAssembly.EmitStandInSdk(_stagingDirectory, new Version(HostSdkMajor + 1, 0, 0, 0));
-            EmitBuiltAgainstSdk(_pluginDirectory, FixtureAssembly.UniqueName("FixtureA"), standInSdk);
-            EmitBuiltAgainstSdk(_pluginDirectory, FixtureAssembly.UniqueName("FixtureB"), standInSdk);
+            var firstSkew = new Version(HostSdkMajor + 1, 0, 0, 0);
+            var secondSkew = new Version(HostSdkMajor + 2, 0, 0, 0);
+            EmitBuiltAgainstSdk(_pluginDirectory, FixtureAssembly.UniqueName("FixtureA"), FixtureAssembly.EmitStandInSdk(_stagingDirectory, firstSkew));
+            EmitBuiltAgainstSdk(_pluginDirectory, FixtureAssembly.UniqueName("FixtureB"), FixtureAssembly.EmitStandInSdk(CreateDirectory(), secondSkew));
 
             // Act
-            Assert.ThrowsExactly<PluginSdkVersionMismatchException>(() => new PluginLoadContext(_pluginDirectory, PackageId, _logger));
+            var exception = Assert.ThrowsExactly<PluginSdkVersionMismatchException>(() => new PluginLoadContext(_pluginDirectory, PackageId, _logger));
 
             // Assert
-            Assert.AreEqual(1, _logger.ErrorCount, "Both assemblies fail the check; only the first is reported, because the scan stops there.");
+            Assert.AreNotEqual(exception.Message.Contains(firstSkew.ToString()),
+                               exception.Message.Contains(secondSkew.ToString()),
+                               "Exactly one of the two failing assemblies is named — the rejection reports a failure, not an inventory of them.");
         }
 
         [TestMethod]
         [TestProperty("spec", "AC-PLUG-003.1")]
-        public void ResolveHostInstanceForAssemblyTheSdkReferences()
+        public void ResolveHostInstanceForSdkReferencedAssembly()
         {
             // Google.FlatBuffers is in the shared set only because Vion.Dale.Sdk references it —
             // its name matches no prefix rule and it carries no sharing attribute.
@@ -251,7 +267,7 @@ namespace Vion.Dale.Plugin.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-PLUG-003.2")]
-        public void ResolveHostSdkInstanceOverThePluginCopy()
+        public void ResolveHostSdkInstanceOverPluginCopy()
         {
             // Arrange
             File.Copy(Path.Combine(AppContext.BaseDirectory, $"{SdkAssemblyName}.dll"), Path.Combine(_pluginDirectory, $"{SdkAssemblyName}.dll"));
@@ -266,7 +282,7 @@ namespace Vion.Dale.Plugin.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-PLUG-003.3")]
-        public void ResolveSharedAssemblyTheHostHasNotLoadedThroughTheHost()
+        public void ResolveUnloadedSharedAssemblyThroughHost()
         {
             // Vion.Contracts is in the shared set — Vion.Dale.Sdk references it — but nothing in
             // this process has loaded it, so this is the delegating arm of the same rule.
@@ -321,22 +337,8 @@ namespace Vion.Dale.Plugin.Test
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-PLUG-004.4")]
-        public void ResolveFrameworkAssemblyMissingEverywhereThroughTheHost()
-        {
-            // Arrange
-            var fixtureName = "System." + FixtureAssembly.UniqueName("Fixture");
-            var sut = new PluginLoadContext(_pluginDirectory, PackageId, _logger);
-
-            // Act / Assert
-            // The host's resolver is what runs out of places to look, and its failure is what the
-            // plugin sees — the loader hands the bind on instead of deciding it itself.
-            Assert.ThrowsExactly<FileNotFoundException>(() => sut.LoadFromAssemblyName(new AssemblyName(fixtureName)));
-        }
-
-        [TestMethod]
         [TestProperty("spec", "AC-PLUG-005.1")]
-        public void LoadMarkedAssemblyIntoTheRequestingPluginContext()
+        public void LoadMarkedAssemblyIntoRequestingPluginContext()
         {
             // Arrange
             var fixtureName = FixtureAssembly.UniqueName("Shared");
@@ -352,7 +354,7 @@ namespace Vion.Dale.Plugin.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-PLUG-005.1")]
-        public void RetainMarkedAssemblyAsTheSharedInstance()
+        public void RetainMarkedAssemblyAsSharedInstance()
         {
             // Arrange
             var fixtureName = FixtureAssembly.UniqueName("Shared");
@@ -369,12 +371,12 @@ namespace Vion.Dale.Plugin.Test
         [TestMethod]
         [TestProperty("spec", "AC-PLUG-005.2")]
         [TestProperty("spec", "AC-PLUG-005.7")]
-        public void ResolveTheSharedInstanceForEveryFurtherPlugin()
+        public void ResolveSharedInstanceForEveryFurtherPlugin()
         {
             // Arrange
             var fixtureName = FixtureAssembly.UniqueName("Shared");
             var marked = EmitMarked(_pluginDirectory, fixtureName);
-            var secondPluginDirectory = FixtureAssembly.CreateDirectory();
+            var secondPluginDirectory = CreateDirectory();
             File.Copy(marked, Path.Combine(secondPluginDirectory, $"{fixtureName}.dll"));
             var firstResolved = new PluginLoadContext(_pluginDirectory, PackageId, _logger).LoadFromAssemblyName(new AssemblyName(fixtureName));
             var secondPlugin = new PluginLoadContext(secondPluginDirectory, PackageId, _logger);
@@ -387,14 +389,44 @@ namespace Vion.Dale.Plugin.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-PLUG-005.9")]
+        public void ResolveSharedExtensionDependenciesAgainstOwnersDirectory()
+        {
+            // Arrange
+            var dependencyName = FixtureAssembly.UniqueName("Dependency");
+            var fixtureName = FixtureAssembly.UniqueName("Shared");
+            var dependency = FixtureAssembly.Emit(_pluginDirectory, dependencyName, body: "public class DependencyBase { }");
+            var marked = FixtureAssembly.Emit(_pluginDirectory,
+                                              fixtureName,
+                                              new[] { Path.Combine(AppContext.BaseDirectory, $"{SdkAssemblyName}.dll"), dependency },
+                                              new[] { "[assembly: Vion.Dale.Sdk.Core.DaleSharedAssembly]" },
+                                              "public class FixtureMarker : DependencyBase { }");
+            var borrowingPluginDirectory = CreateDirectory();
+            File.Copy(marked, Path.Combine(borrowingPluginDirectory, $"{fixtureName}.dll"));
+            var owningPlugin = new PluginLoadContext(_pluginDirectory, PackageId, _logger);
+            owningPlugin.LoadFromAssemblyName(new AssemblyName(fixtureName));
+            var borrowingPlugin = new PluginLoadContext(borrowingPluginDirectory, PackageId, _logger);
+
+            // Act
+            var resolved = borrowingPlugin.LoadFromAssemblyName(new AssemblyName(fixtureName));
+            var dependencyOfResolved = resolved.GetType("FixtureMarker")!.BaseType!.Assembly;
+
+            // Assert
+            Assert.AreSame(owningPlugin, AssemblyLoadContext.GetLoadContext(resolved), "The plugin that bound it first owns it.");
+            Assert.AreSame(owningPlugin,
+                           AssemblyLoadContext.GetLoadContext(dependencyOfResolved),
+                           "The borrowing plugin ships no copy of the dependency; it resolves from the owner's directory, which is the consequence of that ownership.");
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-PLUG-005.3")]
-        public void LoadPrivateCopyForAnUnmarkedAssemblyDespiteASharedInstance()
+        public void LoadPrivateCopyForUnmarkedAssemblyDespiteSharedInstance()
         {
             // Arrange
             var fixtureName = FixtureAssembly.UniqueName("Shared");
             EmitMarked(_pluginDirectory, fixtureName);
             var sharedInstance = new PluginLoadContext(_pluginDirectory, PackageId, _logger).LoadFromAssemblyName(new AssemblyName(fixtureName));
-            var unmarkedPluginDirectory = FixtureAssembly.CreateDirectory();
+            var unmarkedPluginDirectory = CreateDirectory();
             FixtureAssembly.Emit(unmarkedPluginDirectory, fixtureName);
             var unmarkedPlugin = new PluginLoadContext(unmarkedPluginDirectory, PackageId, _logger);
 
@@ -426,13 +458,51 @@ namespace Vion.Dale.Plugin.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-PLUG-005.4")]
+        public void IgnoreMarkerOfSameNameFromAnotherNamespace()
+        {
+            // Arrange
+            var fixtureName = FixtureAssembly.UniqueName("Private");
+            var markerLibrary = FixtureAssembly.EmitStandInMarkerLibrary(_stagingDirectory, FixtureAssembly.UniqueName("Marker"), "Acme.Sharing");
+            FixtureAssembly.Emit(_pluginDirectory, fixtureName, new[] { markerLibrary }, new[] { "[assembly: Acme.Sharing.DaleSharedAssembly]" });
+            var sut = new PluginLoadContext(_pluginDirectory, PackageId, _logger);
+
+            // Act
+            var resolved = sut.LoadFromAssemblyName(new AssemblyName(fixtureName));
+
+            // Assert
+            Assert.AreSame(sut, AssemblyLoadContext.GetLoadContext(resolved), "Only Vion's own attribute opts an assembly into sharing — the type name alone is not the marker.");
+            CollectionAssert.DoesNotContain(SharedExtensionNames(), fixtureName);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-PLUG-005.8")]
+        public void IgnoreMarkerAnAssemblyDeclaresItself()
+        {
+            // Arrange
+            var fixtureName = FixtureAssembly.UniqueName("Private");
+            FixtureAssembly.Emit(_pluginDirectory,
+                                 fixtureName,
+                                 attributes: new[] { "[assembly: Vion.Dale.Sdk.Core.DaleSharedAssembly]" },
+                                 body: "namespace Vion.Dale.Sdk.Core { public sealed class DaleSharedAssemblyAttribute : System.Attribute { } }");
+            var sut = new PluginLoadContext(_pluginDirectory, PackageId, _logger);
+
+            // Act
+            var resolved = sut.LoadFromAssemblyName(new AssemblyName(fixtureName));
+
+            // Assert
+            Assert.AreSame(sut, AssemblyLoadContext.GetLoadContext(resolved), "Declaring the attribute is not applying Vion's — an assembly cannot opt itself into sharing.");
+            CollectionAssert.DoesNotContain(SharedExtensionNames(), fixtureName);
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-PLUG-005.6")]
-        public async Task LoadASharedExtensionOnceUnderConcurrentBinding()
+        public async Task LoadSharedExtensionOnceUnderConcurrentBinding()
         {
             // Arrange
             var fixtureName = FixtureAssembly.UniqueName("Shared");
             var marked = EmitMarked(_pluginDirectory, fixtureName);
-            var secondPluginDirectory = FixtureAssembly.CreateDirectory();
+            var secondPluginDirectory = CreateDirectory();
             File.Copy(marked, Path.Combine(secondPluginDirectory, $"{fixtureName}.dll"));
             var firstPlugin = new PluginLoadContext(_pluginDirectory, PackageId, _logger);
             var secondPlugin = new PluginLoadContext(secondPluginDirectory, PackageId, _logger);
@@ -460,12 +530,12 @@ namespace Vion.Dale.Plugin.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-PLUG-006.1")]
-        public void LoadAPrivateCopyOfAnUnmarkedPluginAssemblyForEveryPlugin()
+        public void LoadPrivateCopyOfUnmarkedAssemblyForEveryPlugin()
         {
             // Arrange
             var fixtureName = FixtureAssembly.UniqueName("Private");
             var unmarked = FixtureAssembly.Emit(_pluginDirectory, fixtureName);
-            var secondPluginDirectory = FixtureAssembly.CreateDirectory();
+            var secondPluginDirectory = CreateDirectory();
             File.Copy(unmarked, Path.Combine(secondPluginDirectory, $"{fixtureName}.dll"));
             var firstPlugin = new PluginLoadContext(_pluginDirectory, PackageId, _logger);
             var secondPlugin = new PluginLoadContext(secondPluginDirectory, PackageId, _logger);
@@ -482,7 +552,7 @@ namespace Vion.Dale.Plugin.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-PLUG-006.2")]
-        public void ResolveAnAssemblyMissingFromThePluginDirectoryThroughTheHost()
+        public void ResolveAssemblyMissingFromPluginDirectoryThroughHost()
         {
             // Arrange
             var fixtureName = FixtureAssembly.UniqueName("Absent");
@@ -498,7 +568,7 @@ namespace Vion.Dale.Plugin.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-PLUG-007.1")]
-        public void LoadEveryMarkedAssemblyInThePluginDirectory()
+        public void LoadEveryMarkedAssemblyInPluginDirectory()
         {
             // Arrange
             var fixtureName1 = FixtureAssembly.UniqueName("Shared");
@@ -518,7 +588,7 @@ namespace Vion.Dale.Plugin.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-PLUG-007.1")]
-        public void LeaveUnmarkedAssembliesOutOfTheSharedRegistryDuringEagerLoad()
+        public void LeaveUnmarkedAssembliesOutOfSharedRegistryDuringEagerLoad()
         {
             // Arrange
             var fixtureName = FixtureAssembly.UniqueName("Private");
@@ -533,26 +603,8 @@ namespace Vion.Dale.Plugin.Test
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-PLUG-005.4")]
-        public void IgnoreAMarkerOfTheSameNameFromAnotherNamespace()
-        {
-            // Arrange
-            var fixtureName = FixtureAssembly.UniqueName("Private");
-            var markerLibrary = FixtureAssembly.EmitStandInMarkerLibrary(_stagingDirectory, FixtureAssembly.UniqueName("Marker"), "Acme.Sharing");
-            FixtureAssembly.Emit(_pluginDirectory, fixtureName, references: new[] { markerLibrary }, attributes: new[] { "[assembly: Acme.Sharing.DaleSharedAssembly]" });
-            var sut = new PluginLoadContext(_pluginDirectory, PackageId, _logger);
-
-            // Act
-            var resolved = sut.LoadFromAssemblyName(new AssemblyName(fixtureName));
-
-            // Assert
-            Assert.AreSame(sut, AssemblyLoadContext.GetLoadContext(resolved), "Only Vion's own attribute opts an assembly into sharing — the type name alone is not the marker.");
-            CollectionAssert.DoesNotContain(SharedExtensionNames(), fixtureName);
-        }
-
-        [TestMethod]
         [TestProperty("spec", "AC-PLUG-005.5")]
-        public void TreatAnUnreadableFileAsUnmarkedDuringEagerLoad()
+        public void TreatUnreadableFileAsUnmarkedDuringEagerLoad()
         {
             // A corrupt dll beside a plugin is a fact of deployment, not a sharing decision: the
             // marker read fails, the file is passed over, and the marked assembly beside it loads.
@@ -567,6 +619,37 @@ namespace Vion.Dale.Plugin.Test
 
             // Assert
             CollectionAssert.Contains(SharedExtensionNames(), fixtureName);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-PLUG-007.7")]
+        public void FailEagerLoadWhenFileNameDiffersFromAssemblyName()
+        {
+            // Arrange
+            EmitMarked(_pluginDirectory, FixtureAssembly.UniqueName("Actual"), FixtureAssembly.UniqueName("Shared"));
+            var sut = new PluginLoadContext(_pluginDirectory, PackageId, _logger);
+
+            // Act / Assert
+            Assert.ThrowsExactly<FileLoadException>(() => sut.EagerlyLoadSharedExtensions());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-PLUG-007.6")]
+        public void KeepRegisteredSharedInstancesWhenEagerLoadFails()
+        {
+            // Arrange
+            var registeredName = FixtureAssembly.UniqueName("Shared");
+            EmitMarked(_pluginDirectory, registeredName);
+            new PluginLoadContext(_pluginDirectory, PackageId, _logger).EagerlyLoadSharedExtensions();
+            var brokenPluginDirectory = CreateDirectory();
+            EmitMarked(brokenPluginDirectory, FixtureAssembly.UniqueName("Actual"), FixtureAssembly.UniqueName("Shared"));
+            var brokenPlugin = new PluginLoadContext(brokenPluginDirectory, PackageId, _logger);
+
+            // Act
+            Assert.ThrowsExactly<FileLoadException>(() => brokenPlugin.EagerlyLoadSharedExtensions());
+
+            // Assert
+            CollectionAssert.Contains(SharedExtensionNames(), registeredName, "A plugin that fails halfway does not un-register what other plugins already share.");
         }
 
         [TestMethod]
@@ -589,7 +672,7 @@ namespace Vion.Dale.Plugin.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-PLUG-007.5")]
-        public void RegisterAMarkedAssemblyTheContextAlreadyLoadedByPath()
+        public void RegisterMarkedAssemblyAlreadyLoadedByPath()
         {
             // The LogicBlockParser loads the plugin dll by path and only then eagerly loads shared
             // extensions, so a marked plugin assembly reaches this method already loaded.
@@ -614,7 +697,7 @@ namespace Vion.Dale.Plugin.Test
             var fixtureName1 = FixtureAssembly.UniqueName("Shared");
             var fixtureName2 = FixtureAssembly.UniqueName("Shared");
             EmitMarked(_pluginDirectory, fixtureName1);
-            var secondPluginDirectory = FixtureAssembly.CreateDirectory();
+            var secondPluginDirectory = CreateDirectory();
             EmitMarked(secondPluginDirectory, fixtureName2);
             var firstPlugin = new PluginLoadContext(_pluginDirectory, PackageId, _logger);
             var secondPlugin = new PluginLoadContext(secondPluginDirectory, PackageId, _logger);
@@ -629,6 +712,50 @@ namespace Vion.Dale.Plugin.Test
             CollectionAssert.Contains(sharedNames, fixtureName2, "The registry spans contexts — it is what the runtime reads to reach every shared library.");
         }
 
+        [TestMethod]
+        [TestProperty("spec", "AC-PLUG-008.1")]
+        public void IgnoreSubdirectoriesInVersionCheck()
+        {
+            // Arrange
+            var standInSdk = FixtureAssembly.EmitStandInSdk(_stagingDirectory, new Version(HostSdkMajor + 1, 0, 0, 0));
+            EmitBuiltAgainstSdk(CreateSubdirectory(_pluginDirectory), FixtureAssembly.UniqueName("Fixture"), standInSdk);
+
+            // Act
+            var sut = new PluginLoadContext(_pluginDirectory, PackageId, _logger);
+
+            // Assert
+            CollectionAssert.Contains(AssemblyLoadContext.All.ToList(), sut, "An incompatible assembly one level down is not part of the plugin and does not reject it.");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-PLUG-008.2")]
+        public void IgnoreSubdirectoriesDuringEagerLoad()
+        {
+            // Arrange
+            var fixtureName = FixtureAssembly.UniqueName("Shared");
+            EmitMarked(CreateSubdirectory(_pluginDirectory), fixtureName);
+            var sut = new PluginLoadContext(_pluginDirectory, PackageId, _logger);
+
+            // Act
+            sut.EagerlyLoadSharedExtensions();
+
+            // Assert
+            CollectionAssert.DoesNotContain(SharedExtensionNames(), fixtureName);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-PLUG-008.3")]
+        public void TreatAssemblyOnlyInSubdirectoryAsAbsent()
+        {
+            // Arrange
+            var fixtureName = FixtureAssembly.UniqueName("Buried");
+            FixtureAssembly.Emit(CreateSubdirectory(_pluginDirectory), fixtureName);
+            var sut = new PluginLoadContext(_pluginDirectory, PackageId, _logger);
+
+            // Act / Assert
+            Assert.ThrowsExactly<FileNotFoundException>(() => sut.LoadFromAssemblyName(new AssemblyName(fixtureName)));
+        }
+
         /// <summary>
         ///     Emits a fixture built against <paramref name="standInSdkPath" />. The fixture derives
         ///     from the stand-in's anchor type so the compiler keeps the assembly reference — the
@@ -639,18 +766,19 @@ namespace Vion.Dale.Plugin.Test
         {
             return FixtureAssembly.Emit(directory,
                                         simpleName,
-                                        references: new[] { standInSdkPath },
-                                        attributes: marked ? new[] { "[assembly: Vion.Dale.Sdk.Core.DaleSharedAssembly]" } : null,
-                                        body: $"public class FixtureMarker : {FixtureAssembly.StandInSdkAnchorType} {{ }}");
+                                        new[] { standInSdkPath },
+                                        marked ? new[] { "[assembly: Vion.Dale.Sdk.Core.DaleSharedAssembly]" } : null,
+                                        $"public class FixtureMarker : {FixtureAssembly.StandInSdkAnchorType} {{ }}");
         }
 
         /// <summary>Emits a fixture carrying <c>[DaleSharedAssembly]</c> from the host's own SDK.</summary>
-        private static string EmitMarked(string directory, string simpleName)
+        private static string EmitMarked(string directory, string simpleName, string? fileName = null)
         {
             return FixtureAssembly.Emit(directory,
                                         simpleName,
-                                        references: new[] { Path.Combine(AppContext.BaseDirectory, $"{SdkAssemblyName}.dll") },
-                                        attributes: new[] { "[assembly: Vion.Dale.Sdk.Core.DaleSharedAssembly]" });
+                                        new[] { Path.Combine(AppContext.BaseDirectory, $"{SdkAssemblyName}.dll") },
+                                        new[] { "[assembly: Vion.Dale.Sdk.Core.DaleSharedAssembly]" },
+                                        fileName: fileName);
         }
 
         private static Assembly LoadIntoHost(string assemblyPath)
@@ -668,57 +796,19 @@ namespace Vion.Dale.Plugin.Test
             return PluginLoadContext.GetLoadedSharedExtensionAssemblies().Select(assembly => assembly.GetName().Name).ToList();
         }
 
-        private static void TryDelete(string directory)
+        private static string CreateSubdirectory(string parent)
         {
-            try
-            {
-                Directory.Delete(directory, true);
-            }
-            catch (IOException)
-            {
-            }
-            catch (UnauthorizedAccessException)
-            {
-            }
+            var path = Path.Combine(parent, "runtimes");
+            Directory.CreateDirectory(path);
+            return path;
         }
 
-        /// <summary>
-        ///     Records how many entries were logged at Error or above, which is the warn-versus-fail
-        ///     boundary the version gate draws.
-        /// </summary>
-        private sealed class RecordingLogger : ILogger
+        /// <summary>A temp directory removed, as far as the loaded fixtures allow, when the test ends.</summary>
+        private string CreateDirectory()
         {
-            private readonly List<LogLevel> _levels = new();
-
-            public int ErrorCount
-            {
-                get => _levels.Count(level => level >= LogLevel.Error);
-            }
-
-            public IDisposable BeginScope<TState>(TState state)
-                where TState : notnull
-            {
-                return NullScope.Instance;
-            }
-
-            public bool IsEnabled(LogLevel logLevel)
-            {
-                return true;
-            }
-
-            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
-            {
-                _levels.Add(logLevel);
-            }
-
-            private sealed class NullScope : IDisposable
-            {
-                public static readonly NullScope Instance = new();
-
-                public void Dispose()
-                {
-                }
-            }
+            var path = FixtureAssembly.CreateDirectory();
+            _directories.Add(path);
+            return path;
         }
     }
 }

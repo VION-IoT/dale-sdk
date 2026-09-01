@@ -108,9 +108,13 @@ namespace Vion.Dale.Plugin
                     // then returns it without routing through Load(), and Load() is the only writer
                     // of the shared registry. The runtime loads a plugin's own dll by path before
                     // calling this method, so a marked plugin assembly arrives on exactly that path
-                    // and would otherwise never reach the registry its IConfigureServices is
-                    // auto-invoked from. TryAdd so an instance another plugin already shared wins.
-                    SharedExtensionAssemblies.TryAdd(assemblyName, assembly);
+                    // and would otherwise never reach the registry downstream code enumerates.
+                    // Only register what THIS context owns: a bind that resolved to the host or to
+                    // another plugin belongs to whoever loaded it, and TryAdd keeps that owner.
+                    if (GetLoadContext(assembly) == this)
+                    {
+                        SharedExtensionAssemblies.TryAdd(assemblyName, assembly);
+                    }
                 }
             }
         }
@@ -211,6 +215,20 @@ namespace Vion.Dale.Plugin
                     }
                 }
 
+                // A same-named shared instance exists but THIS plugin's copy is unmarked, so it
+                // gets its own. The two plugins now hold distinct types of the same name, which is
+                // correct and also the hardest kind of mismatch to read from a stack trace later —
+                // so say so, naming the other plugin by where its copy came from.
+                if (SharedExtensionAssemblies.TryGetValue(assemblyName.Name, out var sharedWithSameName))
+                {
+                    _logger.LogWarning("Plugin {PackageId} loads its own {AssemblyName} from {PluginPath} because that copy is not marked [DaleSharedAssembly], " +
+                                       "while a shared instance of the same name is already loaded from {SharedAssemblyLocation} — types of that name are NOT interchangeable between the two plugins",
+                                       _packageId,
+                                       assemblyName.Name,
+                                       _pluginPath,
+                                       sharedWithSameName.Location);
+                }
+
                 // Strategy 4: Load plugin-specific assemblies from plugin folder (no sharing)
                 _logger.LogInformation("Loading assembly {AssemblyName} {Version} from plugin path {PluginPath}", assemblyName.Name, assemblyName.Version, _pluginPath);
                 return LoadFromAssemblyPath(fullPath);
@@ -221,15 +239,14 @@ namespace Vion.Dale.Plugin
         }
 
         /// <summary>
-        ///     Pure, unit-testable seam: throws when <paramref name="pluginReferencedVersion" /> has a
-        ///     different MAJOR component than <paramref name="hostVersion" /> (both non-null). Minor and
-        ///     patch differences are intentionally NOT this method's concern — those stay with the
-        ///     existing warn-and-continue path (<see cref="LogDefaultContextLoad" />).
+        ///     Throws when <paramref name="pluginReferencedVersion" /> has a different MAJOR component
+        ///     than <paramref name="hostVersion" /> (both non-null). Minor and patch differences are
+        ///     deliberately not this method's concern: they stay warn-and-continue.
         /// </summary>
         /// <remarks>
-        ///     ACCEPTED, DELIBERATE CONSEQUENCE: during 0.x the major is always 0, so this gate is
-        ///     dormant pre-1.0 — a 0.4.3 → 0.5.0 skew stays a WARNING, not a hard fail. See spec §E
-        ///     "Consequence (accepted)" / decision 0022. Pinned by PluginSdkVersionGateShould.
+        ///     Accepted consequence: while the SDK is pre-1.0 every version's major is 0, so this gate
+        ///     never fires — a 0.4.3 plugin against a 0.5.0 host is a warning, not a rejection. The gate
+        ///     arms itself at 1.0. That is the intent, not an oversight.
         /// </remarks>
         internal static void EnsureSdkMajorCompatible(string packageId, string sdkAssemblyName, Version? hostVersion, Version? pluginReferencedVersion, ILogger logger)
         {

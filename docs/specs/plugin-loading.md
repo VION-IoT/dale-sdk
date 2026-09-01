@@ -9,9 +9,10 @@ plugin gets its own copy of, which it shares with the host, which it shares with
 and when a plugin is rejected outright. Area code `PLUG`. Process:
 [`../spec-process.md`](../spec-process.md).
 
-A **plugin** is a directory containing a logic-block assembly and every dependency it was published
-with. Each plugin is loaded into its own `PluginLoadContext` — an `AssemblyLoadContext` whose
-resolution rules are the subject of this page.
+A **plugin** is a **flat** directory containing a logic-block assembly and every dependency it was
+published with — the shape `dotnet publish` produces, which is why `dale` publishes rather than
+builds before introspection. Each plugin is loaded into its own `PluginLoadContext` — an
+`AssemblyLoadContext` whose resolution rules are the subject of this page.
 
 ## Context lifetime
 
@@ -37,8 +38,7 @@ pre-1.0, every released major is `0`, so the gate is dormant today; it arms itse
 - `AC-PLUG-002.2` (State-driven): WHILE the host and plugin `Vion.Dale.Sdk` major versions are
   equal, THE SYSTEM SHALL create the context whatever the minor and patch versions are.
 - `AC-PLUG-002.3` (Event-driven): WHEN the version gate rejects a plugin THE SYSTEM SHALL name the
-  package id, both `Vion.Dale.Sdk` versions and the rebuild remedy in the exception message, and
-  record the rejection at error level.
+  package id, both `Vion.Dale.Sdk` versions and the rebuild remedy in the exception message.
 - `AC-PLUG-002.4` (Event-driven): WHEN the plugin directory does not exist THE SYSTEM SHALL create
   the context without inspecting any assembly.
 - `AC-PLUG-002.5` (Event-driven): WHEN a file in the plugin directory is not a readable .NET
@@ -46,9 +46,9 @@ pre-1.0, every released major is `0`, so the gate is dormant today; it arms itse
   check and continue with the rest of the directory.
 - `AC-PLUG-002.6` (Ubiquitous): THE SYSTEM SHALL determine the `Vion.Dale.Sdk` version a plugin was
   built against without loading that plugin into any load context.
-- `AC-PLUG-002.7` (Event-driven): WHEN more than one assembly in the directory fails the version
-  check THE SYSTEM SHALL reject the plugin on the first and leave the remaining assemblies
-  uninspected.
+- `AC-PLUG-002.7` (Event-driven): WHEN more than one assembly in the plugin directory fails the
+  version check THE SYSTEM SHALL reject the plugin naming one failing assembly's `Vion.Dale.Sdk`
+  version, not a summary of all of them.
 
 ## Resolution rules
 
@@ -86,12 +86,11 @@ instance.
 - `AC-PLUG-004.3` (Event-driven): WHEN a plugin binds to a framework assembly the host has not
   loaded and the plugin directory contains it, THE SYSTEM SHALL load it from the plugin directory
   into that plugin's context.
-- `AC-PLUG-004.4` (Event-driven): WHEN a plugin binds to a framework assembly present neither in the
-  host nor in the plugin directory, THE SYSTEM SHALL resolve it through the host's default load
-  context.
-
 The prefix rule is the contract, not a heuristic: an assembly a plugin author names `Microsoft.*` or
 `System.*` is resolved by these rules, whoever wrote it.
+
+A framework assembly present in neither the host nor the plugin directory is not a separate rule: it
+converges on the same delegation as every other unresolved bind, stated once as `AC-PLUG-006.2`.
 
 ### 3. Shared extension assemblies — `[DaleSharedAssembly]`
 
@@ -121,10 +120,27 @@ and `Vion.Dale.Sdk.Modbus.Rtu`.
   THE SYSTEM SHALL load it exactly once and resolve the same instance for both.
 - `AC-PLUG-005.7` (Ubiquitous): THE SYSTEM SHALL retain shared extension instances for the lifetime
   of the host process, across every plugin load context.
+- `AC-PLUG-005.8` (Ubiquitous): THE SYSTEM SHALL recognise `[DaleSharedAssembly]` only where the
+  assembly applies it as a type defined in another assembly, and SHALL treat an assembly that
+  declares the attribute itself as unmarked.
+- `AC-PLUG-005.9` (Ubiquitous): THE SYSTEM SHALL load a shared extension into the load context of
+  the plugin that bound it first, so that the extension's own dependencies resolve against that
+  plugin's directory for every plugin that later shares it.
 
 `AC-PLUG-005.3` is why sharing is opt-in in both directions: a plugin that never applied the
 attribute keeps its own copy, and cannot be handed another plugin's assembly because the simple
-names happen to collide.
+names happen to collide. When that happens the loader warns, naming this plugin and where the shared
+copy came from — the two are not interchangeable and the mismatch is unreadable from a later stack
+trace.
+
+`AC-PLUG-005.8` follows from reading metadata rather than types: the marker is identified by the
+name and namespace of the type an attribute's constructor *refers to*, so an assembly declaring its
+own `DaleSharedAssemblyAttribute` is not marked, whatever it calls it.
+
+`AC-PLUG-005.9` is the price of resolving a shared library's transitive dependencies from a plugin
+folder at all. The first binder owns the instance, and every dependency it pulls in later is
+resolved by that owner — so a plugin that ships a shared library but not the same dependencies
+beside it still runs against the first owner's copies.
 
 ### 4. Plugin-private assemblies, and the fall-through
 
@@ -136,6 +152,18 @@ names happen to collide.
 Isolation is the default. Two plugins shipping the same unmarked library get one copy each, and
 their types are distinct.
 
+## The plugin directory is flat
+
+Nothing recurses. A subdirectory below the plugin directory is invisible to all three passes over
+it, which is what makes "publish, don't build" the rule for producing one.
+
+- `AC-PLUG-008.1` (Ubiquitous): THE SYSTEM SHALL restrict the SDK version check to the assemblies
+  directly in the plugin directory.
+- `AC-PLUG-008.2` (Ubiquitous): THE SYSTEM SHALL restrict eager loading of shared extensions to the
+  assemblies directly in the plugin directory.
+- `AC-PLUG-008.3` (Ubiquitous): THE SYSTEM SHALL look for a bound assembly only directly in the
+  plugin directory, and SHALL treat one that exists solely in a subdirectory as absent.
+
 ## Eager loading and the shared registry
 
 The runtime needs handler actors present before it scans for them, and needs to invoke
@@ -145,7 +173,7 @@ instances loaded so far — which `Vion.Dale.LogicBlockParser` enumerates for ex
 
 - `AC-PLUG-007.1` (Event-driven): WHEN eager loading of shared extensions is requested THE SYSTEM
   SHALL load every assembly in the plugin directory that is marked `[DaleSharedAssembly]`.
-- `AC-PLUG-007.2` (Event-driven): GAP: no independent observable, see below. WHEN eager loading
+- `AC-PLUG-007.2` (Event-driven): GAP: no independent observable. WHEN eager loading
   reaches an assembly whose simple name already has a shared instance THE SYSTEM SHALL leave that
   instance in place.
 - `AC-PLUG-007.3` (Ubiquitous): THE SYSTEM SHALL expose the shared extension instances loaded so
@@ -154,11 +182,18 @@ instances loaded so far — which `Vion.Dale.LogicBlockParser` enumerates for ex
   directory that does not exist THE SYSTEM SHALL complete without loading anything.
 - `AC-PLUG-007.5` (Event-driven): WHEN eager loading reaches a marked assembly that the plugin's
   context has already loaded THE SYSTEM SHALL record it as the shared instance for its simple name.
-
-The skip above carries no test and cannot: removing it changes nothing a caller can see, because
-the resolution rules hand back the same shared instance either way. It is stated because it is the
-intent, and marked so the trace gate reports it instead of failing on it.
+- `AC-PLUG-007.6` (Event-driven): WHEN a marked assembly fails to load during eager loading THE
+  SYSTEM SHALL propagate the failure and leave the shared instances already registered in place.
+- `AC-PLUG-007.7` (Ubiquitous): THE SYSTEM SHALL bind each marked assembly during eager loading by
+  its file name, so that a plugin directory's file names must equal the simple names of the
+  assemblies in them.
 
 `AC-PLUG-007.4` and `AC-PLUG-007.5` pair with `AC-PLUG-002.4` and `AC-PLUG-007.3`: a directory that
 construction tolerates, eager loading also tolerates; and an assembly the registry is expected to
 carry reaches the registry however it was loaded.
+
+`AC-PLUG-007.6` and `AC-PLUG-005.5` divide the failure modes: metadata that cannot be *read* is
+tolerated and the file is passed over, but an assembly that reads as marked and then fails to
+*load* is a broken plugin, and eager loading stops there rather than reporting a plugin as fully
+loaded when it is not. `AC-PLUG-007.7` is the most common way to reach that state — a renamed file
+binds to a name no assembly in the directory carries.
