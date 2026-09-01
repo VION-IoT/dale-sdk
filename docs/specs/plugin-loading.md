@@ -155,9 +155,9 @@ instances loaded so far — which `Vion.Dale.LogicBlockParser` enumerates for ex
 - `AC-PLUG-007.5` (Event-driven): WHEN eager loading reaches a marked assembly that the plugin's
   context has already loaded THE SYSTEM SHALL record it as the shared instance for its simple name.
 
-`AC-PLUG-007.2` carries no test and cannot: removing the skip changes nothing a caller can see,
-because the resolution rules hand back the same shared instance either way. It is stated because it
-is the intent, and marked so the trace gate reports it instead of failing on it.
+The skip above carries no test and cannot: removing it changes nothing a caller can see, because
+the resolution rules hand back the same shared instance either way. It is stated because it is the
+intent, and marked so the trace gate reports it instead of failing on it.
 
 `AC-PLUG-007.4` and `AC-PLUG-007.5` pair with `AC-PLUG-002.4` and `AC-PLUG-007.3`: a directory that
 construction tolerates, eager loading also tolerates; and an assembly the registry is expected to
