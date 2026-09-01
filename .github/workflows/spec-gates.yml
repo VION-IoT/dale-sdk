@@ -1,0 +1,42 @@
+name: Spec Gates
+# The SDD gate suite (docs/spec-process.md § Gates): script self-tests, spec-lint,
+# spec-trace. Its own workflow — not a publish.yml job — because publish.yml ignores
+# docs/** on both triggers and a docs-only PR (a spec page, a change doc) must still
+# be gated. Pure file scans, no dotnet build: cheap enough to run on every PR.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  spec-gates:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # spec-lint -Diff needs the merge base to see what a PR ADDS to docs/specs/.
+          fetch-depth: 0
+
+      - name: Script self-tests
+        shell: pwsh
+        run: ./scripts/run-script-tests.ps1
+
+      # On PRs, the narrative rule runs diff-scoped against the base branch (warn-only,
+      # per docs/spec-process.md); pushes to main lint without a diff window.
+      - name: Spec lint
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_BASE_REF) {
+            ./scripts/spec-lint.ps1 -Diff "origin/$env:GITHUB_BASE_REF"
+          } else {
+            ./scripts/spec-lint.ps1
+          }
+
+      - name: Spec trace
+        shell: pwsh
+        run: ./scripts/spec-trace.ps1

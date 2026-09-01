@@ -1,0 +1,198 @@
+# Spec-driven development — how to run it
+
+The operational playbook for this repo's spec corpus, change docs, and area passes. Rationale and
+the adoption decisions (D1–D11): the archived change doc
+[`changes/archive/2026-09-01-sdd-process.md`](changes/archive/2026-09-01-sdd-process.md). Modeled on
+`logic-block-libraries/docs/spec-process/SPEC-PROCESS.md`, adapted to an SDK: the unit is not a
+logic block but a **contract**.
+
+## The corpus — `docs/specs/`
+
+Current-truth pages: present tense, terse, evidence-linked. What the SDK guarantees **today** — no
+history, no incident narrative, no design alternatives (those live in git, the archived change docs,
+and the process journal). One page per **area**:
+
+> **An area is one contract with its own anchor artifact** — a schema, manifest, golden file,
+> diagnostic registry, or committed scenario set that already pins it mechanically.
+
+| Group | Page (anchor) | Area code | Tier |
+| --- | --- | --- | --- |
+| Authoring contracts | authoring surface + analyzer registry (44 live DALE descriptors; ids run to DALE046 — DALE006 and DALE029 are retired) | `ANLZ` | A |
+| Authoring contracts | service properties & measuring points incl. emission policy (throttler semantics, dual-annotation) | `EMIT` | A |
+| Authoring contracts | contracts & provider faces | `BIND` | A |
+| Authoring contracts | instantiation & config-time gating | `GATE` | A |
+| Wire contracts | introspection JSON + identifier stability (golden files, packed-artifact rule) | `INTRO` | A |
+| Wire contracts | scenario & topology files + stepping semantics (scenario schema, committed scenarios) | `SCEN` | A |
+| Wire contracts | DevHost control API | `CTRL` | A |
+| Wire contracts | plugin loading ABI (`[DaleSharedAssembly]`, ALC rules) | `PLUG` | A |
+| Wire contracts | CLI surface (help snapshot) | `CLI` | B |
+| Runtime semantics | block lifecycle (start/stop ordering, teardown delivery) | `LIFE` | A |
+| Runtime semantics | Modbus family — Core binding model, TCP client + server, RTU, link policy (link verdicts, socket lifetime; anchors: modbus-smoke, the Link/Connection structs, committed scenarios) | `MODB` | A |
+| Contract families | DigitalIo / AnalogIo | `IO` | B |
+| Contract families | TestKit surfaces (virtual time) | `TKIT` | B |
+| Contract families | Http | `HTTP` | B |
+
+Plus [`specs/_invariants.md`](specs/_invariants.md) (`SYS-` ids, cross-cutting rules pages cite
+instead of restating). **Tier A** pages carry EARS acceptance criteria with ids and the trace gate;
+**Tier B** pages are prose (no ids — changes ride in the PR that makes them); **Tier C** is exempt:
+examples, templates, `Vion.Dale.DevHost.Web` SPA internals, the SmokeHost fixture, and
+**first-party libraries** (`libraries/` — consumers of the SDK shipping from this repo, not SDK
+contract; if one ever warrants specs, it gets lbl-style block specs in place, outside this corpus).
+Final page names and merges within the roster are each pass's call; the codes above are reserved
+either way.
+
+### Page frontmatter — the trace ratchet
+
+A Tier A page opts into the trace gate with frontmatter:
+
+```markdown
+---
+trace: enforced
+---
+```
+
+The marker is a **ratchet**: set when the area's pass lands, never removed. `spec-trace.ps1` fails
+if a marked page declares zero ids (the parse died — anti-vacuous floor) or if any declared id has
+no referencing test.
+
+## IDs & EARS
+
+`SYS-<AREA>-NNN` (invariants) · `AC-<AREA>-NNN.M` (acceptance criteria, `.M` leaves under a `NNN`
+umbrella). Area codes: the roster above, uppercase alphanumerics. Every AC is one EARS sentence
+(ubiquitous / WHEN / WHILE / IF-THEN / WHERE) with a `SHALL`. No `should`, `fast`, `performant` —
+`spec-lint.ps1` rejects them.
+
+An AC is **covered** when its id appears as a quoted string literal in a test artifact:
+
+- MSTest: `[TestProperty("spec", "AC-EMIT-001.1")]` on the test method
+- xunit.v3: `[Trait("spec", "AC-EMIT-001.1")]`
+- a committed scenario: `"specs": ["AC-SCEN-003.1"]` in the `*.scenario.json`
+
+`spec-trace` scans every `*.Test` directory in the repo (the xunit projects live nested under
+`examples/`, `libraries/`, `templates/`) plus the SmokeHost. A mention in a comment or method name
+does not count — the gate matches quoted `"AC-…"` literals, so an id belongs in exactly the three
+forms above and never in any other string (an assert message carrying one would bind by accident).
+A bare umbrella id (`AC-EMIT-001`) is covered by any of its `.M` leaves.
+
+**GAP rows** — a declared requirement whose test does not exist yet — carry the `GAP` marker on the
+declaring line, with the reason or Jira key: `` - `AC-PLUG-004.1` (Event-driven): WHEN … THE SYSTEM
+SHALL …. GAP: test pending (VION-nn) ``. `spec-trace` exempts them from the orphan check and
+reports the count instead — the in-repo backlog stays visible without reddening CI. Removing the
+marker is how a landed test re-arms the gate for that id.
+
+An id proven by **both** a unit test and a scenario states which half each tier owns in the test
+class summary ("Cross-tier" clause); `spec-trace` warn-notes files missing it.
+
+## Change docs — `docs/changes/`
+
+Everything that changes **specified behavior** goes through a change doc; the corpus stays lean
+current-truth and the narrative (why, alternatives, drift) lives with the change. Two lanes:
+
+- **Fix-sized** (most backlog items): no change doc. The PR updates the touched spec page in the
+  same commit set — a page edit riding a fix is not "change narrative", it is the distill.
+- **Feature-sized** (new or reshaped specified behavior): scaffold with
+  `pwsh scripts/spec-change.ps1 new <slug>`, fill [`changes/_template.md`](changes/_template.md)'s
+  sections, implement (tests cite the delta's ids — `spec-trace` folds `in-flight` deltas in),
+  distill every Spec-delta line into its target page, then
+  `pwsh scripts/spec-change.ps1 archive <slug>` — all in one PR by default. **Two-phase
+  self-fires:** when the kickoff leaves design points open, or the doc mints decisions beyond what
+  the operator ratified, STOP after the change doc for ratification before writing code. Pre-classify
+  every open point: (a) ratified — cite; (b) decide-and-document; (c) propose-and-wait.
+
+Statuses: `proposed` (reviewed-but-not-started; `spec-trace` ignores it) → `in-flight` (first
+implementation commit flips it; deltas now demand tests) → `archived` (moved to
+`changes/archive/`, only after every delta line is distilled — the archive command refuses
+otherwise). `parked` for an accepted-but-blocked doc, with `blocked-on:` naming why.
+
+**In an area whose pass hasn't run yet**, a feature-sized change still takes this lane — RFCs are
+frozen, so there is nowhere else. Its distill creates or extends a **partial** spec page for the
+area (no `trace: enforced` yet, so the rest of the area stays ungated); the area's eventual pass
+completes the page and sets the marker.
+
+Delta grammar — one line per id, targets **repo-root-relative**:
+
+```
+<ADDED|MODIFIED|REMOVED> <ID> -> docs/specs/<page>.md : <payload>
+```
+
+`ADDED`/`MODIFIED` payload is the EARS text; `REMOVED` payload is the reason. The `ID` must be
+greppable in the target after distill. Divergence discovered during implementation goes to the
+doc's **Drift checkpoints**, never inline into a spec page (`spec-lint` warns on narrative markers
+added to the corpus).
+
+## Area passes — how the corpus gets seeded
+
+Migration runs one area at a time; un-passed areas live under the old rules until their pass — the
+repo is never half-migrated. One pass, in order:
+
+1. **Extract** — an agent drafts the area's behavior table from code and tests: one row per
+   observable behavior — EARS sentence + `file:line` evidence + citing test or explicit `GAP`.
+   Old RFC prose is a hint at best; every row needs evidence.
+2. **Review** — the maintainer classifies rows: *intended* → spec · *bug* → Jira, never enshrined ·
+   *out-of-spec* → explicitly dropped.
+3. **Rewrite** — the area's whole test suite is brought to the settled style
+   ([`testing-conventions.md`](testing-conventions.md)); Tier A tests cite their AC ids; `GAP` rows
+   get tests or become explicit parked items.
+4. **Land** — the spec page (with `trace: enforced`) enters `docs/specs/`; the trace gate covers it
+   from now on; changes to the area require a change doc from now on.
+5. **Delete** — the RFCs the page absorbed are removed in the same PR, and the reference sweep
+   runs: no living doc, skill, or code comment cites them (`grep -r "RFC 00"` clean outside
+   `docs/process-journal.md`, `docs/retro/`, `docs/changes/archive/`, and `docs/rfcs/` itself while
+   it still exists). Append-only logs keep their citations.
+6. **Exit-check** — the pilot pass additionally trials Stryker.NET over the area's source; adopted
+   into this list only if signal beats noise there (change doc D9).
+
+Each pass is one change doc + one band-sized PR. Order: plugin ABI (pilot) → config gating or
+emission → introspection + identifiers → scenario/stepping/pairing → remainder. `docs/rfcs/` is
+frozen meanwhile (do not cite it in new work) and disappears with the last pass.
+
+## Dispatching a pass to a fresh session
+
+An area pass — or any ratified feature-sized change doc — is implemented in a fresh session,
+dispatched with the architecture repo's launcher exactly as `/implement` and `/fix` dispatch
+(never reimplement the launch inline; the launcher encodes hard-won constraints):
+
+1. Write the brief to `C:\_gh\architecture\.claude\briefs\brief-<slug>-dale-sdk.md` — the
+   gitignored home the launcher's permission model expects. The brief is a **pointer, not a
+   restatement**: the change-doc path + "decisions and review resolutions are binding;
+   contradictions go to Drift checkpoints, not silent divergence" + its PR shape and every open
+   point pre-classified + house discipline (branch, tests cite ids, `/cleanup` once pre-PR,
+   `/vion-code-review branch` before the PR) + a read-only note per additional dir naming the
+   SPECIFIC files to look things up in.
+2. Emit the launch line in a single `bash` fence (the fence is the copy button):
+
+   ```
+   pwsh -NoProfile -File "C:\_gh\architecture\scripts\launch-session.ps1" -Repo "C:\_gh\dale-sdk" -Brief "C:\_gh\architecture\.claude\briefs\brief-<slug>-dale-sdk.md" -Model <opus|sonnet> -Effort <medium|high> -Name "<slug>: dale-sdk" -SessionId "<uuid>" -AddDirs "C:\_gh\architecture<,read-only dep>"
+   ```
+
+   Model rubric: Opus unless the slice is mechanical (then Sonnet); High effort for
+   design-bearing/correctness-sensitive work, Medium for a contained change.
+3. Ratification round-trips use the launcher's `-AmendFile` + the printed `-SessionId` — the
+   two-phase STOP maps onto it directly.
+
+The change doc is **implementer-owned**: the dispatched session flips it `in-flight`, appends
+Drift checkpoints, distills, archives. No report-back block — the PR is the report.
+
+## Routing — where work enters
+
+- **Consumer feedback** → the `dale-sdk-feedback` skill → VION-62. Unchanged.
+- **Multi-repo work** → architecture `/spec` → `/implement`, report-back included. Briefs to this
+  repo point at spec pages and oblige a change doc when specified behavior moves — they do not
+  restate design.
+- **Single-repo work** → starts here: fix-sized straight to a PR, feature-sized as a change doc.
+  When architecture's `/fix` picks a single-repo dale-sdk item, its brief is the issue key +
+  constraints; the design lives in the change doc.
+- **Extraction finds** → intended behavior into the spec page; bugs to Jira; GAPs as marked rows
+  in the page (the in-repo backlog).
+
+## Gates
+
+| What | Where | Fails when |
+| --- | --- | --- |
+| `scripts/spec-lint.ps1` | `spec-gates.yml` + on demand | malformed/escape-hatch ACs in `docs/specs/`; change-doc frontmatter or lifecycle broken (`archived` outside `archive/`, unknown status); `-Diff <ref>` warns on narrative added to the corpus (`-Strict` fails) |
+| `scripts/spec-trace.ps1` | `spec-gates.yml` + on demand | any id on a `trace: enforced` page (or an `in-flight` delta) with no quoted-literal test reference; a marked page parsing zero ids |
+| `scripts/spec-change.ps1 archive` | on demand | any Spec-delta line not distilled into its target |
+| `scripts/run-script-tests.ps1` | `spec-gates.yml` + on demand | any `scripts/*.tests.ps1` self-test fails, or a gate script has neither a self-test nor an exemption-with-reason |
+
+`spec-gates.yml` runs on every PR (it is file-greps only — no build), because `publish.yml`
+ignores `docs/**` and a docs-only PR must still be gated.

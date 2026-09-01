@@ -18,7 +18,9 @@ the work they govern — **read the linked doc before doing the matching work, a
 | When you're… | Read |
 | --- | --- |
 | adding or changing an attribute, a public type or member, an analyzer, or anything reaching the introspection JSON | [`docs/sdk-surface-conventions.md`](docs/sdk-surface-conventions.md) — surface minimalism, XML-doc style, delete-don't-deprecate, the analyzer obligation and the **Metalama blind spot**, PublicApi snapshots |
-| writing or modifying a test | [`docs/testing-conventions.md`](docs/testing-conventions.md) — MSTest inside / xunit.v3 outside, analyzer tests vs the real compilation, packed-artifact verification, determinism |
+| writing or modifying a test | [`docs/testing-conventions.md`](docs/testing-conventions.md) — MSTest inside / xunit.v3 outside, analyzer tests vs the real compilation, packed-artifact verification, determinism, and the authoring discipline (§9–17: behavior tables, prove-red, naming, Moq, async) |
+| changing specified behavior, running an area pass, or dispatching an implementing session | [`docs/spec-process.md`](docs/spec-process.md) — the spec corpus (`docs/specs/`), the change-doc lane (`docs/changes/`), area passes, the launcher recipe, the gates |
+| writing or reworking an inline comment | [`docs/comment-conventions.md`](docs/comment-conventions.md) — why not what, a comment is a claim, no history/tickets, name the concrete failure |
 | touching `Vion.Dale.DevHost*`, the scenario runner, or stepping | [`docs/devhost-conventions.md`](docs/devhost-conventions.md) — the demonstrate-don't-assert verify loop, clock modes, the four scenario-step definition sites, contract pairing and what it refuses; the SPA's own contract is [`Vion.Dale.DevHost.Web/CLAUDE.md`](Vion.Dale.DevHost.Web/CLAUDE.md) |
 | writing a simulator block or a provider face (the peer a bench needs on the far side of a contract) | [`docs/simulator-authoring.md`](docs/simulator-authoring.md) — provider faces, the ideal-I/O echo recipe, when to model the device instead |
 | renaming anything that reaches introspection (service, member, contract, interface, enum member, enum/struct type, PackageId) | [`docs/identifier-stability.md`](docs/identifier-stability.md) — these identifiers are the cloud's translation keys |
@@ -30,10 +32,13 @@ the work they govern — **read the linked doc before doing the matching work, a
 **Before writing new code, read similar existing files** in the same area and replicate their
 structure. Do not invent new patterns; name the precedent you followed.
 
-**Design docs go in [`docs/rfcs/`](docs/rfcs/)** as numbered `NNNN-slug.md`, matching the header of the
-existing ones. `docs/superpowers/` is **gitignored** (`.gitignore:300`) per architecture decision 0011,
-so anything a planning skill writes there cannot be committed — `git check-ignore` is the tell. Redirect
-anything meant to last to `docs/rfcs/`. Cross-repo specs live in `../architecture/specs/`, never here.
+**Design docs are change docs in [`docs/changes/`](docs/changes/)** per
+[`docs/spec-process.md`](docs/spec-process.md); the current-truth spec corpus is
+[`docs/specs/`](docs/specs/). `docs/rfcs/` is **frozen history** being absorbed by area passes — do
+not cite it in new work and do not add to it. `docs/superpowers/` is **gitignored** (`.gitignore:300`)
+per architecture decision 0011, so anything a planning skill writes there cannot be committed —
+`git check-ignore` is the tell; redirect anything meant to last to `docs/changes/`. Cross-repo specs
+live in `../architecture/specs/`, never here.
 
 ## Working agreement
 
@@ -59,6 +64,12 @@ anything meant to last to `docs/rfcs/`. Cross-repo specs live in `../architectur
    a DevHost change is shown working, not asserted.
 9. **After a release, bump the examples, template and libraries** ([`docs/releasing.md`](docs/releasing.md)).
    A release without its bump leaves the next commit shipping inconsistent references.
+10. **A change to specified behavior carries its spec.** Fix-sized: update the touched
+    [`docs/specs/`](docs/specs/) page in the same PR. Feature-sized: the full change-doc cycle —
+    scaffold, implement with tests citing the delta's ids, distill, archive
+    ([`docs/spec-process.md`](docs/spec-process.md)) — in **every** area, passed or not; in an
+    un-passed area the distill creates a partial spec page (no `trace: enforced` until the area's
+    pass). Only the trace gate waits for the pass; the lane applies from day one.
 
 ## Repository Structure
 
@@ -74,7 +85,7 @@ Vion.Dale.Sdk.*.TestKit/    I/O-specific test helpers (DigitalIo, AnalogIo, Modb
 Vion.Dale.ProtoActor/       Proto.Actor integration (net10.0)
 Vion.Dale.Plugin/           Plugin AssemblyLoadContext (net10.0) — shared by the runtime + LogicBlockParser
 Vion.Dale.LogicBlockParser/ Assembly introspector — bundled into Vion.Dale.Sdk as a tool
-Vion.Dale.DevHost/          Local development host (+ headless IDevHostControl surface for CI/agents — RFC 0003). After changes here / Web / scenario runner / stepping, verify with the `devhost-smoke` skill.
+Vion.Dale.DevHost/          Local development host (+ headless IDevHostControl surface for CI/agents). After changes here / Web / scenario runner / stepping, verify with the `devhost-smoke` skill.
 Vion.Dale.DevHost.Web/      Web UI for DevHost (static SPA assets) + HTTP control endpoints
 Vion.Dale.DevHost.SmokeHost/ Project-referencing smoke fixture — synthetic blocks (value shapes, HAL, wiring) + topologies + scenarios; boots a real server for the `devhost-smoke` skill's live-UI tier
 Vion.Dale.Cli/              CLI tool (dotnet global tool `dale`) — see Vion.Dale.Cli/CLAUDE.md
@@ -82,7 +93,7 @@ Vion.Dale.Cli.Test/         CLI unit tests
 templates/                  Project template bundled as content inside Vion.Dale.Cli (source used by `dale new`)
 examples/                   Example LogicBlock libraries — in Vion.Dale.Sdk.sln, referencing published packages
 libraries/                  First-party LogicBlock libraries shipped from here (Vion.Diagnostics)
-docs/                       Conventions, RFCs, migrations, snapshots, the process journal/metrics and retro notes
+docs/                       Conventions, the spec corpus (specs/) + change docs (changes/), frozen RFCs, migrations, snapshots, the process journal/metrics and retro notes
 scripts/                    Build / versioning / docs generation scripts
 ```
 
@@ -90,7 +101,7 @@ scripts/                    Build / versioning / docs generation scripts
 
 **LogicBlock**: an actor-based computation unit. Extends `LogicBlockBase`. Has service properties (observable state), measuring points (read-only metrics), timers, and communicates with other blocks via interfaces and contracts.
 
-**Service properties vs measuring points — and dual-annotation (gotcha)**: a `[ServiceProperty]` (observable state) and a `[ServiceMeasuringPoint]` (charted time series) can both be declared on the **same C# property** — common for telemetry (e.g. grid-meter power surfaced as live state *and* a chart). They are **independent**: each publishes to its own retained MQTT stream (`…/property/state` vs `…/measuring-point/state`), is throttled/deadbanded separately (RFC 0004), and a single value change raises **both** `ServicePropertyValueChanged` and `ServiceMeasuringPointValueChanged`. Consequence for anyone touching the emission/publish pipeline: **never key per-member state by `(service, member)` name alone** — that collides the two streams and one silently suppresses the other (this caused a measuring-points-go-dark regression). `LogicBlockBase` keeps **separate per-stream collections** (`_servicePropertyThrottlers` / `_measuringPointThrottlers`); keep that separation.
+**Service properties vs measuring points — and dual-annotation (gotcha)**: a `[ServiceProperty]` (observable state) and a `[ServiceMeasuringPoint]` (charted time series) can both be declared on the **same C# property** — common for telemetry (e.g. grid-meter power surfaced as live state *and* a chart). They are **independent**: each publishes to its own retained MQTT stream (`…/property/state` vs `…/measuring-point/state`), is throttled/deadbanded separately, and a single value change raises **both** `ServicePropertyValueChanged` and `ServiceMeasuringPointValueChanged`. Consequence for anyone touching the emission/publish pipeline: **never key per-member state by `(service, member)` name alone** — that collides the two streams and one silently suppresses the other (this caused a measuring-points-go-dark regression). `LogicBlockBase` keeps **separate per-stream collections** (`_servicePropertyThrottlers` / `_measuringPointThrottlers`); keep that separation.
 
 **Contracts**: define hardware I/O bindings (Modbus registers, digital pins, etc.) and inter-block messaging (commands, request-response). Shared DTOs live in `Vion.Contracts` (separate repo).
 

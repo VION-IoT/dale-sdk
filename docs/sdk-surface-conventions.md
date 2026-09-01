@@ -29,8 +29,9 @@ were dropped because they *"can be done in user land via c#, no magic from SDK"*
 Attribute and public-member docs are the SDK's primary documentation surface: they are what a library
 author reads in IDE tooltips, and they are published to the docs site. Keep them about the reader.
 
-- **No RFC numbers, no analyzer IDs, no customer names, no design history.** Those belong in
-  `docs/rfcs/`, the analyzer's own message, and git. The instruction that set this rule:
+- **No RFC/change-doc references, no analyzer IDs, no customer names, no design history.** Those
+  belong in the change doc (`docs/changes/`), the analyzer's own message, and git. The instruction
+  that set this rule:
   *"keep the ServiceRelationAttribute xmldoc lighter, no rfc mentioning, no analyzer number, no
   customer specific examples. just explain what it is for and how to use it correctly"*.
 - **Length is a cost.** *"technically correct but i find the remarks too verbose. focus on what is
@@ -44,6 +45,9 @@ author reads in IDE tooltips, and they are published to the docs site. Keep them
 [`Vion.Dale.Sdk/Core/ServiceRelationAttribute.cs`](../Vion.Dale.Sdk/Core/ServiceRelationAttribute.cs)
 is the reference shape: a summary that states the mechanism, `<para>` blocks for the three things a
 first-time user gets wrong, and one generic `<example>`.
+
+Inline comments (method bodies, private members) are owned by
+[`comment-conventions.md`](comment-conventions.md).
 
 ### How they actually render
 
