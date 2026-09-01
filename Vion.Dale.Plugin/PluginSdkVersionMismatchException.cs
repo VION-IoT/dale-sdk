@@ -19,9 +19,5 @@ namespace Vion.Dale.Plugin
         public PluginSdkVersionMismatchException(string message) : base(message)
         {
         }
-
-        public PluginSdkVersionMismatchException(string message, Exception innerException) : base(message, innerException)
-        {
-        }
     }
 }
