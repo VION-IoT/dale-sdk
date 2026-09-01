@@ -137,6 +137,40 @@ namespace Vion.Dale.Plugin.Test.TestHelpers
         }
 
         /// <summary>
+        ///     Emits a library declaring a <c>DaleSharedAssemblyAttribute</c> in
+        ///     <paramref name="attributeNamespace" />, so a fixture can apply an attribute of the
+        ///     right name from the wrong namespace. Declaring it in the fixture itself would not do:
+        ///     the loader reads the attribute's constructor as a reference to another assembly, so a
+        ///     locally declared one is passed over for a reason that has nothing to do with names.
+        /// </summary>
+        public static string EmitStandInMarkerLibrary(string directory, string simpleName, string attributeNamespace)
+        {
+            var source = $$"""
+                           namespace {{attributeNamespace}}
+                           {
+                               public sealed class DaleSharedAssemblyAttribute : System.Attribute
+                               {
+                               }
+                           }
+                           """;
+
+            var compilation = CSharpCompilation.Create(simpleName,
+                                                       new[] { CSharpSyntaxTree.ParseText(source) },
+                                                       RuntimeReferences,
+                                                       new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+            var path = Path.Combine(directory, $"{simpleName}.dll");
+            var result = compilation.Emit(path);
+            if (!result.Success)
+            {
+                throw new
+                    InvalidOperationException($"Stand-in marker library did not compile: {string.Join("; ", result.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error))}");
+            }
+
+            return path;
+        }
+
+        /// <summary>
         ///     Writes a file with a <c>.dll</c> extension that is not a PE image at all.
         /// </summary>
         public static string EmitUnreadable(string directory, string simpleName)

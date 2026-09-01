@@ -533,6 +533,24 @@ namespace Vion.Dale.Plugin.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-PLUG-005.4")]
+        public void IgnoreAMarkerOfTheSameNameFromAnotherNamespace()
+        {
+            // Arrange
+            var fixtureName = FixtureAssembly.UniqueName("Private");
+            var markerLibrary = FixtureAssembly.EmitStandInMarkerLibrary(_stagingDirectory, FixtureAssembly.UniqueName("Marker"), "Acme.Sharing");
+            FixtureAssembly.Emit(_pluginDirectory, fixtureName, references: new[] { markerLibrary }, attributes: new[] { "[assembly: Acme.Sharing.DaleSharedAssembly]" });
+            var sut = new PluginLoadContext(_pluginDirectory, PackageId, _logger);
+
+            // Act
+            var resolved = sut.LoadFromAssemblyName(new AssemblyName(fixtureName));
+
+            // Assert
+            Assert.AreSame(sut, AssemblyLoadContext.GetLoadContext(resolved), "Only Vion's own attribute opts an assembly into sharing — the type name alone is not the marker.");
+            CollectionAssert.DoesNotContain(SharedExtensionNames(), fixtureName);
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-PLUG-005.5")]
         public void TreatAnUnreadableFileAsUnmarkedDuringEagerLoad()
         {
