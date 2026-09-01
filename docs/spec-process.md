@@ -150,7 +150,11 @@ frozen meanwhile (do not cite it in new work) and disappears with the last pass.
 
 An area pass — or any ratified feature-sized change doc — is implemented in a fresh session,
 dispatched with the architecture repo's launcher exactly as `/implement` and `/fix` dispatch
-(never reimplement the launch inline; the launcher encodes hard-won constraints):
+(never reimplement the launch inline; the launcher encodes hard-won constraints). The pass
+protocol itself is packaged as the **`spec-pass` skill** (`.claude/skills/spec-pass/`) — pass
+briefs point at it and carry only the per-area facts (scope, anchors, RFCs to absorb, page path,
+attempt number); learning between passes lands as skill diffs, never as longer briefs. The skill
+retires with the migration:
 
 1. Write the brief to `C:\_gh\architecture\.claude\briefs\brief-<slug>-dale-sdk.md` — the
    gitignored home the launcher's permission model expects. The brief is a **pointer, not a
