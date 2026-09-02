@@ -6,7 +6,7 @@ namespace Vion.Dale.Sdk.Emission
     ///     A marker registered in the logic block's service provider by the TestKit's
     ///     <c>LogicBlockTestContextBuilder.WithEmissionPolicy(EmissionPolicyMode.FromAttributes)</c>.
     ///     <para>
-    ///         RFC 0004 emission policy is normally gated off whenever the block runs on a
+    ///         The emission policy is normally gated off whenever the block runs on a
     ///         controllable (test) clock — otherwise virtual-time tests would silently throttle
     ///         their own emissions. When this marker is present, <c>LogicBlockBase</c> reads it at
     ///         <c>InitializeLogicBlock</c> and forces the policy on regardless of the clock by

@@ -31,32 +31,32 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         {
             var property = (IPropertySymbol)context.Symbol;
 
-            var attribute = EmissionAttributeHelper.GetEmissionAttribute(property);
-            if (attribute == null)
+            foreach (var attribute in EmissionAttributeHelper.GetEmissionAttributes(property))
             {
-                return;
-            }
+                var minChange = EmissionAttributeHelper.GetMinChange(attribute);
+                if (minChange == null)
+                {
+                    continue;
+                }
 
-            var minChange = EmissionAttributeHelper.GetMinChange(attribute);
-            if (minChange == null)
-            {
-                return;
-            }
+                // Immediate bypasses the deadband as well as the throttle, so "deadband only" doesn't apply
+                // (that combination is DALE038's concern).
+                if (EmissionAttributeHelper.GetImmediate(attribute))
+                {
+                    continue;
+                }
 
-            // Immediate bypasses the deadband as well as the throttle, so "deadband only" doesn't apply
-            // (that combination is DALE038's concern).
-            if (EmissionAttributeHelper.GetImmediate(attribute))
-            {
-                return;
-            }
+                var minInterval = EmissionAttributeHelper.GetExplicitMinInterval(attribute);
+                if (minInterval == null || !EmissionAttributeHelper.IsDisablingSentinel(minInterval))
+                {
+                    continue;
+                }
 
-            var minInterval = EmissionAttributeHelper.GetExplicitMinInterval(attribute);
-            if (minInterval == null || !EmissionAttributeHelper.IsDisablingSentinel(minInterval))
-            {
-                return;
+                context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE039_DeadbandWithoutThrottle,
+                                                           EmissionAttributeHelper.LocationOf(attribute, property),
+                                                           property.Name,
+                                                           minInterval));
             }
-
-            context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE039_DeadbandWithoutThrottle, property.Locations.FirstOrDefault(), property.Name, minInterval));
         }
     }
 }

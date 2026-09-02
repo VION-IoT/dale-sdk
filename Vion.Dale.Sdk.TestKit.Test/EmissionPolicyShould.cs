@@ -1,241 +1,591 @@
 using System;
+using System.Linq;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Vion.Dale.Sdk.Core;
+using Vion.Dale.Sdk.Messages;
+using Vion.Dale.Sdk.Utils;
 
 namespace Vion.Dale.Sdk.TestKit.Test
 {
+    /// <summary>
+    ///     The emission policy as a block author observes it: when it applies at all, what reaches the
+    ///     handlers while a block runs, and what it publishes at each edge of the block's life. Every case
+    ///     runs on virtual time, so the trailing-edge releases are exact rather than raced.
+    /// </summary>
     [TestClass]
     public class EmissionPolicyShould
     {
-        [TestMethod]
-        public void NotThrottleUnderFakeClockWithoutOverride()
-        {
-            // TestKit hosts a FakeTimeProvider (controllable clock) and no marker => policy OFF.
-            // Every distinct change must reach the handler as raw INPC (today's behaviour).
-            var block = LogicBlockTestHelper.Create<ThrottledBlock>();
-            var ctx = block.CreateTestContext().Build();
+        private static readonly TimeSpan DefaultInterval = TimeSpan.FromMilliseconds(250);
 
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-001.2")]
+        public void PublishEveryChangeOnClockItCanAdvance()
+        {
+            // Arrange — the TestKit's own clock, and no override.
+            var block = LogicBlockTestHelper.Create<ThrottledBlock>();
+            var context = block.CreateTestContext().Build();
+
+            // Act — three changes well inside the member's 250 ms interval.
             block.Voltage = 1.0;
             block.Voltage = 2.0;
             block.Voltage = 3.0;
 
-            ctx.VerifyServicePropertyChanged(lb => lb.Voltage, times: Times.Exactly(3));
+            // Assert
+            context.VerifyServicePropertyChanged(lb => lb.Voltage, times: Times.Exactly(3));
         }
 
         [TestMethod]
-        public void EmitLeadingEdgeThenHoldUnderForcedPolicy()
+        [TestProperty("spec", "AC-EMIT-001.1")]
+        public void ApplyPolicyOnClockItCannotAdvance()
         {
-            // Force policy ON (override the FakeTimeProvider clock-off). The first change emits
-            // immediately; further changes inside MinInterval are held (no second emit yet).
+            // Arrange — a clock with no Advance(TimeSpan), so the block cannot take it for a test clock.
+            // No override is registered: the clock alone must turn the policy on.
+            var clock = new UnadvanceableClock(new DateTimeOffset(2026,
+                                                                  6,
+                                                                  22,
+                                                                  0,
+                                                                  0,
+                                                                  0,
+                                                                  TimeSpan.Zero));
             var block = LogicBlockTestHelper.Create<ThrottledBlock>();
-            var ctx = block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).Build();
+            var context = block.CreateTestContext().WithServices(services => services.AddSingleton<TimeProvider>(clock)).Build();
+            clock.MoveOn(DefaultInterval);
 
-            // The initial publish at start seeds the throttler (leading edge) at virtual T0, then is
-            // cleared by the builder. Advance past the interval so the first user write below is a
-            // fresh leading edge rather than a same-instant hold.
-            ctx.AdvanceTime(TimeSpan.FromMilliseconds(250));
+            // Act
+            block.Voltage = 1.0;
+            block.Voltage = 2.0;
+            block.Voltage = 3.0;
 
-            block.Voltage = 1.0; // leading edge -> emit
-            block.Voltage = 2.0; // within 250ms -> held
-            block.Voltage = 3.0; // within 250ms -> held (latest wins)
-
-            ctx.VerifyServicePropertyEmitted(lb => lb.Voltage, times: Times.Once());
+            // Assert — the leading edge only; the rest are held.
+            context.VerifyServicePropertyEmitted(lb => lb.Voltage, value => Assert.AreEqual(1.0, value), Times.Once());
         }
 
         [TestMethod]
-        public void DropEqualValuesUnderForcedPolicy()
+        [TestProperty("spec", "AC-EMIT-001.3")]
+        public void ApplyPolicyOnAdvanceableClockWhenOverridden()
         {
-            // Value-equality floor: re-emitting the same value is dropped even on the leading edge.
+            // Arrange
             var block = LogicBlockTestHelper.Create<ThrottledBlock>();
-            var ctx = block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).Build();
+            var context = Forced(block);
+            context.AdvanceTime(DefaultInterval);
 
-            ctx.AdvanceTime(TimeSpan.FromMilliseconds(250)); // clear the start-seed interval
+            // Act
+            block.Voltage = 1.0;
+            block.Voltage = 2.0;
+            block.Voltage = 3.0;
 
-            block.Voltage = 5.0; // leading edge -> emit
-
-            // Metalama dedups exact-equal sets for value types, so re-assigning 5.0 raises no INPC;
-            // the gate never even sees the duplicate. The single leading-edge emit is all that is seen.
-            block.Voltage = 5.0; // no INPC (Metalama) — gate never sees it
-
-            ctx.VerifyServicePropertyEmitted(lb => lb.Voltage, value => Assert.AreEqual(5.0, value), Times.Once());
+            // Assert
+            context.VerifyServicePropertyEmitted(lb => lb.Voltage, value => Assert.AreEqual(1.0, value), Times.Once());
         }
 
         [TestMethod]
-        public void FlushHeldValueAfterMinInterval()
+        [TestProperty("spec", "AC-EMIT-004.1")]
+        public void SuppressValueEqualToLastPublished()
         {
-            // Leading edge emits 1.0; 2.0 then 3.0 are held within the 250ms window; after the
-            // interval elapses the latest held value (3.0) flushes exactly once (trailing edge).
+            // Arrange
+            var block = LogicBlockTestHelper.Create<SettableBlock>();
+            var context = Forced(block);
+            context.AdvanceTime(DefaultInterval);
+
+            // Act — the same value twice, an interval apart, so only the dedup floor can suppress it.
+            block.SetVoltage(5.0);
+            context.AdvanceTime(DefaultInterval);
+            block.SetVoltage(5.0);
+
+            // Assert
+            context.VerifyServicePropertyEmitted(lb => lb.Voltage, value => Assert.AreEqual(5.0, value), Times.Once());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-011.1")]
+        public void PublishNothingBeforeBlockStarts()
+        {
+            // Arrange
             var block = LogicBlockTestHelper.Create<ThrottledBlock>();
-            var ctx = block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).Build();
+            var context = block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).WithoutAutoStart().Build();
 
-            ctx.AdvanceTime(TimeSpan.FromMilliseconds(250)); // clear the start-seed interval
+            // Act
+            block.Voltage = 7.0;
 
-            block.Voltage = 1.0; // emit
-            block.Voltage = 2.0; // held
-            block.Voltage = 3.0; // held (latest wins)
-
-            ctx.AdvanceTime(TimeSpan.FromMilliseconds(250));
-
-            // 1.0 (leading) + 3.0 (trailing flush) = 2 emissions; last value is 3.0.
-            ctx.VerifyServicePropertyEmitted(lb => lb.Voltage, times: Times.Exactly(2));
+            // Assert
+            context.VerifyServicePropertyEmitted(lb => lb.Voltage, times: Times.Never());
         }
 
         [TestMethod]
-        public void ForceEmitInitialPublishUnderForcedPolicy()
+        [TestProperty("spec", "AC-EMIT-011.2")]
+        public void PublishEveryMembersValueWhenBlockStarts()
         {
-            // Do not auto-start (which clears startup messages). Start manually and assert the
-            // initial publish for a throttled property emits exactly once (seed + force-emit),
-            // not held, under the forced policy.
+            // Arrange — a value assigned before start reaches no one, so the start publish is the only
+            // thing that can carry it.
             var block = LogicBlockTestHelper.Create<ThrottledBlock>();
-            var ctx = block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).WithoutAutoStart().Build();
+            var context = block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).WithoutAutoStart().Build();
+            block.Voltage = 7.0;
 
-            block.Voltage = 7.0; // not started yet -> ignored by the _started guard
+            // Act
+            block.HandleMessageAsync(new StartLogicBlockRequest(), context).GetAwaiter().GetResult();
 
-            // Manually start: PublishInitialStateUpdates runs through the gate. The first Offer per
-            // property returns Emit (!HasEmitted), force-emitting and seeding the throttler.
-            block.HandleMessageAsync(new Messages.StartLogicBlockRequest(), ctx).GetAwaiter().GetResult();
-
-            ctx.VerifyServicePropertyEmitted(lb => lb.Voltage, value => Assert.AreEqual(7.0, value), Times.Once());
+            // Assert — published at once, not held until the interval elapses.
+            context.VerifyServicePropertyEmitted(lb => lb.Voltage, value => Assert.AreEqual(7.0, value), Times.Once());
         }
 
         [TestMethod]
-        public void ReassertPropertyStateOnReconnectEvenWhenUnchanged()
+        [TestProperty("spec", "AC-EMIT-003.3")]
+        [TestProperty("spec", "AC-EMIT-003.5")]
+        public void RefuseToStartWhenIntervalNotDuration()
         {
-            // On an operational reconnect the runtime sends PublishServiceState. Publishes made while the connection
-            // was down were lost, but the throttler advanced LastEmitted as if they had been delivered — so the current
-            // value can equal LastEmitted and the value-equality floor would drop the re-publish, leaving the broker
-            // stale. PublishServiceState must reset the throttlers so the current value is force-emitted (re-asserted).
+            // Arrange
+            var block = LogicBlockTestHelper.Create<UnparseableIntervalBlock>();
+
+            // Act / Assert — the gates are built at start, so a knob DALE036 would have rejected fails
+            // there rather than being defaulted away.
+            var rejection = Assert.ThrowsExactly<FormatException>(() => block.CreateTestContext().Build());
+            StringAssert.Contains(rejection.Message, nameof(UnparseableIntervalBlock.Voltage));
+            StringAssert.Contains(rejection.Message, nameof(UnparseableIntervalBlock));
+            StringAssert.Contains(rejection.Message, "soon");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-003.4")]
+        [TestProperty("spec", "AC-EMIT-003.5")]
+        public void RefuseToStartWhenDeadbandCannotBeRead()
+        {
+            // Arrange
+            var block = LogicBlockTestHelper.Create<UnreadableDeadbandBlock>();
+
+            // Act / Assert — the token is read once at start, so a member never meets it mid-run, and the
+            // rejection names the member the author has to go and edit.
+            var rejection = Assert.ThrowsExactly<FormatException>(() => block.CreateTestContext().Build());
+            StringAssert.Contains(rejection.Message, nameof(UnreadableDeadbandBlock.Voltage));
+            StringAssert.Contains(rejection.Message, nameof(UnreadableDeadbandBlock));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-003.4")]
+        public void RefuseToStartWhenNumericDeadbandNegative()
+        {
+            // Arrange
+            var block = LogicBlockTestHelper.Create<NegativeDeadbandBlock>();
+
+            // Act / Assert
+            Assert.ThrowsExactly<FormatException>(() => block.CreateTestContext().Build());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-003.4")]
+        public void RefuseToStartWhenDurationDeadbandNegative()
+        {
+            // Arrange
+            var block = LogicBlockTestHelper.Create<NegativeDurationDeadbandBlock>();
+
+            // Act / Assert
+            Assert.ThrowsExactly<FormatException>(() => block.CreateTestContext().Build());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-005.4")]
+        [TestProperty("spec", "AC-EMIT-010.3")]
+        public void ReleaseHeldValueWhenIntervalElapses()
+        {
+            // Arrange
             var block = LogicBlockTestHelper.Create<ThrottledBlock>();
-            var ctx = block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).Build();
+            var context = Forced(block);
+            context.AdvanceTime(DefaultInterval);
 
-            ctx.AdvanceTime(TimeSpan.FromMilliseconds(250)); // clear the start-seed interval
+            // Act
+            block.Voltage = 1.0;
+            block.Voltage = 2.0;
+            block.Voltage = 3.0;
+            context.AdvanceTime(DefaultInterval);
 
-            block.Voltage = 5.0; // leading edge -> emit, throttler LastEmitted = 5.0
-            ctx.VerifyServicePropertyEmitted(lb => lb.Voltage, value => Assert.AreEqual(5.0, value), Times.Once());
-
-            ctx.ClearRecordedMessages();
-
-            // Reconnect: the value is unchanged (== LastEmitted). Without the throttler reset this re-publish is dropped
-            // by the value-equality floor; with it, 5.0 is re-asserted exactly once.
-            block.HandleMessageAsync(new Messages.PublishServiceState(), ctx).GetAwaiter().GetResult();
-
-            ctx.VerifyServicePropertyEmitted(lb => lb.Voltage, value => Assert.AreEqual(5.0, value), Times.Once());
+            // Assert — the leading edge, then the latest held value.
+            var published = context.GetSentMessagesOfTypePublic<ServicePropertyValueChanged>().Select(m => m.Value).ToList();
+            CollectionAssert.AreEqual(new object[] { 1.0, 3.0 }, published);
         }
 
         [TestMethod]
-        public void ReassertMeasuringPointStateOnReconnectEvenWhenUnchanged()
+        [TestProperty("spec", "AC-EMIT-010.1")]
+        [TestProperty("spec", "AC-EMIT-010.2")]
+        public void ReleaseEachMemberAtItsOwnDeadline()
         {
-            // Same reconnect re-assertion guarantee for the measuring-point stream (PublishServiceState resets both
-            // the property and measuring-point throttlers).
-            var block = LogicBlockTestHelper.Create<ThrottledMpBlock>();
-            var ctx = block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).Build();
+            // Arrange — two members whose intervals differ by eight times.
+            var block = LogicBlockTestHelper.Create<TwoRateBlock>();
+            var context = Forced(block);
+            context.AdvanceTime(TimeSpan.FromSeconds(2));
+            block.SetFast(1.0);
+            block.SetSlow(1.0);
+            block.SetFast(2.0);
+            block.SetSlow(2.0);
 
-            ctx.AdvanceTime(TimeSpan.FromMilliseconds(250)); // clear the start-seed interval
+            // Act — only the fast member's deadline has passed.
+            context.AdvanceTime(DefaultInterval);
 
-            block.SetFrequency(50.0); // leading edge -> emit, throttler LastEmitted = 50.0
-            ctx.VerifyServiceMeasuringPointEmitted(lb => lb.Frequency, times: Times.Once());
+            // Assert
+            context.VerifyServicePropertyEmitted(lb => lb.Fast, times: Times.Exactly(2));
+            context.VerifyServicePropertyEmitted(lb => lb.Slow, times: Times.Once());
 
-            ctx.ClearRecordedMessages();
+            // Act — the slow member's deadline passes, and the block re-armed for it.
+            context.AdvanceTime(TimeSpan.FromSeconds(2));
 
-            block.HandleMessageAsync(new Messages.PublishServiceState(), ctx).GetAwaiter().GetResult();
-
-            ctx.VerifyServiceMeasuringPointEmitted(lb => lb.Frequency, times: Times.Once());
+            // Assert
+            context.VerifyServicePropertyEmitted(lb => lb.Slow, times: Times.Exactly(2));
         }
 
         [TestMethod]
-        public void EmitClearedImmediatelyAndCancelPendingFlush()
+        [TestProperty("spec", "AC-EMIT-010.1")]
+        public void ReleaseNothingWhenHeldValueWasSuppressed()
         {
-            var block = LogicBlockTestHelper.Create<ThrottledBlock>();
-            var ctx = block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).Build();
+            // Arrange — 9.0 is held inside the interval, arming a wakeup for its deadline.
+            var block = LogicBlockTestHelper.Create<SettableBlock>();
+            var context = Forced(block);
+            context.AdvanceTime(DefaultInterval);
+            block.SetVoltage(1.0);
+            block.SetVoltage(9.0);
 
-            ctx.AdvanceTime(TimeSpan.FromMilliseconds(250)); // clear the start-seed interval
+            // The member settles back to what was published, so the held value stops being its latest.
+            block.SetVoltage(1.0);
+            context.ClearRecordedMessages();
 
-            block.Voltage = 1.0; // emit (leading)
-            block.Voltage = 2.0; // held
+            // Act — the armed wakeup arrives.
+            context.AdvanceTime(DefaultInterval);
 
-            // Simulate the runtime stop-clear path: ClearRetainedMessages raises the Cleared events.
-            var binder = GetServiceBinder(block);
-            binder.ClearRetainedMessages(Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance);
-
-            // The clear is emitted (bypassing the gate) ...
-            var cleared = ctx.GetSentMessagesOfTypePublic<Messages.ServicePropertyValueCleared>();
-            Assert.IsGreaterThanOrEqualTo(1, cleared.Count, "Cleared message must be emitted immediately, bypassing the throttler.");
-
-            // ... and the previously-held flush is cancelled: advancing past the interval emits no held value.
-            ctx.ClearRecordedMessages();
-            ctx.AdvanceTime(TimeSpan.FromMilliseconds(250));
-            ctx.VerifyServicePropertyEmitted(lb => lb.Voltage, times: Times.Never());
+            // Assert
+            context.VerifyServicePropertyEmitted(lb => lb.Voltage, times: Times.Never());
         }
 
         [TestMethod]
-        public void DrainExactCurrentValueOnStop()
+        [TestProperty("spec", "AC-EMIT-010.4")]
+        public void ReleaseNothingAfterBlockStops()
         {
-            var block = LogicBlockTestHelper.Create<ThrottledBlock>();
-            var ctx = block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).Build();
+            // Arrange — a held value whose deadline has not arrived when the block stops.
+            var block = LogicBlockTestHelper.Create<SettableBlock>();
+            var context = Forced(block);
+            context.AdvanceTime(DefaultInterval);
+            block.SetVoltage(1.0);
+            block.SetVoltage(9.0);
+            block.HandleMessageAsync(new StopLogicBlockRequest(), context).GetAwaiter().GetResult();
+            context.ClearRecordedMessages();
 
-            ctx.AdvanceTime(TimeSpan.FromMilliseconds(250)); // clear the start-seed interval
+            // Act
+            context.AdvanceTime(DefaultInterval);
 
-            block.Voltage = 1.0; // emit (leading), lastEmitted = 1.0
-            block.Voltage = 9.0; // held within interval, NOT yet emitted
-
-            ctx.ClearRecordedMessages();
-
-            // Stop without advancing time: the held 9.0 never flushed via the timer, but the
-            // stop-drain must emit the exact current value (9.0) so the final retained state is exact.
-            block.HandleMessageAsync(new Messages.StopLogicBlockRequest(), ctx).GetAwaiter().GetResult();
-
-            ctx.VerifyServicePropertyEmitted(lb => lb.Voltage, value => Assert.AreEqual(9.0, value), Times.Once());
+            // Assert
+            context.VerifyServicePropertyEmitted(lb => lb.Voltage, times: Times.Never());
         }
 
         [TestMethod]
-        public void ThrottleMeasuringPointLeadingEdgeAndFlush()
+        [TestProperty("spec", "AC-EMIT-011.4")]
+        public void PublishPropertysValueAgainWhenAskedToRepublish()
         {
-            var block = LogicBlockTestHelper.Create<ThrottledMpBlock>();
-            var ctx = block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).Build();
+            // Arrange — after a reconnect the gate believes a value was delivered that was not, so the
+            // dedup floor would suppress the re-assertion.
+            var block = LogicBlockTestHelper.Create<SettableBlock>();
+            var context = Forced(block);
+            context.AdvanceTime(DefaultInterval);
+            block.SetVoltage(5.0);
+            context.ClearRecordedMessages();
 
-            ctx.AdvanceTime(TimeSpan.FromMilliseconds(250)); // clear the start-seed interval
+            // Act
+            block.HandleMessageAsync(new PublishServiceState(), context).GetAwaiter().GetResult();
 
-            block.SetFrequency(50.0); // leading edge -> emit
-            block.SetFrequency(50.1); // held
-            block.SetFrequency(50.2); // held (latest wins)
-
-            ctx.AdvanceTime(TimeSpan.FromMilliseconds(250));
-
-            // leading (50.0) + trailing flush (50.2) = 2 measuring-point emissions.
-            ctx.VerifyServiceMeasuringPointEmitted(lb => lb.Frequency, times: Times.Exactly(2));
+            // Assert
+            context.VerifyServicePropertyEmitted(lb => lb.Voltage, value => Assert.AreEqual(5.0, value), Times.Once());
         }
 
         [TestMethod]
-        public void EmitBothStreamsForADualAnnotatedMember()
+        [TestProperty("spec", "AC-EMIT-011.4")]
+        public void PublishMeasuringPointsValueAgainWhenAskedToRepublish()
         {
-            // A member carrying BOTH [ServiceProperty] and [ServiceMeasuringPoint] (the grid-meter
-            // telemetry shape — ActivePowerTotalKw etc.) must emit on BOTH streams. Before the fix the
-            // property and measuring point shared one throttler keyed by (service, member) name, so the
-            // property's leading-edge emit seeded LastEmitted and the identical measuring-point offer hit
-            // the value-equality floor (HasEmitted && Equals(LastEmitted, value)) and was dropped —
-            // silencing the measuring-point stream entirely for every dual-annotated member.
-            var block = LogicBlockTestHelper.Create<DualAnnotatedBlock>();
-            var ctx = block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).Build();
+            // Arrange
+            var block = LogicBlockTestHelper.Create<MeasuredBlock>();
+            var context = Forced(block);
+            context.AdvanceTime(DefaultInterval);
+            block.SetFrequency(50.0);
+            context.ClearRecordedMessages();
 
-            ctx.AdvanceTime(TimeSpan.FromMilliseconds(250)); // clear the start-seed interval
+            // Act
+            block.HandleMessageAsync(new PublishServiceState(), context).GetAwaiter().GetResult();
 
-            block.SetPower(42.0); // one change -> the leading edge must emit on BOTH streams
-
-            ctx.VerifyServicePropertyEmitted(lb => lb.Power, value => Assert.AreEqual(42.0, value), Times.Once());
-            ctx.VerifyServiceMeasuringPointEmitted(lb => lb.Power, times: Times.Once()); // dropped before the fix
+            // Assert
+            context.VerifyServiceMeasuringPointEmitted(lb => lb.Frequency, value => Assert.AreEqual(50.0, value), Times.Once());
         }
 
-        // The TestKit's GetPrivateField extension is internal to the TestKit assembly; reach the
-        // block's ServiceBinder via reflection here (ServiceBinder is a public SDK type).
-        private static Configuration.Services.ServiceBinder GetServiceBinder(LogicBlockBase block)
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-011.5")]
+        public void PublishExactCurrentValueWhenBlockStops()
         {
-            var field = typeof(LogicBlockBase).GetField("_serviceBinder", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic) ??
-                        throw new InvalidOperationException("_serviceBinder field not found on LogicBlockBase.");
-            return (Configuration.Services.ServiceBinder)field.GetValue(block)!;
+            // Arrange — 9.0 is held inside the interval and has never reached anyone.
+            var block = LogicBlockTestHelper.Create<SettableBlock>();
+            var context = Forced(block);
+            context.AdvanceTime(DefaultInterval);
+            block.SetVoltage(1.0);
+            block.SetVoltage(9.0);
+            context.ClearRecordedMessages();
+
+            // Act — stop without letting the interval elapse.
+            block.HandleMessageAsync(new StopLogicBlockRequest(), context).GetAwaiter().GetResult();
+
+            // Assert
+            context.VerifyServicePropertyEmitted(lb => lb.Voltage, value => Assert.AreEqual(9.0, value), Times.Once());
         }
 
-        // A block with a default-policy (250ms) throttled property.
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-011.5")]
+        public void PublishNothingOnStopForMemberAlreadyUpToDate()
+        {
+            // Arrange — the current value is the one last published, so there is nothing to correct.
+            var block = LogicBlockTestHelper.Create<SettableBlock>();
+            var context = Forced(block);
+            context.AdvanceTime(DefaultInterval);
+            block.SetVoltage(1.0);
+            context.ClearRecordedMessages();
+
+            // Act
+            block.HandleMessageAsync(new StopLogicBlockRequest(), context).GetAwaiter().GetResult();
+
+            // Assert
+            context.VerifyServicePropertyEmitted(lb => lb.Voltage, times: Times.Never());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-011.6")]
+        public void PublishNothingExtraOnStopWhenPolicyNotApplied()
+        {
+            // Arrange — no override, so every assignment was already published as it happened.
+            var block = LogicBlockTestHelper.Create<SettableBlock>();
+            var context = block.CreateTestContext().Build();
+            block.SetVoltage(1.0);
+            block.SetVoltage(9.0);
+            context.ClearRecordedMessages();
+
+            // Act
+            block.HandleMessageAsync(new StopLogicBlockRequest(), context).GetAwaiter().GetResult();
+
+            // Assert
+            context.VerifyServicePropertyEmitted(lb => lb.Voltage, times: Times.Never());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-011.7")]
+        public void PublishRemainingMembersWhenOneCannotBeRead()
+        {
+            // Arrange — Faulty's getter starts throwing inside Stopping(), which runs before the block
+            // publishes its final values.
+            var block = LogicBlockTestHelper.Create<FaultyReadBlock>();
+            var context = Forced(block);
+            context.AdvanceTime(DefaultInterval);
+            block.SetVoltage(1.0);
+            block.SetVoltage(9.0);
+            context.ClearRecordedMessages();
+
+            // Act
+            block.HandleMessageAsync(new StopLogicBlockRequest(), context).GetAwaiter().GetResult();
+
+            // Assert — Faulty is bound first, so its throw happens before Voltage is read.
+            context.VerifyServicePropertyEmitted(lb => lb.Voltage, value => Assert.AreEqual(9.0, value), Times.Once());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-011.9")]
+        public void AcknowledgeWriteWithValueBlockApplied()
+        {
+            // Arrange — the member clamps, so what the block applied differs from what was written.
+            var block = LogicBlockTestHelper.Create<ClampingBlock>();
+            var context = Forced(block);
+            context.AdvanceTime(DefaultInterval);
+
+            // Act
+            Write(block, context, 250.0);
+
+            // Assert
+            var acknowledged = context.GetSentMessagesOfTypePublic<SetServicePropertyValueResponse>().Single();
+            Assert.AreEqual(100.0, acknowledged.Value);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-011.10")]
+        public void PublishWritesStateChangeUnderMembersPolicy()
+        {
+            // Arrange
+            var block = LogicBlockTestHelper.Create<ClampingBlock>();
+            var context = Forced(block);
+            context.AdvanceTime(DefaultInterval);
+
+            // Act — two writes inside one interval.
+            Write(block, context, 10.0);
+            Write(block, context, 20.0);
+
+            // Assert — a write is never refused or delayed, but the state it produces is gated like any
+            // other change: the second is held, not published.
+            Assert.HasCount(2, context.GetSentMessagesOfTypePublic<SetServicePropertyValueResponse>());
+            context.VerifyServicePropertyEmitted(lb => lb.Limit, value => Assert.AreEqual(10.0, value), Times.Once());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-011.8")]
+        public void PublishFinalValuesBeforeClearingRetainedState()
+        {
+            // Arrange
+            var block = LogicBlockTestHelper.Create<SettableBlock>();
+            var context = Forced(block);
+            context.AdvanceTime(DefaultInterval);
+            block.SetVoltage(1.0);
+            block.SetVoltage(9.0);
+            context.ClearRecordedMessages();
+
+            // Act
+            block.HandleMessageAsync(new StopLogicBlockRequest(), context).GetAwaiter().GetResult();
+
+            // Assert — the final value must reach a consumer while it is still listening, so it precedes
+            // the clear that wipes the retained state.
+            var order = context.GetSentMessagesOfTypePublic<object>().Select(m => m.GetType().Name).ToList();
+            Assert.IsLessThan(order.IndexOf(nameof(ServicePropertyValueCleared)), order.IndexOf(nameof(ServicePropertyValueChanged)));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-002.1")]
+        public void GateMeasuringPointLikeServiceProperty()
+        {
+            // Arrange
+            var block = LogicBlockTestHelper.Create<MeasuredBlock>();
+            var context = Forced(block);
+            context.AdvanceTime(DefaultInterval);
+
+            // Act
+            block.SetFrequency(50.0);
+            block.SetFrequency(50.1);
+            block.SetFrequency(50.2);
+            context.AdvanceTime(DefaultInterval);
+
+            // Assert
+            var published = context.GetSentMessagesOfTypePublic<ServiceMeasuringPointValueChanged>().Select(m => m.Value).ToList();
+            CollectionAssert.AreEqual(new object[] { 50.0, 50.2 }, published);
+        }
+
+        private static void Write(ClampingBlock block, LogicBlockTestContext<ClampingBlock> context, double value)
+        {
+            var request = new SetServicePropertyValueRequest(new ServiceIdentifier(nameof(ClampingBlock)), nameof(ClampingBlock.Limit), value);
+            block.HandleMessageAsync(request, context).GetAwaiter().GetResult();
+        }
+
+        private static LogicBlockTestContext<TBlock> Forced<TBlock>(TBlock block)
+            where TBlock : LogicBlockBase
+        {
+            return block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).Build();
+        }
+
+        // A clock a block cannot recognise as a test clock: it moves, but not through Advance(TimeSpan).
+        private sealed class UnadvanceableClock : TimeProvider
+        {
+            private DateTimeOffset _now;
+
+            public UnadvanceableClock(DateTimeOffset now)
+            {
+                _now = now;
+            }
+
+            public void MoveOn(TimeSpan delta)
+            {
+                _now += delta;
+            }
+
+            public override DateTimeOffset GetUtcNow()
+            {
+                return _now;
+            }
+        }
+
+        // Each of the three below is rejected by DALE035 at compile time; suppressed here to reach the
+        // start-time backstop, which is what a member gets when the compile-time gate was bypassed.
+        private sealed class UnreadableDeadbandBlock : LogicBlockBase
+        {
+#pragma warning disable DALE035
+            [ServiceProperty(MinChange = "loads")]
+            public double Voltage { get; set; }
+#pragma warning restore DALE035
+
+            public UnreadableDeadbandBlock(ILogger logger) : base(logger)
+            {
+            }
+
+            protected override void Ready()
+            {
+            }
+        }
+
+        private sealed class NegativeDeadbandBlock : LogicBlockBase
+        {
+#pragma warning disable DALE035
+            [ServiceProperty(MinChange = "-1")]
+            public double Voltage { get; set; }
+#pragma warning restore DALE035
+
+            public NegativeDeadbandBlock(ILogger logger) : base(logger)
+            {
+            }
+
+            protected override void Ready()
+            {
+            }
+        }
+
+        private sealed class NegativeDurationDeadbandBlock : LogicBlockBase
+        {
+#pragma warning disable DALE035
+            [ServiceProperty(MinChange = "-1s")]
+            public TimeSpan Uptime { get; set; }
+#pragma warning restore DALE035
+
+            public NegativeDurationDeadbandBlock(ILogger logger) : base(logger)
+            {
+            }
+
+            protected override void Ready()
+            {
+            }
+        }
+
+        // DALE036 rejects this at compile time; suppressed here to reach the start-time backstop.
+        private sealed class UnparseableIntervalBlock : LogicBlockBase
+        {
+#pragma warning disable DALE036
+            [ServiceProperty(MinInterval = "soon")]
+            public double Voltage { get; set; }
+#pragma warning restore DALE036
+
+            public UnparseableIntervalBlock(ILogger logger) : base(logger)
+            {
+            }
+
+            protected override void Ready()
+            {
+            }
+        }
+
+        // A writable member that refuses part of what it is told: the value the block applied is not the
+        // value the caller sent, which is what the acknowledgement has to carry.
+        private sealed class ClampingBlock : LogicBlockBase
+        {
+            private double _limit;
+
+            [ServiceProperty(MinInterval = "250ms")]
+            public double Limit
+            {
+                get => _limit;
+
+                set => _limit = Math.Min(value, 100.0);
+            }
+
+            public ClampingBlock(ILogger logger) : base(logger)
+            {
+            }
+
+            protected override void Ready()
+            {
+            }
+        }
+
         private sealed class ThrottledBlock : LogicBlockBase
         {
             [ServiceProperty(MinInterval = "250ms")]
@@ -250,13 +600,33 @@ namespace Vion.Dale.Sdk.TestKit.Test
             }
         }
 
-        // A block with a throttled measuring point (read-only; written via a method).
-        private sealed class ThrottledMpBlock : LogicBlockBase
+        // The same member, written through a method so a test can drive a read-only property the way a
+        // block's own logic does.
+        private sealed class SettableBlock : LogicBlockBase
+        {
+            [ServiceProperty(MinInterval = "250ms")]
+            public double Voltage { get; private set; }
+
+            public SettableBlock(ILogger logger) : base(logger)
+            {
+            }
+
+            public void SetVoltage(double value)
+            {
+                Voltage = value;
+            }
+
+            protected override void Ready()
+            {
+            }
+        }
+
+        private sealed class MeasuredBlock : LogicBlockBase
         {
             [ServiceMeasuringPoint(MinInterval = "250ms")]
             public double Frequency { get; private set; }
 
-            public ThrottledMpBlock(ILogger logger) : base(logger)
+            public MeasuredBlock(ILogger logger) : base(logger)
             {
             }
 
@@ -270,26 +640,64 @@ namespace Vion.Dale.Sdk.TestKit.Test
             }
         }
 
-        // A member carrying BOTH [ServiceProperty] and [ServiceMeasuringPoint] — the grid-meter
-        // telemetry shape (read-only externally; written via a method). Each stream publishes to a
-        // distinct MQTT topic (.../property/state vs .../measuring-point/state), so both must emit.
-        private sealed class DualAnnotatedBlock : LogicBlockBase
+        private sealed class TwoRateBlock : LogicBlockBase
         {
             [ServiceProperty(MinInterval = "250ms")]
-            [ServiceMeasuringPoint(MinInterval = "250ms")]
-            public double Power { get; private set; }
+            public double Fast { get; private set; }
 
-            public DualAnnotatedBlock(ILogger logger) : base(logger)
+            [ServiceProperty(MinInterval = "2s")]
+            public double Slow { get; private set; }
+
+            public TwoRateBlock(ILogger logger) : base(logger)
             {
             }
 
-            public void SetPower(double value)
+            public void SetFast(double value)
             {
-                Power = value;
+                Fast = value;
+            }
+
+            public void SetSlow(double value)
+            {
+                Slow = value;
             }
 
             protected override void Ready()
             {
+            }
+        }
+
+        // Faulty reads fine until the block is told to stop, so the block starts normally and then meets a
+        // member it cannot read while publishing its final values.
+        private sealed class FaultyReadBlock : LogicBlockBase
+        {
+            private bool _stopping;
+
+            [ServiceProperty(MinInterval = "250ms")]
+            public double Faulty
+            {
+                get => _stopping ? throw new InvalidOperationException() : 1.0;
+            }
+
+            [ServiceProperty(MinInterval = "250ms")]
+            public double Voltage { get; private set; }
+
+            public FaultyReadBlock(ILogger logger) : base(logger)
+            {
+            }
+
+            public void SetVoltage(double value)
+            {
+                Voltage = value;
+            }
+
+            protected override void Ready()
+            {
+            }
+
+            protected override void Stopping()
+            {
+                _stopping = true;
             }
         }
     }

@@ -29,38 +29,35 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         {
             var property = (IPropertySymbol)context.Symbol;
 
-            var attribute = EmissionAttributeHelper.GetEmissionAttribute(property);
-            if (attribute == null)
+            foreach (var attribute in EmissionAttributeHelper.GetEmissionAttributes(property))
             {
-                return;
+                var minChange = EmissionAttributeHelper.GetMinChange(attribute);
+                if (minChange == null)
+                {
+                    continue;
+                }
+
+                var valueType = EmissionAttributeHelper.Unwrap(property.Type);
+
+                // Only the built-in numeric / TimeSpan formats are known. For every other type the MinChange
+                // format is opaque (interpreted by a custom IChangeThreshold<T>), so we never parse-check.
+                if (!EmissionAttributeHelper.TryGetParseExpectation(valueType, minChange, out var parses, out var expectationHint))
+                {
+                    continue;
+                }
+
+                if (parses)
+                {
+                    continue;
+                }
+
+                context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE035_MinChangeUnparseable,
+                                                           EmissionAttributeHelper.LocationOf(attribute, property),
+                                                           property.Name,
+                                                           minChange,
+                                                           valueType.ToDisplayString(),
+                                                           expectationHint));
             }
-
-            var minChange = EmissionAttributeHelper.GetMinChange(attribute);
-            if (minChange == null)
-            {
-                return;
-            }
-
-            var valueType = EmissionAttributeHelper.Unwrap(property.Type);
-
-            // Only the built-in numeric / TimeSpan formats are known. For every other type the MinChange
-            // format is opaque (interpreted by a custom IChangeThreshold<T>), so we never parse-check.
-            if (!EmissionAttributeHelper.TryGetParseExpectation(valueType, minChange, out var parses, out var expectationHint))
-            {
-                return;
-            }
-
-            if (parses)
-            {
-                return;
-            }
-
-            context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE035_MinChangeUnparseable,
-                                                       property.Locations.FirstOrDefault(),
-                                                       property.Name,
-                                                       minChange,
-                                                       valueType.ToDisplayString(),
-                                                       expectationHint));
         }
     }
 }

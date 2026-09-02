@@ -6,12 +6,11 @@ using Vion.Dale.Sdk.Core;
 namespace Vion.Dale.Sdk.TestKit.Test
 {
     /// <summary>
-    ///     DF-33: a family of blocks declares its emission policy <em>once</em> on a shared
-    ///     <c>[ServiceInterface]</c> (the §8.12 DRY convention), and the implementing block carries
-    ///     only the bare property. The runtime must honour the interface-declared throttle knobs the
-    ///     same way it already merges the interface-declared schema — impl wins if it carries its own
-    ///     attribute, otherwise the interface's knobs apply. Before the fix the knobs were read only
-    ///     from the impl property, so no throttler was built and every assignment emitted raw.
+    ///     A family of blocks declares its emission policy <em>once</em> on a shared
+    ///     <c>[ServiceInterface]</c> and the implementing block carries only the bare property. The
+    ///     interface-declared knobs are honoured the same way the interface-declared schema already is:
+    ///     the implementation wins where it declares the stream's own attribute, otherwise the
+    ///     interface's knobs apply.
     /// </summary>
     [ServiceInterface]
     public interface IInterfaceEmissionService
@@ -48,36 +47,47 @@ namespace Vion.Dale.Sdk.TestKit.Test
     [TestClass]
     public class InterfaceEmissionPolicyShould
     {
-        [TestMethod]
-        public void ThrottleServicePropertyUsingKnobsDeclaredOnTheInterface()
+        private static readonly TimeSpan DefaultInterval = TimeSpan.FromMilliseconds(250);
+
+        private InterfaceEmissionLogicBlock _block = null!;
+
+        private LogicBlockTestContext<InterfaceEmissionLogicBlock> _context = null!;
+
+        [TestInitialize]
+        public void Initialize()
         {
-            var block = LogicBlockTestHelper.Create<InterfaceEmissionLogicBlock>();
-            var ctx = block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).Build();
+            _block = LogicBlockTestHelper.Create<InterfaceEmissionLogicBlock>();
+            _context = _block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).Build();
 
-            ctx.AdvanceTime(TimeSpan.FromMilliseconds(250)); // clear the start-seed interval
-
-            block.Reading = 1.0; // leading edge -> emit
-            block.Reading = 2.0; // within 250ms -> held
-            block.Reading = 3.0; // within 250ms -> held (latest wins)
-
-            // With the interface fallback the 250ms throttle applies: one leading-edge emit, the rest held.
-            // Before the fix no throttler is built (impl carries no attribute) and all three emit raw.
-            ctx.VerifyServicePropertyEmitted(lb => lb.Reading, times: Times.Once());
+            // Move past the interval the start publish seeded, so the first write below is a leading edge.
+            _context.AdvanceTime(DefaultInterval);
         }
 
         [TestMethod]
-        public void ThrottleMeasuringPointUsingKnobsDeclaredOnTheInterface()
+        [TestProperty("spec", "AC-EMIT-002.3")]
+        public void ThrottleServicePropertyFromInterfaceKnobs()
         {
-            var block = LogicBlockTestHelper.Create<InterfaceEmissionLogicBlock>();
-            var ctx = block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).Build();
+            // Arrange / Act
+            _block.Reading = 1.0;
+            _block.Reading = 2.0;
+            _block.Reading = 3.0;
 
-            ctx.AdvanceTime(TimeSpan.FromMilliseconds(250)); // clear the start-seed interval
+            // Assert — with no attribute on the implementation, no gate would be built at all and every
+            // write would reach the handler.
+            _context.VerifyServicePropertyEmitted(lb => lb.Reading, value => Assert.AreEqual(1.0, value), Times.Once());
+        }
 
-            block.SetFrequency(50.0); // leading edge -> emit
-            block.SetFrequency(50.1); // held
-            block.SetFrequency(50.2); // held (latest wins)
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-002.3")]
+        public void ThrottleMeasuringPointFromInterfaceKnobs()
+        {
+            // Arrange / Act
+            _block.SetFrequency(50.0);
+            _block.SetFrequency(50.1);
+            _block.SetFrequency(50.2);
 
-            ctx.VerifyServiceMeasuringPointEmitted(lb => lb.Frequency, times: Times.Once());
+            // Assert
+            _context.VerifyServiceMeasuringPointEmitted(lb => lb.Frequency, value => Assert.AreEqual(50.0, value), Times.Once());
         }
     }
 }

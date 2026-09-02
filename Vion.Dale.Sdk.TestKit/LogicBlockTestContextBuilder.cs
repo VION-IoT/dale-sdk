@@ -177,7 +177,7 @@ namespace Vion.Dale.Sdk.TestKit
         }
 
         /// <summary>
-        ///     Controls whether the RFC 0004 emission policy runs under the TestKit's fake clock.
+        ///     Controls whether the emission policy runs under the TestKit's fake clock.
         ///     By default (<see cref="EmissionPolicyMode.Off" />) the policy is gated off so every
         ///     assignment surfaces as a change. Pass <see cref="EmissionPolicyMode.FromAttributes" />
         ///     to force the policy on from the block's throttle attributes — the builder registers a
@@ -297,7 +297,7 @@ namespace Vion.Dale.Sdk.TestKit
             // different registration via WithServices, in which case the last registration wins.
             services.AddSingleton<TimeProvider>(_logicBlockTestContext.TimeProvider);
 
-            // RFC 0004: when the test opts into the emission policy under the fake clock, register
+            // when the test opts into the emission policy under the fake clock, register
             // the force-marker the block reads at InitializeLogicBlock so _forcePolicyFromAttributes
             // becomes true and the throttle gate runs despite the controllable clock.
             if (_emissionPolicyMode == EmissionPolicyMode.FromAttributes)

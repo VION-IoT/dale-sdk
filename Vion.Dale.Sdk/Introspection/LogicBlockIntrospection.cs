@@ -399,7 +399,7 @@ namespace Vion.Dale.Sdk.Introspection
             var prop = binding.RootSourcePropertyInfo;
             var typeRef = TypeRefBuilder.BuildForProperty(prop);
             var structFieldAnnotations = TypeRefBuilder.BuildStructFieldAnnotations(prop.PropertyType);
-            var metadata = PropertyMetadataBuilder.Build(prop, typeRef, structFieldAnnotations);
+            var metadata = PropertyMetadataBuilder.Build(prop, typeRef, structFieldAnnotations, ServiceElementStream.Property);
             var (schema, presentation, runtime) = ExtractSiblings(metadata, prop.PropertyType);
             runtime = ApplyInstantiationParameterRuntime(runtime, prop, binding, typeRef);
 
@@ -422,7 +422,7 @@ namespace Vion.Dale.Sdk.Introspection
 
             var typeRef = TypeRefBuilder.BuildForProperty(ifaceProp);
             var structFieldAnnotations = TypeRefBuilder.BuildStructFieldAnnotations(ifaceProp.PropertyType);
-            var metadata = PropertyMetadataBuilder.BuildSplit(ifaceProp, implProp, typeRef, structFieldAnnotations);
+            var metadata = PropertyMetadataBuilder.BuildSplit(ifaceProp, implProp, typeRef, structFieldAnnotations, ServiceElementStream.Property);
             var (schema, presentation, runtime) = ExtractSiblings(metadata, ifaceProp.PropertyType);
             runtime = ApplyInstantiationParameterRuntime(runtime, implProp, binding, typeRef);
 
@@ -440,7 +440,7 @@ namespace Vion.Dale.Sdk.Introspection
             var prop = binding.RootSourcePropertyInfo;
             var typeRef = TypeRefBuilder.BuildForProperty(prop);
             var structFieldAnnotations = TypeRefBuilder.BuildStructFieldAnnotations(prop.PropertyType);
-            var metadata = PropertyMetadataBuilder.Build(prop, typeRef, structFieldAnnotations);
+            var metadata = PropertyMetadataBuilder.Build(prop, typeRef, structFieldAnnotations, ServiceElementStream.MeasuringPoint);
             var (schema, presentation, runtime) = ExtractSiblings(metadata, prop.PropertyType);
             runtime = ApplyInstantiationParameterRuntime(runtime, prop, binding, typeRef);
 
@@ -463,7 +463,7 @@ namespace Vion.Dale.Sdk.Introspection
 
             var typeRef = TypeRefBuilder.BuildForProperty(ifaceProp);
             var structFieldAnnotations = TypeRefBuilder.BuildStructFieldAnnotations(ifaceProp.PropertyType);
-            var metadata = PropertyMetadataBuilder.BuildSplit(ifaceProp, implProp, typeRef, structFieldAnnotations);
+            var metadata = PropertyMetadataBuilder.BuildSplit(ifaceProp, implProp, typeRef, structFieldAnnotations, ServiceElementStream.MeasuringPoint);
             var (schema, presentation, runtime) = ExtractSiblings(metadata, ifaceProp.PropertyType);
             runtime = ApplyInstantiationParameterRuntime(runtime, implProp, binding, typeRef);
 

@@ -149,7 +149,7 @@ $exampleProjects = @(
         Path              = "examples\Vion.Examples.RichTypes\Vion.Examples.RichTypes.DevHost\Vion.Examples.RichTypes.DevHost.csproj"
         PackageReferences = @("Vion.Dale.DevHost.Web")
     },
-    # Emission example (showcases RFC 0004 throttle/deadband; SDK + TestKit only, no I/O packages)
+    # Emission example (showcases throttle/deadband; SDK + TestKit only, no I/O packages)
     @{
         Path              = "examples\Vion.Examples.Emission\Vion.Examples.Emission\Vion.Examples.Emission.csproj"
         PackageReferences = @("Vion.Dale.Sdk")

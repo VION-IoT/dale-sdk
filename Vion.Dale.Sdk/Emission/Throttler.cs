@@ -4,8 +4,10 @@ namespace Vion.Dale.Sdk.Emission
 {
     /// <summary>
     ///     Per-property emission gate. Pure: the caller supplies <c>now</c> on every <see cref="Offer" />
-    ///     so behavior is fully deterministic under a virtual clock. Implements the RFC 0004 five-step
-    ///     decision: value-equality floor, immediate bypass, deadband, leading-edge interval, trailing-edge hold.
+    ///     so behavior is fully deterministic under a virtual clock. Implements the five-step
+    ///     decision: value-equality floor, immediate bypass, deadband, leading-edge interval, trailing-edge
+    ///     hold. Whatever the decision, the value it acts on is the member's newest — a hold never outlives
+    ///     the value that replaced it.
     /// </summary>
     internal sealed class Throttler
     {
@@ -35,9 +37,12 @@ namespace Vion.Dale.Sdk.Emission
         public OfferResult Offer(object? value, DateTimeOffset now)
         {
             // 1. Value-equality floor: an offered value equal to the last emitted is always dropped. Content
-            //    equality for ImmutableArray<T> — see EmissionEquality.
+            //    equality for ImmutableArray<T> — see EmissionEquality. The hold goes with it: an older
+            //    held value released after this one would move the consumer AWAY from the member's
+            //    current value, and the member is already at the value the consumer holds.
             if (HasEmitted && EmissionEquality.AreEqual(LastEmitted, value))
             {
+                DiscardPending();
                 return OfferResult.Drop;
             }
 
@@ -48,9 +53,12 @@ namespace Vion.Dale.Sdk.Emission
                 return OfferResult.Emit;
             }
 
-            // 3. Deadband: drop sub-threshold changes relative to the last emitted value.
+            // 3. Deadband: drop sub-threshold changes relative to the last emitted value. The hold goes
+            //    with it for the same reason as step 1 — whatever the gate decides about the newer value,
+            //    the older held one stopped being the member's current value the moment it arrived.
             if (Policy.Threshold != null && HasEmitted && !Policy.Threshold.Exceeds(LastEmitted, value, Policy.MinChange!))
             {
+                DiscardPending();
                 return OfferResult.Drop;
             }
 
@@ -86,6 +94,11 @@ namespace Vion.Dale.Sdk.Emission
             HasEmitted = true;
             LastEmitted = value;
             _lastEmitAt = now;
+            DiscardPending();
+        }
+
+        private void DiscardPending()
+        {
             HasPending = false;
             _pendingValue = null;
             PendingDeadline = default;
