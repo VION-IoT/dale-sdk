@@ -15,6 +15,36 @@ namespace Vion.Dale.Sdk.Emission
     /// </summary>
     internal static class DurationParser
     {
+        /// <summary>
+        ///     Non-throwing form of <see cref="Parse" />, for a caller that must keep working on a knob the
+        ///     emission analyzers already reject. Introspection has to describe a block whose author
+        ///     suppressed DALE036, so it asks whether a token is a duration instead of assuming it is.
+        /// </summary>
+        public static bool TryParse(string? token, out TimeSpan value)
+        {
+            value = default;
+            if (token == null)
+            {
+                return false;
+            }
+
+            try
+            {
+                value = Parse(token);
+                return true;
+            }
+            catch (FormatException)
+            {
+                // Malformed, negative, or an unknown unit — every rejection Parse makes.
+                return false;
+            }
+            catch (OverflowException)
+            {
+                // A numeric part too large for the unit, e.g. "1e30h".
+                return false;
+            }
+        }
+
         public static TimeSpan Parse(string token)
         {
             if (token == null)

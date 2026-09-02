@@ -322,6 +322,50 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-013.2")]
+        public void OmitThrottleRuntimeForTheDefaultIntervalWrittenWithoutItsUnit()
+        {
+            // Arrange
+            var property = typeof(ThrottledLb).GetProperty(nameof(ThrottledLb.DefaultSpelledBare))!;
+
+            // Act
+            var pm = PropertyMetadataBuilder.Build(property, new PrimitiveTypeRef(PrimitiveKind.Double), ImmutableDictionary<string, TypeAnnotations>.Empty, ServiceElementStream.Property);
+
+            // Assert
+            Assert.IsNull(pm.Runtime.Throttle);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-013.5")]
+        public void OmitThrottleRuntimeForAnEmptyDeadbandOnAnOtherwiseDefaultPolicy()
+        {
+            // Arrange
+            var property = typeof(ThrottledLb).GetProperty(nameof(ThrottledLb.EmptyDeadband))!;
+
+            // Act
+            var pm = PropertyMetadataBuilder.Build(property, new PrimitiveTypeRef(PrimitiveKind.Double), ImmutableDictionary<string, TypeAnnotations>.Empty, ServiceElementStream.Property);
+
+            // Assert
+            Assert.IsNull(pm.Runtime.Throttle);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-013.5")]
+        public void ReportAnEmptyDeadbandAsNoDeadbandOnAThrottledMember()
+        {
+            // Arrange
+            var property = typeof(ThrottledLb).GetProperty(nameof(ThrottledLb.EmptyDeadbandOnAThrottledMember))!;
+
+            // Act
+            var pm = PropertyMetadataBuilder.Build(property, new PrimitiveTypeRef(PrimitiveKind.Double), ImmutableDictionary<string, TypeAnnotations>.Empty, ServiceElementStream.Property);
+
+            // Assert
+            Assert.IsNotNull(pm.Runtime.Throttle);
+            Assert.AreEqual("1s", pm.Runtime.Throttle!.MinInterval);
+            Assert.IsNull(pm.Runtime.Throttle!.MinChange);
+        }
+
+        [TestMethod]
         public void CarryImmediateAndTheEffectiveDefaultIntervalInThrottleRuntime()
         {
             var pulse = typeof(ThrottledLb).GetProperty(nameof(ThrottledLb.Pulse))!;
@@ -367,6 +411,17 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
             [ServiceProperty(Immediate = true)]
             public double Pulse { get; private set; }
+
+            // The default interval written without its unit — a bare number is milliseconds.
+            [ServiceProperty(MinInterval = "250")]
+            public double DefaultSpelledBare { get; private set; }
+
+            // An empty deadband: the gate reads it as unset, so the reported policy must too.
+            [ServiceProperty(MinChange = "")]
+            public double EmptyDeadband { get; private set; }
+
+            [ServiceProperty(MinInterval = "1s", MinChange = "")]
+            public double EmptyDeadbandOnAThrottledMember { get; private set; }
 
             public ThrottledLb() : base(new Mock<ILogger>().Object)
             {

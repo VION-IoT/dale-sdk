@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using System.Reflection;
 using Vion.Contracts.TypeRef;
 using Vion.Dale.Sdk.Core;
+using Vion.Dale.Sdk.Emission;
 using MeasuringPointKind = Vion.Contracts.TypeRef.MeasuringPointKind;
 
 namespace Vion.Dale.Sdk.Introspection
@@ -15,6 +16,9 @@ namespace Vion.Dale.Sdk.Introspection
     /// </summary>
     internal static class PropertyMetadataBuilder
     {
+        // The attribute default both emission attributes declare for MinInterval.
+        private const string DefaultMinInterval = "250ms";
+
         /// <summary>
         ///     Builds a typed <see cref="PropertyMetadata" /> document for the given property.
         ///     The <paramref name="typeRef" /> is supplied by the caller (built from the property's CLR type
@@ -392,7 +396,7 @@ namespace Vion.Dale.Sdk.Introspection
                        : property.GetCustomAttribute<ServiceMeasuringPointAttribute>();
         }
 
-        // The effective RFC 0004 emission policy (throttle / deadband / immediate), read from the
+        // The effective emission policy (throttle / deadband / immediate), read from the
         // [ServiceProperty] / [ServiceMeasuringPoint] knobs. Surfaced only when it deviates from the
         // default (MinInterval 250ms, no deadband, not immediate) to keep introspection lean; when
         // surfaced the *effective* MinInterval is carried, so a consumer needs no knowledge of the default.
@@ -404,7 +408,11 @@ namespace Vion.Dale.Sdk.Introspection
                 return null;
             }
 
-            if (cfg.MinInterval == "250ms" && cfg.MinChange is null && !cfg.Immediate)
+            // An empty MinChange is unset, the way ThrottlePolicy.FromConfigured reads it — otherwise a
+            // member would be reported as carrying a deadband the gate does not apply.
+            var minChange = string.IsNullOrEmpty(cfg.MinChange) ? null : cfg.MinChange;
+
+            if (IsDefaultInterval(cfg.MinInterval) && minChange is null && !cfg.Immediate)
             {
                 return null;
             }
@@ -412,9 +420,18 @@ namespace Vion.Dale.Sdk.Introspection
             return new ThrottleMetadata
                    {
                        MinInterval = cfg.MinInterval,
-                       MinChange = cfg.MinChange,
+                       MinChange = minChange,
                        Immediate = cfg.Immediate,
                    };
+        }
+
+        // Compares the declared interval as a DURATION, not as a spelling: "250" and "250ms" configure the
+        // same gate, so reporting one as a deviation and the other as the default would badge two identical
+        // declarations differently. A token the grammar rejects counts as a deviation, so the offending
+        // value reaches the consumer instead of being hidden behind the default.
+        private static bool IsDefaultInterval(string minInterval)
+        {
+            return DurationParser.TryParse(minInterval, out var declared) && DurationParser.TryParse(DefaultMinInterval, out var standard) && declared == standard;
         }
     }
 }
