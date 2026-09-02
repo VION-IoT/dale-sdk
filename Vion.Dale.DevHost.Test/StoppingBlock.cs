@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Core;
@@ -26,10 +27,23 @@ namespace Vion.Dale.DevHost.Test
 
         private readonly ConcurrentQueue<string> _entries = new();
 
+        private readonly TaskCompletionSource _stoppingRecorded = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
         /// <summary>The recorded entries, oldest first.</summary>
         public IReadOnlyList<string> Entries
         {
             get => _entries.ToArray();
+        }
+
+        /// <summary>
+        ///     Completes once <see cref="Stopping" /> has been recorded. A teardown the test does not drive
+        ///     itself — the supervised loop's recycle — runs on another thread after the reset is acknowledged,
+        ///     so this is the only signal that generation's blocks were actually stopped; the status endpoint
+        ///     the old generation keeps answering cannot say so.
+        /// </summary>
+        public Task StoppingRecorded
+        {
+            get => _stoppingRecorded.Task;
         }
 
         public void OnReceived(string actorName, object message)
@@ -49,6 +63,11 @@ namespace Vion.Dale.DevHost.Test
         public void Record(string entry)
         {
             _entries.Enqueue(entry);
+
+            if (entry == Stopping)
+            {
+                _stoppingRecorded.TrySetResult();
+            }
         }
     }
 

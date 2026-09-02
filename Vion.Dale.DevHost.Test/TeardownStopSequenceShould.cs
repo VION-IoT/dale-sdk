@@ -161,11 +161,18 @@ namespace Vion.Dale.DevHost.Test
                 var reset = await client.PostAsync("/api/control/reset", null);
                 Assert.AreEqual(HttpStatusCode.Accepted, reset.StatusCode, "The recycle is accepted and runs asynchronously — the supervised loop rebuilds the generation.");
 
-                // Generation 2 answering means generation 1 completed its teardown — the recycle did not hang.
+                // The reset is acknowledged before the supervised loop acts on it, and generation 1 keeps
+                // answering the status endpoint until its hosted services stop — so a readiness poll cannot
+                // tell generation 2 from a generation 1 that has not been recycled yet, and reading the
+                // recorder after such a poll races the loop. The recorded Stopping is the one signal that
+                // generation 1's blocks were stopped; awaiting it is the assertion.
+                var stopped = recorder.StoppingRecorded;
+                Assert.AreSame(stopped,
+                               await Task.WhenAny(stopped, Task.Delay(TimeSpan.FromSeconds(30))),
+                               "The recycled generation's blocks must have been stopped. Recorded: " + string.Join(", ", recorder.Entries));
+
+                // Generation 2 answering afterwards is the other half: the recycle completed rather than hung.
                 Assert.IsTrue(await PollSteppedReadyAsync(client, TimeSpan.FromSeconds(30)), "Generation 2 should come up after the recycle.");
-                CollectionAssert.Contains(recorder.Entries.ToList(),
-                                          TeardownRecorder.Stopping,
-                                          "The recycled generation's blocks must have been stopped. Recorded: " + string.Join(", ", recorder.Entries));
             }
             finally
             {
