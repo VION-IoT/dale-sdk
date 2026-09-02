@@ -249,6 +249,26 @@ namespace Vion.Dale.Sdk.Test.Core
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-002.9")]
+        public void CarrySingleDecodeFailureBesideUnresolvedIdentifier()
+        {
+            // Two failures, one of them a decode — the decode rule that refused the value is still the only
+            // actionable detail, and it is what an operator needs past the message text.
+
+            // Arrange
+            var block = new ParameterTypesBlock();
+            var harness = new GatingHarness();
+
+            // Act / Assert
+            var failure = Assert.ThrowsExactly<InvalidOperationException>(() => harness.Configure(block,
+                                                                                                  TypeServices,
+                                                                                                  Parameter("Nonexistent", JsonValue.Create(1L)),
+                                                                                                  Parameter(nameof(ParameterTypesBlock.Model), JsonValue.Create("Nonexistent"))));
+
+            Assert.IsInstanceOfType<PropertyValueDecodeException>(failure.InnerException);
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-GATE-002.10")]
         public void ApplyNoValueWhenAnyParameterFails()
         {

@@ -80,6 +80,15 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                 Report(context, location, property.Name, "[InstantiationParameter] cannot be combined with WriteOnly — a secret must not be an editor-visible structural driver.");
             }
 
+            if (AnalyzerHelper.HasAttribute(property, AnalyzerHelper.PersistentAttribute))
+            {
+                Report(context,
+                       location,
+                       property.Name,
+                       "[InstantiationParameter] cannot be combined with [Persistent] — the configuration channel is a parameter's only source of truth, and a restored value would " +
+                       "overwrite the configured one after the inclusion gates had already resolved against it. Persistence skips parameters, so the [Persistent] would do nothing.");
+            }
+
             if (AnalyzerHelper.Categorize(property.Type) is RefCategory.Double or RefCategory.Other)
             {
                 Report(context,

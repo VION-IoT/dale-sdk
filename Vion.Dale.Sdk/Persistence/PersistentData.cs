@@ -200,6 +200,17 @@ namespace Vion.Dale.Sdk.Persistence
             {
                 var attr = prop.GetCustomAttribute<PersistentAttribute>();
 
+                // Never auto-persist an [InstantiationParameter], the second door into this: the
+                // service-property discovery above skips them, and opt-in discovery walks the block's own
+                // properties, so a parameter an author also marked [Persistent] would arrive here. A restore
+                // lands after Configure, so the persisted value would overwrite the configured one the
+                // inclusion gates already resolved against. DALE044 refuses the combination at build time;
+                // this is what happens to a block that shipped past a suppressed or absent analyzer.
+                if (prop.GetCustomAttribute<InstantiationParameterAttribute>() != null)
+                {
+                    continue;
+                }
+
                 // Check if this property itself is marked as [Persistent]
                 if (attr != null && !attr.Exclude)
                 {

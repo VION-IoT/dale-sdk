@@ -57,14 +57,14 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
         }
 
         /// <summary>
-        ///     Links the runtime actors and then configures <paramref name="block" /> with
+        ///     Links the runtime actors and then configures <paramref name="logicBlock" /> with
         ///     <paramref name="parameters" />, exactly as the runtime does. <paramref name="serviceIdentifiers" />
         ///     is the block's maximum service set; the bound subset comes back from <see cref="BoundServices" />.
         /// </summary>
-        public void Configure(LogicBlockBase block, IEnumerable<string> serviceIdentifiers, params SetLogicConfigurationPayload.InstantiationParameterValue[] parameters)
+        public void Configure(LogicBlockBase logicBlock, IEnumerable<string> serviceIdentifiers, params SetLogicConfigurationPayload.InstantiationParameterValue[] parameters)
         {
-            Link(block);
-            Send(block, Initialize(serviceIdentifiers, parameters));
+            Link(logicBlock);
+            Send(logicBlock, Initialize(serviceIdentifiers, parameters));
         }
 
         /// <summary>Builds a configuration message without sending it, for tests that drive a second one.</summary>
@@ -90,17 +90,17 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
         ///     The keys of the block's persistent-data snapshot, taken through the runtime's own teardown
         ///     sequence — the snapshot is created on stop and read by the request that follows it.
         /// </summary>
-        public IReadOnlyCollection<string> SnapshotKeys(LogicBlockBase block)
+        public IReadOnlyCollection<string> SnapshotKeys(LogicBlockBase logicBlock)
         {
-            Send(block, new StopLogicBlockRequest());
-            Send(block, new GetPersistentDataSnapshotRequest());
+            Send(logicBlock, new StopLogicBlockRequest());
+            Send(logicBlock, new GetPersistentDataSnapshotRequest());
 
             return _responses.OfType<GetPersistentDataSnapshotResponse>().Last().PersistentDataValues.Select(entry => entry.Key).ToHashSet(StringComparer.Ordinal);
         }
 
-        public void Link(LogicBlockBase block)
+        public void Link(LogicBlockBase logicBlock)
         {
-            Send(block,
+            Send(logicBlock,
                  new LinkRuntimeActors
                  {
                      ServicePropertyHandlerActor = Context.LookupByName("ServicePropertyHandler"),
@@ -109,9 +109,9 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
                  });
         }
 
-        public void Send(LogicBlockBase block, object message)
+        public void Send(LogicBlockBase logicBlock, object message)
         {
-            block.HandleMessageAsync(message, Context).GetAwaiter().GetResult();
+            logicBlock.HandleMessageAsync(message, Context).GetAwaiter().GetResult();
         }
 
         /// <summary>The service identifiers the block actually bound, from the binding announcement it emitted.</summary>

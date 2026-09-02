@@ -304,14 +304,15 @@ namespace Vion.Dale.DevHost
             }
 
             // Property-based interfaces — gateable, so carry the property's [IncludedWhen] predicate.
+            //
+            // Discovery is the binder's rule, not a setter test: DeclarativeInterfaceBinder binds every
+            // public instance property whose type implements a [LogicInterface], and never asks whether it
+            // can be written — the author constructs the component themselves. A CanWrite filter here
+            // dropped exactly the shape every in-repo block writes (`public Point P { get; } = new();`), so
+            // the catalog omitted endpoints that exist at runtime, along with the gates that remove them.
             var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
             foreach (var property in properties)
             {
-                if (!property.CanWrite)
-                {
-                    continue;
-                }
-
                 var includedWhen = property.GetCustomAttribute<IncludedWhenAttribute>()?.Predicate;
                 foreach (var iface in property.PropertyType.GetInterfaces())
                 {

@@ -2,13 +2,13 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.DigitalIo.Output;
 
+// Logic-block fixtures for the config-gating suite (docs/specs/config-gating.md). Shared across the
+// parameter, gate, binding, routing, persistence and metadata classes so one shape is declared once; a
+// fixture used by a single class stays private to it.
+
 namespace Vion.Dale.Sdk.Test.TestHelpers
 {
-    /// <summary>
-    ///     Logic-block fixtures for the config-gating suite (<c>docs/specs/config-gating.md</c>). Shared
-    ///     across the parameter, gate, binding, routing, persistence and metadata classes so one shape is
-    ///     declared once; a fixture used by a single class stays private to it.
-    /// </summary>
+    /// <summary>The station tier an enum parameter selects, and the gates compare against by member name.</summary>
     public enum StationModel
     {
         Bricco,
@@ -250,6 +250,31 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
         }
     }
 
+    /// <summary>
+    ///     A gated interface binding the author leaves null. Unlike a service-bearing component, an endpoint's
+    ///     identity is type-level — the property name and the interface — so the definition view can describe
+    ///     it with nothing behind it.
+    /// </summary>
+    public sealed class NullInterfaceComponentBlock : LogicBlockBase
+    {
+        [ServiceProperty(Title = "Anzahl")]
+        [InstantiationParameter]
+        public int Count { get; init; } = 1;
+
+        [LogicBlockInterfaceBinding(typeof(IGatedProbeSink))]
+        [IncludedWhen("Count >= 2")]
+        public GatedInterfaceOnlyProbe? Probe { get; set; }
+
+        public NullInterfaceComponentBlock() : base(NullLogger.Instance)
+        {
+        }
+
+        /// <inheritdoc />
+        protected override void Ready()
+        {
+        }
+    }
+
     /// <summary>A gate over a parameter whose declared default is null — the fail-closed edge.</summary>
     public sealed class GatedNullParameterBlock : LogicBlockBase
     {
@@ -275,6 +300,34 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
     // deliberate: they are how the suite reaches what the binder and the definition view do with a gate the
     // author shipped anyway, past a suppressed or absent analyzer.
 #pragma warning disable DALE043
+
+    /// <summary>
+    ///     A parameter an author also marked <c>[Persistent]</c> — the combination DALE044 refuses, declared
+    ///     here so the suite can reach what persistence does with one that shipped anyway.
+    /// </summary>
+#pragma warning disable DALE044
+    public sealed class PersistedParameterBlock : LogicBlockBase
+    {
+        [ServiceProperty(Title = "Ladepunkte")]
+        [InstantiationParameter]
+        [Persistent]
+        public int PointCount { get; init; } = 1;
+
+        public GatedPoint Point1 { get; } = new();
+
+        [IncludedWhen("PointCount >= 2")]
+        public GatedPoint Point2 { get; } = new();
+
+        public PersistedParameterBlock() : base(NullLogger.Instance)
+        {
+        }
+
+        /// <inheritdoc />
+        protected override void Ready()
+        {
+        }
+    }
+#pragma warning restore DALE044
 
     /// <summary>A gate declared as the empty string on each of the three member kinds that record one.</summary>
     public sealed class EmptyGateBlock : LogicBlockBase

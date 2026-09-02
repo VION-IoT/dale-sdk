@@ -65,6 +65,11 @@ namespace Vion.Dale.Sdk.Core
 
         private IActorContext _actorContext = null!;
 
+        // Why the first configuration failed, when it did — so a refused retry names the original reason
+        // rather than pointing the operator back at the configuration that just failed. Null after a
+        // configuration that succeeded.
+        private string? _configurationFailure;
+
         // Set the moment InitializeLogicBlock is accepted, so a second one is refused rather than rebinding
         // onto the members the first already bound. Set before Configure runs, so a configuration that
         // throws part-way still counts as spent — the instance is unusable either way.
@@ -179,8 +184,15 @@ namespace Vion.Dale.Sdk.Core
                     // an [IncludedWhen] outcome is a re-activation, which re-instantiates the block.
                     if (_configured)
                     {
-                        throw new InvalidOperationException($"Logic block '{Name}' ({Id}) is already configured and cannot be configured again. " +
-                                                            "A different [InstantiationParameter] value re-instantiates the block; re-activate the configuration instead of re-sending its configuration message.");
+                        // A configuration that threw still spends the instance — the binders may have
+                        // registered part of a member set before it failed — but sending the operator back to
+                        // "re-activate the configuration" would point them at the thing that just failed. The
+                        // refusal carries the original reason instead.
+                        throw _configurationFailure is null ?
+                                  new InvalidOperationException($"Logic block '{Name}' ({Id}) is already configured and cannot be configured again. " +
+                                                                "A different [InstantiationParameter] value re-instantiates the block; re-activate the configuration instead of re-sending its configuration message.") :
+                                  new InvalidOperationException($"Logic block '{Name}' ({Id}) cannot be configured again — its configuration failed: {_configurationFailure} " +
+                                                                "Re-instantiate the block; a failed configuration cannot be retried in place.");
                     }
 
                     _configured = true;
@@ -204,25 +216,38 @@ namespace Vion.Dale.Sdk.Core
                                      Id,
                                      m.LogicBlockContractIdLookup.Count);
 
-                    // Apply operator-chosen [InstantiationParameter] values to the CLR properties
-                    // BEFORE Configure, so the Live-mode binders resolve [IncludedWhen] gates against them.
-                    ApplyInstantiationParameters(m.InstantiationParameterValues);
+                    // Apply operator-chosen [InstantiationParameter] values to the CLR properties BEFORE
+                    // Configure, so the Live-mode binders resolve [IncludedWhen] gates against them.
+                    //
+                    // Every way a configuration can fail — an unresolvable parameter, a value that will not
+                    // decode, a gate that will not parse or resolve — is recorded and rethrown. The caller's
+                    // failure handling is unchanged; what the record buys is that a later retry is told what
+                    // to fix rather than being sent back to the configuration that just failed.
+                    try
+                    {
+                        ApplyInstantiationParameters(m.InstantiationParameterValues);
 
-                    Configure(new LogicBlockConfigurationBuilder(AddContract,
-                                                                 AddInterface,
-                                                                 _serviceBinder,
-                                                                 AddTimerCallback,
-                                                                 () => Id,
-                                                                 actorContext,
-                                                                 ScheduleNextTimerTick,
-                                                                 m.ServiceProvider,
-                                                                 BindingMode.Live));
+                        Configure(new LogicBlockConfigurationBuilder(AddContract,
+                                                                     AddInterface,
+                                                                     _serviceBinder,
+                                                                     AddTimerCallback,
+                                                                     () => Id,
+                                                                     actorContext,
+                                                                     ScheduleNextTimerTick,
+                                                                     m.ServiceProvider,
+                                                                     BindingMode.Live));
 
-                    // build one Throttler per bound service property + measuring point,
-                    // resolved from each binding's attribute + CLR value type. Cheap no-op state when
-                    // the policy is inactive (the gate bypasses), but always built so the override path
-                    // and production share one construction site.
-                    BuildThrottlers();
+                        // build one Throttler per bound service property + measuring point,
+                        // resolved from each binding's attribute + CLR value type. Cheap no-op state when
+                        // the policy is inactive (the gate bypasses), but always built so the override path
+                        // and production share one construction site.
+                        BuildThrottlers();
+                    }
+                    catch (Exception exception)
+                    {
+                        _configurationFailure = exception.Message;
+                        throw;
+                    }
 
                     foreach (var (identifier, logicBlockContractId) in m.LogicBlockContractIdLookup)
                     {
@@ -303,7 +328,15 @@ namespace Vion.Dale.Sdk.Core
                     break;
 
                 case RestorePersistentDataRequest m: // initialization, before starting
-                    _persistentData.Apply(m.PersistentDataValues);
+                    // Same uninitialised guard as the StopLogicBlockRequest / GetPersistentDataSnapshotRequest
+                    // handlers below: when Configure aborted, PersistentData was never initialised and Apply
+                    // would throw, so the acknowledgement the runtime waits for would never arrive and a
+                    // fail-closed block would hang its own reclamation instead of being torn down.
+                    if (_persistentData.IsInitialized)
+                    {
+                        _persistentData.Apply(m.PersistentDataValues);
+                    }
+
                     actorContext.RespondToSender(new RestorePersistentDataResponse());
                     break;
 
@@ -597,6 +630,7 @@ namespace Vion.Dale.Sdk.Core
             // one resolves the gates against a shape nobody chose.
             var resolved = new List<(PropertyInfo Property, object? Value)>(values.Count);
             var failures = new List<string>();
+            var decodeFailures = 0;
             Exception? decodeFailure = null;
 
             foreach (var parameter in values)
@@ -616,16 +650,19 @@ namespace Vion.Dale.Sdk.Core
                 catch (Exception exception)
                 {
                     failures.Add($"'{parameter.Identifier}' could not be decoded: {exception.Message}");
+                    decodeFailures++;
                     decodeFailure ??= exception;
                 }
             }
 
             if (failures.Count > 0)
             {
-                // One underlying exception is worth keeping — it names the decode rule that refused the value.
-                // Past the first there is no single cause to carry, and the message holds every reason.
+                // One underlying exception is worth keeping — it names the decode rule that refused the value,
+                // which is the detail the message text cannot carry. Keyed on how many parameters failed to
+                // DECODE, not on how many failed at all: an unresolvable identifier alongside one bad value
+                // leaves exactly one cause, and dropping it there would lose the only actionable half.
                 throw new InvalidOperationException($"Logic block '{type.FullName}' rejected {failures.Count} instantiation parameter(s): {string.Join("; ", failures)}.",
-                                                    failures.Count == 1 ? decodeFailure : null);
+                                                    decodeFailures == 1 ? decodeFailure : null);
             }
 
             foreach (var (property, value) in resolved)

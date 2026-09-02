@@ -102,6 +102,15 @@ public class MyBlock : LogicBlockBase
 
         [TestMethod]
         [TestProperty("spec", "AC-GATE-011.8")]
+        public Task PersistentParameter_ReportsDALE044()
+        {
+            // Persistence skips parameters, so the [Persistent] would silently do nothing — and a restore
+            // that did land would overwrite the configured value the gates already resolved against.
+            return ExpectDiscipline("[ServiceProperty] [Persistent] [{|#0:InstantiationParameter|}] public int Count { get; init; }");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.8")]
         public Task WriteOnlyParameter_ReportsDALE044()
         {
             return ExpectDiscipline("[ServiceProperty(WriteOnly = true)] [{|#0:InstantiationParameter|}] public string Secret { get; init; }");

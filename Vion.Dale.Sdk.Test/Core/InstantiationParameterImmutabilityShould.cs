@@ -104,6 +104,29 @@ namespace Vion.Dale.Sdk.Test.Core
             Assert.AreEqual(2, block.PointCount);
         }
 
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-004.1")]
+        public void NameEarlierFailureWhenRefusingAfterFailedConfiguration()
+        {
+            // A configuration that threw still spends the instance — the binders may have registered half a
+            // member set before it failed. Refusing the retry is right; refusing it with "re-activate the
+            // configuration" would send the operator back to the thing that just failed, so the refusal
+            // carries the original reason instead.
+
+            // Arrange
+            var block = new GatedCountBlock();
+            var harness = new GatingHarness();
+            Assert.ThrowsExactly<InvalidOperationException>(() => harness.Configure(block, StationServices, Parameter("Nonexistent", 2)));
+
+            // Act / Assert
+            var failure = Assert.ThrowsExactly<InvalidOperationException>(() => harness.Send(block,
+                                                                                             GatingHarness.Initialize(StationServices,
+                                                                                                                      Parameter(nameof(GatedCountBlock.PointCount), 2))));
+
+            StringAssert.Contains(failure.Message, "Nonexistent");
+            StringAssert.Contains(failure.Message, "Re-instantiate");
+        }
+
         private static SetLogicConfigurationPayload.InstantiationParameterValue Parameter(string identifier, int value)
         {
             // Integers ride the wire long-backed, so the node has to be created as one to decode.

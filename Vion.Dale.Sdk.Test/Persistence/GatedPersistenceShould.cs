@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Nodes;
@@ -16,6 +17,8 @@ namespace Vion.Dale.Sdk.Test.Persistence
     [TestClass]
     public sealed class GatedPersistenceShould
     {
+        private static readonly string[] ParameterServices = [nameof(PersistedParameterBlock), nameof(PersistedParameterBlock.Point1), "Point2"];
+
         private static readonly string[] ProbeServices = [nameof(GatedInterfaceBlock), "Point2"];
 
         private static readonly string[] StationServices = [nameof(GatedCountBlock), nameof(GatedCountBlock.Point1), "Point2", "Point3"];
@@ -38,6 +41,48 @@ namespace Vion.Dale.Sdk.Test.Persistence
 
             // Assert
             Assert.IsFalse(keys.Any(key => key.Contains(nameof(GatedCountBlock.PointCount))));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-003.3")]
+        public void CaptureNoInstantiationParameterMarkedPersistent()
+        {
+            // The service-property seam is not the only door into persistence: opt-in discovery walks the
+            // block's own properties and would take a parameter an author also marked [Persistent].
+
+            // Arrange
+            var block = new PersistedParameterBlock();
+            var harness = new GatingHarness();
+            harness.Configure(block, ParameterServices, Parameter(nameof(PersistedParameterBlock.PointCount), 2));
+
+            // Act
+            var keys = harness.SnapshotKeys(block);
+
+            // Assert
+            CollectionAssert.DoesNotContain(keys.ToArray(), "_direct.PointCount");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-003.3")]
+        public void LeaveInstantiationParameterUnchangedOnRestore()
+        {
+            // The harm the exclusion exists to stop: a restore lands after Configure, so a persisted value
+            // would overwrite the configured one the inclusion gates had already resolved against.
+
+            // Arrange
+            var block = new PersistedParameterBlock();
+            var harness = new GatingHarness();
+            harness.Configure(block, ParameterServices, Parameter(nameof(PersistedParameterBlock.PointCount), 2));
+
+            // Act
+            harness.Send(block,
+                         new RestorePersistentDataRequest(new List<PersistentDataEntry>
+                                                          {
+                                                              new("_direct.PointCount", typeof(int).FullName!, 3),
+                                                          }));
+
+            // Assert
+            Assert.AreEqual(2, block.PointCount);
         }
 
         [TestMethod]
@@ -128,6 +173,50 @@ namespace Vion.Dale.Sdk.Test.Persistence
             // Assert
             Assert.AreEqual(0.0, block.Point2.Energy);
             Assert.HasCount(1, harness.Responses.OfType<RestorePersistentDataResponse>().ToList());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-003.5")]
+        public void AnswerRestoreOnInstanceWhoseConfigurationFailed()
+        {
+            // The runtime sends restore, stop and snapshot in sequence and waits for each acknowledgement.
+            // Stop and snapshot already answer an uninitialised instance; restore did not, so a block that
+            // failed closed took the shutdown down with it instead of being reclaimed.
+
+            // Arrange
+            var block = new GatedCountBlock();
+            var harness = new GatingHarness();
+            Assert.ThrowsExactly<InvalidOperationException>(() => harness.Configure(block, StationServices, Parameter("Nonexistent", 2)));
+
+            // Act
+            harness.Send(block,
+                         new RestorePersistentDataRequest(new List<PersistentDataEntry>
+                                                          {
+                                                              new("_direct.Point1.Energy", typeof(double).FullName!, 42.0),
+                                                          }));
+
+            // Assert
+            Assert.HasCount(1, harness.Responses.OfType<RestorePersistentDataResponse>().ToList());
+            Assert.AreEqual(0.0, block.Point1.Energy);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-003.5")]
+        public void ReportEmptySnapshotOnInstanceWhoseConfigurationFailed()
+        {
+            // The rest of the teardown handshake: stop and snapshot both answer, so the runtime's wait is
+            // satisfied and a fail-closed block is reclaimed rather than timing out.
+
+            // Arrange
+            var block = new GatedCountBlock();
+            var harness = new GatingHarness();
+            Assert.ThrowsExactly<InvalidOperationException>(() => harness.Configure(block, StationServices, Parameter("Nonexistent", 2)));
+
+            // Act
+            var keys = harness.SnapshotKeys(block);
+
+            // Assert
+            Assert.IsEmpty(keys);
         }
 
         private static SetLogicConfigurationPayload.InstantiationParameterValue Parameter(string identifier, int value)

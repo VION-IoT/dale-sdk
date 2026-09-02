@@ -47,7 +47,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         // RFC 0019 contract-carried service relations
         internal const string ServiceRelationAttribute = "Vion.Dale.Sdk.Core.ServiceRelationAttribute";
 
-        // config-time structural gating
+        // Config-time structural gating
         internal const string IncludedWhenAttribute = "Vion.Dale.Sdk.Core.IncludedWhenAttribute";
 
         internal const string InstantiationParameterAttribute = "Vion.Dale.Sdk.Core.InstantiationParameterAttribute";

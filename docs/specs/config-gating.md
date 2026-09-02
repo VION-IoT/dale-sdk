@@ -99,19 +99,31 @@ parameter has to see the value the gates evaluated.
   persistence discovery.
 - `AC-GATE-003.4` (Event-driven): WHEN restoring persistent data that names a member this instance
   does not carry THE SYSTEM SHALL leave the block's state unchanged and complete the restore.
-- `AC-GATE-004.1` (Event-driven): WHEN a block that is already configured receives a second
-  configuration THE SYSTEM SHALL refuse it with an `InvalidOperationException` naming the
-  re-instantiation contract, and SHALL leave the bound member set unchanged.
+- `AC-GATE-003.5` (Event-driven): WHEN a block whose configuration failed is asked to restore
+  persistent data, to stop, or for its persistent-data snapshot THE SYSTEM SHALL answer each request,
+  restoring nothing and reporting an empty snapshot.
+- `AC-GATE-004.1` (Event-driven): WHEN a block whose configuration already ran, whether it succeeded
+  or failed, receives a second configuration THE SYSTEM SHALL refuse it with an
+  `InvalidOperationException` that names the earlier failure where there was one, and SHALL leave the
+  bound member set unchanged.
 
 A parameter deliberately carries a public setter so the platform can apply the configured value by
-reflection. `AC-GATE-003.1` and `AC-GATE-003.3` are the two guards that keeps that setter from being
-anything else: the runtime write is refused, and persistence — which discovers writable members —
-skips parameters outright, so the configuration channel stays their only source of truth.
+reflection. `AC-GATE-003.1` and `AC-GATE-003.3` are the two guards that keep that setter from being
+anything else: the runtime write is refused, and persistence — which discovers writable members, by
+service binding and by opt-in alike — skips parameters at both doors, so the configuration channel
+stays their only source of truth. An author who marks a parameter `[Persistent]` is told so at build
+time rather than left with an attribute that does nothing.
 
 `AC-GATE-004.1` is the same rule at the other end. Binding registrations only grow, so a second
 configuration would add a member a widened gate now includes and keep one a narrowed gate no longer
 does. There is no in-place reconfiguration: a changed parameter re-activates, and a re-activation
-re-instantiates.
+re-instantiates. A configuration that *failed* spends the instance too — it may have registered part
+of a member set before it threw — so the retry is refused with the original reason rather than being
+pointed back at the configuration that just failed.
+
+`AC-GATE-003.5` is the same instance seen from teardown. A block that failed closed still has to be
+reclaimed, and the runtime waits on an acknowledgement for each of restore, stop and snapshot, so all
+three answer whether or not the configuration ever completed.
 
 ## Inclusion gates
 
@@ -186,6 +198,8 @@ Gating a component gates everything the binders derive from it.
 - `AC-GATE-007.6` (Ubiquitous): THE SYSTEM SHALL bind a class-implemented interface unconditionally.
 - `AC-GATE-007.7` (Event-driven): WHEN a gated service-bearing component property holds null THE
   SYSTEM SHALL omit that member from the definition view, reporting neither the member nor its gate.
+- `AC-GATE-007.8` (Event-driven): WHEN a gated property-based interface binding holds null THE SYSTEM
+  SHALL still report that endpoint and its gate in the definition view.
 
 `AC-GATE-007.2` and `AC-GATE-007.4` are the difference an author has to hold: a **contract** is what
 the binder constructs, so an excluded one is `null` — declare a gated contract property nullable and
@@ -196,10 +210,12 @@ stays reachable and merely inert, which is why a timer that samples every point 
 existence is the operator adding the instance or not; a class-implemented interface has no member to
 carry the attribute, so an author who needs to gate one converts it to a property-based binding.
 
-`AC-GATE-007.7` is a consequence of describing an instance: the definition view enumerates a
-component's members off the object, so a component property left null contributes nothing to describe
-— and the gate declared on it is invisible to a catalog reader. A gated component must exist by the
-time `Configure` runs.
+`AC-GATE-007.7` and `AC-GATE-007.8` split on what an instance is needed for. A service-bearing
+component's members are enumerated off the object, so a null one contributes nothing to describe and
+its gate is invisible to a catalog reader — a gated component must exist by the time `Configure` runs.
+An interface endpoint's identity is the property name and the interface type, both known without an
+instance, so a null one is still described and still carries its gate; nothing dispatches in the
+definition view, so there is nothing behind it to need.
 
 ## A configuration that names an excluded member
 
@@ -237,8 +253,9 @@ from the member's declared default.
 
 ## What the wire carries
 
-Introspection is the contract a cloud reads. Four fields carry config-time gating, and they are what
-a client needs to render a parameter editor and resolve the definition view down to a live one.
+Introspection is the contract a cloud reads. The fields below are what a client needs to render a
+parameter editor and resolve the definition view down to a live one: where a member's gate is recorded,
+and how a parameter is marked and defaulted.
 
 - `AC-GATE-010.1` (Ubiquitous): THE SYSTEM SHALL report a gated component service's predicate on that
   service, and report null for an ungated one.
@@ -329,6 +346,15 @@ component all break that in different ways.
 - `AC-GATE-012.8` (Event-driven): WHEN a topology names an instantiation parameter that is not an
   `[InstantiationParameter]` property of the instance's block type THE SYSTEM SHALL refuse the
   topology, naming every such parameter.
+- `AC-GATE-012.9` (Ubiquitous): THE SYSTEM SHALL carry each instance's chosen instantiation-parameter
+  values in the development host's configuration output, omitting the field for an instance that chose
+  none.
+
+A topology file cannot express a JSON null for a parameter: the topology schema admits a boolean, an
+integer or a string, so the nullable case `AC-GATE-002.7` accepts is reachable from the cloud's
+configuration channel but not from a topology, where a nullable parameter can only take its declared
+default. Widening that is a change to the cross-repo topology-exchange schema
+([`_findings.md`](_findings.md)).
 
 `AC-GATE-012.1` is why a test sets a parameter through the TestKit's builder rather than by assigning
 the property: the builder goes through the encode and decode path that ships, so a test exercises the

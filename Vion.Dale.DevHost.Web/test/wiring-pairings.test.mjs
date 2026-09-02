@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import { contractEndpoints, contractGatedOut, contractsOf, pairingProblemsOf } from '../wwwroot/wiring.js';
 
 // A two-block catalog in the /api/logic-block-definitions shape: a consumer face and its provider face,
-// plus one contract gated behind an [InstantiationParameter] (RFC 0016).
+// plus one contract gated behind an [InstantiationParameter].
 const definitions = [
     {
         typeFullName: 'Fixture.IoBlock',

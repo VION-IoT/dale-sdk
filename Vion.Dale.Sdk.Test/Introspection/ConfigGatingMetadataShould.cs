@@ -139,6 +139,26 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-007.8")]
+        public void ReportGatedInterfaceBindingHoldingNull()
+        {
+            // The mirror of a null service-bearing component, which the definition view omits because its
+            // members are read off the instance. An endpoint's identity is the property name and the
+            // interface type, both known without one — and a client that cannot see the endpoint cannot see
+            // the gate that removes it either.
+
+            // Arrange
+            var block = new NullInterfaceComponentBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            var binding = result.Interfaces.Single(iface => iface.Identifier.StartsWith(nameof(NullInterfaceComponentBlock.Probe), StringComparison.Ordinal));
+            Assert.AreEqual("Count >= 2", binding.Annotations[LogicBlockWiringConventions.IncludedWhenAnnotationKey]);
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-GATE-005.9")]
         public void ReportEmptyGateOnComponentService()
         {

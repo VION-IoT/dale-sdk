@@ -1,5 +1,10 @@
 # RFC 0019 — Contract-carried service relations
 
+> **RFC 0016 has been absorbed.** Config-time structural gating is now current truth in
+> [`../specs/config-gating.md`](../specs/config-gating.md); the references to RFC 0016 below are
+> frozen history and its section numbers no longer resolve. The predicate grammar they share is
+> canonical in vion-contracts' `docs/predicates.md`.
+
 - **Status:** Draft — 2026-08-04. Design only; implementation not started.
 - **Author:** jonas.bertsch (design drafted with Claude)
 - **Origin:** service-relations request from `logic-block-libraries` (ecocoach, 2026-08-04) — the

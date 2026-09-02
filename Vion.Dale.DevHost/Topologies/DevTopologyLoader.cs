@@ -75,11 +75,14 @@ namespace Vion.Dale.DevHost.Topologies
             // Carry each instance's operator-chosen instantiation-parameter values onto its built config, so
             // the initializer can apply them to the block before Configure (gates resolve at bind).
             //
-            // Each identifier is checked against the block type's [InstantiationParameter] declarations here,
-            // and every unknown one is collected the way mapping errors below are: the block's own check is
-            // fail-closed but runs inside the actor, after the host has already reported itself started, so
-            // an unresolvable identifier would otherwise reach the operator as a block with no state and no
-            // error. Load, validate and save all go through this method, which is where the operator is.
+            // Each identifier is checked against the block type's [InstantiationParameter] declarations here.
+            // Every unknown one in the file is collected and reported together, but this pass throws before
+            // the interface-mapping loop below runs, so a file with both kinds of error reports its parameter
+            // errors first and its mapping errors on the next attempt. The check is here at all because the
+            // block's own is fail-closed but runs inside the actor, after the host has already reported
+            // itself started — an unresolvable identifier would otherwise reach the operator as a block with
+            // no state and no error. Load, validate and save all go through this method, which is where the
+            // operator is.
             var parameterErrors = new List<string>();
             foreach (var instance in topology.LogicBlockInstances!)
             {

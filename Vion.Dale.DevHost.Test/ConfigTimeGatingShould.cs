@@ -36,6 +36,44 @@ namespace Vion.Dale.DevHost.Test
             Assert.Contains("Point3", await ResolveStationServices(3)); // full set
         }
 
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-012.9")]
+        public async Task CarryChosenParameterValuesInTheConfigurationOutput()
+        {
+            // Arrange
+            // What `dale dev --export-topology` round-trips and the editor Save reads back — an instance's
+            // chosen values have to survive the host, or a topology loses them on export.
+            var config = DevConfigurationBuilder.Create().WithTopologyName("gated").AddLogicBlock<SmokeHost.LogicBlocks.GatedStationBlock>("Station").Build();
+            config.LogicBlocks[0].InstantiationParameters = new Dictionary<string, JsonNode> { ["PointCount"] = JsonValue.Create(2L) };
+
+            await using var host = DevHostBuilder.Create().WithDi<SmokeHost.DependencyInjection>().WithConfiguration(config).WithDeterministicStepping().Build();
+            await host.StartAsync();
+
+            // Act
+            var station = host.Control.GetConfiguration().LogicBlocks.Single(b => b.Name == "Station");
+
+            // Assert
+            Assert.IsNotNull(station.InstantiationParameters);
+            Assert.AreEqual(2L, station.InstantiationParameters!["PointCount"]!.GetValue<long>());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-012.9")]
+        public async Task OmitParameterValuesForInstanceThatChoseNone()
+        {
+            // Arrange
+            var config = DevConfigurationBuilder.Create().WithTopologyName("gated").AddLogicBlock<SmokeHost.LogicBlocks.GatedStationBlock>("Station").Build();
+
+            await using var host = DevHostBuilder.Create().WithDi<SmokeHost.DependencyInjection>().WithConfiguration(config).WithDeterministicStepping().Build();
+            await host.StartAsync();
+
+            // Act
+            var station = host.Control.GetConfiguration().LogicBlocks.Single(b => b.Name == "Station");
+
+            // Assert
+            Assert.IsNull(station.InstantiationParameters);
+        }
+
         private static async Task<HashSet<string>> ResolveStationServices(int pointCount)
         {
             var config = DevConfigurationBuilder.Create().WithTopologyName("gated").AddLogicBlock<SmokeHost.LogicBlocks.GatedStationBlock>("Station").Build();

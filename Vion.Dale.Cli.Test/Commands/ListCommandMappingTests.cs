@@ -79,14 +79,17 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestProperty("spec", "AC-GATE-012.7")]
         public void MapToCliOutput_CarriesServiceNameAndIncludedWhen()
         {
+            // Arrange
             var gated = new ServiceInfo
                         {
                             Identifier = "chargePoint2",
                             IncludedWhen = "ChargePointCount >= 2",
                         };
 
+            // Act
             var output = ListCommand.MapToCliOutput(PluginInfoWithSingleService(gated), TestProject());
 
+            // Assert
             var mappedService = output.LogicBlocks[0].Services[0];
             Assert.AreEqual("chargePoint2", mappedService.Name);
             Assert.AreEqual("ChargePointCount >= 2", mappedService.IncludedWhen);

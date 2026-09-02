@@ -355,6 +355,23 @@ namespace Vion.Dale.DevHost.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-GATE-012.6")]
+        public void LogicBlockDefinition_FromType_CarriesGetOnlyInterfaceBindingWithItsGate()
+        {
+            // Arrange
+            // A component held in a get-only property is bound by the interface binder, which never asks for
+            // a setter — so the catalog has to discover it the same way, or a topology author cannot wire an
+            // endpoint that exists at runtime and cannot see the gate that removes it.
+
+            // Act
+            var definition = LogicBlockDefinition.FromType(typeof(GatedCatalogFixture));
+
+            // Assert
+            var sink = definition.Interfaces.Single(i => i.Identifier.StartsWith(nameof(GatedCatalogFixture.Sink), StringComparison.Ordinal));
+            Assert.AreEqual("Count >= 2", sink.IncludedWhen);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-012.6")]
         public void LogicBlockDefinition_FromType_CarriesInstantiationParametersAndGatePredicates()
         {
             // The catalog projects each [InstantiationParameter]'s identifier + JSON schema + default,

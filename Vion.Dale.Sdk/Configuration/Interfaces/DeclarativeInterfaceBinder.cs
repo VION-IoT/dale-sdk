@@ -87,9 +87,13 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
                     continue;
                 }
 
-                // Get the value of the property
+                // A null component cannot serve a message, so Live binding skips it. The definition view
+                // describes the TYPE: an endpoint's identity is the property name and the interface, both
+                // known without an instance — and a client that cannot see the endpoint cannot see the gate
+                // that removes it either. Nothing dispatches in Definition mode, so there is nothing behind it
+                // to need.
                 var propertyValue = property.GetValue(logicBlock);
-                if (propertyValue == null)
+                if (propertyValue == null && mode == BindingMode.Live)
                 {
                     continue;
                 }
@@ -121,7 +125,7 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
             }
         }
 
-        private static void BindLogicInterface(object implementation,
+        private static void BindLogicInterface(object? implementation,
                                                Type implementedLogicInterface,
                                                List<LogicBlockInterfaceBindingAttribute> interfaceAttributes,
                                                IInterfaceFactory interfaceFactory,
@@ -342,7 +346,7 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
                                                        Type logicSendInterfaceType,
                                                        Type logicInterfaceType,
                                                        string identifier,
-                                                       object implementation)
+                                                       object? implementation)
         {
             // Use reflection to call the generic Create method
             var createMethod = typeof(IInterfaceFactory).GetMethod(nameof(IInterfaceFactory.Create), BindingFlags.Public | BindingFlags.Instance);
