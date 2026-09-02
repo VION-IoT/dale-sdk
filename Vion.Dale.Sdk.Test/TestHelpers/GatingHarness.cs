@@ -73,12 +73,32 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
         public static InitializeLogicBlock Initialize(IEnumerable<string> serviceIdentifiers,
                                                       params SetLogicConfigurationPayload.InstantiationParameterValue[] parameters)
         {
+            return Initialize(serviceIdentifiers, [], parameters);
+        }
+
+        /// <summary>Builds a configuration message that also maps <paramref name="contractIdentifiers" /> to contracts.</summary>
+        public static InitializeLogicBlock Initialize(IEnumerable<string> serviceIdentifiers,
+                                                      IEnumerable<string> contractIdentifiers,
+                                                      params SetLogicConfigurationPayload.InstantiationParameterValue[] parameters)
+        {
             return new InitializeLogicBlock("cfg",
                                             "block",
                                             serviceIdentifiers.ToDictionary(identifier => identifier, identifier => new ServiceIdentifier(identifier)),
-                                            new Dictionary<string, LogicBlockContractId>(),
+                                            contractIdentifiers.ToDictionary(identifier => identifier, identifier => new LogicBlockContractId("cfg", identifier)),
                                             ServiceProvider,
                                             parameters.Length > 0 ? parameters.ToList() : null);
+        }
+
+        /// <summary>
+        ///     The keys of the block's persistent-data snapshot, taken through the runtime's own teardown
+        ///     sequence — the snapshot is created on stop and read by the request that follows it.
+        /// </summary>
+        public IReadOnlyCollection<string> SnapshotKeys(LogicBlockBase block)
+        {
+            Send(block, new StopLogicBlockRequest());
+            Send(block, new GetPersistentDataSnapshotRequest());
+
+            return _responses.OfType<GetPersistentDataSnapshotResponse>().Last().PersistentDataValues.Select(entry => entry.Key).ToHashSet(StringComparer.Ordinal);
         }
 
         public void Link(LogicBlockBase block)

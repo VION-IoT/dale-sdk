@@ -52,8 +52,12 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
         [Persistent]
         public double Energy { get; set; }
 
+        /// <summary>Records the last poll that reached this handler — how a test sees a message arrive at all.</summary>
+        public int LastPoll { get; private set; }
+
         public GatedProbeLink.Ack HandleRequest(GatedProbeLink.Poll request)
         {
+            LastPoll = request.N;
             return new GatedProbeLink.Ack(request.N);
         }
     }
@@ -74,6 +78,31 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
         public GatedPoint Point3 { get; } = new();
 
         public GatedCountBlock() : base(NullLogger.Instance)
+        {
+        }
+
+        /// <inheritdoc />
+        protected override void Ready()
+        {
+        }
+    }
+
+    /// <summary>
+    ///     An enum parameter gating a component by membership — the shape that mis-resolves when the
+    ///     evaluation context is built with an int cast or a raw <c>ToString</c> instead of the shared codec.
+    /// </summary>
+    public sealed class GatedEnumBlock : LogicBlockBase
+    {
+        [ServiceProperty(Title = "Modell")]
+        [InstantiationParameter]
+        public StationModel Model { get; init; } = StationModel.Bricco;
+
+        public GatedPoint Point1 { get; } = new();
+
+        [IncludedWhen("Model in ['Moka', 'Ristretto', 'Cappuccino']")]
+        public GatedPoint Point2 { get; } = new();
+
+        public GatedEnumBlock() : base(NullLogger.Instance)
         {
         }
 
@@ -117,9 +146,134 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
         }
     }
 
-    // Every gate below is one DALE043 rejects — an empty predicate does not parse. The declarations are
-    // deliberate: they are how the suite reaches the three sites that record a member's gate, which must
-    // agree with the binder about what counts as one whatever the predicate's text.
+    /// <summary>A parameter and a gate declared once on a shared base, resolved on every leaf.</summary>
+    public abstract class BaseStationBlock : LogicBlockBase
+    {
+        [ServiceProperty(Title = "Ladepunkte")]
+        [InstantiationParameter]
+        public int PointCount { get; init; } = 1;
+
+        [IncludedWhen("PointCount >= 2")]
+        public GatedPoint Point2 { get; } = new();
+
+        protected BaseStationBlock() : base(NullLogger.Instance)
+        {
+        }
+
+        /// <inheritdoc />
+        protected override void Ready()
+        {
+        }
+    }
+
+    public sealed class LeafStationBlock : BaseStationBlock
+    {
+        public GatedPoint Point1 { get; } = new();
+    }
+
+    /// <summary>A gated contract binding: excluded means the binder never constructs it, so the property is null.</summary>
+    public sealed class GatedContractBlock : LogicBlockBase
+    {
+        [ServiceProperty(Title = "Ladepunkte", Minimum = 1, Maximum = 2)]
+        [InstantiationParameter]
+        public int PointCount { get; init; } = 1;
+
+        [ServiceProviderContractBinding(DefaultName = "Ladepunkt 2 aktiv")]
+        [IncludedWhen("PointCount >= 2")]
+        public IDigitalOutput? Point2Output { get; private set; }
+
+        public GatedContractBlock() : base(NullLogger.Instance)
+        {
+        }
+
+        /// <inheritdoc />
+        protected override void Ready()
+        {
+        }
+    }
+
+    /// <summary>
+    ///     A gated interface binding beside a class-implemented one: the property binding follows the gate,
+    ///     the class-level binding never does.
+    /// </summary>
+    public sealed class GatedInterfaceBlock : LogicBlockBase, IGatedProbeSink
+    {
+        [ServiceProperty(Title = "Anzahl", Minimum = 1, Maximum = 2)]
+        [InstantiationParameter]
+        public int Count { get; init; } = 1;
+
+        [LogicBlockInterfaceBinding(typeof(IGatedProbeSink))]
+        [IncludedWhen("Count >= 2")]
+        public GatedInterfaceOnlyProbe Probe { get; } = new();
+
+        [IncludedWhen("Count >= 2")]
+        public GatedPoint Point2 { get; } = new();
+
+        /// <summary>Records the last poll that reached the block's own class-implemented endpoint.</summary>
+        public int LastPoll { get; private set; }
+
+        public GatedInterfaceBlock() : base(NullLogger.Instance)
+        {
+        }
+
+        public GatedProbeLink.Ack HandleRequest(GatedProbeLink.Poll request)
+        {
+            LastPoll = request.N;
+            return new GatedProbeLink.Ack(request.N);
+        }
+
+        /// <inheritdoc />
+        protected override void Ready()
+        {
+        }
+    }
+
+    /// <summary>A gated component the author leaves null, so the definition view has nothing to describe.</summary>
+    public sealed class NullComponentBlock : LogicBlockBase
+    {
+        [ServiceProperty(Title = "Ladepunkte")]
+        [InstantiationParameter]
+        public int PointCount { get; init; } = 1;
+
+        public GatedPoint Point1 { get; } = new();
+
+        [IncludedWhen("PointCount >= 2")]
+        public GatedPoint? Point2 { get; set; }
+
+        public NullComponentBlock() : base(NullLogger.Instance)
+        {
+        }
+
+        /// <inheritdoc />
+        protected override void Ready()
+        {
+        }
+    }
+
+    /// <summary>A gate over a parameter whose declared default is null — the fail-closed edge.</summary>
+    public sealed class GatedNullParameterBlock : LogicBlockBase
+    {
+        [ServiceProperty(Title = "Region")]
+        [InstantiationParameter]
+        public string? Region { get; init; }
+
+        [IncludedWhen("Region == 'EU'")]
+        public GatedPoint Point2 { get; } = new();
+
+        public GatedNullParameterBlock() : base(NullLogger.Instance)
+        {
+        }
+
+        /// <inheritdoc />
+        protected override void Ready()
+        {
+        }
+    }
+
+    // Every gate below is one DALE043 rejects — an empty predicate does not parse, a malformed one does not
+    // parse, and a reference that is not an [InstantiationParameter] does not resolve. The declarations are
+    // deliberate: they are how the suite reaches what the binder and the definition view do with a gate the
+    // author shipped anyway, past a suppressed or absent analyzer.
 #pragma warning disable DALE043
 
     /// <summary>A gate declared as the empty string on each of the three member kinds that record one.</summary>
@@ -141,6 +295,69 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
         public GatedInterfaceOnlyProbe Probe { get; } = new();
 
         public EmptyGateBlock() : base(NullLogger.Instance)
+        {
+        }
+
+        /// <inheritdoc />
+        protected override void Ready()
+        {
+        }
+    }
+
+    /// <summary>A gate whose predicate is outside the grammar.</summary>
+    public sealed class UnparseableGateBlock : LogicBlockBase
+    {
+        [ServiceProperty(Title = "Ladepunkte")]
+        [InstantiationParameter]
+        public int PointCount { get; init; } = 1;
+
+        [IncludedWhen("PointCount >>> 2")]
+        public GatedPoint Point2 { get; } = new();
+
+        public UnparseableGateBlock() : base(NullLogger.Instance)
+        {
+        }
+
+        /// <inheritdoc />
+        protected override void Ready()
+        {
+        }
+    }
+
+    /// <summary>A gate referencing a name no parameter carries.</summary>
+    public sealed class UnknownReferenceGateBlock : LogicBlockBase
+    {
+        [ServiceProperty(Title = "Ladepunkte")]
+        [InstantiationParameter]
+        public int PointCount { get; init; } = 1;
+
+        [IncludedWhen("Missing >= 2")]
+        public GatedPoint Point2 { get; } = new();
+
+        public UnknownReferenceGateBlock() : base(NullLogger.Instance)
+        {
+        }
+
+        /// <inheritdoc />
+        protected override void Ready()
+        {
+        }
+    }
+
+    /// <summary>A gate referencing an ordinary service property rather than an instantiation parameter.</summary>
+    public sealed class NonParameterReferenceGateBlock : LogicBlockBase
+    {
+        [ServiceProperty(Title = "Ladepunkte")]
+        [InstantiationParameter]
+        public int PointCount { get; init; } = 1;
+
+        [ServiceProperty(Title = "Sollwert")]
+        public int Setting { get; set; } = 5;
+
+        [IncludedWhen("Setting >= 2")]
+        public GatedPoint Point2 { get; } = new();
+
+        public NonParameterReferenceGateBlock() : base(NullLogger.Instance)
         {
         }
 
