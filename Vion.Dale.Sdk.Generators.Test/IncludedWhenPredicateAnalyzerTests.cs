@@ -196,6 +196,53 @@ public class LeafStation : BaseStation
             await AnalyzerTestBase.VerifyAnalyzerAsync<IncludedWhenPredicateAnalyzer>(source, Diag(DaleDiagnostics.DALE043_IncludedWhenInvalid).WithLocation(0));
         }
 
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.10")]
+        public async Task GateOnAComponentMember_ReportsDALE043()
+        {
+            // Arrange
+            // The binders read a gate only off the logic-block type's own properties, so one declared inside
+            // a component does nothing at all. Its twin on the block below is the positive control: without
+            // it, "no diagnostic here" and "the analyzer never ran" look identical.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+public class ChargePoint
+{
+    [ServiceProperty] public bool Active { get; set; }
+    [ServiceProperty] [IncludedWhen({|#0:""Count >= 2""|})] public bool Extra { get; set; }
+}
+public class MyBlock : LogicBlockBase
+{
+    [ServiceProperty] [InstantiationParameter] public int Count { get; init; }
+    [ServiceProperty] [IncludedWhen({|#1:""Count >= 2""|})] public bool Scalar { get; set; }
+    public ChargePoint Point { get; } = new();
+}";
+
+            // Act / Assert
+            await AnalyzerTestBase.VerifyAnalyzerAsync<IncludedWhenPredicateAnalyzer>(source,
+                                                                                      Diag(DaleDiagnostics.DALE043_IncludedWhenInvalid).WithLocation(0),
+                                                                                      Diag(DaleDiagnostics.DALE043_IncludedWhenInvalid).WithLocation(1));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.10")]
+        public async Task GateOnAComponentClass_ReportsDALE043()
+        {
+            // Arrange
+            var source = @"
+using Vion.Dale.Sdk.Core;
+[IncludedWhen({|#0:""Count >= 2""|})]
+public class ChargePoint { [ServiceProperty] public bool Active { get; set; } }
+public class MyBlock : LogicBlockBase
+{
+    [ServiceProperty] [InstantiationParameter] public int Count { get; init; }
+    public ChargePoint Point { get; } = new();
+}";
+
+            // Act / Assert
+            await AnalyzerTestBase.VerifyAnalyzerAsync<IncludedWhenPredicateAnalyzer>(source, Diag(DaleDiagnostics.DALE043_IncludedWhenInvalid).WithLocation(0));
+        }
+
         // ── Helpers ──
 
         private static string Block(string annotatedMember)

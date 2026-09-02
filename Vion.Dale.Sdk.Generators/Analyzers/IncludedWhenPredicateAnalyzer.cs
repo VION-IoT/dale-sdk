@@ -36,17 +36,49 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         {
             context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
             context.EnableConcurrentExecution();
-            context.RegisterSymbolAction(AnalyzeBlock, SymbolKind.NamedType);
+            context.RegisterSymbolAction(AnalyzeType, SymbolKind.NamedType);
         }
 
-        private static void AnalyzeBlock(SymbolAnalysisContext context)
+        private static void AnalyzeType(SymbolAnalysisContext context)
         {
-            var block = (INamedTypeSymbol)context.Symbol;
-            if (block.TypeKind != TypeKind.Class || !AnalyzerHelper.InheritsFromLogicBlockBase(block))
+            var type = (INamedTypeSymbol)context.Symbol;
+            if (type.TypeKind == TypeKind.Class && AnalyzerHelper.InheritsFromLogicBlockBase(type))
             {
+                AnalyzeBlock(context, type);
                 return;
             }
 
+            ReportMisplacedGates(context, type);
+        }
+
+        // A gate declared anywhere but on a logic block's own member is inert: all three binders read
+        // [IncludedWhen] off the block type's properties and nothing else, so a component's own gate has no
+        // reader. Reported here rather than left silent, mirroring the DALE044 that InstantiationParameterAnalyzer
+        // reports for the same misplacement of the paired attribute.
+        private static void ReportMisplacedGates(SymbolAnalysisContext context, INamedTypeSymbol type)
+        {
+            const string detail = "[IncludedWhen] is only valid on a member of a logic-block class — the binders read a gate off the block's own properties and " +
+                                  "nowhere else, so a gate declared here is never evaluated. Gate the logic-block property that holds this type instead.";
+
+            var typeGate = AnalyzerHelper.GetAttribute(type, AnalyzerHelper.IncludedWhenAttribute);
+            if (typeGate is not null && !type.DeclaringSyntaxReferences.IsEmpty)
+            {
+                ReportGate(context, GateLocation(typeGate, type), type.Name, PredicateOf(typeGate), detail);
+            }
+
+            // Own members only — an inherited gate is reported once, at the declaration that carries it.
+            foreach (var member in type.GetMembers())
+            {
+                var gate = AnalyzerHelper.GetAttribute(member, AnalyzerHelper.IncludedWhenAttribute);
+                if (gate is not null && !member.DeclaringSyntaxReferences.IsEmpty)
+                {
+                    ReportGate(context, GateLocation(gate, member), member.Name, PredicateOf(gate), detail);
+                }
+            }
+        }
+
+        private static void AnalyzeBlock(SymbolAnalysisContext context, INamedTypeSymbol block)
+        {
             // [IncludedWhen] on the block class itself → not gateable (whole-block existence is the operator
             // adding the instance or not; a class-implemented interface has no member to carry the gate).
             var classGate = AnalyzerHelper.GetAttribute(block, AnalyzerHelper.IncludedWhenAttribute);
