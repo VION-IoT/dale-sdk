@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 
@@ -17,11 +18,13 @@ namespace Vion.Dale.DevHost.Test
         [TestMethod]
         [TestProperty("spec", "AC-GATE-012.2")]
         [TestProperty("spec", "AC-GATE-012.3")]
-        public async Task ShowExactlyTheIncludedComponentServices_ForTheTopologyParameter()
+        public async Task ShowExactlyIncludedComponentServicesForChosenParameter()
         {
+            // Arrange / Act
             var included = await ResolveStationServices(2);
 
-            Assert.Contains("GatedStationBlock", included); // the root service (carries the parameter)
+            // Assert
+            Assert.Contains("GatedStationBlock", included); // the root service, which carries the parameter
             Assert.Contains("Point1", included);
             Assert.Contains("Point2", included);
             Assert.DoesNotContain("Point3", included); // gated out at PointCount = 2
@@ -30,15 +33,20 @@ namespace Vion.Dale.DevHost.Test
         [TestMethod]
         [TestProperty("spec", "AC-GATE-012.3")]
         [TestProperty("spec", "AC-GATE-012.4")]
-        public async Task ResolveTheLiveViewAgainstTheParameterValue()
+        public async Task ResolveLiveViewAgainstChosenParameterValue()
         {
-            Assert.DoesNotContain("Point2", await ResolveStationServices(1)); // only Point1
-            Assert.Contains("Point3", await ResolveStationServices(3)); // full set
+            // Arrange / Act
+            var onePoint = await ResolveStationServices(1);
+            var threePoints = await ResolveStationServices(3);
+
+            // Assert
+            Assert.DoesNotContain("Point2", onePoint);
+            Assert.Contains("Point3", threePoints);
         }
 
         [TestMethod]
         [TestProperty("spec", "AC-GATE-012.9")]
-        public async Task CarryChosenParameterValuesInTheConfigurationOutput()
+        public async Task CarryChosenParameterValuesInConfigurationOutput()
         {
             // Arrange
             // What `dale dev --export-topology` round-trips and the editor Save reads back — an instance's
@@ -61,6 +69,10 @@ namespace Vion.Dale.DevHost.Test
         [TestProperty("spec", "AC-GATE-012.9")]
         public async Task OmitParameterValuesForInstanceThatChoseNone()
         {
+            // Asserted on the serialized document, not the in-memory one: "omitted" is a property of what the
+            // API writes, and an object that merely holds null serializes the key with a null value unless the
+            // projection says otherwise.
+
             // Arrange
             var config = DevConfigurationBuilder.Create().WithTopologyName("gated").AddLogicBlock<SmokeHost.LogicBlocks.GatedStationBlock>("Station").Build();
 
@@ -69,9 +81,11 @@ namespace Vion.Dale.DevHost.Test
 
             // Act
             var station = host.Control.GetConfiguration().LogicBlocks.Single(b => b.Name == "Station");
+            var json = JsonSerializer.Serialize(station, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
 
             // Assert
             Assert.IsNull(station.InstantiationParameters);
+            Assert.DoesNotContain("instantiationParameters", json);
         }
 
         private static async Task<HashSet<string>> ResolveStationServices(int pointCount)

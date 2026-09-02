@@ -34,6 +34,12 @@ namespace Vion.Dale.DevHost.Test
         [IncludedWhen("Count >= 2")]
         public GatedSignalSink Sink { get; } = new();
 
+        // An explicit Identifier — the binder honours it, so the catalog has to as well or a topology
+        // authored against the catalog names an endpoint the block will never answer to.
+        [LogicBlockInterfaceBinding(typeof(SmokeHost.LogicBlocks.ISignalSink), Identifier = "PrimarySink", Multiplicity = LinkMultiplicity.ExactlyOne)]
+        [IncludedWhen("Count >= 2")]
+        public GatedSignalSink RenamedSink { get; } = new();
+
         public GatedCatalogFixture(ILogger logger) : base(logger)
         {
         }

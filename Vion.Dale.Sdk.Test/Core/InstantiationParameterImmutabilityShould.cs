@@ -15,6 +15,8 @@ namespace Vion.Dale.Sdk.Test.Core
     [TestClass]
     public sealed class InstantiationParameterImmutabilityShould
     {
+        private static readonly string[] ReadyThrowsServices = [nameof(ReadyThrowsBlock), nameof(ReadyThrowsBlock.Point1)];
+
         private static readonly string[] StationServices = [nameof(GatedCountBlock), nameof(GatedCountBlock.Point1), "Point2", "Point3"];
 
         [TestMethod]
@@ -125,6 +127,25 @@ namespace Vion.Dale.Sdk.Test.Core
 
             StringAssert.Contains(failure.Message, "Nonexistent");
             StringAssert.Contains(failure.Message, "Re-instantiate");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-004.1")]
+        public void NameFailureFromLaterConfigurationSteps()
+        {
+            // The instance is spent from the moment configuration starts, and the steps past the binders —
+            // contract mapping, persistence, the block's own Ready() — can throw too. A retry refused with no
+            // reason after one of those is the same dead end the parameter case had.
+
+            // Arrange
+            var block = new ReadyThrowsBlock();
+            var harness = new GatingHarness();
+            Assert.ThrowsExactly<InvalidOperationException>(() => harness.Configure(block, ReadyThrowsServices));
+
+            // Act / Assert
+            var failure = Assert.ThrowsExactly<InvalidOperationException>(() => harness.Send(block, GatingHarness.Initialize(ReadyThrowsServices)));
+
+            StringAssert.Contains(failure.Message, "refused to become ready");
         }
 
         private static SetLogicConfigurationPayload.InstantiationParameterValue Parameter(string identifier, int value)

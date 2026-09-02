@@ -473,6 +473,12 @@ namespace Vion.Dale.Sdk.Test.Configuration.Services
                 Identifiers.Add(identifier);
                 return default!;
             }
+
+            public TInterface Describe<TInterface, TImplementation>(string identifier)
+            {
+                Identifiers.Add(identifier);
+                return default!;
+            }
         }
     }
 }

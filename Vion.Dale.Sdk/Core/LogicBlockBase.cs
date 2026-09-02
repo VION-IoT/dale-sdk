@@ -216,91 +216,20 @@ namespace Vion.Dale.Sdk.Core
                                      Id,
                                      m.LogicBlockContractIdLookup.Count);
 
-                    // Apply operator-chosen [InstantiationParameter] values to the CLR properties BEFORE
-                    // Configure, so the Live-mode binders resolve [IncludedWhen] gates against them.
-                    //
-                    // Every way a configuration can fail — an unresolvable parameter, a value that will not
-                    // decode, a gate that will not parse or resolve — is recorded and rethrown. The caller's
-                    // failure handling is unchanged; what the record buys is that a later retry is told what
-                    // to fix rather than being sent back to the configuration that just failed.
+                    // Everything from here to Ready() is the configuration phase. Every way it can fail — an
+                    // unresolvable parameter, a value that will not decode, a gate that will not parse or
+                    // resolve, a contract or persistence step, a throw out of the block's own Ready() — is
+                    // recorded and rethrown. The caller's failure handling is unchanged; what the record buys
+                    // is that a refused retry is told what to fix rather than being sent back to the
+                    // configuration that just failed.
                     try
                     {
-                        ApplyInstantiationParameters(m.InstantiationParameterValues);
-
-                        Configure(new LogicBlockConfigurationBuilder(AddContract,
-                                                                     AddInterface,
-                                                                     _serviceBinder,
-                                                                     AddTimerCallback,
-                                                                     () => Id,
-                                                                     actorContext,
-                                                                     ScheduleNextTimerTick,
-                                                                     m.ServiceProvider,
-                                                                     BindingMode.Live));
-
-                        // build one Throttler per bound service property + measuring point,
-                        // resolved from each binding's attribute + CLR value type. Cheap no-op state when
-                        // the policy is inactive (the gate bypasses), but always built so the override path
-                        // and production share one construction site.
-                        BuildThrottlers();
+                        ApplyConfiguration(m, actorContext);
                     }
                     catch (Exception exception)
                     {
                         _configurationFailure = exception.Message;
                         throw;
-                    }
-
-                    foreach (var (identifier, logicBlockContractId) in m.LogicBlockContractIdLookup)
-                    {
-                        // A mapping may target a contract that was gated out by [IncludedWhen], so it
-                        // was never bound and is absent from _contracts. Skip-and-warn instead of throwing a
-                        // KeyNotFoundException that would take the whole block down. The cloud path rejects such
-                        // mappings at activation; this guards the non-cloud paths (DevHost, TestKit, stale or
-                        // hand-built payloads) — mirror of the "contract has no mapping" warning below.
-                        if (!_contracts.TryGetValue(identifier, out var contract))
-                        {
-                            _logger.LogWarning("Logic block '{LogicBlockId}' ({LogicBlockName}) received a mapping for contract '{ContractIdentifier}', " +
-                                               "which is not a bound contract (gated out by [IncludedWhen] or otherwise absent). Skipping the mapping; the block stays up.",
-                                               Id,
-                                               Name,
-                                               identifier);
-                            continue;
-                        }
-
-                        contract.SetLogicBlockContractId(logicBlockContractId);
-                    }
-
-                    // Warn about contracts that have no mapping — their LogicBlockContractId will remain unset
-                    foreach (var contractIdentifier in _contracts.Keys)
-                    {
-                        if (!m.LogicBlockContractIdLookup.ContainsKey(contractIdentifier))
-                        {
-                            _logger.LogWarning("Contract '{ContractIdentifier}' in logic block '{LogicBlockId}' ({LogicBlockName}) has no contract mapping in configuration. " +
-                                               "This contract will not be functional until a mapping is provided.",
-                                               contractIdentifier,
-                                               Id,
-                                               Name);
-                        }
-                    }
-
-                    _serviceIdLookup = m.ServiceIdLookup;
-                    _serviceIdentifierLookup = m.ServiceIdLookup.ToDictionary(s => s.Value, s => s.Key);
-
-                    _persistentData.Initialize(this, _serviceBinder, _logger);
-
-                    // Defer SendBindLogicBlockServices + Ready if LinkRuntimeActors hasn't been
-                    // processed yet. SendBindLogicBlockServices sends to _servicePropertyHandlerActorRef,
-                    // which is set by LinkRuntimeActors — sending to a null ref drops the bindings
-                    // and breaks all subsequent property traffic. Ready() may also fire events that
-                    // depend on the handler ref, so defer it together.
-                    if (_runtimeActorsLinked)
-                    {
-                        SendBindLogicBlockServices();
-                        Ready();
-                    }
-                    else
-                    {
-                        _initializeDeferred = true;
-                        _logger.LogDebug("InitializeLogicBlock processed before LinkRuntimeActors; deferring SendBindLogicBlockServices + Ready until handler refs are set.");
                     }
 
                     break;
@@ -603,6 +532,89 @@ namespace Vion.Dale.Sdk.Core
             DeclarativeContractBinder.BindContractsFromAttributes(this, configurationBuilder.Contracts, mode, parameterContext);
             DeclarativeServiceBinder.BindServicesFromAttributes(this, serviceBinder, mode, parameterContext);
             DeclarativeTimerBinder.BindTimersFromAttributes(this, configurationBuilder.Timers);
+        }
+
+        /// <summary>
+        ///     The configuration phase, in the order the runtime depends on: parameter values applied, the
+        ///     declarative binders run against them, emission gates built, contract mappings resolved,
+        ///     persistence initialised, and the block told it is ready. Extracted so the caller can record why
+        ///     it failed, since a failure spends the instance and a retry has to be told what to fix.
+        /// </summary>
+        private void ApplyConfiguration(InitializeLogicBlock m, IActorContext actorContext)
+        {
+            // Apply operator-chosen [InstantiationParameter] values to the CLR properties BEFORE
+            // Configure, so the Live-mode binders resolve [IncludedWhen] gates against them.
+            ApplyInstantiationParameters(m.InstantiationParameterValues);
+
+            Configure(new LogicBlockConfigurationBuilder(AddContract,
+                                                         AddInterface,
+                                                         _serviceBinder,
+                                                         AddTimerCallback,
+                                                         () => Id,
+                                                         actorContext,
+                                                         ScheduleNextTimerTick,
+                                                         m.ServiceProvider,
+                                                         BindingMode.Live));
+
+            // build one Throttler per bound service property + measuring point,
+            // resolved from each binding's attribute + CLR value type. Cheap no-op state when
+            // the policy is inactive (the gate bypasses), but always built so the override path
+            // and production share one construction site.
+            BuildThrottlers();
+
+            foreach (var (identifier, logicBlockContractId) in m.LogicBlockContractIdLookup)
+            {
+                // A mapping may target a contract that was gated out by [IncludedWhen], so it
+                // was never bound and is absent from _contracts. Skip-and-warn instead of throwing a
+                // KeyNotFoundException that would take the whole block down. The cloud path rejects such
+                // mappings at activation; this guards the non-cloud paths (DevHost, TestKit, stale or
+                // hand-built payloads) — mirror of the "contract has no mapping" warning below.
+                if (!_contracts.TryGetValue(identifier, out var contract))
+                {
+                    _logger.LogWarning("Logic block '{LogicBlockId}' ({LogicBlockName}) received a mapping for contract '{ContractIdentifier}', " +
+                                       "which is not a bound contract (gated out by [IncludedWhen] or otherwise absent). Skipping the mapping; the block stays up.",
+                                       Id,
+                                       Name,
+                                       identifier);
+                    continue;
+                }
+
+                contract.SetLogicBlockContractId(logicBlockContractId);
+            }
+
+            // Warn about contracts that have no mapping — their LogicBlockContractId will remain unset
+            foreach (var contractIdentifier in _contracts.Keys)
+            {
+                if (!m.LogicBlockContractIdLookup.ContainsKey(contractIdentifier))
+                {
+                    _logger.LogWarning("Contract '{ContractIdentifier}' in logic block '{LogicBlockId}' ({LogicBlockName}) has no contract mapping in configuration. " +
+                                       "This contract will not be functional until a mapping is provided.",
+                                       contractIdentifier,
+                                       Id,
+                                       Name);
+                }
+            }
+
+            _serviceIdLookup = m.ServiceIdLookup;
+            _serviceIdentifierLookup = m.ServiceIdLookup.ToDictionary(s => s.Value, s => s.Key);
+
+            _persistentData.Initialize(this, _serviceBinder, _logger);
+
+            // Defer SendBindLogicBlockServices + Ready if LinkRuntimeActors hasn't been
+            // processed yet. SendBindLogicBlockServices sends to _servicePropertyHandlerActorRef,
+            // which is set by LinkRuntimeActors — sending to a null ref drops the bindings
+            // and breaks all subsequent property traffic. Ready() may also fire events that
+            // depend on the handler ref, so defer it together.
+            if (_runtimeActorsLinked)
+            {
+                SendBindLogicBlockServices();
+                Ready();
+            }
+            else
+            {
+                _initializeDeferred = true;
+                _logger.LogDebug("InitializeLogicBlock processed before LinkRuntimeActors; deferring SendBindLogicBlockServices + Ready until handler refs are set.");
+            }
         }
 
         /// <summary>

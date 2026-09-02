@@ -280,7 +280,9 @@ namespace Vion.Dale.DevHost
             {
                 foreach (var attribute in property.GetCustomAttributes<LogicBlockInterfaceBindingAttribute>())
                 {
-                    if ($"{property.Name}_{attribute.ForInterface.Name}" == interfaceIdentifier)
+                    // The same identifier rule GetAllLogicInterfaces mints by, or a renamed binding's
+                    // multiplicity is looked up under a name nothing carries and silently reads ZeroOrMore.
+                    if (InterfaceIdentifierFor([attribute], property.Name, attribute.ForInterface) == interfaceIdentifier)
                     {
                         return attribute.Multiplicity;
                     }
@@ -305,20 +307,24 @@ namespace Vion.Dale.DevHost
 
             // Property-based interfaces — gateable, so carry the property's [IncludedWhen] predicate.
             //
-            // Discovery is the binder's rule, not a setter test: DeclarativeInterfaceBinder binds every
-            // public instance property whose type implements a [LogicInterface], and never asks whether it
-            // can be written — the author constructs the component themselves. A CanWrite filter here
-            // dropped exactly the shape every in-repo block writes (`public Point P { get; } = new();`), so
-            // the catalog omitted endpoints that exist at runtime, along with the gates that remove them.
+            // Both WHICH properties are listed and WHAT they are called follow DeclarativeInterfaceBinder,
+            // because a topology is authored against this list and then wired by that binder.
+            //   - Listed: every public instance property whose type implements a [LogicInterface]. The binder
+            //     never asks whether the property can be written — the author constructs the component — so a
+            //     CanWrite filter here dropped the shape every in-repo block writes (`public Point P { get; }`).
+            //   - Named: the binding's explicit Identifier when it declares one, else {Property}_{Interface}.
+            //     Always minting the fallback listed an endpoint under a name the block never answers to, so
+            //     a mapping authored from the catalog resolved to nothing and was skipped with a warning.
             var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
             foreach (var property in properties)
             {
                 var includedWhen = property.GetCustomAttribute<IncludedWhenAttribute>()?.Predicate;
+                var bindings = property.GetCustomAttributes<LogicBlockInterfaceBindingAttribute>().ToList();
                 foreach (var iface in property.PropertyType.GetInterfaces())
                 {
                     if (iface.GetCustomAttribute<LogicInterfaceAttribute>() != null)
                     {
-                        result.Add((iface, $"{property.Name}_{iface.Name}", includedWhen));
+                        result.Add((iface, InterfaceIdentifierFor(bindings, property.Name, iface), includedWhen));
                     }
                 }
             }
@@ -356,6 +362,13 @@ namespace Vion.Dale.DevHost
             }
 
             return result;
+        }
+
+        // DeclarativeInterfaceBinder's naming rule: the binding's explicit Identifier for this interface when
+        // one is declared, else {Property}_{Interface}.
+        private static string InterfaceIdentifierFor(List<LogicBlockInterfaceBindingAttribute> bindings, string propertyName, Type interfaceType)
+        {
+            return bindings.FirstOrDefault(binding => binding.ForInterface == interfaceType)?.Identifier ?? $"{propertyName}_{interfaceType.Name}";
         }
 
         /// <summary>

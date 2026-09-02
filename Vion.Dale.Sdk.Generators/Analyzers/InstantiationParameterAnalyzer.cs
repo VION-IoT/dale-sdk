@@ -80,7 +80,12 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                 Report(context, location, property.Name, "[InstantiationParameter] cannot be combined with WriteOnly — a secret must not be an editor-visible structural driver.");
             }
 
-            if (AnalyzerHelper.HasAttribute(property, AnalyzerHelper.PersistentAttribute))
+            // [Persistent(Exclude = true)] asks for exactly what a parameter already gets, so it is a correct
+            // declaration rather than a contradiction — and the message below would give it a reason that is
+            // false for it. Only the opt-IN is refused. (Reading the named argument mirrors the WriteOnly rule
+            // above, which reads its own.)
+            var persistent = AnalyzerHelper.GetAttribute(property, AnalyzerHelper.PersistentAttribute);
+            if (persistent is not null && !AnalyzerHelper.GetNamedArgument<bool>(persistent, "Exclude"))
             {
                 Report(context,
                        location,

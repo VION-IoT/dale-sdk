@@ -1,6 +1,8 @@
+using System;
 using Microsoft.Extensions.Logging.Abstractions;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.DigitalIo.Output;
+using Vion.Dale.Sdk.Utils;
 
 // Logic-block fixtures for the config-gating suite (docs/specs/config-gating.md). Shared across the
 // parameter, gate, binding, routing, persistence and metadata classes so one shape is declared once; a
@@ -59,6 +61,34 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
         {
             LastPoll = request.N;
             return new GatedProbeLink.Ack(request.N);
+        }
+    }
+
+    /// <summary>The sending half of the probe contract — the side the generator gives an extension class.</summary>
+    public sealed class GatedProbeSource : IGatedProbeSource
+    {
+        public void HandleResponse(InterfaceId functionId, GatedProbeLink.Ack response)
+        {
+        }
+    }
+
+    /// <summary>A block whose own <c>Ready()</c> throws — configuration failing past the binders.</summary>
+    public sealed class ReadyThrowsBlock : LogicBlockBase
+    {
+        [ServiceProperty(Title = "Ladepunkte")]
+        [InstantiationParameter]
+        public int PointCount { get; init; } = 1;
+
+        public GatedPoint Point1 { get; } = new();
+
+        public ReadyThrowsBlock() : base(NullLogger.Instance)
+        {
+        }
+
+        /// <inheritdoc />
+        protected override void Ready()
+        {
+            throw new InvalidOperationException("the block refused to become ready");
         }
     }
 
@@ -261,9 +291,12 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
         [InstantiationParameter]
         public int Count { get; init; } = 1;
 
-        [LogicBlockInterfaceBinding(typeof(IGatedProbeSink))]
+        // The SENDER side deliberately: the generator emits an extension class only for the side that sends,
+        // and that class is what the interface factory hands the implementation to. A sink-side binding never
+        // reaches it, so it cannot show what a null instance does.
+        [LogicBlockInterfaceBinding(typeof(IGatedProbeSource))]
         [IncludedWhen("Count >= 2")]
-        public GatedInterfaceOnlyProbe? Probe { get; set; }
+        public GatedProbeSource? Probe { get; set; }
 
         public NullInterfaceComponentBlock() : base(NullLogger.Instance)
         {

@@ -101,6 +101,24 @@ public class MyBlock : LogicBlockBase
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.9")]
+        public async Task PersistentExcludedParameter_NoDiagnostic()
+        {
+            // Arrange
+            // [Persistent(Exclude = true)] is the documented opt-OUT, so it asks for exactly what a parameter
+            // already gets. Refusing it would reject a correct declaration with a reason that is false for it.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+public class MyBlock : LogicBlockBase
+{
+    [ServiceProperty] [Persistent(Exclude = true)] [InstantiationParameter] public int Count { get; init; }
+}";
+
+            // Act / Assert
+            await AnalyzerTestBase.VerifyAnalyzerAsync<InstantiationParameterAnalyzer>(source);
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-GATE-011.8")]
         public Task PersistentParameter_ReportsDALE044()
         {

@@ -372,6 +372,25 @@ namespace Vion.Dale.DevHost.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-GATE-012.6")]
+        public void LogicBlockDefinition_FromType_NamesEndpointsTheWayTheBinderDoes()
+        {
+            // Arrange
+            // The binder honours an explicit Identifier and falls back to {Property}_{Interface}. A catalog
+            // that always minted the fallback would list an endpoint under a name the block never answers to,
+            // so a topology authored from it wires nothing and the block warns about a mapping it cannot find.
+
+            // Act
+            var definition = LogicBlockDefinition.FromType(typeof(GatedCatalogFixture));
+
+            // Assert
+            var renamed = definition.Interfaces.Single(i => i.Identifier == "PrimarySink");
+            Assert.AreEqual("Count >= 2", renamed.IncludedWhen);
+            Assert.AreEqual(LinkMultiplicity.ExactlyOne, renamed.Multiplicity);
+            Assert.IsFalse(definition.Interfaces.Any(i => i.Identifier == "RenamedSink_ISignalSink"));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-012.6")]
         public void LogicBlockDefinition_FromType_CarriesInstantiationParametersAndGatePredicates()
         {
             // The catalog projects each [InstantiationParameter]'s identifier + JSON schema + default,

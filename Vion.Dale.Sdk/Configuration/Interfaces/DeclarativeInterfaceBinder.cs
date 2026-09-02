@@ -141,7 +141,13 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
             var logicSendInterfaceType = FindLogicSendInterface(implementedLogicInterface);
             var identifier = interfaceAttribute.Identifier ?? defaultIdentifier ?? implementedLogicInterface.Name;
 
-            var logicSendInterfaceInstance = CreateLogicSendInterface(interfaceFactory, logicSendInterfaceType, implementedLogicInterface, identifier, implementation);
+            // A null implementation reaches here only from the definition view, which describes a type rather
+            // than serving messages (BindPropertyBasedInterfaces skips a null component in Live mode). The
+            // factory would hand it to the generated RegisterInstance, whose ConditionalWeakTable refuses a
+            // null key — so the endpoint is described directly instead, with the same identifier, metadata
+            // and relation halves and no dispatch registration behind it.
+            var logicSendInterfaceInstance = implementation is null ? DescribeLogicSendInterface(interfaceFactory, logicSendInterfaceType, implementedLogicInterface, identifier) :
+                                                 CreateLogicSendInterface(interfaceFactory, logicSendInterfaceType, implementedLogicInterface, identifier, implementation);
             ApplyMetadata(logicSendInterfaceInstance, interfaceAttribute, includedWhen);
 
             RegisterServiceRelations(implementedLogicInterface, identifier, serviceBinder, owningServiceIdentifier);
@@ -340,6 +346,20 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
             }
 
             return implementation;
+        }
+
+        // The definition-view path: build the sender instance and register it under its identifier without the
+        // dispatch wiring an implementation would carry. Mirrors what the factory does, minus the extension
+        // registration a null implementation cannot satisfy.
+        private static object DescribeLogicSendInterface(IInterfaceFactory interfaceFactory, Type logicSendInterfaceType, Type logicInterfaceType, string identifier)
+        {
+            var createMethod = typeof(IInterfaceFactory).GetMethod(nameof(IInterfaceFactory.Describe), BindingFlags.Public | BindingFlags.Instance);
+            if (createMethod == null)
+            {
+                throw new InvalidOperationException("Describe method not found on IInterfaceFactory");
+            }
+
+            return createMethod.MakeGenericMethod(logicSendInterfaceType, logicInterfaceType).Invoke(interfaceFactory, [identifier])!;
         }
 
         private static object CreateLogicSendInterface(IInterfaceFactory interfaceFactory,

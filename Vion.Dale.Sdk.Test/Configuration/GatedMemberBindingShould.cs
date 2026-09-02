@@ -95,6 +95,25 @@ namespace Vion.Dale.Sdk.Test.Configuration
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-007.8")]
+        public void SkipInterfaceBindingHoldingNullWhenConfiguring()
+        {
+            // The other half of the definition-view relaxation: an endpoint with nothing behind it can be
+            // described, but it cannot serve, so a configured instance skips it. Without this row the mode
+            // half of the guard is untested and dropping it would still pass the definition-view test.
+
+            // Arrange
+            var block = new NullInterfaceComponentBlock();
+            var harness = new GatingHarness();
+
+            // Act
+            harness.Configure(block, [nameof(NullInterfaceComponentBlock)], Parameter(nameof(NullInterfaceComponentBlock.Count), 2));
+
+            // Assert
+            Assert.IsEmpty(harness.BoundProperties(nameof(NullInterfaceComponentBlock.Probe)));
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-GATE-007.7")]
         public void OmitGatedComponentHoldingNullFromDefinitionView()
         {

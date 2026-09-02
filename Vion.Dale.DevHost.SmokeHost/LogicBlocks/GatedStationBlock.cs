@@ -26,6 +26,20 @@ namespace Vion.Dale.DevHost.SmokeHost.LogicBlocks
     ///     always, <c>Point2</c> only when <c>PointCount &gt;= 2</c>, <c>Point3</c> only when
     ///     <c>PointCount &gt;= 3</c> — plus the root service carrying the (read-only) parameter.
     /// </summary>
+    /// <summary>
+    ///     A charge point that is also a wireable endpoint, held in a get-only property with an explicit
+    ///     binding identifier — the two things the topology editor's catalog has to get right about a gated
+    ///     interface binding: that it is listed at all (the binder never asks for a setter), and that it is
+    ///     listed under the name the binder will answer to.
+    /// </summary>
+    public class GatedSignalPoint : ISignalSink
+    {
+        public SignalLink.Ack HandleRequest(SignalLink.Ping request)
+        {
+            return new SignalLink.Ack(request.Sequence);
+        }
+    }
+
     [LogicBlock(Name = "Gated Charging Station", Icon = "charging-pile-line")]
     public class GatedStationBlock : LogicBlockBase
     {
@@ -42,6 +56,10 @@ namespace Vion.Dale.DevHost.SmokeHost.LogicBlocks
 
         [IncludedWhen("PointCount >= 3")]
         public ChargePoint Point3 { get; } = new();
+
+        [LogicBlockInterfaceBinding(typeof(ISignalSink), Identifier = "Point2Signal", Multiplicity = LinkMultiplicity.ZeroOrOne)]
+        [IncludedWhen("PointCount >= 2")]
+        public GatedSignalPoint Point2Endpoint { get; } = new();
 
         public GatedStationBlock(ILogger logger) : base(logger)
         {
