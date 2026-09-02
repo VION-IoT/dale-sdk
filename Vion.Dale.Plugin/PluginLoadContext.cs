@@ -80,6 +80,14 @@ namespace Vion.Dale.Plugin
         /// </summary>
         public void EagerlyLoadSharedExtensions()
         {
+            // Same tolerance the constructor's version scan applies: a caller pointing at a
+            // directory that is not there gets its own error, not a DirectoryNotFoundException
+            // raised one call after construction accepted the very same path.
+            if (!Directory.Exists(_pluginPath))
+            {
+                return;
+            }
+
             foreach (var dllPath in Directory.EnumerateFiles(_pluginPath, "*.dll"))
             {
                 var fullPath = Path.GetFullPath(dllPath);
@@ -94,7 +102,19 @@ namespace Vion.Dale.Plugin
                 if (HasDaleSharedAssemblyAttribute(fullPath))
                 {
                     // Trigger Load() which handles shared caching
-                    LoadFromAssemblyName(new AssemblyName(assemblyName));
+                    var assembly = LoadFromAssemblyName(new AssemblyName(assemblyName));
+
+                    // ...except when this context already holds the assembly: LoadFromAssemblyName
+                    // then returns it without routing through Load(), and Load() is the only writer
+                    // of the shared registry. The runtime loads a plugin's own dll by path before
+                    // calling this method, so a marked plugin assembly arrives on exactly that path
+                    // and would otherwise never reach the registry downstream code enumerates.
+                    // Only register what THIS context owns: a bind that resolved to the host or to
+                    // another plugin belongs to whoever loaded it, and TryAdd keeps that owner.
+                    if (GetLoadContext(assembly) == this)
+                    {
+                        SharedExtensionAssemblies.TryAdd(assemblyName, assembly);
+                    }
                 }
             }
         }
@@ -156,18 +176,23 @@ namespace Vion.Dale.Plugin
             var pluginAssemblyPath = Path.Combine(_pluginPath, $"{assemblyName.Name}.dll");
             if (File.Exists(pluginAssemblyPath))
             {
-                // Fast path: already loaded and cached by another plugin
-                if (SharedExtensionAssemblies.TryGetValue(assemblyName.Name, out var cachedAssembly))
-                {
-                    _logger.LogInformation("Reusing shared extension {AssemblyName} {Version} (first loaded by another plugin)",
-                                           assemblyName.Name,
-                                           cachedAssembly.GetName().Version);
-                    return cachedAssembly;
-                }
-
                 var fullPath = Path.GetFullPath(pluginAssemblyPath);
+
+                // THIS plugin's own copy decides whether it shares, and the check comes before the
+                // cache: sharing on a simple-name cache hit alone hands a plugin that never applied
+                // the attribute another plugin's assembly, so its types silently become code it
+                // never shipped. The verdict is memoized per path, so the cost is a lookup.
                 if (HasDaleSharedAssemblyAttribute(fullPath))
                 {
+                    // Fast path: already loaded and cached by another plugin
+                    if (SharedExtensionAssemblies.TryGetValue(assemblyName.Name, out var cachedAssembly))
+                    {
+                        _logger.LogInformation("Reusing shared extension {AssemblyName} {Version} (first loaded by another plugin)",
+                                               assemblyName.Name,
+                                               cachedAssembly.GetName().Version);
+                        return cachedAssembly;
+                    }
+
                     lock (SharedExtensionLoadLock)
                     {
                         // Double-check after acquiring lock — another plugin may have loaded it
@@ -190,6 +215,20 @@ namespace Vion.Dale.Plugin
                     }
                 }
 
+                // A same-named shared instance exists but THIS plugin's copy is unmarked, so it
+                // gets its own. The two plugins now hold distinct types of the same name, which is
+                // correct and also the hardest kind of mismatch to read from a stack trace later —
+                // so say so, naming the other plugin by where its copy came from.
+                if (SharedExtensionAssemblies.TryGetValue(assemblyName.Name, out var sharedWithSameName))
+                {
+                    _logger.LogWarning("Plugin {PackageId} loads its own {AssemblyName} from {PluginPath} because that copy is not marked [DaleSharedAssembly], " +
+                                       "while a shared instance of the same name is already loaded from {SharedAssemblyLocation} — types of that name are NOT interchangeable between the two plugins",
+                                       _packageId,
+                                       assemblyName.Name,
+                                       _pluginPath,
+                                       sharedWithSameName.Location);
+                }
+
                 // Strategy 4: Load plugin-specific assemblies from plugin folder (no sharing)
                 _logger.LogInformation("Loading assembly {AssemblyName} {Version} from plugin path {PluginPath}", assemblyName.Name, assemblyName.Version, _pluginPath);
                 return LoadFromAssemblyPath(fullPath);
@@ -200,15 +239,14 @@ namespace Vion.Dale.Plugin
         }
 
         /// <summary>
-        ///     Pure, unit-testable seam: throws when <paramref name="pluginReferencedVersion" /> has a
-        ///     different MAJOR component than <paramref name="hostVersion" /> (both non-null). Minor and
-        ///     patch differences are intentionally NOT this method's concern — those stay with the
-        ///     existing warn-and-continue path (<see cref="LogDefaultContextLoad" />).
+        ///     Throws when <paramref name="pluginReferencedVersion" /> has a different MAJOR component
+        ///     than <paramref name="hostVersion" /> (both non-null). Minor and patch differences are
+        ///     deliberately not this method's concern: they stay warn-and-continue.
         /// </summary>
         /// <remarks>
-        ///     ACCEPTED, DELIBERATE CONSEQUENCE: during 0.x the major is always 0, so this gate is
-        ///     dormant pre-1.0 — a 0.4.3 → 0.5.0 skew stays a WARNING, not a hard fail. See spec §E
-        ///     "Consequence (accepted)" / decision 0022. Pinned by PluginSdkVersionGateShould.
+        ///     Accepted consequence: while the SDK is pre-1.0 every version's major is 0, so this gate
+        ///     never fires — a 0.4.3 plugin against a 0.5.0 host is a warning, not a rejection. The gate
+        ///     arms itself at 1.0. That is the intent, not an oversight.
         /// </remarks>
         internal static void EnsureSdkMajorCompatible(string packageId, string sdkAssemblyName, Version? hostVersion, Version? pluginReferencedVersion, ILogger logger)
         {
