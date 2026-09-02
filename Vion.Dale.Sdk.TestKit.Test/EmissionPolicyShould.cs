@@ -234,7 +234,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-010.1")]
-        public void ReleaseNothingWhenTheHeldValueWasSuppressed()
+        public void ReleaseNothingWhenHeldValueWasSuppressed()
         {
             // Arrange — 9.0 is held inside the interval, arming a wakeup for its deadline.
             var block = LogicBlockTestHelper.Create<SettableBlock>();

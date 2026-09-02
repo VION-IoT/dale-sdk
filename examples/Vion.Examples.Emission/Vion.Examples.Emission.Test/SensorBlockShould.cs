@@ -29,7 +29,7 @@ namespace Vion.Examples.Emission.Test
         private readonly LogicBlockTestContext<SensorBlock> _context;
 
         [Fact]
-        public void EmitBothStreamsOfADualAnnotatedMember()
+        public void EmitBothStreamsOfDualAnnotatedMember()
         {
             // Arrange / Act — ten ticks across ten virtual seconds.
             for (var tick = 0; tick < 10; tick++)

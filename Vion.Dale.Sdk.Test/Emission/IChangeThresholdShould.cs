@@ -16,7 +16,7 @@ namespace Vion.Dale.Sdk.Test.Emission
     {
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-014.1")]
-        public void CarryThePublicApiMarker()
+        public void CarryPublicApiMarker()
         {
             // Arrange / Act
             var marker = typeof(IChangeThreshold<>).GetCustomAttributes(typeof(PublicApiAttribute), false);

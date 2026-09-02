@@ -71,7 +71,7 @@ namespace Vion.Dale.Sdk.Test.Emission
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-007.4")]
-        public void ReadDurationAtTheTopOfItsRange()
+        public void ReadDurationAtTopOfRange()
         {
             // Arrange — the largest whole number of hours a duration holds. The range is checked in ticks,
             // the unit the limit is actually expressed in, so a value just inside it is not rejected.

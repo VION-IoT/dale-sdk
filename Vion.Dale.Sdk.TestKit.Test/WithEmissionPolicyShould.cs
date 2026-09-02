@@ -20,7 +20,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
         }
 
         [TestMethod]
-        public void RegisterTheOverrideWhenAskedForTheAttributePolicy()
+        public void RegisterOverrideWhenAskedForAttributePolicy()
         {
             // Arrange / Act
             var context = _block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).Build();
