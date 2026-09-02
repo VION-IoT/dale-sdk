@@ -57,7 +57,7 @@ namespace Vion.Dale.Sdk.Configuration.Contract
 
         private static void ApplyMetadata(object contractInstance, ServiceProviderContractBindingAttribute? contractAttr, string? includedWhen)
         {
-            if (contractAttr == null && string.IsNullOrEmpty(includedWhen))
+            if (contractAttr == null && includedWhen is null)
             {
                 return;
             }

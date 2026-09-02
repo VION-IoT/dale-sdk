@@ -569,7 +569,9 @@ namespace Vion.Dale.DevHost.Control
 
         private bool IsIncluded(string? predicate, IReadOnlyDictionary<string, JsonNode?> context)
         {
-            if (string.IsNullOrEmpty(predicate))
+            // Null means ungated. An empty predicate is a declared gate that cannot be parsed, so it takes
+            // the fail-open path below and is logged, rather than reading here as no gate at all.
+            if (predicate is null)
             {
                 return true;
             }

@@ -70,9 +70,12 @@ namespace Vion.Dale.Sdk.Configuration.Services
                 // Use the property name as the service identifier.
                 BindServiceWithInterfaces(propertyValue, property.Name, implementedServiceInterfaces, binder);
 
-                if (!string.IsNullOrEmpty(includedWhen))
+                // A declared gate is recorded whatever its text: null means the member carries no
+                // [IncludedWhen], and every other value is this member's gate. An empty predicate recorded as
+                // "no gate" would put an unconditional member on the wire that Live binding then refuses.
+                if (includedWhen is not null)
                 {
-                    binder.RegisterServiceIncludedWhen(property.Name, includedWhen!);
+                    binder.RegisterServiceIncludedWhen(property.Name, includedWhen);
                 }
             }
         }

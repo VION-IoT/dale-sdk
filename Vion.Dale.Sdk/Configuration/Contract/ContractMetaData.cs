@@ -40,7 +40,8 @@ namespace Vion.Dale.Sdk.Configuration.Contract
                     annotations[LogicBlockWiringConventions.MultiplicityAnnotationKey] = LinkMultiplicityWire.ToToken(Multiplicity);
                 }
 
-                if (!string.IsNullOrEmpty(IncludedWhen))
+                // Null means ungated; every other value, the empty string included, is a declared gate.
+                if (IncludedWhen is not null)
                 {
                     annotations[LogicBlockWiringConventions.IncludedWhenAnnotationKey] = IncludedWhen;
                 }
