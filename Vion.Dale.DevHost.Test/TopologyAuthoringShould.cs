@@ -354,6 +354,7 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-012.6")]
         public void LogicBlockDefinition_FromType_CarriesInstantiationParametersAndGatePredicates()
         {
             // RFC 0016: the catalog projects each [InstantiationParameter]'s identifier + JSON schema + default,

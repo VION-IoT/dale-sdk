@@ -37,6 +37,7 @@ public class MyBlock : LogicBlockBase
         // ── Positive cases (no diagnostic) ──
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.7")]
         [DataRow("Count >= 2", DisplayName = "relational over a count parameter")]
         [DataRow("Model in ['Moka', 'Ristretto']", DisplayName = "enum membership")]
         [DataRow("Count >= 2 && Model == 'Moka'", DisplayName = "compound count + enum")]
@@ -76,30 +77,35 @@ public class LeafStation : BaseStation
         // ── Negative cases on a gated component (predicate markup) ──
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.5")]
         public Task PredicateOutsideTheGrammar_ReportsDALE043()
         {
             return ExpectGate("Count >>> 2", DaleDiagnostics.DALE043_IncludedWhenInvalid);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.5")]
         public Task QualifiedReference_ReportsDALE043()
         {
             return ExpectGate("MyBlock.Count >= 2", DaleDiagnostics.DALE043_IncludedWhenInvalid);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.5")]
         public Task ReferenceToANonParameterProperty_ReportsDALE043()
         {
             return ExpectGate("Setting >= 2", DaleDiagnostics.DALE043_IncludedWhenInvalid);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.6")]
         public Task TypeMismatchInPredicate_ReportsDALE044()
         {
             return ExpectGate("Count == 'text'", DaleDiagnostics.DALE044_InstantiationParameterDiscipline);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.6")]
         public Task UnquotedEnumMember_ReportsDALE044()
         {
             return ExpectGate("Model == Moka", DaleDiagnostics.DALE044_InstantiationParameterDiscipline);
@@ -108,6 +114,7 @@ public class LeafStation : BaseStation
         // ── Negative cases on placement (custom source) ──
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.3")]
         public async Task GateOnAScalarServiceProperty_ReportsDALE043()
         {
             var source = @"
@@ -121,6 +128,7 @@ public class MyBlock : LogicBlockBase
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.3")]
         public async Task GateOnAScalarMeasuringPoint_ReportsDALE043()
         {
             var source = @"
@@ -134,6 +142,7 @@ public class MyBlock : LogicBlockBase
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.2")]
         public async Task GateOnATimerMethod_ReportsDALE043()
         {
             var source = @"
@@ -147,6 +156,7 @@ public class MyBlock : LogicBlockBase
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.1")]
         public async Task GateOnTheBlockClass_ReportsDALE043()
         {
             var source = @"
@@ -160,6 +170,7 @@ public class MyBlock : LogicBlockBase
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.4")]
         public async Task RegatedOverride_ReportsDALE043()
         {
             var source = @"
@@ -178,6 +189,7 @@ public class LeafStation : BaseStation
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.4")]
         public async Task RegatedNewShadow_ReportsDALE043()
         {
             // A `new` shadow (not an override) that re-declares the gate — exercises the BaseType-chain walk.

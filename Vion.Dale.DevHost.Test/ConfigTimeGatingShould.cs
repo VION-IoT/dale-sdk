@@ -15,6 +15,8 @@ namespace Vion.Dale.DevHost.Test
     public class ConfigTimeGatingShould
     {
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-012.2")]
+        [TestProperty("spec", "AC-GATE-012.3")]
         public async Task ShowExactlyTheIncludedComponentServices_ForTheTopologyParameter()
         {
             var included = await ResolveStationServices(2);
@@ -26,6 +28,9 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-012.3")]
+
+        [TestProperty("spec", "AC-GATE-012.4")]
         public async Task ResolveTheLiveViewAgainstTheParameterValue()
         {
             Assert.DoesNotContain("Point2", await ResolveStationServices(1)); // only Point1

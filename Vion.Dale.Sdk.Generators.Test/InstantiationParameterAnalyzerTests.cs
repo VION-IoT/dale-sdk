@@ -34,6 +34,7 @@ public class MyBlock : LogicBlockBase
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.9")]
         public async Task PlainSetterParameter_NoDiagnostic()
         {
             // { get; set; } is allowed (init is recommended, not required — the analyzer backstops assignments).
@@ -65,24 +66,28 @@ public class LeafStation : BaseStation
         // ── Negative cases (DALE044) ──
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.8")]
         public Task MissingServicePropertyPairing_ReportsDALE044()
         {
             return ExpectDiscipline("[{|#0:InstantiationParameter|}] public int Count { get; init; }");
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.8")]
         public Task DisallowedDoubleType_ReportsDALE044()
         {
             return ExpectDiscipline("[ServiceProperty] [{|#0:InstantiationParameter|}] public double Count { get; init; }");
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.8")]
         public Task DisallowedArrayType_ReportsDALE044()
         {
             return ExpectDiscipline("[ServiceProperty] [{|#0:InstantiationParameter|}] public int[] Values { get; init; }");
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.8")]
         public async Task DisallowedStructType_ReportsDALE044()
         {
             var source = @"
@@ -96,18 +101,21 @@ public class MyBlock : LogicBlockBase
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.8")]
         public Task WriteOnlyParameter_ReportsDALE044()
         {
             return ExpectDiscipline("[ServiceProperty(WriteOnly = true)] [{|#0:InstantiationParameter|}] public string Secret { get; init; }");
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.8")]
         public Task ComputedGetter_ReportsDALE044()
         {
             return ExpectDiscipline("[ServiceProperty] [{|#0:InstantiationParameter|}] public int Count => 3;");
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.8")]
         public async Task InCodeAssignmentOutsideConstructor_ReportsDALE044()
         {
             var source = @"
@@ -121,6 +129,7 @@ public class MyBlock : LogicBlockBase
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.8")]
         public async Task DeclaredOnAComponentType_ReportsDALE044()
         {
             var source = @"
@@ -133,6 +142,7 @@ public class Component
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.4")]
         public async Task RedeclaredOnAnOverride_ReportsDALE044()
         {
             var source = @"

@@ -135,6 +135,7 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-012.2")]
         public void CarryInstantiationParametersFromTheTopologyFileThroughBuild()
         {
             // RFC 0016: the instantiationParameters field crosses the file → model → DevConfiguration layer.

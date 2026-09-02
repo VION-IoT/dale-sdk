@@ -76,6 +76,7 @@ namespace Vion.Dale.Cli.Test.Commands
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-012.7")]
         public void MapToCliOutput_CarriesServiceNameAndIncludedWhen()
         {
             var gated = new ServiceInfo

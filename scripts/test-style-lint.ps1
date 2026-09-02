@@ -52,6 +52,8 @@ $testRoots = @(Get-ChildItem -LiteralPath $RepoRoot -Recurse -Directory -Filter 
 # that retires it; the list only shrinks. A repo-root-relative directory prefix, forward slashes.
 $exempt = @{
     'Vion.Dale.Sdk.Generators.Test/' = 'the ANLZ area owns this project; EMIT and later passes cite its tests without rewriting them (their D3). Retired by the ANLZ pass.'
+    'Vion.Dale.DevHost.Test/'        = 'the CTRL and SCEN areas own this project; the GATE pass cites its topology and live-view tests without rewriting them. Retired by the CTRL pass.'
+    'Vion.Dale.Cli.Test/'            = 'the CLI area owns this project; the GATE pass cites its plugin-listing tests without rewriting them. Retired by the CLI pass.'
 }
 
 $problems = [System.Collections.Generic.List[string]]::new()
