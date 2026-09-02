@@ -19,6 +19,9 @@
         </PackageReference>
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1"/>
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0"/>
+        <!-- Compiles the fixture assemblies the resolution tests bind against: marked /
+             unmarked / built against a differing-major Vion.Dale.Sdk. No checked-in binaries. -->
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0"/>
         <PackageReference Include="MSTest" Version="4.0.2"/>
     </ItemGroup>
 
