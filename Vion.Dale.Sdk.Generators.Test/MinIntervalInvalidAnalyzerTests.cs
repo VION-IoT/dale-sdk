@@ -8,6 +8,7 @@ namespace Vion.Dale.Sdk.Generators.Test
     public class MinIntervalInvalidAnalyzerTests
     {
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.7")]
         public async Task DefaultMinInterval_NoDiagnostic()
         {
             var source = @"
@@ -21,6 +22,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.3")]
         public async Task ValidMinInterval_NoDiagnostic()
         {
             var source = @"
@@ -34,6 +36,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.3")]
         public async Task ZeroSentinel_NoDiagnostic()
         {
             var source = @"
@@ -47,6 +50,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.3")]
         public async Task ZeroMsSentinel_NoDiagnostic()
         {
             var source = @"
@@ -60,6 +64,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.4")]
         public async Task ExactlyOneMs_NoDiagnostic()
         {
             var source = @"
@@ -73,6 +78,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.3")]
         public async Task Unparseable_ReportsError()
         {
             var source = @"
@@ -87,6 +93,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.3")]
         public async Task BadUnit_ReportsError()
         {
             var source = @"
@@ -116,6 +123,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.4")]
         public async Task BelowFloorMicroseconds_ReportsWarning()
         {
             var source = @"
@@ -130,6 +138,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.4")]
         public async Task BelowFloorFractionalMs_ReportsWarning()
         {
             var source = @"
@@ -144,6 +153,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.7")]
         public async Task MeasuringPointBadInterval_ReportsError()
         {
             var source = @"

@@ -8,6 +8,7 @@ namespace Vion.Dale.Sdk.Generators.Test
     public class ImmediateIgnoresThrottleKnobsAnalyzerTests
     {
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.5")]
         public async Task ImmediateAlone_NoDiagnostic()
         {
             var source = @"
@@ -21,6 +22,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.5")]
         public async Task ThrottleKnobsWithoutImmediate_NoDiagnostic()
         {
             var source = @"
@@ -34,6 +36,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.5")]
         public async Task ImmediateWithDefaultMinIntervalEcho_NoDiagnostic()
         {
             // Echoing the default "250ms" alongside Immediate is harmless redundancy, not a misconfig.
@@ -48,6 +51,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.5")]
         public async Task ImmediateWithNonDefaultMinInterval_ReportsDiagnostic()
         {
             var source = @"
@@ -62,6 +66,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.5")]
         public async Task ImmediateWithMinChange_ReportsDiagnostic()
         {
             var source = @"
@@ -76,6 +81,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.5")]
         public async Task ImmediateWithBothKnobs_ReportsDiagnostic()
         {
             var source = @"
@@ -92,6 +98,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.5")]
         public async Task ImmediateFalseWithKnobs_NoDiagnostic()
         {
             var source = @"
@@ -105,6 +112,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.5")]
         public async Task ImmediateWithZeroSentinelMinInterval_ReportsDiagnostic()
         {
             // "0" is a non-default MinInterval — explicitly disabling a throttle that Immediate already

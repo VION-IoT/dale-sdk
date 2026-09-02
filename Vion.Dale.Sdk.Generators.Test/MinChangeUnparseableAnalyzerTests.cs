@@ -8,6 +8,7 @@ namespace Vion.Dale.Sdk.Generators.Test
     public class MinChangeUnparseableAnalyzerTests
     {
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.2")]
         public async Task ValidDoubleMinChange_NoDiagnostic()
         {
             var source = @"
@@ -21,6 +22,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.2")]
         public async Task ValidIntMinChange_NoDiagnostic()
         {
             var source = @"
@@ -34,6 +36,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.2")]
         public async Task ValidTimeSpanMinChange_NoDiagnostic()
         {
             var source = @"
@@ -48,6 +51,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.2")]
         public async Task NonNumericDoubleMinChange_ReportsDiagnostic()
         {
             var source = @"
@@ -64,6 +68,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.2")]
         public async Task DecimalPointOnIntMinChange_ReportsDiagnostic()
         {
             var source = @"
@@ -80,6 +85,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.2")]
         public async Task BadUnitTimeSpanMinChange_ReportsDiagnostic()
         {
             var source = @"
@@ -97,6 +103,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.2")]
         public async Task UnparseableOnCustomType_NoDiagnostic()
         {
             // Custom-threshold types have an opaque MinChange format; never parse-checked.
@@ -119,6 +126,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.2")]
         public async Task ValidMinChangeOnNullableDouble_NoDiagnostic()
         {
             var source = @"
@@ -132,6 +140,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.2")]
         public async Task ValidDecimalMinChange_NoDiagnostic()
         {
             var source = @"
@@ -145,6 +154,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.2")]
         public async Task NonNumericDecimalMinChange_ReportsDiagnostic()
         {
             var source = @"

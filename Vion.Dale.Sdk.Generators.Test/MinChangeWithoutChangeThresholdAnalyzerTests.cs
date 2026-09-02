@@ -8,6 +8,7 @@ namespace Vion.Dale.Sdk.Generators.Test
     public class MinChangeWithoutChangeThresholdAnalyzerTests
     {
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.1")]
         public async Task MinChangeOnDouble_NoDiagnostic()
         {
             var source = @"
@@ -21,6 +22,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.1")]
         public async Task MinChangeOnTimeSpan_NoDiagnostic()
         {
             var source = @"
@@ -35,6 +37,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.1")]
         public async Task MinChangeUnset_NoDiagnostic()
         {
             var source = @"
@@ -48,6 +51,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.1")]
         public async Task MinChangeOnBool_ReportsDiagnostic()
         {
             var source = @"
@@ -62,6 +66,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.1")]
         public async Task MinChangeOnStringNoThreshold_ReportsDiagnostic()
         {
             var source = @"
@@ -76,6 +81,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.1")]
         public async Task MinChangeOnCustomStructWithRegisteredThreshold_NoDiagnostic()
         {
             var source = @"
@@ -97,6 +103,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.1")]
         public async Task MinChangeOnCustomStructWithoutThreshold_ReportsDiagnostic()
         {
             var source = @"
@@ -113,6 +120,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.1")]
         public async Task MinChangeOnNullableDouble_NoDiagnostic()
         {
             var source = @"

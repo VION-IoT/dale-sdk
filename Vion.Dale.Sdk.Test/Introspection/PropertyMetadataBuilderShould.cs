@@ -249,6 +249,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-013.1")]
         public void PopulateThrottleRuntimeForANonDefaultPolicy()
         {
             var voltage = typeof(ThrottledLb).GetProperty(nameof(ThrottledLb.Voltage))!;
@@ -261,6 +262,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-013.2")]
         public void OmitThrottleRuntimeForTheDefaultPolicy()
         {
             var plain = typeof(ThrottledLb).GetProperty(nameof(ThrottledLb.Plain))!;
@@ -270,6 +272,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-013.4")]
         public void InheritThrottleRuntimeFromTheInterfaceWhenImplDeclaresNoEmissionAttribute()
         {
             // DF-35: the impl property carries no [ServiceProperty], the knobs live on the interface.
@@ -289,6 +292,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-013.4")]
         public void PreferImplThrottleOverTheInterfaceWhenBothDeclareKnobs()
         {
             // Impl owns its own [ServiceProperty(2s)] — it wins over the interface's 1s, mirroring the gate.
@@ -305,6 +309,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-013.4")]
         public void OmitThrottleWhenImplDeclaresADefaultPolicyEvenIfTheInterfaceHasKnobs()
         {
             // The impl declares a bare (default) [ServiceProperty], so it owns the policy — and the default
@@ -366,6 +371,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-013.3")]
         public void CarryImmediateAndTheEffectiveDefaultIntervalInThrottleRuntime()
         {
             var pulse = typeof(ThrottledLb).GetProperty(nameof(ThrottledLb.Pulse))!;
@@ -554,6 +560,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-013.1")]
         public void EmitRuntimeThrottleNodeForAnInterfaceInheritedPolicy()
         {
             // DF-35 end-to-end: the block's throttle knobs live on the [ServiceInterface]; the impl carries

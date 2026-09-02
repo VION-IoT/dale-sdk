@@ -8,6 +8,7 @@ namespace Vion.Dale.Sdk.Generators.Test
     public class DeadbandWithoutThrottleAnalyzerTests
     {
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.6")]
         public async Task MinChangeWithDefaultInterval_NoDiagnostic()
         {
             var source = @"
@@ -21,6 +22,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.6")]
         public async Task MinChangeWithRealInterval_NoDiagnostic()
         {
             var source = @"
@@ -34,6 +36,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.6")]
         public async Task ZeroIntervalWithoutMinChange_NoDiagnostic()
         {
             var source = @"
@@ -47,6 +50,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.6")]
         public async Task ZeroIntervalWithMinChange_ReportsInfo()
         {
             var source = @"
@@ -61,6 +65,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.6")]
         public async Task ZeroMsIntervalWithMinChange_ReportsInfo()
         {
             var source = @"
@@ -75,6 +80,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.6")]
         public async Task ZeroIntervalMinChangeButImmediate_NoDiagnostic()
         {
             // Immediate bypasses the deadband too, so "deadband only" doesn't apply — leave it to DALE038.
