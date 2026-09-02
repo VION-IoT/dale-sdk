@@ -78,9 +78,11 @@ namespace Vion.Dale.Sdk.Test.Core
             harness.Send(block,
                          new SetLinkedInterfaces(new Dictionary<InterfaceId, Dictionary<InterfaceId, IActorReference>>
                                                  {
-                                                     [new InterfaceId("cfg", PropertyInterface)] = new Dictionary<InterfaceId, IActorReference>
+                                                     [new InterfaceId("cfg", PropertyInterface)] = new()
                                                                                                    {
-                                                                                                       [new InterfaceId("peer", "IGatedProbeSource")] = harness.Context.LookupByName("peer"),
+                                                                                                       [new InterfaceId("peer",
+                                                                                                                            "IGatedProbeSource")] =
+                                                                                                           harness.Context.LookupByName("peer"),
                                                                                                    },
                                                  }));
             harness.Send(block, Poll(ClassInterface));
@@ -103,9 +105,7 @@ namespace Vion.Dale.Sdk.Test.Core
             // Act
             harness.Link(block);
             harness.Send(block,
-                         GatingHarness.Initialize([nameof(GatedContractBlock)],
-                                                  [nameof(GatedContractBlock.Point2Output)],
-                                                  Parameter(nameof(GatedContractBlock.PointCount), 1)));
+                         GatingHarness.Initialize([nameof(GatedContractBlock)], [nameof(GatedContractBlock.Point2Output)], Parameter(nameof(GatedContractBlock.PointCount), 1)));
 
             // Assert
             Assert.IsNull(block.Point2Output);

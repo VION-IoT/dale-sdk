@@ -97,9 +97,7 @@ namespace Vion.Dale.Sdk.Test.Core
             harness.Configure(block, StationServices, Parameter(nameof(GatedCountBlock.PointCount), 2));
 
             // Act
-            Assert.ThrowsExactly<InvalidOperationException>(() => harness.Send(block,
-                                                                               GatingHarness.Initialize(StationServices,
-                                                                                                        Parameter(nameof(GatedCountBlock.PointCount), 3))));
+            Assert.ThrowsExactly<InvalidOperationException>(() => harness.Send(block, GatingHarness.Initialize(StationServices, Parameter(nameof(GatedCountBlock.PointCount), 3))));
 
             // Assert
             CollectionAssert.AreEquivalent(new[] { nameof(GatedCountBlock), nameof(GatedCountBlock.Point1), "Point2" }, harness.BoundServices().ToArray());

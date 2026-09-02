@@ -185,9 +185,7 @@ namespace Vion.Dale.Sdk.Test.Configuration
             var harness = new GatingHarness();
 
             // Act
-            harness.Configure(block,
-                              [nameof(LeafStationBlock), nameof(LeafStationBlock.Point1), "Point2"],
-                              Parameter(nameof(BaseStationBlock.PointCount), JsonValue.Create(2L)));
+            harness.Configure(block, [nameof(LeafStationBlock), nameof(LeafStationBlock.Point1), "Point2"], Parameter(nameof(BaseStationBlock.PointCount), JsonValue.Create(2L)));
 
             // Assert
             Assert.AreEqual(2, block.PointCount);

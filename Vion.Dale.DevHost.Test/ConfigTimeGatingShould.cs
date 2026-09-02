@@ -29,7 +29,6 @@ namespace Vion.Dale.DevHost.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-GATE-012.3")]
-
         [TestProperty("spec", "AC-GATE-012.4")]
         public async Task ResolveTheLiveViewAgainstTheParameterValue()
         {

@@ -65,6 +65,11 @@ namespace Vion.Dale.Sdk.Core
 
         private IActorContext _actorContext = null!;
 
+        // Set the moment InitializeLogicBlock is accepted, so a second one is refused rather than rebinding
+        // onto the members the first already bound. Set before Configure runs, so a configuration that
+        // throws part-way still counts as spent — the instance is unusable either way.
+        private bool _configured;
+
         // emission policy. The per-property gate is active when the clock is NOT a
         // controllable (FakeTimeProvider-style) clock — i.e. production + free-run DevHost — OR
         // when a TestKit override forces it on despite a controllable clock. Resolved once at
@@ -74,11 +79,6 @@ namespace Vion.Dale.Sdk.Core
         // Set from an optional injected EmissionPolicyForceMarker (TestKit WithEmissionPolicy(FromAttributes)):
         // forces the policy active even though the injected clock is controllable.
         private bool _forcePolicyFromAttributes;
-
-        // Set the moment InitializeLogicBlock is accepted, so a second one is refused rather than rebinding
-        // onto the members the first already bound. Set before Configure runs, so a configuration that
-        // throws part-way still counts as spent — the instance is unusable either way.
-        private bool _configured;
 
         private bool _initializeDeferred;
 

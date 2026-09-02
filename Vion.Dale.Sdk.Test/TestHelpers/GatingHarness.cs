@@ -32,14 +32,6 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
 
         private readonly List<object> _sentMessages = [];
 
-        public GatingHarness()
-        {
-            _actorContextMock.Setup(c => c.SendTo(It.IsAny<IActorReference>(), It.IsAny<object>(), It.IsAny<Dictionary<string, string>?>()))
-                             .Callback<IActorReference, object, Dictionary<string, string>?>((_, message, _) => _sentMessages.Add(message));
-            _actorContextMock.Setup(c => c.RespondToSender(It.IsAny<object>())).Callback<object>(_responses.Add);
-            _actorContextMock.Setup(c => c.LookupByName(It.IsAny<string>())).Returns(new Mock<IActorReference>().Object);
-        }
-
         public IActorContext Context
         {
             get => _actorContextMock.Object;
@@ -56,22 +48,27 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
             get => _responses;
         }
 
+        public GatingHarness()
+        {
+            _actorContextMock.Setup(c => c.SendTo(It.IsAny<IActorReference>(), It.IsAny<object>(), It.IsAny<Dictionary<string, string>?>()))
+                             .Callback<IActorReference, object, Dictionary<string, string>?>((_, message, _) => _sentMessages.Add(message));
+            _actorContextMock.Setup(c => c.RespondToSender(It.IsAny<object>())).Callback<object>(_responses.Add);
+            _actorContextMock.Setup(c => c.LookupByName(It.IsAny<string>())).Returns(new Mock<IActorReference>().Object);
+        }
+
         /// <summary>
         ///     Links the runtime actors and then configures <paramref name="block" /> with
         ///     <paramref name="parameters" />, exactly as the runtime does. <paramref name="serviceIdentifiers" />
         ///     is the block's maximum service set; the bound subset comes back from <see cref="BoundServices" />.
         /// </summary>
-        public void Configure(LogicBlockBase block,
-                              IEnumerable<string> serviceIdentifiers,
-                              params SetLogicConfigurationPayload.InstantiationParameterValue[] parameters)
+        public void Configure(LogicBlockBase block, IEnumerable<string> serviceIdentifiers, params SetLogicConfigurationPayload.InstantiationParameterValue[] parameters)
         {
             Link(block);
             Send(block, Initialize(serviceIdentifiers, parameters));
         }
 
         /// <summary>Builds a configuration message without sending it, for tests that drive a second one.</summary>
-        public static InitializeLogicBlock Initialize(IEnumerable<string> serviceIdentifiers,
-                                                      params SetLogicConfigurationPayload.InstantiationParameterValue[] parameters)
+        public static InitializeLogicBlock Initialize(IEnumerable<string> serviceIdentifiers, params SetLogicConfigurationPayload.InstantiationParameterValue[] parameters)
         {
             return Initialize(serviceIdentifiers, [], parameters);
         }

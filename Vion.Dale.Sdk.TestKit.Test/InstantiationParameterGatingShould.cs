@@ -58,8 +58,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
             // Assert
             Assert.AreEqual(2, block.PointCount);
-            CollectionAssert.AreEquivalent(new[] { nameof(TestKitGatedBlock), nameof(TestKitGatedBlock.Point1), nameof(TestKitGatedBlock.Point2) },
-                                           BoundServices(context));
+            CollectionAssert.AreEquivalent(new[] { nameof(TestKitGatedBlock), nameof(TestKitGatedBlock.Point1), nameof(TestKitGatedBlock.Point2) }, BoundServices(context));
         }
 
         [TestMethod]
