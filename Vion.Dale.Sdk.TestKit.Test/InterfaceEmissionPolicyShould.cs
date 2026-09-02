@@ -6,12 +6,11 @@ using Vion.Dale.Sdk.Core;
 namespace Vion.Dale.Sdk.TestKit.Test
 {
     /// <summary>
-    ///     DF-33: a family of blocks declares its emission policy <em>once</em> on a shared
-    ///     <c>[ServiceInterface]</c> (the §8.12 DRY convention), and the implementing block carries
-    ///     only the bare property. The runtime must honour the interface-declared throttle knobs the
-    ///     same way it already merges the interface-declared schema — impl wins if it carries its own
-    ///     attribute, otherwise the interface's knobs apply. Before the fix the knobs were read only
-    ///     from the impl property, so no throttler was built and every assignment emitted raw.
+    ///     A family of blocks declares its emission policy <em>once</em> on a shared
+    ///     <c>[ServiceInterface]</c> and the implementing block carries only the bare property. The
+    ///     interface-declared knobs are honoured the same way the interface-declared schema already is:
+    ///     the implementation wins where it declares the stream's own attribute, otherwise the
+    ///     interface's knobs apply.
     /// </summary>
     [ServiceInterface]
     public interface IInterfaceEmissionService
@@ -49,6 +48,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
     public class InterfaceEmissionPolicyShould
     {
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-002.3")]
         public void ThrottleServicePropertyUsingKnobsDeclaredOnTheInterface()
         {
             var block = LogicBlockTestHelper.Create<InterfaceEmissionLogicBlock>();
@@ -66,6 +66,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-002.3")]
         public void ThrottleMeasuringPointUsingKnobsDeclaredOnTheInterface()
         {
             var block = LogicBlockTestHelper.Create<InterfaceEmissionLogicBlock>();

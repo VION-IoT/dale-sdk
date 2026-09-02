@@ -82,6 +82,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
     public class CustomThresholdEmissionPolicyShould
     {
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-009.1")]
         public void ApplyDeadbandResolvedByScanningTheBlockAssembly()
         {
             var block = LogicBlockTestHelper.Create<CustomThresholdLogicBlock>();
@@ -101,6 +102,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-009.1")]
         public void EmitWhenAChangeClearsTheCustomDeadband()
         {
             var block = LogicBlockTestHelper.Create<CustomThresholdLogicBlock>();
@@ -117,6 +119,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-002.5")]
         public void ApplyInterfaceDeclaredDeadbandOnACustomType()
         {
             // Exercises both fixes: the interface-declared MinChange is inherited (DF-33) and its custom
@@ -136,6 +139,8 @@ namespace Vion.Dale.Sdk.TestKit.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-003.1")]
+        [TestProperty("spec", "AC-EMIT-003.2")]
         public void ThrowAtStartWhenMinChangeHasNoResolvableThreshold()
         {
             var block = LogicBlockTestHelper.Create<UnresolvableMinChangeLogicBlock>();
