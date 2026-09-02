@@ -120,6 +120,18 @@ public class NestedShould
     Add-Content -LiteralPath $page -Value "`n- ``AC-PLUG-007.1`` (Event-driven): WHEN g THE SYSTEM SHALL h. GAP: test pending (VION-999)"
     if ((Invoke-Trace) -ne 0) { throw "Case 10 (GAP row exempt) expected 0" }
 
+    # Case 11: a GAP marker on an in-flight DELTA line is honoured the same way — the criterion is
+    # declared-but-exempt before it reaches a page, not a hard FAIL until archive
+    New-File 'docs/changes/2026-01-02-y.md' @'
+---
+slug: y
+status: in-flight
+---
+- ADDED AC-PLUG-008.1 -> docs/specs/plugin.md : WHEN k THE SYSTEM SHALL l. GAP: no fixture can produce this shape
+'@ | Out-Null
+    if ((Invoke-Trace) -ne 0) { throw "Case 11 (GAP on an in-flight delta) expected 0" }
+    Remove-Item (Join-Path $tmp 'docs/changes/2026-01-02-y.md')
+
     Write-Host 'spec-trace.tests: PASS'
     exit 0
 }
