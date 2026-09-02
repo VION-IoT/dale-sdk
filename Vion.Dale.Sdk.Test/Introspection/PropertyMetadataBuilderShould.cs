@@ -180,7 +180,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
         public void EmitVisibleWhenFromThePresentationAttribute()
         {
             var property = typeof(VisibleWhenDirectLb).GetProperty(nameof(VisibleWhenDirectLb.PrimaryCurrentToWriteA))!;
-            var pm = PropertyMetadataBuilder.Build(property, new PrimitiveTypeRef(PrimitiveKind.Double), ImmutableDictionary<string, TypeAnnotations>.Empty);
+            var pm = PropertyMetadataBuilder.Build(property, new PrimitiveTypeRef(PrimitiveKind.Double), ImmutableDictionary<string, TypeAnnotations>.Empty, ServiceElementStream.Property);
 
             Assert.AreEqual("DirectMeasurement == false", pm.Presentation.VisibleWhen);
         }
@@ -194,7 +194,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
             var pm = PropertyMetadataBuilder.BuildSplit(schemaSource,
                                                         presentationSource,
                                                         new PrimitiveTypeRef(PrimitiveKind.Double),
-                                                        ImmutableDictionary<string, TypeAnnotations>.Empty);
+                                                        ImmutableDictionary<string, TypeAnnotations>.Empty, ServiceElementStream.Property);
 
             Assert.AreEqual("Enabled == true", pm.Presentation.VisibleWhen);
         }
@@ -208,7 +208,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
             var pm = PropertyMetadataBuilder.BuildSplit(schemaSource,
                                                         presentationSource,
                                                         new PrimitiveTypeRef(PrimitiveKind.Double),
-                                                        ImmutableDictionary<string, TypeAnnotations>.Empty);
+                                                        ImmutableDictionary<string, TypeAnnotations>.Empty, ServiceElementStream.Property);
 
             Assert.AreEqual("Manual == false", pm.Presentation.VisibleWhen);
         }
@@ -222,7 +222,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
             var pm = PropertyMetadataBuilder.BuildSplit(schemaSource,
                                                         presentationSource,
                                                         new PrimitiveTypeRef(PrimitiveKind.Double),
-                                                        ImmutableDictionary<string, TypeAnnotations>.Empty);
+                                                        ImmutableDictionary<string, TypeAnnotations>.Empty, ServiceElementStream.Property);
 
             // Class wins on DisplayName (it was explicitly set on the class).
             Assert.AreEqual("PV-Power", pm.Presentation.DisplayName);
@@ -241,7 +241,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
             var pm = PropertyMetadataBuilder.BuildSplit(schemaSource,
                                                         presentationSource,
                                                         new PrimitiveTypeRef(PrimitiveKind.Double),
-                                                        ImmutableDictionary<string, TypeAnnotations>.Empty);
+                                                        ImmutableDictionary<string, TypeAnnotations>.Empty, ServiceElementStream.Property);
 
             // Class declared no [Presentation], so all interface presentation cascades through.
             Assert.AreEqual(PropertyGroup.Status, pm.Presentation.Group);
@@ -252,7 +252,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
         public void PopulateThrottleRuntimeForANonDefaultPolicy()
         {
             var voltage = typeof(ThrottledLb).GetProperty(nameof(ThrottledLb.Voltage))!;
-            var pm = PropertyMetadataBuilder.BuildSplit(voltage, voltage, new PrimitiveTypeRef(PrimitiveKind.Double), ImmutableDictionary<string, TypeAnnotations>.Empty);
+            var pm = PropertyMetadataBuilder.BuildSplit(voltage, voltage, new PrimitiveTypeRef(PrimitiveKind.Double), ImmutableDictionary<string, TypeAnnotations>.Empty, ServiceElementStream.Property);
 
             Assert.IsNotNull(pm.Runtime.Throttle);
             Assert.AreEqual("1s", pm.Runtime.Throttle!.MinInterval);
@@ -264,7 +264,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
         public void OmitThrottleRuntimeForTheDefaultPolicy()
         {
             var plain = typeof(ThrottledLb).GetProperty(nameof(ThrottledLb.Plain))!;
-            var pm = PropertyMetadataBuilder.BuildSplit(plain, plain, new PrimitiveTypeRef(PrimitiveKind.Double), ImmutableDictionary<string, TypeAnnotations>.Empty);
+            var pm = PropertyMetadataBuilder.BuildSplit(plain, plain, new PrimitiveTypeRef(PrimitiveKind.Double), ImmutableDictionary<string, TypeAnnotations>.Empty, ServiceElementStream.Property);
 
             Assert.IsNull(pm.Runtime.Throttle);
         }
@@ -281,7 +281,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
             var pm = PropertyMetadataBuilder.BuildSplit(schemaSource,
                                                         presentationSource,
                                                         new PrimitiveTypeRef(PrimitiveKind.Double),
-                                                        ImmutableDictionary<string, TypeAnnotations>.Empty);
+                                                        ImmutableDictionary<string, TypeAnnotations>.Empty, ServiceElementStream.Property);
 
             Assert.IsNotNull(pm.Runtime.Throttle);
             Assert.AreEqual("1s", pm.Runtime.Throttle!.MinInterval);
@@ -298,7 +298,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
             var pm = PropertyMetadataBuilder.BuildSplit(schemaSource,
                                                         presentationSource,
                                                         new PrimitiveTypeRef(PrimitiveKind.Double),
-                                                        ImmutableDictionary<string, TypeAnnotations>.Empty);
+                                                        ImmutableDictionary<string, TypeAnnotations>.Empty, ServiceElementStream.Property);
 
             Assert.IsNotNull(pm.Runtime.Throttle);
             Assert.AreEqual("2s", pm.Runtime.Throttle!.MinInterval);
@@ -316,7 +316,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
             var pm = PropertyMetadataBuilder.BuildSplit(schemaSource,
                                                         presentationSource,
                                                         new PrimitiveTypeRef(PrimitiveKind.Double),
-                                                        ImmutableDictionary<string, TypeAnnotations>.Empty);
+                                                        ImmutableDictionary<string, TypeAnnotations>.Empty, ServiceElementStream.Property);
 
             Assert.IsNull(pm.Runtime.Throttle);
         }
@@ -325,7 +325,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
         public void CarryImmediateAndTheEffectiveDefaultIntervalInThrottleRuntime()
         {
             var pulse = typeof(ThrottledLb).GetProperty(nameof(ThrottledLb.Pulse))!;
-            var pm = PropertyMetadataBuilder.BuildSplit(pulse, pulse, new PrimitiveTypeRef(PrimitiveKind.Double), ImmutableDictionary<string, TypeAnnotations>.Empty);
+            var pm = PropertyMetadataBuilder.BuildSplit(pulse, pulse, new PrimitiveTypeRef(PrimitiveKind.Double), ImmutableDictionary<string, TypeAnnotations>.Empty, ServiceElementStream.Property);
 
             Assert.IsNotNull(pm.Runtime.Throttle);
             Assert.IsTrue(pm.Runtime.Throttle!.Immediate);
@@ -436,6 +436,31 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
     }
 
+    // One member, two streams, two different policies — plus a second member whose measuring point
+    // declares no knobs beside a property that declares a slow interval.
+    public class DualAnnotatedThrottleLb : LogicBlockBase
+    {
+        [ServiceProperty(MinInterval = "2s")]
+        [ServiceMeasuringPoint(MinInterval = "500ms", MinChange = "1")]
+        public double Power { get; private set; }
+
+        [ServiceProperty(MinInterval = "2s")]
+        [ServiceMeasuringPoint]
+        public double Reading { get; private set; }
+
+        public DualAnnotatedThrottleLb() : base(new Mock<ILogger>().Object)
+        {
+        }
+
+        protected override void Ready()
+        {
+        }
+
+        protected override void Starting()
+        {
+        }
+    }
+
     [TestClass]
     public class LogicBlockIntrospectionOrderingShould
     {
@@ -488,6 +513,34 @@ namespace Vion.Dale.Sdk.Test.Introspection
             Assert.IsNotNull(throttle, "runtime.throttle must be emitted for an interface-inherited policy");
             Assert.AreEqual("1s", throttle!["minInterval"]!.GetValue<string>());
             Assert.AreEqual("0.1", throttle["minChange"]!.GetValue<string>());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-013.4")]
+        public void EmitEachStreamsOwnThrottleNodeForADualAnnotatedMember()
+        {
+            // Arrange / Act
+            var service = LogicBlockIntrospection.IntrospectLogicBlock(new DualAnnotatedThrottleLb(), _serviceProvider).Services.Single();
+
+            // Assert
+            var propertyThrottle = service.Properties.Single(p => p.Identifier == "Power").Runtime!["throttle"];
+            var measuringPointThrottle = service.MeasuringPoints.Single(m => m.Identifier == "Power").Runtime!["throttle"];
+            Assert.AreEqual("2s", propertyThrottle!["minInterval"]!.GetValue<string>());
+            Assert.IsNull(propertyThrottle["minChange"]);
+            Assert.AreEqual("500ms", measuringPointThrottle!["minInterval"]!.GetValue<string>());
+            Assert.AreEqual("1", measuringPointThrottle["minChange"]!.GetValue<string>());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-002.2")]
+        public void OmitTheThrottleNodeOfAStreamDeclaringNoKnobsBesideOneThatDoes()
+        {
+            // Arrange / Act
+            var service = LogicBlockIntrospection.IntrospectLogicBlock(new DualAnnotatedThrottleLb(), _serviceProvider).Services.Single();
+
+            // Assert
+            Assert.AreEqual("2s", service.Properties.Single(p => p.Identifier == "Reading").Runtime!["throttle"]!["minInterval"]!.GetValue<string>());
+            Assert.IsNull(service.MeasuringPoints.Single(m => m.Identifier == "Reading").Runtime?["throttle"]);
         }
     }
 }

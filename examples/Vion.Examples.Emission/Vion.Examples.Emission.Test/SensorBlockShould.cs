@@ -91,13 +91,18 @@ namespace Vion.Examples.Emission.Test
             var propertyEmits = ctx.GetSentMessagesOfTypePublic<ServicePropertyValueChanged>().Count(m => m.PropertyIdentifier == nameof(SensorBlock.Power));
             var measuringPointEmits = ctx.GetSentMessagesOfTypePublic<ServiceMeasuringPointValueChanged>().Count(m => m.MeasuringPointIdentifier == nameof(SensorBlock.Power));
 
-            // The #104 fix: a dual-annotated member feeds BOTH streams — neither suppresses the other.
-            Assert.True(propertyEmits > 0, $"property stream should emit; got {propertyEmits}");
-            Assert.True(measuringPointEmits > 0, $"measuring-point stream should emit; got {measuringPointEmits}");
+            // A dual-annotated member feeds BOTH streams — neither suppresses the other.
+            Assert.True(propertyEmits > 0, $"property stream must emit; got {propertyEmits}");
+            Assert.True(measuringPointEmits > 0, $"measuring-point stream must emit; got {measuringPointEmits}");
 
-            // The streams throttle independently: the faster 500 ms stream emits at least as often as the 2 s one.
+            // The streams throttle independently: the faster 500 ms measuring point emits at least as often
+            // as the 2 s property. It cannot yet emit MORE here — this project references a published
+            // Vion.Dale.Sdk package, and in the packages released so far a dual-annotated member's
+            // measuring point borrowed the property's knobs. That each stream gates on its own attribute is
+            // proven in-repo by Vion.Dale.Sdk.TestKit.Test/DualAnnotatedEmissionShould; tighten this to `>`
+            // once the version bump after that fix's release lands.
             Assert.True(measuringPointEmits >= propertyEmits,
-                        $"measuring-point (500 ms) should emit at least as often as property (2 s); got mp={measuringPointEmits}, prop={propertyEmits}");
+                        $"measuring-point (500 ms) must emit at least as often as property (2 s); got mp={measuringPointEmits}, prop={propertyEmits}");
         }
 
         [Fact]

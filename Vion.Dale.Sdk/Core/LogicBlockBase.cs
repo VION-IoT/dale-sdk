@@ -609,12 +609,13 @@ namespace Vion.Dale.Sdk.Core
         /// </summary>
         private void BuildThrottlers()
         {
-            BuildThrottlersFor(_serviceBinder.GetAllServicePropertyBindings(), _servicePropertyThrottlers);
-            BuildThrottlersFor(_serviceBinder.GetAllServiceMeasuringPointBindings(), _measuringPointThrottlers);
+            BuildThrottlersFor(_serviceBinder.GetAllServicePropertyBindings(), _servicePropertyThrottlers, ServiceElementStream.Property);
+            BuildThrottlersFor(_serviceBinder.GetAllServiceMeasuringPointBindings(), _measuringPointThrottlers, ServiceElementStream.MeasuringPoint);
         }
 
         private void BuildThrottlersFor(IReadOnlyDictionary<string, IReadOnlyDictionary<Type, IReadOnlyDictionary<string, ServiceBinding>>> bindings,
-                                        Dictionary<(string ServiceIdentifier, string MemberIdentifier), Throttler> throttlers)
+                                        Dictionary<(string ServiceIdentifier, string MemberIdentifier), Throttler> throttlers,
+                                        ServiceElementStream stream)
         {
             foreach (var (serviceIdentifier, interfaceMap) in bindings)
             {
@@ -622,7 +623,7 @@ namespace Vion.Dale.Sdk.Core
                 {
                     foreach (var (memberIdentifier, binding) in perInterface)
                     {
-                        var configured = ResolveThrottleConfigured(binding, out var configuredSource);
+                        var configured = ResolveThrottleConfigured(binding, stream, out var configuredSource);
                         if (configured == null)
                         {
                             continue;
@@ -654,17 +655,17 @@ namespace Vion.Dale.Sdk.Core
             }
         }
 
-        private static IThrottleConfigured? ResolveThrottleConfigured(ServiceBinding binding, out PropertyInfo? source)
+        private static IThrottleConfigured? ResolveThrottleConfigured(ServiceBinding binding, ServiceElementStream stream, out PropertyInfo? source)
         {
-            // DF-33: the emission knobs follow the schema-from-interface precedent (PropertyMetadataBuilder.
-            // BuildSplit). The impl property wins if it declares its own [ServiceProperty]/[ServiceMeasuringPoint];
-            // otherwise the knobs are inherited from the [ServiceInterface] property the schema is declared on.
-            // This lets a family of blocks sharing a [ServiceInterface] declare emission policy once (DRY),
-            // the same way it declares the schema once. For a non-interface (extra) property the schema source
-            // is the impl property itself, so this collapses to "read from the impl property".
+            // The emission knobs follow the schema-from-interface precedent (PropertyMetadataBuilder.
+            // BuildSplit). The impl property wins if it declares the stream's own attribute; otherwise the
+            // knobs are inherited from the [ServiceInterface] property the schema is declared on. This lets a
+            // family of blocks sharing a [ServiceInterface] declare emission policy once (DRY), the same way
+            // it declares the schema once. For a non-interface (extra) property the schema source is the impl
+            // property itself, so this collapses to "read from the impl property".
             // `source` is the property the knobs were actually read from — used to probe the right assembly
-            // for a custom IChangeThreshold<T> (DF-34).
-            var implConfigured = ConfiguredFrom(binding.RootSourcePropertyInfo);
+            // for a custom IChangeThreshold<T>.
+            var implConfigured = ConfiguredFrom(binding.RootSourcePropertyInfo, stream);
             if (implConfigured != null)
             {
                 source = binding.RootSourcePropertyInfo;
@@ -672,20 +673,21 @@ namespace Vion.Dale.Sdk.Core
             }
 
             source = binding.SchemaSourcePropertyInfo;
-            return ConfiguredFrom(binding.SchemaSourcePropertyInfo);
+            return ConfiguredFrom(binding.SchemaSourcePropertyInfo, stream);
         }
 
-        private static IThrottleConfigured? ConfiguredFrom(PropertyInfo? property)
+        private static IThrottleConfigured? ConfiguredFrom(PropertyInfo? property, ServiceElementStream stream)
         {
             if (property == null)
             {
                 return null;
             }
 
-            // The same PropertyInfo carries either [ServiceProperty] or [ServiceMeasuringPoint];
-            // both implement IThrottleConfigured. Reflect whichever is present.
-            return (IThrottleConfigured?)property.GetCustomAttribute(typeof(ServicePropertyAttribute), true) ??
-                   (IThrottleConfigured?)property.GetCustomAttribute(typeof(ServiceMeasuringPointAttribute), true);
+            // Read the attribute belonging to the stream being built, never the sibling's. A dual-annotated
+            // member declares two independent policies; falling back to the other attribute would hand the
+            // measuring point the property's interval and silently ignore its own.
+            var attributeType = stream == ServiceElementStream.Property ? typeof(ServicePropertyAttribute) : typeof(ServiceMeasuringPointAttribute);
+            return (IThrottleConfigured?)property.GetCustomAttribute(attributeType, true);
         }
 
         /// <summary>

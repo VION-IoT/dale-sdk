@@ -1,5 +1,6 @@
 using System;
 using System.Reflection;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Introspection;
 
 namespace Vion.Dale.Sdk.Configuration.Services
@@ -39,7 +40,7 @@ namespace Vion.Dale.Sdk.Configuration.Services
             var ifacePropInfo = _serviceInterfaceType.GetProperty(servicePropertyName) ?? rootSourcePropertyInfo;
             var typeRef = TypeRefBuilder.BuildForProperty(ifacePropInfo);
             var structFieldAnnotations = TypeRefBuilder.BuildStructFieldAnnotations(ifacePropInfo.PropertyType);
-            var metadata = PropertyMetadataBuilder.BuildSplit(ifacePropInfo, rootSourcePropertyInfo, typeRef, structFieldAnnotations);
+            var metadata = PropertyMetadataBuilder.BuildSplit(ifacePropInfo, rootSourcePropertyInfo, typeRef, structFieldAnnotations, ServiceElementStream.Property);
 
             var binding = new ServiceBinding
                           {
@@ -75,7 +76,7 @@ namespace Vion.Dale.Sdk.Configuration.Services
             var ifacePropInfo = _serviceInterfaceType.GetProperty(serviceMeasuringPointName) ?? rootSourcePropertyInfo;
             var typeRef = TypeRefBuilder.BuildForProperty(ifacePropInfo);
             var structFieldAnnotations = TypeRefBuilder.BuildStructFieldAnnotations(ifacePropInfo.PropertyType);
-            var metadata = PropertyMetadataBuilder.BuildSplit(ifacePropInfo, rootSourcePropertyInfo, typeRef, structFieldAnnotations);
+            var metadata = PropertyMetadataBuilder.BuildSplit(ifacePropInfo, rootSourcePropertyInfo, typeRef, structFieldAnnotations, ServiceElementStream.MeasuringPoint);
 
             var binding = new ServiceBinding
                           {

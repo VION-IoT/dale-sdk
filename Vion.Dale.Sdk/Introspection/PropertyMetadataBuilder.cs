@@ -22,8 +22,13 @@ namespace Vion.Dale.Sdk.Introspection
         ///     The <paramref name="structFieldAnnotations" /> map carries per-struct-field
         ///     <c>[StructField]</c> data when the property is a struct or array-of-struct;
         ///     pass <see cref="ImmutableDictionary{TKey,TValue}.Empty" /> when not applicable.
+        ///     The <paramref name="stream" /> names which of the member's two publication streams this
+        ///     document describes, so the emission knobs come from that stream's own attribute.
         /// </summary>
-        public static PropertyMetadata Build(PropertyInfo property, TypeRef typeRef, ImmutableDictionary<string, TypeAnnotations> structFieldAnnotations)
+        public static PropertyMetadata Build(PropertyInfo property,
+                                             TypeRef typeRef,
+                                             ImmutableDictionary<string, TypeAnnotations> structFieldAnnotations,
+                                             ServiceElementStream stream)
         {
             var sp = property.GetCustomAttribute<ServicePropertyAttribute>();
             var mp = property.GetCustomAttribute<ServiceMeasuringPointAttribute>();
@@ -33,7 +38,7 @@ namespace Vion.Dale.Sdk.Introspection
             var annotations = ExtractTypeAnnotations(sp, mp, HasPublicSetter(property), hasIdentityTitle, isInstantiationParameter);
             var schema = new TypeSchema(typeRef, annotations, structFieldAnnotations);
             var presentation = ExtractPresentation(property, sp, mp, hasIdentityTitle);
-            var runtime = ExtractRuntime(property);
+            var runtime = ExtractRuntime(property, stream);
 
             return new PropertyMetadata(schema, presentation, runtime);
         }
@@ -50,7 +55,8 @@ namespace Vion.Dale.Sdk.Introspection
         public static PropertyMetadata BuildSplit(PropertyInfo schemaSource,
                                                   PropertyInfo presentationSource,
                                                   TypeRef typeRef,
-                                                  ImmutableDictionary<string, TypeAnnotations> structFieldAnnotations)
+                                                  ImmutableDictionary<string, TypeAnnotations> structFieldAnnotations,
+                                                  ServiceElementStream stream)
         {
             var sp = schemaSource.GetCustomAttribute<ServicePropertyAttribute>();
             var mp = schemaSource.GetCustomAttribute<ServiceMeasuringPointAttribute>();
@@ -70,7 +76,7 @@ namespace Vion.Dale.Sdk.Introspection
             var classPresentation = ExtractPresentation(presentationSource, sp, mp, hasIdentityTitle);
             var presentation = MergePresentation(classPresentation, interfacePresentation);
 
-            var runtime = ExtractRuntimeSplit(presentationSource, schemaSource);
+            var runtime = ExtractRuntimeSplit(presentationSource, schemaSource, stream);
 
             return new PropertyMetadata(schema, presentation, runtime);
         }
@@ -343,14 +349,14 @@ namespace Vion.Dale.Sdk.Introspection
             return isStatusIndicator ? ExtractStatusMappings(property.PropertyType) : null;
         }
 
-        private static RuntimeMetadata ExtractRuntime(PropertyInfo property)
+        private static RuntimeMetadata ExtractRuntime(PropertyInfo property, ServiceElementStream stream)
         {
             // Persistent: presence of [Persistent] without Exclude=true => Persistent=true in output.
             // [Persistent(Exclude = true)] records as Persistent=false (treat opt-out as not persistent).
             var persistentAttr = property.GetCustomAttribute<PersistentAttribute>();
             var persistent = persistentAttr is not null && !persistentAttr.Exclude;
 
-            var runtime = new RuntimeMetadata { Persistent = persistent, Throttle = ExtractThrottle(property) };
+            var runtime = new RuntimeMetadata { Persistent = persistent, Throttle = ExtractThrottle(property, stream) };
             return runtime.IsEmpty ? RuntimeMetadata.None : runtime;
         }
 
@@ -361,28 +367,38 @@ namespace Vion.Dale.Sdk.Introspection
         // [ServiceInterface]. This mirrors LogicBlockBase.ResolveThrottleConfigured exactly (DF-33/DF-35),
         // so the UI throttle chip matches the policy the gate enforces — including the §8.12 DRY pattern
         // where the impl carries only presentation and the knobs live on the interface.
-        private static RuntimeMetadata ExtractRuntimeSplit(PropertyInfo presentationSource, PropertyInfo schemaSource)
+        private static RuntimeMetadata ExtractRuntimeSplit(PropertyInfo presentationSource, PropertyInfo schemaSource, ServiceElementStream stream)
         {
             var persistentAttr = presentationSource.GetCustomAttribute<PersistentAttribute>();
             var persistent = persistentAttr is not null && !persistentAttr.Exclude;
 
-            var throttleSource = HasEmissionAttribute(presentationSource) ? presentationSource : schemaSource;
-            var runtime = new RuntimeMetadata { Persistent = persistent, Throttle = ExtractThrottle(throttleSource) };
+            var throttleSource = HasEmissionAttribute(presentationSource, stream) ? presentationSource : schemaSource;
+            var runtime = new RuntimeMetadata { Persistent = persistent, Throttle = ExtractThrottle(throttleSource, stream) };
             return runtime.IsEmpty ? RuntimeMetadata.None : runtime;
         }
 
-        private static bool HasEmissionAttribute(PropertyInfo property)
+        private static bool HasEmissionAttribute(PropertyInfo property, ServiceElementStream stream)
         {
-            return property.GetCustomAttribute<ServicePropertyAttribute>() is not null || property.GetCustomAttribute<ServiceMeasuringPointAttribute>() is not null;
+            return EmissionAttribute(property, stream) is not null;
+        }
+
+        // The attribute carrying the knobs for the stream being described. Never the sibling's: a member
+        // declaring both attributes declares two independent policies, and reporting the property's on the
+        // measuring point would show a badge that the gate does not enforce.
+        private static IThrottleConfigured? EmissionAttribute(PropertyInfo property, ServiceElementStream stream)
+        {
+            return stream == ServiceElementStream.Property
+                       ? property.GetCustomAttribute<ServicePropertyAttribute>()
+                       : property.GetCustomAttribute<ServiceMeasuringPointAttribute>();
         }
 
         // The effective RFC 0004 emission policy (throttle / deadband / immediate), read from the
         // [ServiceProperty] / [ServiceMeasuringPoint] knobs. Surfaced only when it deviates from the
         // default (MinInterval 250ms, no deadband, not immediate) to keep introspection lean; when
         // surfaced the *effective* MinInterval is carried, so a consumer needs no knowledge of the default.
-        private static ThrottleMetadata? ExtractThrottle(PropertyInfo property)
+        private static ThrottleMetadata? ExtractThrottle(PropertyInfo property, ServiceElementStream stream)
         {
-            var cfg = (IThrottleConfigured?)property.GetCustomAttribute<ServicePropertyAttribute>() ?? property.GetCustomAttribute<ServiceMeasuringPointAttribute>();
+            var cfg = EmissionAttribute(property, stream);
             if (cfg is null)
             {
                 return null;
