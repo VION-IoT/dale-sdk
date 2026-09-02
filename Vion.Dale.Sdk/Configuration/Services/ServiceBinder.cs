@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
+using System.Reflection;
 using Microsoft.Extensions.Logging;
 
 namespace Vion.Dale.Sdk.Configuration.Services
@@ -240,6 +241,30 @@ namespace Vion.Dale.Sdk.Configuration.Services
         /// <summary>
         ///     Used by the declarative service binder to declare a service and start binding properties
         /// </summary>
+        /// <summary>
+        ///     The logic-block property a bound service property was declared on, or <c>null</c> when
+        ///     <paramref name="propertyIdentifier" /> names no bound property of
+        ///     <paramref name="serviceIdentifier" />. The block reads the declaration's attributes from it to
+        ///     judge a write before <see cref="SetPropertyValue" /> applies one.
+        /// </summary>
+        internal PropertyInfo? FindServicePropertySource(string serviceIdentifier, string propertyIdentifier)
+        {
+            if (!_serviceProperties.TryGetValue(serviceIdentifier, out var ifaceMap))
+            {
+                return null;
+            }
+
+            foreach (var bindings in ifaceMap.Values)
+            {
+                if (bindings.TryGetValue(propertyIdentifier, out var binding))
+                {
+                    return binding.RootSourcePropertyInfo;
+                }
+            }
+
+            return null;
+        }
+
         internal ServiceBuilder CreateService(string serviceIdentifier)
         {
             if (!_serviceProperties.ContainsKey(serviceIdentifier))

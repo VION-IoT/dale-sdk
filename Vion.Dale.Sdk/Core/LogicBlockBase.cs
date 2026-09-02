@@ -905,7 +905,24 @@ namespace Vion.Dale.Sdk.Core
                 return;
             }
 
-            _serviceBinder.SetPropertyValue(serviceIdentifier, m.PropertyIdentifier, m.Value);
+            // An [InstantiationParameter] is chosen at configuration time and the inclusion gates were
+            // already resolved against it, so applying a write here would leave the block reporting a value
+            // its bound member set does not match. The forced schema.readOnly wire flag tells an honest
+            // caller; this refuses the rest. The requester is still answered, with the value that did not
+            // move, so a caller that reads the response sees the refusal rather than silence.
+            if (_serviceBinder.FindServicePropertySource(serviceIdentifier, m.PropertyIdentifier)?.GetCustomAttribute<InstantiationParameterAttribute>() is not null)
+            {
+                _logger.LogWarning("Refused a value for instantiation parameter '{PropertyIdentifier}' on logic block '{LogicBlockId}' ({LogicBlockName}): " +
+                                   "a parameter is set by configuration and is immutable at runtime. Change it by re-activating the configuration, which recycles the block.",
+                                   m.PropertyIdentifier,
+                                   Id,
+                                   Name);
+            }
+            else
+            {
+                _serviceBinder.SetPropertyValue(serviceIdentifier, m.PropertyIdentifier, m.Value);
+            }
+
             var propertyValue = _serviceBinder.GetPropertyValue(serviceIdentifier, m.PropertyIdentifier);
             actorContext.RespondToSender(new SetServicePropertyValueResponse(m.ServiceIdentifier, m.PropertyIdentifier, propertyValue));
         }
