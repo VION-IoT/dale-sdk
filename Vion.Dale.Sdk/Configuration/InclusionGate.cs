@@ -60,6 +60,12 @@ namespace Vion.Dale.Sdk.Configuration
         ///         returns a verdict without ever reaching the undeclared name. Only whether a name is declared
         ///         is decided here; whether its type fits the literal it is compared against is DALE043's.
         ///     </para>
+        ///     <para>
+        ///         <c>Vion.Contracts</c> decides the syntax and the linked analyzer parser supplies the tree.
+        ///         That the two accept and reject the same predicates — and that this walk finds exactly the
+        ///         names the runtime evaluator resolves — is held by <c>PredicateParserShould</c>, which runs
+        ///         every vector of the vendored <c>predicate-conformance.json</c> through both.
+        ///     </para>
         /// </summary>
         public static void EnsureResolvable(string predicate, object logicBlock, string memberName)
         {
@@ -75,23 +81,37 @@ namespace Vion.Dale.Sdk.Configuration
             var parsed = PredicateParser.Parse(predicate);
             if (parsed.Ast is null)
             {
-                // Vion.Contracts parsed it and the linked parser did not. Both implement the one grammar
-                // predicate-conformance.json pins, so a disagreement means one of them is wrong about this
-                // predicate — refusing keeps the gate from shipping unchecked while that is true.
-                throw Unresolvable(predicate, logicBlock, memberName, parsed.Error!, null);
+                // The runtime grammar accepted what the analyzer grammar refused. The two are held to one
+                // dialect by PredicateParserShould's cross-check over the vendored conformance vector, so
+                // reaching here means one of them is wrong about this predicate — which is a defect report,
+                // not an authoring mistake, and says so rather than blaming the block's parameters.
+                throw new
+                    InvalidOperationException($"Member '{memberName}' on logic block '{logicBlock.GetType().FullName}' carries an [IncludedWhen] gate \"{predicate}\" that the runtime " +
+                                              $"predicate grammar accepts and the analyzer's does not: {parsed.Error}. The two implement one dialect, so this is a defect in one of them; " +
+                                              "the gate is refused rather than shipped unchecked.");
             }
 
             var declared = DeclaredParameterNames(logicBlock);
-            var referenced = new List<string>();
-            CollectReferences(parsed.Ast, referenced);
 
-            foreach (var reference in referenced)
+            foreach (var reference in ReferencedNames(parsed.Ast))
             {
                 if (!declared.Contains(reference))
                 {
                     throw Unresolvable(predicate, logicBlock, memberName, $"'{reference}' is not an [InstantiationParameter] of this block", null);
                 }
             }
+        }
+
+        /// <summary>
+        ///     Every name <paramref name="node" /> references, in the order the tree carries them. The seam the
+        ///     conformance cross-check walks, so the names it compares against the vector's context are the ones
+        ///     <see cref="EnsureResolvable" /> resolves and not a second implementation of the same walk.
+        /// </summary>
+        public static IReadOnlyList<string> ReferencedNames(PredicateNode node)
+        {
+            var names = new List<string>();
+            CollectReferences(node, names);
+            return names;
         }
 
         /// <summary>

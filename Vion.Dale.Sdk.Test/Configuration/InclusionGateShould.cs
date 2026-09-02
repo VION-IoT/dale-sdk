@@ -229,7 +229,42 @@ namespace Vion.Dale.Sdk.Test.Configuration
 
             StringAssert.Contains(failure.Message, "Point2");
             StringAssert.Contains(failure.Message, predicate);
-            StringAssert.Contains(failure.Message, "Missing");
+            StringAssert.Contains(failure.Message, "'Missing' is not an [InstantiationParameter] of this block");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-006.1")]
+        public void IntrospectGateOverBareBooleanReference()
+        {
+            // A bare reference is the only gate whose tree is a lone reference node, so it is the only one that
+            // proves the walk handles that node kind at all — every other shape reaches its references through
+            // a comparison or a membership list.
+
+            // Arrange
+            var block = new GatedBoolParameterBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, GatingHarness.ServiceProvider);
+
+            // Assert
+            Assert.AreEqual("Enabled", result.Services.Single(service => service.Identifier == "Point2").IncludedWhen);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-005.2")]
+        [DataRow(true, true, DisplayName = "the parameter is true")]
+        [DataRow(false, false, DisplayName = "the parameter is false")]
+        public void BindOnBareBooleanReference(bool enabled, bool expectedIncluded)
+        {
+            // Arrange
+            var block = new GatedBoolParameterBlock();
+            var harness = new GatingHarness();
+
+            // Act
+            harness.Configure(block, [nameof(GatedBoolParameterBlock), "Point2"], Parameter(nameof(GatedBoolParameterBlock.Enabled), JsonValue.Create(enabled)));
+
+            // Assert
+            Assert.AreEqual(expectedIncluded, harness.BoundServices().Contains("Point2"));
         }
 
         [TestMethod]

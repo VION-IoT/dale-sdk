@@ -308,6 +308,29 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
         }
     }
 
+    /// <summary>
+    ///     A gate that is a bare boolean reference — the one predicate shape carrying no comparison, and so
+    ///     the only one whose tree is a lone reference node.
+    /// </summary>
+    public sealed class GatedBoolParameterBlock : LogicBlockBase
+    {
+        [ServiceProperty(Title = "Freigabe")]
+        [InstantiationParameter]
+        public bool Enabled { get; init; }
+
+        [IncludedWhen("Enabled")]
+        public GatedPoint Point2 { get; } = new();
+
+        public GatedBoolParameterBlock() : base(NullLogger.Instance)
+        {
+        }
+
+        /// <inheritdoc />
+        protected override void Ready()
+        {
+        }
+    }
+
     /// <summary>A gate over a parameter whose declared default is null — the fail-closed edge.</summary>
     public sealed class GatedNullParameterBlock : LogicBlockBase
     {

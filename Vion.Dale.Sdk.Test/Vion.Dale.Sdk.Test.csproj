@@ -36,4 +36,11 @@
     <ItemGroup>
         <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting"/>
     </ItemGroup>
+
+    <!-- The ONE vendored conformance vector, linked rather than copied a third time: PredicateParserShould
+         cross-checks Vion.Contracts' parser against the linked analyzer parser over it, and a second copy
+         here would let this project's idea of the dialect drift from the analyzer's. -->
+    <ItemGroup>
+        <None Include="..\Vion.Dale.Sdk.Generators.Test\Predicates\predicate-conformance.json" Link="Predicates\predicate-conformance.json" CopyToOutputDirectory="PreserveNewest"/>
+    </ItemGroup>
 </Project>

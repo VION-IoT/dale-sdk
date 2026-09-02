@@ -1549,11 +1549,13 @@ const TopologyEditor = {
             store.topologyDraftDirty = true;
         };
 
-        // Merge the pure wiring problems (incompatible / over-wired) with the gated-out check — a
-        // mapping to an interface/contract the chosen parameters exclude — and the missing-value check, which
-        // is about the instance rather than any one wire. All share the { mappingIndex, kind, message } shape,
-        // so the per-wire accent and the footer summary render them uniformly; the two without a mappingIndex
-        // land in the footer only.
+        // Merge the pure wiring problems (incompatible / over-wired) with the gated-out check — a mapping to
+        // an interface/contract the chosen parameters exclude — and the missing-value check, which is about
+        // the instance rather than any one wire. Every entry carries { kind, message }; the index is what
+        // varies. problemsOf always carries mappingIndex, gatedOutMappingProblems carries it for an interface
+        // mapping and omits it for a contract one, pairingProblemsOf carries pairingIndex instead, and
+        // missingParameterValueProblems carries neither. problemFor matches on mappingIndex, so anything
+        // without one is footer-only; problemMessages reads message off all of them alike.
         const problems = computed(() => [
             ...problemsOf(store.definitions, instances.value, mappings.value),
             ...gatedOutMappingProblems(store.definitions, instances.value, mappings.value, contractMappings.value),

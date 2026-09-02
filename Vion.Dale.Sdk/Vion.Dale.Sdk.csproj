@@ -74,7 +74,9 @@
 
     <!-- The predicate parser the analyzer already owns, linked rather than copied: InclusionGate reads a
          gate's referenced names off its tree, and a second implementation of the grammar would drift from
-         the one PredicateConformanceVectorTests pins. Neither file carries a Roslyn or Vion dependency. -->
+         Vion.Contracts', which decides the syntax. PredicateParserShould runs every vector of the vendored
+         predicate-conformance.json through both and fails on any disagreement. Neither file carries a
+         Roslyn or Vion dependency. -->
     <ItemGroup>
         <Compile Include="..\Vion.Dale.Sdk.Generators\Predicates\PredicateParser.cs" LinkBase="Shared"/>
         <Compile Include="..\Vion.Dale.Sdk.Generators\Predicates\PredicateSyntax.cs" LinkBase="Shared"/>
