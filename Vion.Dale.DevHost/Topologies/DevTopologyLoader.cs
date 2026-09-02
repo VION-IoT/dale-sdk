@@ -72,14 +72,39 @@ namespace Vion.Dale.DevHost.Topologies
             // Build first: blocks + the auto-mocked service providers (today's preset behavior).
             var configuration = builder.Build();
 
-            // RFC 0016: carry each instance's operator-chosen instantiation-parameter values onto its built
-            // config, so the initializer can apply them to the block before Configure (gates resolve at bind).
+            // Carry each instance's operator-chosen instantiation-parameter values onto its built config, so
+            // the initializer can apply them to the block before Configure (gates resolve at bind).
+            //
+            // Each identifier is checked against the block type's [InstantiationParameter] declarations here,
+            // and every unknown one is collected the way mapping errors below are: the block's own check is
+            // fail-closed but runs inside the actor, after the host has already reported itself started, so
+            // an unresolvable identifier would otherwise reach the operator as a block with no state and no
+            // error. Load, validate and save all go through this method, which is where the operator is.
+            var parameterErrors = new List<string>();
             foreach (var instance in topology.LogicBlockInstances!)
             {
-                if (instance.InstantiationParameters is { Count: > 0 })
+                if (instance.InstantiationParameters is not { Count: > 0 })
                 {
-                    configuration.LogicBlocks.Single(lb => lb.Name == instance.Name).InstantiationParameters = instance.InstantiationParameters;
+                    continue;
                 }
+
+                var declared = types[instance.Name!]
+                               .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                               .Where(property => property.GetCustomAttribute<InstantiationParameterAttribute>() is not null)
+                               .Select(property => property.Name)
+                               .ToHashSet(StringComparer.Ordinal);
+
+                foreach (var identifier in instance.InstantiationParameters.Keys.Where(identifier => !declared.Contains(identifier)))
+                {
+                    parameterErrors.Add($"instantiationParameters: '{instance.Name}.{identifier}' is not an [InstantiationParameter] of '{instance.TypeFullName}'");
+                }
+
+                configuration.LogicBlocks.Single(lb => lb.Name == instance.Name).InstantiationParameters = instance.InstantiationParameters;
+            }
+
+            if (parameterErrors.Count > 0)
+            {
+                throw new InvalidDataException(string.Join("; ", parameterErrors));
             }
 
             // Interface mappings come from the file verbatim — the dev profile declares wiring

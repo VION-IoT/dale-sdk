@@ -156,6 +156,54 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-012.8")]
+        public void RefuseTopologyNamingUnknownInstantiationParameters()
+        {
+            // Arrange
+            // Without this the block's own fail-closed check is the only one, and it runs inside the actor
+            // after the host reported itself started — so the operator sees a block with no state and no error.
+            var topology = DevTopologyFile.Parse($$"""
+                                                   {
+                                                     "id": "gated",
+                                                     "logicBlockInstances": [
+                                                       { "typeFullName": "{{typeof(SmokeHost.LogicBlocks.GatedStationBlock).FullName}}", "name": "Station",
+                                                         "instantiationParameters": { "Kount": 2, "Modell": "Plus" } }
+                                                     ]
+                                                   }
+                                                   """);
+
+            // Act / Assert
+            var failure = Assert.ThrowsExactly<InvalidDataException>(() => DevTopologyLoader.Build(topology));
+
+            StringAssert.Contains(failure.Message, "Kount");
+            StringAssert.Contains(failure.Message, "Modell");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-012.8")]
+        public void AcceptTopologyNamingDeclaredInstantiationParameters()
+        {
+            // The refusal reads the block type's declarations, so a correct name still loads.
+
+            // Arrange
+            var topology = DevTopologyFile.Parse($$"""
+                                                   {
+                                                     "id": "gated",
+                                                     "logicBlockInstances": [
+                                                       { "typeFullName": "{{typeof(SmokeHost.LogicBlocks.GatedStationBlock).FullName}}", "name": "Station",
+                                                         "instantiationParameters": { "PointCount": 2 } }
+                                                     ]
+                                                   }
+                                                   """);
+
+            // Act
+            var config = DevTopologyLoader.Build(topology);
+
+            // Assert
+            Assert.AreEqual(2, config.LogicBlocks.Single(b => b.Name == "Station").InstantiationParameters!["PointCount"]!.GetValue<int>());
+        }
+
+        [TestMethod]
         public void RoundTripInstantiationParametersThroughTheEditorSave()
         {
             // RFC 0016: the editor Save re-serializes a fixed field set — instantiationParameters must survive it.
