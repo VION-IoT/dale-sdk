@@ -71,6 +71,17 @@ namespace Vion.Dale.Sdk.Test.Emission
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-007.3")]
+        [DataRow("-1s")]
+        [DataRow("-250ms")]
+        [DataRow("-5")]
+        public void ThrowOnNegativeDuration(string token)
+        {
+            // Arrange / Act / Assert
+            Assert.ThrowsExactly<FormatException>(() => DurationParser.Parse(token));
+        }
+
+        [TestMethod]
         public void ThrowOnUnknownUnit()
         {
             Assert.ThrowsExactly<FormatException>(() => DurationParser.Parse("10x"));

@@ -8,7 +8,10 @@ namespace Vion.Dale.Sdk.Emission
     ///     <see cref="TimeSpanChangeThreshold" /> token: a number followed by an optional unit suffix.
     ///     Supported units: <c>us</c> (microseconds), <c>ms</c> (milliseconds), <c>s</c> (seconds),
     ///     <c>m</c> (minutes), <c>h</c> (hours). A bare number (no suffix) is treated as milliseconds.
-    ///     All parsing is invariant-culture and case-insensitive on the suffix.
+    ///     All parsing is invariant-culture and case-insensitive on the suffix. A negative value is
+    ///     rejected: both knobs the grammar serves are magnitudes (a spacing between emissions, a change
+    ///     magnitude), and a negative one makes the gate it configures unconditional instead of
+    ///     restrictive — the exact opposite of what was declared.
     /// </summary>
     internal static class DurationParser
     {
@@ -47,6 +50,11 @@ namespace Vion.Dale.Sdk.Emission
             }
 
             var value = double.Parse(numberPart, NumberStyles.Float, CultureInfo.InvariantCulture);
+
+            if (value < 0)
+            {
+                throw new FormatException($"Duration token '{token}' is negative; durations are magnitudes.");
+            }
 
             switch (unitPart)
             {

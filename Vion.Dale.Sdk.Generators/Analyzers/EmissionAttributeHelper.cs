@@ -160,7 +160,8 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         /// <summary>
         ///     Parses the runtime duration grammar: a number with an optional <c>us</c>/<c>ms</c>/<c>s</c>/
         ///     <c>m</c>/<c>h</c> suffix; a bare number is milliseconds. Returns the value in ticks
-        ///     (100&#160;ns). Mirrors <c>Vion.Dale.Sdk.Emission.DurationParser</c>.
+        ///     (100&#160;ns). Mirrors <c>Vion.Dale.Sdk.Emission.DurationParser</c>, negative rejection
+        ///     included.
         /// </summary>
         internal static bool TryParseDuration(string token, out long ticks)
         {
@@ -196,8 +197,11 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                 return false;
             }
 
-            if (!double.TryParse(numberPart, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+            if (!double.TryParse(numberPart, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) || value < 0)
             {
+                // A negative duration is rejected here rather than parsed to negative ticks, mirroring the
+                // runtime DurationParser: both knobs this grammar serves are magnitudes, and a negative
+                // MinInterval would make the throttle's elapsed test unconditionally true.
                 return false;
             }
 
@@ -295,19 +299,22 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             return false;
         }
 
+        // A deadband is a magnitude compared against |candidate - lastEmitted|, so a negative threshold is
+        // cleared by every change and the declared deadband never suppresses anything. Reject it here
+        // rather than let it reach the built-in thresholds, which would silently accept it.
         private static bool ParsesAsInteger(string token)
         {
-            return long.TryParse(token, NumberStyles.Integer, CultureInfo.InvariantCulture, out _);
+            return long.TryParse(token, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) && value >= 0;
         }
 
         private static bool ParsesAsFloat(string token)
         {
-            return double.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out _);
+            return double.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) && value >= 0;
         }
 
         private static bool ParsesAsDecimal(string token)
         {
-            return decimal.TryParse(token, NumberStyles.Number, CultureInfo.InvariantCulture, out _);
+            return decimal.TryParse(token, NumberStyles.Number, CultureInfo.InvariantCulture, out var value) && value >= 0;
         }
 
         private static IEnumerable<INamedTypeSymbol> EnumerateNamedTypes(INamespaceSymbol ns)

@@ -159,5 +159,57 @@ public class MyBlock
                                            .WithArguments("Price", "cheap", "decimal", "An invariant-culture number");
             await AnalyzerTestBase.VerifyAnalyzerAsync<MinChangeUnparseableAnalyzer>(source, expected);
         }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.2")]
+        public async Task NegativeDoubleMinChange_ReportsDiagnostic()
+        {
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public class MyBlock
+{
+    [ServiceProperty(MinChange = ""-0.5"")] public double {|#0:Voltage|} { get; set; }
+}";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE035_MinChangeUnparseable)
+                                           .WithLocation(0)
+                                           .WithArguments("Voltage", "-0.5", "double", "An invariant-culture number");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<MinChangeUnparseableAnalyzer>(source, expected);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.2")]
+        public async Task NegativeIntMinChange_ReportsDiagnostic()
+        {
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public class MyBlock
+{
+    [ServiceProperty(MinChange = ""-3"")] public int {|#0:Count|} { get; set; }
+}";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE035_MinChangeUnparseable)
+                                           .WithLocation(0)
+                                           .WithArguments("Count", "-3", "int", "An invariant-culture integer");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<MinChangeUnparseableAnalyzer>(source, expected);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.2")]
+        public async Task NegativeTimeSpanMinChange_ReportsDiagnostic()
+        {
+            var source = @"
+using System;
+using Vion.Dale.Sdk.Core;
+
+public class MyBlock
+{
+    [ServiceProperty(MinChange = ""-1s"")] public TimeSpan {|#0:Uptime|} { get; set; }
+}";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE035_MinChangeUnparseable)
+                                           .WithLocation(0)
+                                           .WithArguments("Uptime", "-1s", "System.TimeSpan", "A duration (number with optional us/ms/s/m/h suffix)");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<MinChangeUnparseableAnalyzer>(source, expected);
+        }
     }
 }
