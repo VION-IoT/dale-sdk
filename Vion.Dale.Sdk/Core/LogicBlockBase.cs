@@ -573,28 +573,47 @@ namespace Vion.Dale.Sdk.Core
             }
 
             var type = GetType();
+
+            // Collect-then-report, and decode-then-apply: an operator correcting a configuration must learn
+            // about every bad parameter from one failure rather than one host restart at a time, and a
+            // configuration that is going to be rejected must leave no value of it applied — a half-applied
+            // one resolves the gates against a shape nobody chose.
+            var resolved = new List<(PropertyInfo Property, object? Value)>(values.Count);
+            var failures = new List<string>();
+            Exception? decodeFailure = null;
+
             foreach (var parameter in values)
             {
                 var property = type.GetProperty(parameter.Identifier, BindingFlags.Public | BindingFlags.Instance);
                 if (property is null || property.GetCustomAttribute<InstantiationParameterAttribute>() is null)
                 {
-                    throw new
-                        InvalidOperationException($"Instantiation parameter '{parameter.Identifier}' does not resolve to an [InstantiationParameter] property on logic block '{type.FullName}'.");
+                    failures.Add($"'{parameter.Identifier}' does not resolve to an [InstantiationParameter] property");
+                    continue;
                 }
 
-                object? clrValue;
                 try
                 {
                     var typeRef = TypeRefBuilder.BuildForProperty(property);
-                    clrValue = PropertyValueCodec.JsonToClr(parameter.Value, typeRef, property.PropertyType);
+                    resolved.Add((property, PropertyValueCodec.JsonToClr(parameter.Value, typeRef, property.PropertyType)));
                 }
                 catch (Exception exception)
                 {
-                    throw new InvalidOperationException($"Failed to decode instantiation parameter '{parameter.Identifier}' for logic block '{type.FullName}': {exception.Message}",
-                                                        exception);
+                    failures.Add($"'{parameter.Identifier}' could not be decoded: {exception.Message}");
+                    decodeFailure ??= exception;
                 }
+            }
 
-                property.SetValue(this, clrValue);
+            if (failures.Count > 0)
+            {
+                // One underlying exception is worth keeping — it names the decode rule that refused the value.
+                // Past the first there is no single cause to carry, and the message holds every reason.
+                throw new InvalidOperationException($"Logic block '{type.FullName}' rejected {failures.Count} instantiation parameter(s): {string.Join("; ", failures)}.",
+                                                    failures.Count == 1 ? decodeFailure : null);
+            }
+
+            foreach (var (property, value) in resolved)
+            {
+                property.SetValue(this, value);
             }
         }
 

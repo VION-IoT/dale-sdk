@@ -83,6 +83,40 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
         }
     }
 
+    /// <summary>One parameter of each type the declaration set allows, for the decode and default rows.</summary>
+    public sealed class ParameterTypesBlock : LogicBlockBase
+    {
+        [ServiceProperty(Title = "Ladepunkte", Minimum = 1, Maximum = 3)]
+        [InstantiationParameter]
+        public int PointCount { get; init; } = 1;
+
+        [ServiceProperty(Title = "Modell")]
+        [InstantiationParameter]
+        public StationModel Model { get; init; } = StationModel.Bricco;
+
+        [ServiceProperty(Title = "Region")]
+        [InstantiationParameter]
+        public string? Region { get; init; } = "EU";
+
+        [ServiceProperty(Title = "Reserve")]
+        [InstantiationParameter]
+        public int? Reserve { get; init; }
+
+        // A plain public setter, the accessor shape the analyzer accepts beside init.
+        [ServiceProperty(Title = "Ausbaustufe")]
+        [InstantiationParameter]
+        public int Stage { get; set; } = 1;
+
+        public ParameterTypesBlock() : base(NullLogger.Instance)
+        {
+        }
+
+        /// <inheritdoc />
+        protected override void Ready()
+        {
+        }
+    }
+
     // Every gate below is one DALE043 rejects — an empty predicate does not parse. The declarations are
     // deliberate: they are how the suite reaches the three sites that record a member's gate, which must
     // agree with the binder about what counts as one whatever the predicate's text.
