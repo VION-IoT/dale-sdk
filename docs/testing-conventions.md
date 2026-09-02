@@ -219,6 +219,12 @@ together are one behavior in one test.
 Form a sentence with the class name — `[Sut]Should` + `[ExpectedResult][Condition]`:
 `DeliverWriteIssuedFromStopping`, `ThrowWhenPayloadEmpty`, `RefuseDriveWhenUnmapped`.
 
+The no-articles rule below and §13's marker rule are **gated** for every test that cites a spec id
+(`scripts/test-style-lint.ps1`, in `spec-gates.yml`): citing an id is what an area pass does when it
+brings a suite to this style, so the gate ratchets with the passes and never sweeps a legacy suite
+early. Projects a pass cites from without owning (the analyzer registry) are exempt in the script
+until their own pass, each entry with its reason.
+
 - **Name the behavior, not the collaborator** — `ReturnStoredTopology` ✓, `ReturnTopologyFromRepositoryProvider` ✗.
   Exception: routing SUTs, where the destination *is* the behavior.
 - **Name the condition, not the exception type** — `ThrowWhenPortInUse` ✓; the throws-assert pins

@@ -40,3 +40,9 @@ jobs:
       - name: Spec trace
         shell: pwsh
         run: ./scripts/spec-trace.ps1
+
+      # Settled test style, ratcheting on spec citations: a test that cites an AC id follows
+      # testing-conventions §12/§13. Two passes proved the rule does not hold as prose.
+      - name: Test style lint
+        shell: pwsh
+        run: ./scripts/test-style-lint.ps1

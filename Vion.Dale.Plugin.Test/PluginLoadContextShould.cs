@@ -477,7 +477,7 @@ namespace Vion.Dale.Plugin.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-PLUG-005.8")]
-        public void IgnoreMarkerAnAssemblyDeclaresItself()
+        public void IgnoreMarkerAssemblyDeclaresItself()
         {
             // Arrange
             var fixtureName = FixtureAssembly.UniqueName("Private");

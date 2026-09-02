@@ -147,10 +147,12 @@ repo is never half-migrated. One pass, in order:
    runs: no living doc, skill, or code comment cites them (`grep -r "RFC 00"` clean outside
    `docs/process-journal.md`, `docs/retro/`, `docs/changes/archive/`, and `docs/rfcs/` itself while
    it still exists). Append-only logs keep their citations.
-6. **Audit** — one Stryker.NET run over the area, survivors read by hand: logger and out-of-spec
-   mutants dominate and are ignored; a survivor on a behavior is a test still owed. Never a gate,
-   never a score to chase — the pilot's one actionable survivor was the author's blind spot, which
-   is the whole value.
+6. **Style gate** — `scripts/test-style-lint.ps1` holds every cited test to §12/§13 of
+   `testing-conventions.md`; projects a pass cites from without owning are exempt in the script,
+   with a reason, until their own pass. Stryker.NET is optional and only runnable where a test
+   project references a single mutatable project (its MTP runner is preview-only and it crashes on
+   multi-reference projects — two of fourteen areas); where it runs, survivors are read by hand,
+   never a gate, never a score.
 
 The protocol is packaged as the `spec-pass` skill; each pass is one change doc + one band-sized
 PR. Order: plugin ABI (done — the pilot) → emission (done) → config gating → introspection +
@@ -173,7 +175,9 @@ retires with the migration:
    contradictions go to Drift checkpoints, not silent divergence" + its PR shape and every open
    point pre-classified + house discipline (branch, tests cite ids, `/cleanup` once pre-PR,
    `/vion-code-review branch` before the PR) + a read-only note per additional dir naming the
-   SPECIFIC files to look things up in.
+   SPECIFIC files to look things up in. For an area pass, scope and anchors are **folders,
+   projects and descriptor ranges the session enumerates itself** — never a transcribed file or
+   descriptor list: two passes running, the brief's counts were the thing that was wrong.
 2. Emit the launch line in a single `bash` fence (the fence is the copy button):
 
    ```
@@ -208,6 +212,7 @@ Drift checkpoints, distills, archives. No report-back block — the PR is the re
 | `scripts/spec-lint.ps1` | `spec-gates.yml` + on demand | malformed/escape-hatch ACs in `docs/specs/`; change-doc frontmatter or lifecycle broken (`archived` outside `archive/`, unknown status); `-Diff <ref>` warns on narrative added to the corpus (`-Strict` fails) |
 | `scripts/spec-trace.ps1` | `spec-gates.yml` + on demand | any id on a `trace: enforced` page (or an `in-flight` delta) with no quoted-literal test reference; a marked page parsing zero ids |
 | `scripts/spec-change.ps1 archive` | on demand | any Spec-delta line not distilled into its target |
+| `scripts/test-style-lint.ps1` | `spec-gates.yml` + on demand | a test citing a spec id carries an article in its name or no Triple-A markers (`testing-conventions.md` §12/§13); projects a pass cites from without owning are exempt in the script, with a reason, until their pass |
 | `scripts/run-script-tests.ps1` | `spec-gates.yml` + on demand | any `scripts/*.tests.ps1` self-test fails, or a gate script has neither a self-test nor an exemption-with-reason |
 
 `spec-gates.yml` runs on every PR (it is file-greps only — no build), because `publish.yml`

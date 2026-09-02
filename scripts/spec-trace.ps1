@@ -69,18 +69,26 @@ $gapIds.ExceptWith($declared)
 # REMOVED ids are exempt (being deleted). Delta-line grammar only, so ids in prose
 # don't create false declarations.
 $changesDir = Join-Path $RepoRoot 'docs/changes'
-$deltaIdRx = '(?m)^\s*-?\s*(ADDED|MODIFIED|REMOVED)\s+`?((?:AC|SYS)-[A-Z0-9]+-\d+(?:\.\d+)?)`?\s*->'
+$deltaIdRx = '^\s*-?\s*(ADDED|MODIFIED|REMOVED)\s+`?((?:AC|SYS)-[A-Z0-9]+-\d+(?:\.\d+)?)`?\s*->'
 if (Test-Path $changesDir) {
     foreach ($cd in (Get-ChildItem -LiteralPath $changesDir -Filter *.md -File)) {   # top-level only; archive/ excluded
         if ($cd.Name -like '_*') { continue }
         $craw = Get-Content -LiteralPath $cd.FullName -Raw
         if ($craw -notmatch '(?m)^status:\s*in-flight') { continue }
-        foreach ($m in [regex]::Matches($craw, $deltaIdRx)) {
-            if ($m.Groups[1].Value -eq 'REMOVED') { [void]$declared.Remove($m.Groups[2].Value) }
-            else { [void]$declared.Add($m.Groups[2].Value) }
+        # Line-wise, so a delta line carrying the GAP marker is exempt-but-counted exactly like a
+        # page line is — otherwise a legitimately GAP'd criterion reads as a hard FAIL from the
+        # moment its delta is written until the doc archives.
+        foreach ($line in @(Get-Content -LiteralPath $cd.FullName)) {
+            $m = [regex]::Match($line, $deltaIdRx)
+            if (-not $m.Success) { continue }
+            $id = $m.Groups[2].Value
+            if ($m.Groups[1].Value -eq 'REMOVED') { [void]$declared.Remove($id) }
+            elseif ($line -cmatch '\bGAP\b') { [void]$gapIds.Add($id) }
+            else { [void]$declared.Add($id) }
         }
     }
 }
+$gapIds.ExceptWith($declared)
 
 if ($declared.Count -eq 0) {
     $gapTail = if ($gapIds.Count) { "; $($gapIds.Count) GAP id(s) awaiting tests" } else { '' }
