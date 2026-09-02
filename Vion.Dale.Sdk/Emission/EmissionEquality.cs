@@ -3,7 +3,7 @@ using System.Collections;
 namespace Vion.Dale.Sdk.Emission
 {
     /// <summary>
-    ///     The comparison behind the RFC 0004 value-equality floor (<see cref="Throttler" /> step 1) and the
+    ///     The comparison behind the value-equality floor (<see cref="Throttler" /> step 1) and the
     ///     stop-drain's redundant-emit check. Value equality for scalars, <c>string</c>, enums and flat
     ///     <c>readonly record struct</c>s; <em>content</em> equality for <c>ImmutableArray&lt;T&gt;</c>.
     /// </summary>
@@ -13,7 +13,7 @@ namespace Vion.Dale.Sdk.Emission
     ///     <c>IEquatable&lt;ImmutableArray&lt;T&gt;&gt;</c> as <em>reference equality of the underlying array</em>
     ///     — so a plain <c>Equals</c> reports a rebuilt-but-identical table as changed, and the floor can never
     ///     fire for it. A per-row table rebuilt each control cycle would then republish forever, carrying no
-    ///     news; RFC 0004 names <c>ImmutableArray</c> as one of the shapes the floor exists to cover, so the
+    ///     news; This page names <c>ImmutableArray</c> as one of the shapes the floor exists to cover, so the
     ///     floor compares content.
     ///     <para>
     ///         <see cref="IStructuralEquatable" /> is the framework's own compare-me-by-content contract:

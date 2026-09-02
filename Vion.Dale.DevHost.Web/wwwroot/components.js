@@ -84,20 +84,20 @@ function badgeList(item) {
     if (presentation.format) push('decimals', `format=${presentation.format}`);
     if (presentation.visibleWhen) push('visiblewhen', `visibleWhen: ${presentation.visibleWhen}`, 'RFC 0017: shown only while this predicate holds (evaluated live against sibling properties)');
 
-    // RFC 0004: runtime emission policy (throttle/deadband/immediate) + persistence.
+    // runtime emission policy (throttle/deadband/immediate) + persistence.
     const runtime = item.runtime || {};
     if (runtime.persistent) push('persistent', 'persistent', 'value survives a runtime restart');
     const t = runtime.throttle;
     if (t) {
         if (t.immediate) {
-            push('throttle', 'immediate', 'RFC 0004: emitted on every change (throttle & deadband bypassed)');
+            push('throttle', 'immediate', 'emitted on every change (throttle & deadband bypassed)');
         } else {
             const hasInterval = t.minInterval && t.minInterval !== '0' && t.minInterval !== '0ms';
             const bits = [];
             if (hasInterval) bits.push(t.minInterval);
             if (t.minChange) bits.push('Δ' + t.minChange);
             const label = hasInterval ? 'throttle' : 'deadband';
-            push('throttle', bits.length ? `${label} ${bits.join(' · ')}` : 'throttle', 'RFC 0004 emission policy');
+            push('throttle', bits.length ? `${label} ${bits.join(' · ')}` : 'throttle', 'emission policy');
         }
     }
     return badges;

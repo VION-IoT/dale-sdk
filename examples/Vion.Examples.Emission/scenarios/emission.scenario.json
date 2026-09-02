@@ -3,7 +3,7 @@
   "version": 1,
   "id": "emission",
   "title": "The emission-showcase block tracks the setpoint and drives its sensed signals",
-  "description": "Under the deterministic clock the RFC 0004 emission policy is off, so every tick surfaces. Sets the writable Setpoint input, steps the 1 s timer, and checks the read-only readings track it and the monotonic counters climb. The throttle/deadband gate itself is shown in free-run DevHost + the unit tests, not here.",
+  "description": "Under the deterministic clock the emission policy is off, so every tick surfaces. Sets the writable Setpoint input, steps the 1 s timer, and checks the read-only readings track it and the monotonic counters climb. The throttle/deadband gate itself is shown in free-run DevHost + the unit tests, not here.",
   "topology": "default",
   "setup": [
     { "set": "SensorBlock.Setpoint", "value": 42.0 }

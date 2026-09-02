@@ -54,7 +54,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
     }
 
-    // DF-35: emission knobs declared once on a [ServiceInterface] property; the impl carries none.
+    // emission knobs declared once on a [ServiceInterface] property; the impl carries none.
     [ServiceInterface]
     public interface IThrottleViaInterface
     {
@@ -180,7 +180,10 @@ namespace Vion.Dale.Sdk.Test.Introspection
         public void EmitVisibleWhenFromThePresentationAttribute()
         {
             var property = typeof(VisibleWhenDirectLb).GetProperty(nameof(VisibleWhenDirectLb.PrimaryCurrentToWriteA))!;
-            var pm = PropertyMetadataBuilder.Build(property, new PrimitiveTypeRef(PrimitiveKind.Double), ImmutableDictionary<string, TypeAnnotations>.Empty, ServiceElementStream.Property);
+            var pm = PropertyMetadataBuilder.Build(property,
+                                                   new PrimitiveTypeRef(PrimitiveKind.Double),
+                                                   ImmutableDictionary<string, TypeAnnotations>.Empty,
+                                                   ServiceElementStream.Property);
 
             Assert.AreEqual("DirectMeasurement == false", pm.Presentation.VisibleWhen);
         }
@@ -194,7 +197,8 @@ namespace Vion.Dale.Sdk.Test.Introspection
             var pm = PropertyMetadataBuilder.BuildSplit(schemaSource,
                                                         presentationSource,
                                                         new PrimitiveTypeRef(PrimitiveKind.Double),
-                                                        ImmutableDictionary<string, TypeAnnotations>.Empty, ServiceElementStream.Property);
+                                                        ImmutableDictionary<string, TypeAnnotations>.Empty,
+                                                        ServiceElementStream.Property);
 
             Assert.AreEqual("Enabled == true", pm.Presentation.VisibleWhen);
         }
@@ -208,7 +212,8 @@ namespace Vion.Dale.Sdk.Test.Introspection
             var pm = PropertyMetadataBuilder.BuildSplit(schemaSource,
                                                         presentationSource,
                                                         new PrimitiveTypeRef(PrimitiveKind.Double),
-                                                        ImmutableDictionary<string, TypeAnnotations>.Empty, ServiceElementStream.Property);
+                                                        ImmutableDictionary<string, TypeAnnotations>.Empty,
+                                                        ServiceElementStream.Property);
 
             Assert.AreEqual("Manual == false", pm.Presentation.VisibleWhen);
         }
@@ -222,7 +227,8 @@ namespace Vion.Dale.Sdk.Test.Introspection
             var pm = PropertyMetadataBuilder.BuildSplit(schemaSource,
                                                         presentationSource,
                                                         new PrimitiveTypeRef(PrimitiveKind.Double),
-                                                        ImmutableDictionary<string, TypeAnnotations>.Empty, ServiceElementStream.Property);
+                                                        ImmutableDictionary<string, TypeAnnotations>.Empty,
+                                                        ServiceElementStream.Property);
 
             // Class wins on DisplayName (it was explicitly set on the class).
             Assert.AreEqual("PV-Power", pm.Presentation.DisplayName);
@@ -241,7 +247,8 @@ namespace Vion.Dale.Sdk.Test.Introspection
             var pm = PropertyMetadataBuilder.BuildSplit(schemaSource,
                                                         presentationSource,
                                                         new PrimitiveTypeRef(PrimitiveKind.Double),
-                                                        ImmutableDictionary<string, TypeAnnotations>.Empty, ServiceElementStream.Property);
+                                                        ImmutableDictionary<string, TypeAnnotations>.Empty,
+                                                        ServiceElementStream.Property);
 
             // Class declared no [Presentation], so all interface presentation cascades through.
             Assert.AreEqual(PropertyGroup.Status, pm.Presentation.Group);
@@ -253,7 +260,11 @@ namespace Vion.Dale.Sdk.Test.Introspection
         public void PopulateThrottleRuntimeForANonDefaultPolicy()
         {
             var voltage = typeof(ThrottledLb).GetProperty(nameof(ThrottledLb.Voltage))!;
-            var pm = PropertyMetadataBuilder.BuildSplit(voltage, voltage, new PrimitiveTypeRef(PrimitiveKind.Double), ImmutableDictionary<string, TypeAnnotations>.Empty, ServiceElementStream.Property);
+            var pm = PropertyMetadataBuilder.BuildSplit(voltage,
+                                                        voltage,
+                                                        new PrimitiveTypeRef(PrimitiveKind.Double),
+                                                        ImmutableDictionary<string, TypeAnnotations>.Empty,
+                                                        ServiceElementStream.Property);
 
             Assert.IsNotNull(pm.Runtime.Throttle);
             Assert.AreEqual("1s", pm.Runtime.Throttle!.MinInterval);
@@ -266,7 +277,11 @@ namespace Vion.Dale.Sdk.Test.Introspection
         public void OmitThrottleRuntimeForTheDefaultPolicy()
         {
             var plain = typeof(ThrottledLb).GetProperty(nameof(ThrottledLb.Plain))!;
-            var pm = PropertyMetadataBuilder.BuildSplit(plain, plain, new PrimitiveTypeRef(PrimitiveKind.Double), ImmutableDictionary<string, TypeAnnotations>.Empty, ServiceElementStream.Property);
+            var pm = PropertyMetadataBuilder.BuildSplit(plain,
+                                                        plain,
+                                                        new PrimitiveTypeRef(PrimitiveKind.Double),
+                                                        ImmutableDictionary<string, TypeAnnotations>.Empty,
+                                                        ServiceElementStream.Property);
 
             Assert.IsNull(pm.Runtime.Throttle);
         }
@@ -275,8 +290,8 @@ namespace Vion.Dale.Sdk.Test.Introspection
         [TestProperty("spec", "AC-EMIT-013.4")]
         public void InheritThrottleRuntimeFromTheInterfaceWhenImplDeclaresNoEmissionAttribute()
         {
-            // DF-35: the impl property carries no [ServiceProperty], the knobs live on the interface.
-            // The runtime gate inherits them (DF-33); introspection must surface them too so the UI chip
+            // the impl property carries no [ServiceProperty], the knobs live on the interface.
+            // The runtime gate inherits them; introspection must surface them too so the UI chip
             // renders for the §8.12 DRY pattern.
             var schemaSource = typeof(IThrottleViaInterface).GetProperty(nameof(IThrottleViaInterface.Reading))!;
             var presentationSource = typeof(ThrottleInheritedLb).GetProperty(nameof(ThrottleInheritedLb.Reading))!;
@@ -284,7 +299,8 @@ namespace Vion.Dale.Sdk.Test.Introspection
             var pm = PropertyMetadataBuilder.BuildSplit(schemaSource,
                                                         presentationSource,
                                                         new PrimitiveTypeRef(PrimitiveKind.Double),
-                                                        ImmutableDictionary<string, TypeAnnotations>.Empty, ServiceElementStream.Property);
+                                                        ImmutableDictionary<string, TypeAnnotations>.Empty,
+                                                        ServiceElementStream.Property);
 
             Assert.IsNotNull(pm.Runtime.Throttle);
             Assert.AreEqual("1s", pm.Runtime.Throttle!.MinInterval);
@@ -302,7 +318,8 @@ namespace Vion.Dale.Sdk.Test.Introspection
             var pm = PropertyMetadataBuilder.BuildSplit(schemaSource,
                                                         presentationSource,
                                                         new PrimitiveTypeRef(PrimitiveKind.Double),
-                                                        ImmutableDictionary<string, TypeAnnotations>.Empty, ServiceElementStream.Property);
+                                                        ImmutableDictionary<string, TypeAnnotations>.Empty,
+                                                        ServiceElementStream.Property);
 
             Assert.IsNotNull(pm.Runtime.Throttle);
             Assert.AreEqual("2s", pm.Runtime.Throttle!.MinInterval);
@@ -321,7 +338,8 @@ namespace Vion.Dale.Sdk.Test.Introspection
             var pm = PropertyMetadataBuilder.BuildSplit(schemaSource,
                                                         presentationSource,
                                                         new PrimitiveTypeRef(PrimitiveKind.Double),
-                                                        ImmutableDictionary<string, TypeAnnotations>.Empty, ServiceElementStream.Property);
+                                                        ImmutableDictionary<string, TypeAnnotations>.Empty,
+                                                        ServiceElementStream.Property);
 
             Assert.IsNull(pm.Runtime.Throttle);
         }
@@ -334,7 +352,10 @@ namespace Vion.Dale.Sdk.Test.Introspection
             var property = typeof(ThrottledLb).GetProperty(nameof(ThrottledLb.DefaultSpelledBare))!;
 
             // Act
-            var pm = PropertyMetadataBuilder.Build(property, new PrimitiveTypeRef(PrimitiveKind.Double), ImmutableDictionary<string, TypeAnnotations>.Empty, ServiceElementStream.Property);
+            var pm = PropertyMetadataBuilder.Build(property,
+                                                   new PrimitiveTypeRef(PrimitiveKind.Double),
+                                                   ImmutableDictionary<string, TypeAnnotations>.Empty,
+                                                   ServiceElementStream.Property);
 
             // Assert
             Assert.IsNull(pm.Runtime.Throttle);
@@ -348,7 +369,10 @@ namespace Vion.Dale.Sdk.Test.Introspection
             var property = typeof(ThrottledLb).GetProperty(nameof(ThrottledLb.EmptyDeadband))!;
 
             // Act
-            var pm = PropertyMetadataBuilder.Build(property, new PrimitiveTypeRef(PrimitiveKind.Double), ImmutableDictionary<string, TypeAnnotations>.Empty, ServiceElementStream.Property);
+            var pm = PropertyMetadataBuilder.Build(property,
+                                                   new PrimitiveTypeRef(PrimitiveKind.Double),
+                                                   ImmutableDictionary<string, TypeAnnotations>.Empty,
+                                                   ServiceElementStream.Property);
 
             // Assert
             Assert.IsNull(pm.Runtime.Throttle);
@@ -362,7 +386,10 @@ namespace Vion.Dale.Sdk.Test.Introspection
             var property = typeof(ThrottledLb).GetProperty(nameof(ThrottledLb.EmptyDeadbandOnAThrottledMember))!;
 
             // Act
-            var pm = PropertyMetadataBuilder.Build(property, new PrimitiveTypeRef(PrimitiveKind.Double), ImmutableDictionary<string, TypeAnnotations>.Empty, ServiceElementStream.Property);
+            var pm = PropertyMetadataBuilder.Build(property,
+                                                   new PrimitiveTypeRef(PrimitiveKind.Double),
+                                                   ImmutableDictionary<string, TypeAnnotations>.Empty,
+                                                   ServiceElementStream.Property);
 
             // Assert
             Assert.IsNotNull(pm.Runtime.Throttle);
@@ -375,7 +402,11 @@ namespace Vion.Dale.Sdk.Test.Introspection
         public void CarryImmediateAndTheEffectiveDefaultIntervalInThrottleRuntime()
         {
             var pulse = typeof(ThrottledLb).GetProperty(nameof(ThrottledLb.Pulse))!;
-            var pm = PropertyMetadataBuilder.BuildSplit(pulse, pulse, new PrimitiveTypeRef(PrimitiveKind.Double), ImmutableDictionary<string, TypeAnnotations>.Empty, ServiceElementStream.Property);
+            var pm = PropertyMetadataBuilder.BuildSplit(pulse,
+                                                        pulse,
+                                                        new PrimitiveTypeRef(PrimitiveKind.Double),
+                                                        ImmutableDictionary<string, TypeAnnotations>.Empty,
+                                                        ServiceElementStream.Property);
 
             Assert.IsNotNull(pm.Runtime.Throttle);
             Assert.IsTrue(pm.Runtime.Throttle!.Immediate);
@@ -563,7 +594,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
         [TestProperty("spec", "AC-EMIT-013.1")]
         public void EmitRuntimeThrottleNodeForAnInterfaceInheritedPolicy()
         {
-            // DF-35 end-to-end: the block's throttle knobs live on the [ServiceInterface]; the impl carries
+            // End to end: the block's throttle knobs live on the [ServiceInterface]; the impl carries
             // only a bare property. Introspection must emit the runtime.throttle JSON node the DevHost/cloud
             // UI chip reads — not null (the reported symptom: "the RUNTIME panel shows null").
             var result = LogicBlockIntrospection.IntrospectLogicBlock(new ThrottleInheritedLb(), _serviceProvider);

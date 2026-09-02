@@ -44,7 +44,7 @@ namespace Vion.Dale.Sdk.Core
 
         private readonly ServiceBinder _serviceBinder = new();
 
-        // RFC 0004 emission gates — one Throttler per bound member, keyed by (ServiceIdentifier,
+        // emission gates — one Throttler per bound member, keyed by (ServiceIdentifier,
         // MemberIdentifier). A property and a measuring point are SEPARATE streams (own MQTT topic
         // .../property/state vs .../measuring-point/state, own throttle/deadband), so they get
         // separate collections rather than one map keyed by member name. This matters because a
@@ -65,7 +65,7 @@ namespace Vion.Dale.Sdk.Core
 
         private IActorContext _actorContext = null!;
 
-        // RFC 0004 emission policy. The per-property gate is active when the clock is NOT a
+        // emission policy. The per-property gate is active when the clock is NOT a
         // controllable (FakeTimeProvider-style) clock — i.e. production + free-run DevHost — OR
         // when a TestKit override forces it on despite a controllable clock. Resolved once at
         // InitializeLogicBlock and cached. When inactive, Handle*ValueChanged sends as before.
@@ -88,7 +88,7 @@ namespace Vion.Dale.Sdk.Core
         // bindings, causing every subsequent property/set to be silently dropped.
         private bool _runtimeActorsLinked;
 
-        // RFC 0004: tracks the deadline of the single outstanding flush timer (≤1 per block at a
+        // tracks the deadline of the single outstanding flush timer (≤1 per block at a
         // time). Null when no flush is armed. Set in ScheduleEmissionFlush; cleared at the top of
         // OnEmissionFlushDue so the body can re-arm if further pending values remain.
         private DateTimeOffset? _scheduledFlushDeadline;
@@ -176,7 +176,7 @@ namespace Vion.Dale.Sdk.Core
                     _timeProvider = m.ServiceProvider.GetService(typeof(TimeProvider)) as TimeProvider ?? TimeProvider.System;
                     _vitalsActorName = LogicBlockUtils.CreateLogicBlockName(Name, Id);
 
-                    // RFC 0004: resolve emission-policy activation once. Force flag from an optional
+                    // resolve emission-policy activation once. Force flag from an optional
                     // injected marker (TestKit override); otherwise active iff the clock is not a
                     // controllable (stepped / FakeTimeProvider) clock.
                     _forcePolicyFromAttributes = m.ServiceProvider.GetService(typeof(EmissionPolicyForceMarker)) is EmissionPolicyForceMarker;
@@ -201,7 +201,7 @@ namespace Vion.Dale.Sdk.Core
                                                                  m.ServiceProvider,
                                                                  BindingMode.Live));
 
-                    // RFC 0004: build one Throttler per bound service property + measuring point,
+                    // build one Throttler per bound service property + measuring point,
                     // resolved from each binding's attribute + CLR value type. Cheap no-op state when
                     // the policy is inactive (the gate bypasses), but always built so the override path
                     // and production share one construction site.
@@ -294,7 +294,7 @@ namespace Vion.Dale.Sdk.Core
                     Starting();
                     _started = true;
 
-                    // RFC 0004: the initial publish flows through Handle*ValueChanged with the gate
+                    // the initial publish flows through Handle*ValueChanged with the gate
                     // active. The first Throttler.Offer for each member returns Emit (!HasEmitted),
                     // which force-emits and seeds lastEmitted/lastEmitAt — so the initial value is
                     // never throttled and subsequent changes are measured from start time.
@@ -326,7 +326,7 @@ namespace Vion.Dale.Sdk.Core
                         _logger.LogError(ex, "Exception in Stopping() for logic block '{LogicBlockName}' ({LogicBlockId}); continuing shutdown.", Name, Id);
                     }
 
-                    // RFC 0004: drain each throttler's exact current value before stopping, so the final
+                    // drain each throttler's exact current value before stopping, so the final
                     // retained state is exact (the deadband suppresses sub-threshold changes only during
                     // operation). Must run while _started is still true and bindings are live.
                     DrainThrottlers();
@@ -599,7 +599,7 @@ namespace Vion.Dale.Sdk.Core
         }
 
         /// <summary>
-        ///     RFC 0004: constructs one <see cref="Throttler" /> per bound service property and per bound
+        ///     constructs one <see cref="Throttler" /> per bound service property and per bound
         ///     measuring point from its declarative emission attributes, into the matching stream collection
         ///     (<see cref="_servicePropertyThrottlers" /> / <see cref="_measuringPointThrottlers" />) keyed by
         ///     (ServiceIdentifier, member name). A dual-annotated member thus gets one gate per stream, so the
@@ -629,14 +629,14 @@ namespace Vion.Dale.Sdk.Core
                             continue;
                         }
 
-                        // The custom-threshold scan (DF-34) probes the assembly that DECLARES the property the
+                        // The custom-threshold search probes the assembly that DECLARES the property the
                         // knobs were read from — the same compilation DALE034 validated against. For a knob
-                        // inherited from a shared [ServiceInterface] (DF-33), that is the interface library's
+                        // inherited from a shared [ServiceInterface], that is the interface library's
                         // assembly (where a shared custom IChangeThreshold<T> lives), not the block's assembly.
                         var declaringAssembly = configuredSource?.DeclaringType?.Assembly ?? binding.Source?.GetType().Assembly;
                         var policy = ThrottlePolicy.FromConfigured(configured, binding.TargetPropertyType, declaringAssembly);
 
-                        // DF-34: a configured MinChange that resolves to no IChangeThreshold<T> is a
+                        // a configured MinChange that resolves to no IChangeThreshold<T> is a
                         // misconfiguration, not a silent no-op. Fail fast at start. DALE034 already errors at
                         // compile time, so this only fires when that gate was bypassed or the impl is not
                         // instantiable.
@@ -691,7 +691,7 @@ namespace Vion.Dale.Sdk.Core
         }
 
         /// <summary>
-        ///     RFC 0004: discards a throttler's pending held flush (and its emitted state) on a value-clear,
+        ///     discards a throttler's pending held flush (and its emitted state) on a value-clear,
         ///     so the cleared edge is not undone by a later trailing flush. Reconstructs the gate from its
         ///     own <see cref="Throttler.Policy" /> via a fresh <see cref="Throttler" /> — there is no
         ///     in-place cancel on the gate. The caller passes the member's stream collection.
@@ -706,7 +706,7 @@ namespace Vion.Dale.Sdk.Core
         }
 
         /// <summary>
-        ///     RFC 0004: rebuilds every property and measuring-point throttler from its <see cref="Throttler.Policy" />,
+        ///     rebuilds every property and measuring-point throttler from its <see cref="Throttler.Policy" />,
         ///     clearing emitted/pending state so the next offer for each member is a fresh leading-edge force-emit.
         ///     Used on an operational reconnect (<c>PublishServiceState</c>): the throttlers' last-emitted values can be
         ///     ahead of what the broker actually received (publishes during the disconnect were dropped), so the current
@@ -727,7 +727,7 @@ namespace Vion.Dale.Sdk.Core
         }
 
         /// <summary>
-        ///     RFC 0004: ensures one trailing-edge flush is scheduled at the earliest pending deadline
+        ///     ensures one trailing-edge flush is scheduled at the earliest pending deadline
         ///     across all throttlers. Mirrors <see cref="ScheduleNextTimerTick" /> — a single idiomatic
         ///     self-send via the pause-gated / stepper-aware self-scheduling path. The flush body
         ///     (<see cref="OnEmissionFlushDue" />) coalesces and reschedules the next-earliest, so an
@@ -743,7 +743,7 @@ namespace Vion.Dale.Sdk.Core
         /// </summary>
         private void ScheduleEmissionFlush(DateTimeOffset earliestDeadline)
         {
-            // RFC 0004 invariant: at most one outstanding flush per block. Skip arming a new timer
+            // Invariant: at most one outstanding flush per block. Skip arming a new timer
             // when one is already scheduled for the same or an earlier deadline — the common case
             // for a burst of holds sharing _lastEmitAt + MinInterval as their deadline. Only arm
             // (or re-arm) when the new deadline is strictly earlier than the in-flight one, which
@@ -766,7 +766,7 @@ namespace Vion.Dale.Sdk.Core
         }
 
         /// <summary>
-        ///     RFC 0004: flushes every throttler whose hold deadline has elapsed, emitting its pending
+        ///     flushes every throttler whose hold deadline has elapsed, emitting its pending
         ///     value, then reschedules a single wakeup for the earliest still-pending deadline (if any).
         /// </summary>
         private void OnEmissionFlushDue()
@@ -816,7 +816,7 @@ namespace Vion.Dale.Sdk.Core
         }
 
         /// <summary>
-        ///     RFC 0004: on stop, emit each throttled member's exact current value if it differs from the
+        ///     on stop, emit each throttled member's exact current value if it differs from the
         ///     throttler's last-emitted value — bypassing throttle and deadband — so the final retained
         ///     state is exact. Reads the current value straight from the binding getter.
         /// </summary>
@@ -910,7 +910,7 @@ namespace Vion.Dale.Sdk.Core
                 return;
             }
 
-            // RFC 0004: when the policy is inactive (controllable clock without override), or no
+            // when the policy is inactive (controllable clock without override), or no
             // throttler exists for this member, send as before. Otherwise gate via the throttler.
             if (!_emissionPolicyActive || !_servicePropertyThrottlers.TryGetValue((args.ServiceIdentifier, args.PropertyIdentifier), out var throttler))
             {
@@ -945,7 +945,7 @@ namespace Vion.Dale.Sdk.Core
                 return;
             }
 
-            // RFC 0004: same gate as the service-property path, keyed by measuring-point identifier.
+            // same gate as the service-property path, keyed by measuring-point identifier.
             if (!_emissionPolicyActive || !_measuringPointThrottlers.TryGetValue((args.ServiceIdentifier, args.MeasuringPointIdentifier), out var throttler))
             {
                 _actorContext.SendTo(_serviceMeasuringPointHandlerActorRef, new ServiceMeasuringPointValueChanged(serviceIdentifier, args.MeasuringPointIdentifier, args.Value));
@@ -974,7 +974,7 @@ namespace Vion.Dale.Sdk.Core
                 return;
             }
 
-            // RFC 0004: a clear is a state-significant edge — emit immediately (bypass the gate) and
+            // a clear is a state-significant edge — emit immediately (bypass the gate) and
             // discard any pending held flush so the just-cleared value is not re-emitted afterwards.
             ResetThrottlerPending(_servicePropertyThrottlers, (args.ServiceIdentifier, args.PropertyIdentifier));
 
@@ -990,7 +990,7 @@ namespace Vion.Dale.Sdk.Core
                 return;
             }
 
-            // RFC 0004: same clear-edge semantics as the property path — emit immediately and discard
+            // same clear-edge semantics as the property path — emit immediately and discard
             // any pending held flush for this measuring point.
             ResetThrottlerPending(_measuringPointThrottlers, (args.ServiceIdentifier, args.MeasuringPointIdentifier));
 

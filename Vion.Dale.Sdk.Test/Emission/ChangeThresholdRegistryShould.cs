@@ -34,12 +34,12 @@ namespace Vion.Dale.Sdk.Test.Emission
 
     public sealed class FathomsChangeThreshold : IChangeThreshold<Fathoms>
     {
+        public double Scale { get; }
+
         public FathomsChangeThreshold(double scale)
         {
             Scale = scale;
         }
-
-        public double Scale { get; }
 
         public bool Exceeds(in Fathoms lastEmitted, in Fathoms candidate, string threshold)
         {

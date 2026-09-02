@@ -7,7 +7,7 @@ using Vion.Dale.Sdk.Emission;
 
 namespace Vion.Dale.Sdk.TestKit.Test
 {
-    // DF-34: a custom struct value type with its IChangeThreshold<T> declared in the block's own
+    // a custom struct value type with its IChangeThreshold<T> declared in the block's own
     // assembly. The runtime must discover the threshold by scanning that assembly at block start,
     // so a deadband on a non-built-in type actually gates emissions instead of silently no-op'ing.
     public readonly record struct Pressure(double Bar);
@@ -35,9 +35,9 @@ namespace Vion.Dale.Sdk.TestKit.Test
         }
     }
 
-    // DF-33 + DF-34 combined — the consumer's planned §8.12 pattern: a custom-typed deadband declared
-    // ONCE on a shared [ServiceInterface]. The knob must be inherited by the bare impl property (DF-33)
-    // and its IChangeThreshold<T> resolved by scanning the interface property's declaring assembly (DF-34).
+    // The consumer's planned §8.12 pattern: a custom-typed deadband declared
+    // ONCE on a shared [ServiceInterface]. The knob must be inherited by the bare impl property
+    // and its IChangeThreshold<T> resolved by scanning the interface property's declaring assembly.
     [ServiceInterface]
     public interface ICustomThresholdService
     {
@@ -63,7 +63,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
     {
         // bool has no magnitude, so no IChangeThreshold<bool> can exist. DALE034 normally errors at
         // compile time; suppress it to exercise the runtime fail-fast backstop that replaces the
-        // silent no-op (DF-34, proposal #2).
+        // silent no-op.
 #pragma warning disable DALE034
         [ServiceProperty(MinChange = "1")]
         public bool Flag { get; set; }
@@ -122,9 +122,9 @@ namespace Vion.Dale.Sdk.TestKit.Test
         [TestProperty("spec", "AC-EMIT-002.5")]
         public void ApplyInterfaceDeclaredDeadbandOnACustomType()
         {
-            // Exercises both fixes: the interface-declared MinChange is inherited (DF-33) and its custom
+            // Exercises both fixes: the interface-declared MinChange is inherited, and its custom
             // IChangeThreshold<Pressure> is resolved by scanning the interface property's declaring
-            // assembly (DF-34). Sub-threshold change is dropped, so only the leading edge emits.
+            // assembly. Sub-threshold change is dropped, so only the leading edge emits.
             var block = LogicBlockTestHelper.Create<InterfaceCustomThresholdLogicBlock>();
             var ctx = block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).Build();
 

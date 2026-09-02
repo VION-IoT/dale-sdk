@@ -153,7 +153,7 @@ repo is never half-migrated. One pass, in order:
    is the whole value.
 
 The protocol is packaged as the `spec-pass` skill; each pass is one change doc + one band-sized
-PR. Order: plugin ABI (done — the pilot) → config gating or emission → introspection +
+PR. Order: plugin ABI (done — the pilot) → emission (done) → config gating → introspection +
 identifiers → scenario/stepping/pairing → remainder. `docs/rfcs/` is frozen meanwhile (do not
 cite it in new work) and disappears with the last pass.
 

@@ -158,7 +158,7 @@ namespace Vion.Dale.Sdk.TestKit
 
         /// <summary>
         ///     Assert on the <em>emitted</em> service-property values — the messages that survived
-        ///     the RFC 0004 emission policy. Same shape and underlying stream as
+        ///     the emission policy. Same shape and underlying stream as
         ///     <see cref="VerifyServicePropertyChanged{TValue}" /> (it reads the recorded
         ///     <c>ServicePropertyValueChanged</c> messages), but its name documents intent: under
         ///     <see cref="EmissionPolicyMode.FromAttributes" /> a held assignment is not an
@@ -381,7 +381,7 @@ namespace Vion.Dale.Sdk.TestKit
         /// <summary>
         ///     Returns every recorded message of <typeparamref name="TMessage" /> in send order. A public
         ///     escape hatch for assertions that need a message type the typed <c>Verify*</c> helpers do
-        ///     not cover (e.g. <c>ServicePropertyValueCleared</c> for the RFC 0004 clear-bypass path).
+        ///     not cover (e.g. <c>ServicePropertyValueCleared</c> for the clear-bypass path).
         /// </summary>
         public IReadOnlyList<TMessage> GetSentMessagesOfTypePublic<TMessage>()
         {

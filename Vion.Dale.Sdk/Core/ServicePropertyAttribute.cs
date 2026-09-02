@@ -8,7 +8,7 @@ namespace Vion.Dale.Sdk.Core
     ///     <para>
     ///         A property MAY also carry <see cref="ServiceMeasuringPointAttribute" /> — the two are
     ///         <b>independent</b>. Each publishes to its own retained MQTT stream (<c>…/property/state</c>
-    ///         vs <c>…/measuring-point/state</c>) and is throttled / deadbanded separately (RFC 0004);
+    ///         vs <c>…/measuring-point/state</c>) and is throttled / deadbanded separately;
     ///         neither suppresses the other. Declaring both surfaces the same value as live state AND a
     ///         charted time series — common for telemetry (e.g. grid-meter power).
     ///     </para>
@@ -94,7 +94,7 @@ namespace Vion.Dale.Sdk.Core
         ///     Minimum spacing between two emitted values for this property, as a duration string
         ///     (e.g. <c>"250ms"</c>, <c>"1s"</c>, <c>"500us"</c>) — a number with an optional
         ///     <c>us</c>/<c>ms</c>/<c>s</c>/<c>m</c>/<c>h</c> suffix; a bare number is milliseconds. Drives
-        ///     the RFC 0004 emission gate. <c>"0"</c> / <c>"0ms"</c> disables interval throttling. Defaults
+        ///     the emission gate. <c>"0"</c> / <c>"0ms"</c> disables interval throttling. Defaults
         ///     to <c>"250ms"</c>. Validated by analyzers DALE036 (format) / DALE037 (1&#160;ms floor).
         /// </summary>
         public string MinInterval { get; init; } = "250ms";

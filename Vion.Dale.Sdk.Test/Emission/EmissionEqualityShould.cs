@@ -16,6 +16,13 @@ namespace Vion.Dale.Sdk.Test.Emission
     [TestClass]
     public class EmissionEqualityShould
     {
+        public enum Status
+        {
+            Ok,
+
+            Faulted,
+        }
+
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-004.2")]
         public void TreatARebuiltButIdenticalTableAsUnchanged()
@@ -171,13 +178,6 @@ namespace Vion.Dale.Sdk.Test.Emission
         private static object Box<T>(T value)
         {
             return value!;
-        }
-
-        public enum Status
-        {
-            Ok,
-
-            Faulted,
         }
 
         public readonly record struct Row(string Name, double Power, Status Status);

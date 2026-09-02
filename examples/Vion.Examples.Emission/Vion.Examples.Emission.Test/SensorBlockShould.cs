@@ -9,7 +9,7 @@ using Xunit;
 namespace Vion.Examples.Emission.Test
 {
     /// <summary>
-    ///     Proves the RFC 0004 emission gate acts on <see cref="SensorBlock" />'s read-only readings. The TestKit's
+    ///     Proves the emission gate acts on <see cref="SensorBlock" />'s read-only readings. The TestKit's
     ///     <c>WithEmissionPolicy(EmissionPolicyMode.FromAttributes)</c> forces the policy on under the fake clock
     ///     (it is off by default for deterministic tests). The emission policy governs the OUTBOUND direction, so
     ///     the gated members are read-only; the tests drive them by writing the plain <see cref="SensorBlock.Setpoint" />

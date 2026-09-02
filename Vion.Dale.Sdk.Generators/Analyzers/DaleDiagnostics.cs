@@ -394,7 +394,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                                                                                           DiagnosticSeverity.Warning,
                                                                                           true);
 
-        // --- Emission policy (RFC 0004) ---
+        // --- Emission policy ---
 
         /// <summary>
         ///     <c>MinChange</c> (the deadband) is set on a <c>[ServiceProperty]</c> /

@@ -5,7 +5,7 @@ using Vion.Dale.Sdk.Core;
 namespace Vion.Examples.Emission.LogicBlocks
 {
     /// <summary>
-    ///     Showcases the RFC 0004 emission policy — throttle (<c>MinInterval</c>), deadband (<c>MinChange</c>),
+    ///     Showcases the emission policy — throttle (<c>MinInterval</c>), deadband (<c>MinChange</c>),
     ///     <c>Immediate</c> bypass, the always-on value-equality dedup floor, independent per-stream throttling
     ///     on a dual-annotated member, a custom <see cref="ThreePhase" /> deadband, and the invisible 250 ms
     ///     default.
@@ -62,7 +62,7 @@ namespace Vion.Examples.Emission.LogicBlocks
         /// <summary>
         ///     CUSTOM-TYPE DEADBAND. Per-phase currents derived from the setpoint, whose Δ0.25 deadband resolves
         ///     a custom <see cref="ThreePhaseChangeThreshold" /> (<c>IChangeThreshold&lt;ThreePhase&gt;</c>)
-        ///     discovered in this assembly (DF-34). Badge: <c>deadband Δ0.25</c>.
+        ///     discovered in this assembly. Badge: <c>deadband Δ0.25</c>.
         /// </summary>
         [ServiceMeasuringPoint(Title = "Phase currents",
                                MinInterval = "0",
@@ -88,7 +88,7 @@ namespace Vion.Examples.Emission.LogicBlocks
 
         /// <summary>
         ///     DUAL-ANNOTATED. One sensed power value feeds two independently-throttled streams: the property
-        ///     stream (2 s) and the measuring-point stream (500 ms + Δ1) — the #104 fix. Two badges.
+        ///     stream (2 s) and the measuring-point stream (500 ms + Δ1). Two badges.
         /// </summary>
         [ServiceProperty(Title = "Power",
                          Unit = "W",

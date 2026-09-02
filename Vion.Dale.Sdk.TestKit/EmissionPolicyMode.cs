@@ -3,7 +3,7 @@ using Vion.Dale.Sdk.Core;
 namespace Vion.Dale.Sdk.TestKit
 {
     /// <summary>
-    ///     Controls whether the RFC 0004 emission policy (attribute-driven throttling) is active
+    ///     Controls whether the emission policy (attribute-driven throttling) is active
     ///     when a logic block runs under the TestKit's controllable fake clock.
     /// </summary>
     [PublicApi]

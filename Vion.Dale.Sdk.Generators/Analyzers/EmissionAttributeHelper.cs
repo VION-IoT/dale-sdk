@@ -7,7 +7,7 @@ using Microsoft.CodeAnalysis;
 namespace Vion.Dale.Sdk.Generators.Analyzers
 {
     /// <summary>
-    ///     Shared detection + parse helpers for the RFC 0004 emission-policy analyzers (DALE034–DALE039).
+    ///     Shared detection + parse helpers for the emission-policy analyzers (DALE034–DALE039).
     ///     Mirrors the runtime's <c>DurationParser</c> grammar and the built-in
     ///     <c>IChangeThreshold&lt;T&gt;</c> registrations so a compile-time diagnostic agrees with what the
     ///     runtime would accept.

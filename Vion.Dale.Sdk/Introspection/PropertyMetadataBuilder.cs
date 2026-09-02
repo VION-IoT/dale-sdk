@@ -365,10 +365,10 @@ namespace Vion.Dale.Sdk.Introspection
         }
 
         // Runtime metadata for an interface-bound property. Persistence stays an impl concern (it is
-        // declared on the logic-block property), but the RFC 0004 throttle is surfaced from whichever
+        // declared on the logic-block property), but the emission throttle is surfaced from whichever
         // property the runtime gate actually reads it from: the impl wins when it declares its own
         // [ServiceProperty]/[ServiceMeasuringPoint], otherwise the knobs are inherited from the
-        // [ServiceInterface]. This mirrors LogicBlockBase.ResolveThrottleConfigured exactly (DF-33/DF-35),
+        // [ServiceInterface]. This mirrors LogicBlockBase.ResolveThrottleConfigured exactly,
         // so the UI throttle chip matches the policy the gate enforces — including the §8.12 DRY pattern
         // where the impl carries only presentation and the knobs live on the interface.
         private static RuntimeMetadata ExtractRuntimeSplit(PropertyInfo presentationSource, PropertyInfo schemaSource, ServiceElementStream stream)
@@ -391,9 +391,8 @@ namespace Vion.Dale.Sdk.Introspection
         // measuring point would show a badge that the gate does not enforce.
         private static IThrottleConfigured? EmissionAttribute(PropertyInfo property, ServiceElementStream stream)
         {
-            return stream == ServiceElementStream.Property
-                       ? property.GetCustomAttribute<ServicePropertyAttribute>()
-                       : property.GetCustomAttribute<ServiceMeasuringPointAttribute>();
+            return stream == ServiceElementStream.Property ? property.GetCustomAttribute<ServicePropertyAttribute>() :
+                       property.GetCustomAttribute<ServiceMeasuringPointAttribute>();
         }
 
         // The effective emission policy (throttle / deadband / immediate), read from the

@@ -13,7 +13,13 @@ namespace Vion.Dale.Sdk.Test.Emission
     [TestClass]
     public class ThrottlerShould
     {
-        private static readonly DateTimeOffset T0 = new(2026, 6, 22, 0, 0, 0, TimeSpan.Zero);
+        private static readonly DateTimeOffset T0 = new(2026,
+                                                        6,
+                                                        22,
+                                                        0,
+                                                        0,
+                                                        0,
+                                                        TimeSpan.Zero);
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-004.1")]

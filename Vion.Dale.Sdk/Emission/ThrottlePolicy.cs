@@ -41,7 +41,7 @@ namespace Vion.Dale.Sdk.Emission
             if (!string.IsNullOrEmpty(cfg.MinChange))
             {
                 // Unwrap Nullable<T> so a deadband on e.g. double? resolves the double threshold, and fall
-                // back to scanning the declaring assembly for a custom IChangeThreshold<T> (DF-34). Both
+                // back to scanning the declaring assembly for a custom IChangeThreshold<T>. Both
                 // mirror the DALE034 analyzer (it unwraps Nullable and accepts an impl visible in the
                 // consumer's own compilation), so a passing compile implies a working runtime deadband.
                 var resolveType = Nullable.GetUnderlyingType(valueType) ?? valueType;

@@ -4,7 +4,7 @@ namespace Vion.Dale.Sdk.Emission
 {
     /// <summary>
     ///     Per-property emission gate. Pure: the caller supplies <c>now</c> on every <see cref="Offer" />
-    ///     so behavior is fully deterministic under a virtual clock. Implements the RFC 0004 five-step
+    ///     so behavior is fully deterministic under a virtual clock. Implements the five-step
     ///     decision: value-equality floor, immediate bypass, deadband, leading-edge interval, trailing-edge hold.
     /// </summary>
     internal sealed class Throttler

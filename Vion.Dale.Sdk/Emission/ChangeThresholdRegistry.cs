@@ -31,11 +31,6 @@ namespace Vion.Dale.Sdk.Emission
             Register(new TimeSpanChangeThreshold());
         }
 
-        private static void Register<T>(IChangeThreshold<T> threshold)
-        {
-            Adapters[typeof(T)] = new ChangeThresholdAdapter<T>(threshold);
-        }
-
         /// <summary>
         ///     Looks up the adapter for <paramref name="valueType" />, and — on a cache miss — discovers a
         ///     custom <see cref="IChangeThreshold{T}" /> by scanning <paramref name="probeAssembly" /> (the
@@ -70,6 +65,11 @@ namespace Vion.Dale.Sdk.Emission
 
             adapter = null!;
             return false;
+        }
+
+        private static void Register<T>(IChangeThreshold<T> threshold)
+        {
+            Adapters[typeof(T)] = new ChangeThresholdAdapter<T>(threshold);
         }
 
         /// <summary>

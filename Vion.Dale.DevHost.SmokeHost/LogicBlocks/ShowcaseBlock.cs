@@ -47,7 +47,7 @@ namespace Vion.Dale.DevHost.SmokeHost.LogicBlocks
 
         // ── Metric (read-only counters) ─────────────────────────────────────────────
 
-        [ServiceMeasuringPoint(Description = "Lifetime tick count — never resets. RFC 0004: emitted on every change (Immediate).",
+        [ServiceMeasuringPoint(Description = "Lifetime tick count — never resets. emitted on every change (Immediate).",
                                Kind = MeasuringPointKind.TotalIncreasing,
                                Immediate = true)]
         [Presentation(Group = PropertyGroup.Metric)]
@@ -66,7 +66,7 @@ namespace Vion.Dale.DevHost.SmokeHost.LogicBlocks
                          MinInterval = "1s",
                          MinChange = "0.1",
                          Description =
-                             "Operator setpoint — a bounded numeric input (Min/Max). Carries an advisory uiHint=slider chip; the current dashboard renders it as a number field, not a range slider. RFC 0004: throttled (1s) + deadband (Δ0.1), and persisted across restarts.")]
+                             "Operator setpoint — a bounded numeric input (Min/Max). Carries an advisory uiHint=slider chip; the current dashboard renders it as a number field, not a range slider. Throttled (1s) + deadband (Δ0.1), and persisted across restarts.")]
         [Presentation(Group = PropertyGroup.Configuration, UiHint = UiHints.Slider, Decimals = 1)]
         [Persistent]
         public double Setpoint { get; set; } = 25.0;

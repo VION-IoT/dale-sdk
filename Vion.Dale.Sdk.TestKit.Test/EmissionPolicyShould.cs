@@ -41,7 +41,13 @@ namespace Vion.Dale.Sdk.TestKit.Test
         {
             // Arrange — a clock with no Advance(TimeSpan), so the block cannot take it for a test clock.
             // No override is registered: the clock alone must turn the policy on.
-            var clock = new UnadvanceableClock(new DateTimeOffset(2026, 6, 22, 0, 0, 0, TimeSpan.Zero));
+            var clock = new UnadvanceableClock(new DateTimeOffset(2026,
+                                                                  6,
+                                                                  22,
+                                                                  0,
+                                                                  0,
+                                                                  0,
+                                                                  TimeSpan.Zero));
             var block = LogicBlockTestHelper.Create<ThrottledBlock>();
             var context = block.CreateTestContext().WithServices(services => services.AddSingleton<TimeProvider>(clock)).Build();
             clock.MoveOn(DefaultInterval);
@@ -489,7 +495,10 @@ namespace Vion.Dale.Sdk.TestKit.Test
             private bool _stopping;
 
             [ServiceProperty(MinInterval = "250ms")]
-            public double Faulty => _stopping ? throw new InvalidOperationException() : 1.0;
+            public double Faulty
+            {
+                get => _stopping ? throw new InvalidOperationException() : 1.0;
+            }
 
             [ServiceProperty(MinInterval = "250ms")]
             public double Voltage { get; private set; }
