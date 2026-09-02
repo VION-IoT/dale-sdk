@@ -27,7 +27,7 @@ namespace Vion.Dale.Sdk.Test.Emission
         [DataRow("250ms", "1.0", false, DisplayName = "with a deadband")]
         [DataRow("0", null, false, DisplayName = "throttling disabled")]
         [DataRow("250ms", null, true, DisplayName = "immediate")]
-        public void SuppressAValueEqualToTheLastEmitted(string minInterval, string? minChange, bool immediate)
+        public void SuppressValueEqualToLastEmitted(string minInterval, string? minChange, bool immediate)
         {
             // Arrange
             var throttler = new Throttler(Policy(minInterval, minChange, immediate));
@@ -43,7 +43,7 @@ namespace Vion.Dale.Sdk.Test.Emission
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-004.2")]
-        public void SuppressARebuiltButIdenticalTable()
+        public void SuppressRebuiltButIdenticalTable()
         {
             // Arrange
             var throttler = new Throttler(Policy(valueType: typeof(ImmutableArray<Row>)));
@@ -58,7 +58,7 @@ namespace Vion.Dale.Sdk.Test.Emission
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-005.6")]
-        public void EmitWithinTheIntervalWhenImmediate()
+        public void EmitWithinIntervalWhenImmediate()
         {
             // Arrange — an interval and a deadband that would both suppress the second value.
             var throttler = new Throttler(Policy("250ms", "1.0", true));
@@ -74,8 +74,44 @@ namespace Vion.Dale.Sdk.Test.Emission
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-005.7")]
+        public void DiscardHeldValueWhenLaterOneReturnsToPublishedValue()
+        {
+            // Arrange — 2.0 is held inside the interval.
+            var throttler = new Throttler(Policy());
+            throttler.Offer(1.0d, T0);
+            throttler.Offer(2.0d, T0 + TimeSpan.FromMilliseconds(50));
+
+            // Act — the member is back at the value the consumer already has.
+            var result = throttler.Offer(1.0d, T0 + TimeSpan.FromMilliseconds(100));
+
+            // Assert — releasing 2.0 later would move the consumer away from the current value.
+            Assert.AreEqual(EmitAction.Drop, result.Action);
+            Assert.IsFalse(throttler.HasPending);
+            Assert.IsFalse(throttler.TryFlush(T0 + TimeSpan.FromMilliseconds(250), out _));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-005.7")]
+        public void DiscardHeldValueWhenLaterOneFallsInsideDeadband()
+        {
+            // Arrange — 12.0 cleared the deadband and is held inside the interval.
+            var throttler = new Throttler(Policy("250ms", "1.0"));
+            throttler.Offer(10.0d, T0);
+            throttler.Offer(12.0d, T0 + TimeSpan.FromMilliseconds(50));
+
+            // Act — the member settles back near where it was published.
+            var result = throttler.Offer(10.4d, T0 + TimeSpan.FromMilliseconds(100));
+
+            // Assert
+            Assert.AreEqual(EmitAction.Drop, result.Action);
+            Assert.IsFalse(throttler.HasPending);
+            Assert.IsFalse(throttler.TryFlush(T0 + TimeSpan.FromMilliseconds(250), out _));
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-EMIT-006.1")]
-        public void SuppressAValueInsideTheDeadband()
+        public void SuppressValueInsideDeadband()
         {
             // Arrange
             var throttler = new Throttler(Policy("250ms", "1.0"));
@@ -91,7 +127,7 @@ namespace Vion.Dale.Sdk.Test.Emission
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-006.2")]
-        public void EmitARampOnceItsAccumulatedDriftReachesTheThreshold()
+        public void EmitRampOnceAccumulatedDriftReachesThreshold()
         {
             // Arrange — throttling disabled, so only the deadband decides.
             var throttler = new Throttler(Policy("0", "1.0"));
@@ -113,7 +149,7 @@ namespace Vion.Dale.Sdk.Test.Emission
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-006.1")]
-        public void EmitAValueThatClearsTheDeadband()
+        public void EmitValueClearingDeadband()
         {
             // Arrange
             var throttler = new Throttler(Policy("250ms", "1.0"));
@@ -129,7 +165,7 @@ namespace Vion.Dale.Sdk.Test.Emission
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-008.3")]
-        public void ApplyTheUnderlyingTypesDeadbandOnANullableMember()
+        public void ApplyUnderlyingTypesDeadbandOnNullableMember()
         {
             // Arrange — a nullable member resolves its underlying type's deadband, matching DALE034, which
             // unwraps before deciding whether one exists.
@@ -145,7 +181,7 @@ namespace Vion.Dale.Sdk.Test.Emission
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-005.1")]
-        public void EmitTheFirstValueOffered()
+        public void EmitFirstValueOffered()
         {
             // Arrange — a long interval and a deadband, neither of which may apply to the first value.
             var throttler = new Throttler(Policy("1h", "1000"));
@@ -162,7 +198,7 @@ namespace Vion.Dale.Sdk.Test.Emission
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-005.2")]
-        public void EmitOnceTheIntervalHasElapsed()
+        public void EmitOnceIntervalElapsed()
         {
             // Arrange
             var throttler = new Throttler(Policy());
@@ -178,7 +214,7 @@ namespace Vion.Dale.Sdk.Test.Emission
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-005.3")]
-        public void HoldTheLatestValueWithinTheInterval()
+        public void HoldLatestValueWithinInterval()
         {
             // Arrange
             var throttler = new Throttler(Policy());
@@ -199,7 +235,7 @@ namespace Vion.Dale.Sdk.Test.Emission
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-005.4")]
-        public void ReleaseTheHeldValueAndClearTheHold()
+        public void ReleaseHeldValueAndClearHold()
         {
             // Arrange
             var throttler = new Throttler(Policy());
@@ -218,7 +254,7 @@ namespace Vion.Dale.Sdk.Test.Emission
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-005.4")]
-        public void ReleaseNothingWhenNoValueIsHeld()
+        public void ReleaseNothingWhenNoValueHeld()
         {
             // Arrange
             var throttler = new Throttler(Policy());
@@ -237,7 +273,7 @@ namespace Vion.Dale.Sdk.Test.Emission
         [TestProperty("spec", "AC-EMIT-005.5")]
         [DataRow("0")]
         [DataRow("0ms")]
-        public void EmitEveryDistinctValueWhenThrottlingIsDisabled(string minInterval)
+        public void EmitEveryDistinctValueWhenThrottlingDisabled(string minInterval)
         {
             // Arrange
             var throttler = new Throttler(Policy(minInterval));
@@ -255,7 +291,7 @@ namespace Vion.Dale.Sdk.Test.Emission
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-005.5")]
-        public void StillSuppressInsideTheDeadbandWhenThrottlingIsDisabled()
+        public void SuppressInsideDeadbandWhenThrottlingDisabled()
         {
             // Arrange
             var throttler = new Throttler(Policy("0", "1.0"));

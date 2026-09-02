@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -257,96 +259,55 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-013.1")]
-        public void PopulateThrottleRuntimeForANonDefaultPolicy()
+        public void ReportNonDefaultPolicy()
         {
-            var voltage = typeof(ThrottledLb).GetProperty(nameof(ThrottledLb.Voltage))!;
-            var pm = PropertyMetadataBuilder.BuildSplit(voltage,
-                                                        voltage,
-                                                        new PrimitiveTypeRef(PrimitiveKind.Double),
-                                                        ImmutableDictionary<string, TypeAnnotations>.Empty,
-                                                        ServiceElementStream.Property);
+            // Arrange
+            var property = typeof(ThrottledLb).GetProperty(nameof(ThrottledLb.Voltage))!;
 
-            Assert.IsNotNull(pm.Runtime.Throttle);
-            Assert.AreEqual("1s", pm.Runtime.Throttle!.MinInterval);
-            Assert.AreEqual("0.1", pm.Runtime.Throttle!.MinChange);
-            Assert.IsFalse(pm.Runtime.Throttle!.Immediate);
+            // Act
+            var metadata = ReportedPolicyOf(property, property);
+
+            // Assert
+            Assert.IsNotNull(metadata);
+            Assert.AreEqual("1s", metadata!.MinInterval);
+            Assert.AreEqual("0.1", metadata.MinChange);
+            Assert.IsFalse(metadata.Immediate);
         }
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-013.2")]
-        public void OmitThrottleRuntimeForTheDefaultPolicy()
+        public void OmitDefaultPolicy()
         {
-            var plain = typeof(ThrottledLb).GetProperty(nameof(ThrottledLb.Plain))!;
-            var pm = PropertyMetadataBuilder.BuildSplit(plain,
-                                                        plain,
-                                                        new PrimitiveTypeRef(PrimitiveKind.Double),
-                                                        ImmutableDictionary<string, TypeAnnotations>.Empty,
-                                                        ServiceElementStream.Property);
+            // Arrange
+            var property = typeof(ThrottledLb).GetProperty(nameof(ThrottledLb.Plain))!;
 
-            Assert.IsNull(pm.Runtime.Throttle);
+            // Act
+            var metadata = ReportedPolicyOf(property, property);
+
+            // Assert — every member carries a policy, so reporting the default one would say nothing.
+            Assert.IsNull(metadata);
         }
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-013.4")]
-        public void InheritThrottleRuntimeFromTheInterfaceWhenImplDeclaresNoEmissionAttribute()
+        [DynamicData(nameof(SplitSourcePolicies))]
+        public void ReportThePolicyTheGateApplies(Type implementation, string? expectedInterval)
         {
-            // the impl property carries no [ServiceProperty], the knobs live on the interface.
-            // The runtime gate inherits them; introspection must surface them too so the UI chip
-            // renders for the §8.12 DRY pattern.
+            // Arrange — the interface declares 1s / 0.1; what the implementation declares beside it is
+            // what decides, exactly as it does for the gate.
             var schemaSource = typeof(IThrottleViaInterface).GetProperty(nameof(IThrottleViaInterface.Reading))!;
-            var presentationSource = typeof(ThrottleInheritedLb).GetProperty(nameof(ThrottleInheritedLb.Reading))!;
+            var presentationSource = implementation.GetProperty("Reading")!;
 
-            var pm = PropertyMetadataBuilder.BuildSplit(schemaSource,
-                                                        presentationSource,
-                                                        new PrimitiveTypeRef(PrimitiveKind.Double),
-                                                        ImmutableDictionary<string, TypeAnnotations>.Empty,
-                                                        ServiceElementStream.Property);
+            // Act
+            var metadata = ReportedPolicyOf(schemaSource, presentationSource);
 
-            Assert.IsNotNull(pm.Runtime.Throttle);
-            Assert.AreEqual("1s", pm.Runtime.Throttle!.MinInterval);
-            Assert.AreEqual("0.1", pm.Runtime.Throttle!.MinChange);
-        }
-
-        [TestMethod]
-        [TestProperty("spec", "AC-EMIT-013.4")]
-        public void PreferImplThrottleOverTheInterfaceWhenBothDeclareKnobs()
-        {
-            // Impl owns its own [ServiceProperty(2s)] — it wins over the interface's 1s, mirroring the gate.
-            var schemaSource = typeof(IThrottleViaInterface).GetProperty(nameof(IThrottleViaInterface.Reading))!;
-            var presentationSource = typeof(ThrottleImplOverrideLb).GetProperty(nameof(ThrottleImplOverrideLb.Reading))!;
-
-            var pm = PropertyMetadataBuilder.BuildSplit(schemaSource,
-                                                        presentationSource,
-                                                        new PrimitiveTypeRef(PrimitiveKind.Double),
-                                                        ImmutableDictionary<string, TypeAnnotations>.Empty,
-                                                        ServiceElementStream.Property);
-
-            Assert.IsNotNull(pm.Runtime.Throttle);
-            Assert.AreEqual("2s", pm.Runtime.Throttle!.MinInterval);
-        }
-
-        [TestMethod]
-        [TestProperty("spec", "AC-EMIT-013.4")]
-        public void OmitThrottleWhenImplDeclaresADefaultPolicyEvenIfTheInterfaceHasKnobs()
-        {
-            // The impl declares a bare (default) [ServiceProperty], so it owns the policy — and the default
-            // policy is not surfaced. The interface's knobs must NOT leak through (the gate uses the impl's
-            // default, not the interface). Guards against a naive "impl ?? interface" that would show "1s/0.1".
-            var schemaSource = typeof(IThrottleViaInterface).GetProperty(nameof(IThrottleViaInterface.Reading))!;
-            var presentationSource = typeof(ThrottleImplBareLb).GetProperty(nameof(ThrottleImplBareLb.Reading))!;
-
-            var pm = PropertyMetadataBuilder.BuildSplit(schemaSource,
-                                                        presentationSource,
-                                                        new PrimitiveTypeRef(PrimitiveKind.Double),
-                                                        ImmutableDictionary<string, TypeAnnotations>.Empty,
-                                                        ServiceElementStream.Property);
-
-            Assert.IsNull(pm.Runtime.Throttle);
+            // Assert
+            Assert.AreEqual(expectedInterval, metadata?.MinInterval);
         }
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-013.2")]
-        public void OmitThrottleRuntimeForTheDefaultIntervalWrittenWithoutItsUnit()
+        public void OmitDefaultIntervalWrittenWithoutUnit()
         {
             // Arrange
             var property = typeof(ThrottledLb).GetProperty(nameof(ThrottledLb.DefaultSpelledBare))!;
@@ -363,7 +324,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-013.5")]
-        public void OmitThrottleRuntimeForAnEmptyDeadbandOnAnOtherwiseDefaultPolicy()
+        public void OmitEmptyDeadbandOnOtherwiseDefaultPolicy()
         {
             // Arrange
             var property = typeof(ThrottledLb).GetProperty(nameof(ThrottledLb.EmptyDeadband))!;
@@ -380,7 +341,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-013.5")]
-        public void ReportAnEmptyDeadbandAsNoDeadbandOnAThrottledMember()
+        public void ReportEmptyDeadbandAsNoneOnThrottledMember()
         {
             // Arrange
             var property = typeof(ThrottledLb).GetProperty(nameof(ThrottledLb.EmptyDeadbandOnAThrottledMember))!;
@@ -399,7 +360,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-013.3")]
-        public void CarryImmediateAndTheEffectiveDefaultIntervalInThrottleRuntime()
+        public void CarryEffectiveIntervalAlongsideImmediate()
         {
             var pulse = typeof(ThrottledLb).GetProperty(nameof(ThrottledLb.Pulse))!;
             var pm = PropertyMetadataBuilder.BuildSplit(pulse,
@@ -414,6 +375,32 @@ namespace Vion.Dale.Sdk.Test.Introspection
             // The effective interval is carried even though it is the default — the consumer needs no
             // knowledge of the 250ms default to render a complete badge.
             Assert.AreEqual("250ms", pm.Runtime.Throttle!.MinInterval);
+        }
+
+        public static IEnumerable<object?[]> SplitSourcePolicies()
+        {
+            return new[]
+                   {
+                       // No attribute on the implementation, so the interface's knobs are reported.
+                       new object?[] { typeof(ThrottleInheritedLb), "1s" },
+
+                       // The implementation declares its own, which wins.
+                       new object?[] { typeof(ThrottleImplOverrideLb), "2s" },
+
+                       // The implementation declares a bare one: it owns the policy, and the default policy
+                       // is not reported — the interface's knobs must not leak past it.
+                       new object?[] { typeof(ThrottleImplBareLb), null },
+                   };
+        }
+
+        private static ThrottleMetadata? ReportedPolicyOf(PropertyInfo schemaSource, PropertyInfo presentationSource)
+        {
+            return PropertyMetadataBuilder.BuildSplit(schemaSource,
+                                                      presentationSource,
+                                                      new PrimitiveTypeRef(PrimitiveKind.Double),
+                                                      ImmutableDictionary<string, TypeAnnotations>.Empty,
+                                                      ServiceElementStream.Property)
+                                          .Runtime.Throttle;
         }
 
         private sealed class VisibleWhenDirectLb : LogicBlockBase
@@ -592,7 +579,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-013.1")]
-        public void EmitRuntimeThrottleNodeForAnInterfaceInheritedPolicy()
+        public void EmitThrottleNodeForInterfaceInheritedPolicy()
         {
             // End to end: the block's throttle knobs live on the [ServiceInterface]; the impl carries
             // only a bare property. Introspection must emit the runtime.throttle JSON node the DevHost/cloud
@@ -610,7 +597,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-013.4")]
-        public void EmitEachStreamsOwnThrottleNodeForADualAnnotatedMember()
+        public void EmitEachStreamsOwnThrottleNodeForDualAnnotatedMember()
         {
             // Arrange / Act
             var service = LogicBlockIntrospection.IntrospectLogicBlock(new DualAnnotatedThrottleLb(), _serviceProvider).Services.Single();
@@ -625,8 +612,22 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-013.6")]
+        public void OmitUnsetFieldsOfReportedPolicy()
+        {
+            // Arrange / Act
+            var service = LogicBlockIntrospection.IntrospectLogicBlock(new DualAnnotatedThrottleLb(), _serviceProvider).Services.Single();
+
+            // Assert — the member declares an interval and nothing else, so the node carries nothing else.
+            var throttle = service.Properties.Single(p => p.Identifier == "Power").Runtime!["throttle"]!;
+            Assert.AreEqual("2s", throttle["minInterval"]!.GetValue<string>());
+            Assert.IsNull(throttle["minChange"]);
+            Assert.IsNull(throttle["immediate"]);
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-EMIT-002.2")]
-        public void OmitTheThrottleNodeOfAStreamDeclaringNoKnobsBesideOneThatDoes()
+        public void OmitThrottleNodeOfStreamDeclaringNoKnobs()
         {
             // Arrange / Act
             var service = LogicBlockIntrospection.IntrospectLogicBlock(new DualAnnotatedThrottleLb(), _serviceProvider).Services.Single();

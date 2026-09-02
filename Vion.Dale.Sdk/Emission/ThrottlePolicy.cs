@@ -47,6 +47,9 @@ namespace Vion.Dale.Sdk.Emission
                 var resolveType = Nullable.GetUnderlyingType(valueType) ?? valueType;
                 if (ChangeThresholdRegistry.TryResolve(resolveType, probeAssembly, out var adapter))
                 {
+                    // Read the token now, so a member whose deadband cannot use it fails the block's start
+                    // instead of throwing out of the gate the first time its value moves.
+                    adapter.ValidateThreshold(cfg.MinChange!);
                     threshold = adapter;
                 }
             }

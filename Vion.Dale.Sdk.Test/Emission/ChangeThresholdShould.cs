@@ -18,7 +18,7 @@ namespace Vion.Dale.Sdk.Test.Emission
         [DataRow(typeof(float), 1.0f, 1.5f, "0.5", DisplayName = "float at the threshold")]
         [DataRow(typeof(int), 10, 15, "5", DisplayName = "int at the threshold")]
         [DataRow(typeof(long), 1_000L, 1_100L, "100", DisplayName = "long at the threshold")]
-        public void ClearAThresholdTheChangeReaches(Type valueType, object lastEmitted, object candidate, string threshold)
+        public void ClearThresholdChangeReaches(Type valueType, object lastEmitted, object candidate, string threshold)
         {
             // Arrange
             var adapter = Adapter(valueType);
@@ -36,7 +36,7 @@ namespace Vion.Dale.Sdk.Test.Emission
         [DataRow(typeof(float), 1.0f, 1.25f, "0.5", DisplayName = "float below")]
         [DataRow(typeof(int), 10, 13, "5", DisplayName = "int below")]
         [DataRow(typeof(long), 1_000L, 1_050L, "100", DisplayName = "long below")]
-        public void HoldAThresholdTheChangeDoesNotReach(Type valueType, object lastEmitted, object candidate, string threshold)
+        public void HoldThresholdChangeDoesNotReach(Type valueType, object lastEmitted, object candidate, string threshold)
         {
             // Arrange
             var adapter = Adapter(valueType);
@@ -54,7 +54,7 @@ namespace Vion.Dale.Sdk.Test.Emission
         [DataRow(typeof(float), 1.5f, 1.0f, "0.5", DisplayName = "float falling")]
         [DataRow(typeof(int), 15, 10, "5", DisplayName = "int falling")]
         [DataRow(typeof(long), 1_100L, 1_000L, "100", DisplayName = "long falling")]
-        public void CompareTheMagnitudeOfAFallingChange(Type valueType, object lastEmitted, object candidate, string threshold)
+        public void CompareMagnitudeOfFallingChange(Type valueType, object lastEmitted, object candidate, string threshold)
         {
             // Arrange
             var adapter = Adapter(valueType);
@@ -100,7 +100,7 @@ namespace Vion.Dale.Sdk.Test.Emission
         [DataRow(5000, 2000, "3s", true, DisplayName = "falling by three seconds")]
         [DataRow(0, 250, "250ms", true, DisplayName = "milliseconds, reached")]
         [DataRow(0, 249, "250ms", false, DisplayName = "milliseconds, not reached")]
-        public void ReadADurationThresholdWithTheDurationGrammar(int lastEmittedMilliseconds, int candidateMilliseconds, string threshold, bool expectedToClear)
+        public void ReadDurationThresholdWithDurationGrammar(int lastEmittedMilliseconds, int candidateMilliseconds, string threshold, bool expectedToClear)
         {
             // Arrange
             var adapter = Adapter(typeof(TimeSpan));
@@ -114,7 +114,7 @@ namespace Vion.Dale.Sdk.Test.Emission
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-008.2")]
-        public void ReadADurationThresholdBelowTheMillisecond()
+        public void ReadDurationThresholdBelowMillisecond()
         {
             // Arrange — 500us is 5000 ticks; the grammar's sub-millisecond unit must survive the round trip.
             var adapter = Adapter(typeof(TimeSpan));
@@ -126,7 +126,7 @@ namespace Vion.Dale.Sdk.Test.Emission
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-006.3")]
-        public void ClearTheThresholdWhenEitherSideIsAbsent()
+        public void ClearThresholdWhenEitherSideAbsent()
         {
             // Arrange — a null has no magnitude, so the first real value after one must not be suppressed.
             var adapter = Adapter(typeof(double));
@@ -135,6 +135,22 @@ namespace Vion.Dale.Sdk.Test.Emission
             Assert.IsTrue(adapter.Exceeds(null, 10.0d, "1000"));
             Assert.IsTrue(adapter.Exceeds(10.0d, null, "1000"));
             Assert.IsTrue(adapter.Exceeds(null, null, "1000"));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-006.3")]
+        [DataRow(typeof(double))]
+        [DataRow(typeof(float))]
+        public void ClearThresholdWhenEitherSideNotNumber(Type valueType)
+        {
+            // Arrange — a NaN has no magnitude, so the deadband cannot claim the member has not moved.
+            var adapter = Adapter(valueType);
+            var notANumber = valueType == typeof(double) ? double.NaN : (object)float.NaN;
+            var reading = valueType == typeof(double) ? 10.0d : (object)10.0f;
+
+            // Act / Assert
+            Assert.IsTrue(adapter.Exceeds(notANumber, reading, "1000"));
+            Assert.IsTrue(adapter.Exceeds(reading, notANumber, "1000"));
         }
 
         private static IChangeThresholdAdapter Adapter(Type valueType)

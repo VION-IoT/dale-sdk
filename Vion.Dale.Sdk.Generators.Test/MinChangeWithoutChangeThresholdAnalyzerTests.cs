@@ -132,5 +132,22 @@ public class MyBlock
 }";
             await AnalyzerTestBase.VerifyAnalyzerAsync<MinChangeWithoutChangeThresholdAnalyzer>(source);
         }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.7")]
+        public async Task DualAnnotatedMeasuringPointMinChangeOnBool_ReportsDiagnostic()
+        {
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public class MyBlock
+{
+    [ServiceProperty]
+    [ServiceMeasuringPoint(MinChange = ""1"")]
+    public bool {|#0:Flag|} { get; set; }
+}";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE034_MinChangeWithoutChangeThreshold).WithLocation(0).WithArguments("Flag", "bool");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<MinChangeWithoutChangeThresholdAnalyzer>(source, expected);
+        }
     }
 }

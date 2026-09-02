@@ -13,8 +13,8 @@ namespace Vion.Dale.Sdk.Emission
     ///     <c>IEquatable&lt;ImmutableArray&lt;T&gt;&gt;</c> as <em>reference equality of the underlying array</em>
     ///     — so a plain <c>Equals</c> reports a rebuilt-but-identical table as changed, and the floor can never
     ///     fire for it. A per-row table rebuilt each control cycle would then republish forever, carrying no
-    ///     news; This page names <c>ImmutableArray</c> as one of the shapes the floor exists to cover, so the
-    ///     floor compares content.
+    ///     news, and <c>ImmutableArray</c> is exactly the shape the floor exists to cover — so the floor
+    ///     compares content.
     ///     <para>
     ///         <see cref="IStructuralEquatable" /> is the framework's own compare-me-by-content contract:
     ///         <c>ImmutableArray&lt;T&gt;</c> implements it as a length check plus an element walk, and

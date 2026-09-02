@@ -86,23 +86,37 @@ namespace Vion.Dale.Sdk.Emission
                 throw new FormatException($"Duration token '{token}' is negative; durations are magnitudes.");
             }
 
+            double milliseconds;
             switch (unitPart)
             {
                 case "":
                 case "ms":
-                    return TimeSpan.FromMilliseconds(value);
+                    milliseconds = value;
+                    break;
                 case "us":
                     // 1 tick = 100 ns => 1 microsecond = 10 ticks.
                     return TimeSpan.FromTicks((long)Math.Round(value * 10.0));
                 case "s":
-                    return TimeSpan.FromSeconds(value);
+                    milliseconds = value * 1_000.0;
+                    break;
                 case "m":
-                    return TimeSpan.FromMinutes(value);
+                    milliseconds = value * 60.0 * 1_000.0;
+                    break;
                 case "h":
-                    return TimeSpan.FromHours(value);
+                    milliseconds = value * 60.0 * 60.0 * 1_000.0;
+                    break;
                 default:
                     throw new FormatException($"Unknown duration unit '{unitPart}' in token '{token}'.");
             }
+
+            // TimeSpan.From* throws an OverflowException naming nothing, which reads as a runtime fault
+            // rather than the malformed knob it is. Reject it the way every other bad token is rejected.
+            if (milliseconds > TimeSpan.MaxValue.TotalMilliseconds)
+            {
+                throw new FormatException($"Duration token '{token}' is larger than a duration can represent.");
+            }
+
+            return TimeSpan.FromMilliseconds(milliseconds);
         }
     }
 }

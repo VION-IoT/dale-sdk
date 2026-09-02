@@ -4,63 +4,58 @@ using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.Sdk.Test.Core
 {
+    /// <summary>
+    ///     The three emission knobs as an author leaves them on either attribute: what a declaration says,
+    ///     and what an omitted knob means. Both attributes declare the same set with the same defaults, so
+    ///     the gate reads either through one interface without knowing which stream it is building.
+    /// </summary>
     [TestClass]
     public class ThrottleConfiguredShould
     {
-        // Reflection probe: a property carrying an explicitly-configured [ServiceProperty].
-        [ServiceProperty(MinInterval = "1s", MinChange = "0.1", Immediate = false)]
+        [ServiceProperty(MinInterval = "1s", MinChange = "0.1", Immediate = true)]
         private double ConfiguredProperty { get; set; }
 
-        // Reflection probe: a property carrying a default [ServiceProperty] (no throttle args).
+        [ServiceMeasuringPoint(MinInterval = "1s", MinChange = "0.1", Immediate = true)]
+        private double ConfiguredMeasuringPoint { get; set; }
+
         [ServiceProperty]
-        private double DefaultProperty { get; set; }
+        private double BareProperty { get; set; }
 
-        // Reflection probe: a property carrying a default [ServiceMeasuringPoint] (no throttle args).
         [ServiceMeasuringPoint]
-        private double DefaultMeasuringPoint { get; set; }
+        private double BareMeasuringPoint { get; set; }
 
         [TestMethod]
-        public void SurfaceConfiguredServicePropertyValuesViaIThrottleConfigured()
+        [DataRow(typeof(ServicePropertyAttribute), nameof(ConfiguredProperty), DisplayName = "service property")]
+        [DataRow(typeof(ServiceMeasuringPointAttribute), nameof(ConfiguredMeasuringPoint), DisplayName = "measuring point")]
+        public void SurfaceEveryKnobTheAuthorWrote(Type attributeType, string propertyName)
         {
-            var throttle = ThrottleOf<ServicePropertyAttribute>(nameof(ConfiguredProperty));
+            // Arrange / Act
+            var knobs = KnobsOf(attributeType, propertyName);
 
-            Assert.AreEqual("1s", throttle.MinInterval);
-            Assert.AreEqual("0.1", throttle.MinChange);
-            Assert.IsFalse(throttle.Immediate);
+            // Assert
+            Assert.AreEqual("1s", knobs.MinInterval);
+            Assert.AreEqual("0.1", knobs.MinChange);
+            Assert.IsTrue(knobs.Immediate);
         }
 
         [TestMethod]
-        public void DefaultServicePropertyThrottleValues()
+        [DataRow(typeof(ServicePropertyAttribute), nameof(BareProperty), DisplayName = "service property")]
+        [DataRow(typeof(ServiceMeasuringPointAttribute), nameof(BareMeasuringPoint), DisplayName = "measuring point")]
+        public void SurfaceTheSameDefaultsForBothAttributes(Type attributeType, string propertyName)
         {
-            var throttle = ThrottleOf<ServicePropertyAttribute>(nameof(DefaultProperty));
+            // Arrange / Act
+            var knobs = KnobsOf(attributeType, propertyName);
 
-            Assert.AreEqual("250ms", throttle.MinInterval);
-            Assert.IsNull(throttle.MinChange);
-            Assert.IsFalse(throttle.Immediate);
+            // Assert — an omitted interval is the 250 ms default, an omitted deadband is no deadband.
+            Assert.AreEqual("250ms", knobs.MinInterval);
+            Assert.IsNull(knobs.MinChange);
+            Assert.IsFalse(knobs.Immediate);
         }
 
-        [TestMethod]
-        public void DefaultServiceMeasuringPointThrottleValues()
-        {
-            var throttle = ThrottleOf<ServiceMeasuringPointAttribute>(nameof(DefaultMeasuringPoint));
-
-            Assert.AreEqual("250ms", throttle.MinInterval);
-            Assert.IsNull(throttle.MinChange);
-            Assert.IsFalse(throttle.Immediate);
-        }
-
-        [TestMethod]
-        public void ServiceMeasuringPointImplementsIThrottleConfigured()
-        {
-            Assert.IsInstanceOfType<IThrottleConfigured>(new ServiceMeasuringPointAttribute());
-        }
-
-        private static IThrottleConfigured ThrottleOf<TAttribute>(string propertyName)
-            where TAttribute : Attribute
+        private static IThrottleConfigured KnobsOf(Type attributeType, string propertyName)
         {
             var property = typeof(ThrottleConfiguredShould).GetProperty(propertyName, BindingFlags.Instance | BindingFlags.NonPublic)!;
-            var attribute = property.GetCustomAttribute<TAttribute>()!;
-            return (IThrottleConfigured)attribute;
+            return (IThrottleConfigured)property.GetCustomAttribute(attributeType)!;
         }
     }
 }

@@ -166,5 +166,37 @@ public class MyBlock
             var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE036_MinIntervalInvalid).WithLocation(0).WithArguments("Voltage", "nope");
             await AnalyzerTestBase.VerifyAnalyzerAsync<MinIntervalInvalidAnalyzer>(source, expected);
         }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.7")]
+        public async Task DualAnnotatedMeasuringPointBadInterval_ReportsError()
+        {
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public class MyBlock
+{
+    [ServiceProperty(MinInterval = ""1s"")]
+    [ServiceMeasuringPoint(MinInterval = ""soon"")]
+    public double {|#0:Voltage|} { get; set; }
+}";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE036_MinIntervalInvalid).WithLocation(0).WithArguments("Voltage", "soon");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<MinIntervalInvalidAnalyzer>(source, expected);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.3")]
+        public async Task TooLargeToRepresent_ReportsError()
+        {
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public class MyBlock
+{
+    [ServiceProperty(MinInterval = ""999999999999999999999h"")] public double {|#0:Voltage|} { get; set; }
+}";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE036_MinIntervalInvalid).WithLocation(0).WithArguments("Voltage", "999999999999999999999h");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<MinIntervalInvalidAnalyzer>(source, expected);
+        }
     }
 }

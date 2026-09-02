@@ -46,37 +46,34 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         {
             var property = (IPropertySymbol)context.Symbol;
 
-            var attribute = EmissionAttributeHelper.GetEmissionAttribute(property);
-            if (attribute == null)
+            foreach (var attribute in EmissionAttributeHelper.GetEmissionAttributes(property))
             {
-                return;
+                var minChange = EmissionAttributeHelper.GetMinChange(attribute);
+                if (minChange == null)
+                {
+                    continue;
+                }
+
+                // The runtime keys the registry on the member's value type. Unwrap Nullable<T> so the
+                // author's intent (a double deadband on a double? property) is honoured — the underlying
+                // type is what carries the magnitude.
+                var valueType = EmissionAttributeHelper.Unwrap(property.Type);
+
+                if (EmissionAttributeHelper.IsBuiltInThresholdType(valueType))
+                {
+                    continue;
+                }
+
+                if (customThresholdTypes.Contains(valueType))
+                {
+                    continue;
+                }
+
+                context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE034_MinChangeWithoutChangeThreshold,
+                                                           property.Locations.FirstOrDefault(),
+                                                           property.Name,
+                                                           valueType.ToDisplayString()));
             }
-
-            var minChange = EmissionAttributeHelper.GetMinChange(attribute);
-            if (minChange == null)
-            {
-                return;
-            }
-
-            // The runtime keys the registry on the member's value type. Unwrap Nullable<T> so the
-            // author's intent (a double deadband on a double? property) is honoured — the underlying
-            // type is what carries the magnitude.
-            var valueType = EmissionAttributeHelper.Unwrap(property.Type);
-
-            if (EmissionAttributeHelper.IsBuiltInThresholdType(valueType))
-            {
-                return;
-            }
-
-            if (customThresholdTypes.Contains(valueType))
-            {
-                return;
-            }
-
-            context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE034_MinChangeWithoutChangeThreshold,
-                                                       property.Locations.FirstOrDefault(),
-                                                       property.Name,
-                                                       valueType.ToDisplayString()));
         }
     }
 }

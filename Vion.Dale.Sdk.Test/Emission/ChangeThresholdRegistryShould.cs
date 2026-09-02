@@ -63,7 +63,7 @@ namespace Vion.Dale.Sdk.Test.Emission
         [DataRow(typeof(int))]
         [DataRow(typeof(long))]
         [DataRow(typeof(TimeSpan))]
-        public void ResolveTheBuiltInDeadbandForItsValueType(Type valueType)
+        public void ResolveBuiltInDeadbandForValueType(Type valueType)
         {
             // Arrange / Act
             var resolved = ChangeThresholdRegistry.TryResolve(valueType, null, out var adapter);
@@ -75,7 +75,7 @@ namespace Vion.Dale.Sdk.Test.Emission
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-009.1")]
-        public void ResolveADeadbandDeclaredInTheSearchedAssembly()
+        public void ResolveDeadbandDeclaredInSearchedAssembly()
         {
             // Arrange / Act
             var resolved = ChangeThresholdRegistry.TryResolve(typeof(Meters), typeof(MetersChangeThreshold).Assembly, out var adapter);
@@ -88,7 +88,7 @@ namespace Vion.Dale.Sdk.Test.Emission
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-009.2")]
-        public void ResolveADeadbandDeclaredInASiblingAssembly()
+        public void ResolveDeadbandDeclaredInSiblingAssembly()
         {
             // Arrange — search the SDK, which declares no threshold for this type; the implementation lives
             // in this test assembly, a sibling loaded in the same context. That is the foundation-library
@@ -106,7 +106,7 @@ namespace Vion.Dale.Sdk.Test.Emission
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-009.1")]
-        public void PassOverAnImplementationItCannotConstruct()
+        public void PassOverImplementationItCannotConstruct()
         {
             // Arrange / Act — FathomsChangeThreshold is the only implementation and takes a constructor
             // argument, so nothing usable is found.
@@ -119,7 +119,7 @@ namespace Vion.Dale.Sdk.Test.Emission
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-009.1")]
-        public void ResolveNothingForAValueTypeWithNoDeadband()
+        public void ResolveNothingForValueTypeWithNoDeadband()
         {
             // Arrange / Act
             var resolved = ChangeThresholdRegistry.TryResolve(typeof(Guid), typeof(MetersChangeThreshold).Assembly, out var adapter);
@@ -131,7 +131,7 @@ namespace Vion.Dale.Sdk.Test.Emission
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-009.1")]
-        public void ResolveNothingForAValueTypeWithNoDeadbandAndNoAssemblyToSearch()
+        public void ResolveNothingWithoutAssemblyToSearch()
         {
             // Arrange / Act
             var resolved = ChangeThresholdRegistry.TryResolve(typeof(string), null, out var adapter);
@@ -143,17 +143,21 @@ namespace Vion.Dale.Sdk.Test.Emission
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-009.3")]
-        public void KeepAResolvedDeadbandForTheProcess()
+        public void KeepResolvedDeadbandKeyedByValueType()
         {
-            // Arrange — the first resolution runs the search and caches its result.
+            // Arrange — the first resolution runs the search and keeps its result.
             ChangeThresholdRegistry.TryResolve(typeof(Meters), typeof(MetersChangeThreshold).Assembly, out var first);
 
-            // Act — a second resolution with nothing to search must still find it.
-            var resolved = ChangeThresholdRegistry.TryResolve(typeof(Meters), null, out var second);
+            // Act — the same value type, reached with nothing to search and then from a different
+            // assembly. The key is the type, so neither call runs the search again.
+            var withoutSearch = ChangeThresholdRegistry.TryResolve(typeof(Meters), null, out var second);
+            var fromElsewhere = ChangeThresholdRegistry.TryResolve(typeof(Meters), typeof(ChangeThresholdRegistry).Assembly, out var third);
 
-            // Assert
-            Assert.IsTrue(resolved);
+            // Assert — one deadband for the type, so two members of it share one wherever they are declared.
+            Assert.IsTrue(withoutSearch);
+            Assert.IsTrue(fromElsewhere);
             Assert.AreSame(first, second);
+            Assert.AreSame(first, third);
         }
     }
 }

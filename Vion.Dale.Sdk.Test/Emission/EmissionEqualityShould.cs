@@ -25,7 +25,7 @@ namespace Vion.Dale.Sdk.Test.Emission
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-004.2")]
-        public void TreatARebuiltButIdenticalTableAsUnchanged()
+        public void TreatRebuiltButIdenticalTableAsUnchanged()
         {
             // Arrange
             var emitted = ImmutableArray.Create(new Row("a", 1.5d, Status.Ok), new Row("b", 2.5d, Status.Faulted));
@@ -49,7 +49,7 @@ namespace Vion.Dale.Sdk.Test.Emission
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-004.2")]
-        public void TreatAnUninitialisedTableAsEqualOnlyToAnother()
+        public void TreatUninitialisedTableAsEqualOnlyToAnother()
         {
             // Arrange — a service element typed ImmutableArray<T> with no initializer is `default`, and the
             // floor must compare it rather than throw.
@@ -63,7 +63,7 @@ namespace Vion.Dale.Sdk.Test.Emission
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-004.2")]
-        public void TreatANestedTableAsChangedWhenAnInnerRowMoves()
+        public void TreatNestedTableAsChangedWhenInnerRowMoves()
         {
             // Arrange
             var emitted = ImmutableArray.Create(ImmutableArray.Create(1, 2), ImmutableArray.Create(3));
@@ -76,7 +76,7 @@ namespace Vion.Dale.Sdk.Test.Emission
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-004.2")]
         [DynamicData(nameof(ChangedTables))]
-        public void TreatAChangedTableAsChanged(ImmutableArray<Row> emitted, ImmutableArray<Row> candidate)
+        public void TreatChangedTableAsChanged(ImmutableArray<Row> emitted, ImmutableArray<Row> candidate)
         {
             // Arrange / Act
             var unchanged = EmissionEquality.AreEqual(Box(emitted), Box(candidate));
@@ -111,7 +111,7 @@ namespace Vion.Dale.Sdk.Test.Emission
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-004.3")]
-        public void TreatAnAbsentValueOnOneSideAsChanged()
+        public void TreatAbsentValueOnOneSideAsChanged()
         {
             // Arrange
             var table = Box(ImmutableArray.Create(new Row("a", 1d, Status.Ok)));

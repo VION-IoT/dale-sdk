@@ -92,7 +92,9 @@ function badgeList(item) {
         if (t.immediate) {
             push('throttle', 'immediate', 'emitted on every change (throttle & deadband bypassed)');
         } else {
-            const hasInterval = t.minInterval && t.minInterval !== '0' && t.minInterval !== '0ms';
+            // The disabling sentinel is any duration that resolves to zero, not the two spellings '0'
+            // and '0ms' — '0s' configures the same gate and must read as the same deadband-only policy.
+            const hasInterval = t.minInterval && !/^\s*[+-]?0*\.?0*\s*(us|ms|s|m|h)?\s*$/i.test(t.minInterval);
             const bits = [];
             if (hasInterval) bits.push(t.minInterval);
             if (t.minChange) bits.push('Δ' + t.minChange);

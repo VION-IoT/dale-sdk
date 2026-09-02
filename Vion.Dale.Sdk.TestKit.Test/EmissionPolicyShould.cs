@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Messages;
+using Vion.Dale.Sdk.Utils;
 
 namespace Vion.Dale.Sdk.TestKit.Test
 {
@@ -20,7 +21,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-001.2")]
-        public void PublishEveryChangeOnAClockItCanAdvance()
+        public void PublishEveryChangeOnClockItCanAdvance()
         {
             // Arrange — the TestKit's own clock, and no override.
             var block = LogicBlockTestHelper.Create<ThrottledBlock>();
@@ -37,7 +38,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-001.1")]
-        public void ApplyThePolicyOnAClockItCannotAdvance()
+        public void ApplyPolicyOnClockItCannotAdvance()
         {
             // Arrange — a clock with no Advance(TimeSpan), so the block cannot take it for a test clock.
             // No override is registered: the clock alone must turn the policy on.
@@ -63,7 +64,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-001.3")]
-        public void ApplyThePolicyOnAnAdvanceableClockWhenOverridden()
+        public void ApplyPolicyOnAdvanceableClockWhenOverridden()
         {
             // Arrange
             var block = LogicBlockTestHelper.Create<ThrottledBlock>();
@@ -81,7 +82,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-004.1")]
-        public void SuppressAValueEqualToTheOneLastPublished()
+        public void SuppressValueEqualToLastPublished()
         {
             // Arrange
             var block = LogicBlockTestHelper.Create<SettableBlock>();
@@ -99,7 +100,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-011.1")]
-        public void PublishNothingBeforeTheBlockStarts()
+        public void PublishNothingBeforeBlockStarts()
         {
             // Arrange
             var block = LogicBlockTestHelper.Create<ThrottledBlock>();
@@ -114,7 +115,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-011.2")]
-        public void PublishEveryMembersValueWhenTheBlockStarts()
+        public void PublishEveryMembersValueWhenBlockStarts()
         {
             // Arrange — a value assigned before start reaches no one, so the start publish is the only
             // thing that can carry it.
@@ -131,7 +132,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-003.3")]
-        public void RefuseToStartWhenAnIntervalIsNotADuration()
+        public void RefuseToStartWhenIntervalNotDuration()
         {
             // Arrange
             var block = LogicBlockTestHelper.Create<UnparseableIntervalBlock>();
@@ -142,9 +143,42 @@ namespace Vion.Dale.Sdk.TestKit.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-003.4")]
+        public void RefuseToStartWhenDeadbandCannotBeRead()
+        {
+            // Arrange
+            var block = LogicBlockTestHelper.Create<UnreadableDeadbandBlock>();
+
+            // Act / Assert — the token is read once at start, so a member never meets it mid-run.
+            Assert.ThrowsExactly<FormatException>(() => block.CreateTestContext().Build());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-003.4")]
+        public void RefuseToStartWhenNumericDeadbandNegative()
+        {
+            // Arrange
+            var block = LogicBlockTestHelper.Create<NegativeDeadbandBlock>();
+
+            // Act / Assert
+            Assert.ThrowsExactly<FormatException>(() => block.CreateTestContext().Build());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-003.4")]
+        public void RefuseToStartWhenDurationDeadbandNegative()
+        {
+            // Arrange
+            var block = LogicBlockTestHelper.Create<NegativeDurationDeadbandBlock>();
+
+            // Act / Assert
+            Assert.ThrowsExactly<FormatException>(() => block.CreateTestContext().Build());
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-EMIT-005.4")]
         [TestProperty("spec", "AC-EMIT-010.3")]
-        public void ReleaseTheHeldValueWhenTheIntervalElapses()
+        public void ReleaseHeldValueWhenIntervalElapses()
         {
             // Arrange
             var block = LogicBlockTestHelper.Create<ThrottledBlock>();
@@ -192,7 +226,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-010.4")]
-        public void ReleaseNothingAfterTheBlockStops()
+        public void ReleaseNothingAfterBlockStops()
         {
             // Arrange — a held value whose deadline has not arrived when the block stops.
             var block = LogicBlockTestHelper.Create<SettableBlock>();
@@ -212,7 +246,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-011.4")]
-        public void PublishAPropertysValueAgainWhenAskedToRepublish()
+        public void PublishPropertysValueAgainWhenAskedToRepublish()
         {
             // Arrange — after a reconnect the gate believes a value was delivered that was not, so the
             // dedup floor would suppress the re-assertion.
@@ -231,7 +265,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-011.4")]
-        public void PublishAMeasuringPointsValueAgainWhenAskedToRepublish()
+        public void PublishMeasuringPointsValueAgainWhenAskedToRepublish()
         {
             // Arrange
             var block = LogicBlockTestHelper.Create<MeasuredBlock>();
@@ -249,7 +283,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-011.5")]
-        public void PublishTheExactCurrentValueWhenTheBlockStops()
+        public void PublishExactCurrentValueWhenBlockStops()
         {
             // Arrange — 9.0 is held inside the interval and has never reached anyone.
             var block = LogicBlockTestHelper.Create<SettableBlock>();
@@ -268,7 +302,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-011.5")]
-        public void PublishNothingOnStopForAMemberAlreadyUpToDate()
+        public void PublishNothingOnStopForMemberAlreadyUpToDate()
         {
             // Arrange — the current value is the one last published, so there is nothing to correct.
             var block = LogicBlockTestHelper.Create<SettableBlock>();
@@ -286,7 +320,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-011.6")]
-        public void PublishNothingExtraOnStopWhenThePolicyIsNotApplied()
+        public void PublishNothingExtraOnStopWhenPolicyNotApplied()
         {
             // Arrange — no override, so every assignment was already published as it happened.
             var block = LogicBlockTestHelper.Create<SettableBlock>();
@@ -304,7 +338,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-011.7")]
-        public void PublishTheRemainingMembersWhenOneCannotBeRead()
+        public void PublishRemainingMembersWhenOneCannotBeRead()
         {
             // Arrange — Faulty's getter starts throwing inside Stopping(), which runs before the block
             // publishes its final values.
@@ -320,6 +354,42 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
             // Assert — Faulty is bound first, so its throw happens before Voltage is read.
             context.VerifyServicePropertyEmitted(lb => lb.Voltage, value => Assert.AreEqual(9.0, value), Times.Once());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-011.9")]
+        public void AcknowledgeWriteWithValueBlockApplied()
+        {
+            // Arrange — the member clamps, so what the block applied differs from what was written.
+            var block = LogicBlockTestHelper.Create<ClampingBlock>();
+            var context = Forced(block);
+            context.AdvanceTime(DefaultInterval);
+
+            // Act
+            Write(block, context, 250.0);
+
+            // Assert
+            var acknowledged = context.GetSentMessagesOfTypePublic<SetServicePropertyValueResponse>().Single();
+            Assert.AreEqual(100.0, acknowledged.Value);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-011.10")]
+        public void PublishWritesStateChangeUnderMembersPolicy()
+        {
+            // Arrange
+            var block = LogicBlockTestHelper.Create<ClampingBlock>();
+            var context = Forced(block);
+            context.AdvanceTime(DefaultInterval);
+
+            // Act — two writes inside one interval.
+            Write(block, context, 10.0);
+            Write(block, context, 20.0);
+
+            // Assert — a write is never refused or delayed, but the state it produces is gated like any
+            // other change: the second is held, not published.
+            Assert.HasCount(2, context.GetSentMessagesOfTypePublic<SetServicePropertyValueResponse>());
+            context.VerifyServicePropertyEmitted(lb => lb.Limit, value => Assert.AreEqual(10.0, value), Times.Once());
         }
 
         [TestMethod]
@@ -345,7 +415,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-002.1")]
-        public void GateAMeasuringPointTheSameWayAsAServiceProperty()
+        public void GateMeasuringPointLikeServiceProperty()
         {
             // Arrange
             var block = LogicBlockTestHelper.Create<MeasuredBlock>();
@@ -361,6 +431,13 @@ namespace Vion.Dale.Sdk.TestKit.Test
             // Assert
             var published = context.GetSentMessagesOfTypePublic<ServiceMeasuringPointValueChanged>().Select(m => m.Value).ToList();
             CollectionAssert.AreEqual(new object[] { 50.0, 50.2 }, published);
+        }
+
+        private static void Write<TBlock>(TBlock block, LogicBlockTestContext<TBlock> context, double value)
+            where TBlock : LogicBlockBase
+        {
+            var request = new SetServicePropertyValueRequest(new ServiceIdentifier(typeof(TBlock).Name), nameof(ClampingBlock.Limit), value);
+            block.HandleMessageAsync(request, context).GetAwaiter().GetResult();
         }
 
         private static LogicBlockTestContext<TBlock> Forced<TBlock>(TBlock block)
@@ -390,6 +467,56 @@ namespace Vion.Dale.Sdk.TestKit.Test
             }
         }
 
+        // Each of the three below is rejected by DALE035 at compile time; suppressed here to reach the
+        // start-time backstop, which is what a member gets when the compile-time gate was bypassed.
+        private sealed class UnreadableDeadbandBlock : LogicBlockBase
+        {
+#pragma warning disable DALE035
+            [ServiceProperty(MinChange = "loads")]
+            public double Voltage { get; set; }
+#pragma warning restore DALE035
+
+            public UnreadableDeadbandBlock(ILogger logger) : base(logger)
+            {
+            }
+
+            protected override void Ready()
+            {
+            }
+        }
+
+        private sealed class NegativeDeadbandBlock : LogicBlockBase
+        {
+#pragma warning disable DALE035
+            [ServiceProperty(MinChange = "-1")]
+            public double Voltage { get; set; }
+#pragma warning restore DALE035
+
+            public NegativeDeadbandBlock(ILogger logger) : base(logger)
+            {
+            }
+
+            protected override void Ready()
+            {
+            }
+        }
+
+        private sealed class NegativeDurationDeadbandBlock : LogicBlockBase
+        {
+#pragma warning disable DALE035
+            [ServiceProperty(MinChange = "-1s")]
+            public TimeSpan Uptime { get; set; }
+#pragma warning restore DALE035
+
+            public NegativeDurationDeadbandBlock(ILogger logger) : base(logger)
+            {
+            }
+
+            protected override void Ready()
+            {
+            }
+        }
+
         // DALE036 rejects this at compile time; suppressed here to reach the start-time backstop.
         private sealed class UnparseableIntervalBlock : LogicBlockBase
         {
@@ -399,6 +526,29 @@ namespace Vion.Dale.Sdk.TestKit.Test
 #pragma warning restore DALE036
 
             public UnparseableIntervalBlock(ILogger logger) : base(logger)
+            {
+            }
+
+            protected override void Ready()
+            {
+            }
+        }
+
+        // A writable member that refuses part of what it is told: the value the block applied is not the
+        // value the caller sent, which is what the acknowledgement has to carry.
+        private sealed class ClampingBlock : LogicBlockBase
+        {
+            private double _limit;
+
+            [ServiceProperty(MinInterval = "250ms")]
+            public double Limit
+            {
+                get => _limit;
+
+                set => _limit = Math.Min(value, 100.0);
+            }
+
+            public ClampingBlock(ILogger logger) : base(logger)
             {
             }
 

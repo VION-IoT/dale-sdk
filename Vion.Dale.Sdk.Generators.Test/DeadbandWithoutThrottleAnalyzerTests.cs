@@ -93,5 +93,22 @@ public class MyBlock
 }";
             await AnalyzerTestBase.VerifyAnalyzerAsync<DeadbandWithoutThrottleAnalyzer>(source);
         }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.7")]
+        public async Task DualAnnotatedMeasuringPointZeroIntervalWithMinChange_ReportsInfo()
+        {
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public class MyBlock
+{
+    [ServiceProperty(MinInterval = ""1s"")]
+    [ServiceMeasuringPoint(MinInterval = ""0"", MinChange = ""0.5"")]
+    public double {|#0:Voltage|} { get; set; }
+}";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE039_DeadbandWithoutThrottle).WithLocation(0).WithArguments("Voltage", "0");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<DeadbandWithoutThrottleAnalyzer>(source, expected);
+        }
     }
 }

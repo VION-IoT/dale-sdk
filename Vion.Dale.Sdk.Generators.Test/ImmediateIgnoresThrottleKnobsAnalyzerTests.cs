@@ -127,5 +127,36 @@ public class MyBlock
             var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE038_ImmediateIgnoresThrottleKnobs).WithLocation(0).WithArguments("Voltage", "MinInterval = \"0\"");
             await AnalyzerTestBase.VerifyAnalyzerAsync<ImmediateIgnoresThrottleKnobsAnalyzer>(source, expected);
         }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.7")]
+        public async Task DualAnnotatedMeasuringPointImmediateWithMinChange_ReportsDiagnostic()
+        {
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public class MyBlock
+{
+    [ServiceProperty(MinInterval = ""1s"")]
+    [ServiceMeasuringPoint(Immediate = true, MinChange = ""0.5"")]
+    public double {|#0:Voltage|} { get; set; }
+}";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE038_ImmediateIgnoresThrottleKnobs).WithLocation(0).WithArguments("Voltage", "MinChange = \"0.5\"");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<ImmediateIgnoresThrottleKnobsAnalyzer>(source, expected);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.5")]
+        public async Task ImmediateWithTheDefaultIntervalWrittenWithoutItsUnit_NoDiagnostic()
+        {
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public class MyBlock
+{
+    [ServiceProperty(Immediate = true, MinInterval = ""250"")] public double Voltage { get; set; }
+}";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<ImmediateIgnoresThrottleKnobsAnalyzer>(source);
+        }
     }
 }

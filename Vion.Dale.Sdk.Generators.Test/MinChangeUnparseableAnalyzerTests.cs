@@ -221,5 +221,24 @@ public class MyBlock
                                            .WithArguments("Uptime", "-1s", "System.TimeSpan", "A duration (number with optional us/ms/s/m/h suffix)");
             await AnalyzerTestBase.VerifyAnalyzerAsync<MinChangeUnparseableAnalyzer>(source, expected);
         }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.7")]
+        public async Task DualAnnotatedMeasuringPointBadMinChange_ReportsDiagnostic()
+        {
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public class MyBlock
+{
+    [ServiceProperty(MinChange = ""0.5"")]
+    [ServiceMeasuringPoint(MinChange = ""loads"")]
+    public double {|#0:Voltage|} { get; set; }
+}";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE035_MinChangeUnparseable)
+                                           .WithLocation(0)
+                                           .WithArguments("Voltage", "loads", "double", "An invariant-culture number");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<MinChangeUnparseableAnalyzer>(source, expected);
+        }
     }
 }

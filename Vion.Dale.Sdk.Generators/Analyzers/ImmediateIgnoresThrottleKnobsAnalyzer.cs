@@ -14,8 +14,6 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class ImmediateIgnoresThrottleKnobsAnalyzer : DiagnosticAnalyzer
     {
-        private const string DefaultMinInterval = "250ms";
-
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
         {
             get => ImmutableArray.Create(DaleDiagnostics.DALE038_ImmediateIgnoresThrottleKnobs);
@@ -32,40 +30,40 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         {
             var property = (IPropertySymbol)context.Symbol;
 
-            var attribute = EmissionAttributeHelper.GetEmissionAttribute(property);
-            if (attribute == null)
+            foreach (var attribute in EmissionAttributeHelper.GetEmissionAttributes(property))
             {
-                return;
+                if (!EmissionAttributeHelper.GetImmediate(attribute))
+                {
+                    continue;
+                }
+
+                var ignoredKnobs = new List<string>();
+
+                // Compare the declared interval as a DURATION, not as a spelling: "250" and "250ms"
+                // configure the same gate, so warning about one and not the other would report a knob as
+                // ignored on the strength of how it was typed.
+                var explicitMinInterval = EmissionAttributeHelper.GetExplicitMinInterval(attribute);
+                if (explicitMinInterval != null && !EmissionAttributeHelper.IsDefaultInterval(explicitMinInterval))
+                {
+                    ignoredKnobs.Add($"MinInterval = \"{explicitMinInterval}\"");
+                }
+
+                var minChange = EmissionAttributeHelper.GetMinChange(attribute);
+                if (minChange != null)
+                {
+                    ignoredKnobs.Add($"MinChange = \"{minChange}\"");
+                }
+
+                if (ignoredKnobs.Count == 0)
+                {
+                    continue;
+                }
+
+                context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE038_ImmediateIgnoresThrottleKnobs,
+                                                           property.Locations.FirstOrDefault(),
+                                                           property.Name,
+                                                           string.Join(" and ", ignoredKnobs)));
             }
-
-            if (!EmissionAttributeHelper.GetImmediate(attribute))
-            {
-                return;
-            }
-
-            var ignoredKnobs = new List<string>();
-
-            var explicitMinInterval = EmissionAttributeHelper.GetExplicitMinInterval(attribute);
-            if (explicitMinInterval != null && explicitMinInterval != DefaultMinInterval)
-            {
-                ignoredKnobs.Add($"MinInterval = \"{explicitMinInterval}\"");
-            }
-
-            var minChange = EmissionAttributeHelper.GetMinChange(attribute);
-            if (minChange != null)
-            {
-                ignoredKnobs.Add($"MinChange = \"{minChange}\"");
-            }
-
-            if (ignoredKnobs.Count == 0)
-            {
-                return;
-            }
-
-            context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE038_ImmediateIgnoresThrottleKnobs,
-                                                       property.Locations.FirstOrDefault(),
-                                                       property.Name,
-                                                       string.Join(" and ", ignoredKnobs)));
         }
     }
 }

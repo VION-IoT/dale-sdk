@@ -30,9 +30,14 @@ throttle its own assignments. So the policy is decided once, from the clock the 
 - `AC-EMIT-001.3` (Event-driven): WHEN an emission-policy override is registered in a logic block's
   service provider, THE SYSTEM SHALL apply each bound member's declared emission policy whatever the
   clock.
+- `AC-EMIT-001.4` (Ubiquitous): THE SYSTEM SHALL treat a clock as controllable when, and only when, it
+  exposes a public instance method named `Advance` taking a `TimeSpan` and returning nothing.
 
 The override is what `Vion.Dale.Sdk.TestKit`'s `WithEmissionPolicy(EmissionPolicyMode.FromAttributes)`
 registers, and it is the only way to exercise throttling deterministically.
+
+`AC-EMIT-001.4` is structural rather than nominal so the SDK needs no reference to the test-only clock
+package: any clock a test can wind forward is recognised by the method it offers, whoever wrote it.
 
 ## Which knobs govern a member
 
@@ -44,7 +49,7 @@ registers, and it is the only way to exercise throttling deterministically.
 - `AC-EMIT-002.3` (Event-driven): WHEN the implementing property declares a stream's emission
   attribute THE SYSTEM SHALL read that stream's knobs from it, and otherwise SHALL read them from the
   `[ServiceInterface]` property the member is bound through.
-- `AC-EMIT-002.4` (Event-driven): WHEN a bound member declares neither emission attribute for a stream THE SYSTEM SHALL publish that stream's changes ungated. GAP: no in-repo binding omits one.
+- `AC-EMIT-002.4` (Event-driven): WHEN neither the implementation nor the interface declares a stream's emission attribute THE SYSTEM SHALL publish that stream's changes ungated. GAP: no in-repo binding omits one.
 - `AC-EMIT-002.5` (Ubiquitous): THE SYSTEM SHALL search for a member's custom change threshold in the
   assembly that declares the property that stream's knobs were read from.
 
@@ -68,6 +73,13 @@ happens when that gate was suppressed or bypassed.
   policy is active for the block.
 - `AC-EMIT-003.3` (Event-driven): WHEN a member's `MinInterval` is not a valid duration THE SYSTEM
   SHALL fail block initialization.
+- `AC-EMIT-003.4` (Event-driven): WHEN a member's `MinChange` cannot be read by the deadband resolved
+  for its value type THE SYSTEM SHALL fail block initialization.
+
+`AC-EMIT-003.4` is why the token is read once, when the member's policy is built: a deadband that
+throws on the first value that moves would fault the block mid-run, long after the declaration that
+caused it. A deadband whose format is its own to define reads nothing here, which is the line
+`DALE035` draws at compile time.
 
 ## The decision for one value
 
@@ -104,8 +116,8 @@ magnitude to deadband. It makes `MinInterval` and `MinChange` inert, which `DALE
 - `AC-EMIT-006.2` (Ubiquitous): THE SYSTEM SHALL measure a deadband against the last emitted value
   rather than the previously offered one, so a series of sub-threshold steps emits as soon as their
   accumulated difference reaches the threshold.
-- `AC-EMIT-006.3` (Conditional): IF either side of a deadband comparison is absent THEN THE SYSTEM
-  SHALL treat the change as clearing the threshold.
+- `AC-EMIT-006.3` (Conditional): IF either side of a deadband comparison is absent or is not a number
+  THEN THE SYSTEM SHALL treat the change as clearing the threshold.
 
 `AC-EMIT-006.1` says *suppress*, not *hold*: a value inside the deadband must not resurface at the
 next release, or the deadband would only delay the traffic it exists to remove. `AC-EMIT-006.2` is
@@ -124,11 +136,17 @@ where the last published value was.
   value and clear the hold.
 - `AC-EMIT-005.5` (Unwanted): WHERE a member sets `MinInterval` to the disabling sentinel THE SYSTEM
   SHALL emit every value that clears the dedup floor and the deadband, holding nothing.
+- `AC-EMIT-005.7` (Event-driven): WHEN a value is suppressed while an earlier value is held THE SYSTEM
+  SHALL discard the held value, so what is released at the interval is the member's latest.
 
 Throttling is leading-edge with a trailing release: the first change after a quiet period is never
 delayed, and the newest value during a busy one is published when the interval runs out. The
-disabling sentinel is `"0"` or `"0ms"`, and pairs with a `MinChange` to give a deadband-only policy —
-gated by magnitude alone, which `DALE039` states back to the author.
+disabling sentinel is **any duration that resolves to zero** — `"0"`, `"0ms"` and `"0s"` all configure
+the same gate — and pairs with a `MinChange` to give a deadband-only policy, gated by magnitude alone,
+which `DALE039` states back to the author.
+
+`AC-EMIT-005.7` is what keeps a release honest: a suppressed value is still the member's newest, so a
+held value that survived it would move the consumer away from where the member actually is.
 
 ## Deadbands
 
@@ -155,10 +173,13 @@ type. `bool` has no magnitude and is never valid.
   an unknown unit THE SYSTEM SHALL reject it with a `FormatException` naming the token.
 - `AC-EMIT-007.3` (Event-driven): WHEN a duration knob carries a negative value THE SYSTEM SHALL
   reject it.
+- `AC-EMIT-007.4` (Event-driven): WHEN a duration knob names a value larger than a duration can
+  represent THE SYSTEM SHALL reject it.
 
 Both knobs the grammar serves are magnitudes — a spacing, a change size — so `AC-EMIT-007.3` closes
 the reading in which a negative value would make the gate it configures unconditional instead of
-restrictive.
+restrictive. `AC-EMIT-007.4` keeps an unusable value reading as the malformed knob it is rather than
+as an arithmetic fault raised from inside the parse.
 
 ## Finding a deadband for a custom type
 
@@ -171,11 +192,11 @@ A value type the SDK ships no built-in deadband for gets one by declaring a publ
   first one it finds.
 - `AC-EMIT-009.2` (Event-driven): WHEN that assembly declares no such threshold THE SYSTEM SHALL
   search the other assemblies loaded in its load context that reference `Vion.Dale.Sdk`.
-- `AC-EMIT-009.3` (Ubiquitous): THE SYSTEM SHALL retain a resolved threshold for the lifetime of the
-  process.
+- `AC-EMIT-009.3` (Ubiquitous): THE SYSTEM SHALL retain a resolved deadband for the lifetime of the
+  process, keyed by the member's value type, so every member of that type shares one deadband
+  wherever it is declared.
 - `AC-EMIT-009.4` (Event-driven): WHEN an assembly under search cannot be fully loaded THE SYSTEM SHALL search the types that did load. GAP: no in-repo fixture produces a partially loadable assembly.
-- `AC-EMIT-014.1` (Ubiquitous): THE SYSTEM SHALL publish `IChangeThreshold<T>` as part of the SDK's
-  documented public surface.
+- `AC-EMIT-014.1` (Ubiquitous): THE SYSTEM SHALL publish `IChangeThreshold<T>` as part of the SDK's documented public surface. GAP: pinned by the PublicApi manifest snapshot and by `DALE014`, not by a test.
 
 `AC-EMIT-009.2` is what makes a shared foundation library work: the threshold ships in one assembly
 and the `MinChange` that uses it is declared in another. It matches the visibility model `DALE034`
@@ -184,8 +205,9 @@ load context, because the search starts from the declaring assembly's context ra
 
 ## Releasing held values
 
-- `AC-EMIT-010.1` (Ubiquitous): THE SYSTEM SHALL keep at most one outstanding flush per logic block,
-  armed for the earliest hold deadline across its service properties and measuring points.
+- `AC-EMIT-010.1` (Ubiquitous): THE SYSTEM SHALL track one release deadline per logic block: a hold
+  due earlier replaces it, a hold due later is covered by it, and a wakeup that finds nothing due
+  releases nothing.
 - `AC-EMIT-010.2` (Event-driven): WHEN a flush falls due THE SYSTEM SHALL emit every member whose hold
   deadline has passed and SHALL re-arm for the earliest deadline still held.
 - `AC-EMIT-010.3` (Ubiquitous): THE SYSTEM SHALL deliver a flush through the block's synchronized
@@ -193,9 +215,11 @@ load context, because the search starts from the declaring assembly's context ra
 - `AC-EMIT-010.4` (Event-driven): WHEN a logic block has stopped THE SYSTEM SHALL publish nothing
   further for its members, whatever remained held.
 
-One wakeup per block, not one per member: a block with fifty throttled members arms one timer and
-re-arms it as deadlines pass. `AC-EMIT-010.3` is what makes the trailing release assertable — a
-release a test cannot observe under virtual time is a release that rots.
+One tracked deadline per block, not one per member: a block with fifty throttled members holds one
+and re-arms as deadlines pass. Nothing is cancelled — an earlier hold arms an additional wakeup and
+the one it overtook finds nothing due — so the guarantee is about what is *released*, not about how
+many wakeups happen. `AC-EMIT-010.3` is what makes the trailing release assertable: a release a test
+cannot observe under virtual time is a release that rots.
 
 ## The block's life
 
@@ -215,6 +239,16 @@ release a test cannot observe under virtual time is a release that rots.
   SHALL still publish the remaining members' final values.
 - `AC-EMIT-011.8` (Ubiquitous): THE SYSTEM SHALL publish a stopping block's final values before
   clearing its retained state.
+- `AC-EMIT-011.9` (Event-driven): WHEN a service property is written from outside THE SYSTEM SHALL
+  acknowledge the write with the value the block applied, whatever the member's emission policy.
+- `AC-EMIT-011.10` (Event-driven): WHEN a write changes a member's value THE SYSTEM SHALL publish that
+  change under the member's emission policy.
+
+`AC-EMIT-011.9` and `AC-EMIT-011.10` are the two halves a caller has to keep apart: a write is never
+refused, delayed or deadbanded, and its acknowledgement carries what the block actually applied — which
+is not the written value where the member clamps or rounds it. The *state* the write produces is a
+change like any other, and is gated like one, so the acknowledgement is the caller's answer and the
+published state is everyone else's.
 
 `AC-EMIT-011.2` is why a consumer subscribing at start receives state instead of waiting an interval
 for it. `AC-EMIT-011.4` covers the reconnect: publishes made while the connection was down were lost,
@@ -243,15 +277,21 @@ Six diagnostics validate a declared policy at compile time. The analyzer registr
 - `AC-EMIT-012.6` (Event-driven): WHEN a member sets `MinChange` while its `MinInterval` is the
   disabling sentinel THE SYSTEM SHALL report `DALE039` as information, and SHALL report nothing where
   `Immediate` is also set.
-- `AC-EMIT-012.7` (Ubiquitous): THE SYSTEM SHALL read each emission diagnostic's knobs from a member's
-  `[ServiceProperty]` where it declares one and otherwise from its `[ServiceMeasuringPoint]`, and
-  SHALL report on `MinInterval` only where the author wrote it.
+- `AC-EMIT-012.7` (Ubiquitous): THE SYSTEM SHALL apply every emission diagnostic to each emission
+  attribute a member declares, and SHALL report on `MinInterval` only where the author wrote it.
 
-`AC-EMIT-012.2` declines to parse-check a custom threshold's `MinChange`, because that format is the
-threshold's own to define. `AC-EMIT-012.4` is a warning rather than an error because the release rides
+`AC-EMIT-012.2` and `AC-EMIT-012.3` both reject a **negative** value, for the reason `AC-EMIT-006.2`
+and `AC-EMIT-007.3` give: a negative threshold is cleared by every change and a negative interval is
+already elapsed, so each would turn the knob it configures off while the member reported it on.
+`AC-EMIT-012.2` declines to check a custom deadband's `MinChange` at all, because that format is the
+deadband's own to define. `AC-EMIT-012.4` is a warning rather than an error because the release rides
 the actor scheduler, which cannot honour a sub-millisecond interval — the value is not wrong, it is
-not achievable. `AC-EMIT-012.7`'s second half keeps the diagnostics quiet about an omitted
-`MinInterval`, which is indistinguishable from the default written out.
+not achievable. `AC-EMIT-012.5` compares the declared interval as a duration, the way `AC-EMIT-013.2`
+does, so a knob is never called ignored on the strength of how it was spelled.
+
+`AC-EMIT-012.7` is the rule the six share, and it is per **attribute**: a member declaring both
+carries two policies, and each is validated on its own. Its second half keeps the diagnostics quiet
+about an omitted `MinInterval`, which is indistinguishable from the default written out.
 
 ## What introspection reports
 
@@ -270,6 +310,8 @@ which is what a dashboard renders as the member's throttle badge.
   the gate reads it from, so a member declaring both attributes reports two independent policies.
 - `AC-EMIT-013.5` (Ubiquitous): THE SYSTEM SHALL treat an empty `MinChange` as unset, in the reported
   policy as in the gate.
+- `AC-EMIT-013.6` (Ubiquitous): THE SYSTEM SHALL omit `minChange` from a reported policy where the
+  member declares no deadband, and `immediate` where the member does not set it.
 
 Every member carries a policy, so a badge on all of them would say nothing — hence `AC-EMIT-013.2`.
 `AC-EMIT-013.3` is its complement: once a policy *is* reported, its interval is carried whole, so a

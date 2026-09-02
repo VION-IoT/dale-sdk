@@ -16,6 +16,9 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
     {
         internal const string IChangeThresholdMetadataName = "Vion.Dale.Sdk.Emission.IChangeThreshold`1";
 
+        /// <summary>The interval both emission attributes declare as their default.</summary>
+        internal const string DefaultMinInterval = "250ms";
+
         /// <summary>
         ///     The value types the runtime ships a built-in <c>IChangeThreshold&lt;T&gt;</c> for: double,
         ///     float, decimal, int, long, and <c>System.TimeSpan</c>. Kept in lock-step with
@@ -28,13 +31,24 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         }
 
         /// <summary>
-        ///     Returns the <c>[ServiceProperty]</c> or <c>[ServiceMeasuringPoint]</c> attribute carrying the
-        ///     emission knobs, or <c>null</c> when the property has neither.
+        ///     Every emission attribute the property declares, in declaration order. A member may declare
+        ///     both, and the two carry independent policies for independent streams — so every diagnostic
+        ///     validates each attribute it finds rather than the first. Stopping at the first left a
+        ///     dual-annotated member's <c>[ServiceMeasuringPoint]</c> knobs unchecked by all six.
         /// </summary>
-        internal static AttributeData? GetEmissionAttribute(IPropertySymbol property)
+        internal static IEnumerable<AttributeData> GetEmissionAttributes(IPropertySymbol property)
         {
-            return AnalyzerHelper.GetAttribute(property, AnalyzerHelper.ServicePropertyAttribute) ??
-                   AnalyzerHelper.GetAttribute(property, AnalyzerHelper.ServiceMeasuringPointAttribute);
+            var serviceProperty = AnalyzerHelper.GetAttribute(property, AnalyzerHelper.ServicePropertyAttribute);
+            if (serviceProperty != null)
+            {
+                yield return serviceProperty;
+            }
+
+            var measuringPoint = AnalyzerHelper.GetAttribute(property, AnalyzerHelper.ServiceMeasuringPointAttribute);
+            if (measuringPoint != null)
+            {
+                yield return measuringPoint;
+            }
         }
 
         /// <summary>
@@ -144,8 +158,17 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         }
 
         /// <summary>
-        ///     <c>true</c> when the duration string is the throttle-disabling sentinel <c>"0"</c> /
-        ///     <c>"0ms"</c> (case-insensitive on the suffix, whitespace tolerated).
+        ///     <c>true</c> when the duration string names the same interval as the attribute default,
+        ///     however it is spelled — <c>"250"</c> and <c>"250ms"</c> configure the same gate.
+        /// </summary>
+        internal static bool IsDefaultInterval(string token)
+        {
+            return TryParseDuration(token, out var ticks) && TryParseDuration(DefaultMinInterval, out var standard) && ticks == standard;
+        }
+
+        /// <summary>
+        ///     <c>true</c> when the duration string is the throttle-disabling sentinel — any duration that
+        ///     resolves to zero, however it is spelled (<c>"0"</c>, <c>"0ms"</c>, <c>"0s"</c>).
         /// </summary>
         internal static bool IsDisablingSentinel(string token)
         {
@@ -206,27 +229,38 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             }
 
             const double ticksPerMillisecond = 10_000.0;
+            double asTicks;
             switch (unitPart)
             {
                 case "":
                 case "ms":
-                    ticks = (long)(value * ticksPerMillisecond);
-                    return true;
+                    asTicks = value * ticksPerMillisecond;
+                    break;
                 case "us":
-                    ticks = (long)(value * 10.0);
-                    return true;
+                    asTicks = value * 10.0;
+                    break;
                 case "s":
-                    ticks = (long)(value * 1_000 * ticksPerMillisecond);
-                    return true;
+                    asTicks = value * 1_000 * ticksPerMillisecond;
+                    break;
                 case "m":
-                    ticks = (long)(value * 60 * 1_000 * ticksPerMillisecond);
-                    return true;
+                    asTicks = value * 60 * 1_000 * ticksPerMillisecond;
+                    break;
                 case "h":
-                    ticks = (long)(value * 60 * 60 * 1_000 * ticksPerMillisecond);
-                    return true;
+                    asTicks = value * 60 * 60 * 1_000 * ticksPerMillisecond;
+                    break;
                 default:
                     return false;
             }
+
+            // Mirrors the runtime rejection of a value no duration can hold: an unchecked cast would
+            // wrap it into a small — often negative — tick count and report the token as valid.
+            if (asTicks > long.MaxValue)
+            {
+                return false;
+            }
+
+            ticks = (long)asTicks;
+            return true;
         }
 
         /// <summary>

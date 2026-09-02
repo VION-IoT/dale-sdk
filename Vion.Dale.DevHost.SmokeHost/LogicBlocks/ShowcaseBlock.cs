@@ -47,7 +47,7 @@ namespace Vion.Dale.DevHost.SmokeHost.LogicBlocks
 
         // ── Metric (read-only counters) ─────────────────────────────────────────────
 
-        [ServiceMeasuringPoint(Description = "Lifetime tick count — never resets. emitted on every change (Immediate).",
+        [ServiceMeasuringPoint(Description = "Lifetime tick count — never resets. Emitted on every change (Immediate).",
                                Kind = MeasuringPointKind.TotalIncreasing,
                                Immediate = true)]
         [Presentation(Group = PropertyGroup.Metric)]

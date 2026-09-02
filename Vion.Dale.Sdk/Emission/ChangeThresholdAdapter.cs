@@ -16,6 +16,13 @@ namespace Vion.Dale.Sdk.Emission
             _inner = inner ?? throw new ArgumentNullException(nameof(inner));
         }
 
+        public void ValidateThreshold(string threshold)
+        {
+            // Only a deadband that declares its format can be read ahead of time; a custom one interprets
+            // the token itself, which is the same line DALE035 draws at compile time.
+            (_inner as IValidatedChangeThreshold)?.ValidateThreshold(threshold);
+        }
+
         public bool Exceeds(object? last, object? candidate, string threshold)
         {
             if (last is null || candidate is null)
