@@ -3,6 +3,7 @@ using System.Linq;
 using System.Text.Json.Nodes;
 using Vion.Contracts.Events.CloudToMesh;
 using Vion.Contracts.Predicates;
+using Vion.Dale.Sdk.Configuration;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Introspection;
 using Vion.Dale.Sdk.Test.TestHelpers;
@@ -208,12 +209,36 @@ namespace Vion.Dale.Sdk.Test.Configuration
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-006.4")]
+        [DataRow("PointCount >= 5 && Missing >= 1", DisplayName = "behind a conjunction")]
+        [DataRow("PointCount <= 5 || Missing >= 1", DisplayName = "behind a disjunction")]
+        [DataRow("(PointCount >= 5 && (Missing >= 1))", DisplayName = "nested in parentheses")]
+        [DataRow("!(PointCount >= 5 && Missing >= 1)", DisplayName = "under a negation")]
+        [DataRow("PointCount >= 5 && Missing in [1, 2]", DisplayName = "in a membership list")]
+        public void RefuseIntrospectingCompoundGateReferencingUnknownName(string predicate)
+        {
+            // Every shape here decides without reaching the operand that names 'Missing', so an evaluator
+            // returns a verdict and never learns the name is undeclared. The references are read off the
+            // parsed tree instead, which sees the whole predicate whatever it would evaluate to.
+
+            // Arrange
+            var block = new GatedCountBlock();
+
+            // Act / Assert
+            var failure = Assert.ThrowsExactly<InvalidOperationException>(() => InclusionGate.EnsureResolvable(predicate, block, "Point2"));
+
+            StringAssert.Contains(failure.Message, "Point2");
+            StringAssert.Contains(failure.Message, predicate);
+            StringAssert.Contains(failure.Message, "Missing");
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-GATE-006.5")]
         public void IntrospectGateOverNullDefaultedParameter()
         {
-            // The reason resolvability is checked against placeholders and not the instance: this gate is
-            // perfectly good and fails closed at bind only because no value was configured. Evaluating here
-            // would refuse the block outright.
+            // The second reason resolvability is read off the tree and never evaluated: this gate is
+            // perfectly good and fails closed at bind only because no value was configured. Evaluating here,
+            // against the block's own null default, would refuse the block outright.
 
             // Arrange
             var block = new GatedNullParameterBlock();

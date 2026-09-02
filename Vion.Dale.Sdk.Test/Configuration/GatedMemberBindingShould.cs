@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Text.Json.Nodes;
+using Vion.Contracts.Conventions;
 using Vion.Contracts.Events.CloudToMesh;
 using Vion.Dale.Sdk.Introspection;
 using Vion.Dale.Sdk.Test.TestHelpers;
@@ -129,7 +130,8 @@ namespace Vion.Dale.Sdk.Test.Configuration
             var result = LogicBlockIntrospection.IntrospectLogicBlock(block, GatingHarness.ServiceProvider);
 
             // Assert
-            Assert.ContainsSingle(result.Interfaces.Where(iface => iface.Identifier.StartsWith(nameof(NullInterfaceComponentBlock.Probe), StringComparison.Ordinal)));
+            var endpoint = result.Interfaces.Single(iface => iface.Identifier.StartsWith(nameof(NullInterfaceComponentBlock.Probe), StringComparison.Ordinal));
+            Assert.AreEqual("Count >= 2", endpoint.Annotations[LogicBlockWiringConventions.IncludedWhenAnnotationKey]);
         }
 
         [TestMethod]

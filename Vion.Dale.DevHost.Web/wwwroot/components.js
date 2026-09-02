@@ -21,7 +21,7 @@ import {
     pairingsForLb, saveScenarioDraft, saveTopologyDraft, setBaseline, setJudgeTick, setProperty, showError, store,
     switchClockMode, switchTopology, toggleCollapsed, togglePin, validateScenarioDraft, validateTopologyDraft, valueKey,
 } from './store.js';
-import { allowsMultiple, autoConnect, contractEndpoints, defByType, gatedOutMappingProblems, pairingProblemsOf, problemsOf, residueOf } from './wiring.js';
+import { allowsMultiple, autoConnect, contractEndpoints, defByType, gatedOutMappingProblems, missingParameterValueProblems, pairingProblemsOf, problemsOf, residueOf } from './wiring.js';
 import {
     contractOutputFields, contractRefs, contractValueEditor, findMember, kindOf, pathOptions,
     SETUP_KIND_IDS, STEP_KIND_IDS, stepErrors, valueEditorFor,
@@ -1550,11 +1550,14 @@ const TopologyEditor = {
         };
 
         // Merge the pure wiring problems (incompatible / over-wired) with the gated-out check — a
-        // mapping to an interface/contract the chosen parameters exclude. Both share the { mappingIndex, kind,
-        // message } shape, so the per-wire accent and the footer summary render them uniformly.
+        // mapping to an interface/contract the chosen parameters exclude — and the missing-value check, which
+        // is about the instance rather than any one wire. All share the { mappingIndex, kind, message } shape,
+        // so the per-wire accent and the footer summary render them uniformly; the two without a mappingIndex
+        // land in the footer only.
         const problems = computed(() => [
             ...problemsOf(store.definitions, instances.value, mappings.value),
             ...gatedOutMappingProblems(store.definitions, instances.value, mappings.value, contractMappings.value),
+            ...missingParameterValueProblems(store.definitions, instances.value),
             ...pairingProblems.value,
         ]);
         const problemFor = index => problems.value.find(p => p.mappingIndex === index) || null;

@@ -136,8 +136,9 @@ namespace Vion.Dale.DevHost.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-GATE-012.2")]
-        public void CarryInstantiationParametersFromTheTopologyFileThroughBuild()
+        public void CarryInstantiationParametersFromTopologyFileThroughBuild()
         {
+            // Arrange
             // The instantiationParameters field crosses the file → model → DevConfiguration layer.
             var topology = DevTopologyFile.Parse($$"""
                                                    {
@@ -149,9 +150,11 @@ namespace Vion.Dale.DevHost.Test
                                                    }
                                                    """);
 
+            // Act
             var config = DevTopologyLoader.Build(topology);
-            var station = config.LogicBlocks.Single(b => b.Name == "Station");
 
+            // Assert
+            var station = config.LogicBlocks.Single(b => b.Name == "Station");
             Assert.IsNotNull(station.InstantiationParameters);
             Assert.AreEqual(2, station.InstantiationParameters!["PointCount"]!.GetValue<int>());
         }
@@ -325,7 +328,13 @@ namespace Vion.Dale.DevHost.Test
             var schema = await response.Content.ReadAsStringAsync();
             StringAssert.Contains(schema, "logicBlockInstances");
             StringAssert.Contains(schema, "mappedServiceProviderIdentifier");
-            StringAssert.Contains(schema, "instantiationParameters"); // The served schema declares the field
+
+            // Not just that the field is declared: an author's editor validates against this copy, so the
+            // value types have to admit the JSON null a nullable parameter takes (AC-GATE-012.12). A field
+            // name assertion passes on the pre-widening schema that refused it.
+            var parameterTypes =
+                JsonNode.Parse(schema)!["properties"]!["logicBlockInstances"]!["items"]!["properties"]!["instantiationParameters"]!["additionalProperties"]!["type"]!.AsArray();
+            CollectionAssert.Contains(parameterTypes.Select(type => type!.GetValue<string>()).ToArray(), "null");
         }
 
         [TestMethod]

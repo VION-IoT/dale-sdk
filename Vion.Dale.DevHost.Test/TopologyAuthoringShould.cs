@@ -409,7 +409,7 @@ namespace Vion.Dale.DevHost.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-GATE-012.10")]
-        public void LogicBlockDefinition_FromType_NamesEndpointsAsTheBinderResolvesThem()
+        public void LogicBlockDefinition_FromType_NamesEndpointsByBinderRule()
         {
             // Arrange
             // The binder honours an explicit Identifier and falls back to {Property}_{Interface}. A catalog
@@ -436,13 +436,17 @@ namespace Vion.Dale.DevHost.Test
         [TestProperty("spec", "AC-GATE-012.6")]
         public void LogicBlockDefinition_FromType_CarriesInstantiationParametersAndGatePredicates()
         {
+            // Arrange
             // The catalog projects each [InstantiationParameter]'s identifier + JSON schema + default,
             // and the [IncludedWhen] predicate on each gated interface/contract binding — the metadata the
             // topology-authoring client renders a parameter editor from, and evaluates to flag a mapping to a
             // gated-out member. GatedCatalogFixture declares [InstantiationParameter] int Count (default 1) and a
             // contract Demand gated by [IncludedWhen("Count >= 2")].
+
+            // Act
             var definition = LogicBlockDefinition.FromType(typeof(GatedCatalogFixture), new GatedCatalogFixture(NullLogger.Instance));
 
+            // Assert
             var count = definition.InstantiationParameters.Single(p => p.Identifier == "Count");
             Assert.AreEqual("integer", count.Schema["type"]!.GetValue<string>(), "an int parameter projects an integer schema.");
             Assert.AreEqual(1L, count.Schema["minimum"]!.GetValue<long>(), "[ServiceProperty] Minimum flows to schema.minimum.");

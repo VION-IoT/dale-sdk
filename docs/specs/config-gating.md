@@ -193,10 +193,11 @@ question no operator asked.
 `AC-GATE-006.4` is the line between deciding and checking. A gate whose predicate cannot parse, or
 names something the block does not declare, has no configuration that could make it work — so it is
 refused where a broken block is cheapest to catch: introspection is what `dotnet pack` runs, so the
-artifact never ships. `AC-GATE-006.5` is the boundary on the other side: resolvability is checked
-against placeholder values of each declared parameter's type, never the instance's, because a
-parameter whose default is null would otherwise turn a perfectly good gate into a refusal. Type
-discipline inside a predicate remains the analyzer's, at build time.
+artifact never ships. `AC-GATE-006.5` is the boundary on the other side: the referenced names are read
+syntactically, off the parsed predicate, and nothing is evaluated. Evaluating would decide two ways at
+once — an evaluator short-circuits, so `Count >= 2 && Missing >= 1` returns a verdict without ever
+reaching the undeclared name, and a parameter whose declared default is null would turn a perfectly
+good gate into a refusal. Type discipline inside a predicate remains the analyzer's, at build time.
 
 ## What an exclusion removes
 
@@ -374,8 +375,8 @@ the opt-in: `[Persistent(Exclude = true)]` asks for exactly what a parameter alr
 - `AC-GATE-012.7` (Ubiquitous): THE SYSTEM SHALL report each service's gate predicate in the plugin
   listing read from a packed artifact.
 - `AC-GATE-012.8` (Event-driven): WHEN a topology names an instantiation parameter that is not an
-  `[InstantiationParameter]` property of the instance's block type THE SYSTEM SHALL refuse the
-  topology, naming every such parameter.
+  `[InstantiationParameter]` property of the instance's block type, or supplies a value that will not
+  decode into that parameter's type, THE SYSTEM SHALL refuse the topology, naming every such parameter.
 - `AC-GATE-012.9` (Ubiquitous): THE SYSTEM SHALL carry each instance's chosen instantiation-parameter
   values in the development host's configuration output, omitting the field for an instance that chose
   none.
@@ -397,5 +398,7 @@ gates the way a configuration will.
 The live view's fail-open is a deliberate exception to fail-closed, and the only one on this page. An
 editor that hid every member whose gate it could not judge would remove wiring the operator still
 needs; the running block is the strict gate, so the editor stays open and logs that it did.
-`AC-GATE-012.8` is the counterweight — the identifiers an editor *can* check are refused where the
-operator is, rather than inside an actor after the host has reported itself started.
+`AC-GATE-012.8` is the counterweight — what an editor *can* check, the identifier and the value's
+decodability, is refused where the operator is, rather than inside an actor after the host has
+reported itself started. Both halves run the block's own rule, through one shared decoder, so loader
+and block cannot drift.
