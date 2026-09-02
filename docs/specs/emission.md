@@ -75,11 +75,19 @@ happens when that gate was suppressed or bypassed.
   SHALL fail block initialization.
 - `AC-EMIT-003.4` (Event-driven): WHEN a member's `MinChange` cannot be read by the deadband resolved
   for its value type THE SYSTEM SHALL fail block initialization.
+- `AC-EMIT-003.5` (Ubiquitous): THE SYSTEM SHALL name the member and the service in each of these
+  failures.
 
 `AC-EMIT-003.4` is why the token is read once, when the member's policy is built: a deadband that
 throws on the first value that moves would fault the block mid-run, long after the declaration that
 caused it. A deadband whose format is its own to define reads nothing here, which is the line
 `DALE035` draws at compile time.
+
+The exception types differ with what went wrong, and both are part of the contract: a `MinChange`
+with no deadband to resolve raises an `InvalidOperationException`, and a knob the grammar or the
+deadband cannot read raises a `FormatException` carrying the offending token. `AC-EMIT-003.5` is what
+makes either actionable — the grammar rejects a *token* and has never heard of the member that
+declared it, so the member and service are added where they are known.
 
 ## The decision for one value
 
@@ -196,7 +204,8 @@ A value type the SDK ships no built-in deadband for gets one by declaring a publ
   process, keyed by the member's value type, so every member of that type shares one deadband
   wherever it is declared.
 - `AC-EMIT-009.4` (Event-driven): WHEN an assembly under search cannot be fully loaded THE SYSTEM SHALL search the types that did load. GAP: no in-repo fixture produces a partially loadable assembly.
-- `AC-EMIT-014.1` (Ubiquitous): THE SYSTEM SHALL publish `IChangeThreshold<T>` as part of the SDK's documented public surface. GAP: pinned by the PublicApi manifest snapshot and by `DALE014`, not by a test.
+- `AC-EMIT-014.1` (Ubiquitous): THE SYSTEM SHALL publish `IChangeThreshold<T>` as part of the SDK's
+  documented public surface.
 
 `AC-EMIT-009.2` is what makes a shared foundation library work: the threshold ships in one assembly
 and the `MinChange` that uses it is declared in another. It matches the visibility model `DALE034`
@@ -215,11 +224,8 @@ load context, because the search starts from the declaring assembly's context ra
 - `AC-EMIT-010.4` (Event-driven): WHEN a logic block has stopped THE SYSTEM SHALL publish nothing
   further for its members, whatever remained held.
 
-One tracked deadline per block, not one per member: a block with fifty throttled members holds one
-and re-arms as deadlines pass. Nothing is cancelled — an earlier hold arms an additional wakeup and
-the one it overtook finds nothing due — so the guarantee is about what is *released*, not about how
-many wakeups happen. `AC-EMIT-010.3` is what makes the trailing release assertable: a release a test
-cannot observe under virtual time is a release that rots.
+One tracked deadline per block, not one per member. `AC-EMIT-010.3` is what makes the trailing
+release assertable: a release a test cannot observe under virtual time is a release that rots.
 
 ## The block's life
 
@@ -311,7 +317,7 @@ which is what a dashboard renders as the member's throttle badge.
 - `AC-EMIT-013.5` (Ubiquitous): THE SYSTEM SHALL treat an empty `MinChange` as unset, in the reported
   policy as in the gate.
 - `AC-EMIT-013.6` (Ubiquitous): THE SYSTEM SHALL omit `minChange` from a reported policy where the
-  member declares no deadband, and `immediate` where the member does not set it.
+  member declares no deadband, and `immediate` where it is false.
 
 Every member carries a policy, so a badge on all of them would say nothing — hence `AC-EMIT-013.2`.
 `AC-EMIT-013.3` is its complement: once a policy *is* reported, its interval is carried whole, so a

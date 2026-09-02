@@ -291,7 +291,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-013.4")]
         [DynamicData(nameof(SplitSourcePolicies))]
-        public void ReportThePolicyTheGateApplies(Type implementation, string? expectedInterval)
+        public void ReportPolicyGateApplies(Type implementation, string? expectedInterval)
         {
             // Arrange — the interface declares 1s / 0.1; what the implementation declares beside it is
             // what decides, exactly as it does for the gate.
@@ -362,19 +362,17 @@ namespace Vion.Dale.Sdk.Test.Introspection
         [TestProperty("spec", "AC-EMIT-013.3")]
         public void CarryEffectiveIntervalAlongsideImmediate()
         {
-            var pulse = typeof(ThrottledLb).GetProperty(nameof(ThrottledLb.Pulse))!;
-            var pm = PropertyMetadataBuilder.BuildSplit(pulse,
-                                                        pulse,
-                                                        new PrimitiveTypeRef(PrimitiveKind.Double),
-                                                        ImmutableDictionary<string, TypeAnnotations>.Empty,
-                                                        ServiceElementStream.Property);
+            // Arrange — the member sets Immediate and nothing else, so its interval is the default.
+            var property = typeof(ThrottledLb).GetProperty(nameof(ThrottledLb.Pulse))!;
 
-            Assert.IsNotNull(pm.Runtime.Throttle);
-            Assert.IsTrue(pm.Runtime.Throttle!.Immediate);
+            // Act
+            var metadata = ReportedPolicyOf(property, property);
 
-            // The effective interval is carried even though it is the default — the consumer needs no
-            // knowledge of the 250ms default to render a complete badge.
-            Assert.AreEqual("250ms", pm.Runtime.Throttle!.MinInterval);
+            // Assert — the interval is carried even though it is the default, so a consumer renders the
+            // badge without knowing what the default is.
+            Assert.IsNotNull(metadata);
+            Assert.IsTrue(metadata!.Immediate);
+            Assert.AreEqual("250ms", metadata.MinInterval);
         }
 
         public static IEnumerable<object?[]> SplitSourcePolicies()
@@ -581,16 +579,14 @@ namespace Vion.Dale.Sdk.Test.Introspection
         [TestProperty("spec", "AC-EMIT-013.1")]
         public void EmitThrottleNodeForInterfaceInheritedPolicy()
         {
-            // End to end: the block's throttle knobs live on the [ServiceInterface]; the impl carries
-            // only a bare property. Introspection must emit the runtime.throttle JSON node the DevHost/cloud
-            // UI chip reads — not null (the reported symptom: "the RUNTIME panel shows null").
+            // Arrange — the knobs live on the [ServiceInterface] and the implementing property is bare.
+
+            // Act
             var result = LogicBlockIntrospection.IntrospectLogicBlock(new ThrottleInheritedLb(), _serviceProvider);
 
-            var reading = result.Services.Single().Properties.Single(p => p.Identifier == "Reading");
-
-            Assert.IsNotNull(reading.Runtime, "runtime node must be present");
-            var throttle = reading.Runtime!["throttle"];
-            Assert.IsNotNull(throttle, "runtime.throttle must be emitted for an interface-inherited policy");
+            // Assert — end to end, on the JSON a dashboard reads rather than the document it is built from.
+            var throttle = result.Services.Single().Properties.Single(p => p.Identifier == "Reading").Runtime!["throttle"];
+            Assert.IsNotNull(throttle);
             Assert.AreEqual("1s", throttle!["minInterval"]!.GetValue<string>());
             Assert.AreEqual("0.1", throttle["minChange"]!.GetValue<string>());
         }

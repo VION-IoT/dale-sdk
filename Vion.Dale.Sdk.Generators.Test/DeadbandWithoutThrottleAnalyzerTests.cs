@@ -58,7 +58,7 @@ using Vion.Dale.Sdk.Core;
 
 public class MyBlock
 {
-    [ServiceProperty(MinInterval = ""0"", MinChange = ""0.1"")] public double {|#0:Voltage|} { get; set; }
+    [{|#0:ServiceProperty(MinInterval = ""0"", MinChange = ""0.1"")|}] public double Voltage { get; set; }
 }";
             var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE039_DeadbandWithoutThrottle).WithLocation(0).WithArguments("Voltage", "0");
             await AnalyzerTestBase.VerifyAnalyzerAsync<DeadbandWithoutThrottleAnalyzer>(source, expected);
@@ -73,7 +73,7 @@ using Vion.Dale.Sdk.Core;
 
 public class MyBlock
 {
-    [ServiceMeasuringPoint(MinInterval = ""0ms"", MinChange = ""0.1"")] public double {|#0:Voltage|} { get; private set; }
+    [{|#0:ServiceMeasuringPoint(MinInterval = ""0ms"", MinChange = ""0.1"")|}] public double Voltage { get; private set; }
 }";
             var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE039_DeadbandWithoutThrottle).WithLocation(0).WithArguments("Voltage", "0ms");
             await AnalyzerTestBase.VerifyAnalyzerAsync<DeadbandWithoutThrottleAnalyzer>(source, expected);
@@ -104,11 +104,46 @@ using Vion.Dale.Sdk.Core;
 public class MyBlock
 {
     [ServiceProperty(MinInterval = ""1s"")]
-    [ServiceMeasuringPoint(MinInterval = ""0"", MinChange = ""0.5"")]
-    public double {|#0:Voltage|} { get; set; }
+    [{|#0:ServiceMeasuringPoint(MinInterval = ""0"", MinChange = ""0.5"")|}]
+    public double Voltage { get; set; }
 }";
             var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE039_DeadbandWithoutThrottle).WithLocation(0).WithArguments("Voltage", "0");
             await AnalyzerTestBase.VerifyAnalyzerAsync<DeadbandWithoutThrottleAnalyzer>(source, expected);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.7")]
+        public async Task DualAnnotatedServicePropertyZeroIntervalWithMinChange_ReportsInfo()
+        {
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public class MyBlock
+{
+    [{|#0:ServiceProperty(MinInterval = ""0"", MinChange = ""0.5"")|}]
+    [ServiceMeasuringPoint(MinInterval = ""1s"")]
+    public double Voltage { get; set; }
+}";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE039_DeadbandWithoutThrottle).WithLocation(0).WithArguments("Voltage", "0");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<DeadbandWithoutThrottleAnalyzer>(source, expected);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.7")]
+        public async Task DualAnnotatedBothDeadbandOnly_ReportsOnEachAttribute()
+        {
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public class MyBlock
+{
+    [{|#0:ServiceProperty(MinInterval = ""0"", MinChange = ""0.5"")|}]
+    [{|#1:ServiceMeasuringPoint(MinInterval = ""0ms"", MinChange = ""1.5"")|}]
+    public double Voltage { get; set; }
+}";
+            var onProperty = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE039_DeadbandWithoutThrottle).WithLocation(0).WithArguments("Voltage", "0");
+            var onMeasuringPoint = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE039_DeadbandWithoutThrottle).WithLocation(1).WithArguments("Voltage", "0ms");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<DeadbandWithoutThrottleAnalyzer>(source, onProperty, onMeasuringPoint);
         }
     }
 }

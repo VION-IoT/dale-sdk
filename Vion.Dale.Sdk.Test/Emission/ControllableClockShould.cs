@@ -22,13 +22,20 @@ namespace Vion.Dale.Sdk.Test.Emission
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-001.4")]
-        public void RecogniseNoOtherClock()
+        public void RefuseClockOfferingNothingToAdvanceIt()
         {
-            // Arrange — the system clock, and a clock that moves by a differently-named method.
+            // Arrange / Act / Assert
+            Assert.IsFalse(ControllableClock.Detect(TimeProvider.System));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-001.4")]
+        public void RefuseClockOfferingAnotherMethodToAdvanceIt()
+        {
+            // Arrange — it moves, but not through the method the probe names.
             var moveable = new MoveableClock();
 
             // Act / Assert
-            Assert.IsFalse(ControllableClock.Detect(TimeProvider.System));
             Assert.IsFalse(ControllableClock.Detect(moveable));
         }
 

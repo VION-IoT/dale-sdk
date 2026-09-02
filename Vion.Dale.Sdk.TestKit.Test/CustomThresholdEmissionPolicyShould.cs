@@ -90,22 +90,38 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-009.1")]
-        [DataRow(11.0, 1, DisplayName = "inside the deadband, so nothing follows the leading edge")]
-        [DataRow(13.0, 2, DisplayName = "clearing the deadband, so it is held and then released")]
-        public void GateACustomTypedMemberOnItsFoundDeadband(double second, int expectedEmissions)
+        public void SuppressCustomTypedValueInsideItsFoundDeadband()
         {
             // Arrange — MinChange is 2, and the deadband for Pressure is declared in this assembly.
             var block = LogicBlockTestHelper.Create<CustomThresholdLogicBlock>();
             var context = block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).Build();
             context.AdvanceTime(DefaultInterval);
 
-            // Act
+            // Act — a move of 1, which the deadband does not clear.
             block.Reading = new Pressure(10.0);
-            block.Reading = new Pressure(second);
+            block.Reading = new Pressure(11.0);
             context.AdvanceTime(DefaultInterval);
 
-            // Assert
-            context.VerifyServicePropertyEmitted(lb => lb.Reading, times: Times.Exactly(expectedEmissions));
+            // Assert — suppressed rather than held, so nothing follows the leading edge.
+            context.VerifyServicePropertyEmitted(lb => lb.Reading, times: Times.Once());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-009.1")]
+        public void EmitCustomTypedValueClearingItsFoundDeadband()
+        {
+            // Arrange
+            var block = LogicBlockTestHelper.Create<CustomThresholdLogicBlock>();
+            var context = block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).Build();
+            context.AdvanceTime(DefaultInterval);
+
+            // Act — a move of 3, which clears it.
+            block.Reading = new Pressure(10.0);
+            block.Reading = new Pressure(13.0);
+            context.AdvanceTime(DefaultInterval);
+
+            // Assert — held inside the interval, then released.
+            context.VerifyServicePropertyEmitted(lb => lb.Reading, times: Times.Exactly(2));
         }
 
         [TestMethod]

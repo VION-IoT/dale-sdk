@@ -70,7 +70,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                 }
 
                 context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE034_MinChangeWithoutChangeThreshold,
-                                                           property.Locations.FirstOrDefault(),
+                                                           EmissionAttributeHelper.LocationOf(attribute, property),
                                                            property.Name,
                                                            valueType.ToDisplayString()));
             }

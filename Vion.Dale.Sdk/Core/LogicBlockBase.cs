@@ -634,7 +634,21 @@ namespace Vion.Dale.Sdk.Core
                         // inherited from a shared [ServiceInterface], that is the interface library's
                         // assembly (where a shared custom IChangeThreshold<T> lives), not the block's assembly.
                         var declaringAssembly = configuredSource?.DeclaringType?.Assembly ?? binding.Source?.GetType().Assembly;
-                        var policy = ThrottlePolicy.FromConfigured(configured, binding.TargetPropertyType, declaringAssembly);
+
+                        ThrottlePolicy policy;
+                        try
+                        {
+                            policy = ThrottlePolicy.FromConfigured(configured, binding.TargetPropertyType, declaringAssembly);
+                        }
+                        catch (FormatException ex)
+                        {
+                            // The grammar rejects a token, not a member — it has never heard of either. The
+                            // author reads this at start-up with nothing else to go on, so name what they
+                            // have to go and edit, the way the unresolvable-deadband failure below does.
+                            throw new
+                                FormatException($"Service member '{memberIdentifier}' on service '{serviceIdentifier}' declares an emission knob the gate cannot use. {ex.Message}",
+                                                ex);
+                        }
 
                         // a configured MinChange that resolves to no IChangeThreshold<T> is a
                         // misconfiguration, not a silent no-op. Fail fast at start. DALE034 already errors at

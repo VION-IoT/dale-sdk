@@ -9,132 +9,138 @@ using Xunit;
 namespace Vion.Examples.Emission.Test
 {
     /// <summary>
-    ///     Proves the emission gate acts on <see cref="SensorBlock" />'s read-only readings. The TestKit's
-    ///     <c>WithEmissionPolicy(EmissionPolicyMode.FromAttributes)</c> forces the policy on under the fake clock
-    ///     (it is off by default for deterministic tests). The emission policy governs the OUTBOUND direction, so
-    ///     the gated members are read-only; the tests drive them by writing the plain <see cref="SensorBlock.Setpoint" />
-    ///     input (always forwarded) and running <c>OnTick</c>, then count post-gate emissions. The seed value is
-    ///     uncounted; the first distinct post-seed change is the leading-edge emit.
+    ///     The emission gate acting on <see cref="SensorBlock" />'s read-only readings. The gate is off by
+    ///     default under the TestKit's clock, so every test forces it on with
+    ///     <c>WithEmissionPolicy(EmissionPolicyMode.FromAttributes)</c>. Emission policy governs the
+    ///     outbound direction, so the gated members are read-only: a test drives them by writing the plain
+    ///     <see cref="SensorBlock.Setpoint" /> input, which is always forwarded, and running
+    ///     <c>OnTick</c>. The value published at start is cleared by the builder, so the first change
+    ///     below is a leading edge.
     /// </summary>
     public class SensorBlockShould
     {
-        private static LogicBlockTestContext<SensorBlock> WithPolicyOn(out SensorBlock block)
+        public SensorBlockShould()
         {
-            block = LogicBlockTestHelper.Create<SensorBlock>();
-            return block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).Build();
+            _context = _block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).Build();
         }
 
-        [Fact]
-        public void DropAnUnchangedReadingViaTheDedupFloor()
-        {
-            var ctx = WithPolicyOn(out var block);
+        private readonly SensorBlock _block = LogicBlockTestHelper.Create<SensorBlock>();
 
-            block.Setpoint = 40.0;
-            block.OnTick(); // Reading = 40 -> emit (1)
-            block.OnTick(); // Reading = 40 again (setpoint unchanged) -> dedup floor drops it
-
-            ctx.VerifyServiceMeasuringPointEmitted(lb => lb.Reading, times: Times.Once());
-        }
+        private readonly LogicBlockTestContext<SensorBlock> _context;
 
         [Fact]
-        public void DropThePhaseCurrentsBelowTheCustomDeadband()
+        public void EmitBothStreamsOfADualAnnotatedMember()
         {
-            var ctx = WithPolicyOn(out var block);
-
-            block.Setpoint = 10.0;
-            block.OnTick(); // PhaseCurrents = (10,10,10) -> emit (1)
-            block.Setpoint = 10.1;
-            block.OnTick(); // each phase Δ0.1 < 0.25 -> dropped by the custom threshold
-
-            ctx.VerifyServiceMeasuringPointEmitted(lb => lb.PhaseCurrents, times: Times.Once());
-        }
-
-        [Fact]
-        public void DropTheReadingWhenTheSetpointMovesBelowTheDeadband()
-        {
-            var ctx = WithPolicyOn(out var block);
-
-            block.Setpoint = 26.0;
-            block.OnTick(); // Reading = 26 -> leading-edge emit
-            block.Setpoint = 26.2;
-            block.OnTick(); // Reading = 26.2, Δ vs last-emitted 26 = 0.2 < 0.5 -> dropped
-
-            ctx.VerifyServiceMeasuringPointEmitted(lb => lb.Reading, times: Times.Once());
-        }
-
-        [Fact]
-        public void EmitThePhaseCurrentsWhenClearingTheCustomDeadband()
-        {
-            var ctx = WithPolicyOn(out var block);
-
-            block.Setpoint = 10.0;
-            block.OnTick(); // emit (1)
-            block.Setpoint = 10.3;
-            block.OnTick(); // each phase Δ0.3 >= 0.25 -> emit (2)
-
-            ctx.VerifyServiceMeasuringPointEmitted(lb => lb.PhaseCurrents, times: Times.Exactly(2));
-        }
-
-        [Fact]
-        public void EmitThePowerStreamsIndependently()
-        {
-            var ctx = WithPolicyOn(out var block);
-
-            // Drive 10 ticks across 10 virtual seconds. Power is dual-annotated: the property stream is
-            // throttled to 2 s, the measuring-point stream to 500 ms (+ Δ1).
-            for (var i = 0; i < 10; i++)
+            // Arrange / Act — ten ticks across ten virtual seconds.
+            for (var tick = 0; tick < 10; tick++)
             {
-                block.OnTick();
-                ctx.AdvanceTime(TimeSpan.FromSeconds(1));
+                _block.OnTick();
+                _context.AdvanceTime(TimeSpan.FromSeconds(1));
             }
 
-            var propertyEmits = ctx.GetSentMessagesOfTypePublic<ServicePropertyValueChanged>().Count(m => m.PropertyIdentifier == nameof(SensorBlock.Power));
-            var measuringPointEmits = ctx.GetSentMessagesOfTypePublic<ServiceMeasuringPointValueChanged>().Count(m => m.MeasuringPointIdentifier == nameof(SensorBlock.Power));
+            // Assert — one sensed value feeds both streams, and neither suppresses the other.
+            var asProperty = _context.GetSentMessagesOfTypePublic<ServicePropertyValueChanged>().Count(m => m.PropertyIdentifier == nameof(SensorBlock.Power));
+            var asMeasuringPoint = _context.GetSentMessagesOfTypePublic<ServiceMeasuringPointValueChanged>().Count(m => m.MeasuringPointIdentifier == nameof(SensorBlock.Power));
+            Assert.True(asProperty > 0, $"the property stream must emit; got {asProperty}");
+            Assert.True(asMeasuringPoint > 0, $"the measuring-point stream must emit; got {asMeasuringPoint}");
 
-            // A dual-annotated member feeds BOTH streams — neither suppresses the other.
-            Assert.True(propertyEmits > 0, $"property stream must emit; got {propertyEmits}");
-            Assert.True(measuringPointEmits > 0, $"measuring-point stream must emit; got {measuringPointEmits}");
-
-            // The streams throttle independently: the faster 500 ms measuring point emits at least as often
-            // as the 2 s property. It cannot yet emit MORE here — this project references a published
-            // Vion.Dale.Sdk package, and in the packages released so far a dual-annotated member's
-            // measuring point borrowed the property's knobs. That each stream gates on its own attribute is
-            // proven in-repo by Vion.Dale.Sdk.TestKit.Test/DualAnnotatedEmissionShould; tighten this to `>`
-            // once the version bump after that fix's release lands.
-            Assert.True(measuringPointEmits >= propertyEmits,
-                        $"measuring-point (500 ms) must emit at least as often as property (2 s); got mp={measuringPointEmits}, prop={propertyEmits}");
+            // The 500 ms measuring point cannot yet emit MORE often than the 2 s property here: this
+            // project references a published Vion.Dale.Sdk package, and in the packages released so far a
+            // dual-annotated member's measuring point borrowed the property's knobs. That each stream
+            // gates on its own attribute is proven in-repo by
+            // Vion.Dale.Sdk.TestKit.Test/DualAnnotatedEmissionShould; tighten this to a strict > once the
+            // version bump after that fix's release lands.
+            Assert.True(asMeasuringPoint >= asProperty, $"got mp={asMeasuringPoint}, prop={asProperty}");
         }
 
         [Fact]
-        public void EmitTheReadingWhenTheSetpointClearsTheDeadband()
+        public void EmitImmediateMemberOnEveryTickWhileThrottlingItsNeighbour()
         {
-            var ctx = WithPolicyOn(out var block);
-
-            block.Setpoint = 26.0;
-            block.OnTick(); // emit (1)
-            block.Setpoint = 26.8;
-            block.OnTick(); // Δ0.8 >= 0.5 -> emit (2)
-
-            ctx.VerifyServiceMeasuringPointEmitted(lb => lb.Reading, times: Times.Exactly(2));
-        }
-
-        [Fact]
-        public void ThrottleTheTemperatureWhileImmediateEmitsEveryTick()
-        {
-            var ctx = WithPolicyOn(out var block);
-
-            // Drive 12 ticks across 3 virtual seconds (250 ms apart).
-            for (var i = 0; i < 12; i++)
+            // Arrange / Act — twelve ticks across three virtual seconds.
+            for (var tick = 0; tick < 12; tick++)
             {
-                block.OnTick();
-                ctx.AdvanceTime(TimeSpan.FromMilliseconds(250));
+                _block.OnTick();
+                _context.AdvanceTime(TimeSpan.FromMilliseconds(250));
             }
 
-            // LiveTick is Immediate -> every tick emits.
-            ctx.VerifyServiceMeasuringPointEmitted(lb => lb.LiveTick, times: Times.Exactly(12));
+            // Assert — LiveTick sets Immediate, so every tick reaches the handler; Temperature is
+            // throttled to 2 s with a deadband, so the same twelve ticks coalesce.
+            _context.VerifyServiceMeasuringPointEmitted(lb => lb.LiveTick, times: Times.Exactly(12));
+            _context.VerifyServiceMeasuringPointEmitted(lb => lb.Temperature, times: Times.AtMost(4));
+        }
 
-            // Temperature is throttled to 2 s (+ Δ0.5) -> the 12 ticks coalesce to far fewer emissions.
-            ctx.VerifyServiceMeasuringPointEmitted(lb => lb.Temperature, times: Times.AtMost(4));
+        [Fact]
+        public void EmitPhaseCurrentsClearingTheirCustomDeadband()
+        {
+            // Arrange
+            _block.Setpoint = 10.0;
+            _block.OnTick();
+
+            // Act — each phase moves 0.3.
+            _block.Setpoint = 10.3;
+            _block.OnTick();
+
+            // Assert
+            _context.VerifyServiceMeasuringPointEmitted(lb => lb.PhaseCurrents, times: Times.Exactly(2));
+        }
+
+        [Fact]
+        public void EmitReadingClearingItsDeadband()
+        {
+            // Arrange
+            _block.Setpoint = 26.0;
+            _block.OnTick();
+
+            // Act — a move of 0.8.
+            _block.Setpoint = 26.8;
+            _block.OnTick();
+
+            // Assert
+            _context.VerifyServiceMeasuringPointEmitted(lb => lb.Reading, times: Times.Exactly(2));
+        }
+
+        [Fact]
+        public void SuppressPhaseCurrentsInsideTheirCustomDeadband()
+        {
+            // Arrange — the deadband for ThreePhase is declared in the example's own assembly.
+            _block.Setpoint = 10.0;
+            _block.OnTick();
+
+            // Act — each phase moves 0.1 against a deadband of 0.25.
+            _block.Setpoint = 10.1;
+            _block.OnTick();
+
+            // Assert
+            _context.VerifyServiceMeasuringPointEmitted(lb => lb.PhaseCurrents, times: Times.Once());
+        }
+
+        [Fact]
+        public void SuppressReadingInsideItsDeadband()
+        {
+            // Arrange
+            _block.Setpoint = 26.0;
+            _block.OnTick();
+
+            // Act — a move of 0.2 against a deadband of 0.5.
+            _block.Setpoint = 26.2;
+            _block.OnTick();
+
+            // Assert
+            _context.VerifyServiceMeasuringPointEmitted(lb => lb.Reading, times: Times.Once());
+        }
+
+        [Fact]
+        public void SuppressUnchangedReading()
+        {
+            // Arrange
+            _block.Setpoint = 40.0;
+
+            // Act — the setpoint does not move between ticks, so the second reading carries no news.
+            _block.OnTick();
+            _block.OnTick();
+
+            // Assert
+            _context.VerifyServiceMeasuringPointEmitted(lb => lb.Reading, times: Times.Once());
         }
     }
 }

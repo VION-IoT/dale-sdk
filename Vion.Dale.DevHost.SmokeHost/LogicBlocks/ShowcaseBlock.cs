@@ -57,6 +57,16 @@ namespace Vion.Dale.DevHost.SmokeHost.LogicBlocks
         [Presentation(DisplayName = "Laufzeit", Group = PropertyGroup.Metric, Order = 10)]
         public TimeSpan Uptime { get; private set; }
 
+        // Deadband only: the interval is the disabling sentinel written as "0s" rather than "0" or "0ms".
+        // The badge must read `deadband Δ0.5` with no throttle part — the sentinel is any duration that
+        // resolves to zero, not two particular spellings.
+        [ServiceMeasuringPoint(Unit = "kW",
+                               MinInterval = "0s",
+                               MinChange = "0.5",
+                               Description = "Deadband only — throttling disabled by a zero interval, so this emits on change magnitude alone.")]
+        [Presentation(DisplayName = "Abweichung", Group = PropertyGroup.Metric, Order = 15)]
+        public double Drift { get; private set; }
+
         // ── Configuration (writable) ────────────────────────────────────────────────
 
         [ServiceProperty(Title = "Sollwert",
@@ -143,6 +153,7 @@ namespace Vion.Dale.DevHost.SmokeHost.LogicBlocks
             var t = _ticks * 0.1;
 
             Cycles++;
+            Drift = Cycles * 0.3;
             Uptime = TimeSpan.FromSeconds(_ticks);
             LastTickAt = DateTime.UtcNow;
             CurrentPosition = new Position(47.3769 + Math.Sin(t) * 0.001, 8.5417 + Math.Cos(t) * 0.001);

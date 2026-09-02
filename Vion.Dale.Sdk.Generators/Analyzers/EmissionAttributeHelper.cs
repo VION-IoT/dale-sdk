@@ -52,6 +52,16 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         }
 
         /// <summary>
+        ///     Where a diagnostic about these knobs belongs: on the attribute that declares them. A member
+        ///     may declare two, each with its own policy, and reporting both on the property name would put
+        ///     two squiggles on one identifier with nothing to say which stream each is about.
+        /// </summary>
+        internal static Location? LocationOf(AttributeData attribute, IPropertySymbol property)
+        {
+            return attribute.ApplicationSyntaxReference?.GetSyntax().GetLocation() ?? property.Locations.FirstOrDefault();
+        }
+
+        /// <summary>
         ///     Reads the <c>MinChange</c> string literal from the attribute, or <c>null</c> when it is unset
         ///     or set to <c>null</c> / empty.
         /// </summary>

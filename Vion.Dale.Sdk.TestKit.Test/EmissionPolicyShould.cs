@@ -132,6 +132,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-003.3")]
+        [TestProperty("spec", "AC-EMIT-003.5")]
         public void RefuseToStartWhenIntervalNotDuration()
         {
             // Arrange
@@ -139,18 +140,25 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
             // Act / Assert — the gates are built at start, so a knob DALE036 would have rejected fails
             // there rather than being defaulted away.
-            Assert.ThrowsExactly<FormatException>(() => block.CreateTestContext().Build());
+            var rejection = Assert.ThrowsExactly<FormatException>(() => block.CreateTestContext().Build());
+            StringAssert.Contains(rejection.Message, nameof(UnparseableIntervalBlock.Voltage));
+            StringAssert.Contains(rejection.Message, nameof(UnparseableIntervalBlock));
+            StringAssert.Contains(rejection.Message, "soon");
         }
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-003.4")]
+        [TestProperty("spec", "AC-EMIT-003.5")]
         public void RefuseToStartWhenDeadbandCannotBeRead()
         {
             // Arrange
             var block = LogicBlockTestHelper.Create<UnreadableDeadbandBlock>();
 
-            // Act / Assert — the token is read once at start, so a member never meets it mid-run.
-            Assert.ThrowsExactly<FormatException>(() => block.CreateTestContext().Build());
+            // Act / Assert — the token is read once at start, so a member never meets it mid-run, and the
+            // rejection names the member the author has to go and edit.
+            var rejection = Assert.ThrowsExactly<FormatException>(() => block.CreateTestContext().Build());
+            StringAssert.Contains(rejection.Message, nameof(UnreadableDeadbandBlock.Voltage));
+            StringAssert.Contains(rejection.Message, nameof(UnreadableDeadbandBlock));
         }
 
         [TestMethod]
@@ -222,6 +230,28 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
             // Assert
             context.VerifyServicePropertyEmitted(lb => lb.Slow, times: Times.Exactly(2));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-010.1")]
+        public void ReleaseNothingWhenTheHeldValueWasSuppressed()
+        {
+            // Arrange — 9.0 is held inside the interval, arming a wakeup for its deadline.
+            var block = LogicBlockTestHelper.Create<SettableBlock>();
+            var context = Forced(block);
+            context.AdvanceTime(DefaultInterval);
+            block.SetVoltage(1.0);
+            block.SetVoltage(9.0);
+
+            // The member settles back to what was published, so the held value stops being its latest.
+            block.SetVoltage(1.0);
+            context.ClearRecordedMessages();
+
+            // Act — the armed wakeup arrives.
+            context.AdvanceTime(DefaultInterval);
+
+            // Assert
+            context.VerifyServicePropertyEmitted(lb => lb.Voltage, times: Times.Never());
         }
 
         [TestMethod]
@@ -433,10 +463,9 @@ namespace Vion.Dale.Sdk.TestKit.Test
             CollectionAssert.AreEqual(new object[] { 50.0, 50.2 }, published);
         }
 
-        private static void Write<TBlock>(TBlock block, LogicBlockTestContext<TBlock> context, double value)
-            where TBlock : LogicBlockBase
+        private static void Write(ClampingBlock block, LogicBlockTestContext<ClampingBlock> context, double value)
         {
-            var request = new SetServicePropertyValueRequest(new ServiceIdentifier(typeof(TBlock).Name), nameof(ClampingBlock.Limit), value);
+            var request = new SetServicePropertyValueRequest(new ServiceIdentifier(nameof(ClampingBlock)), nameof(ClampingBlock.Limit), value);
             block.HandleMessageAsync(request, context).GetAwaiter().GetResult();
         }
 

@@ -40,7 +40,8 @@ namespace Vion.Dale.Sdk.Emission
             }
             catch (OverflowException)
             {
-                // A numeric part too large for the unit, e.g. "1e30h".
+                // A numeric literal beyond double's own range. This runtime reads one as infinity, which
+                // the range check above rejects; the catch covers a runtime that raises instead.
                 return false;
             }
         }
@@ -86,37 +87,43 @@ namespace Vion.Dale.Sdk.Emission
                 throw new FormatException($"Duration token '{token}' is negative; durations are magnitudes.");
             }
 
-            double milliseconds;
+            // Every unit converts to TICKS, and the range is checked there — the unit a duration's limit is
+            // actually expressed in. Checking in milliseconds instead leaves a gap of one double ulp at the
+            // top of the range, and a unit that returned before the check (as `us` did) skipped it entirely
+            // and wrapped an over-large value into a small, often negative, duration.
+            const double ticksPerMillisecond = 10_000.0;
+            double ticks;
             switch (unitPart)
             {
                 case "":
                 case "ms":
-                    milliseconds = value;
+                    ticks = value * ticksPerMillisecond;
                     break;
                 case "us":
                     // 1 tick = 100 ns => 1 microsecond = 10 ticks.
-                    return TimeSpan.FromTicks((long)Math.Round(value * 10.0));
+                    ticks = value * 10.0;
+                    break;
                 case "s":
-                    milliseconds = value * 1_000.0;
+                    ticks = value * 1_000.0 * ticksPerMillisecond;
                     break;
                 case "m":
-                    milliseconds = value * 60.0 * 1_000.0;
+                    ticks = value * 60.0 * 1_000.0 * ticksPerMillisecond;
                     break;
                 case "h":
-                    milliseconds = value * 60.0 * 60.0 * 1_000.0;
+                    ticks = value * 60.0 * 60.0 * 1_000.0 * ticksPerMillisecond;
                     break;
                 default:
                     throw new FormatException($"Unknown duration unit '{unitPart}' in token '{token}'.");
             }
 
-            // TimeSpan.From* throws an OverflowException naming nothing, which reads as a runtime fault
-            // rather than the malformed knob it is. Reject it the way every other bad token is rejected.
-            if (milliseconds > TimeSpan.MaxValue.TotalMilliseconds)
+            // TimeSpan.FromTicks would raise an OverflowException naming nothing, which reads as a runtime
+            // fault rather than the malformed knob it is. Reject it the way every other bad token is.
+            if (ticks > long.MaxValue)
             {
                 throw new FormatException($"Duration token '{token}' is larger than a duration can represent.");
             }
 
-            return TimeSpan.FromMilliseconds(milliseconds);
+            return TimeSpan.FromTicks((long)Math.Round(ticks, MidpointRounding.AwayFromZero));
         }
     }
 }

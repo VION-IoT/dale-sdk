@@ -47,7 +47,7 @@ namespace Vion.Dale.Sdk.Test.Emission
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-007.2")]
-        public void NameTheTokenItRejects()
+        public void NameRejectedTokenInMessage()
         {
             // Arrange / Act
             var rejection = Assert.ThrowsExactly<FormatException>(() => DurationParser.Parse("ms"));
@@ -71,8 +71,24 @@ namespace Vion.Dale.Sdk.Test.Emission
 
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-007.4")]
+        public void ReadDurationAtTheTopOfItsRange()
+        {
+            // Arrange — the largest whole number of hours a duration holds. The range is checked in ticks,
+            // the unit the limit is actually expressed in, so a value just inside it is not rejected.
+            var hours = (long)TimeSpan.MaxValue.TotalHours;
+
+            // Act
+            var duration = DurationParser.Parse($"{hours}h");
+
+            // Assert
+            Assert.AreEqual(hours, (long)duration.TotalHours);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-007.4")]
         [DataRow("999999999999999999999h", DisplayName = "hours beyond the range")]
         [DataRow("99999999999999999999999999", DisplayName = "milliseconds beyond the range")]
+        [DataRow("99999999999999999999999999999us", DisplayName = "microseconds beyond the range")]
         public void RejectDurationTooLargeToRepresent(string token)
         {
             // Arrange / Act / Assert — rejected as the malformed knob it is, rather than surfacing as an

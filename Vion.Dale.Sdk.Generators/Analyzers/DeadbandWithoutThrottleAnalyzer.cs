@@ -52,7 +52,10 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                     continue;
                 }
 
-                context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE039_DeadbandWithoutThrottle, property.Locations.FirstOrDefault(), property.Name, minInterval));
+                context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE039_DeadbandWithoutThrottle,
+                                                           EmissionAttributeHelper.LocationOf(attribute, property),
+                                                           property.Name,
+                                                           minInterval));
             }
         }
     }
