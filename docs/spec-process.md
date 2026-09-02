@@ -8,9 +8,12 @@ logic block but a **contract**.
 
 ## The corpus — `docs/specs/`
 
-Current-truth pages: present tense, terse, evidence-linked. What the SDK guarantees **today** — no
-history, no incident narrative, no design alternatives (those live in git, the archived change docs,
-and the process journal). One page per **area**:
+Current-truth pages: present tense, terse, written in published-surface vocabulary — a page's
+evidence is the tests that cite its ids (the trace gate), never source references, so an
+implementation change that leaves behavior intact never touches a page. What the SDK guarantees
+**today** — no history, no incident narrative, no design alternatives, no rosters of today's
+instances (those live in git, the archived change docs, and the process journal). One page per
+**area**:
 
 > **An area is one contract with its own anchor artifact** — a schema, manifest, golden file,
 > diagnostic registry, or committed scenario set that already pins it mechanically.
@@ -128,23 +131,31 @@ repo is never half-migrated. One pass, in order:
 1. **Extract** — an agent drafts the area's behavior table from code and tests: one row per
    observable behavior — EARS sentence + `file:line` evidence + citing test or explicit `GAP`.
    Old RFC prose is a hint at best; every row needs evidence.
-2. **Review** — the maintainer classifies rows: *intended* → spec · *bug* → Jira, never enshrined ·
-   *out-of-spec* → explicitly dropped.
+2. **Review** — the maintainer classifies rows, each already carrying the extractor's
+   recommendation: *intended* → spec · *fix* → a small, area-local defect, fixed in the pass with
+   its test proven red on the pre-fix code · *park* → too big for the pass: one line in
+   `docs/specs/_findings.md`, the migration's finding ledger, triaged in bulk at the retro ·
+   *out-of-spec* → explicitly dropped. Jira is not a pass output; only a finding the operator
+   actively schedules becomes an item.
 3. **Rewrite** — the area's whole test suite is brought to the settled style
-   ([`testing-conventions.md`](testing-conventions.md)); Tier A tests cite their AC ids; `GAP` rows
-   get tests or become explicit parked items.
+   ([`testing-conventions.md`](testing-conventions.md)); Tier A tests cite their AC ids; every AC
+   has the one mutation that reddens its test, written with the test — an AC no mutation can
+   redden is reworded, merged or dropped, never minted.
 4. **Land** — the spec page (with `trace: enforced`) enters `docs/specs/`; the trace gate covers it
    from now on; changes to the area require a change doc from now on.
 5. **Delete** — the RFCs the page absorbed are removed in the same PR, and the reference sweep
    runs: no living doc, skill, or code comment cites them (`grep -r "RFC 00"` clean outside
    `docs/process-journal.md`, `docs/retro/`, `docs/changes/archive/`, and `docs/rfcs/` itself while
    it still exists). Append-only logs keep their citations.
-6. **Exit-check** — the pilot pass additionally trials Stryker.NET over the area's source; adopted
-   into this list only if signal beats noise there (change doc D9).
+6. **Audit** — one Stryker.NET run over the area, survivors read by hand: logger and out-of-spec
+   mutants dominate and are ignored; a survivor on a behavior is a test still owed. Never a gate,
+   never a score to chase — the pilot's one actionable survivor was the author's blind spot, which
+   is the whole value.
 
-Each pass is one change doc + one band-sized PR. Order: plugin ABI (pilot) → config gating or
-emission → introspection + identifiers → scenario/stepping/pairing → remainder. `docs/rfcs/` is
-frozen meanwhile (do not cite it in new work) and disappears with the last pass.
+The protocol is packaged as the `spec-pass` skill; each pass is one change doc + one band-sized
+PR. Order: plugin ABI (done — the pilot) → config gating or emission → introspection +
+identifiers → scenario/stepping/pairing → remainder. `docs/rfcs/` is frozen meanwhile (do not
+cite it in new work) and disappears with the last pass.
 
 ## Dispatching a pass to a fresh session
 
@@ -186,8 +197,9 @@ Drift checkpoints, distills, archives. No report-back block — the PR is the re
 - **Single-repo work** → starts here: fix-sized straight to a PR, feature-sized as a change doc.
   When architecture's `/fix` picks a single-repo dale-sdk item, its brief is the issue key +
   constraints; the design lives in the change doc.
-- **Extraction finds** → intended behavior into the spec page; bugs to Jira; GAPs as marked rows
-  in the page (the in-repo backlog).
+- **Extraction finds** → intended behavior into the spec page; small area-local defects fixed in
+  the pass; the rest to `docs/specs/_findings.md`; GAPs as marked rows in the page. Jira only for
+  what the operator schedules.
 
 ## Gates
 
