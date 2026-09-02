@@ -362,8 +362,11 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
     }
 #pragma warning restore DALE044
 
-    /// <summary>A gate declared as the empty string on each of the three member kinds that record one.</summary>
-    public sealed class EmptyGateBlock : LogicBlockBase
+    // One empty gate per fixture, one member kind each: the binders run interface, then contract, then
+    // service, so a block carrying all three would only ever show the first site's refusal.
+
+    /// <summary>An empty gate on a component service — the site DeclarativeServiceBinder records.</summary>
+    public sealed class EmptyGateComponentBlock : LogicBlockBase
     {
         [ServiceProperty(Title = "Ladepunkte")]
         [InstantiationParameter]
@@ -372,15 +375,49 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
         [IncludedWhen("")]
         public GatedPoint Point2 { get; } = new();
 
+        public EmptyGateComponentBlock() : base(NullLogger.Instance)
+        {
+        }
+
+        /// <inheritdoc />
+        protected override void Ready()
+        {
+        }
+    }
+
+    /// <summary>An empty gate on a contract binding — the site ContractMetaData records.</summary>
+    public sealed class EmptyGateContractBlock : LogicBlockBase
+    {
+        [ServiceProperty(Title = "Ladepunkte")]
+        [InstantiationParameter]
+        public int PointCount { get; init; } = 1;
+
         [ServiceProviderContractBinding(DefaultName = "Ladepunkt 2 aktiv")]
         [IncludedWhen("")]
         public IDigitalOutput? Point2Output { get; private set; }
+
+        public EmptyGateContractBlock() : base(NullLogger.Instance)
+        {
+        }
+
+        /// <inheritdoc />
+        protected override void Ready()
+        {
+        }
+    }
+
+    /// <summary>An empty gate on an interface binding — the site FunctionInterfaceMetaData records.</summary>
+    public sealed class EmptyGateInterfaceBlock : LogicBlockBase
+    {
+        [ServiceProperty(Title = "Ladepunkte")]
+        [InstantiationParameter]
+        public int PointCount { get; init; } = 1;
 
         [LogicBlockInterfaceBinding(typeof(IGatedProbeSink))]
         [IncludedWhen("")]
         public GatedInterfaceOnlyProbe Probe { get; } = new();
 
-        public EmptyGateBlock() : base(NullLogger.Instance)
+        public EmptyGateInterfaceBlock() : base(NullLogger.Instance)
         {
         }
 

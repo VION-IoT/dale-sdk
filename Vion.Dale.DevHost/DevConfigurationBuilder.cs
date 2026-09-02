@@ -263,14 +263,15 @@ namespace Vion.Dale.DevHost
         }
 
         // The consumer-side link multiplicity declared on a block type's interface binding
-        // ([LogicBlockInterfaceBinding(Multiplicity = …)]), keyed by interface identifier. Class-level bindings
-        // use the interface name as the identifier; property-bound interfaces use "{Property}_{Interface}".
+        // ([LogicBlockInterfaceBinding(Multiplicity = …)]), keyed by interface identifier. The identifier is
+        // whatever DeclarativeInterfaceBinder resolves — an explicit Identifier when the binding declares one,
+        // else the interface name for a class-level binding and "{Property}_{Interface}" for a property one.
         // Defaults to ZeroOrMore (unconstrained) when not annotated.
         internal static LinkMultiplicity MultiplicityOf(Type blockType, string interfaceIdentifier)
         {
             foreach (var attribute in blockType.GetCustomAttributes<LogicBlockInterfaceBindingAttribute>())
             {
-                if (attribute.ForInterface.Name == interfaceIdentifier)
+                if (InterfaceIdentifierFor([attribute], attribute.ForInterface, attribute.ForInterface.Name) == interfaceIdentifier)
                 {
                     return attribute.Multiplicity;
                 }
@@ -282,7 +283,7 @@ namespace Vion.Dale.DevHost
                 {
                     // The same identifier rule GetAllLogicInterfaces mints by, or a renamed binding's
                     // multiplicity is looked up under a name nothing carries and silently reads ZeroOrMore.
-                    if (InterfaceIdentifierFor([attribute], property.Name, attribute.ForInterface) == interfaceIdentifier)
+                    if (InterfaceIdentifierFor([attribute], attribute.ForInterface, $"{property.Name}_{attribute.ForInterface.Name}") == interfaceIdentifier)
                     {
                         return attribute.Multiplicity;
                     }
@@ -296,12 +297,15 @@ namespace Vion.Dale.DevHost
         {
             var result = new List<(Type, string, string?)>();
 
-            // Class-level interfaces — a class-implemented interface is unconditional (not gateable), so no predicate.
+            // Class-level interfaces — a class-implemented interface is unconditional (not gateable), so no
+            // predicate. Named the binder's way: the binder passes no default identifier for this path, so an
+            // explicit Identifier on the class-level binding wins and the interface name is only the fallback.
+            var classBindings = type.GetCustomAttributes<LogicBlockInterfaceBindingAttribute>().ToList();
             foreach (var iface in type.GetInterfaces())
             {
                 if (iface.GetCustomAttribute<LogicInterfaceAttribute>() != null)
                 {
-                    result.Add((iface, iface.Name, null));
+                    result.Add((iface, InterfaceIdentifierFor(classBindings, iface, iface.Name), null));
                 }
             }
 
@@ -324,7 +328,7 @@ namespace Vion.Dale.DevHost
                 {
                     if (iface.GetCustomAttribute<LogicInterfaceAttribute>() != null)
                     {
-                        result.Add((iface, InterfaceIdentifierFor(bindings, property.Name, iface), includedWhen));
+                        result.Add((iface, InterfaceIdentifierFor(bindings, iface, $"{property.Name}_{iface.Name}"), includedWhen));
                     }
                 }
             }
@@ -364,11 +368,12 @@ namespace Vion.Dale.DevHost
             return result;
         }
 
-        // DeclarativeInterfaceBinder's naming rule: the binding's explicit Identifier for this interface when
-        // one is declared, else {Property}_{Interface}.
-        private static string InterfaceIdentifierFor(List<LogicBlockInterfaceBindingAttribute> bindings, string propertyName, Type interfaceType)
+        // DeclarativeInterfaceBinder's naming rule, both halves: the binding's explicit Identifier for this
+        // interface when one is declared, else the caller's fallback — the interface name for a class-level
+        // binding (the binder passes no default there) and {Property}_{Interface} for a property-based one.
+        private static string InterfaceIdentifierFor(IReadOnlyList<LogicBlockInterfaceBindingAttribute> bindings, Type interfaceType, string fallback)
         {
-            return bindings.FirstOrDefault(binding => binding.ForInterface == interfaceType)?.Identifier ?? $"{propertyName}_{interfaceType.Name}";
+            return bindings.FirstOrDefault(binding => binding.ForInterface == interfaceType)?.Identifier ?? fallback;
         }
 
         /// <summary>

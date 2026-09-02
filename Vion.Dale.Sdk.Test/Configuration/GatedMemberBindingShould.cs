@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Text.Json.Nodes;
 using Vion.Contracts.Events.CloudToMesh;
@@ -99,8 +100,9 @@ namespace Vion.Dale.Sdk.Test.Configuration
         public void SkipInterfaceBindingHoldingNullWhenConfiguring()
         {
             // The other half of the definition-view relaxation: an endpoint with nothing behind it can be
-            // described, but it cannot serve, so a configured instance skips it. Without this row the mode
-            // half of the guard is untested and dropping it would still pass the definition-view test.
+            // described, but it cannot serve, so a configured instance skips it. Asserted on the bound
+            // interface set — the bound service map cannot see this, because the component declares no
+            // service member and so is absent from it whatever the binder decides.
 
             // Arrange
             var block = new NullInterfaceComponentBlock();
@@ -110,7 +112,24 @@ namespace Vion.Dale.Sdk.Test.Configuration
             harness.Configure(block, [nameof(NullInterfaceComponentBlock)], Parameter(nameof(NullInterfaceComponentBlock.Count), 2));
 
             // Assert
-            Assert.IsEmpty(harness.BoundProperties(nameof(NullInterfaceComponentBlock.Probe)));
+            Assert.IsEmpty(block.BoundInterfaceIdentifiers());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-007.8")]
+        public void DescribeInterfaceBindingHoldingNullWhenIntrospecting()
+        {
+            // The same block through the definition view: the endpoint is there, so the two halves of the
+            // guard are pinned by two tests over one fixture rather than by one that cannot tell them apart.
+
+            // Arrange
+            var block = new NullInterfaceComponentBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, GatingHarness.ServiceProvider);
+
+            // Assert
+            Assert.ContainsSingle(result.Interfaces.Where(iface => iface.Identifier.StartsWith(nameof(NullInterfaceComponentBlock.Probe), StringComparison.Ordinal)));
         }
 
         [TestMethod]

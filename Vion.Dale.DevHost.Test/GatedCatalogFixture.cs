@@ -18,7 +18,8 @@ namespace Vion.Dale.DevHost.Test
     ///     schemas + per-member gate predicates on <see cref="Topologies.LogicBlockDefinition" /> — has something
     ///     to exercise by reflection alone.
     /// </summary>
-    public sealed class GatedCatalogFixture : LogicBlockBase
+    [LogicBlockInterfaceBinding(typeof(SmokeHost.LogicBlocks.ISignalSource), Identifier = "Fleet", Multiplicity = LinkMultiplicity.OneOrMore)]
+    public sealed class GatedCatalogFixture : LogicBlockBase, SmokeHost.LogicBlocks.ISignalSource
     {
         [ServiceProperty(Title = "Count", Minimum = 1, Maximum = 2)]
         [InstantiationParameter]
@@ -41,6 +42,10 @@ namespace Vion.Dale.DevHost.Test
         public GatedSignalSink RenamedSink { get; } = new();
 
         public GatedCatalogFixture(ILogger logger) : base(logger)
+        {
+        }
+
+        public void HandleResponse(Sdk.Utils.InterfaceId functionId, SmokeHost.LogicBlocks.SignalLink.Ack response)
         {
         }
 

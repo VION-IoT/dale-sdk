@@ -148,6 +148,26 @@ namespace Vion.Dale.Sdk.Test.Core
             StringAssert.Contains(failure.Message, "refused to become ready");
         }
 
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-004.1")]
+        public void NameFailureFromDeferredCompletion()
+        {
+            // The runtime's own ordering: the configuration message arrives before LinkRuntimeActors, so the
+            // announcement and Ready() are deferred and the phase finishes on the LINK arm. A failure there is
+            // still a configuration failure, and the retry has to be told about it.
+
+            // Arrange
+            var block = new ReadyThrowsBlock();
+            var harness = new GatingHarness();
+            harness.Send(block, GatingHarness.Initialize(ReadyThrowsServices));
+
+            // Act / Assert
+            Assert.ThrowsExactly<InvalidOperationException>(() => harness.Link(block));
+
+            var failure = Assert.ThrowsExactly<InvalidOperationException>(() => harness.Send(block, GatingHarness.Initialize(ReadyThrowsServices)));
+            StringAssert.Contains(failure.Message, "refused to become ready");
+        }
+
         private static SetLogicConfigurationPayload.InstantiationParameterValue Parameter(string identifier, int value)
         {
             // Integers ride the wire long-backed, so the node has to be created as one to decode.

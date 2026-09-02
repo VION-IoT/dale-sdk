@@ -5,7 +5,7 @@
     {
       "typeFullName": "Vion.Dale.DevHost.SmokeHost.LogicBlocks.GatedStationBlock",
       "name": "Station",
-      "instantiationParameters": { "PointCount": 2 }
+      "instantiationParameters": { "PointCount": 2, "Reserve": 1 }
     }
   ],
   "interfaceMappings": [],

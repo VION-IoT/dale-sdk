@@ -32,6 +32,11 @@ namespace Vion.Dale.Sdk.Configuration.Contract
                 // at its default — for a contract that means NULL (the binder is what constructs it), the
                 // documented authoring hazard (declare gated contract properties nullable, gate the fan-out).
                 var includedWhen = InclusionGate.ReadPredicate(property);
+                if (includedWhen is not null && mode == BindingMode.Definition)
+                {
+                    InclusionGate.EnsureResolvable(includedWhen, logicBlock, property.Name);
+                }
+
                 if (!InclusionGate.IsIncluded(includedWhen, mode, parameterContext))
                 {
                     continue;

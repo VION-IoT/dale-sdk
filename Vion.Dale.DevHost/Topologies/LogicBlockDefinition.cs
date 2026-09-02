@@ -102,6 +102,7 @@ namespace Vion.Dale.DevHost.Topologies
                                Identifier = property.Name,
                                Schema = BuildParameterSchema(property),
                                Default = instance is not null ? ParameterValueToJson(property.GetValue(instance)) : null,
+                               DefaultKnown = instance is not null,
                            });
             }
 
@@ -237,7 +238,17 @@ namespace Vion.Dale.DevHost.Topologies
         /// <summary>A minimal JSON-schema fragment (type/enum/minimum/maximum) the client renders an input from.</summary>
         public required JsonNode Schema { get; set; }
 
-        /// <summary>The block's C# default for this parameter (member-name string for enums), or <c>null</c> when unknown.</summary>
+        /// <summary>The block's C# default for this parameter (member-name string for enums), or <c>null</c>.</summary>
         public JsonNode? Default { get; set; }
+
+        /// <summary>
+        ///     Whether <see cref="Default" /> was read off an instance. False when the catalog could not
+        ///     construct the block — a block whose constructor takes dependencies — in which case
+        ///     <see cref="Default" /> is null because nothing was read, not because the declared default is
+        ///     null. A client cannot tell those apart from the value, and they mean opposite things: an
+        ///     unknown default is no information, while a known null default is a parameter that must be
+        ///     given a value before any gate referencing it can resolve.
+        /// </summary>
+        public bool DefaultKnown { get; set; }
     }
 }

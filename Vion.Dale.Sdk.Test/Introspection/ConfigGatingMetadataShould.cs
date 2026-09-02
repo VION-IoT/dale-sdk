@@ -1,10 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Vion.Contracts.Conventions;
 using Vion.Contracts.Introspection;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Introspection;
 using Vion.Dale.Sdk.Test.TestHelpers;
 
@@ -21,6 +23,16 @@ namespace Vion.Dale.Sdk.Test.Introspection
         private readonly IServiceProvider _serviceProvider = new ServiceCollection().AddSingleton<ILoggerFactory>(NullLoggerFactory.Instance)
                                                                                     .AddSingleton(typeof(ILogger<>), typeof(NullLogger<>))
                                                                                     .BuildServiceProvider();
+
+        public static IEnumerable<object[]> EmptyGateBlocks
+        {
+            get
+            {
+                yield return [new EmptyGateComponentBlock(), nameof(EmptyGateComponentBlock.Point2)];
+                yield return [new EmptyGateContractBlock(), nameof(EmptyGateContractBlock.Point2Output)];
+                yield return [new EmptyGateInterfaceBlock(), nameof(EmptyGateInterfaceBlock.Probe)];
+            }
+        }
 
         [TestMethod]
         [TestProperty("spec", "AC-GATE-010.1")]
@@ -160,46 +172,18 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-GATE-005.9")]
-        public void ReportEmptyGateOnComponentService()
+        [DynamicData(nameof(EmptyGateBlocks))]
+        public void RefuseEmptyGateOnEveryMemberKindThatRecordsOne(LogicBlockBase block, string member)
         {
-            // Arrange
-            var block = new EmptyGateBlock();
+            // Each row reaches one of the three sites that record a member's gate. A site that read an empty
+            // predicate as "no gate" would leave that member unconditional, introspection would succeed, and
+            // the artifact would ship a member the runtime refuses to bind — so the refusal is what proves
+            // the site treats it as a declared gate at all.
 
-            // Act
-            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+            // Arrange / Act / Assert
+            var failure = Assert.ThrowsExactly<InvalidOperationException>(() => LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider));
 
-            // Assert
-            Assert.AreEqual(string.Empty, result.Services.Single(service => service.Identifier == nameof(EmptyGateBlock.Point2)).IncludedWhen);
-        }
-
-        [TestMethod]
-        [TestProperty("spec", "AC-GATE-005.9")]
-        public void ReportEmptyGateOnContractBinding()
-        {
-            // Arrange
-            var block = new EmptyGateBlock();
-
-            // Act
-            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
-
-            // Assert
-            var contract = result.Contracts.Single(binding => binding.Identifier == nameof(EmptyGateBlock.Point2Output));
-            Assert.AreEqual(string.Empty, contract.Annotations[LogicBlockWiringConventions.IncludedWhenAnnotationKey]);
-        }
-
-        [TestMethod]
-        [TestProperty("spec", "AC-GATE-005.9")]
-        public void ReportEmptyGateOnInterfaceBinding()
-        {
-            // Arrange
-            var block = new EmptyGateBlock();
-
-            // Act
-            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
-
-            // Assert
-            var binding = result.Interfaces.Single(iface => iface.Identifier.StartsWith(nameof(EmptyGateBlock.Probe), StringComparison.Ordinal));
-            Assert.AreEqual(string.Empty, binding.Annotations[LogicBlockWiringConventions.IncludedWhenAnnotationKey]);
+            StringAssert.Contains(failure.Message, member);
         }
 
         private static LogicBlockIntrospectionResult.ServicePropertyInfo RootProperty(LogicBlockIntrospectionResult result, string serviceIdentifier, string propertyIdentifier)

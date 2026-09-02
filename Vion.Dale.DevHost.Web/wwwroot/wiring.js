@@ -146,6 +146,35 @@ export function interfaceGatedOut(definitions, instance, interfaceIdentifier) {
     const iface = (def.interfaces || []).find(i => i.identifier === interfaceIdentifier);
     return iface ? memberGatedOut(iface.includedWhen, def, instance) : false;
 }
+// A gate whose parameter has a KNOWN null default and no chosen value fails that whole instance closed at
+// runtime: Live-mode evaluation of a null throws out of Configure, so the block never starts. That is not a
+// wiring problem — it is a missing value — so it is reported on its own, footer-level, and only where the
+// catalog says the default was read. An UNKNOWN default stays fail-open: nothing is known, so nothing is said.
+export function missingParameterValueProblems(definitions, instances) {
+    const problems = [];
+    for (const inst of instances || []) {
+        const def = defByType(definitions, inst.typeFullName);
+        if (!def) continue;
+        const chosen = inst.instantiationParameters || {};
+        const needed = new Set();
+        for (const member of [...(def.interfaces || []), ...(def.contracts || [])]) {
+            if (!member.includedWhen) continue;
+            const compiled = compilePredicate(member.includedWhen);
+            if (!compiled.ok) continue;
+            for (const ref of compiled.refs) needed.add(ref.property);
+        }
+        for (const p of def.instantiationParameters || []) {
+            if (!needed.has(p.identifier)) continue;
+            if (!p.defaultKnown || p.default !== null) continue;
+            if (Object.prototype.hasOwnProperty.call(chosen, p.identifier) && chosen[p.identifier] !== null) continue;
+            problems.push({
+                kind: 'missing-parameter-value',
+                message: `${inst.name}.${p.identifier} has no default; supply a value — a gate reads it, and the block fails to start without one`,
+            });
+        }
+    }
+    return problems;
+}
 export function gatedOutMappingProblems(definitions, instances, interfaceMappings, contractMappings) {
     const problems = [];
     const instByName = name => (instances || []).find(i => i.name === name) || null;

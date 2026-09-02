@@ -148,9 +148,9 @@ own `[InstantiationParameter]` properties, as bare single-segment names.
   does not carry THE SYSTEM SHALL fail block initialization.
 - `AC-GATE-005.8` (Event-driven): WHEN a gate's predicate references a parameter whose value is null
   THE SYSTEM SHALL fail block initialization.
-- `AC-GATE-005.9` (Ubiquitous): THE SYSTEM SHALL report a declared `[IncludedWhen]` predicate as its
-  member's gate whatever the predicate's text, so an empty one is reported as a gate rather than as
-  an absent one.
+- `AC-GATE-005.9` (Ubiquitous): THE SYSTEM SHALL treat a declared `[IncludedWhen]` predicate as its
+  member's gate whatever the predicate's text, so an empty one is a gate that cannot be resolved rather
+  than an absent one.
 
 Evaluation is strict and fail-closed. `AC-GATE-005.6` to `AC-GATE-005.8` are one posture in three
 shapes: a block whose member set is undecidable must not bind an arbitrary half of itself, so it does
@@ -162,7 +162,9 @@ service property would make members appear and vanish while a block runs, which 
 
 `AC-GATE-005.9` settles the one question the three recorders and the evaluator could answer
 differently. A member's gate is `null` when the attribute is absent and its predicate otherwise;
-"empty" is a predicate that does not parse, not the absence of one.
+"empty" is a predicate that does not parse, not the absence of one — so it is refused by
+`AC-GATE-006.4` like any other unworkable gate, where reading it as absent would have shipped an
+unconditional member the runtime then refuses to bind.
 
 ## The definition view and the live view
 
@@ -176,11 +178,25 @@ has one, so it emits the members that instance actually has.
   predicate.
 - `AC-GATE-006.3` (Event-driven): WHEN a block is configured for a running instance THE SYSTEM SHALL
   evaluate every gate and bind only the included members.
+- `AC-GATE-006.4` (Event-driven): WHEN a block is introspected and one of its gates carries a predicate
+  that does not parse, or that names something the block does not declare as an
+  `[InstantiationParameter]`, THE SYSTEM SHALL refuse the introspection naming the member and the
+  predicate.
+- `AC-GATE-006.5` (Ubiquitous): THE SYSTEM SHALL NOT evaluate a gate against the block's own parameter
+  values while introspecting, so a parameter whose declared default is null does not make its gate a
+  refusal.
 
 `AC-GATE-006.2` follows from `AC-GATE-006.1` rather than qualifying it: the definition view runs a
-default instance whose parameter values are nobody's configuration, so evaluating there would answer
-a question no operator asked. A predicate reaches the definition view unread — a consequence recorded
-in [`_findings.md`](_findings.md), since it means a gate that can never resolve still packs.
+default instance whose parameter values are nobody's configuration, so deciding there would answer a
+question no operator asked.
+
+`AC-GATE-006.4` is the line between deciding and checking. A gate whose predicate cannot parse, or
+names something the block does not declare, has no configuration that could make it work — so it is
+refused where a broken block is cheapest to catch: introspection is what `dotnet pack` runs, so the
+artifact never ships. `AC-GATE-006.5` is the boundary on the other side: resolvability is checked
+against placeholder values of each declared parameter's type, never the instance's, because a
+parameter whose default is null would otherwise turn a perfectly good gate into a refusal. Type
+discipline inside a predicate remains the analyzer's, at build time.
 
 ## What an exclusion removes
 
@@ -305,11 +321,14 @@ it may be applied, and whether its predicate parses and resolves. `DALE044` judg
 - `AC-GATE-011.7` (Ubiquitous): THE SYSTEM SHALL report no diagnostic for an `[IncludedWhen]` predicate
   that parses and type-checks, whatever that predicate would evaluate to.
 - `AC-GATE-011.8` (Event-driven): WHEN an `[InstantiationParameter]` is declared on a type that is not
-  a logic block, without a paired `[ServiceProperty]`, combined with `WriteOnly`, on a type outside
-  bool, enum, an integer kind and string, with a computed getter, or is assigned in the declaring
-  block's own code outside its constructor or an object initializer, THE SYSTEM SHALL report DALE044.
+  a logic block, without a paired `[ServiceProperty]`, combined with `WriteOnly`, combined with
+  `[Persistent]`, on a type outside bool, enum, an integer kind and string, with a computed getter, or
+  is assigned in the declaring block's own code outside its constructor or an object initializer, THE
+  SYSTEM SHALL report DALE044.
 - `AC-GATE-011.9` (Ubiquitous): THE SYSTEM SHALL report no diagnostic for an `[InstantiationParameter]`
   declared with a plain public setter.
+- `AC-GATE-011.11` (Ubiquitous): THE SYSTEM SHALL report no diagnostic for an `[InstantiationParameter]`
+  combined with `[Persistent(Exclude = true)]`.
 - `AC-GATE-011.10` (Event-driven): WHEN `[IncludedWhen]` is applied to a type that is not a logic
   block, or to a member of one, THE SYSTEM SHALL report DALE043.
 
@@ -322,9 +341,11 @@ it checks that a predicate is well-formed and never what it would decide. `AC-GA
 matching hole: a gate is only read off a logic block's own members, so one declared anywhere else is
 reported rather than left inert.
 
-`AC-GATE-011.8`'s rules are one obligation in seven shapes — the value block code reads must provably
+`AC-GATE-011.8`'s rules are one obligation in several shapes — the value block code reads must provably
 be the value the gates evaluated. A computed getter, an in-code assignment, or a declaration on a
-component all break that in different ways.
+component all break that in different ways, and `[Persistent]` breaks it from the other end by letting a
+restored value land after the gates resolved. `AC-GATE-011.11` is the exception that proves it is about
+the opt-in: `[Persistent(Exclude = true)]` asks for exactly what a parameter already gets.
 
 ## The consumer surfaces
 
@@ -341,6 +362,15 @@ component all break that in different ways.
 - `AC-GATE-012.6` (Ubiquitous): THE SYSTEM SHALL project each catalog block's
   `[InstantiationParameter]` set with its editor schema and default, and each gated interface and
   contract binding's predicate.
+- `AC-GATE-012.12` (Ubiquitous): THE SYSTEM SHALL accept a JSON null in a topology's
+  instantiation-parameter values for a parameter whose declared type is nullable.
+- `AC-GATE-012.11` (Ubiquitous): THE SYSTEM SHALL report on each catalog parameter whether its default
+  was read from an instance, so a default of null that was read is distinguishable from one that was
+  never read.
+- `AC-GATE-012.10` (Ubiquitous): THE SYSTEM SHALL name each catalog interface binding the way the
+  binder resolves it — the binding's explicit identifier where it declares one, otherwise the interface
+  name for a class-level binding and the property name joined to the interface name for a
+  property-based one.
 - `AC-GATE-012.7` (Ubiquitous): THE SYSTEM SHALL report each service's gate predicate in the plugin
   listing read from a packed artifact.
 - `AC-GATE-012.8` (Event-driven): WHEN a topology names an instantiation parameter that is not an
@@ -350,11 +380,15 @@ component all break that in different ways.
   values in the development host's configuration output, omitting the field for an instance that chose
   none.
 
-A topology file cannot express a JSON null for a parameter: the topology schema admits a boolean, an
-integer or a string, so the nullable case `AC-GATE-002.7` accepts is reachable from the cloud's
-configuration channel but not from a topology, where a nullable parameter can only take its declared
-default. Widening that is a change to the cross-repo topology-exchange schema
-([`_findings.md`](_findings.md)).
+`AC-GATE-012.11` exists because null answers two different questions. A catalog entry is built by
+reflection over the type, and the default can only be read from an instance — which the host cannot
+always construct. Reporting "unknown" as null made a parameter that must be given a value look
+identical to one that has no information, and an editor fails open on the second where it should warn
+about the first.
+
+`AC-GATE-012.10` is what makes `AC-GATE-012.6` usable: a topology is authored against the catalog and
+then wired by the binder, so an endpoint listed under a name the binder does not answer to is worse
+than one left out — the mapping looks wired and resolves to nothing.
 
 `AC-GATE-012.1` is why a test sets a parameter through the TestKit's builder rather than by assigning
 the property: the builder goes through the encode and decode path that ships, so a test exercises the

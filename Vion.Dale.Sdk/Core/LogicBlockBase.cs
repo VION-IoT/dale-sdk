@@ -170,8 +170,7 @@ namespace Vion.Dale.Sdk.Core
                     if (_initializeDeferred)
                     {
                         _initializeDeferred = false;
-                        SendBindLogicBlockServices();
-                        Ready();
+                        RecordingConfigurationFailures(CompleteConfiguration);
                     }
 
                     break;
@@ -222,15 +221,7 @@ namespace Vion.Dale.Sdk.Core
                     // recorded and rethrown. The caller's failure handling is unchanged; what the record buys
                     // is that a refused retry is told what to fix rather than being sent back to the
                     // configuration that just failed.
-                    try
-                    {
-                        ApplyConfiguration(m, actorContext);
-                    }
-                    catch (Exception exception)
-                    {
-                        _configurationFailure = exception.Message;
-                        throw;
-                    }
+                    RecordingConfigurationFailures(() => ApplyConfiguration(m, actorContext));
 
                     break;
 
@@ -535,6 +526,49 @@ namespace Vion.Dale.Sdk.Core
         }
 
         /// <summary>
+        ///     The interface endpoints this instance bound, by identifier. The block announces its bound
+        ///     <em>services</em> in <see cref="BindLogicBlockServices" />, but nothing on the wire carries the
+        ///     bound interface set — so a test that needs it has this seam rather than reflection
+        ///     (<c>testing-conventions.md</c> section 7). Internal, so the published surface does not move.
+        /// </summary>
+        /// <remarks>A method, not a property: a property here is woven as observable state and warns (LAMA5161).</remarks>
+        internal IReadOnlyCollection<string> BoundInterfaceIdentifiers()
+        {
+            return _interfaces.Keys.ToList();
+        }
+
+        /// <summary>
+        ///     Runs one part of the configuration phase, recording why it failed before letting the failure
+        ///     out. Both arms go through here because the phase can finish on either: when LinkRuntimeActors
+        ///     arrives after the configuration message, the announcement and <c>Ready()</c> are deferred to it,
+        ///     so a block that refuses to become ready fails from that arm and would otherwise be refused a
+        ///     retry with no reason.
+        /// </summary>
+        private void RecordingConfigurationFailures(Action step)
+        {
+            try
+            {
+                step();
+            }
+            catch (Exception exception)
+            {
+                _configurationFailure = exception.Message;
+                throw;
+            }
+        }
+
+        /// <summary>
+        ///     The tail of the configuration phase: announce the bound services and tell the block it is
+        ///     ready. Runs inline when the runtime actors are already linked, and from the LinkRuntimeActors
+        ///     arm when they are not.
+        /// </summary>
+        private void CompleteConfiguration()
+        {
+            SendBindLogicBlockServices();
+            Ready();
+        }
+
+        /// <summary>
         ///     The configuration phase, in the order the runtime depends on: parameter values applied, the
         ///     declarative binders run against them, emission gates built, contract mappings resolved,
         ///     persistence initialised, and the block told it is ready. Extracted so the caller can record why
@@ -607,8 +641,7 @@ namespace Vion.Dale.Sdk.Core
             // depend on the handler ref, so defer it together.
             if (_runtimeActorsLinked)
             {
-                SendBindLogicBlockServices();
-                Ready();
+                CompleteConfiguration();
             }
             else
             {
@@ -656,8 +689,7 @@ namespace Vion.Dale.Sdk.Core
 
                 try
                 {
-                    var typeRef = TypeRefBuilder.BuildForProperty(property);
-                    resolved.Add((property, PropertyValueCodec.JsonToClr(parameter.Value, typeRef, property.PropertyType)));
+                    resolved.Add((property, InstantiationParameterCodec.Decode(property, parameter.Value)));
                 }
                 catch (Exception exception)
                 {

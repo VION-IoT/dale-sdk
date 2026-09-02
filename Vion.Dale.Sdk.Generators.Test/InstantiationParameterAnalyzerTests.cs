@@ -101,7 +101,7 @@ public class MyBlock : LogicBlockBase
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-GATE-011.9")]
+        [TestProperty("spec", "AC-GATE-011.11")]
         public async Task PersistentExcludedParameter_NoDiagnostic()
         {
             // Arrange
@@ -125,6 +125,15 @@ public class MyBlock : LogicBlockBase
             // Persistence skips parameters, so the [Persistent] would silently do nothing — and a restore
             // that did land would overwrite the configured value the gates already resolved against.
             return ExpectDiscipline("[ServiceProperty] [Persistent] [{|#0:InstantiationParameter|}] public int Count { get; init; }");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.8")]
+        public Task PersistentNotExcludedParameter_ReportsDALE044()
+        {
+            // Exclude = false is the opt-IN written out, so it is refused exactly like the bare attribute —
+            // the rule reads the argument rather than the attribute's presence.
+            return ExpectDiscipline("[ServiceProperty] [Persistent(Exclude = false)] [{|#0:InstantiationParameter|}] public int Count { get; init; }");
         }
 
         [TestMethod]

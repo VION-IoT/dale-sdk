@@ -161,19 +161,68 @@ namespace Vion.Dale.Sdk.Test.Configuration
 
         [TestMethod]
         [TestProperty("spec", "AC-GATE-006.2")]
-        public void IntrospectWithoutEvaluatingAnyPredicate()
+        public void IntrospectWithoutDecidingAnyGate()
         {
-            // A predicate no evaluator can accept still introspects: the definition view has no operator
-            // values to resolve against, so it records rather than decides.
+            // The definition view records a workable gate rather than deciding it: the default instance's
+            // values are nobody's configuration, so every gated member is present whatever they say.
 
             // Arrange
-            var block = new UnparseableGateBlock();
+            var block = new GatedCountBlock();
 
             // Act
             var result = LogicBlockIntrospection.IntrospectLogicBlock(block, GatingHarness.ServiceProvider);
 
             // Assert
-            Assert.AreEqual("PointCount >>> 2", result.Services.Single(service => service.Identifier == "Point2").IncludedWhen);
+            CollectionAssert.Contains(result.Services.Select(service => service.Identifier).ToArray(), "Point3");
+            Assert.AreEqual("PointCount >= 3", result.Services.Single(service => service.Identifier == "Point3").IncludedWhen);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-006.4")]
+        public void RefuseIntrospectingGateOutsideGrammar()
+        {
+            // Introspection is what `dotnet pack` runs, so refusing here is what stops an artifact shipping a
+            // block that fails every activation.
+
+            // Arrange
+            var block = new UnparseableGateBlock();
+
+            // Act / Assert
+            var failure = Assert.ThrowsExactly<InvalidOperationException>(() => LogicBlockIntrospection.IntrospectLogicBlock(block, GatingHarness.ServiceProvider));
+
+            StringAssert.Contains(failure.Message, "Point2");
+            StringAssert.Contains(failure.Message, "PointCount >>> 2");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-006.4")]
+        public void RefuseIntrospectingGateReferencingUnknownName()
+        {
+            // Arrange
+            var block = new UnknownReferenceGateBlock();
+
+            // Act / Assert
+            var failure = Assert.ThrowsExactly<InvalidOperationException>(() => LogicBlockIntrospection.IntrospectLogicBlock(block, GatingHarness.ServiceProvider));
+
+            StringAssert.Contains(failure.Message, "Missing >= 2");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-006.5")]
+        public void IntrospectGateOverNullDefaultedParameter()
+        {
+            // The reason resolvability is checked against placeholders and not the instance: this gate is
+            // perfectly good and fails closed at bind only because no value was configured. Evaluating here
+            // would refuse the block outright.
+
+            // Arrange
+            var block = new GatedNullParameterBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, GatingHarness.ServiceProvider);
+
+            // Assert
+            Assert.AreEqual("Region == 'EU'", result.Services.Single(service => service.Identifier == "Point2").IncludedWhen);
         }
 
         [TestMethod]

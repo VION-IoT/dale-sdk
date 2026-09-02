@@ -82,6 +82,11 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
                 // Skip a gated-out interface binding entirely in Live mode (never bound, never
                 // wired, never published). Definition mode always binds and records the predicate.
                 var includedWhen = InclusionGate.ReadPredicate(property);
+                if (includedWhen is not null && mode == BindingMode.Definition)
+                {
+                    InclusionGate.EnsureResolvable(includedWhen, logicBlock, property.Name);
+                }
+
                 if (!InclusionGate.IsIncluded(includedWhen, mode, parameterContext))
                 {
                     continue;

@@ -30,8 +30,8 @@
           },
           "instantiationParameters": {
             "type": "object",
-            "description": "Operator-chosen [InstantiationParameter] values (identifier -> JSON scalar; enums as member-name strings), applied to the block before Configure so config-time inclusion gates resolve. Optional.",
-            "additionalProperties": { "type": ["boolean", "integer", "string"] }
+            "description": "Operator-chosen [InstantiationParameter] values (identifier -> JSON scalar; enums as member-name strings), applied to the block before Configure so config-time inclusion gates resolve. null is accepted only for a parameter whose declared type is nullable. Optional.",
+            "additionalProperties": { "type": ["boolean", "integer", "string", "null"] }
           }
         }
       }

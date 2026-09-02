@@ -371,8 +371,45 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-GATE-012.6")]
-        public void LogicBlockDefinition_FromType_NamesEndpointsTheWayTheBinderDoes()
+        [TestProperty("spec", "AC-GATE-012.11")]
+        [DataRow(true, DisplayName = "an instance was available")]
+        [DataRow(false, DisplayName = "no instance was available")]
+        public void LogicBlockDefinition_FromType_SaysWhetherEachDefaultWasRead(bool withInstance)
+        {
+            // Arrange
+            var instance = withInstance ? new GatedCatalogFixture(NullLogger.Instance) : null;
+
+            // Act
+            var definition = LogicBlockDefinition.FromType(typeof(GatedCatalogFixture), instance);
+
+            // Assert
+            var count = definition.InstantiationParameters.Single(p => p.Identifier == nameof(GatedCatalogFixture.Count));
+            Assert.AreEqual(withInstance, count.DefaultKnown);
+            Assert.AreEqual(withInstance ? 1L : null, count.Default?.GetValue<long>());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-012.11")]
+        public void LogicBlockDefinition_FromType_ReportsKnownNullDefaultAsKnown()
+        {
+            // The case the flag exists for: read from an instance and genuinely null, which an editor must
+            // treat as "this parameter needs a value", not as "nothing is known".
+
+            // Arrange
+            var block = new SmokeHost.LogicBlocks.GatedStationBlock(NullLogger.Instance);
+
+            // Act
+            var definition = LogicBlockDefinition.FromType(typeof(SmokeHost.LogicBlocks.GatedStationBlock), block);
+
+            // Assert
+            var reserve = definition.InstantiationParameters.Single(p => p.Identifier == "Reserve");
+            Assert.IsTrue(reserve.DefaultKnown);
+            Assert.IsNull(reserve.Default);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-012.10")]
+        public void LogicBlockDefinition_FromType_NamesEndpointsAsTheBinderResolvesThem()
         {
             // Arrange
             // The binder honours an explicit Identifier and falls back to {Property}_{Interface}. A catalog
@@ -387,6 +424,12 @@ namespace Vion.Dale.DevHost.Test
             Assert.AreEqual("Count >= 2", renamed.IncludedWhen);
             Assert.AreEqual(LinkMultiplicity.ExactlyOne, renamed.Multiplicity);
             Assert.IsFalse(definition.Interfaces.Any(i => i.Identifier == "RenamedSink_ISignalSink"));
+
+            // The class-level half of the same rule: the binder passes no default, so an explicit Identifier
+            // wins over the interface name there too.
+            var classLevel = definition.Interfaces.Single(i => i.Identifier == "Fleet");
+            Assert.AreEqual(LinkMultiplicity.OneOrMore, classLevel.Multiplicity);
+            Assert.IsFalse(definition.Interfaces.Any(i => i.Identifier == nameof(SmokeHost.LogicBlocks.ISignalSource)));
         }
 
         [TestMethod]

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.ExceptionServices;
 using System.Text.Json.Nodes;
 using Vion.Contracts.Codec;
 using Vion.Contracts.Conventions;
@@ -134,7 +135,18 @@ namespace Vion.Dale.Sdk.Introspection
                 throw new InvalidOperationException($"No Configure method found for logic block: {logicBlock.GetType().FullName}");
             }
 
-            configureMethod.Invoke(logicBlock, [builder]);
+            try
+            {
+                configureMethod.Invoke(logicBlock, [builder]);
+            }
+            catch (TargetInvocationException exception) when (exception.InnerException is not null)
+            {
+                // Configure is reached by reflection, so anything it throws arrives wrapped in a
+                // TargetInvocationException whose own message is "Exception has been thrown by the target of
+                // an invocation." — which is what `dale build` and `dotnet pack` would print for a refused
+                // block instead of the reason. Rethrow the real one, stack preserved.
+                ExceptionDispatchInfo.Capture(exception.InnerException).Throw();
+            }
         }
 
         private static List<LogicBlockIntrospectionResult.InterfaceInfo> GetInterfaces(Dictionary<string, LogicSenderInterfaceBase> interfaces)

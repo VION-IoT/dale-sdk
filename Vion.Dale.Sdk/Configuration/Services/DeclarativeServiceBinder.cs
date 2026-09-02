@@ -56,6 +56,11 @@ namespace Vion.Dale.Sdk.Configuration.Services
                 // all properties + measuring points — falls out by construction). Definition mode binds and
                 // records the predicate for ServiceInfo.IncludedWhen.
                 var includedWhen = InclusionGate.ReadPredicate(property);
+                if (includedWhen is not null && mode == BindingMode.Definition)
+                {
+                    InclusionGate.EnsureResolvable(includedWhen, logicBlock, property.Name);
+                }
+
                 if (!InclusionGate.IsIncluded(includedWhen, mode, parameterContext))
                 {
                     continue;

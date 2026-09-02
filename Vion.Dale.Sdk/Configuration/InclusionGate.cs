@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Text.Json.Nodes;
 using Vion.Contracts.Codec;
@@ -34,12 +35,45 @@ namespace Vion.Dale.Sdk.Configuration
         /// </summary>
         public static bool IsIncluded(string? predicate, BindingMode mode, IReadOnlyDictionary<string, JsonNode?>? parameterContext)
         {
-            if (predicate is null || mode == BindingMode.Definition)
+            if (predicate is null)
+            {
+                return true;
+            }
+
+            if (mode == BindingMode.Definition)
             {
                 return true;
             }
 
             return Predicate.Parse(predicate).Evaluate(parameterContext ?? EmptyContext);
+        }
+
+        /// <summary>
+        ///     Refuses a gate that could never decide anything, in <see cref="BindingMode.Definition" />, where
+        ///     no configuration exists to evaluate against. A predicate that does not parse, or that names
+        ///     something this block does not declare as an <see cref="InstantiationParameterAttribute" />,
+        ///     fails every activation — so the definition view refuses it rather than emitting it to the wire
+        ///     and letting <c>dotnet pack</c> ship a block that can never start.
+        ///     <para>
+        ///         Resolution is checked against <b>placeholder</b> values of each declared parameter's own
+        ///         type, never the instance's: a parameter whose C# default is null would fail closed and turn
+        ///         a valid block into a false positive. The result of the evaluation is discarded — only
+        ///         whether it can be performed is the question here.
+        ///     </para>
+        /// </summary>
+        public static void EnsureResolvable(string predicate, object logicBlock, string memberName)
+        {
+            try
+            {
+                Predicate.Parse(predicate).Evaluate(BuildResolutionProbe(logicBlock));
+            }
+            catch (PredicateException exception)
+            {
+                throw new
+                    InvalidOperationException($"Member '{memberName}' on logic block '{logicBlock.GetType().FullName}' has an [IncludedWhen] gate \"{predicate}\" that cannot be " +
+                                              $"resolved against the block's [InstantiationParameter] properties: {exception.Message}. The gate would fail every activation.",
+                                              exception);
+            }
         }
 
         /// <summary>
@@ -69,6 +103,28 @@ namespace Vion.Dale.Sdk.Configuration
             }
 
             return context;
+        }
+
+        // One placeholder per declared parameter, typed like the property and never null, so resolution and
+        // type discipline are checkable without the instance's values deciding anything.
+        private static Dictionary<string, JsonNode?> BuildResolutionProbe(object logicBlock)
+        {
+            var probe = new Dictionary<string, JsonNode?>(StringComparer.Ordinal);
+
+            foreach (var property in logicBlock.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            {
+                if (property.GetCustomAttribute<InstantiationParameterAttribute>() is null)
+                {
+                    continue;
+                }
+
+                var type = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+                probe[property.Name] = type.IsEnum ? JsonValue.Create(Enum.GetNames(type).FirstOrDefault() ?? string.Empty) :
+                                       type == typeof(string) ? JsonValue.Create(string.Empty) :
+                                       type == typeof(bool) ? JsonValue.Create(false) : JsonValue.Create(0L);
+            }
+
+            return probe;
         }
     }
 }

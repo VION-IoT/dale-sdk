@@ -182,6 +182,79 @@ namespace Vion.Dale.DevHost.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-GATE-012.8")]
+        public void RefuseTopologyCarryingUndecodableParameterValue()
+        {
+            // Arrange
+            // The block decodes fail-closed, but inside the actor after the host has reported itself started.
+            // The loader decodes with the same rule where the operator is: load, validate and save.
+            var topology = DevTopologyFile.Parse($$"""
+                                                   {
+                                                     "id": "gated",
+                                                     "logicBlockInstances": [
+                                                       { "typeFullName": "{{typeof(SmokeHost.LogicBlocks.GatedStationBlock).FullName}}", "name": "Station",
+                                                         "instantiationParameters": { "PointCount": "two" } }
+                                                     ]
+                                                   }
+                                                   """);
+
+            // Act / Assert
+            var failure = Assert.ThrowsExactly<InvalidDataException>(() => DevTopologyLoader.Build(topology));
+
+            StringAssert.Contains(failure.Message, "Station");
+            StringAssert.Contains(failure.Message, "PointCount");
+            StringAssert.Contains(failure.Message, "cannot take");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-012.8")]
+        public void ReportUnknownIdentifierAndUndecodableValueTogether()
+        {
+            // Arrange
+            var topology = DevTopologyFile.Parse($$"""
+                                                   {
+                                                     "id": "gated",
+                                                     "logicBlockInstances": [
+                                                       { "typeFullName": "{{typeof(SmokeHost.LogicBlocks.GatedStationBlock).FullName}}", "name": "Station",
+                                                         "instantiationParameters": { "Kount": 2, "PointCount": "two" } }
+                                                     ]
+                                                   }
+                                                   """);
+
+            // Act / Assert
+            var failure = Assert.ThrowsExactly<InvalidDataException>(() => DevTopologyLoader.Build(topology));
+
+            StringAssert.Contains(failure.Message, "Kount");
+            StringAssert.Contains(failure.Message, "PointCount");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-012.12")]
+        public void CarryNullThroughForNullableParameter()
+        {
+            // Arrange
+            // The schema admits null only for a nullable parameter; the model and the loader pass it through,
+            // and the block's decode accepts it (AC-GATE-002.7).
+            var topology = DevTopologyFile.Parse($$"""
+                                                   {
+                                                     "id": "gated",
+                                                     "logicBlockInstances": [
+                                                       { "typeFullName": "{{typeof(SmokeHost.LogicBlocks.GatedStationBlock).FullName}}", "name": "Station",
+                                                         "instantiationParameters": { "Reserve": null } }
+                                                     ]
+                                                   }
+                                                   """);
+
+            // Act
+            var config = DevTopologyLoader.Build(topology);
+
+            // Assert
+            var parameters = config.LogicBlocks.Single(b => b.Name == "Station").InstantiationParameters!;
+            Assert.IsTrue(parameters.ContainsKey("Reserve"));
+            Assert.IsNull(parameters["Reserve"]);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-012.8")]
         public void AcceptTopologyNamingDeclaredInstantiationParameters()
         {
             // The refusal reads the block type's declarations, so a correct name still loads.

@@ -394,19 +394,19 @@ namespace Vion.Dale.Sdk.Test.Configuration.Services
         [TestMethod]
         public void ThrowWhenOutwardsInterfaceNamesNeitherContractSide()
         {
-            var exception = Assert.Throws<TargetInvocationException>(() => LogicBlockIntrospection.IntrospectLogicBlock(new InvalidOutwardsBlock(), _serviceProvider));
+            // The introspection rethrows what Configure threw rather than the reflection wrapper, so an
+            // author sees the reason and not "Exception has been thrown by the target of an invocation."
+            var exception = Assert.Throws<InvalidOperationException>(() => LogicBlockIntrospection.IntrospectLogicBlock(new InvalidOutwardsBlock(), _serviceProvider));
 
-            Assert.IsInstanceOfType<InvalidOperationException>(exception.InnerException);
-            StringAssert.Contains(exception.InnerException!.Message, "OutwardsInterface");
+            StringAssert.Contains(exception.Message, "OutwardsInterface");
         }
 
         [TestMethod]
         public void ThrowWhenTheRelationCarrierIsNotALogicBlockContract()
         {
-            var exception = Assert.Throws<TargetInvocationException>(() => LogicBlockIntrospection.IntrospectLogicBlock(new OrphanCarrierBlock(), _serviceProvider));
+            var exception = Assert.Throws<InvalidOperationException>(() => LogicBlockIntrospection.IntrospectLogicBlock(new OrphanCarrierBlock(), _serviceProvider));
 
-            Assert.IsInstanceOfType<InvalidOperationException>(exception.InnerException);
-            StringAssert.Contains(exception.InnerException!.Message, "[LogicBlockContract]");
+            StringAssert.Contains(exception.Message, "[LogicBlockContract]");
         }
 
         // ── Helpers ───────────────────────────────────────────────────────────────────────────────

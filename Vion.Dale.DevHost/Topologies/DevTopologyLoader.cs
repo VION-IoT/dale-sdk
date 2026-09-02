@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Runtime.Loader;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Vion.Dale.Sdk.Configuration;
 using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.DevHost.Topologies
@@ -94,12 +95,26 @@ namespace Vion.Dale.DevHost.Topologies
                 var declared = types[instance.Name!]
                                .GetProperties(BindingFlags.Public | BindingFlags.Instance)
                                .Where(property => property.GetCustomAttribute<InstantiationParameterAttribute>() is not null)
-                               .Select(property => property.Name)
-                               .ToHashSet(StringComparer.Ordinal);
+                               .ToDictionary(property => property.Name, StringComparer.Ordinal);
 
-                foreach (var identifier in instance.InstantiationParameters.Keys.Where(identifier => !declared.Contains(identifier)))
+                foreach (var (identifier, value) in instance.InstantiationParameters)
                 {
-                    parameterErrors.Add($"instantiationParameters: '{instance.Name}.{identifier}' is not an [InstantiationParameter] of '{instance.TypeFullName}'");
+                    if (!declared.TryGetValue(identifier, out var property))
+                    {
+                        parameterErrors.Add($"instantiationParameters: '{instance.Name}.{identifier}' is not an [InstantiationParameter] of '{instance.TypeFullName}'");
+                        continue;
+                    }
+
+                    // Decoded with the block's own rule, so load / validate / save give the same verdict the
+                    // block would — one shared helper rather than two implementations that drift.
+                    try
+                    {
+                        InstantiationParameterCodec.Decode(property, value);
+                    }
+                    catch (Exception exception)
+                    {
+                        parameterErrors.Add($"instantiationParameters: '{instance.Name}.{identifier}' has a value this parameter cannot take: {exception.Message}");
+                    }
                 }
 
                 configuration.LogicBlocks.Single(lb => lb.Name == instance.Name).InstantiationParameters = instance.InstantiationParameters;
