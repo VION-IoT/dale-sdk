@@ -3,7 +3,7 @@ namespace Vion.Dale.Sdk.Core
     /// <summary>
     ///     Internal shared surface for the per-element emission-throttle knobs declared on
     ///     <see cref="ServicePropertyAttribute" /> and <see cref="ServiceMeasuringPointAttribute" />.
-    ///     The emission gate (RFC 0004) reads the throttle configuration through this interface so it
+    ///     The emission gate reads the throttle configuration through this interface so it
     ///     does not have to special-case which attribute carried the member.
     /// </summary>
     internal interface IThrottleConfigured

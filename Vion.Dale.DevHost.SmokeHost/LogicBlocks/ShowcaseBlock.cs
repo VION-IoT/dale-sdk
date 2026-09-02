@@ -47,7 +47,7 @@ namespace Vion.Dale.DevHost.SmokeHost.LogicBlocks
 
         // ── Metric (read-only counters) ─────────────────────────────────────────────
 
-        [ServiceMeasuringPoint(Description = "Lifetime tick count — never resets. RFC 0004: emitted on every change (Immediate).",
+        [ServiceMeasuringPoint(Description = "Lifetime tick count — never resets. Emitted on every change (Immediate).",
                                Kind = MeasuringPointKind.TotalIncreasing,
                                Immediate = true)]
         [Presentation(Group = PropertyGroup.Metric)]
@@ -56,6 +56,16 @@ namespace Vion.Dale.DevHost.SmokeHost.LogicBlocks
         [ServiceMeasuringPoint(Description = "Uptime since start (Duration).")]
         [Presentation(DisplayName = "Laufzeit", Group = PropertyGroup.Metric, Order = 10)]
         public TimeSpan Uptime { get; private set; }
+
+        // Deadband only: the interval is the disabling sentinel written as "0s" rather than "0" or "0ms".
+        // The badge must read `deadband Δ0.5` with no throttle part — the sentinel is any duration that
+        // resolves to zero, not two particular spellings.
+        [ServiceMeasuringPoint(Unit = "kW",
+                               MinInterval = "0s",
+                               MinChange = "0.5",
+                               Description = "Deadband only — throttling disabled by a zero interval, so this emits on change magnitude alone.")]
+        [Presentation(DisplayName = "Abweichung", Group = PropertyGroup.Metric, Order = 15)]
+        public double Drift { get; private set; }
 
         // ── Configuration (writable) ────────────────────────────────────────────────
 
@@ -66,7 +76,7 @@ namespace Vion.Dale.DevHost.SmokeHost.LogicBlocks
                          MinInterval = "1s",
                          MinChange = "0.1",
                          Description =
-                             "Operator setpoint — a bounded numeric input (Min/Max). Carries an advisory uiHint=slider chip; the current dashboard renders it as a number field, not a range slider. RFC 0004: throttled (1s) + deadband (Δ0.1), and persisted across restarts.")]
+                             "Operator setpoint — a bounded numeric input (Min/Max). Carries an advisory uiHint=slider chip; the current dashboard renders it as a number field, not a range slider. Throttled (1s) + deadband (Δ0.1), and persisted across restarts.")]
         [Presentation(Group = PropertyGroup.Configuration, UiHint = UiHints.Slider, Decimals = 1)]
         [Persistent]
         public double Setpoint { get; set; } = 25.0;
@@ -143,6 +153,7 @@ namespace Vion.Dale.DevHost.SmokeHost.LogicBlocks
             var t = _ticks * 0.1;
 
             Cycles++;
+            Drift = Cycles * 0.3;
             Uptime = TimeSpan.FromSeconds(_ticks);
             LastTickAt = DateTime.UtcNow;
             CurrentPosition = new Position(47.3769 + Math.Sin(t) * 0.001, 8.5417 + Math.Cos(t) * 0.001);

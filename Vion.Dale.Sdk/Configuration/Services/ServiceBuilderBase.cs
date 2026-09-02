@@ -1,5 +1,6 @@
 using System;
 using System.Reflection;
+using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Introspection;
 
 namespace Vion.Dale.Sdk.Configuration.Services
@@ -80,7 +81,7 @@ namespace Vion.Dale.Sdk.Configuration.Services
         {
             var typeRef = TypeRefBuilder.BuildForProperty(rootSourcePropertyInfo);
             var structFieldAnnotations = TypeRefBuilder.BuildStructFieldAnnotations(rootSourcePropertyInfo.PropertyType);
-            var metadata = PropertyMetadataBuilder.Build(rootSourcePropertyInfo, typeRef, structFieldAnnotations);
+            var metadata = PropertyMetadataBuilder.Build(rootSourcePropertyInfo, typeRef, structFieldAnnotations, ServiceElementStream.Property);
 
             var binding = new ServiceBinding
                           {
@@ -112,7 +113,7 @@ namespace Vion.Dale.Sdk.Configuration.Services
         {
             var typeRef = TypeRefBuilder.BuildForProperty(rootSourcePropertyInfo);
             var structFieldAnnotations = TypeRefBuilder.BuildStructFieldAnnotations(rootSourcePropertyInfo.PropertyType);
-            var metadata = PropertyMetadataBuilder.Build(rootSourcePropertyInfo, typeRef, structFieldAnnotations);
+            var metadata = PropertyMetadataBuilder.Build(rootSourcePropertyInfo, typeRef, structFieldAnnotations, ServiceElementStream.MeasuringPoint);
 
             var binding = new ServiceBinding
                           {

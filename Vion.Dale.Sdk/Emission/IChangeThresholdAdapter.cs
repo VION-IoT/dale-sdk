@@ -11,5 +11,12 @@ namespace Vion.Dale.Sdk.Emission
         ///     type and delegates to the inner <see cref="IChangeThreshold{T}" />.
         /// </summary>
         bool Exceeds(object? last, object? candidate, string threshold);
+
+        /// <summary>
+        ///     Reads the raw <c>MinChange</c> token once, when the member's policy is built, so a token this
+        ///     deadband cannot use fails the block's start rather than the first value it is offered. A
+        ///     deadband whose format is its own to define reads nothing here.
+        /// </summary>
+        void ValidateThreshold(string threshold);
     }
 }

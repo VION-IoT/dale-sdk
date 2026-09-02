@@ -33,7 +33,7 @@ namespace Vion.Dale.Sdk.Configuration.Services
         ///     The PropertyInfo the schema-bearing attributes are declared on — the <c>[ServiceInterface]</c>
         ///     property for an interface-bound member, else the impl property itself. Mirrors the
         ///     <c>schemaSource</c> of <see cref="Vion.Dale.Sdk.Introspection.PropertyMetadataBuilder.BuildSplit" />,
-        ///     so the RFC 0004 emission knobs (<c>MinInterval</c> / <c>MinChange</c> / <c>Immediate</c>) can be
+        ///     so the emission knobs (<c>MinInterval</c> / <c>MinChange</c> / <c>Immediate</c>) can be
         ///     inherited from the interface the same way the schema already is. <c>null</c> when no distinct
         ///     schema source was recorded (then the impl property is the only source).
         /// </summary>

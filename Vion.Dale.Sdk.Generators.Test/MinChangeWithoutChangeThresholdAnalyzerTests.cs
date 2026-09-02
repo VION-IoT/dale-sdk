@@ -8,6 +8,7 @@ namespace Vion.Dale.Sdk.Generators.Test
     public class MinChangeWithoutChangeThresholdAnalyzerTests
     {
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.1")]
         public async Task MinChangeOnDouble_NoDiagnostic()
         {
             var source = @"
@@ -21,6 +22,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.1")]
         public async Task MinChangeOnTimeSpan_NoDiagnostic()
         {
             var source = @"
@@ -35,6 +37,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.1")]
         public async Task MinChangeUnset_NoDiagnostic()
         {
             var source = @"
@@ -48,6 +51,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.1")]
         public async Task MinChangeOnBool_ReportsDiagnostic()
         {
             var source = @"
@@ -55,13 +59,14 @@ using Vion.Dale.Sdk.Core;
 
 public class MyBlock
 {
-    [ServiceProperty(MinChange = ""1"")] public bool {|#0:Fault|} { get; private set; }
+    [{|#0:ServiceProperty(MinChange = ""1"")|}] public bool Fault { get; private set; }
 }";
             var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE034_MinChangeWithoutChangeThreshold).WithLocation(0).WithArguments("Fault", "bool");
             await AnalyzerTestBase.VerifyAnalyzerAsync<MinChangeWithoutChangeThresholdAnalyzer>(source, expected);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.1")]
         public async Task MinChangeOnStringNoThreshold_ReportsDiagnostic()
         {
             var source = @"
@@ -69,13 +74,14 @@ using Vion.Dale.Sdk.Core;
 
 public class MyBlock
 {
-    [ServiceProperty(MinChange = ""x"")] public string {|#0:Status|} { get; set; } = """";
+    [{|#0:ServiceProperty(MinChange = ""x"")|}] public string Status { get; set; } = """";
 }";
             var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE034_MinChangeWithoutChangeThreshold).WithLocation(0).WithArguments("Status", "string");
             await AnalyzerTestBase.VerifyAnalyzerAsync<MinChangeWithoutChangeThresholdAnalyzer>(source, expected);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.1")]
         public async Task MinChangeOnCustomStructWithRegisteredThreshold_NoDiagnostic()
         {
             var source = @"
@@ -97,6 +103,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.1")]
         public async Task MinChangeOnCustomStructWithoutThreshold_ReportsDiagnostic()
         {
             var source = @"
@@ -106,13 +113,14 @@ public readonly record struct Position(double X, double Y);
 
 public class MyBlock
 {
-    [ServiceProperty(MinChange = ""0.5"")] public Position {|#0:Where|} { get; set; }
+    [{|#0:ServiceProperty(MinChange = ""0.5"")|}] public Position Where { get; set; }
 }";
             var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE034_MinChangeWithoutChangeThreshold).WithLocation(0).WithArguments("Where", "Position");
             await AnalyzerTestBase.VerifyAnalyzerAsync<MinChangeWithoutChangeThresholdAnalyzer>(source, expected);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.1")]
         public async Task MinChangeOnNullableDouble_NoDiagnostic()
         {
             var source = @"
@@ -123,6 +131,58 @@ public class MyBlock
     [ServiceProperty(MinChange = ""0.1"")] public double? Voltage { get; set; }
 }";
             await AnalyzerTestBase.VerifyAnalyzerAsync<MinChangeWithoutChangeThresholdAnalyzer>(source);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.7")]
+        public async Task DualAnnotatedMeasuringPointMinChangeOnBool_ReportsDiagnostic()
+        {
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public class MyBlock
+{
+    [ServiceProperty]
+    [{|#0:ServiceMeasuringPoint(MinChange = ""1"")|}]
+    public bool Flag { get; set; }
+}";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE034_MinChangeWithoutChangeThreshold).WithLocation(0).WithArguments("Flag", "bool");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<MinChangeWithoutChangeThresholdAnalyzer>(source, expected);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.7")]
+        public async Task DualAnnotatedServicePropertyMinChangeOnBool_ReportsDiagnostic()
+        {
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public class MyBlock
+{
+    [{|#0:ServiceProperty(MinChange = ""1"")|}]
+    [ServiceMeasuringPoint]
+    public bool Flag { get; set; }
+}";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE034_MinChangeWithoutChangeThreshold).WithLocation(0).WithArguments("Flag", "bool");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<MinChangeWithoutChangeThresholdAnalyzer>(source, expected);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.7")]
+        public async Task DualAnnotatedBothMinChangesOnBool_ReportsOnEachAttribute()
+        {
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public class MyBlock
+{
+    [{|#0:ServiceProperty(MinChange = ""1"")|}]
+    [{|#1:ServiceMeasuringPoint(MinChange = ""2"")|}]
+    public bool Flag { get; set; }
+}";
+            var onProperty = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE034_MinChangeWithoutChangeThreshold).WithLocation(0).WithArguments("Flag", "bool");
+            var onMeasuringPoint = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE034_MinChangeWithoutChangeThreshold).WithLocation(1).WithArguments("Flag", "bool");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<MinChangeWithoutChangeThresholdAnalyzer>(source, onProperty, onMeasuringPoint);
         }
     }
 }

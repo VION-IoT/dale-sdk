@@ -394,7 +394,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                                                                                           DiagnosticSeverity.Warning,
                                                                                           true);
 
-        // --- Emission policy (RFC 0004) ---
+        // --- Emission policy ---
 
         /// <summary>
         ///     <c>MinChange</c> (the deadband) is set on a <c>[ServiceProperty]</c> /
@@ -413,26 +413,32 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                                                                                                   true);
 
         /// <summary>
-        ///     <c>MinChange</c> on a built-in numeric type or <c>TimeSpan</c> does not parse with that
-        ///     type's known format: numeric types need an invariant-culture number; a <c>TimeSpan</c>
-        ///     needs the duration grammar (<c>us</c>/<c>ms</c>/<c>s</c>/<c>m</c>/<c>h</c> suffix or a bare
-        ///     number = milliseconds). Custom-threshold types are not parse-checked — their format is opaque.
+        ///     <c>MinChange</c> on a built-in numeric type or <c>TimeSpan</c> is not usable by that type's
+        ///     deadband: numeric types need an invariant-culture number; a <c>TimeSpan</c> needs the duration
+        ///     grammar (<c>us</c>/<c>ms</c>/<c>s</c>/<c>m</c>/<c>h</c> suffix or a bare number =
+        ///     milliseconds). A <b>negative</b> value is rejected for either — a deadband is compared against
+        ///     the magnitude of a change, so a negative threshold is cleared by every change and the declared
+        ///     deadband would never suppress anything. Custom-threshold types are not checked — their format
+        ///     is theirs to define.
         /// </summary>
         public static readonly DiagnosticDescriptor DALE035_MinChangeUnparseable = new("DALE035",
-                                                                                       "MinChange is not parseable for the member's type",
-                                                                                       "Property '{0}' has MinChange = \"{1}\" which is not valid for type '{2}'. {3} is expected.",
+                                                                                       "MinChange is not usable by the member's deadband",
+                                                                                       "Property '{0}' has MinChange = \"{1}\" which is not valid for type '{2}'. {3} is expected, and it may not be negative.",
                                                                                        Category,
                                                                                        DiagnosticSeverity.Error,
                                                                                        true);
 
         /// <summary>
-        ///     <c>MinInterval</c> does not parse with the duration grammar (error) or parses to a positive
-        ///     value below the 1 ms floor the emission gate can honour (warning). The sentinel
-        ///     <c>"0"</c> / <c>"0ms"</c> (throttle disabled) is valid and never reported.
+        ///     <c>MinInterval</c> is not a duration the emission gate can use (error), or is a positive value
+        ///     below the 1 ms floor it can honour (warning). A <b>negative</b> value is rejected: the interval
+        ///     is a spacing, and a negative one makes the gate's elapsed test unconditionally true, so the
+        ///     member would emit at full rate while reporting itself as throttled. So is a value too large for
+        ///     a duration to represent. The disabling sentinel — any duration that resolves to zero, such as
+        ///     <c>"0"</c> or <c>"0ms"</c> — is valid and never reported.
         /// </summary>
         public static readonly DiagnosticDescriptor DALE036_MinIntervalInvalid = new("DALE036",
                                                                                      "MinInterval is invalid",
-                                                                                     "Property '{0}' has MinInterval = \"{1}\" which is not a valid duration. Use a number with an optional us/ms/s/m/h suffix (bare number = milliseconds), or \"0\" to disable throttling.",
+                                                                                     "Property '{0}' has MinInterval = \"{1}\" which is not a valid duration. Use a number that is not negative with an optional us/ms/s/m/h suffix (bare number = milliseconds), or \"0\" to disable throttling.",
                                                                                      Category,
                                                                                      DiagnosticSeverity.Error,
                                                                                      true);

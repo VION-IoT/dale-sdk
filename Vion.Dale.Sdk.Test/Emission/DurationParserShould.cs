@@ -3,77 +3,97 @@ using Vion.Dale.Sdk.Emission;
 
 namespace Vion.Dale.Sdk.Test.Emission
 {
+    /// <summary>
+    ///     The one grammar both duration knobs are written in — a member's <c>MinInterval</c>, and a
+    ///     <c>TimeSpan</c> member's <c>MinChange</c>. Every rejection it makes reaches the author twice:
+    ///     as a diagnostic at compile time and as a refused block start when that was suppressed.
+    /// </summary>
     [TestClass]
     public class DurationParserShould
     {
         [TestMethod]
-        public void ParseMicroseconds()
+        [TestProperty("spec", "AC-EMIT-007.1")]
+        [DataRow("500us", 5_000L, DisplayName = "microseconds, in ticks of 100 ns")]
+        [DataRow("250ms", 2_500_000L, DisplayName = "milliseconds")]
+        [DataRow("30s", 300_000_000L, DisplayName = "seconds")]
+        [DataRow("5m", 3_000_000_000L, DisplayName = "minutes")]
+        [DataRow("2h", 72_000_000_000L, DisplayName = "hours")]
+        [DataRow("250", 2_500_000L, DisplayName = "a bare number is milliseconds")]
+        [DataRow("0", 0L, DisplayName = "the disabling sentinel")]
+        [DataRow("0ms", 0L, DisplayName = "the disabling sentinel with its unit")]
+        [DataRow("1.5s", 15_000_000L, DisplayName = "a fractional value")]
+        [DataRow("250MS", 2_500_000L, DisplayName = "the suffix is case-insensitive")]
+        [DataRow(" 250ms ", 2_500_000L, DisplayName = "surrounding whitespace is tolerated")]
+        public void ReadNumberAndOptionalUnit(string token, long expectedTicks)
         {
-            // 1 microsecond = 10 ticks (1 tick = 100 ns).
-            Assert.AreEqual(TimeSpan.FromTicks(5000), DurationParser.Parse("500us"));
+            // Arrange / Act
+            var duration = DurationParser.Parse(token);
+
+            // Assert
+            Assert.AreEqual(TimeSpan.FromTicks(expectedTicks), duration);
         }
 
         [TestMethod]
-        public void ParseMilliseconds()
+        [TestProperty("spec", "AC-EMIT-007.2")]
+        [DataRow("", DisplayName = "empty")]
+        [DataRow("   ", DisplayName = "whitespace only")]
+        [DataRow("ms", DisplayName = "a unit with no number")]
+        [DataRow("10x", DisplayName = "an unknown unit")]
+        public void RejectTokenItCannotRead(string token)
         {
-            Assert.AreEqual(TimeSpan.FromMilliseconds(250), DurationParser.Parse("250ms"));
+            // Arrange / Act / Assert
+            Assert.ThrowsExactly<FormatException>(() => DurationParser.Parse(token));
         }
 
         [TestMethod]
-        public void ParseSeconds()
+        [TestProperty("spec", "AC-EMIT-007.2")]
+        public void NameRejectedTokenInMessage()
         {
-            Assert.AreEqual(TimeSpan.FromSeconds(30), DurationParser.Parse("30s"));
+            // Arrange / Act
+            var rejection = Assert.ThrowsExactly<FormatException>(() => DurationParser.Parse("ms"));
+
+            // Assert — the author has to find the knob from the message alone.
+            StringAssert.Contains(rejection.Message, "ms");
+            StringAssert.Contains(rejection.Message, "no numeric part");
         }
 
         [TestMethod]
-        public void ParseMinutes()
+        [TestProperty("spec", "AC-EMIT-007.3")]
+        [DataRow("-1s")]
+        [DataRow("-250ms")]
+        [DataRow("-5")]
+        public void RejectNegativeDuration(string token)
         {
-            Assert.AreEqual(TimeSpan.FromMinutes(5), DurationParser.Parse("5m"));
+            // Arrange / Act / Assert — a spacing has no negative direction, and accepting one would make
+            // the gate it configures unconditional instead of restrictive.
+            Assert.ThrowsExactly<FormatException>(() => DurationParser.Parse(token));
         }
 
         [TestMethod]
-        public void ParseHours()
+        [TestProperty("spec", "AC-EMIT-007.4")]
+        public void ReadDurationAtTopOfRange()
         {
-            Assert.AreEqual(TimeSpan.FromHours(2), DurationParser.Parse("2h"));
+            // Arrange — the largest whole number of hours a duration holds. The range is checked in ticks,
+            // the unit the limit is actually expressed in, so a value just inside it is not rejected.
+            var hours = (long)TimeSpan.MaxValue.TotalHours;
+
+            // Act
+            var duration = DurationParser.Parse($"{hours}h");
+
+            // Assert
+            Assert.AreEqual(hours, (long)duration.TotalHours);
         }
 
         [TestMethod]
-        public void ParseBareNumberAsMilliseconds()
+        [TestProperty("spec", "AC-EMIT-007.4")]
+        [DataRow("999999999999999999999h", DisplayName = "hours beyond the range")]
+        [DataRow("99999999999999999999999999", DisplayName = "milliseconds beyond the range")]
+        [DataRow("99999999999999999999999999999us", DisplayName = "microseconds beyond the range")]
+        public void RejectDurationTooLargeToRepresent(string token)
         {
-            Assert.AreEqual(TimeSpan.FromMilliseconds(250), DurationParser.Parse("250"));
-        }
-
-        [TestMethod]
-        public void ParseBareZeroAsZeroMilliseconds()
-        {
-            Assert.AreEqual(TimeSpan.Zero, DurationParser.Parse("0"));
-        }
-
-        [TestMethod]
-        public void ThrowOnEmptyString()
-        {
-            Assert.ThrowsExactly<FormatException>(() => DurationParser.Parse(""));
-        }
-
-        [TestMethod]
-        public void ThrowOnWhitespaceString()
-        {
-            Assert.ThrowsExactly<FormatException>(() => DurationParser.Parse("   "));
-        }
-
-        [TestMethod]
-        public void ThrowOnUnitOnlyTokenWithClearMessage()
-        {
-            // "ms" has no numeric part — should produce a clear FormatException, not a bare parse failure.
-            var ex = Assert.ThrowsExactly<FormatException>(() => DurationParser.Parse("ms"));
-            StringAssert.Contains(ex.Message, "ms");
-            StringAssert.Contains(ex.Message, "no numeric part");
-        }
-
-        [TestMethod]
-        public void ThrowOnUnknownUnit()
-        {
-            Assert.ThrowsExactly<FormatException>(() => DurationParser.Parse("10x"));
+            // Arrange / Act / Assert — rejected as the malformed knob it is, rather than surfacing as an
+            // arithmetic fault from deep inside the parse.
+            Assert.ThrowsExactly<FormatException>(() => DurationParser.Parse(token));
         }
     }
 }

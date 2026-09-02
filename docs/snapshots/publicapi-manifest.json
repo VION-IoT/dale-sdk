@@ -72,6 +72,7 @@
     "Vion.Dale.Sdk.DigitalIo.TestKit.IDigitalOutputExtensions",
     "Vion.Dale.Sdk.DigitalIo.TestKit.IDigitalOutputProviderExtensions",
     "Vion.Dale.Sdk.DigitalIo.TestKit.LogicBlockTestContextExtensions",
+    "Vion.Dale.Sdk.Emission.IChangeThreshold",
     "Vion.Dale.Sdk.Http.ILogicBlockHttpClient",
     "Vion.Dale.Sdk.Http.ServiceCollectionExtensions",
     "Vion.Dale.Sdk.Modbus.Core.Client.IModbusClient",

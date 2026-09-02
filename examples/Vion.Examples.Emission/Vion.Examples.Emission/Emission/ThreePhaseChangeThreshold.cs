@@ -6,7 +6,7 @@ namespace Vion.Examples.Emission
 {
     /// <summary>
     ///     Resolves the Δ deadband for <see cref="ThreePhase" />. The runtime discovers this by scanning the
-    ///     block's assembly at start (DF-34), so any <see cref="ThreePhase" /> property can set <c>MinChange</c>
+    ///     block's assembly at start, so any <see cref="ThreePhase" /> property can set <c>MinChange</c>
     ///     without a per-property registration. Must have a parameterless ctor. Returns true (emit) when ANY
     ///     phase moves by at least the threshold (absolute amps).
     /// </summary>

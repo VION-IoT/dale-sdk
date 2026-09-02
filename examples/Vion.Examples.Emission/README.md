@@ -1,6 +1,6 @@
 # Vion.Examples.Emission
 
-A one-block showcase of the **RFC 0004 emission policy** — the throttle / deadband / dedup knobs you put on
+A one-block showcase of the **emission policy** — the throttle / deadband / dedup knobs you put on
 `[ServiceProperty]` and `[ServiceMeasuringPoint]` to cut MQTT chatter from fast-moving telemetry.
 
 **Emission policy governs the outbound direction** — how a block re-publishes its *own* measured state. A
@@ -55,5 +55,4 @@ threshold resolves, and `Power`'s two streams throttle independently.
 
 ## See also
 
-- [RFC 0014 — Emission-policy showcase](../../docs/rfcs/0014-emission-showcase-example.md)
-- [RFC 0004 — Emission policy](../../docs/rfcs/0004-emission-policy.md)
+- [Emission policy](../../docs/specs/emission.md) — the contract this example demonstrates

@@ -23,9 +23,6 @@ namespace Vion.Dale.Sdk.Emission
         /// <summary>Resolved from <see cref="MinChange" /> + the value type, else <c>null</c>.</summary>
         public IChangeThresholdAdapter? Threshold;
 
-        /// <summary><c>true</c> when <c>MinInterval</c> parsed to zero ("0"/"0ms") — leading-edge only.</summary>
-        public bool ThrottleDisabled;
-
         public static ThrottlePolicy FromConfigured(IThrottleConfigured cfg, Type valueType, Assembly? probeAssembly = null)
         {
             if (cfg == null)
@@ -44,12 +41,15 @@ namespace Vion.Dale.Sdk.Emission
             if (!string.IsNullOrEmpty(cfg.MinChange))
             {
                 // Unwrap Nullable<T> so a deadband on e.g. double? resolves the double threshold, and fall
-                // back to scanning the declaring assembly for a custom IChangeThreshold<T> (DF-34). Both
+                // back to scanning the declaring assembly for a custom IChangeThreshold<T>. Both
                 // mirror the DALE034 analyzer (it unwraps Nullable and accepts an impl visible in the
                 // consumer's own compilation), so a passing compile implies a working runtime deadband.
                 var resolveType = Nullable.GetUnderlyingType(valueType) ?? valueType;
                 if (ChangeThresholdRegistry.TryResolve(resolveType, probeAssembly, out var adapter))
                 {
+                    // Read the token now, so a member whose deadband cannot use it fails the block's start
+                    // instead of throwing out of the gate the first time its value moves.
+                    adapter.ValidateThreshold(cfg.MinChange!);
                     threshold = adapter;
                 }
             }
@@ -57,7 +57,6 @@ namespace Vion.Dale.Sdk.Emission
             return new ThrottlePolicy
                    {
                        MinInterval = minInterval,
-                       ThrottleDisabled = minInterval == TimeSpan.Zero,
                        Immediate = cfg.Immediate,
                        MinChange = cfg.MinChange,
                        Threshold = threshold,

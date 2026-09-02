@@ -8,6 +8,7 @@ namespace Vion.Dale.Sdk.Generators.Test
     public class MinChangeUnparseableAnalyzerTests
     {
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.2")]
         public async Task ValidDoubleMinChange_NoDiagnostic()
         {
             var source = @"
@@ -21,6 +22,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.2")]
         public async Task ValidIntMinChange_NoDiagnostic()
         {
             var source = @"
@@ -34,6 +36,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.2")]
         public async Task ValidTimeSpanMinChange_NoDiagnostic()
         {
             var source = @"
@@ -48,6 +51,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.2")]
         public async Task NonNumericDoubleMinChange_ReportsDiagnostic()
         {
             var source = @"
@@ -55,7 +59,7 @@ using Vion.Dale.Sdk.Core;
 
 public class MyBlock
 {
-    [ServiceProperty(MinChange = ""abc"")] public double {|#0:Voltage|} { get; set; }
+    [{|#0:ServiceProperty(MinChange = ""abc"")|}] public double Voltage { get; set; }
 }";
             var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE035_MinChangeUnparseable)
                                            .WithLocation(0)
@@ -64,6 +68,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.2")]
         public async Task DecimalPointOnIntMinChange_ReportsDiagnostic()
         {
             var source = @"
@@ -71,7 +76,7 @@ using Vion.Dale.Sdk.Core;
 
 public class MyBlock
 {
-    [ServiceProperty(MinChange = ""1.5"")] public int {|#0:Count|} { get; set; }
+    [{|#0:ServiceProperty(MinChange = ""1.5"")|}] public int Count { get; set; }
 }";
             var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE035_MinChangeUnparseable)
                                            .WithLocation(0)
@@ -80,6 +85,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.2")]
         public async Task BadUnitTimeSpanMinChange_ReportsDiagnostic()
         {
             var source = @"
@@ -88,7 +94,7 @@ using Vion.Dale.Sdk.Core;
 
 public class MyBlock
 {
-    [ServiceMeasuringPoint(MinChange = ""5x"")] public TimeSpan {|#0:Latency|} { get; private set; }
+    [{|#0:ServiceMeasuringPoint(MinChange = ""5x"")|}] public TimeSpan Latency { get; private set; }
 }";
             var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE035_MinChangeUnparseable)
                                            .WithLocation(0)
@@ -97,6 +103,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.2")]
         public async Task UnparseableOnCustomType_NoDiagnostic()
         {
             // Custom-threshold types have an opaque MinChange format; never parse-checked.
@@ -119,6 +126,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.2")]
         public async Task ValidMinChangeOnNullableDouble_NoDiagnostic()
         {
             var source = @"
@@ -132,6 +140,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.2")]
         public async Task ValidDecimalMinChange_NoDiagnostic()
         {
             var source = @"
@@ -145,6 +154,7 @@ public class MyBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.2")]
         public async Task NonNumericDecimalMinChange_ReportsDiagnostic()
         {
             var source = @"
@@ -152,12 +162,124 @@ using Vion.Dale.Sdk.Core;
 
 public class MyBlock
 {
-    [ServiceProperty(MinChange = ""cheap"")] public decimal {|#0:Price|} { get; set; }
+    [{|#0:ServiceProperty(MinChange = ""cheap"")|}] public decimal Price { get; set; }
 }";
             var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE035_MinChangeUnparseable)
                                            .WithLocation(0)
                                            .WithArguments("Price", "cheap", "decimal", "An invariant-culture number");
             await AnalyzerTestBase.VerifyAnalyzerAsync<MinChangeUnparseableAnalyzer>(source, expected);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.2")]
+        public async Task NegativeDoubleMinChange_ReportsDiagnostic()
+        {
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public class MyBlock
+{
+    [{|#0:ServiceProperty(MinChange = ""-0.5"")|}] public double Voltage { get; set; }
+}";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE035_MinChangeUnparseable)
+                                           .WithLocation(0)
+                                           .WithArguments("Voltage", "-0.5", "double", "An invariant-culture number");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<MinChangeUnparseableAnalyzer>(source, expected);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.2")]
+        public async Task NegativeIntMinChange_ReportsDiagnostic()
+        {
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public class MyBlock
+{
+    [{|#0:ServiceProperty(MinChange = ""-3"")|}] public int Count { get; set; }
+}";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE035_MinChangeUnparseable)
+                                           .WithLocation(0)
+                                           .WithArguments("Count", "-3", "int", "An invariant-culture integer");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<MinChangeUnparseableAnalyzer>(source, expected);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.2")]
+        public async Task NegativeTimeSpanMinChange_ReportsDiagnostic()
+        {
+            var source = @"
+using System;
+using Vion.Dale.Sdk.Core;
+
+public class MyBlock
+{
+    [{|#0:ServiceProperty(MinChange = ""-1s"")|}] public TimeSpan Uptime { get; set; }
+}";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE035_MinChangeUnparseable)
+                                           .WithLocation(0)
+                                           .WithArguments("Uptime", "-1s", "System.TimeSpan", "A duration (number with optional us/ms/s/m/h suffix)");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<MinChangeUnparseableAnalyzer>(source, expected);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.7")]
+        public async Task DualAnnotatedMeasuringPointBadMinChange_ReportsDiagnostic()
+        {
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public class MyBlock
+{
+    [ServiceProperty(MinChange = ""0.5"")]
+    [{|#0:ServiceMeasuringPoint(MinChange = ""loads"")|}]
+    public double Voltage { get; set; }
+}";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE035_MinChangeUnparseable)
+                                           .WithLocation(0)
+                                           .WithArguments("Voltage", "loads", "double", "An invariant-culture number");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<MinChangeUnparseableAnalyzer>(source, expected);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.7")]
+        public async Task DualAnnotatedServicePropertyBadMinChange_ReportsDiagnostic()
+        {
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public class MyBlock
+{
+    [{|#0:ServiceProperty(MinChange = ""loads"")|}]
+    [ServiceMeasuringPoint(MinChange = ""0.5"")]
+    public double Voltage { get; set; }
+}";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE035_MinChangeUnparseable)
+                                           .WithLocation(0)
+                                           .WithArguments("Voltage", "loads", "double", "An invariant-culture number");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<MinChangeUnparseableAnalyzer>(source, expected);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-012.7")]
+        public async Task DualAnnotatedBothMinChangesBad_ReportsOnEachAttribute()
+        {
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public class MyBlock
+{
+    [{|#0:ServiceProperty(MinChange = ""loads"")|}]
+    [{|#1:ServiceMeasuringPoint(MinChange = ""heaps"")|}]
+    public double Voltage { get; set; }
+}";
+            var onProperty = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE035_MinChangeUnparseable)
+                                             .WithLocation(0)
+                                             .WithArguments("Voltage", "loads", "double", "An invariant-culture number");
+            var onMeasuringPoint = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE035_MinChangeUnparseable)
+                                                   .WithLocation(1)
+                                                   .WithArguments("Voltage", "heaps", "double", "An invariant-culture number");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<MinChangeUnparseableAnalyzer>(source, onProperty, onMeasuringPoint);
         }
     }
 }

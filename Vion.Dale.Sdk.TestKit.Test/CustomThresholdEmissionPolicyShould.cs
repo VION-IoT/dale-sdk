@@ -7,9 +7,9 @@ using Vion.Dale.Sdk.Emission;
 
 namespace Vion.Dale.Sdk.TestKit.Test
 {
-    // DF-34: a custom struct value type with its IChangeThreshold<T> declared in the block's own
-    // assembly. The runtime must discover the threshold by scanning that assembly at block start,
-    // so a deadband on a non-built-in type actually gates emissions instead of silently no-op'ing.
+    // A custom struct value type with its IChangeThreshold<T> declared in the block's own assembly —
+    // the shape the search must find, so a deadband on a type the SDK ships none for actually gates
+    // emissions instead of silently doing nothing.
     public readonly record struct Pressure(double Bar);
 
     public sealed class PressureChangeThreshold : IChangeThreshold<Pressure>
@@ -35,9 +35,9 @@ namespace Vion.Dale.Sdk.TestKit.Test
         }
     }
 
-    // DF-33 + DF-34 combined — the consumer's planned §8.12 pattern: a custom-typed deadband declared
-    // ONCE on a shared [ServiceInterface]. The knob must be inherited by the bare impl property (DF-33)
-    // and its IChangeThreshold<T> resolved by scanning the interface property's declaring assembly (DF-34).
+    // The same custom deadband declared ONCE on a shared [ServiceInterface]: the knob is inherited by
+    // the bare implementing property, and its IChangeThreshold<T> is searched for in the assembly that
+    // declares the interface rather than the one that declares the block.
     [ServiceInterface]
     public interface ICustomThresholdService
     {
@@ -63,7 +63,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
     {
         // bool has no magnitude, so no IChangeThreshold<bool> can exist. DALE034 normally errors at
         // compile time; suppress it to exercise the runtime fail-fast backstop that replaces the
-        // silent no-op (DF-34, proposal #2).
+        // silent no-op.
 #pragma warning disable DALE034
         [ServiceProperty(MinChange = "1")]
         public bool Flag { get; set; }
@@ -78,70 +78,81 @@ namespace Vion.Dale.Sdk.TestKit.Test
         }
     }
 
+    /// <summary>
+    ///     A deadband on a value type the SDK ships none for: the implementation is found beside the
+    ///     member, gates it like any built-in, and its absence refuses the block's start rather than
+    ///     leaving a declared deadband quietly doing nothing.
+    /// </summary>
     [TestClass]
     public class CustomThresholdEmissionPolicyShould
     {
+        private static readonly TimeSpan DefaultInterval = TimeSpan.FromMilliseconds(250);
+
         [TestMethod]
-        public void ApplyDeadbandResolvedByScanningTheBlockAssembly()
+        [TestProperty("spec", "AC-EMIT-009.1")]
+        public void SuppressCustomTypedValueInsideItsFoundDeadband()
         {
+            // Arrange — MinChange is 2, and the deadband for Pressure is declared in this assembly.
             var block = LogicBlockTestHelper.Create<CustomThresholdLogicBlock>();
-            var ctx = block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).Build();
+            var context = block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).Build();
+            context.AdvanceTime(DefaultInterval);
 
-            ctx.AdvanceTime(TimeSpan.FromMilliseconds(250)); // clear the start-seed interval
+            // Act — a move of 1, which the deadband does not clear.
+            block.Reading = new Pressure(10.0);
+            block.Reading = new Pressure(11.0);
+            context.AdvanceTime(DefaultInterval);
 
-            block.Reading = new Pressure(10.0); // leading edge -> emit
-            block.Reading = new Pressure(11.0); // |Δ| = 1 < MinChange 2 -> deadband DROP (not held)
-
-            ctx.AdvanceTime(TimeSpan.FromMilliseconds(250)); // interval elapses
-
-            // With the custom threshold resolved by assembly scan, the sub-threshold change is dropped,
-            // nothing is held, and there is no trailing flush — only the leading-edge emit survives.
-            // Before the fix the threshold was unresolved (silent no-op): 11.0 was held then flushed -> 2.
-            ctx.VerifyServicePropertyEmitted(lb => lb.Reading, times: Times.Once());
+            // Assert — suppressed rather than held, so nothing follows the leading edge.
+            context.VerifyServicePropertyEmitted(lb => lb.Reading, times: Times.Once());
         }
 
         [TestMethod]
-        public void EmitWhenAChangeClearsTheCustomDeadband()
+        [TestProperty("spec", "AC-EMIT-009.1")]
+        public void EmitCustomTypedValueClearingItsFoundDeadband()
         {
+            // Arrange
             var block = LogicBlockTestHelper.Create<CustomThresholdLogicBlock>();
-            var ctx = block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).Build();
+            var context = block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).Build();
+            context.AdvanceTime(DefaultInterval);
 
-            ctx.AdvanceTime(TimeSpan.FromMilliseconds(250)); // clear the start-seed interval
+            // Act — a move of 3, which clears it.
+            block.Reading = new Pressure(10.0);
+            block.Reading = new Pressure(13.0);
+            context.AdvanceTime(DefaultInterval);
 
-            block.Reading = new Pressure(10.0); // leading edge -> emit
-            block.Reading = new Pressure(13.0); // |Δ| = 3 >= MinChange 2 -> passes the deadband, held
-
-            ctx.AdvanceTime(TimeSpan.FromMilliseconds(250)); // interval elapses -> trailing flush of 13.0
-
-            ctx.VerifyServicePropertyEmitted(lb => lb.Reading, times: Times.Exactly(2));
+            // Assert — held inside the interval, then released.
+            context.VerifyServicePropertyEmitted(lb => lb.Reading, times: Times.Exactly(2));
         }
 
         [TestMethod]
-        public void ApplyInterfaceDeclaredDeadbandOnACustomType()
+        [TestProperty("spec", "AC-EMIT-002.5")]
+        public void ApplyInterfaceDeclaredDeadbandOnCustomType()
         {
-            // Exercises both fixes: the interface-declared MinChange is inherited (DF-33) and its custom
-            // IChangeThreshold<Pressure> is resolved by scanning the interface property's declaring
-            // assembly (DF-34). Sub-threshold change is dropped, so only the leading edge emits.
+            // Arrange — the implementing property is bare, so both the knob and the assembly to search
+            // come from the interface.
             var block = LogicBlockTestHelper.Create<InterfaceCustomThresholdLogicBlock>();
-            var ctx = block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).Build();
+            var context = block.CreateTestContext().WithEmissionPolicy(EmissionPolicyMode.FromAttributes).Build();
+            context.AdvanceTime(DefaultInterval);
 
-            ctx.AdvanceTime(TimeSpan.FromMilliseconds(250)); // clear the start-seed interval
+            // Act
+            block.Reading = new Pressure(10.0);
+            block.Reading = new Pressure(11.0);
+            context.AdvanceTime(DefaultInterval);
 
-            block.Reading = new Pressure(10.0); // leading edge -> emit
-            block.Reading = new Pressure(11.0); // |Δ| = 1 < MinChange 2 -> deadband DROP (not held)
-
-            ctx.AdvanceTime(TimeSpan.FromMilliseconds(250)); // interval elapses
-
-            ctx.VerifyServicePropertyEmitted(lb => lb.Reading, times: Times.Once());
+            // Assert
+            context.VerifyServicePropertyEmitted(lb => lb.Reading, times: Times.Once());
         }
 
         [TestMethod]
-        public void ThrowAtStartWhenMinChangeHasNoResolvableThreshold()
+        [TestProperty("spec", "AC-EMIT-003.1")]
+        [TestProperty("spec", "AC-EMIT-003.2")]
+        public void RefuseToStartWhenNoDeadbandResolves()
         {
+            // Arrange — bool has no magnitude, so no deadband for it can exist.
             var block = LogicBlockTestHelper.Create<UnresolvableMinChangeLogicBlock>();
 
-            // BuildThrottlers runs at block start; an unresolved MinChange must fail fast (load-time),
-            // not silently leave the deadband absent.
+            // Act / Assert — the gates are built at start, so the misconfiguration surfaces there rather
+            // than leaving a declared deadband absent for the life of the block.
             Assert.ThrowsExactly<InvalidOperationException>(() => block.CreateTestContext().Build());
         }
     }

@@ -4,4 +4,5 @@ using Vion.Dale.Sdk.Core;
 // The analyzer warns (DALE014) about public types in these namespaces
 // that are not marked [PublicApi] or [InternalApi].
 [assembly: PublicApiNamespace("Vion.Dale.Sdk.Core")]
+[assembly: PublicApiNamespace("Vion.Dale.Sdk.Emission")]
 [assembly: PublicApiNamespace("Vion.Dale.Sdk.Utils")]
