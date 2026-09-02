@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
+using System.Reflection;
 using Microsoft.Extensions.Logging;
 
 namespace Vion.Dale.Sdk.Configuration.Services
@@ -11,7 +12,7 @@ namespace Vion.Dale.Sdk.Configuration.Services
     {
         public static readonly Type ExtraPropsKey = typeof(ExtraPropertiesSentinel);
 
-        // serviceIdentifier → RFC 0016 [IncludedWhen] predicate (Definition mode only; Live mode skips
+        // serviceIdentifier → [IncludedWhen] predicate (Definition mode only; Live mode skips
         // gated-out services rather than recording them). Consumed by LogicBlockIntrospection to populate
         // ServiceInfo.IncludedWhen.
         private readonly Dictionary<string, string> _serviceIncludedWhen = [];
@@ -117,7 +118,7 @@ namespace Vion.Dale.Sdk.Configuration.Services
         }
 
         /// <summary>
-        ///     RFC 0016: records a config-time inclusion predicate for a property-based service (Definition
+        ///     Records a config-time inclusion predicate for a property-based service (Definition
         ///     mode). The predicate is emitted into <c>ServiceInfo.IncludedWhen</c> by the introspection.
         /// </summary>
         public void RegisterServiceIncludedWhen(string serviceIdentifier, string includedWhen)
@@ -126,7 +127,7 @@ namespace Vion.Dale.Sdk.Configuration.Services
         }
 
         /// <summary>
-        ///     RFC 0016: the config-time inclusion predicate recorded for the given service, or <c>null</c>
+        ///     The config-time inclusion predicate recorded for the given service, or <c>null</c>
         ///     when the service is unconditional.
         /// </summary>
         public string? GetServiceIncludedWhen(string serviceIdentifier)
@@ -235,6 +236,30 @@ namespace Vion.Dale.Sdk.Configuration.Services
                     }
                 }
             }
+        }
+
+        /// <summary>
+        ///     The logic-block property a bound service property was declared on, or <c>null</c> when
+        ///     <paramref name="propertyIdentifier" /> names no bound property of
+        ///     <paramref name="serviceIdentifier" />. The block reads the declaration's attributes from it to
+        ///     judge a write before <see cref="SetPropertyValue" /> applies one.
+        /// </summary>
+        internal PropertyInfo? FindServicePropertySource(string serviceIdentifier, string propertyIdentifier)
+        {
+            if (!_serviceProperties.TryGetValue(serviceIdentifier, out var ifaceMap))
+            {
+                return null;
+            }
+
+            foreach (var bindings in ifaceMap.Values)
+            {
+                if (bindings.TryGetValue(propertyIdentifier, out var binding))
+                {
+                    return binding.RootSourcePropertyInfo;
+                }
+            }
+
+            return null;
         }
 
         /// <summary>

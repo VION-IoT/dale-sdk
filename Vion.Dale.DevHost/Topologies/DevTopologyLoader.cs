@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Runtime.Loader;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Vion.Dale.Sdk.Configuration;
 using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.DevHost.Topologies
@@ -72,14 +73,56 @@ namespace Vion.Dale.DevHost.Topologies
             // Build first: blocks + the auto-mocked service providers (today's preset behavior).
             var configuration = builder.Build();
 
-            // RFC 0016: carry each instance's operator-chosen instantiation-parameter values onto its built
-            // config, so the initializer can apply them to the block before Configure (gates resolve at bind).
+            // Carry each instance's operator-chosen instantiation-parameter values onto its built config, so
+            // the initializer can apply them to the block before Configure (gates resolve at bind).
+            //
+            // Each identifier is checked against the block type's [InstantiationParameter] declarations here.
+            // Every unknown one in the file is collected and reported together, but this pass throws before
+            // the interface-mapping loop below runs, so a file with both kinds of error reports its parameter
+            // errors first and its mapping errors on the next attempt. The check is here at all because the
+            // block's own is fail-closed but runs inside the actor, after the host has already reported
+            // itself started — an unresolvable identifier would otherwise reach the operator as a block with
+            // no state and no error. Load, validate and save all go through this method, which is where the
+            // operator is.
+            var parameterErrors = new List<string>();
             foreach (var instance in topology.LogicBlockInstances!)
             {
-                if (instance.InstantiationParameters is { Count: > 0 })
+                if (instance.InstantiationParameters is not { Count: > 0 })
                 {
-                    configuration.LogicBlocks.Single(lb => lb.Name == instance.Name).InstantiationParameters = instance.InstantiationParameters;
+                    continue;
                 }
+
+                var declared = types[instance.Name!]
+                               .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                               .Where(property => property.GetCustomAttribute<InstantiationParameterAttribute>() is not null)
+                               .ToDictionary(property => property.Name, StringComparer.Ordinal);
+
+                foreach (var (identifier, value) in instance.InstantiationParameters)
+                {
+                    if (!declared.TryGetValue(identifier, out var property))
+                    {
+                        parameterErrors.Add($"instantiationParameters: '{instance.Name}.{identifier}' is not an [InstantiationParameter] of '{instance.TypeFullName}'");
+                        continue;
+                    }
+
+                    // Decoded with the block's own rule, so load / validate / save give the same verdict the
+                    // block would — one shared helper rather than two implementations that drift.
+                    try
+                    {
+                        InstantiationParameterCodec.Decode(property, value);
+                    }
+                    catch (Exception exception)
+                    {
+                        parameterErrors.Add($"instantiationParameters: '{instance.Name}.{identifier}' has a value this parameter cannot take: {exception.Message}");
+                    }
+                }
+
+                configuration.LogicBlocks.Single(lb => lb.Name == instance.Name).InstantiationParameters = instance.InstantiationParameters;
+            }
+
+            if (parameterErrors.Count > 0)
+            {
+                throw new InvalidDataException(string.Join("; ", parameterErrors));
             }
 
             // Interface mappings come from the file verbatim — the dev profile declares wiring

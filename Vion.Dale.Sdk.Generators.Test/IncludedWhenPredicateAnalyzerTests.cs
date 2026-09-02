@@ -8,7 +8,7 @@ using Vion.Dale.Sdk.Generators.Test.Helpers;
 namespace Vion.Dale.Sdk.Generators.Test
 {
     /// <summary>
-    ///     DALE043 / DALE044 coverage for <c>IncludedWhenPredicateAnalyzer</c> (RFC 0016). Positive cases
+    ///     DALE043 / DALE044 coverage for <c>IncludedWhenPredicateAnalyzer</c>. Positive cases
     ///     assert a well-formed gate produces no diagnostic; negative cases assert the right diagnostic id
     ///     fires at the predicate string (the message text is intentionally not pinned).
     /// </summary>
@@ -37,6 +37,7 @@ public class MyBlock : LogicBlockBase
         // ── Positive cases (no diagnostic) ──
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.7")]
         [DataRow("Count >= 2", DisplayName = "relational over a count parameter")]
         [DataRow("Model in ['Moka', 'Ristretto']", DisplayName = "enum membership")]
         [DataRow("Count >= 2 && Model == 'Moka'", DisplayName = "compound count + enum")]
@@ -76,30 +77,35 @@ public class LeafStation : BaseStation
         // ── Negative cases on a gated component (predicate markup) ──
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.5")]
         public Task PredicateOutsideTheGrammar_ReportsDALE043()
         {
             return ExpectGate("Count >>> 2", DaleDiagnostics.DALE043_IncludedWhenInvalid);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.5")]
         public Task QualifiedReference_ReportsDALE043()
         {
             return ExpectGate("MyBlock.Count >= 2", DaleDiagnostics.DALE043_IncludedWhenInvalid);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.5")]
         public Task ReferenceToANonParameterProperty_ReportsDALE043()
         {
             return ExpectGate("Setting >= 2", DaleDiagnostics.DALE043_IncludedWhenInvalid);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.6")]
         public Task TypeMismatchInPredicate_ReportsDALE044()
         {
             return ExpectGate("Count == 'text'", DaleDiagnostics.DALE044_InstantiationParameterDiscipline);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.6")]
         public Task UnquotedEnumMember_ReportsDALE044()
         {
             return ExpectGate("Model == Moka", DaleDiagnostics.DALE044_InstantiationParameterDiscipline);
@@ -108,6 +114,7 @@ public class LeafStation : BaseStation
         // ── Negative cases on placement (custom source) ──
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.3")]
         public async Task GateOnAScalarServiceProperty_ReportsDALE043()
         {
             var source = @"
@@ -121,6 +128,7 @@ public class MyBlock : LogicBlockBase
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.3")]
         public async Task GateOnAScalarMeasuringPoint_ReportsDALE043()
         {
             var source = @"
@@ -134,6 +142,7 @@ public class MyBlock : LogicBlockBase
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.2")]
         public async Task GateOnATimerMethod_ReportsDALE043()
         {
             var source = @"
@@ -147,6 +156,7 @@ public class MyBlock : LogicBlockBase
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.1")]
         public async Task GateOnTheBlockClass_ReportsDALE043()
         {
             var source = @"
@@ -160,6 +170,7 @@ public class MyBlock : LogicBlockBase
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.4")]
         public async Task RegatedOverride_ReportsDALE043()
         {
             var source = @"
@@ -178,6 +189,7 @@ public class LeafStation : BaseStation
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.4")]
         public async Task RegatedNewShadow_ReportsDALE043()
         {
             // A `new` shadow (not an override) that re-declares the gate — exercises the BaseType-chain walk.
@@ -193,6 +205,53 @@ public class LeafStation : BaseStation
 {
     [IncludedWhen({|#0:""Count >= 3""|})] public new Point Point2 { get; } = new();
 }";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<IncludedWhenPredicateAnalyzer>(source, Diag(DaleDiagnostics.DALE043_IncludedWhenInvalid).WithLocation(0));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.10")]
+        public async Task GateOnAComponentMember_ReportsDALE043()
+        {
+            // Arrange
+            // The binders read a gate only off the logic-block type's own properties, so one declared inside
+            // a component does nothing at all. Its twin on the block below is the positive control: without
+            // it, "no diagnostic here" and "the analyzer never ran" look identical.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+public class ChargePoint
+{
+    [ServiceProperty] public bool Active { get; set; }
+    [ServiceProperty] [IncludedWhen({|#0:""Count >= 2""|})] public bool Extra { get; set; }
+}
+public class MyBlock : LogicBlockBase
+{
+    [ServiceProperty] [InstantiationParameter] public int Count { get; init; }
+    [ServiceProperty] [IncludedWhen({|#1:""Count >= 2""|})] public bool Scalar { get; set; }
+    public ChargePoint Point { get; } = new();
+}";
+
+            // Act / Assert
+            await AnalyzerTestBase.VerifyAnalyzerAsync<IncludedWhenPredicateAnalyzer>(source,
+                                                                                      Diag(DaleDiagnostics.DALE043_IncludedWhenInvalid).WithLocation(0),
+                                                                                      Diag(DaleDiagnostics.DALE043_IncludedWhenInvalid).WithLocation(1));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.10")]
+        public async Task GateOnAComponentClass_ReportsDALE043()
+        {
+            // Arrange
+            var source = @"
+using Vion.Dale.Sdk.Core;
+[IncludedWhen({|#0:""Count >= 2""|})]
+public class ChargePoint { [ServiceProperty] public bool Active { get; set; } }
+public class MyBlock : LogicBlockBase
+{
+    [ServiceProperty] [InstantiationParameter] public int Count { get; init; }
+    public ChargePoint Point { get; } = new();
+}";
+
+            // Act / Assert
             await AnalyzerTestBase.VerifyAnalyzerAsync<IncludedWhenPredicateAnalyzer>(source, Diag(DaleDiagnostics.DALE043_IncludedWhenInvalid).WithLocation(0));
         }
 

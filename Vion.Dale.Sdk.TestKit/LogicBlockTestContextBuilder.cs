@@ -112,7 +112,7 @@ namespace Vion.Dale.Sdk.TestKit
         }
 
         /// <summary>
-        ///     RFC 0016: sets an <c>[InstantiationParameter]</c> value that is applied to the block
+        ///     Sets an <c>[InstantiationParameter]</c> value that is applied to the block
         ///     <b>before</b> <c>Configure</c> (via the same JSON value channel the config payload uses), so
         ///     Live-mode <c>[IncludedWhen]</c> gates resolve against it. Exercises the encode/decode path.
         ///     <para>

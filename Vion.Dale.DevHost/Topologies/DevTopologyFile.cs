@@ -261,7 +261,7 @@ namespace Vion.Dale.DevHost.Topologies
         public string? Name { get; init; }
 
         /// <summary>
-        ///     RFC 0016: optional operator-chosen <c>[InstantiationParameter]</c> values (identifier → JSON
+        ///     Optional operator-chosen <c>[InstantiationParameter]</c> values (identifier → JSON
         ///     scalar) applied to the block before <c>Configure</c>, so config-time inclusion gates resolve.
         ///     Optional — an instance with no gated members needs none. Because parsing is strict on both
         ///     layers (<see cref="DevTopologyFile.SerializerOptions" /> and the JSON schema's

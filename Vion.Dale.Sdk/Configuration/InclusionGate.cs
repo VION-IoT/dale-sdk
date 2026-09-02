@@ -5,13 +5,14 @@ using System.Text.Json.Nodes;
 using Vion.Contracts.Codec;
 using Vion.Contracts.Predicates;
 using Vion.Dale.Sdk.Core;
+using Vion.Dale.Sdk.Generators.Predicates;
 using Vion.Dale.Sdk.Introspection;
 
 namespace Vion.Dale.Sdk.Configuration
 {
     /// <summary>
     ///     Shared resolution of <see cref="IncludedWhenAttribute" /> gates for the three declarative
-    ///     binders (RFC 0016). One authority so interface, contract, and service binders resolve the
+    ///     binders. One authority so interface, contract, and service binders resolve the
     ///     same gate identically for a given instance.
     /// </summary>
     internal static class InclusionGate
@@ -34,12 +35,83 @@ namespace Vion.Dale.Sdk.Configuration
         /// </summary>
         public static bool IsIncluded(string? predicate, BindingMode mode, IReadOnlyDictionary<string, JsonNode?>? parameterContext)
         {
-            if (predicate is null || mode == BindingMode.Definition)
+            if (predicate is null)
+            {
+                return true;
+            }
+
+            if (mode == BindingMode.Definition)
             {
                 return true;
             }
 
             return Predicate.Parse(predicate).Evaluate(parameterContext ?? EmptyContext);
+        }
+
+        /// <summary>
+        ///     Refuses a gate that could never decide anything, in <see cref="BindingMode.Definition" />, where
+        ///     no configuration exists to evaluate against. A predicate that does not parse, or that names
+        ///     something this block does not declare as an <see cref="InstantiationParameterAttribute" />,
+        ///     fails every activation — so the definition view refuses it rather than emitting it to the wire
+        ///     and letting <c>dotnet pack</c> ship a block that can never start.
+        ///     <para>
+        ///         The referenced names are read <b>syntactically</b>, off the parsed tree, and the predicate is
+        ///         never evaluated: an evaluator short-circuits, so <c>Count &gt;= 2 &amp;&amp; Missing &gt;= 1</c>
+        ///         returns a verdict without ever reaching the undeclared name. Only whether a name is declared
+        ///         is decided here; whether its type fits the literal it is compared against is DALE043's.
+        ///     </para>
+        ///     <para>
+        ///         <c>Vion.Contracts</c> decides the syntax and the linked analyzer parser supplies the tree.
+        ///         That the two accept and reject the same predicates — and that this walk finds exactly the
+        ///         names the runtime evaluator resolves — is held by <c>PredicateParserShould</c>, which runs
+        ///         every vector of the vendored <c>predicate-conformance.json</c> through both.
+        ///     </para>
+        /// </summary>
+        public static void EnsureResolvable(string predicate, object logicBlock, string memberName)
+        {
+            try
+            {
+                Predicate.Parse(predicate);
+            }
+            catch (PredicateException exception)
+            {
+                throw Unresolvable(predicate, logicBlock, memberName, exception.Message, exception);
+            }
+
+            var parsed = PredicateParser.Parse(predicate);
+            if (parsed.Ast is null)
+            {
+                // The runtime grammar accepted what the analyzer grammar refused. The two are held to one
+                // dialect by PredicateParserShould's cross-check over the vendored conformance vector, so
+                // reaching here means one of them is wrong about this predicate — which is a defect report,
+                // not an authoring mistake, and says so rather than blaming the block's parameters.
+                throw new
+                    InvalidOperationException($"Member '{memberName}' on logic block '{logicBlock.GetType().FullName}' carries an [IncludedWhen] gate \"{predicate}\" that the runtime " +
+                                              $"predicate grammar accepts and the analyzer's does not: {parsed.Error}. The two implement one dialect, so this is a defect in one of them; " +
+                                              "the gate is refused rather than shipped unchecked.");
+            }
+
+            var declared = DeclaredParameterNames(logicBlock);
+
+            foreach (var reference in ReferencedNames(parsed.Ast))
+            {
+                if (!declared.Contains(reference))
+                {
+                    throw Unresolvable(predicate, logicBlock, memberName, $"'{reference}' is not an [InstantiationParameter] of this block", null);
+                }
+            }
+        }
+
+        /// <summary>
+        ///     Every name <paramref name="node" /> references, in the order the tree carries them. The seam the
+        ///     conformance cross-check walks, so the names it compares against the vector's context are the ones
+        ///     <see cref="EnsureResolvable" /> resolves and not a second implementation of the same walk.
+        /// </summary>
+        public static IReadOnlyList<string> ReferencedNames(PredicateNode node)
+        {
+            var names = new List<string>();
+            CollectReferences(node, names);
+            return names;
         }
 
         /// <summary>
@@ -69,6 +141,64 @@ namespace Vion.Dale.Sdk.Configuration
             }
 
             return context;
+        }
+
+        // Every reference the predicate carries, whatever the tree's shape. A qualified reference contributes
+        // its whole two-segment text, which no property name can match — inclusion gates are bare-ref only.
+        private static void CollectReferences(PredicateNode node, ICollection<string> names)
+        {
+            switch (node)
+            {
+                case OrNode or:
+                    CollectReferences(or.Left, names);
+                    CollectReferences(or.Right, names);
+                    break;
+                case AndNode and:
+                    CollectReferences(and.Left, names);
+                    CollectReferences(and.Right, names);
+                    break;
+                case NotNode not:
+                    CollectReferences(not.Operand, names);
+                    break;
+                case ComparisonNode comparison:
+                    names.Add(comparison.Reference.Text);
+                    break;
+                case MembershipNode membership:
+                    names.Add(membership.Reference.Text);
+                    break;
+                case BoolRefNode boolRef:
+                    names.Add(boolRef.Reference.Text);
+                    break;
+                default:
+                    // A node kind the grammar grew and this walk did not: skipping it would pass an unchecked
+                    // reference through, which is the hole this method exists to close.
+                    throw new InvalidOperationException($"Inclusion gates cannot check a predicate node of type '{node.GetType().Name}'.");
+            }
+        }
+
+        // Ordinal, matching the context BuildParameterContext hands the evaluator: a gate naming 'pointcount'
+        // resolves against nothing at bind, so it must not resolve here either.
+        private static HashSet<string> DeclaredParameterNames(object logicBlock)
+        {
+            var names = new HashSet<string>(StringComparer.Ordinal);
+
+            foreach (var property in logicBlock.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            {
+                if (property.GetCustomAttribute<InstantiationParameterAttribute>() is not null)
+                {
+                    names.Add(property.Name);
+                }
+            }
+
+            return names;
+        }
+
+        private static InvalidOperationException Unresolvable(string predicate, object logicBlock, string memberName, string reason, Exception? inner)
+        {
+            return new
+                InvalidOperationException($"Member '{memberName}' on logic block '{logicBlock.GetType().FullName}' has an [IncludedWhen] gate \"{predicate}\" that cannot be " +
+                                          $"resolved against the block's [InstantiationParameter] properties: {reason}. The gate would fail every activation.",
+                                          inner);
         }
     }
 }

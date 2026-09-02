@@ -65,6 +65,16 @@ namespace Vion.Dale.Sdk.Core
 
         private IActorContext _actorContext = null!;
 
+        // Why the first configuration failed, when it did — so a refused retry names the original reason
+        // rather than pointing the operator back at the configuration that just failed. Null after a
+        // configuration that succeeded.
+        private string? _configurationFailure;
+
+        // Set the moment InitializeLogicBlock is accepted, so a second one is refused rather than rebinding
+        // onto the members the first already bound. Set before Configure runs, so a configuration that
+        // throws part-way still counts as spent — the instance is unusable either way.
+        private bool _configured;
+
         // emission policy. The per-property gate is active when the clock is NOT a
         // controllable (FakeTimeProvider-style) clock — i.e. production + free-run DevHost — OR
         // when a TestKit override forces it on despite a controllable clock. Resolved once at
@@ -160,13 +170,31 @@ namespace Vion.Dale.Sdk.Core
                     if (_initializeDeferred)
                     {
                         _initializeDeferred = false;
-                        SendBindLogicBlockServices();
-                        Ready();
+                        RecordingConfigurationFailures(CompleteConfiguration);
                     }
 
                     break;
 
                 case InitializeLogicBlock m: // initialization
+                    // Configuration happens once per instance. The binders register onto collections that
+                    // only grow, so a second pass would add a member a widened gate now includes and leave
+                    // one a narrowed gate no longer does — an instance whose reported configuration and bound
+                    // shape disagree, with nothing to notice it. Changing an [InstantiationParameter] value or
+                    // an [IncludedWhen] outcome is a re-activation, which re-instantiates the block.
+                    if (_configured)
+                    {
+                        // A configuration that threw still spends the instance — the binders may have
+                        // registered part of a member set before it failed — but sending the operator back to
+                        // "re-activate the configuration" would point them at the thing that just failed. The
+                        // refusal carries the original reason instead.
+                        throw _configurationFailure is null ?
+                                  new InvalidOperationException($"Logic block '{Name}' ({Id}) is already configured and cannot be configured again. " +
+                                                                "A different [InstantiationParameter] value re-instantiates the block; re-activate the configuration instead of re-sending its configuration message.") :
+                                  new InvalidOperationException($"Logic block '{Name}' ({Id}) cannot be configured again — its configuration failed: {_configurationFailure} " +
+                                                                "Re-instantiate the block; a failed configuration cannot be retried in place.");
+                    }
+
+                    _configured = true;
                     Id = m.LogicBlockId;
                     Name = m.LogicBlockName;
 
@@ -187,86 +215,20 @@ namespace Vion.Dale.Sdk.Core
                                      Id,
                                      m.LogicBlockContractIdLookup.Count);
 
-                    // RFC 0016: apply operator-chosen [InstantiationParameter] values to the CLR properties
-                    // BEFORE Configure, so the Live-mode binders resolve [IncludedWhen] gates against them.
-                    ApplyInstantiationParameters(m.InstantiationParameterValues);
-
-                    Configure(new LogicBlockConfigurationBuilder(AddContract,
-                                                                 AddInterface,
-                                                                 _serviceBinder,
-                                                                 AddTimerCallback,
-                                                                 () => Id,
-                                                                 actorContext,
-                                                                 ScheduleNextTimerTick,
-                                                                 m.ServiceProvider,
-                                                                 BindingMode.Live));
-
-                    // build one Throttler per bound service property + measuring point,
-                    // resolved from each binding's attribute + CLR value type. Cheap no-op state when
-                    // the policy is inactive (the gate bypasses), but always built so the override path
-                    // and production share one construction site.
-                    BuildThrottlers();
-
-                    foreach (var (identifier, logicBlockContractId) in m.LogicBlockContractIdLookup)
-                    {
-                        // RFC 0016: a mapping may target a contract that was gated out by [IncludedWhen], so it
-                        // was never bound and is absent from _contracts. Skip-and-warn instead of throwing a
-                        // KeyNotFoundException that would take the whole block down. The cloud path rejects such
-                        // mappings at activation; this guards the non-cloud paths (DevHost, TestKit, stale or
-                        // hand-built payloads) — mirror of the "contract has no mapping" warning below.
-                        if (!_contracts.TryGetValue(identifier, out var contract))
-                        {
-                            _logger.LogWarning("Logic block '{LogicBlockId}' ({LogicBlockName}) received a mapping for contract '{ContractIdentifier}', " +
-                                               "which is not a bound contract (gated out by [IncludedWhen] or otherwise absent). Skipping the mapping; the block stays up.",
-                                               Id,
-                                               Name,
-                                               identifier);
-                            continue;
-                        }
-
-                        contract.SetLogicBlockContractId(logicBlockContractId);
-                    }
-
-                    // Warn about contracts that have no mapping — their LogicBlockContractId will remain unset
-                    foreach (var contractIdentifier in _contracts.Keys)
-                    {
-                        if (!m.LogicBlockContractIdLookup.ContainsKey(contractIdentifier))
-                        {
-                            _logger.LogWarning("Contract '{ContractIdentifier}' in logic block '{LogicBlockId}' ({LogicBlockName}) has no contract mapping in configuration. " +
-                                               "This contract will not be functional until a mapping is provided.",
-                                               contractIdentifier,
-                                               Id,
-                                               Name);
-                        }
-                    }
-
-                    _serviceIdLookup = m.ServiceIdLookup;
-                    _serviceIdentifierLookup = m.ServiceIdLookup.ToDictionary(s => s.Value, s => s.Key);
-
-                    _persistentData.Initialize(this, _serviceBinder, _logger);
-
-                    // Defer SendBindLogicBlockServices + Ready if LinkRuntimeActors hasn't been
-                    // processed yet. SendBindLogicBlockServices sends to _servicePropertyHandlerActorRef,
-                    // which is set by LinkRuntimeActors — sending to a null ref drops the bindings
-                    // and breaks all subsequent property traffic. Ready() may also fire events that
-                    // depend on the handler ref, so defer it together.
-                    if (_runtimeActorsLinked)
-                    {
-                        SendBindLogicBlockServices();
-                        Ready();
-                    }
-                    else
-                    {
-                        _initializeDeferred = true;
-                        _logger.LogDebug("InitializeLogicBlock processed before LinkRuntimeActors; deferring SendBindLogicBlockServices + Ready until handler refs are set.");
-                    }
+                    // Everything from here to Ready() is the configuration phase. Every way it can fail — an
+                    // unresolvable parameter, a value that will not decode, a gate that will not parse or
+                    // resolve, a contract or persistence step, a throw out of the block's own Ready() — is
+                    // recorded and rethrown. The caller's failure handling is unchanged; what the record buys
+                    // is that a refused retry is told what to fix rather than being sent back to the
+                    // configuration that just failed.
+                    RecordingConfigurationFailures(() => ApplyConfiguration(m, actorContext));
 
                     break;
 
                 case SetLinkedInterfaces m: // initialization
                     foreach (var (interfaceId, linkedInterfaces) in m.LinkedInterfaceIds)
                     {
-                        // RFC 0016: a mapping may target an interface gated out by [IncludedWhen] on this block, so
+                        // A mapping may target an interface gated out by [IncludedWhen] on this block, so
                         // it was never bound and is absent from _interfaces. Skip-and-warn instead of throwing a
                         // KeyNotFoundException that would take the whole block down — mirror of the gated-out
                         // contract-mapping guard above.
@@ -286,7 +248,15 @@ namespace Vion.Dale.Sdk.Core
                     break;
 
                 case RestorePersistentDataRequest m: // initialization, before starting
-                    _persistentData.Apply(m.PersistentDataValues);
+                    // Same uninitialised guard as the StopLogicBlockRequest / GetPersistentDataSnapshotRequest
+                    // handlers below: when Configure aborted, PersistentData was never initialised and Apply
+                    // would throw, so the acknowledgement the runtime waits for would never arrive and a
+                    // fail-closed block would hang its own reclamation instead of being torn down.
+                    if (_persistentData.IsInitialized)
+                    {
+                        _persistentData.Apply(m.PersistentDataValues);
+                    }
+
                     actorContext.RespondToSender(new RestorePersistentDataResponse());
                     break;
 
@@ -364,7 +334,7 @@ namespace Vion.Dale.Sdk.Core
                     break;
 
                 case IFunctionInterfaceMessage m: // delegate to logic interface
-                    // RFC 0016: a sender may route to an interface that was gated out by [IncludedWhen] on this
+                    // A sender may route to an interface that was gated out by [IncludedWhen] on this
                     // block (a topology interfaceMapping to a now-absent endpoint), so it is not in _interfaces.
                     // Skip-and-warn instead of throwing a KeyNotFoundException that would take the block down —
                     // mirror of the gated-out contract-mapping guard.
@@ -539,7 +509,7 @@ namespace Vion.Dale.Sdk.Core
         {
             var mode = configurationBuilder.Mode;
 
-            // RFC 0016: in Live mode the binders resolve [IncludedWhen] gates against this instance's
+            // In Live mode the binders resolve [IncludedWhen] gates against this instance's
             // current [InstantiationParameter] values (applied pre-Configure, or the C# defaults when none
             // were supplied), encoded to the shared JSON-scalar form. Definition mode binds the full set.
             var parameterContext = mode == BindingMode.Live ? InclusionGate.BuildParameterContext(this) : null;
@@ -556,7 +526,132 @@ namespace Vion.Dale.Sdk.Core
         }
 
         /// <summary>
-        ///     RFC 0016: applies the operator-chosen <c>[InstantiationParameter]</c> values from the config
+        ///     The interface endpoints this instance bound, by identifier. The block announces its bound
+        ///     <em>services</em> in <see cref="BindLogicBlockServices" />, but nothing on the wire carries the
+        ///     bound interface set — so a test that needs it has this seam rather than reflection
+        ///     (<c>testing-conventions.md</c> section 7). Internal, so the published surface does not move.
+        /// </summary>
+        /// <remarks>A method, not a property: a property here is woven as observable state and warns (LAMA5161).</remarks>
+        internal IReadOnlyCollection<string> BoundInterfaceIdentifiers()
+        {
+            return _interfaces.Keys.ToList();
+        }
+
+        /// <summary>
+        ///     Runs one part of the configuration phase, recording why it failed before letting the failure
+        ///     out. Both arms go through here because the phase can finish on either: when LinkRuntimeActors
+        ///     arrives after the configuration message, the announcement and <c>Ready()</c> are deferred to it,
+        ///     so a block that refuses to become ready fails from that arm and would otherwise be refused a
+        ///     retry with no reason.
+        /// </summary>
+        private void RecordingConfigurationFailures(Action step)
+        {
+            try
+            {
+                step();
+            }
+            catch (Exception exception)
+            {
+                _configurationFailure = exception.Message;
+                throw;
+            }
+        }
+
+        /// <summary>
+        ///     The tail of the configuration phase: announce the bound services and tell the block it is
+        ///     ready. Runs inline when the runtime actors are already linked, and from the LinkRuntimeActors
+        ///     arm when they are not.
+        /// </summary>
+        private void CompleteConfiguration()
+        {
+            SendBindLogicBlockServices();
+            Ready();
+        }
+
+        /// <summary>
+        ///     The configuration phase, in the order the runtime depends on: parameter values applied, the
+        ///     declarative binders run against them, emission gates built, contract mappings resolved,
+        ///     persistence initialised, and the block told it is ready. Extracted so the caller can record why
+        ///     it failed, since a failure spends the instance and a retry has to be told what to fix.
+        /// </summary>
+        private void ApplyConfiguration(InitializeLogicBlock m, IActorContext actorContext)
+        {
+            // Apply operator-chosen [InstantiationParameter] values to the CLR properties BEFORE
+            // Configure, so the Live-mode binders resolve [IncludedWhen] gates against them.
+            ApplyInstantiationParameters(m.InstantiationParameterValues);
+
+            Configure(new LogicBlockConfigurationBuilder(AddContract,
+                                                         AddInterface,
+                                                         _serviceBinder,
+                                                         AddTimerCallback,
+                                                         () => Id,
+                                                         actorContext,
+                                                         ScheduleNextTimerTick,
+                                                         m.ServiceProvider,
+                                                         BindingMode.Live));
+
+            // build one Throttler per bound service property + measuring point,
+            // resolved from each binding's attribute + CLR value type. Cheap no-op state when
+            // the policy is inactive (the gate bypasses), but always built so the override path
+            // and production share one construction site.
+            BuildThrottlers();
+
+            foreach (var (identifier, logicBlockContractId) in m.LogicBlockContractIdLookup)
+            {
+                // A mapping may target a contract that was gated out by [IncludedWhen], so it
+                // was never bound and is absent from _contracts. Skip-and-warn instead of throwing a
+                // KeyNotFoundException that would take the whole block down. The cloud path rejects such
+                // mappings at activation; this guards the non-cloud paths (DevHost, TestKit, stale or
+                // hand-built payloads) — mirror of the "contract has no mapping" warning below.
+                if (!_contracts.TryGetValue(identifier, out var contract))
+                {
+                    _logger.LogWarning("Logic block '{LogicBlockId}' ({LogicBlockName}) received a mapping for contract '{ContractIdentifier}', " +
+                                       "which is not a bound contract (gated out by [IncludedWhen] or otherwise absent). Skipping the mapping; the block stays up.",
+                                       Id,
+                                       Name,
+                                       identifier);
+                    continue;
+                }
+
+                contract.SetLogicBlockContractId(logicBlockContractId);
+            }
+
+            // Warn about contracts that have no mapping — their LogicBlockContractId will remain unset
+            foreach (var contractIdentifier in _contracts.Keys)
+            {
+                if (!m.LogicBlockContractIdLookup.ContainsKey(contractIdentifier))
+                {
+                    _logger.LogWarning("Contract '{ContractIdentifier}' in logic block '{LogicBlockId}' ({LogicBlockName}) has no contract mapping in configuration. " +
+                                       "This contract will not be functional until a mapping is provided.",
+                                       contractIdentifier,
+                                       Id,
+                                       Name);
+                }
+            }
+
+            _serviceIdLookup = m.ServiceIdLookup;
+            _serviceIdentifierLookup = m.ServiceIdLookup.ToDictionary(s => s.Value, s => s.Key);
+
+            _persistentData.Initialize(this, _serviceBinder, _logger);
+
+            // Defer SendBindLogicBlockServices + Ready if LinkRuntimeActors hasn't been
+            // processed yet. SendBindLogicBlockServices sends to _servicePropertyHandlerActorRef,
+            // which is set by LinkRuntimeActors — sending to a null ref drops the bindings
+            // and breaks all subsequent property traffic. Ready() may also fire events that
+            // depend on the handler ref, so defer it together.
+            if (_runtimeActorsLinked)
+            {
+                CompleteConfiguration();
+            }
+            else
+            {
+                _initializeDeferred = true;
+                _logger.LogDebug("InitializeLogicBlock processed before LinkRuntimeActors; deferring SendBindLogicBlockServices + Ready until handler refs are set.");
+            }
+        }
+
+        /// <summary>
+        ///     Applies the operator-chosen <c>[InstantiationParameter]</c> values from the config
         ///     payload onto this block's CLR properties by reflection, <b>before</b> <see cref="Configure" />
         ///     runs the Live-mode binders that read them to resolve inclusion gates. The decode schema is built
         ///     from each property's <see cref="PropertyInfo" /> via <see cref="TypeRefBuilder.BuildForProperty" />
@@ -573,28 +668,50 @@ namespace Vion.Dale.Sdk.Core
             }
 
             var type = GetType();
+
+            // Collect-then-report, and decode-then-apply: an operator correcting a configuration must learn
+            // about every bad parameter from one failure rather than one host restart at a time, and a
+            // configuration that is going to be rejected must leave no value of it applied — a half-applied
+            // one resolves the gates against a shape nobody chose.
+            var resolved = new List<(PropertyInfo Property, object? Value)>(values.Count);
+            var failures = new List<string>();
+            var decodeFailures = 0;
+            Exception? decodeFailure = null;
+
             foreach (var parameter in values)
             {
                 var property = type.GetProperty(parameter.Identifier, BindingFlags.Public | BindingFlags.Instance);
                 if (property is null || property.GetCustomAttribute<InstantiationParameterAttribute>() is null)
                 {
-                    throw new
-                        InvalidOperationException($"Instantiation parameter '{parameter.Identifier}' does not resolve to an [InstantiationParameter] property on logic block '{type.FullName}'.");
+                    failures.Add($"'{parameter.Identifier}' does not resolve to an [InstantiationParameter] property");
+                    continue;
                 }
 
-                object? clrValue;
                 try
                 {
-                    var typeRef = TypeRefBuilder.BuildForProperty(property);
-                    clrValue = PropertyValueCodec.JsonToClr(parameter.Value, typeRef, property.PropertyType);
+                    resolved.Add((property, InstantiationParameterCodec.Decode(property, parameter.Value)));
                 }
                 catch (Exception exception)
                 {
-                    throw new InvalidOperationException($"Failed to decode instantiation parameter '{parameter.Identifier}' for logic block '{type.FullName}': {exception.Message}",
-                                                        exception);
+                    failures.Add($"'{parameter.Identifier}' could not be decoded: {exception.Message}");
+                    decodeFailures++;
+                    decodeFailure ??= exception;
                 }
+            }
 
-                property.SetValue(this, clrValue);
+            if (failures.Count > 0)
+            {
+                // One underlying exception is worth keeping — it names the decode rule that refused the value,
+                // which is the detail the message text cannot carry. Keyed on how many parameters failed to
+                // DECODE, not on how many failed at all: an unresolvable identifier alongside one bad value
+                // leaves exactly one cause, and dropping it there would lose the only actionable half.
+                throw new InvalidOperationException($"Logic block '{type.FullName}' rejected {failures.Count} instantiation parameter(s): {string.Join("; ", failures)}.",
+                                                    decodeFailures == 1 ? decodeFailure : null);
+            }
+
+            foreach (var (property, value) in resolved)
+            {
+                property.SetValue(this, value);
             }
         }
 
@@ -905,7 +1022,24 @@ namespace Vion.Dale.Sdk.Core
                 return;
             }
 
-            _serviceBinder.SetPropertyValue(serviceIdentifier, m.PropertyIdentifier, m.Value);
+            // An [InstantiationParameter] is chosen at configuration time and the inclusion gates were
+            // already resolved against it, so applying a write here would leave the block reporting a value
+            // its bound member set does not match. The forced schema.readOnly wire flag tells an honest
+            // caller; this refuses the rest. The requester is still answered, with the value that did not
+            // move, so a caller that reads the response sees the refusal rather than silence.
+            if (_serviceBinder.FindServicePropertySource(serviceIdentifier, m.PropertyIdentifier)?.GetCustomAttribute<InstantiationParameterAttribute>() is not null)
+            {
+                _logger.LogWarning("Refused a value for instantiation parameter '{PropertyIdentifier}' on logic block '{LogicBlockId}' ({LogicBlockName}): " +
+                                   "a parameter is set by configuration and is immutable at runtime. Change it by re-activating the configuration, which recycles the block.",
+                                   m.PropertyIdentifier,
+                                   Id,
+                                   Name);
+            }
+            else
+            {
+                _serviceBinder.SetPropertyValue(serviceIdentifier, m.PropertyIdentifier, m.Value);
+            }
+
             var propertyValue = _serviceBinder.GetPropertyValue(serviceIdentifier, m.PropertyIdentifier);
             actorContext.RespondToSender(new SetServicePropertyValueResponse(m.ServiceIdentifier, m.PropertyIdentifier, propertyValue));
         }

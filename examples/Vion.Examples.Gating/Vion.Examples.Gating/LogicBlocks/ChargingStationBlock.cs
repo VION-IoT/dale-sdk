@@ -20,7 +20,7 @@ namespace Vion.Examples.Gating.LogicBlocks
     ///     One charge point. It is BOTH a service-bearing component (<c>[ServiceProperty]</c> +
     ///     <c>[ServiceMeasuringPoint]</c>) AND the <c>IChargePoint</c> interface endpoint a
     ///     <see cref="ChargeController" /> talks to — so gating the property that holds it removes the whole
-    ///     component service <b>and</b> its inter-block interface binding together (RFC 0016).
+    ///     component service <b>and</b> its inter-block interface binding together.
     /// </summary>
     public class ChargePoint : IChargePoint
     {
@@ -63,7 +63,7 @@ namespace Vion.Examples.Gating.LogicBlocks
     }
 
     /// <summary>
-    ///     RFC 0016 config-time structural gating showcase — a dashboard-UI test fixture that exercises
+    ///     Config-time structural gating showcase — a dashboard-UI test fixture that exercises
     ///     <b>every</b> gateable member kind, driven by a <b>number</b>, an <b>enum</b>, and a <b>string</b>
     ///     <c>[InstantiationParameter]</c>:
     ///     <list type="bullet">

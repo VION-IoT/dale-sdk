@@ -162,7 +162,7 @@ $exampleProjects = @(
         Path              = "examples\Vion.Examples.Emission\Vion.Examples.Emission.Test\Vion.Examples.Emission.Test.csproj"
         PackageReferences = @("Vion.Dale.Sdk.TestKit")
     },
-    # Gating example (showcases RFC 0016 config-time structural gating; uses DigitalIo for a gated contract)
+    # Gating example (showcases config-time structural gating; uses DigitalIo for a gated contract)
     @{
         Path              = "examples\Vion.Examples.Gating\Vion.Examples.Gating\Vion.Examples.Gating.csproj"
         PackageReferences = @("Vion.Dale.Sdk", "Vion.Dale.Sdk.DigitalIo")

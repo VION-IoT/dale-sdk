@@ -1,5 +1,10 @@
 # RFC 0017 — Presentation-time member visibility
 
+> **RFC 0016 has been absorbed.** Config-time structural gating is now current truth in
+> [`../specs/config-gating.md`](../specs/config-gating.md); the references to RFC 0016 below are
+> frozen history and its section numbers no longer resolve. The predicate grammar they share is
+> canonical in vion-contracts' `docs/predicates.md`.
+
 - **Status:** Accepted — 2026-07-09; concretized + implemented 2026-07-10.
 - **Author:** jonas.bertsch
 - **Related:** **RFC 0016 (configuration-time structural gating)** — this RFC is its deliberately-shallow sibling and **shares the predicate-expression grammar** (defined originally in RFC 0016 §7, now canonical in vion-contracts `docs/predicates.md`). RFC 0004 (emission policy / `Presentation` hints), RFC 0013 (Logic Editor). Cross-repo: `vion-contracts` (the `Presentation` model), `dashboard` (config form rendering). Explicitly **not** `cloud-api` runtime or `dale`. Origin: the `DirectMeasurement` pattern in `logic-block-libraries/.../ElectricityMeterSiemensPac2200.cs`.

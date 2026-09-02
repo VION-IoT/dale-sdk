@@ -135,9 +135,11 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public void CarryInstantiationParametersFromTheTopologyFileThroughBuild()
+        [TestProperty("spec", "AC-GATE-012.2")]
+        public void CarryInstantiationParametersFromTopologyFileThroughBuild()
         {
-            // RFC 0016: the instantiationParameters field crosses the file → model → DevConfiguration layer.
+            // Arrange
+            // The instantiationParameters field crosses the file → model → DevConfiguration layer.
             var topology = DevTopologyFile.Parse($$"""
                                                    {
                                                      "id": "gated",
@@ -148,17 +150,140 @@ namespace Vion.Dale.DevHost.Test
                                                    }
                                                    """);
 
+            // Act
             var config = DevTopologyLoader.Build(topology);
-            var station = config.LogicBlocks.Single(b => b.Name == "Station");
 
+            // Assert
+            var station = config.LogicBlocks.Single(b => b.Name == "Station");
             Assert.IsNotNull(station.InstantiationParameters);
             Assert.AreEqual(2, station.InstantiationParameters!["PointCount"]!.GetValue<int>());
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-012.8")]
+        public void RefuseTopologyNamingUnknownInstantiationParameters()
+        {
+            // Arrange
+            // Without this the block's own fail-closed check is the only one, and it runs inside the actor
+            // after the host reported itself started — so the operator sees a block with no state and no error.
+            var topology = DevTopologyFile.Parse($$"""
+                                                   {
+                                                     "id": "gated",
+                                                     "logicBlockInstances": [
+                                                       { "typeFullName": "{{typeof(SmokeHost.LogicBlocks.GatedStationBlock).FullName}}", "name": "Station",
+                                                         "instantiationParameters": { "Kount": 2, "Modell": "Plus" } }
+                                                     ]
+                                                   }
+                                                   """);
+
+            // Act / Assert
+            var failure = Assert.ThrowsExactly<InvalidDataException>(() => DevTopologyLoader.Build(topology));
+
+            StringAssert.Contains(failure.Message, "Kount");
+            StringAssert.Contains(failure.Message, "Modell");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-012.8")]
+        public void RefuseTopologyCarryingUndecodableParameterValue()
+        {
+            // Arrange
+            // The block decodes fail-closed, but inside the actor after the host has reported itself started.
+            // The loader decodes with the same rule where the operator is: load, validate and save.
+            var topology = DevTopologyFile.Parse($$"""
+                                                   {
+                                                     "id": "gated",
+                                                     "logicBlockInstances": [
+                                                       { "typeFullName": "{{typeof(SmokeHost.LogicBlocks.GatedStationBlock).FullName}}", "name": "Station",
+                                                         "instantiationParameters": { "PointCount": "two" } }
+                                                     ]
+                                                   }
+                                                   """);
+
+            // Act / Assert
+            var failure = Assert.ThrowsExactly<InvalidDataException>(() => DevTopologyLoader.Build(topology));
+
+            StringAssert.Contains(failure.Message, "Station");
+            StringAssert.Contains(failure.Message, "PointCount");
+            StringAssert.Contains(failure.Message, "cannot take");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-012.8")]
+        public void ReportUnknownIdentifierAndUndecodableValueTogether()
+        {
+            // Arrange
+            var topology = DevTopologyFile.Parse($$"""
+                                                   {
+                                                     "id": "gated",
+                                                     "logicBlockInstances": [
+                                                       { "typeFullName": "{{typeof(SmokeHost.LogicBlocks.GatedStationBlock).FullName}}", "name": "Station",
+                                                         "instantiationParameters": { "Kount": 2, "PointCount": "two" } }
+                                                     ]
+                                                   }
+                                                   """);
+
+            // Act / Assert
+            var failure = Assert.ThrowsExactly<InvalidDataException>(() => DevTopologyLoader.Build(topology));
+
+            StringAssert.Contains(failure.Message, "Kount");
+            StringAssert.Contains(failure.Message, "PointCount");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-012.12")]
+        public void CarryNullThroughForNullableParameter()
+        {
+            // Arrange
+            // The schema admits null only for a nullable parameter; the model and the loader pass it through,
+            // and the block's decode accepts it (AC-GATE-002.7).
+            var topology = DevTopologyFile.Parse($$"""
+                                                   {
+                                                     "id": "gated",
+                                                     "logicBlockInstances": [
+                                                       { "typeFullName": "{{typeof(SmokeHost.LogicBlocks.GatedStationBlock).FullName}}", "name": "Station",
+                                                         "instantiationParameters": { "Reserve": null } }
+                                                     ]
+                                                   }
+                                                   """);
+
+            // Act
+            var config = DevTopologyLoader.Build(topology);
+
+            // Assert
+            var parameters = config.LogicBlocks.Single(b => b.Name == "Station").InstantiationParameters!;
+            Assert.IsTrue(parameters.ContainsKey("Reserve"));
+            Assert.IsNull(parameters["Reserve"]);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-012.8")]
+        public void AcceptTopologyNamingDeclaredInstantiationParameters()
+        {
+            // The refusal reads the block type's declarations, so a correct name still loads.
+
+            // Arrange
+            var topology = DevTopologyFile.Parse($$"""
+                                                   {
+                                                     "id": "gated",
+                                                     "logicBlockInstances": [
+                                                       { "typeFullName": "{{typeof(SmokeHost.LogicBlocks.GatedStationBlock).FullName}}", "name": "Station",
+                                                         "instantiationParameters": { "PointCount": 2 } }
+                                                     ]
+                                                   }
+                                                   """);
+
+            // Act
+            var config = DevTopologyLoader.Build(topology);
+
+            // Assert
+            Assert.AreEqual(2, config.LogicBlocks.Single(b => b.Name == "Station").InstantiationParameters!["PointCount"]!.GetValue<int>());
+        }
+
+        [TestMethod]
         public void RoundTripInstantiationParametersThroughTheEditorSave()
         {
-            // RFC 0016: the editor Save re-serializes a fixed field set — instantiationParameters must survive it.
+            // The editor Save re-serializes a fixed field set — instantiationParameters must survive it.
             var dir = Path.Combine(Path.GetTempPath(), "dale-topo-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(dir);
             try
@@ -203,7 +328,13 @@ namespace Vion.Dale.DevHost.Test
             var schema = await response.Content.ReadAsStringAsync();
             StringAssert.Contains(schema, "logicBlockInstances");
             StringAssert.Contains(schema, "mappedServiceProviderIdentifier");
-            StringAssert.Contains(schema, "instantiationParameters"); // RFC 0016 — the served schema declares the field
+
+            // Not just that the field is declared: an author's editor validates against this copy, so the
+            // value types have to admit the JSON null a nullable parameter takes (AC-GATE-012.12). A field
+            // name assertion passes on the pre-widening schema that refused it.
+            var parameterTypes =
+                JsonNode.Parse(schema)!["properties"]!["logicBlockInstances"]!["items"]!["properties"]!["instantiationParameters"]!["additionalProperties"]!["type"]!.AsArray();
+            CollectionAssert.Contains(parameterTypes.Select(type => type!.GetValue<string>()).ToArray(), "null");
         }
 
         [TestMethod]

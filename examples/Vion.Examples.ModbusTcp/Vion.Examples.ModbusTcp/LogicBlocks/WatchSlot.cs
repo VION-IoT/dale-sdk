@@ -12,7 +12,7 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
     ///     A service-bearing component: each slot forms its own service named after the property that holds it
     ///     (<c>Watch1</c>, <c>Watch2</c>, …), so the <c>VisibleWhen</c> predicates below resolve against the
     ///     slot's own properties. How many slots exist is decided at config time by the block's
-    ///     <c>WatchSlotCount</c> instantiation parameter (RFC 0016).
+    ///     <c>WatchSlotCount</c> instantiation parameter.
     /// </remarks>
     public class WatchSlot
     {

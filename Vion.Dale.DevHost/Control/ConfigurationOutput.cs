@@ -56,7 +56,7 @@ namespace Vion.Dale.DevHost.Control
             public required List<ContractMapping> ContractMappings { get; set; }
 
             /// <summary>
-            ///     RFC 0016: the operator-chosen <c>[InstantiationParameter]</c> values (identifier → JSON
+            ///     The operator-chosen <c>[InstantiationParameter]</c> values (identifier → JSON
             ///     scalar) this instance was configured with, when the topology set any. Carried so
             ///     <c>dale dev --export-topology</c> round-trips them, symmetric with the editor Save path.
             ///     Omitted when null so an ungated block carries no key (consistent with the topology model).

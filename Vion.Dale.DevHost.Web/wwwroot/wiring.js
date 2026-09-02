@@ -28,7 +28,7 @@ export function candidatesFor(definitions, instances, sourceName, sourceInterfac
     for (const inst of instances) {
         if (inst.name === sourceName) continue;
         for (const tIface of interfacesOf(definitions, inst)) {
-            // Skip a target the chosen parameters gate out — wiring to it would be a dangling link (RFC 0016).
+            // Skip a target the chosen parameters gate out — wiring to it would be a dangling link.
             if (interfaceGatedOut(definitions, inst, tIface.identifier)) continue;
             if (interfacesMatch(srcIface, tIface)) out.push({ targetName: inst.name, targetInterface: tIface.identifier });
         }
@@ -110,7 +110,7 @@ export function problemsOf(definitions, instances, mappings) {
     return problems;
 }
 
-// RFC 0016: a mapping whose endpoint is gated OUT by [IncludedWhen] for the instance's chosen
+// A mapping whose endpoint is gated OUT by [IncludedWhen] for the instance's chosen
 // [InstantiationParameter] values is a hidden link / contract — it would not exist at runtime, so flag it at
 // edit time (the server validate is gating-agnostic). Returns [{ mappingIndex?, kind:'gated-out', message }] —
 // interface-mapping problems carry the mapping index (per-row accent); contract-mapping ones are footer-only.
@@ -146,6 +146,35 @@ export function interfaceGatedOut(definitions, instance, interfaceIdentifier) {
     const iface = (def.interfaces || []).find(i => i.identifier === interfaceIdentifier);
     return iface ? memberGatedOut(iface.includedWhen, def, instance) : false;
 }
+// A gate whose parameter has a KNOWN null default and no chosen value fails that whole instance closed at
+// runtime: Live-mode evaluation of a null throws out of Configure, so the block never starts. That is not a
+// wiring problem — it is a missing value — so it is reported on its own, footer-level, and only where the
+// catalog says the default was read. An UNKNOWN default stays fail-open: nothing is known, so nothing is said.
+export function missingParameterValueProblems(definitions, instances) {
+    const problems = [];
+    for (const inst of instances || []) {
+        const def = defByType(definitions, inst.typeFullName);
+        if (!def) continue;
+        const chosen = inst.instantiationParameters || {};
+        const needed = new Set();
+        for (const member of [...(def.interfaces || []), ...(def.contracts || [])]) {
+            if (!member.includedWhen) continue;
+            const compiled = compilePredicate(member.includedWhen);
+            if (!compiled.ok) continue;
+            for (const ref of compiled.refs) needed.add(ref.property);
+        }
+        for (const p of def.instantiationParameters || []) {
+            if (!needed.has(p.identifier)) continue;
+            if (!p.defaultKnown || p.default !== null) continue;
+            if (Object.prototype.hasOwnProperty.call(chosen, p.identifier) && chosen[p.identifier] !== null) continue;
+            problems.push({
+                kind: 'missing-parameter-value',
+                message: `${inst.name}.${p.identifier} has no default; supply a value — a gate reads it, and the block fails to start without one`,
+            });
+        }
+    }
+    return problems;
+}
 export function gatedOutMappingProblems(definitions, instances, interfaceMappings, contractMappings) {
     const problems = [];
     const instByName = name => (instances || []).find(i => i.name === name) || null;
@@ -180,7 +209,7 @@ export function contractsOf(definitions, instance) {
     const def = defByType(definitions, instance.typeFullName);
     return def ? (def.contracts || []) : [];
 }
-// Whether a contract binding is gated OUT by [IncludedWhen] for the instance's chosen parameters (RFC 0016) —
+// Whether a contract binding is gated OUT by [IncludedWhen] for the instance's chosen parameters —
 // the contract twin of interfaceGatedOut. Pairing one would declare a wire onto an endpoint that never exists.
 export function contractGatedOut(definitions, instance, contractIdentifier) {
     const def = defByType(definitions, instance.typeFullName);

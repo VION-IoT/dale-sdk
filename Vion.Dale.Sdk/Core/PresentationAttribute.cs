@@ -123,7 +123,7 @@ namespace Vion.Dale.Sdk.Core
         ///     </b>
         ///     . The member keeps existing and
         ///     functioning everywhere else — runtime, MQTT, cloud DB, introspection — so this is a
-        ///     pure <b>display</b> hint, never an existence or behavior gate (contrast RFC 0016's
+        ///     pure <b>display</b> hint, never an existence or behavior gate (contrast <c>[IncludedWhen]</c>,
         ///     <c>[ExistsWhen]</c>, which removes the member across every layer). A property with no
         ///     <c>VisibleWhen</c> is always shown (backward compatible). Evaluation is
         ///     <b>fail-open</b>: a broken or unresolvable predicate shows the member.

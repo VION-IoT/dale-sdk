@@ -37,6 +37,20 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
             return instance;
         }
 
+        /// <inheritdoc />
+        public TInterface Describe<TInterface, TImplementation>(string identifier)
+        {
+            var implementingType = GetImplementingType<TInterface>();
+            var instance = InstantiateImplementingType<TInterface, TImplementation>(identifier, default!, implementingType);
+
+            _addInterface.Invoke(identifier, (instance as LogicSenderInterfaceBase)!);
+
+            // Deliberately no RegisterExtensionMethods: the generated RegisterInstance keys a
+            // ConditionalWeakTable by the implementation, and there is none to key by. Nothing dispatches
+            // through an endpoint the definition view describes, so nothing needs the registration.
+            return instance;
+        }
+
         private static void RegisterExtensionMethods<TInterface, TImplementation>(TInterface interfaceInstance, TImplementation implementation)
         {
             var implementationType = typeof(TImplementation);

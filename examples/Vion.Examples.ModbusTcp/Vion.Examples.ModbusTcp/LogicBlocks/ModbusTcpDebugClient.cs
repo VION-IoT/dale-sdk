@@ -310,7 +310,7 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
         // ── Watch slots ───────────────────────────────────────────────────────────
 
         /// <summary>
-        ///     How many watch slots this instance exposes. Chosen when the block is configured (RFC 0016) —
+        ///     How many watch slots this instance exposes. Chosen when the block is configured —
         ///     slots above the count do not exist at all, rather than sitting empty in the UI.
         /// </summary>
         [ServiceProperty(Title = "Watch slots", Minimum = 0, Maximum = 8, Description = "Number of pinned registers this instance exposes. Set when the block is configured.")]

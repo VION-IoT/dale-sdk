@@ -185,7 +185,7 @@ namespace Vion.Dale.Sdk.Test.Configuration.Services
         }
     }
 
-    /// <summary>An RFC 0016-gated component endpoint.</summary>
+    /// <summary>A gated component endpoint.</summary>
     public sealed class GatedConsumerBlock : LogicBlockBase
     {
         [ServiceProperty(Title = "Ladepunkte", Minimum = 1, Maximum = 2)]
@@ -367,7 +367,7 @@ namespace Vion.Dale.Sdk.Test.Configuration.Services
             CollectionAssert.AreEqual(expected, services.OrderBy(s => s.Key, StringComparer.Ordinal).Select(s => Describe(s.Key, s.Value)).ToArray());
         }
 
-        // ── RFC 0016 gating interplay (§5) ────────────────────────────────────────────────────────
+        // ── Config-time gating interplay ────────────────────────────────────────────────────────
 
         [TestMethod]
         public void EmitGatedComponentHalvesInDefinitionModeAndOmitThemWhenGatedOutLive()
@@ -394,19 +394,19 @@ namespace Vion.Dale.Sdk.Test.Configuration.Services
         [TestMethod]
         public void ThrowWhenOutwardsInterfaceNamesNeitherContractSide()
         {
-            var exception = Assert.Throws<TargetInvocationException>(() => LogicBlockIntrospection.IntrospectLogicBlock(new InvalidOutwardsBlock(), _serviceProvider));
+            // The introspection rethrows what Configure threw rather than the reflection wrapper, so an
+            // author sees the reason and not "Exception has been thrown by the target of an invocation."
+            var exception = Assert.Throws<InvalidOperationException>(() => LogicBlockIntrospection.IntrospectLogicBlock(new InvalidOutwardsBlock(), _serviceProvider));
 
-            Assert.IsInstanceOfType<InvalidOperationException>(exception.InnerException);
-            StringAssert.Contains(exception.InnerException!.Message, "OutwardsInterface");
+            StringAssert.Contains(exception.Message, "OutwardsInterface");
         }
 
         [TestMethod]
         public void ThrowWhenTheRelationCarrierIsNotALogicBlockContract()
         {
-            var exception = Assert.Throws<TargetInvocationException>(() => LogicBlockIntrospection.IntrospectLogicBlock(new OrphanCarrierBlock(), _serviceProvider));
+            var exception = Assert.Throws<InvalidOperationException>(() => LogicBlockIntrospection.IntrospectLogicBlock(new OrphanCarrierBlock(), _serviceProvider));
 
-            Assert.IsInstanceOfType<InvalidOperationException>(exception.InnerException);
-            StringAssert.Contains(exception.InnerException!.Message, "[LogicBlockContract]");
+            StringAssert.Contains(exception.Message, "[LogicBlockContract]");
         }
 
         // ── Helpers ───────────────────────────────────────────────────────────────────────────────
@@ -469,6 +469,12 @@ namespace Vion.Dale.Sdk.Test.Configuration.Services
             public HashSet<string> Identifiers { get; } = new(StringComparer.Ordinal);
 
             public TInterface Create<TInterface, TImplementation>(string identifier, TImplementation implementation)
+            {
+                Identifiers.Add(identifier);
+                return default!;
+            }
+
+            public TInterface Describe<TInterface, TImplementation>(string identifier)
             {
                 Identifiers.Add(identifier);
                 return default!;

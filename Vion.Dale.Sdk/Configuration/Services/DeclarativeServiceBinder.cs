@@ -15,7 +15,7 @@ namespace Vion.Dale.Sdk.Configuration.Services
 
             // Class-level service: one per logic block, identified by the class name.
             // The dropped [Service] attribute previously allowed overriding the identifier; without
-            // it, the class name is canonical. The root service is never gated (RFC 0016 placement matrix:
+            // it, the class name is canonical. The root service is never gated (the placement matrix says
             // whole-block existence = the operator adds the instance or not).
             var implementedServiceInterfaces = ServiceSurface.GetImplementedServiceInterfaces(type);
             var service = binder.CreateService(type.Name);
@@ -52,10 +52,15 @@ namespace Vion.Dale.Sdk.Configuration.Services
                     continue;
                 }
 
-                // RFC 0016: skip a gated-out component service entirely in Live mode (its whole service —
+                // Skip a gated-out component service entirely in Live mode (its whole service —
                 // all properties + measuring points — falls out by construction). Definition mode binds and
                 // records the predicate for ServiceInfo.IncludedWhen.
                 var includedWhen = InclusionGate.ReadPredicate(property);
+                if (includedWhen is not null && mode == BindingMode.Definition)
+                {
+                    InclusionGate.EnsureResolvable(includedWhen, logicBlock, property.Name);
+                }
+
                 if (!InclusionGate.IsIncluded(includedWhen, mode, parameterContext))
                 {
                     continue;
@@ -70,9 +75,12 @@ namespace Vion.Dale.Sdk.Configuration.Services
                 // Use the property name as the service identifier.
                 BindServiceWithInterfaces(propertyValue, property.Name, implementedServiceInterfaces, binder);
 
-                if (!string.IsNullOrEmpty(includedWhen))
+                // A declared gate is recorded whatever its text: null means the member carries no
+                // [IncludedWhen], and every other value is this member's gate. An empty predicate recorded as
+                // "no gate" would put an unconditional member on the wire that Live binding then refuses.
+                if (includedWhen is not null)
                 {
-                    binder.RegisterServiceIncludedWhen(property.Name, includedWhen!);
+                    binder.RegisterServiceIncludedWhen(property.Name, includedWhen);
                 }
             }
         }

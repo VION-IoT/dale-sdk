@@ -11,7 +11,7 @@ using Vion.Dale.Sdk.Generators.Predicates;
 namespace Vion.Dale.Sdk.Generators.Analyzers
 {
     /// <summary>
-    ///     DALE044 — enforces the discipline of <c>[InstantiationParameter]</c> (RFC 0016 §2.2). A
+    ///     DALE044 — enforces the discipline of <c>[InstantiationParameter]</c>. A
     ///     parameter must be declared on the logic-block class (not a component), paired with
     ///     <c>[ServiceProperty]</c>, a discrete scalar (bool / enum / integer / string), never
     ///     <c>WriteOnly</c>, an auto-property (no computed getter), and must not be re-declared on an
@@ -78,6 +78,20 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             else if (AnalyzerHelper.GetNamedArgument<bool>(serviceProperty, "WriteOnly"))
             {
                 Report(context, location, property.Name, "[InstantiationParameter] cannot be combined with WriteOnly — a secret must not be an editor-visible structural driver.");
+            }
+
+            // [Persistent(Exclude = true)] asks for exactly what a parameter already gets, so it is a correct
+            // declaration rather than a contradiction — and the message below would give it a reason that is
+            // false for it. Only the opt-IN is refused. (Reading the named argument mirrors the WriteOnly rule
+            // above, which reads its own.)
+            var persistent = AnalyzerHelper.GetAttribute(property, AnalyzerHelper.PersistentAttribute);
+            if (persistent is not null && !AnalyzerHelper.GetNamedArgument<bool>(persistent, "Exclude"))
+            {
+                Report(context,
+                       location,
+                       property.Name,
+                       "[InstantiationParameter] cannot be combined with [Persistent] — the configuration channel is a parameter's only source of truth, and a restored value would " +
+                       "overwrite the configured one after the inclusion gates had already resolved against it. Persistence skips parameters, so the [Persistent] would do nothing.");
             }
 
             if (AnalyzerHelper.Categorize(property.Type) is RefCategory.Double or RefCategory.Other)

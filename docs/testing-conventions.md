@@ -112,10 +112,16 @@ finding on new tests: *"i see reflection used in unit tests to get _serviceBinde
 better way currently to validate the it?"* — either assert through the public introspection result, or
 add the seam.
 
-Two sites do it today and are the non-conforming precedent, not the pattern:
-`Vion.Dale.Sdk.Test/Configuration/ConfigTimeStructuralGatingShould.cs:441` and
-`Vion.Dale.Sdk.TestKit.Test/EmissionPolicyShould.cs:233`, both reaching
-`LogicBlockBase._serviceBinder` by `BindingFlags.NonPublic`. Their area's pass owes them seams.
+One site does it today and is the non-conforming precedent, not the pattern:
+`Vion.Dale.Sdk.TestKit.Test/EmissionPolicyShould.cs:233`, reaching `LogicBlockBase._serviceBinder` by
+`BindingFlags.NonPublic`. Its area's pass owes it a seam.
+
+**The seam is usually already on the wire.** The `GATE` pass retired three such sites — this list
+named one of them and did not know about the other two — without adding a single member to any SUT:
+a block announces its bound service map in `BindLogicBlockServices` at the end of initialization, and
+hands over its persistent state in response to `GetPersistentDataSnapshotRequest` after a stop. Both
+are messages the runtime already sends, so a test that drives the real message sequence can read the
+answer off them. Look for that before concluding a type has no seam.
 
 The same rule in its other costume: **no test-only accessors** — never add a member to the SUT
 whose sole purpose is letting tests inspect internal state. It widens the published surface for

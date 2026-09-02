@@ -415,7 +415,7 @@ namespace Vion.Dale.DevHost
                     var logicBlockContractIdLookup =
                         logicBlockConfig.ContractMappings.ToDictionary(m => m.ContractIdentifier, m => new LogicBlockContractId(logicBlockConfig.Id, m.ContractIdentifier));
 
-                    // RFC 0016: carry the topology's operator-chosen parameter values so the block applies them
+                    // Carry the topology's operator-chosen parameter values so the block applies them
                     // before Configure and the Live-mode binders resolve inclusion gates.
                     var instantiationParameterValues = logicBlockConfig.InstantiationParameters
                                                                        ?.Select(kvp => new SetLogicConfigurationPayload.InstantiationParameterValue

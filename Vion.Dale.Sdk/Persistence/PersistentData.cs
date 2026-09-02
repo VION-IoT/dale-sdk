@@ -158,7 +158,7 @@ namespace Vion.Dale.Sdk.Persistence
 
                         var propInfo = binding.RootSourcePropertyInfo;
 
-                        // RFC 0016: never auto-persist an [InstantiationParameter] — the config channel is its
+                        // Never auto-persist an [InstantiationParameter] — the config channel is its
                         // only source of truth; a stale persisted value must never clobber the config-applied one
                         // after gates already resolved. A dedicated skip is required (NOT free via wire-readOnly:
                         // discovery keys off binding.Setter, the public C# setter a parameter deliberately has).
@@ -190,7 +190,7 @@ namespace Vion.Dale.Sdk.Persistence
         {
             var properties = type.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
 
-            // RFC 0016: re-resolve [IncludedWhen] gates against this instance's parameter values (the same
+            // Re-resolve [IncludedWhen] gates against this instance's parameter values (the same
             // context Configure used) to decide which class-typed component properties are included. Keying
             // off binder collections would miss an included interface-only / contract-only component (no
             // service members → absent from the service-property/measuring-point maps).
@@ -199,6 +199,17 @@ namespace Vion.Dale.Sdk.Persistence
             foreach (var prop in properties)
             {
                 var attr = prop.GetCustomAttribute<PersistentAttribute>();
+
+                // Never auto-persist an [InstantiationParameter], the second door into this: the
+                // service-property discovery above skips them, and opt-in discovery walks the block's own
+                // properties, so a parameter an author also marked [Persistent] would arrive here. A restore
+                // lands after Configure, so the persisted value would overwrite the configured one the
+                // inclusion gates already resolved against. DALE044 refuses the combination at build time;
+                // this is what happens to a block that shipped past a suppressed or absent analyzer.
+                if (prop.GetCustomAttribute<InstantiationParameterAttribute>() != null)
+                {
+                    continue;
+                }
 
                 // Check if this property itself is marked as [Persistent]
                 if (attr != null && !attr.Exclude)
@@ -230,7 +241,7 @@ namespace Vion.Dale.Sdk.Persistence
 
                 if (prop.PropertyType.IsClass && prop.PropertyType != typeof(string) && !prop.PropertyType.IsArray && !prop.PropertyType.IsPrimitive)
                 {
-                    // RFC 0016 (no dormancy): skip a gated-OUT component. It is non-null (the author's own
+                    // No dormancy: skip a gated-OUT component. It is non-null (the author's own
                     // new()) but was never bound, so capturing/restoring its [Persistent] members would write
                     // garbage file entries and restore into an inert object. A gated component that resolves
                     // INCLUDED (interface-only components included) is walked normally.

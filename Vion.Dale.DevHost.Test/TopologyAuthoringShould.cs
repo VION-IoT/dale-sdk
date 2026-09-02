@@ -354,15 +354,99 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-012.6")]
+        public void LogicBlockDefinition_FromType_CarriesGetOnlyInterfaceBindingWithItsGate()
+        {
+            // Arrange
+            // A component held in a get-only property is bound by the interface binder, which never asks for
+            // a setter — so the catalog has to discover it the same way, or a topology author cannot wire an
+            // endpoint that exists at runtime and cannot see the gate that removes it.
+
+            // Act
+            var definition = LogicBlockDefinition.FromType(typeof(GatedCatalogFixture));
+
+            // Assert
+            var sink = definition.Interfaces.Single(i => i.Identifier.StartsWith(nameof(GatedCatalogFixture.Sink), StringComparison.Ordinal));
+            Assert.AreEqual("Count >= 2", sink.IncludedWhen);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-012.11")]
+        [DataRow(true, DisplayName = "an instance was available")]
+        [DataRow(false, DisplayName = "no instance was available")]
+        public void LogicBlockDefinition_FromType_SaysWhetherEachDefaultWasRead(bool withInstance)
+        {
+            // Arrange
+            var instance = withInstance ? new GatedCatalogFixture(NullLogger.Instance) : null;
+
+            // Act
+            var definition = LogicBlockDefinition.FromType(typeof(GatedCatalogFixture), instance);
+
+            // Assert
+            var count = definition.InstantiationParameters.Single(p => p.Identifier == nameof(GatedCatalogFixture.Count));
+            Assert.AreEqual(withInstance, count.DefaultKnown);
+            Assert.AreEqual(withInstance ? 1L : null, count.Default?.GetValue<long>());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-012.11")]
+        public void LogicBlockDefinition_FromType_ReportsKnownNullDefaultAsKnown()
+        {
+            // The case the flag exists for: read from an instance and genuinely null, which an editor must
+            // treat as "this parameter needs a value", not as "nothing is known".
+
+            // Arrange
+            var block = new SmokeHost.LogicBlocks.GatedStationBlock(NullLogger.Instance);
+
+            // Act
+            var definition = LogicBlockDefinition.FromType(typeof(SmokeHost.LogicBlocks.GatedStationBlock), block);
+
+            // Assert
+            var reserve = definition.InstantiationParameters.Single(p => p.Identifier == "Reserve");
+            Assert.IsTrue(reserve.DefaultKnown);
+            Assert.IsNull(reserve.Default);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-012.10")]
+        public void LogicBlockDefinition_FromType_NamesEndpointsByBinderRule()
+        {
+            // Arrange
+            // The binder honours an explicit Identifier and falls back to {Property}_{Interface}. A catalog
+            // that always minted the fallback would list an endpoint under a name the block never answers to,
+            // so a topology authored from it wires nothing and the block warns about a mapping it cannot find.
+
+            // Act
+            var definition = LogicBlockDefinition.FromType(typeof(GatedCatalogFixture));
+
+            // Assert
+            var renamed = definition.Interfaces.Single(i => i.Identifier == "PrimarySink");
+            Assert.AreEqual("Count >= 2", renamed.IncludedWhen);
+            Assert.AreEqual(LinkMultiplicity.ExactlyOne, renamed.Multiplicity);
+            Assert.IsFalse(definition.Interfaces.Any(i => i.Identifier == "RenamedSink_ISignalSink"));
+
+            // The class-level half of the same rule: the binder passes no default, so an explicit Identifier
+            // wins over the interface name there too.
+            var classLevel = definition.Interfaces.Single(i => i.Identifier == "Fleet");
+            Assert.AreEqual(LinkMultiplicity.OneOrMore, classLevel.Multiplicity);
+            Assert.IsFalse(definition.Interfaces.Any(i => i.Identifier == nameof(SmokeHost.LogicBlocks.ISignalSource)));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-012.6")]
         public void LogicBlockDefinition_FromType_CarriesInstantiationParametersAndGatePredicates()
         {
-            // RFC 0016: the catalog projects each [InstantiationParameter]'s identifier + JSON schema + default,
+            // Arrange
+            // The catalog projects each [InstantiationParameter]'s identifier + JSON schema + default,
             // and the [IncludedWhen] predicate on each gated interface/contract binding — the metadata the
             // topology-authoring client renders a parameter editor from, and evaluates to flag a mapping to a
             // gated-out member. GatedCatalogFixture declares [InstantiationParameter] int Count (default 1) and a
             // contract Demand gated by [IncludedWhen("Count >= 2")].
+
+            // Act
             var definition = LogicBlockDefinition.FromType(typeof(GatedCatalogFixture), new GatedCatalogFixture(NullLogger.Instance));
 
+            // Assert
             var count = definition.InstantiationParameters.Single(p => p.Identifier == "Count");
             Assert.AreEqual("integer", count.Schema["type"]!.GetValue<string>(), "an int parameter projects an integer schema.");
             Assert.AreEqual(1L, count.Schema["minimum"]!.GetValue<long>(), "[ServiceProperty] Minimum flows to schema.minimum.");

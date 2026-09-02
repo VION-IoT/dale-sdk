@@ -259,7 +259,7 @@ namespace Vion.Dale.Sdk.Introspection
             //     exposes a value the gateway publishes but the cloud cannot SetPropertyValue back to)
             //   - [ServiceProperty(ReadOnly = true)] explicitly opts in — needed when a cross-assembly helper
             //     requires the public setter but the cloud must not write the value.
-            //   - [InstantiationParameter] — config-time value, wire-read-only + immutable at runtime (RFC 0016);
+            //   - [InstantiationParameter] — config-time value, wire-read-only + immutable at runtime;
             //     it deliberately has a public setter (the SDK applies the value pre-Configure by reflection),
             //     so this forced flag is what makes the dashboard render it read-only and the cloud reject SETs.
             var readOnly = (mp is not null && sp is null) || !hasPublicSetter || (sp?.ReadOnly ?? false) || isInstantiationParameter;

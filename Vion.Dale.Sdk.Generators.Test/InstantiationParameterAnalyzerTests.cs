@@ -8,7 +8,7 @@ using Vion.Dale.Sdk.Generators.Test.Helpers;
 namespace Vion.Dale.Sdk.Generators.Test
 {
     /// <summary>
-    ///     DALE044 coverage for <c>InstantiationParameterAnalyzer</c> (RFC 0016 §2.2). Positive cases assert
+    ///     DALE044 coverage for <c>InstantiationParameterAnalyzer</c>. Positive cases assert
     ///     a well-formed parameter produces no diagnostic; negative cases assert DALE044 fires (the message
     ///     is intentionally not pinned).
     /// </summary>
@@ -34,6 +34,7 @@ public class MyBlock : LogicBlockBase
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.9")]
         public async Task PlainSetterParameter_NoDiagnostic()
         {
             // { get; set; } is allowed (init is recommended, not required — the analyzer backstops assignments).
@@ -65,24 +66,28 @@ public class LeafStation : BaseStation
         // ── Negative cases (DALE044) ──
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.8")]
         public Task MissingServicePropertyPairing_ReportsDALE044()
         {
             return ExpectDiscipline("[{|#0:InstantiationParameter|}] public int Count { get; init; }");
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.8")]
         public Task DisallowedDoubleType_ReportsDALE044()
         {
             return ExpectDiscipline("[ServiceProperty] [{|#0:InstantiationParameter|}] public double Count { get; init; }");
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.8")]
         public Task DisallowedArrayType_ReportsDALE044()
         {
             return ExpectDiscipline("[ServiceProperty] [{|#0:InstantiationParameter|}] public int[] Values { get; init; }");
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.8")]
         public async Task DisallowedStructType_ReportsDALE044()
         {
             var source = @"
@@ -96,18 +101,57 @@ public class MyBlock : LogicBlockBase
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.11")]
+        public async Task PersistentExcludedParameter_NoDiagnostic()
+        {
+            // Arrange
+            // [Persistent(Exclude = true)] is the documented opt-OUT, so it asks for exactly what a parameter
+            // already gets. Refusing it would reject a correct declaration with a reason that is false for it.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+public class MyBlock : LogicBlockBase
+{
+    [ServiceProperty] [Persistent(Exclude = true)] [InstantiationParameter] public int Count { get; init; }
+}";
+
+            // Act / Assert
+            await AnalyzerTestBase.VerifyAnalyzerAsync<InstantiationParameterAnalyzer>(source);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.8")]
+        public Task PersistentParameter_ReportsDALE044()
+        {
+            // Persistence skips parameters, so the [Persistent] would silently do nothing — and a restore
+            // that did land would overwrite the configured value the gates already resolved against.
+            return ExpectDiscipline("[ServiceProperty] [Persistent] [{|#0:InstantiationParameter|}] public int Count { get; init; }");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.8")]
+        public Task PersistentNotExcludedParameter_ReportsDALE044()
+        {
+            // Exclude = false is the opt-IN written out, so it is refused exactly like the bare attribute —
+            // the rule reads the argument rather than the attribute's presence.
+            return ExpectDiscipline("[ServiceProperty] [Persistent(Exclude = false)] [{|#0:InstantiationParameter|}] public int Count { get; init; }");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.8")]
         public Task WriteOnlyParameter_ReportsDALE044()
         {
             return ExpectDiscipline("[ServiceProperty(WriteOnly = true)] [{|#0:InstantiationParameter|}] public string Secret { get; init; }");
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.8")]
         public Task ComputedGetter_ReportsDALE044()
         {
             return ExpectDiscipline("[ServiceProperty] [{|#0:InstantiationParameter|}] public int Count => 3;");
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.8")]
         public async Task InCodeAssignmentOutsideConstructor_ReportsDALE044()
         {
             var source = @"
@@ -121,6 +165,7 @@ public class MyBlock : LogicBlockBase
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.8")]
         public async Task DeclaredOnAComponentType_ReportsDALE044()
         {
             var source = @"
@@ -133,6 +178,7 @@ public class Component
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-GATE-011.4")]
         public async Task RedeclaredOnAnOverride_ReportsDALE044()
         {
             var source = @"

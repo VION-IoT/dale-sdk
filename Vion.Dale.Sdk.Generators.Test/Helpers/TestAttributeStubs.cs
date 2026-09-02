@@ -225,7 +225,7 @@ namespace Vion.Dale.Sdk.Core
     {
     }
 
-    // RFC 0016 config-time structural gating stubs.
+    // Config-time structural gating stubs.
     [AttributeUsage(AttributeTargets.Property)]
     public class InstantiationParameterAttribute : Attribute
     {

@@ -13,7 +13,7 @@ namespace Vion.Dale.Sdk.Configuration.Contract
         public LinkMultiplicity Multiplicity { get; set; } = LinkMultiplicity.ZeroOrMore;
 
         /// <summary>
-        ///     RFC 0016 config-time inclusion predicate for this contract binding (<c>[IncludedWhen]</c>),
+        ///     The config-time inclusion predicate for this contract binding (<c>[IncludedWhen]</c>),
         ///     or <c>null</c> when the binding is unconditional. Emitted into the definition-view annotation
         ///     bag under <see cref="LogicBlockWiringConventions.IncludedWhenAnnotationKey" />.
         /// </summary>
@@ -40,7 +40,8 @@ namespace Vion.Dale.Sdk.Configuration.Contract
                     annotations[LogicBlockWiringConventions.MultiplicityAnnotationKey] = LinkMultiplicityWire.ToToken(Multiplicity);
                 }
 
-                if (!string.IsNullOrEmpty(IncludedWhen))
+                // Null means ungated; every other value, the empty string included, is a declared gate.
+                if (IncludedWhen is not null)
                 {
                     annotations[LogicBlockWiringConventions.IncludedWhenAnnotationKey] = IncludedWhen;
                 }

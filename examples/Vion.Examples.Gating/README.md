@@ -1,6 +1,6 @@
 # Vion.Examples.Gating
 
-A **dashboard-UI test fixture** for **RFC 0016 config-time structural gating** — it exercises *every*
+A **dashboard-UI test fixture** for **config-time structural gating** — it exercises *every*
 gateable member kind, driven by a **number**, an **enum**, and a **string** `[InstantiationParameter]`, and
 ships a topology matrix that shows each in both its **included** and **excluded** state so you can eyeball how
 the dashboard renders (or omits) it.
@@ -27,7 +27,7 @@ three ride as **wire-read-only** service properties on the root service, so the 
 the dashboard but not editable at runtime — they're config, not state.
 
 **Structural, not cosmetic.** A gated-out member does not exist: no service, no interface endpoint, no IO
-binding, no MQTT topic, no persistence. This is the hard-existence sibling of RFC 0017's
+binding, no MQTT topic, no persistence. This is the hard-existence sibling of
 `[Presentation(VisibleWhen = …)]`, which only *hides an existing member* in the UI. `[IncludedWhen]` gates
 whole **bound units** (components, interface bindings, contract/IO bindings) — never a lone scalar; for that,
 see `VisibleWhen` in [Vion.Examples.Presentation](../Vion.Examples.Presentation). Gated-out
@@ -51,12 +51,12 @@ Comparisons that isolate one gate:
 - **string** — `single-basic` (US) vs any EU/UK topology — only `GridFrequencyGuard` (the IO input) appears.
 - **interface mapping** — `single-basic` maps only `Point1`; `full-pro` maps all three.
 
-> **Caveat — never map to a gated-out interface endpoint.** A topology `interfaceMapping` whose target
+> **Mapping to a gated-out endpoint is tolerated, not honoured.** A topology `interfaceMapping` whose target
 > interface is gated out (e.g. mapping the `ChargeController` to `Point2` while `ChargePointCount` is 1) is
-> accepted at load time and appears in the exported config, but it throws `KeyNotFoundException` at runtime the
-> moment the sender routes a message to the missing endpoint (`LogicBlockBase.GetFunctionByIdentifier`). Unlike
-> contract mappings, interface mappings are **not** skip-and-warned for a gated-out target. Every topology here
-> maps only to points the count includes.
+> accepted at load time and appears in the exported config. At runtime the link is skipped and any message
+> routed to it is dropped with a warning — the receiving block stays up, exactly as it does for a contract
+> mapping to a gated-out contract. Nothing arrives, so the wire is dead rather than broken: the editor flags
+> it, and every topology here maps only to points the count includes.
 
 ## Verify it deterministically
 
@@ -72,5 +72,5 @@ gated inter-block **interface mappings** are cross-block wiring, verified end to
 
 ## See also
 
-- [RFC 0016 — Config-time structural gating](../../docs/rfcs/0016-config-time-structural-gating.md)
+- [Config-time structural gating](../../docs/specs/config-gating.md) — the spec page this example demonstrates
 - [RFC 0017 — Presentation-time visibility](../../docs/rfcs/0017-presentation-time-visibility.md) (the cosmetic sibling)

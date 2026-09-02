@@ -276,7 +276,7 @@ evaluateVisibility.ABSENT = ABSENT;
 // Runs the vendored conformance vector: every parse case against the parser, and every eval case
 // (core + "profile": "ui") against the evaluator. `values` is keyed by ref string (e.g.
 // "Service.Property" or "Property"); a missing key is treated as ABSENT, an explicit null as null.
-// RFC 0016 added "profile": "strict" and fail-closed "error": true eval cases that bind only the
+// Config-time structural gating added "profile": "strict" and fail-closed "error": true eval cases that bind only the
 // strict C# evaluator — this UI (fail-open) evaluator skips them.
 export function runVectorSelfTest(vector) {
     const failures = [];

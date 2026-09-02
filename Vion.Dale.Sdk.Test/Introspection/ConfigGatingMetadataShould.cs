@@ -1,0 +1,174 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Vion.Contracts.Conventions;
+using Vion.Contracts.Introspection;
+using Vion.Dale.Sdk.Core;
+using Vion.Dale.Sdk.Introspection;
+using Vion.Dale.Sdk.Test.TestHelpers;
+
+namespace Vion.Dale.Sdk.Test.Introspection
+{
+    /// <summary>
+    ///     What config-time gating puts on the wire: a gated member's predicate and an
+    ///     `[InstantiationParameter]`'s schema and runtime nodes (<c>docs/specs/config-gating.md</c>). The
+    ///     shapes asserted here are the ones a packed artifact carries to the cloud.
+    /// </summary>
+    [TestClass]
+    public sealed class ConfigGatingMetadataShould
+    {
+        private readonly IServiceProvider _serviceProvider = new ServiceCollection().AddSingleton<ILoggerFactory>(NullLoggerFactory.Instance)
+                                                                                    .AddSingleton(typeof(ILogger<>), typeof(NullLogger<>))
+                                                                                    .BuildServiceProvider();
+
+        public static IEnumerable<object[]> EmptyGateBlocks
+        {
+            get
+            {
+                yield return [new EmptyGateComponentBlock(), nameof(EmptyGateComponentBlock.Point2)];
+                yield return [new EmptyGateContractBlock(), nameof(EmptyGateContractBlock.Point2Output)];
+                yield return [new EmptyGateInterfaceBlock(), nameof(EmptyGateInterfaceBlock.Probe)];
+            }
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-010.1")]
+        public void ReportComponentServiceGate()
+        {
+            // Arrange
+            var block = new GatedCountBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            Assert.AreEqual("PointCount >= 2", result.Services.Single(service => service.Identifier == "Point2").IncludedWhen);
+            Assert.IsNull(result.Services.Single(service => service.Identifier == nameof(GatedCountBlock.Point1)).IncludedWhen);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-010.2")]
+        public void ReportContractBindingGateAsAnnotation()
+        {
+            // Arrange
+            var block = new GatedContractBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            var contract = result.Contracts.Single(binding => binding.Identifier == nameof(GatedContractBlock.Point2Output));
+            Assert.AreEqual("PointCount >= 2", contract.Annotations[LogicBlockWiringConventions.IncludedWhenAnnotationKey]);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-010.2")]
+        public void ReportInterfaceBindingGateAsAnnotation()
+        {
+            // Arrange
+            var block = new GatedInterfaceBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            var binding = result.Interfaces.Single(iface => iface.Identifier.StartsWith(nameof(GatedInterfaceBlock.Probe), StringComparison.Ordinal));
+            Assert.AreEqual("Count >= 2", binding.Annotations[LogicBlockWiringConventions.IncludedWhenAnnotationKey]);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-010.3")]
+        [TestProperty("spec", "AC-GATE-010.6")]
+        public void ReportInstantiationParameterAsReadOnlyWithItsBounds()
+        {
+            // The parameter deliberately carries a public setter so the platform can apply the configured
+            // value; the forced wire flag is what stops the dashboard offering it as runtime state.
+
+            // Arrange
+            var block = new GatedCountBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            var schema = RootProperty(result, nameof(GatedCountBlock), nameof(GatedCountBlock.PointCount)).Schema!;
+            Assert.IsTrue(schema["readOnly"]!.GetValue<bool>());
+            Assert.AreEqual(1.0, schema["minimum"]!.GetValue<double>());
+            Assert.AreEqual(3.0, schema["maximum"]!.GetValue<double>());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-010.4")]
+        public void ReportInstantiationParameterMarkerAndDeclaredDefault()
+        {
+            // Arrange
+            var block = new GatedCountBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            var runtime = RootProperty(result, nameof(GatedCountBlock), nameof(GatedCountBlock.PointCount)).Runtime!;
+            Assert.IsTrue(runtime["instantiationParameter"]!.GetValue<bool>());
+            Assert.AreEqual(1L, runtime["default"]!.GetValue<long>());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-010.4")]
+        public void ReportEnumParameterDefaultAsMemberName()
+        {
+            // The same JSON-scalar form a gate's evaluation context uses, so a client resolving gates against
+            // the reported default compares against what the predicate names.
+
+            // Arrange
+            var block = new ParameterTypesBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            var runtime = RootProperty(result, nameof(ParameterTypesBlock), nameof(ParameterTypesBlock.Model)).Runtime!;
+            Assert.AreEqual(nameof(StationModel.Bricco), runtime["default"]!.GetValue<string>());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-010.5")]
+        public void ReportNullDefaultForParameterDeclaredWithout()
+        {
+            // Arrange
+            var block = new ParameterTypesBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            var runtime = RootProperty(result, nameof(ParameterTypesBlock), nameof(ParameterTypesBlock.Reserve)).Runtime!;
+            Assert.IsTrue(runtime["instantiationParameter"]!.GetValue<bool>());
+            Assert.IsNull(runtime["default"]);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-005.9")]
+        [DynamicData(nameof(EmptyGateBlocks))]
+        public void RefuseEmptyGateOnEveryMemberKindThatRecordsOne(LogicBlockBase block, string member)
+        {
+            // Each row reaches one of the three sites that record a member's gate. A site that read an empty
+            // predicate as "no gate" would leave that member unconditional, introspection would succeed, and
+            // the artifact would ship a member the runtime refuses to bind — so the refusal is what proves
+            // the site treats it as a declared gate at all.
+
+            // Arrange / Act / Assert
+            var failure = Assert.ThrowsExactly<InvalidOperationException>(() => LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider));
+
+            StringAssert.Contains(failure.Message, member);
+        }
+
+        private static LogicBlockIntrospectionResult.ServicePropertyInfo RootProperty(LogicBlockIntrospectionResult result, string serviceIdentifier, string propertyIdentifier)
+        {
+            return result.Services.Single(service => service.Identifier == serviceIdentifier).Properties.Single(property => property.Identifier == propertyIdentifier);
+        }
+    }
+}

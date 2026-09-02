@@ -96,7 +96,7 @@ namespace Vion.Dale.DevHost
         public List<DevContractMapping> ContractMappings { get; set; } = [];
 
         /// <summary>
-        ///     RFC 0016: operator-chosen <c>[InstantiationParameter]</c> values (identifier → JSON scalar)
+        ///     Operator-chosen <c>[InstantiationParameter]</c> values (identifier → JSON scalar)
         ///     from the topology file, applied to the block before <c>Configure</c> so inclusion gates
         ///     resolve at bind time. Null / empty when the instance sets no parameters.
         /// </summary>

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.ExceptionServices;
 using System.Text.Json.Nodes;
 using Vion.Contracts.Codec;
 using Vion.Contracts.Conventions;
@@ -134,7 +135,18 @@ namespace Vion.Dale.Sdk.Introspection
                 throw new InvalidOperationException($"No Configure method found for logic block: {logicBlock.GetType().FullName}");
             }
 
-            configureMethod.Invoke(logicBlock, [builder]);
+            try
+            {
+                configureMethod.Invoke(logicBlock, [builder]);
+            }
+            catch (TargetInvocationException exception) when (exception.InnerException is not null)
+            {
+                // Configure is reached by reflection, so anything it throws arrives wrapped in a
+                // TargetInvocationException whose own message is "Exception has been thrown by the target of
+                // an invocation." — which is what `dale build` and `dotnet pack` would print for a refused
+                // block instead of the reason. Rethrow the real one, stack preserved.
+                ExceptionDispatchInfo.Capture(exception.InnerException).Throw();
+            }
         }
 
         private static List<LogicBlockIntrospectionResult.InterfaceInfo> GetInterfaces(Dictionary<string, LogicSenderInterfaceBase> interfaces)
@@ -283,7 +295,7 @@ namespace Vion.Dale.Sdk.Introspection
                                   InwardRelations = new List<LogicBlockIntrospectionResult.ServiceRelationInfo>(),
                                   OutwardRelations = new List<LogicBlockIntrospectionResult.ServiceRelationInfo>(),
 
-                                  // RFC 0016: the config-time inclusion predicate for a gated component service
+                                  // The config-time inclusion predicate for a gated component service
                                   // (recorded by the service binder in Definition mode); null when unconditional.
                                   IncludedWhen = serviceBinder.GetServiceIncludedWhen(serviceIdentifier),
                               };
@@ -601,7 +613,7 @@ namespace Vion.Dale.Sdk.Introspection
         }
 
         /// <summary>
-        ///     RFC 0016: for an <c>[InstantiationParameter]</c> property, augments the opaque
+        ///     For an <c>[InstantiationParameter]</c> property, augments the opaque
         ///     <c>runtime</c> sibling doc with <c>instantiationParameter: true</c> and <c>default</c>
         ///     (the default-instance's value, JSON-scalar-encoded via
         ///     <see cref="PropertyValueCodec.ClrToJson" /> — enum member-name strings, integers as numbers).

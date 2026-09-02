@@ -525,7 +525,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                                                                                           DiagnosticSeverity.Error,
                                                                                           true);
 
-        // --- Config-time structural gating (RFC 0016 / IncludedWhen + InstantiationParameter) ---
+        // --- Config-time structural gating (IncludedWhen + InstantiationParameter) ---
 
         /// <summary>
         ///     An <c>[IncludedWhen("...")]</c> gate is invalid. Covers: a predicate that does not parse

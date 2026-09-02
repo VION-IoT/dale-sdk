@@ -23,7 +23,7 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
             // gateable (no member to carry [IncludedWhen] — DALE043 enforces this), so they bind unconditionally.
             BindClassBasedInterfaces(logicBlock, interfaceFactory, serviceBinder, type);
 
-            // Handle property-based interfaces with automatic detection (the RFC 0016 gateable path).
+            // Handle property-based interfaces with automatic detection (the gateable path).
             BindPropertyBasedInterfaces(logicBlock,
                                         interfaceFactory,
                                         serviceBinder,
@@ -79,17 +79,26 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
                     continue;
                 }
 
-                // RFC 0016: skip a gated-out interface binding entirely in Live mode (never bound, never
+                // Skip a gated-out interface binding entirely in Live mode (never bound, never
                 // wired, never published). Definition mode always binds and records the predicate.
                 var includedWhen = InclusionGate.ReadPredicate(property);
+                if (includedWhen is not null && mode == BindingMode.Definition)
+                {
+                    InclusionGate.EnsureResolvable(includedWhen, logicBlock, property.Name);
+                }
+
                 if (!InclusionGate.IsIncluded(includedWhen, mode, parameterContext))
                 {
                     continue;
                 }
 
-                // Get the value of the property
+                // A null component cannot serve a message, so Live binding skips it. The definition view
+                // describes the TYPE: an endpoint's identity is the property name and the interface, both
+                // known without an instance — and a client that cannot see the endpoint cannot see the gate
+                // that removes it either. Nothing dispatches in Definition mode, so there is nothing behind it
+                // to need.
                 var propertyValue = property.GetValue(logicBlock);
-                if (propertyValue == null)
+                if (propertyValue == null && mode == BindingMode.Live)
                 {
                     continue;
                 }
@@ -121,7 +130,7 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
             }
         }
 
-        private static void BindLogicInterface(object implementation,
+        private static void BindLogicInterface(object? implementation,
                                                Type implementedLogicInterface,
                                                List<LogicBlockInterfaceBindingAttribute> interfaceAttributes,
                                                IInterfaceFactory interfaceFactory,
@@ -137,7 +146,13 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
             var logicSendInterfaceType = FindLogicSendInterface(implementedLogicInterface);
             var identifier = interfaceAttribute.Identifier ?? defaultIdentifier ?? implementedLogicInterface.Name;
 
-            var logicSendInterfaceInstance = CreateLogicSendInterface(interfaceFactory, logicSendInterfaceType, implementedLogicInterface, identifier, implementation);
+            // A null implementation reaches here only from the definition view, which describes a type rather
+            // than serving messages (BindPropertyBasedInterfaces skips a null component in Live mode). The
+            // factory would hand it to the generated RegisterInstance, whose ConditionalWeakTable refuses a
+            // null key — so the endpoint is described directly instead, with the same identifier, metadata
+            // and relation halves and no dispatch registration behind it.
+            var logicSendInterfaceInstance = implementation is null ? DescribeLogicSendInterface(interfaceFactory, logicSendInterfaceType, implementedLogicInterface, identifier) :
+                                                 CreateLogicSendInterface(interfaceFactory, logicSendInterfaceType, implementedLogicInterface, identifier, implementation);
             ApplyMetadata(logicSendInterfaceInstance, interfaceAttribute, includedWhen);
 
             RegisterServiceRelations(implementedLogicInterface, identifier, serviceBinder, owningServiceIdentifier);
@@ -338,11 +353,25 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
             return implementation;
         }
 
+        // The definition-view path: build the sender instance and register it under its identifier without the
+        // dispatch wiring an implementation would carry. Mirrors what the factory does, minus the extension
+        // registration a null implementation cannot satisfy.
+        private static object DescribeLogicSendInterface(IInterfaceFactory interfaceFactory, Type logicSendInterfaceType, Type logicInterfaceType, string identifier)
+        {
+            var createMethod = typeof(IInterfaceFactory).GetMethod(nameof(IInterfaceFactory.Describe), BindingFlags.Public | BindingFlags.Instance);
+            if (createMethod == null)
+            {
+                throw new InvalidOperationException("Describe method not found on IInterfaceFactory");
+            }
+
+            return createMethod.MakeGenericMethod(logicSendInterfaceType, logicInterfaceType).Invoke(interfaceFactory, [identifier])!;
+        }
+
         private static object CreateLogicSendInterface(IInterfaceFactory interfaceFactory,
                                                        Type logicSendInterfaceType,
                                                        Type logicInterfaceType,
                                                        string identifier,
-                                                       object implementation)
+                                                       object? implementation)
         {
             // Use reflection to call the generic Create method
             var createMethod = typeof(IInterfaceFactory).GetMethod(nameof(IInterfaceFactory.Create), BindingFlags.Public | BindingFlags.Instance);

@@ -49,7 +49,7 @@ namespace Vion.Dale.Sdk.Messages
     ///     Sets some configuration data on the LogicBlock
     ///     ServiceIdLookup: Key = ServiceIdentifier, Value = ServiceIdentifier
     ///     LogicBlockContractIdLookup: Key = ContractIdentifier, Value = LogicBlockContractId
-    ///     InstantiationParameterValues: RFC 0016 operator-chosen config-time values, applied to the block
+    ///     InstantiationParameterValues: the operator-chosen config-time values, applied to the block
     ///     by reflection <b>before</b> <c>Configure</c> so inclusion gates resolve at bind time. Optional
     ///     (defaulted null) so existing construction sites are unaffected.
     /// </summary>

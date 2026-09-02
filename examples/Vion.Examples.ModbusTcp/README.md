@@ -190,7 +190,7 @@ wildly wrong, with `LswToMsw` it is the kW figure the device meant.
   the same bytes. It opens two connections: one carries the poll loop and the watch slots, the other
   carries the reads and writes you trigger by hand, so a slow poll cannot delay a manual command.
 - `LogicBlocks/WatchSlot.cs` — one pinned register. How many slots an instance has is decided at
-  configuration time by the `WatchSlotCount` instantiation parameter (RFC 0016); slots above the count
+  configuration time by the `WatchSlotCount` instantiation parameter; slots above the count
   do not exist rather than sitting empty.
 - `LogicBlocks/ModbusTcpSimServer.cs` — the simulated device described above. It binds `127.0.0.1`
   rather than the SDK server's default `0.0.0.0`, so a wrong address stays wrong and the simulator does
