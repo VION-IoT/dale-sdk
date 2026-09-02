@@ -35,6 +35,12 @@ statement of intent, and focus only on the part relevant to this change. Treat a
 `notes` — decisions the user explicitly set (a naming choice, "one shared helper not four", a deliberate
 breaking change). Check the change against both.
 
+Where the intent is a `docs/specs/` page or a change doc with ids: for every test in the change that
+cites an id (`[TestProperty("spec", …)]`, `[Trait("spec", …)]`, a scenario's `"specs"`), read the
+criterion's **text** against the assertion. `spec-trace` checks that the id exists, not that it says
+what the test proves; a citation for behavior the criterion does not state is a `[blocker]` (spec not
+carried), and so is a criterion whose page text and change-doc delta line disagree.
+
 If **no** path was given: skip intent-conformance entirely. Review only against conventions and general
 quality, and say so at the top of your findings so the coverage gap is explicit — you are not in a
 position to judge whether the change does the right thing, only whether it is done well.

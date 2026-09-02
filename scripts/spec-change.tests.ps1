@@ -74,7 +74,79 @@ status: in-flight
     if (Test-Path $doc) { throw "Case 4: original path still exists" }
     if ((Get-Content -Raw $archived) -notmatch '(?m)^status: archived$') { throw "Case 4: status not flipped" }
 
+    # Case 4b: the id is on the page but the page's bullet does not carry the delta's text -> refuse, doc stays
+    pwsh -NoProfile -File $change new text-drift -RepoRoot $tmp | Out-Null
+    $doc3 = Join-Path $tmp "docs/changes/$today-text-drift.md"
+    Set-Content -LiteralPath $doc3 -NoNewline -Value @'
+---
+slug: text-drift
+status: in-flight
+---
+- ADDED AC-GATE-005.9 -> docs/specs/gating.md : WHEN a predicate is empty THE SYSTEM SHALL report the member ungated.
+'@
+    New-File 'docs/specs/gating.md' @'
+# Gating
+- `AC-GATE-005.9` (Event-driven): WHEN an `[IncludedWhen]` predicate on an `IReadOnlyList<T>` member is
+  empty THE SYSTEM SHALL refuse the gate as one that cannot be resolved.
+'@ | Out-Null
+    pwsh -NoProfile -File $change archive text-drift -RepoRoot $tmp | Out-Null
+    if ($LASTEXITCODE -ne 1) { throw "Case 4b (page text differs from delta) expected 1" }
+    if (-not (Test-Path $doc3)) { throw "Case 4b: doc must not move on refusal" }
+
+    # Case 4c: a MODIFIED line below the ADDED one supersedes it; the page carries the MODIFIED text
+    # wrapped, backticked, with the attribute's brackets and the type's generic argument, and the
+    # delta carries a trailing provenance parenthetical -> archived
+    Add-Content -LiteralPath $doc3 -Value "`n- MODIFIED ``AC-GATE-005.9`` -> docs/specs/gating.md : WHEN an IncludedWhen predicate on an IReadOnlyList member is empty THE SYSTEM SHALL refuse the gate as one that cannot be resolved. (row 64 fix)"
+    pwsh -NoProfile -File $change archive text-drift -RepoRoot $tmp | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "Case 4c (MODIFIED supersedes ADDED; decoration set aside) expected 0" }
+
+    # Case 4d: the id present only in prose, with no declaring bullet -> refuse
+    pwsh -NoProfile -File $change new no-bullet -RepoRoot $tmp | Out-Null
+    $doc4 = Join-Path $tmp "docs/changes/$today-no-bullet.md"
+    Set-Content -LiteralPath $doc4 -NoNewline -Value @'
+---
+slug: no-bullet
+status: in-flight
+---
+- ADDED AC-GATE-006.1 -> docs/specs/gating.md : THE SYSTEM SHALL evaluate nothing while introspecting.
+'@
+    Add-Content -LiteralPath (Join-Path $tmp 'docs/specs/gating.md') -Value "`nAs ``AC-GATE-006.1`` says, nothing is evaluated while introspecting."
+    pwsh -NoProfile -File $change archive no-bullet -RepoRoot $tmp | Out-Null
+    if ($LASTEXITCODE -ne 1) { throw "Case 4d (id in prose, no declaring bullet) expected 1" }
+
+    # Case 4e: a `.10` sibling's bullet never stands in for `.1` - the id is present (as a prefix of the
+    # sibling's), the declaring bullet is not -> refuse
+    pwsh -NoProfile -File $change new sibling -RepoRoot $tmp | Out-Null
+    $doc5 = Join-Path $tmp "docs/changes/$today-sibling.md"
+    Set-Content -LiteralPath $doc5 -NoNewline -Value @'
+---
+slug: sibling
+status: in-flight
+---
+- ADDED AC-GATE-007.1 -> docs/specs/gating.md : THE SYSTEM SHALL keep the endpoint.
+'@
+    Add-Content -LiteralPath (Join-Path $tmp 'docs/specs/gating.md') -Value "`n- ``AC-GATE-007.10`` (Ubiquitous): THE SYSTEM SHALL keep the endpoint."
+    pwsh -NoProfile -File $change archive sibling -RepoRoot $tmp | Out-Null
+    if ($LASTEXITCODE -ne 1) { throw "Case 4e (.10 sibling standing in for .1) expected 1" }
+
+    # Case 4f: a delta line wrapped onto an indented continuation line is compared whole - text on
+    # the second line that the page lacks refuses
+    pwsh -NoProfile -File $change new wrapped -RepoRoot $tmp | Out-Null
+    $doc6 = Join-Path $tmp "docs/changes/$today-wrapped.md"
+    Set-Content -LiteralPath $doc6 -NoNewline -Value @'
+---
+slug: wrapped
+status: in-flight
+---
+- ADDED AC-GATE-008.1 -> docs/specs/gating.md : THE SYSTEM SHALL keep the endpoint
+  and SHALL name it in the failure.
+'@
+    Add-Content -LiteralPath (Join-Path $tmp 'docs/specs/gating.md') -Value "`n- ``AC-GATE-008.1`` (Ubiquitous): THE SYSTEM SHALL keep the endpoint."
+    pwsh -NoProfile -File $change archive wrapped -RepoRoot $tmp | Out-Null
+    if ($LASTEXITCODE -ne 1) { throw "Case 4f (wrapped delta line compared whole) expected 1" }
+
     # Case 5: a non-.md target (a script) satisfies ADDED by existing — covered in Case 4
+
     # (scripts/some-gate.ps1); its absence must refuse.
     pwsh -NoProfile -File $change new second -RepoRoot $tmp | Out-Null
     $doc2 = Join-Path $tmp "docs/changes/$today-second.md"
