@@ -13,9 +13,10 @@
       Refuse unless the change is distilled: every ADDED/MODIFIED id in the
       "Spec delta" is present in its named target and, for an AC-/SYS- id, the
       line's EARS text is carried by the id's declaring bullet there (backticks,
-      wrapping, a GAP tail and a trailing parenthetical set aside; a MODIFIED
-      line supersedes the ADDED line for the same id); every REMOVED id is
-      absent. Then flip status to archived and move the doc to
+      brackets, generic type arguments, wrapping, a GAP tail and a trailing
+      parenthetical set aside; a MODIFIED line supersedes the ADDED line for the
+      same id); every REMOVED id is absent. Then flip status to archived and
+      move the doc to
       docs/changes/archive/. The text check exists because a criterion was
       reworded on a page with no MODIFIED line, so page and delta disagreed
       until a review noticed.
@@ -66,7 +67,9 @@ $raw = Get-Content -Raw $doc.FullName
 # id and target: the last in document order, except that a MODIFIED line is never
 # superseded by an ADDED one — an amendment appends its MODIFIED below the original
 # ADDED, and the MODIFIED text is the current one.
-$deltaRx = '(?m)^\s*-?\s*(ADDED|MODIFIED|REMOVED)\s+(\S+)\s*->\s*([^\s:]+)[ \t]*(?::[ \t]*(?<payload>[^\r\n]*))?'
+# A payload wrapped onto indented continuation lines (never a nested `- ` bullet) is read whole,
+# so a clause on the second line is compared too.
+$deltaRx = '(?m)^\s*-?\s*(ADDED|MODIFIED|REMOVED)\s+(\S+)\s*->\s*([^\s:]+)[ \t]*(?::[ \t]*(?<payload>[^\r\n]*(?:\r?\n[ \t]+(?!-\s)[^\r\n]*)*))?'
 $specIdRx = '^(?:AC|SYS)-[A-Z0-9]+-\d+(?:\.\d+)?$'
 $effective = [ordered]@{}
 foreach ($m in [regex]::Matches($raw, $deltaRx)) {
@@ -80,12 +83,16 @@ foreach ($m in [regex]::Matches($raw, $deltaRx)) {
     $effective[$key] = @{ op = $op; id = $id; target = $target; payload = $m.Groups['payload'].Value.Trim() }
 }
 
-# What a delta line and a page bullet share once formatting is set aside: backticks, line
-# wrapping (pages wrap at 100 columns), a `GAP:` tail, and — on the delta side only — a
-# trailing parenthetical, where passes annotate provenance ("(row 32 fix)"). Dropping text
-# from the delta side alone can only make the containment check more lenient.
+# What a delta line and a page bullet share once formatting is set aside: backticks, the
+# brackets and generic arguments a page adds when it writes a type out (`[ServiceInterface]`,
+# `IChangeThreshold<T>` — one pass's delta lines omitted them five times), line wrapping
+# (pages wrap at 100 columns), a `GAP:` tail, and — on the delta side only — a trailing
+# parenthetical, where passes annotate provenance ("(row 32 fix)"). Dropping text from the
+# delta side alone can only make the containment check more lenient.
 function Get-ComparableText([string]$s, [bool]$dropTrailingParenthetical) {
     $s = $s -replace '`', ''
+    $s = $s -replace '[\[\]]', ''
+    $s = $s -replace '<\w+(?:\s*,\s*\w+)*>', ''
     $s = $s -replace '\s*\bGAP:.*$', ''
     if ($dropTrailingParenthetical) { $s = $s -replace '\s*\([^()]*\)\s*$', '' }
     return ($s -replace '\s+', ' ').Trim()
