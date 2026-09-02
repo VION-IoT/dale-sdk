@@ -449,7 +449,7 @@ namespace Vion.Dale.DevHost.Control
 
                 var result = LogicBlockIntrospection.IntrospectLogicBlock(instance, _serviceProvider);
 
-                // RFC 0016: the DevHost is the local stand-in for cloud-api's LiveViewResolver — resolve the
+                // The DevHost is the local stand-in for cloud-api's LiveViewResolver — resolve the
                 // definition view down to the live view for this instance's topology-set parameters, so the UI
                 // shows exactly the included members (no dead Point3 slot) and the minted service ids match the
                 // set the running block actually binds.
@@ -523,7 +523,7 @@ namespace Vion.Dale.DevHost.Control
         }
 
         /// <summary>
-        ///     RFC 0016: filters a definition-view introspection down to the live view for a set of
+        ///     Filters a definition-view introspection down to the live view for a set of
         ///     instantiation-parameter values — drops any service / interface / contract whose
         ///     <c>[IncludedWhen]</c> predicate resolves false. Mirrors cloud-api's <c>LiveViewResolver</c>;
         ///     the parameter context is the topology-set values overlaid on each parameter's introspected

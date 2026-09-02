@@ -11,7 +11,7 @@ namespace Vion.Dale.Sdk.Generators.Test
     ///     recursive-descent parser. The analyzer <b>parses and type-checks but never evaluates</b>, so
     ///     only the vector's <c>parse</c> cases bind it directly; the <c>eval</c> cases are exercised as a
     ///     grammar cross-check (every evaluatable predicate must be inside the parse grammar). The
-    ///     semantics of the <c>eval</c> cases are the JS/TS evaluators' and RFC 0016's future C# evaluator's
+    ///     semantics of the <c>eval</c> cases are the JS/TS evaluators' and the C# evaluator's
     ///     responsibility.
     ///     <para />
     ///     Source of truth: vion-contracts <c>Predicates/predicate-conformance.json</c> +

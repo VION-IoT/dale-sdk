@@ -6,7 +6,7 @@ namespace Vion.Dale.DevHost.SmokeHost.LogicBlocks
     /// <summary>
     ///     One charge point — a service-bearing component (its own <c>[ServiceProperty]</c> + measuring
     ///     point) whose whole existence is gated by the station's <c>PointCount</c> parameter. Gating the
-    ///     property that holds it gates the entire component service (RFC 0016).
+    ///     property that holds it gates the entire component service.
     /// </summary>
     public class ChargePoint
     {
@@ -19,7 +19,7 @@ namespace Vion.Dale.DevHost.SmokeHost.LogicBlocks
     }
 
     /// <summary>
-    ///     RFC 0016 config-time structural gating showcase. The block declares a <b>static maximum</b> of
+    ///     Config-time structural gating showcase. The block declares a <b>static maximum</b> of
     ///     three charge points; the operator-chosen <c>[InstantiationParameter] PointCount</c> decides how
     ///     many are part of the configured instance. A topology sets <c>PointCount</c> (applied before
     ///     <c>Configure</c>), so the DevHost shows <b>exactly</b> that many point services — <c>Point1</c>

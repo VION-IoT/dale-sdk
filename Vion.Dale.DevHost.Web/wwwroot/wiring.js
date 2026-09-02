@@ -28,7 +28,7 @@ export function candidatesFor(definitions, instances, sourceName, sourceInterfac
     for (const inst of instances) {
         if (inst.name === sourceName) continue;
         for (const tIface of interfacesOf(definitions, inst)) {
-            // Skip a target the chosen parameters gate out — wiring to it would be a dangling link (RFC 0016).
+            // Skip a target the chosen parameters gate out — wiring to it would be a dangling link.
             if (interfaceGatedOut(definitions, inst, tIface.identifier)) continue;
             if (interfacesMatch(srcIface, tIface)) out.push({ targetName: inst.name, targetInterface: tIface.identifier });
         }
@@ -110,7 +110,7 @@ export function problemsOf(definitions, instances, mappings) {
     return problems;
 }
 
-// RFC 0016: a mapping whose endpoint is gated OUT by [IncludedWhen] for the instance's chosen
+// A mapping whose endpoint is gated OUT by [IncludedWhen] for the instance's chosen
 // [InstantiationParameter] values is a hidden link / contract — it would not exist at runtime, so flag it at
 // edit time (the server validate is gating-agnostic). Returns [{ mappingIndex?, kind:'gated-out', message }] —
 // interface-mapping problems carry the mapping index (per-row accent); contract-mapping ones are footer-only.
@@ -180,7 +180,7 @@ export function contractsOf(definitions, instance) {
     const def = defByType(definitions, instance.typeFullName);
     return def ? (def.contracts || []) : [];
 }
-// Whether a contract binding is gated OUT by [IncludedWhen] for the instance's chosen parameters (RFC 0016) —
+// Whether a contract binding is gated OUT by [IncludedWhen] for the instance's chosen parameters —
 // the contract twin of interfaceGatedOut. Pairing one would declare a wire onto an endpoint that never exists.
 export function contractGatedOut(definitions, instance, contractIdentifier) {
     const def = defByType(definitions, instance.typeFullName);

@@ -357,7 +357,7 @@ namespace Vion.Dale.DevHost.Test
         [TestProperty("spec", "AC-GATE-012.6")]
         public void LogicBlockDefinition_FromType_CarriesInstantiationParametersAndGatePredicates()
         {
-            // RFC 0016: the catalog projects each [InstantiationParameter]'s identifier + JSON schema + default,
+            // The catalog projects each [InstantiationParameter]'s identifier + JSON schema + default,
             // and the [IncludedWhen] predicate on each gated interface/contract binding — the metadata the
             // topology-authoring client renders a parameter editor from, and evaluates to flag a mapping to a
             // gated-out member. GatedCatalogFixture declares [InstantiationParameter] int Count (default 1) and a

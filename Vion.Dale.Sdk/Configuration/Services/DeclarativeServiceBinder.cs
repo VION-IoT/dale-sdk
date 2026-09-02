@@ -15,7 +15,7 @@ namespace Vion.Dale.Sdk.Configuration.Services
 
             // Class-level service: one per logic block, identified by the class name.
             // The dropped [Service] attribute previously allowed overriding the identifier; without
-            // it, the class name is canonical. The root service is never gated (RFC 0016 placement matrix:
+            // it, the class name is canonical. The root service is never gated (the placement matrix says
             // whole-block existence = the operator adds the instance or not).
             var implementedServiceInterfaces = ServiceSurface.GetImplementedServiceInterfaces(type);
             var service = binder.CreateService(type.Name);
@@ -52,7 +52,7 @@ namespace Vion.Dale.Sdk.Configuration.Services
                     continue;
                 }
 
-                // RFC 0016: skip a gated-out component service entirely in Live mode (its whole service —
+                // Skip a gated-out component service entirely in Live mode (its whole service —
                 // all properties + measuring points — falls out by construction). Definition mode binds and
                 // records the predicate for ServiceInfo.IncludedWhen.
                 var includedWhen = InclusionGate.ReadPredicate(property);

@@ -18,7 +18,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
     ///     name) for properties whose type carries service members. Each source-authored predicate is
     ///     parsed (grammar of <c>docs/predicates.md</c> §2.2), its references resolved against that map
     ///     (§3), and type-checked (§2.3). The analyzer <b>never evaluates</b> — strict-profile C#
-    ///     evaluation is RFC 0016's job.
+    ///     evaluation is the runtime's job.
     /// </summary>
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class VisibleWhenPredicateAnalyzer : DiagnosticAnalyzer

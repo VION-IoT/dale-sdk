@@ -8,7 +8,7 @@ using Vion.Dale.Sdk.Generators.Test.Helpers;
 namespace Vion.Dale.Sdk.Generators.Test
 {
     /// <summary>
-    ///     DALE044 coverage for <c>InstantiationParameterAnalyzer</c> (RFC 0016 §2.2). Positive cases assert
+    ///     DALE044 coverage for <c>InstantiationParameterAnalyzer</c>. Positive cases assert
     ///     a well-formed parameter produces no diagnostic; negative cases assert DALE044 fires (the message
     ///     is intentionally not pinned).
     /// </summary>

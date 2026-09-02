@@ -138,7 +138,7 @@ namespace Vion.Dale.DevHost.Test
         [TestProperty("spec", "AC-GATE-012.2")]
         public void CarryInstantiationParametersFromTheTopologyFileThroughBuild()
         {
-            // RFC 0016: the instantiationParameters field crosses the file → model → DevConfiguration layer.
+            // The instantiationParameters field crosses the file → model → DevConfiguration layer.
             var topology = DevTopologyFile.Parse($$"""
                                                    {
                                                      "id": "gated",
@@ -207,7 +207,7 @@ namespace Vion.Dale.DevHost.Test
         [TestMethod]
         public void RoundTripInstantiationParametersThroughTheEditorSave()
         {
-            // RFC 0016: the editor Save re-serializes a fixed field set — instantiationParameters must survive it.
+            // The editor Save re-serializes a fixed field set — instantiationParameters must survive it.
             var dir = Path.Combine(Path.GetTempPath(), "dale-topo-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(dir);
             try
@@ -252,7 +252,7 @@ namespace Vion.Dale.DevHost.Test
             var schema = await response.Content.ReadAsStringAsync();
             StringAssert.Contains(schema, "logicBlockInstances");
             StringAssert.Contains(schema, "mappedServiceProviderIdentifier");
-            StringAssert.Contains(schema, "instantiationParameters"); // RFC 0016 — the served schema declares the field
+            StringAssert.Contains(schema, "instantiationParameters"); // The served schema declares the field
         }
 
         [TestMethod]

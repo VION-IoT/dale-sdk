@@ -2,7 +2,7 @@ namespace Vion.Dale.Sdk.Configuration
 {
     /// <summary>
     ///     Selects how the declarative binders treat <see cref="Vion.Dale.Sdk.Core.IncludedWhenAttribute" />
-    ///     inclusion gates (RFC 0016 config-time structural gating).
+    ///     inclusion gates.
     /// </summary>
     public enum BindingMode
     {

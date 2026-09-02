@@ -23,7 +23,7 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
             // gateable (no member to carry [IncludedWhen] — DALE043 enforces this), so they bind unconditionally.
             BindClassBasedInterfaces(logicBlock, interfaceFactory, serviceBinder, type);
 
-            // Handle property-based interfaces with automatic detection (the RFC 0016 gateable path).
+            // Handle property-based interfaces with automatic detection (the gateable path).
             BindPropertyBasedInterfaces(logicBlock,
                                         interfaceFactory,
                                         serviceBinder,
@@ -79,7 +79,7 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
                     continue;
                 }
 
-                // RFC 0016: skip a gated-out interface binding entirely in Live mode (never bound, never
+                // Skip a gated-out interface binding entirely in Live mode (never bound, never
                 // wired, never published). Definition mode always binds and records the predicate.
                 var includedWhen = InclusionGate.ReadPredicate(property);
                 if (!InclusionGate.IsIncluded(includedWhen, mode, parameterContext))

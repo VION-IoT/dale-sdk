@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 namespace Vion.Dale.DevHost.Test
 {
     /// <summary>
-    ///     RFC 0016 — the DevHost is the local stand-in for cloud-api's LiveViewResolver: a gated block's
+    ///     The DevHost is the local stand-in for cloud-api's LiveViewResolver: a gated block's
     ///     introspection is filtered to the live view for its topology-set <c>[InstantiationParameter]</c>
     ///     values, so the UI shows exactly the included services (no dead gated-out slot) and the minted
     ///     service ids match the set the running block binds. Drives the committed SmokeHost gated block.

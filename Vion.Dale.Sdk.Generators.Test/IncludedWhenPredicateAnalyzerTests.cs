@@ -8,7 +8,7 @@ using Vion.Dale.Sdk.Generators.Test.Helpers;
 namespace Vion.Dale.Sdk.Generators.Test
 {
     /// <summary>
-    ///     DALE043 / DALE044 coverage for <c>IncludedWhenPredicateAnalyzer</c> (RFC 0016). Positive cases
+    ///     DALE043 / DALE044 coverage for <c>IncludedWhenPredicateAnalyzer</c>. Positive cases
     ///     assert a well-formed gate produces no diagnostic; negative cases assert the right diagnostic id
     ///     fires at the predicate string (the message text is intentionally not pinned).
     /// </summary>

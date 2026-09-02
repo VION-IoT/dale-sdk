@@ -11,7 +11,7 @@ namespace Vion.Dale.Sdk.Configuration
 {
     /// <summary>
     ///     Shared resolution of <see cref="IncludedWhenAttribute" /> gates for the three declarative
-    ///     binders (RFC 0016). One authority so interface, contract, and service binders resolve the
+    ///     binders. One authority so interface, contract, and service binders resolve the
     ///     same gate identically for a given instance.
     /// </summary>
     internal static class InclusionGate

@@ -9,10 +9,10 @@ using Vion.Dale.Sdk.Generators.Predicates;
 namespace Vion.Dale.Sdk.Generators.Analyzers
 {
     /// <summary>
-    ///     DALE043 / DALE044 — validates <c>[IncludedWhen("...")]</c> inclusion gates (RFC 0016).
+    ///     DALE043 / DALE044 — validates <c>[IncludedWhen("...")]</c> inclusion gates.
     ///     <para />
     ///     Registered on the logic-block <see cref="INamedTypeSymbol" />. For each gated member it enforces
-    ///     the §2.3 placement matrix (only a property-based interface binding, a contract binding, or a
+    ///     the placement matrix (only a property-based interface binding, a contract binding, or a
     ///     service-bearing component is gateable — never a scalar service member, a <c>[Timer]</c> method,
     ///     a class-implemented interface, or the block class itself), parses the predicate, rejects
     ///     qualified references and re-gated <c>override</c>/<c>new</c> members, resolves bare references

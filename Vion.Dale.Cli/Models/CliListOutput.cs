@@ -39,7 +39,7 @@ namespace Vion.Dale.Cli.Models
         public string Name { get; set; } = string.Empty;
 
         /// <summary>
-        ///     Config-time inclusion gate (RFC 0016): the [IncludedWhen] predicate when the service
+        ///     Config-time inclusion gate: the [IncludedWhen] predicate when the service
         ///     is gated, otherwise null.
         /// </summary>
         public string? IncludedWhen { get; set; }

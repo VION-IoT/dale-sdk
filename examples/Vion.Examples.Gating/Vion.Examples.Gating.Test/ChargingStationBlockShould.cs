@@ -7,7 +7,7 @@ using Xunit;
 namespace Vion.Examples.Gating.Test
 {
     /// <summary>
-    ///     Proves RFC 0016 config-time structural gating on <see cref="ChargingStationBlock" /> across every
+    ///     Proves config-time structural gating on <see cref="ChargingStationBlock" /> across every
     ///     gateable member kind and every parameter type. The TestKit applies each
     ///     <c>[InstantiationParameter]</c> through the same JSON channel a topology uses
     ///     (<c>WithInstantiationParameter</c>), before <c>Configure</c>, so the gates resolve against it. A

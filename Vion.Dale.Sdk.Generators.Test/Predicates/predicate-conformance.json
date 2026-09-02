@@ -5,7 +5,7 @@
 //   doc:   docs/predicates.md
 // This copy is the drift guard for the dale-sdk analyzer's recursive-descent parser
 // (parse cases; the analyzer never evaluates). The eval array now carries "profile": "strict"
-// cases and fail-closed "error": true cases (RFC 0016); the parse harness ignores the eval
+// cases and fail-closed "error": true cases; the parse harness ignores the eval
 // outcome and only cross-checks that every eval predicate is inside the grammar. Re-sync
 // manually when the canonical vector changes and bump the sha above. Read with JsonCommentHandling.Skip.
 {

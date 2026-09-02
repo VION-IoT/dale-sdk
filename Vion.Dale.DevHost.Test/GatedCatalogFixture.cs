@@ -5,7 +5,7 @@ namespace Vion.Dale.DevHost.Test
 {
     /// <summary>
     ///     A catalog fixture with an <c>[InstantiationParameter]</c> and a <c>[IncludedWhen]</c>-gated contract
-    ///     binding (over the SmokeHost's <c>IGridDemand</c>), so the RFC 0016 catalog projection — parameter
+    ///     binding (over the SmokeHost's <c>IGridDemand</c>), so the catalog projection — parameter
     ///     schemas + per-member gate predicates on <see cref="Topologies.LogicBlockDefinition" /> — has something
     ///     to exercise by reflection alone.
     /// </summary>

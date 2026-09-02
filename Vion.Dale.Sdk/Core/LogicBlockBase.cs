@@ -204,7 +204,7 @@ namespace Vion.Dale.Sdk.Core
                                      Id,
                                      m.LogicBlockContractIdLookup.Count);
 
-                    // RFC 0016: apply operator-chosen [InstantiationParameter] values to the CLR properties
+                    // Apply operator-chosen [InstantiationParameter] values to the CLR properties
                     // BEFORE Configure, so the Live-mode binders resolve [IncludedWhen] gates against them.
                     ApplyInstantiationParameters(m.InstantiationParameterValues);
 
@@ -226,7 +226,7 @@ namespace Vion.Dale.Sdk.Core
 
                     foreach (var (identifier, logicBlockContractId) in m.LogicBlockContractIdLookup)
                     {
-                        // RFC 0016: a mapping may target a contract that was gated out by [IncludedWhen], so it
+                        // A mapping may target a contract that was gated out by [IncludedWhen], so it
                         // was never bound and is absent from _contracts. Skip-and-warn instead of throwing a
                         // KeyNotFoundException that would take the whole block down. The cloud path rejects such
                         // mappings at activation; this guards the non-cloud paths (DevHost, TestKit, stale or
@@ -283,7 +283,7 @@ namespace Vion.Dale.Sdk.Core
                 case SetLinkedInterfaces m: // initialization
                     foreach (var (interfaceId, linkedInterfaces) in m.LinkedInterfaceIds)
                     {
-                        // RFC 0016: a mapping may target an interface gated out by [IncludedWhen] on this block, so
+                        // A mapping may target an interface gated out by [IncludedWhen] on this block, so
                         // it was never bound and is absent from _interfaces. Skip-and-warn instead of throwing a
                         // KeyNotFoundException that would take the whole block down — mirror of the gated-out
                         // contract-mapping guard above.
@@ -381,7 +381,7 @@ namespace Vion.Dale.Sdk.Core
                     break;
 
                 case IFunctionInterfaceMessage m: // delegate to logic interface
-                    // RFC 0016: a sender may route to an interface that was gated out by [IncludedWhen] on this
+                    // A sender may route to an interface that was gated out by [IncludedWhen] on this
                     // block (a topology interfaceMapping to a now-absent endpoint), so it is not in _interfaces.
                     // Skip-and-warn instead of throwing a KeyNotFoundException that would take the block down —
                     // mirror of the gated-out contract-mapping guard.
@@ -556,7 +556,7 @@ namespace Vion.Dale.Sdk.Core
         {
             var mode = configurationBuilder.Mode;
 
-            // RFC 0016: in Live mode the binders resolve [IncludedWhen] gates against this instance's
+            // In Live mode the binders resolve [IncludedWhen] gates against this instance's
             // current [InstantiationParameter] values (applied pre-Configure, or the C# defaults when none
             // were supplied), encoded to the shared JSON-scalar form. Definition mode binds the full set.
             var parameterContext = mode == BindingMode.Live ? InclusionGate.BuildParameterContext(this) : null;
@@ -573,7 +573,7 @@ namespace Vion.Dale.Sdk.Core
         }
 
         /// <summary>
-        ///     RFC 0016: applies the operator-chosen <c>[InstantiationParameter]</c> values from the config
+        ///     Applies the operator-chosen <c>[InstantiationParameter]</c> values from the config
         ///     payload onto this block's CLR properties by reflection, <b>before</b> <see cref="Configure" />
         ///     runs the Live-mode binders that read them to resolve inclusion gates. The decode schema is built
         ///     from each property's <see cref="PropertyInfo" /> via <see cref="TypeRefBuilder.BuildForProperty" />

@@ -185,7 +185,7 @@ namespace Vion.Dale.Sdk.Test.Configuration.Services
         }
     }
 
-    /// <summary>An RFC 0016-gated component endpoint.</summary>
+    /// <summary>A gated component endpoint.</summary>
     public sealed class GatedConsumerBlock : LogicBlockBase
     {
         [ServiceProperty(Title = "Ladepunkte", Minimum = 1, Maximum = 2)]
@@ -367,7 +367,7 @@ namespace Vion.Dale.Sdk.Test.Configuration.Services
             CollectionAssert.AreEqual(expected, services.OrderBy(s => s.Key, StringComparer.Ordinal).Select(s => Describe(s.Key, s.Value)).ToArray());
         }
 
-        // ── RFC 0016 gating interplay (§5) ────────────────────────────────────────────────────────
+        // ── Config-time gating interplay ────────────────────────────────────────────────────────
 
         [TestMethod]
         public void EmitGatedComponentHalvesInDefinitionModeAndOmitThemWhenGatedOutLive()

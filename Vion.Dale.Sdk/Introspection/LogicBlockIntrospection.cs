@@ -283,7 +283,7 @@ namespace Vion.Dale.Sdk.Introspection
                                   InwardRelations = new List<LogicBlockIntrospectionResult.ServiceRelationInfo>(),
                                   OutwardRelations = new List<LogicBlockIntrospectionResult.ServiceRelationInfo>(),
 
-                                  // RFC 0016: the config-time inclusion predicate for a gated component service
+                                  // The config-time inclusion predicate for a gated component service
                                   // (recorded by the service binder in Definition mode); null when unconditional.
                                   IncludedWhen = serviceBinder.GetServiceIncludedWhen(serviceIdentifier),
                               };
@@ -601,7 +601,7 @@ namespace Vion.Dale.Sdk.Introspection
         }
 
         /// <summary>
-        ///     RFC 0016: for an <c>[InstantiationParameter]</c> property, augments the opaque
+        ///     For an <c>[InstantiationParameter]</c> property, augments the opaque
         ///     <c>runtime</c> sibling doc with <c>instantiationParameter: true</c> and <c>default</c>
         ///     (the default-instance's value, JSON-scalar-encoded via
         ///     <see cref="PropertyValueCodec.ClrToJson" /> — enum member-name strings, integers as numbers).

@@ -303,7 +303,7 @@ namespace Vion.Dale.DevHost
                 }
             }
 
-            // Property-based interfaces — gateable, so carry the property's [IncludedWhen] predicate (RFC 0016).
+            // Property-based interfaces — gateable, so carry the property's [IncludedWhen] predicate.
             var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
             foreach (var property in properties)
             {

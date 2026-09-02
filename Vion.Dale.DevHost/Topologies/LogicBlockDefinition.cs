@@ -27,7 +27,7 @@ namespace Vion.Dale.DevHost.Topologies
         public required IReadOnlyList<DefinitionContract> Contracts { get; set; }
 
         /// <summary>
-        ///     RFC 0016: the block's <c>[InstantiationParameter]</c> properties (identifier + JSON schema + default),
+        ///     The block's <c>[InstantiationParameter]</c> properties (identifier + JSON schema + default),
         ///     so a topology-authoring client can render a per-instance parameter editor and evaluate the
         ///     <c>[IncludedWhen]</c> gates on <see cref="DefinitionInterface.IncludedWhen" /> /
         ///     <see cref="DefinitionContract.IncludedWhen" /> against the chosen values. Empty when the block declares none.
@@ -210,7 +210,7 @@ namespace Vion.Dale.DevHost.Topologies
         public required LinkMultiplicity Multiplicity { get; set; }
 
         /// <summary>
-        ///     RFC 0016: the <c>[IncludedWhen]</c> predicate that gates this (property-based) interface binding, or
+        ///     The <c>[IncludedWhen]</c> predicate that gates this (property-based) interface binding, or
         ///     <c>null</c> when ungated (class-level bindings are always unconditional). A client evaluates it against
         ///     the instance's chosen <c>[InstantiationParameter]</c> values to know whether a mapping to this interface
         ///     would target a gated-out endpoint.
@@ -225,7 +225,7 @@ namespace Vion.Dale.DevHost.Topologies
 
         public required string MatchingContractType { get; set; }
 
-        /// <summary>RFC 0016: the <c>[IncludedWhen]</c> predicate gating this contract binding, or <c>null</c> when ungated.</summary>
+        /// <summary>The <c>[IncludedWhen]</c> predicate gating this contract binding, or <c>null</c> when ungated.</summary>
         public string? IncludedWhen { get; set; }
     }
 

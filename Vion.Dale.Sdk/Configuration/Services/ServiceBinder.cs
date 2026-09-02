@@ -12,7 +12,7 @@ namespace Vion.Dale.Sdk.Configuration.Services
     {
         public static readonly Type ExtraPropsKey = typeof(ExtraPropertiesSentinel);
 
-        // serviceIdentifier → RFC 0016 [IncludedWhen] predicate (Definition mode only; Live mode skips
+        // serviceIdentifier → [IncludedWhen] predicate (Definition mode only; Live mode skips
         // gated-out services rather than recording them). Consumed by LogicBlockIntrospection to populate
         // ServiceInfo.IncludedWhen.
         private readonly Dictionary<string, string> _serviceIncludedWhen = [];
@@ -118,7 +118,7 @@ namespace Vion.Dale.Sdk.Configuration.Services
         }
 
         /// <summary>
-        ///     RFC 0016: records a config-time inclusion predicate for a property-based service (Definition
+        ///     Records a config-time inclusion predicate for a property-based service (Definition
         ///     mode). The predicate is emitted into <c>ServiceInfo.IncludedWhen</c> by the introspection.
         /// </summary>
         public void RegisterServiceIncludedWhen(string serviceIdentifier, string includedWhen)
@@ -127,7 +127,7 @@ namespace Vion.Dale.Sdk.Configuration.Services
         }
 
         /// <summary>
-        ///     RFC 0016: the config-time inclusion predicate recorded for the given service, or <c>null</c>
+        ///     The config-time inclusion predicate recorded for the given service, or <c>null</c>
         ///     when the service is unconditional.
         /// </summary>
         public string? GetServiceIncludedWhen(string serviceIdentifier)

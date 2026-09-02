@@ -11,7 +11,7 @@ using Vion.Dale.Sdk.Generators.Predicates;
 namespace Vion.Dale.Sdk.Generators.Analyzers
 {
     /// <summary>
-    ///     DALE044 — enforces the discipline of <c>[InstantiationParameter]</c> (RFC 0016 §2.2). A
+    ///     DALE044 — enforces the discipline of <c>[InstantiationParameter]</c>. A
     ///     parameter must be declared on the logic-block class (not a component), paired with
     ///     <c>[ServiceProperty]</c>, a discrete scalar (bool / enum / integer / string), never
     ///     <c>WriteOnly</c>, an auto-property (no computed getter), and must not be re-declared on an

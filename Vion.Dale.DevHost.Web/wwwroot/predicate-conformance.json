@@ -1,5 +1,5 @@
 {
-  "_provenance": "VENDORED from github.com/VION-IoT/vion-contracts @ d150d91 — Vion.Contracts/Predicates/predicate-conformance.json (docs/predicates.md). Re-sync manually; near-write-once. Kept as strict JSON (fetched by the browser self-test); provenance rides this key instead of a comment header. eval carries profile:strict + error:true cases (RFC 0016) that the UI self-test skips.",
+  "_provenance": "VENDORED from github.com/VION-IoT/vion-contracts @ d150d91 — Vion.Contracts/Predicates/predicate-conformance.json (docs/predicates.md). Re-sync manually; near-write-once. Kept as strict JSON (fetched by the browser self-test); provenance rides this key instead of a comment header. eval carries profile:strict + error:true cases that the UI self-test skips.",
   "eval": [
     {
       "name": "bool comparison, equal",

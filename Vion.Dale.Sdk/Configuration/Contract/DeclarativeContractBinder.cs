@@ -28,7 +28,7 @@ namespace Vion.Dale.Sdk.Configuration.Contract
 
             foreach (var property in contractProperties)
             {
-                // RFC 0016: skip a gated-out contract binding entirely in Live mode. The property is left
+                // Skip a gated-out contract binding entirely in Live mode. The property is left
                 // at its default — for a contract that means NULL (the binder is what constructs it), the
                 // documented authoring hazard (declare gated contract properties nullable, gate the fan-out).
                 var includedWhen = InclusionGate.ReadPredicate(property);
