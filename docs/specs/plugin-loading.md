@@ -99,8 +99,9 @@ must have **one** identity across all of them, or actor message routing stops ma
 opts in with `[assembly: DaleSharedAssembly]`; the first plugin to bind it loads it, and every other
 plugin gets that same instance.
 
-Applied today by `Vion.Dale.Sdk.DigitalIo`, `Vion.Dale.Sdk.AnalogIo`, `Vion.Dale.Sdk.Modbus.Core`
-and `Vion.Dale.Sdk.Modbus.Rtu`.
+The SDK's own extension assemblies whose types travel in cross-plugin messages mark themselves the
+same way any third-party library does — the set is grep-enumerable
+(`assembly: DaleSharedAssembly`), never curated in prose.
 
 - `AC-PLUG-005.1` (Event-driven): WHEN a plugin binds to an assembly in its own directory that is
   marked `[DaleSharedAssembly]` and no shared instance for that simple name exists, THE SYSTEM SHALL
@@ -173,9 +174,6 @@ instances loaded so far — which `Vion.Dale.LogicBlockParser` enumerates for ex
 
 - `AC-PLUG-007.1` (Event-driven): WHEN eager loading of shared extensions is requested THE SYSTEM
   SHALL load every assembly in the plugin directory that is marked `[DaleSharedAssembly]`.
-- `AC-PLUG-007.2` (Event-driven): GAP: no independent observable. WHEN eager loading
-  reaches an assembly whose simple name already has a shared instance THE SYSTEM SHALL leave that
-  instance in place.
 - `AC-PLUG-007.3` (Ubiquitous): THE SYSTEM SHALL expose the shared extension instances loaded so
   far, whichever plugin load context loaded each one.
 - `AC-PLUG-007.4` (Event-driven): WHEN eager loading of shared extensions is requested for a
