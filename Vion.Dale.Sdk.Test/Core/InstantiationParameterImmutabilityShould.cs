@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Text.Json.Nodes;
 using Vion.Contracts.Events.CloudToMesh;
@@ -67,6 +68,42 @@ namespace Vion.Dale.Sdk.Test.Core
 
             // Assert
             Assert.IsTrue(block.Point1.Active);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-004.1")]
+        public void RefuseSecondConfiguration()
+        {
+            // Arrange
+            var block = new GatedCountBlock();
+            var harness = new GatingHarness();
+            harness.Configure(block, StationServices, Parameter(nameof(GatedCountBlock.PointCount), 2));
+
+            // Act / Assert
+            var failure = Assert.ThrowsExactly<InvalidOperationException>(() => harness.Send(block,
+                                                                                             GatingHarness.Initialize(StationServices,
+                                                                                                                      Parameter(nameof(GatedCountBlock.PointCount), 3))));
+
+            StringAssert.Contains(failure.Message, "already configured");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-004.1")]
+        public void KeepBoundMembersOnRefusedSecondConfiguration()
+        {
+            // Arrange
+            var block = new GatedCountBlock();
+            var harness = new GatingHarness();
+            harness.Configure(block, StationServices, Parameter(nameof(GatedCountBlock.PointCount), 2));
+
+            // Act
+            Assert.ThrowsExactly<InvalidOperationException>(() => harness.Send(block,
+                                                                               GatingHarness.Initialize(StationServices,
+                                                                                                        Parameter(nameof(GatedCountBlock.PointCount), 3))));
+
+            // Assert
+            CollectionAssert.AreEquivalent(new[] { nameof(GatedCountBlock), nameof(GatedCountBlock.Point1), "Point2" }, harness.BoundServices().ToArray());
+            Assert.AreEqual(2, block.PointCount);
         }
 
         private static SetLogicConfigurationPayload.InstantiationParameterValue Parameter(string identifier, int value)

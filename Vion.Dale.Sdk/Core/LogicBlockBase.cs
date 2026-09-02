@@ -75,6 +75,11 @@ namespace Vion.Dale.Sdk.Core
         // forces the policy active even though the injected clock is controllable.
         private bool _forcePolicyFromAttributes;
 
+        // Set the moment InitializeLogicBlock is accepted, so a second one is refused rather than rebinding
+        // onto the members the first already bound. Set before Configure runs, so a configuration that
+        // throws part-way still counts as spent — the instance is unusable either way.
+        private bool _configured;
+
         private bool _initializeDeferred;
 
         private IActorReference _persistenceManagerActorRef = null!; // set during initialization
@@ -167,6 +172,18 @@ namespace Vion.Dale.Sdk.Core
                     break;
 
                 case InitializeLogicBlock m: // initialization
+                    // Configuration happens once per instance. The binders register onto collections that
+                    // only grow, so a second pass would add a member a widened gate now includes and leave
+                    // one a narrowed gate no longer does — an instance whose reported configuration and bound
+                    // shape disagree, with nothing to notice it. Changing an [InstantiationParameter] value or
+                    // an [IncludedWhen] outcome is a re-activation, which re-instantiates the block.
+                    if (_configured)
+                    {
+                        throw new InvalidOperationException($"Logic block '{Name}' ({Id}) is already configured and cannot be configured again. " +
+                                                            "A different [InstantiationParameter] value re-instantiates the block; re-activate the configuration instead of re-sending its configuration message.");
+                    }
+
+                    _configured = true;
                     Id = m.LogicBlockId;
                     Name = m.LogicBlockName;
 
