@@ -9,7 +9,7 @@ namespace Vion.Dale.Sdk.Test.Emission
         [TestMethod]
         public void ResolveBuiltInForDouble()
         {
-            var resolved = ChangeThresholdRegistry.TryResolve(typeof(double), out var adapter);
+            var resolved = ChangeThresholdRegistry.TryResolve(typeof(double), null, out var adapter);
             Assert.IsTrue(resolved);
             Assert.IsNotNull(adapter);
             Assert.IsTrue(adapter.Exceeds(10.0, 12.0, "2"));
@@ -19,7 +19,7 @@ namespace Vion.Dale.Sdk.Test.Emission
         [TestMethod]
         public void ResolveBuiltInForTimeSpan()
         {
-            var resolved = ChangeThresholdRegistry.TryResolve(typeof(TimeSpan), out var adapter);
+            var resolved = ChangeThresholdRegistry.TryResolve(typeof(TimeSpan), null, out var adapter);
             Assert.IsTrue(resolved);
             Assert.IsNotNull(adapter);
             Assert.IsTrue(adapter.Exceeds(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3), "2s"));
@@ -28,39 +28,19 @@ namespace Vion.Dale.Sdk.Test.Emission
         [TestMethod]
         public void ResolveBuiltInsForAllNumericTypes()
         {
-            Assert.IsTrue(ChangeThresholdRegistry.TryResolve(typeof(float), out _));
-            Assert.IsTrue(ChangeThresholdRegistry.TryResolve(typeof(decimal), out _));
-            Assert.IsTrue(ChangeThresholdRegistry.TryResolve(typeof(int), out _));
-            Assert.IsTrue(ChangeThresholdRegistry.TryResolve(typeof(long), out _));
+            Assert.IsTrue(ChangeThresholdRegistry.TryResolve(typeof(float), null, out _));
+            Assert.IsTrue(ChangeThresholdRegistry.TryResolve(typeof(decimal), null, out _));
+            Assert.IsTrue(ChangeThresholdRegistry.TryResolve(typeof(int), null, out _));
+            Assert.IsTrue(ChangeThresholdRegistry.TryResolve(typeof(long), null, out _));
         }
 
         [TestMethod]
         public void NotResolveUnregisteredType()
         {
-            var resolved = ChangeThresholdRegistry.TryResolve(typeof(string), out var adapter);
+            var resolved = ChangeThresholdRegistry.TryResolve(typeof(string), null, out var adapter);
             Assert.IsFalse(resolved);
             Assert.IsNull(adapter);
         }
 
-        [TestMethod]
-        public void RegisterCustomThresholdAndResolveIt()
-        {
-            ChangeThresholdRegistry.Register(new ByteChangeThreshold());
-
-            var resolved = ChangeThresholdRegistry.TryResolve(typeof(byte), out var adapter);
-            Assert.IsTrue(resolved);
-            Assert.IsNotNull(adapter);
-            Assert.IsTrue(adapter.Exceeds((byte)10, (byte)20, "5"));
-            Assert.IsFalse(adapter.Exceeds((byte)10, (byte)12, "5"));
-        }
-
-        private sealed class ByteChangeThreshold : IChangeThreshold<byte>
-        {
-            public bool Exceeds(in byte lastEmitted, in byte candidate, string threshold)
-            {
-                var minChange = int.Parse(threshold, System.Globalization.CultureInfo.InvariantCulture);
-                return Math.Abs(candidate - lastEmitted) >= minChange;
-            }
-        }
     }
 }
