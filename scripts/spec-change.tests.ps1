@@ -74,7 +74,48 @@ status: in-flight
     if (Test-Path $doc) { throw "Case 4: original path still exists" }
     if ((Get-Content -Raw $archived) -notmatch '(?m)^status: archived$') { throw "Case 4: status not flipped" }
 
+    # Case 4b: the id is on the page but the page's bullet does not carry the delta's text -> refuse, doc stays
+    pwsh -NoProfile -File $change new text-drift -RepoRoot $tmp | Out-Null
+    $doc3 = Join-Path $tmp "docs/changes/$today-text-drift.md"
+    Set-Content -LiteralPath $doc3 -NoNewline -Value @'
+---
+slug: text-drift
+status: in-flight
+---
+- ADDED AC-GATE-005.9 -> docs/specs/gating.md : WHEN a predicate is empty THE SYSTEM SHALL report the member ungated.
+'@
+    New-File 'docs/specs/gating.md' @'
+# Gating
+- `AC-GATE-005.9` (Event-driven): WHEN a predicate is empty THE SYSTEM SHALL refuse the gate as one
+  that cannot be resolved.
+- `AC-GATE-005.10` (Event-driven): WHEN a predicate is empty THE SYSTEM SHALL report the member ungated.
+'@ | Out-Null
+    pwsh -NoProfile -File $change archive text-drift -RepoRoot $tmp | Out-Null
+    if ($LASTEXITCODE -ne 1) { throw "Case 4b (page text differs from delta; the .10 sibling must not stand in) expected 1" }
+    if (-not (Test-Path $doc3)) { throw "Case 4b: doc must not move on refusal" }
+
+    # Case 4c: a MODIFIED line below the ADDED one supersedes it; the page carries the MODIFIED text
+    # wrapped and backticked, the delta carries a trailing provenance parenthetical -> archived
+    Add-Content -LiteralPath $doc3 -Value "`n- MODIFIED ``AC-GATE-005.9`` -> docs/specs/gating.md : WHEN a predicate is empty THE SYSTEM SHALL refuse the gate as one that cannot be resolved. (row 64 fix)"
+    pwsh -NoProfile -File $change archive text-drift -RepoRoot $tmp | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "Case 4c (MODIFIED supersedes ADDED; formatting set aside) expected 0" }
+
+    # Case 4d: the id present only in prose, with no declaring bullet -> refuse
+    pwsh -NoProfile -File $change new no-bullet -RepoRoot $tmp | Out-Null
+    $doc4 = Join-Path $tmp "docs/changes/$today-no-bullet.md"
+    Set-Content -LiteralPath $doc4 -NoNewline -Value @'
+---
+slug: no-bullet
+status: in-flight
+---
+- ADDED AC-GATE-006.1 -> docs/specs/gating.md : THE SYSTEM SHALL evaluate nothing while introspecting.
+'@
+    Add-Content -LiteralPath (Join-Path $tmp 'docs/specs/gating.md') -Value "`nAs ``AC-GATE-006.1`` says, nothing is evaluated while introspecting."
+    pwsh -NoProfile -File $change archive no-bullet -RepoRoot $tmp | Out-Null
+    if ($LASTEXITCODE -ne 1) { throw "Case 4d (id in prose, no declaring bullet) expected 1" }
+
     # Case 5: a non-.md target (a script) satisfies ADDED by existing — covered in Case 4
+
     # (scripts/some-gate.ps1); its absence must refuse.
     pwsh -NoProfile -File $change new second -RepoRoot $tmp | Out-Null
     $doc2 = Join-Path $tmp "docs/changes/$today-second.md"

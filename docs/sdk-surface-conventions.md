@@ -41,6 +41,11 @@ author reads in IDE tooltips, and they are published to the docs site. Keep them
 - **Verify each claim against the code that implements it**, not against the neighbouring docstring.
   Docs in this repo have been wrong before, including inverted; a `<summary>` copied from a sibling
   member inherits its errors.
+- **One `<summary>` per declaration.** `scripts/doc-comment-lint.ps1` (in `spec-gates.yml`) fails a
+  doc block carrying two — the shape an edit anchored on a declaration leaves when it inserts a new
+  member below the existing doc comment: the new member takes that comment on top of its own, and
+  the old one is left bare. The compiler, cleanup and the tests all accept it. The lint sees the
+  double; the bare half needs the insertion point re-read.
 
 [`Vion.Dale.Sdk/Core/ServiceRelationAttribute.cs`](../Vion.Dale.Sdk/Core/ServiceRelationAttribute.cs)
 is the reference shape: a summary that states the mechanism, `<para>` blocks for the three things a

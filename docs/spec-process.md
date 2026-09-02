@@ -86,6 +86,19 @@ marker is how a landed test re-arms the gate for that id.
 An id proven by **both** a unit test and a scenario states which half each tier owns in the test
 class summary ("Cross-tier" clause); `spec-trace` warn-notes files missing it.
 
+**A citation is for the criterion's text.** `spec-trace` checks that a cited id exists, not that
+its sentence states what the test proves — so the check is a review obligation: the pass session
+reads each criterion against its assertion before citing it (and lists the pairs in its REPORT), and
+the coordinator's checks read them again. A test cited for behavior the criterion does not state
+is a spec not carried, the same defect as a criterion reworded on a page without its `MODIFIED`
+delta line.
+
+**Premise tests** — a test that pins an implementation *premise* rather than a criterion: two
+parsers agreeing on every conformance vector, two code paths a design relies on staying in step —
+cites no id by design. There is no consumer-observable requirement to hang it on, and minting one
+would be a criterion no mutation reddens. Its class summary says so, the pass's REPORT lists it,
+and `spec-trace` never sees it.
+
 ## Change docs — `docs/changes/`
 
 Everything that changes **specified behavior** goes through a change doc; the corpus stays lean
@@ -155,7 +168,7 @@ repo is never half-migrated. One pass, in order:
    never a gate, never a score.
 
 The protocol is packaged as the `spec-pass` skill; each pass is one change doc + one band-sized
-PR. Order: plugin ABI (done — the pilot) → emission (done) → config gating → introspection +
+PR. Order: plugin ABI (done — the pilot) → emission (done) → config gating (done) → introspection +
 identifiers → scenario/stepping/pairing → remainder. `docs/rfcs/` is frozen meanwhile (do not
 cite it in new work) and disappears with the last pass.
 
@@ -192,6 +205,23 @@ retires with the migration:
 The change doc is **implementer-owned**: the dispatched session flips it `in-flight`, appends
 Drift checkpoints, distills, archives. No report-back block — the PR is the report.
 
+### Checks and amendments — the coordinator's side of a pass
+
+After a pass session's Phase B REPORT, and before any PR, the coordinator runs two fresh-context
+**Opus** subagents: a completeness critic (reads the area's code first, then the page and the
+table, and reports misses by the sweep that should have caught them) and an adversarial review of
+the branch diff (`/vion-code-review branch` with the change doc as the spec). Both read every cited
+criterion's text against the test that cites it, and both start from the REPORT's self-check
+preamble (`spec-pass` skill, Phase B step 10). Findings go back as one numbered amendment per
+round — to the live session directly, mirrored to
+`C:\_gh\architecture\.claude\briefs\amend-<slug>-N.md` so a closed tab can be resumed with the
+launcher's `-AmendFile`. After two rounds in which the same defect classes recur — stale gate
+numbers, spec not carried, evidence asserted rather than pasted — the next round goes to a
+**fresh** session with a precise brief instead of a further amendment: context depth degrades
+exactly the disciplines the amendments ask for, and the pass that ran its fix-up that way caught
+its own composed numbers mid-amendment. The coordinator fills the scorecard from the checks'
+findings before the PR merges.
+
 ## Routing — where work enters
 
 - **Consumer feedback** → the `dale-sdk-feedback` skill → VION-62. Unchanged.
@@ -211,7 +241,8 @@ Drift checkpoints, distills, archives. No report-back block — the PR is the re
 | --- | --- | --- |
 | `scripts/spec-lint.ps1` | `spec-gates.yml` + on demand | malformed/escape-hatch ACs in `docs/specs/`; change-doc frontmatter or lifecycle broken (`archived` outside `archive/`, unknown status); `-Diff <ref>` warns on narrative added to the corpus (`-Strict` fails) |
 | `scripts/spec-trace.ps1` | `spec-gates.yml` + on demand | any id on a `trace: enforced` page (or an `in-flight` delta) with no quoted-literal test reference; a marked page parsing zero ids |
-| `scripts/spec-change.ps1 archive` | on demand | any Spec-delta line not distilled into its target |
+| `scripts/spec-change.ps1 archive` | on demand | any Spec-delta line not distilled into its target, or an `ADDED`/`MODIFIED` line whose EARS text the target's declaring bullet no longer carries (backticks, wrapping and a trailing parenthetical set aside) |
+| `scripts/doc-comment-lint.ps1` | `spec-gates.yml` + on demand | a C# doc-comment block carrying more than one `<summary>` — one declaration took two doc comments, the one above the insertion anchor is bare ([`sdk-surface-conventions.md`](sdk-surface-conventions.md) § 2) |
 | `scripts/test-style-lint.ps1` | `spec-gates.yml` + on demand | a test citing a spec id carries an article in its name or no Triple-A markers (`testing-conventions.md` §12/§13); projects a pass cites from without owning are exempt in the script, with a reason, until their pass |
 | `scripts/run-script-tests.ps1` | `spec-gates.yml` + on demand | any `scripts/*.tests.ps1` self-test fails, or a gate script has neither a self-test nor an exemption-with-reason |
 

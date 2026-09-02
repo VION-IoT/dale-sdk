@@ -11,10 +11,14 @@
 
   spec-change.ps1 archive <slug>
       Refuse unless the change is distilled: every ADDED/MODIFIED id in the
-      "Spec delta" is present in its named target, every REMOVED id is absent.
-      Then flip status to archived and move the doc to docs/changes/archive/.
-      (MODIFIED is a presence check, not text-equality — the distill-PR review
-      is the real correctness gate; this only catches a forgotten distill.)
+      "Spec delta" is present in its named target and, for an AC-/SYS- id, the
+      line's EARS text is carried by the id's declaring bullet there (backticks,
+      wrapping, a GAP tail and a trailing parenthetical set aside; a MODIFIED
+      line supersedes the ADDED line for the same id); every REMOVED id is
+      absent. Then flip status to archived and move the doc to
+      docs/changes/archive/. The text check exists because a criterion was
+      reworded on a page with no MODIFIED line, so page and delta disagreed
+      until a review noticed.
 #>
 [CmdletBinding()]
 param(
@@ -58,15 +62,52 @@ $raw = Get-Content -Raw $doc.FullName
 
 # `<OP> <ID> -> <target> : <payload>` (leading `- ` bullet optional). Targets are
 # repo-root-relative; a `.md` target is grepped for the id, any other existing-path
-# target (a directory, a script) is checked for existence only.
-$deltaRx = '(?m)^\s*-?\s*(ADDED|MODIFIED|REMOVED)\s+(\S+)\s*->\s*([^\s:]+)'
-$unapplied = [System.Collections.Generic.List[string]]::new()
+# target (a directory, a script) is checked for existence only. One effective line per
+# id and target: the last in document order, except that a MODIFIED line is never
+# superseded by an ADDED one — an amendment appends its MODIFIED below the original
+# ADDED, and the MODIFIED text is the current one.
+$deltaRx = '(?m)^\s*-?\s*(ADDED|MODIFIED|REMOVED)\s+(\S+)\s*->\s*([^\s:]+)[ \t]*(?::[ \t]*(?<payload>[^\r\n]*))?'
+$specIdRx = '^(?:AC|SYS)-[A-Z0-9]+-\d+(?:\.\d+)?$'
+$effective = [ordered]@{}
 foreach ($m in [regex]::Matches($raw, $deltaRx)) {
     $op = $m.Groups[1].Value; $target = $m.Groups[3].Value.TrimEnd('/')
     # Delta lines conventionally backtick the id, but targets carry it plain — strip
     # backticks so the presence grep can match.
     $id = $m.Groups[2].Value.Trim('`')
     if ($id -match '[<>]' -or $target -match '[<>]') { continue }   # template placeholder line
+    $key = "$id -> $target"
+    if ($effective.Contains($key) -and $effective[$key].op -eq 'MODIFIED' -and $op -eq 'ADDED') { continue }
+    $effective[$key] = @{ op = $op; id = $id; target = $target; payload = $m.Groups['payload'].Value.Trim() }
+}
+
+# What a delta line and a page bullet share once formatting is set aside: backticks, line
+# wrapping (pages wrap at 100 columns), a `GAP:` tail, and — on the delta side only — a
+# trailing parenthetical, where passes annotate provenance ("(row 32 fix)"). Dropping text
+# from the delta side alone can only make the containment check more lenient.
+function Get-ComparableText([string]$s, [bool]$dropTrailingParenthetical) {
+    $s = $s -replace '`', ''
+    $s = $s -replace '\s*\bGAP:.*$', ''
+    if ($dropTrailingParenthetical) { $s = $s -replace '\s*\([^()]*\)\s*$', '' }
+    return ($s -replace '\s+', ' ').Trim()
+}
+# The bullet declaring an id on a page — `- `ID` (Kind): text` — with its indented
+# continuation lines folded in. `AC-X-001.1` must not match the bullet of `AC-X-001.10`.
+function Get-DeclaringBullet([string[]]$lines, [string]$id) {
+    $startRx = '^\s*-\s+`?' + [regex]::Escape($id) + '`?(?![\w.])'
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        if ($lines[$i] -notmatch $startRx) { continue }
+        $text = $lines[$i].Trim()
+        for ($j = $i + 1; $j -lt $lines.Count -and $lines[$j] -match '^\s+\S' -and $lines[$j] -notmatch '^\s*-\s'; $j++) {
+            $text += ' ' + $lines[$j].Trim()
+        }
+        return $text
+    }
+    return $null
+}
+
+$unapplied = [System.Collections.Generic.List[string]]::new()
+foreach ($e in $effective.Values) {
+    $op = $e.op; $id = $e.id; $target = $e.target
     $path = Join-Path $RepoRoot $target
     if ($target -like '*.md') {
         $present = (Test-Path $path) -and ((Get-Content -Raw $path) -match [regex]::Escape($id))
@@ -75,9 +116,18 @@ foreach ($m in [regex]::Matches($raw, $deltaRx)) {
     }
     if ($op -eq 'REMOVED') {
         if ($present -and $target -like '*.md') { $unapplied.Add("$op $id still present in $target") }
+        continue
     }
-    elseif (-not $present) {
-        $unapplied.Add("$op $id not found in $target")
+    if (-not $present) { $unapplied.Add("$op $id not found in $target"); continue }
+    # The text check: spec ids on .md targets with a payload. Anything else (a script target,
+    # an ad-hoc label, a bare line) keeps the presence check above.
+    if ($target -notlike '*.md' -or $id -notmatch $specIdRx -or -not $e.payload) { continue }
+    $bullet = Get-DeclaringBullet (Get-Content $path) $id
+    if ($null -eq $bullet) { $unapplied.Add("$op $id has no declaring bullet in $target (the id appears there, but not as a ``- $id`` line)"); continue }
+    $want = Get-ComparableText $e.payload $true
+    $have = Get-ComparableText $bullet $false
+    if (-not $have.Contains($want)) {
+        $unapplied.Add("$op $id text differs from $target`n      delta: $want`n      page : $have")
     }
 }
 if ($unapplied.Count) {

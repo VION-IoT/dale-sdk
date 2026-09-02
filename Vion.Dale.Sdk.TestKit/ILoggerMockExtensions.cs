@@ -15,10 +15,6 @@ namespace Vion.Dale.Sdk.TestKit
         ///     Verifies that a log entry containing the specified string was logged at the specified log level the expected number
         ///     of times.
         /// </summary>
-        /// <summary>
-        ///     Verifies that a log entry containing the specified string was logged at the specified log level the expected number
-        ///     of times.
-        /// </summary>
         public static void VerifyLogContains(this Mock<ILogger> loggerMock, string contains, LogLevel logLevel, Times times)
         {
             loggerMock.Verify(l => l.Log(logLevel,
@@ -29,6 +25,10 @@ namespace Vion.Dale.Sdk.TestKit
                               times);
         }
 
+        /// <summary>
+        ///     Verifies that a log entry containing the specified string was logged at the specified log level the expected number
+        ///     of times.
+        /// </summary>
         public static void VerifyLogContains<T>(this Mock<ILogger<T>> loggerMock, string contains, LogLevel logLevel, Times times)
         {
             loggerMock.Verify(l => l.Log(logLevel,

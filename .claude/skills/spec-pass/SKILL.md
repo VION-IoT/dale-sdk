@@ -12,10 +12,11 @@ parked elsewhere. Two phases with a hard operator STOP between them. The brief t
 names: the **area code**, the **scope** as folders and projects (never a transcribed file list —
 two passes running, the brief's file and descriptor counts were the thing that was wrong; count
 them yourself and record a Drift checkpoint where the brief differs), the **anchor kinds**
-(attributes, descriptor ranges, schema, manifest — you enumerate the instances), the **RFCs to
-absorb** (often none), the **spec page path**, and the **attempt number**. Decisions in the brief
-and in `docs/spec-process.md` are binding; contradictions go to the change doc's Drift checkpoints,
-never silent divergence.
+(attributes, descriptor ranges, schema, manifest — you enumerate the instances; an anchor kind that
+turns out empty, such as an attribute with no named parameters, is a Drift checkpoint, not a row),
+the **RFCs to absorb** (often none), the **spec page path**, and the **attempt number**. Decisions
+in the brief and in `docs/spec-process.md` are binding; contradictions go to the change doc's Drift
+checkpoints, never silent divergence.
 
 Work on branch `spec-pass/<code-lower>-a<N>` (N = attempt). Attempts are disposable by design: if
 the operator discards this attempt, the branch dies and the *skill* gets fixed — never hand-fix a
@@ -54,7 +55,11 @@ edits, no fixes, no Jira writes in this phase** — reading and one document onl
    a lifecycle), take each decision path once more *while another state is pending*: a drop while a
    value is held, a stop while a flush is armed, a reset while a run is active. Each combination
    whose outcome differs from the naive reading is a row — these are the rows that leave a consumer
-   stale forever and never show in a statement walk.
+   stale forever and never show in a statement walk. Where an initialization can **fail closed** (a
+   refused configuration, a binder that throws), walk every later message the instance can still
+   receive — a stop, a snapshot, a restore, a write, a second configuration — and write a row
+   wherever the answer differs from a healthy instance's: four of one pass's nine critic misses
+   were exactly these.
 7. **The table** is the deliverable — one row per observable behavior, **all six columns
    required**:
 
@@ -68,7 +73,12 @@ edits, no fixes, no Jira writes in this phase** — reading and one document onl
      is *could a consumer observe the difference?* — a sentence an implementation change would force
      you to reword is at the wrong altitude.
    - **Evidence** — `file:line`, read, not recalled. This column is where implementation detail
-     lives; it dies with the archived doc.
+     lives; it dies with the archived doc. **A probe is evidence only for the shape it ran:** when
+     a claim rests on a scratch probe, the row records the probe's fixture shape (the declaration
+     as written — `get;` is not `get; init;`) and the surface it read (the definition view is not
+     the live view) beside the result. A probe over a different shape or surface than the row
+     names is a guess wearing evidence's clothes; one pass wrote off a correct reading on such a
+     probe and paid three amendments for it.
    - **Test today** — the existing test proving it, or `GAP`.
    - **Rec** — your recommendation, one of four: `intended` (→ spec) · `fix` (a defect, small and
      area-local → AC worded for the correct behavior, fixed in Phase B) · `park` (a defect too big
@@ -97,22 +107,47 @@ finding the operator actively schedules. Do not proceed to Phase B without the c
 1. Flip the doc `in-flight`. Mint ids `AC-<CODE>-NNN.M` (umbrella per behavior cluster, leaves per
    criterion) and author the Spec-delta lines targeting the brief's page path. A criterion you
    already know no test can reach carries its `GAP: <reason>` marker **on the delta line** —
-   `spec-trace` honours it there exactly as on a page.
+   `spec-trace` honours it there exactly as on a page. **A criterion's text on the page and on its
+   delta line are one text:** reword one, reword the other in the same commit (a `MODIFIED` line
+   for a criterion already delta'd as `ADDED`) — `spec-change.ps1 archive` refuses a delta whose
+   text the page no longer carries, and one pass reworded a criterion on the page with no delta
+   line at all, so page and delta disagreed until review.
 2. **Write the mutation with the test, before the AC counts.** For every AC: the test, the one
    mutation of the code under it that reddens *that test and no other claim*, run and observed. An
    AC no mutation can redden is not a requirement — reword it to what *is* observable, merge it
    into the AC it converges on, or drop it; never mint it. An AC that two guards enforce is
    **over-determined**: say so on its line, mutate both, and keep it — the binary rule has no other
-   verdict for it. The PR body carries the `test → mutation` list, one line each (§11).
+   verdict for it. The PR body carries the `test → mutation` list, one line each (§11). Two rules
+   about *claims* ride on this step: a test cites a criterion for what the criterion's **text**
+   states, not for the behavior the test happens to prove (`spec-trace` checks that an id exists,
+   not what it says; three tests in one pass cited criteria that said something else — read the
+   criterion against the assertion before citing it); and any claim that names a test as its
+   guarantee — in a comment, a doc, a checkpoint — is read from that test's **call sites**, not its
+   name (a test that feeds one of two parsers pins one parser, whatever it is called). A test that
+   pins an implementation *premise* rather than a criterion (two parsers agreeing on every vector)
+   stays uncited by design, says so in its class summary, and is listed in the REPORT —
+   `docs/spec-process.md` names the category; never mint a criterion to hang it on.
 3. **Fix rows**: the test for the *correct* behavior, proven red against the pre-fix code (that red
-   run is the defect proof — name it in the list), then the minimal fix. Three disciplines a fix
-   owes beyond its own lines: a fix that makes previously inert inputs *live* re-checks **every
+   run is the defect proof — name it in the list), then the minimal fix. Disciplines a fix owes
+   beyond its own lines: a fix that makes previously inert inputs *live* re-checks **every
    validator** over those inputs (the pass that unblocked measuring-point knobs left all six
    analyzers blind to them); a fix that names a defect **shape** sweeps the shape, not the symbol
    (grep for the expression, not the one call site you noticed); a guard added to a `switch`
    belongs to **every arm** — route every arm through one guard, or the arm you did not test skips
-   it. **Size guard:** if a fix turns out non-local or design-bearing while you implement it, STOP
-   and report — it becomes a `park` row or its own change doc, never a silent absorption.
+   it; a fix that says *match rule R* enumerates R's properties — membership, naming, each
+   declaration level — and covers every one in the same round (one pass matched membership, then
+   property naming, then class-level naming: three rounds for one rule). **A test's fixture carries
+   the observable its assertion needs**: a block with no service members cannot show "the interface
+   did not bind" through the service map — find the seam or the fixture that shows it before
+   minting the test, and know that a generated seam can exist on one half of a contract only (the
+   sender side, not the sink side), so a fixture on the quiet half tests the guard and not the path.
+   **Size guard:** if a fix turns out non-local or design-bearing while you implement it, STOP and
+   report — it becomes a `park` row or its own change doc, never a silent absorption. **Hedges are
+   STOPs:** a brief that says *appears to … — verify* has named an assumption; when it fails,
+   record the deviation in the change doc and ask, never improvise a different design in its place
+   (one pass improvised "resolve by evaluating" when the promised AST was not there; evaluation
+   short-circuits, so the check never reached the name it existed to find — resolution is a
+   syntactic question, answered from a parse tree).
 4. **Author the spec page**: current-truth prose + the AC declarations, frontmatter
    `trace: enforced`. Prose states rules, never rosters (a list of today's instances drifts;
    "grep-enumerable" does not). Rows the operator accepted without a test carry the `GAP: <reason
@@ -122,36 +157,70 @@ finding the operator actively schedules. Do not proceed to Phase B without the c
    the quoted-literal forms (§17), unmapped tests merged or deleted per their list, no assertion on
    log calls (§15). Names and Triple-A markers are **gated**, not remembered:
    `pwsh scripts/test-style-lint.ps1` fails on any cited test with an article in its name or no
-   markers (§12/§13); a project you cite from without owning (another area's registry) is on the
-   script's exempt list with its reason until that area's pass. A test deleted because "another
+   markers (§12/§13) — run it **before** the REPORT and budget the rename round (it caught fourteen
+   names in one pass that the session wrote after reading §12; the natural phrasing of an assertion
+   carries an article). A project you cite from without owning (another area's registry) is on the
+   script's exempt list with its reason until that area's pass; **one citation never exempts a
+   project**, and a file this pass *authors* in an exempt project conforms anyway — run the lint
+   once with the exemption removed locally, fix what it lists, commit nothing of the exemption
+   change. A fixture inserted above an attribute block steals the doc comment above the anchor
+   (the new declaration gets two `<summary>` blocks, the old one none): `scripts/doc-comment-lint.ps1`
+   fails the double; re-read the insertion point for the bare half. A test deleted because "another
    gate already covers this" names the gate **and its failure mode** in the commit — a snapshot that
    is regenerated and auto-committed gates nothing, and a warning-level diagnostic fails no build.
 6. If the brief lists RFCs to absorb: delete them and run the reference sweep
    (`docs/spec-process.md` § Area passes, step 5). If it lists none, say so in the report. A regex
-   sweep cannot see the sentence it leaves without a subject — re-read every touched line.
+   sweep cannot see the sentence it leaves without a subject — re-read every touched line. Vendored
+   files (their header says so) are exempt from the sweep; a cross-reference in a still-living RFC
+   is re-pointed with one line, not absorbed.
 7. If the area reaches the DevHost SPA (`Vion.Dale.DevHost.Web/wwwroot`): the change is
    **demonstrated**, not reasoned — `devhost-smoke` Tier 2 on a live host, evidence in the change
    doc — and if no committed fixture can show it, grow the SmokeHost with the member that can
-   (`docs/devhost-conventions.md` § 1, `testing-conventions.md` § 6).
-8. Gates, all of them, results verbatim in the report: `dotnet build` (zero `DALE` warnings in the
-   SDK's own build — a deliberately illegal fixture gets `#pragma warning disable` with its reason)
-   + `dotnet test` on the full solution, `scripts/spec-lint.ps1`, `scripts/spec-trace.ps1`,
-   `scripts/test-style-lint.ps1`, `scripts/run-script-tests.ps1`, `/cleanup` once. Stryker.NET is
+   (`docs/devhost-conventions.md` § 1, `testing-conventions.md` § 6). **A Tier 2 row is a paste** —
+   the page text or a described screenshot the browser tool returned — never a sentence composed
+   from what the code should do. One pass recorded an observation that could not have occurred,
+   because the export that produces the string was imported by nothing; the row read as evidence
+   for a whole round.
+8. Gates, all of them, results verbatim in the report — **every line a paste from the terminal,
+   including the ones whose numbers did not move**; a number carried from an earlier run is stale by
+   default and a composed one is the same defect (three recurrences in one pass): `dotnet build`
+   (zero `DALE` warnings in the SDK's own build — a deliberately illegal fixture gets
+   `#pragma warning disable` with its reason) + `dotnet test` on the full solution,
+   `scripts/spec-lint.ps1`, `scripts/spec-trace.ps1`, `scripts/test-style-lint.ps1`,
+   `scripts/doc-comment-lint.ps1`, `scripts/run-script-tests.ps1`, `/cleanup` once. Stryker.NET is
    **optional**: run it only where the test project references a single mutatable project (it
    cannot run otherwise — MTP runner in preview, multi-reference crash), read survivors by hand,
    never a gate or a score.
 9. Distill every delta line into the page, then `pwsh scripts/spec-change.ps1 archive
-   <code-lower>-pass`.
-10. Commit per task, push, and STOP with the REPORT: commands run + results · the test → mutation
-    list · GAP list · park rows written to the ledger · friction one-liners (journal candidates,
-    `docs/process-journal.md` format) · *no PR yet* — the coordinator runs the completeness critic
-    and `/vion-code-review` first; the PR opens on the operator's go.
+   <code-lower>-pass` — it refuses a delta line whose id or text the page does not carry.
+10. Commit per task, push, and STOP with the REPORT. Its **mandatory preamble is the self-check, in
+    writing** — the coordinator's checks read it first:
+    1. every gate line in the REPORT and the scorecard is pasted from the terminal, never typed;
+    2. for every test added or changed, the cited criterion's *text* was read against the
+       assertion — list the pairs;
+    3. every sentence in the change doc that a later checkpoint disproved has been corrected in
+       place or annotated;
+    4. every Tier 2 row is a pasted observation.
+
+    Then: commands run + results · the test → mutation list · GAP list · premise tests left
+    uncited, with reasons · park rows written to the ledger · friction one-liners (journal
+    candidates, `docs/process-journal.md` format) · *no PR yet* — the coordinator runs the
+    completeness critic and `/vion-code-review` first; the PR opens on the operator's go.
+
+## After the REPORT — the coordinator's checks
+
+Two fresh-context Opus subagents (`docs/spec-process.md` § Dispatching): a completeness critic and
+an adversarial review of the branch diff, both reading every cited criterion's text against its
+test. Findings return as numbered amendments to the live session. After two rounds in which the
+same defect classes recur — stale gate numbers, spec not carried, evidence asserted rather than
+pasted — the next round is dispatched to a **fresh** session with a precise brief instead of a
+further amendment: context depth degrades exactly the disciplines the amendments ask for.
 
 ## Scorecard (coordinator fills, into the change doc before the PR merges)
 
 | Measure | Value |
 |---|---|
-| Gates (build/test/lint/trace/style/self-tests/cleanup/CI) | green / what failed |
+| Gates (build/test/lint/trace/style/doc-comment/self-tests/cleanup/CI) | green / what failed |
 | Completeness-critic misses | count + rows added, by the sweep that should have caught them |
 | Evidence errors found in review | count |
 | Mutation evidence | named-mutation list complete? · over-determined criteria stated? |
@@ -165,8 +234,13 @@ finding the operator actively schedules. Do not proceed to Phase B without the c
 | "Fix it in Jira later" | A pass leaves code, tests and page consistent. Small and area-local → `fix` now; otherwise `park` in the ledger. Jira only when the operator schedules it. |
 | "This fix is growing, I'll finish it anyway" | The size guard exists for exactly this: STOP, report, `park`. A "bug" that is really a feature band never rides a pass. |
 | "This row is obvious, skip the evidence" | Unevidenced prose is this repo's most repeated defect class (journal, D10). Every row cites `file:line`; every harm names its consumer. |
+| "The probe came back green, so my reading was wrong" | A probe is evidence for the shape it ran. Record the fixture shape and the surface; re-probe on the row's own shape before writing a reading off. |
 | "The AC reads well, I'll find its mutation later" | An AC without a reddening mutation describes the code instead of constraining it. Mutation first, or it is not minted. |
-| "I fixed the site I found" | Sweep the shape, re-check the validators the fix just made relevant, route every switch arm through the guard. The site you found is the one the critic will not need to. |
+| "The test proves this, so the id fits" | A citation is for the criterion's text. Read it against the assertion; if it says something else, reword the criterion (with its `MODIFIED` line) or cite the right one. |
+| "I fixed the site I found" | Sweep the shape, re-check the validators the fix just made relevant, route every switch arm through the guard, cover every property of the rule. The site you found is the one the critic will not need to. |
+| "The brief said verify — it didn't hold, so I'll do it another way" | A failed hedge is a STOP. Record the deviation, propose, wait. |
 | "Another gate already covers this test" | Name the gate and its failure mode. Two passes deleted a test on that sentence and had to restore it. |
+| "I'll write the Tier 2 row from the code" | A Tier 2 row is a paste. No paste, no row. |
+| "The numbers didn't change, I'll carry them" | Paste every gate line, every time. |
 | "Patch the discarded attempt's table by hand" | The next pass repays the same debt. Fix the skill, delete the branch, rerun. |
 | "Enshrine it — the code clearly does this" | The code doing it is evidence of behavior, not intent. Surprising rows get `fix`/`park` or the operator's explicit `intended`. |
