@@ -239,9 +239,6 @@ namespace Vion.Dale.Sdk.Configuration.Services
         }
 
         /// <summary>
-        ///     Used by the declarative service binder to declare a service and start binding properties
-        /// </summary>
-        /// <summary>
         ///     The logic-block property a bound service property was declared on, or <c>null</c> when
         ///     <paramref name="propertyIdentifier" /> names no bound property of
         ///     <paramref name="serviceIdentifier" />. The block reads the declaration's attributes from it to
@@ -265,6 +262,9 @@ namespace Vion.Dale.Sdk.Configuration.Services
             return null;
         }
 
+        /// <summary>
+        ///     Used by the declarative service binder to declare a service and start binding properties
+        /// </summary>
         internal ServiceBuilder CreateService(string serviceIdentifier)
         {
             if (!_serviceProperties.ContainsKey(serviceIdentifier))
