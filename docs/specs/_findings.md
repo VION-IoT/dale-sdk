@@ -16,5 +16,5 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   success and the operator sees a block whose properties all read null. The two ways a configuration
   is wrong before it reaches the actor — an unresolvable identifier and an undecodable value — are
   both refused at the topology loader now (`AC-GATE-012.8`); what remains is the general case, which
-  is the development host's start-and-health surface. *(GATE pass rows 64/66, narrowed by amendment
+  is the development host's start-and-health surface. *(GATE pass row 66, narrowed by amendment
   4b — `CTRL`.)*
