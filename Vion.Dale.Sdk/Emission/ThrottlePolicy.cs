@@ -23,9 +23,6 @@ namespace Vion.Dale.Sdk.Emission
         /// <summary>Resolved from <see cref="MinChange" /> + the value type, else <c>null</c>.</summary>
         public IChangeThresholdAdapter? Threshold;
 
-        /// <summary><c>true</c> when <c>MinInterval</c> parsed to zero ("0"/"0ms") — leading-edge only.</summary>
-        public bool ThrottleDisabled;
-
         public static ThrottlePolicy FromConfigured(IThrottleConfigured cfg, Type valueType, Assembly? probeAssembly = null)
         {
             if (cfg == null)
@@ -57,7 +54,6 @@ namespace Vion.Dale.Sdk.Emission
             return new ThrottlePolicy
                    {
                        MinInterval = minInterval,
-                       ThrottleDisabled = minInterval == TimeSpan.Zero,
                        Immediate = cfg.Immediate,
                        MinChange = cfg.MinChange,
                        Threshold = threshold,

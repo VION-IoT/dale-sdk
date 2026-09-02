@@ -1,29 +1,153 @@
 using System;
 using System.Collections.Immutable;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Emission;
+using Vion.Dale.Sdk.Test.TestHelpers;
 
 namespace Vion.Dale.Sdk.Test.Emission
 {
+    /// <summary>
+    ///     The per-member emission gate: the decision it reaches for one offered value, and the held value
+    ///     it releases when an interval expires. The gate is pure — the caller supplies <c>now</c> — so
+    ///     every timing case here is exact rather than raced.
+    /// </summary>
     [TestClass]
     public class ThrottlerShould
     {
-        private static readonly DateTimeOffset T0 = new(2026,
-                                                        6,
-                                                        22,
-                                                        0,
-                                                        0,
-                                                        0,
-                                                        TimeSpan.Zero);
+        private static readonly DateTimeOffset T0 = new(2026, 6, 22, 0, 0, 0, TimeSpan.Zero);
 
         [TestMethod]
-        public void EmitTheFirstChangeOnTheLeadingEdge()
+        [TestProperty("spec", "AC-EMIT-004.1")]
+        [DataRow("250ms", null, false, DisplayName = "default policy")]
+        [DataRow("250ms", "1.0", false, DisplayName = "with a deadband")]
+        [DataRow("0", null, false, DisplayName = "throttling disabled")]
+        [DataRow("250ms", null, true, DisplayName = "immediate")]
+        public void SuppressAValueEqualToTheLastEmitted(string minInterval, string? minChange, bool immediate)
         {
-            var throttler = new Throttler(Policy());
+            // Arrange
+            var throttler = new Throttler(Policy(minInterval, minChange, immediate));
+            throttler.Offer(5.0d, T0);
 
+            // Act
+            var result = throttler.Offer(5.0d, T0 + TimeSpan.FromSeconds(10));
+
+            // Assert
+            Assert.AreEqual(EmitAction.Drop, result.Action);
+            Assert.IsFalse(throttler.HasPending);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-004.2")]
+        public void SuppressARebuiltButIdenticalTable()
+        {
+            // Arrange
+            var throttler = new Throttler(Policy(valueType: typeof(ImmutableArray<Row>)));
+            throttler.Offer(ImmutableArray.Create(new Row(1, "x"), new Row(2, "y")), T0);
+
+            // Act
+            var result = throttler.Offer(ImmutableArray.Create(new Row(1, "x"), new Row(2, "y")), T0 + TimeSpan.FromSeconds(10));
+
+            // Assert
+            Assert.AreEqual(EmitAction.Drop, result.Action);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-005.6")]
+        public void EmitWithinTheIntervalWhenImmediate()
+        {
+            // Arrange — an interval and a deadband that would both suppress the second value.
+            var throttler = new Throttler(Policy("250ms", "1.0", true));
+            throttler.Offer(10.0d, T0);
+
+            // Act
+            var result = throttler.Offer(10.1d, T0 + TimeSpan.FromMilliseconds(10));
+
+            // Assert
+            Assert.AreEqual(EmitAction.Emit, result.Action);
+            Assert.AreEqual(10.1d, throttler.LastEmitted);
+            Assert.IsFalse(throttler.HasPending);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-006.1")]
+        public void SuppressAValueInsideTheDeadband()
+        {
+            // Arrange
+            var throttler = new Throttler(Policy("250ms", "1.0"));
+            throttler.Offer(10.0d, T0);
+
+            // Act — past the interval, so only the deadband can suppress it.
+            var result = throttler.Offer(10.4d, T0 + TimeSpan.FromSeconds(1));
+
+            // Assert — suppressed outright, not held for a later flush.
+            Assert.AreEqual(EmitAction.Drop, result.Action);
+            Assert.IsFalse(throttler.HasPending);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-006.2")]
+        public void EmitARampOnceItsAccumulatedDriftReachesTheThreshold()
+        {
+            // Arrange — throttling disabled, so only the deadband decides.
+            var throttler = new Throttler(Policy("0", "1.0"));
+            throttler.Offer(10.0d, T0);
+
+            // Act — steps of 0.4, none of which reaches the threshold on its own.
+            var actions = new EmitAction[3];
+            for (var step = 0; step < actions.Length; step++)
+            {
+                actions[step] = throttler.Offer(10.0d + 0.4d * (step + 1), T0 + TimeSpan.FromSeconds(step + 1)).Action;
+            }
+
+            // Assert — measured against the last EMITTED value, so the drift accumulates and the third step
+            // clears it. Compared against the previously OFFERED value, every step would be 0.4 and the ramp
+            // would never emit at all.
+            CollectionAssert.AreEqual(new[] { EmitAction.Drop, EmitAction.Drop, EmitAction.Emit }, actions);
+            Assert.AreEqual(11.2d, throttler.LastEmitted);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-006.1")]
+        public void EmitAValueThatClearsTheDeadband()
+        {
+            // Arrange
+            var throttler = new Throttler(Policy("250ms", "1.0"));
+            throttler.Offer(10.0d, T0);
+
+            // Act
+            var result = throttler.Offer(12.0d, T0 + TimeSpan.FromSeconds(1));
+
+            // Assert
+            Assert.AreEqual(EmitAction.Emit, result.Action);
+            Assert.AreEqual(12.0d, throttler.LastEmitted);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-008.3")]
+        public void ApplyTheUnderlyingTypesDeadbandOnANullableMember()
+        {
+            // Arrange — a nullable member resolves its underlying type's deadband, matching DALE034, which
+            // unwraps before deciding whether one exists.
+            var throttler = new Throttler(Policy("250ms", "1.0", valueType: typeof(double?)));
+            throttler.Offer(10.0d, T0);
+
+            // Act
+            var result = throttler.Offer(10.4d, T0 + TimeSpan.FromSeconds(1));
+
+            // Assert
+            Assert.AreEqual(EmitAction.Drop, result.Action);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-005.1")]
+        public void EmitTheFirstValueOffered()
+        {
+            // Arrange — a long interval and a deadband, neither of which may apply to the first value.
+            var throttler = new Throttler(Policy("1h", "1000"));
+
+            // Act
             var result = throttler.Offer(1.0d, T0);
 
+            // Assert
             Assert.AreEqual(EmitAction.Emit, result.Action);
             Assert.IsTrue(throttler.HasEmitted);
             Assert.AreEqual(1.0d, throttler.LastEmitted);
@@ -31,214 +155,118 @@ namespace Vion.Dale.Sdk.Test.Emission
         }
 
         [TestMethod]
-        public void HoldWithinTheIntervalKeepingTheLatestValueThenFlushAtTheDeadline()
+        [TestProperty("spec", "AC-EMIT-005.2")]
+        public void EmitOnceTheIntervalHasElapsed()
         {
+            // Arrange
             var throttler = new Throttler(Policy());
+            throttler.Offer(1.0d, T0);
 
-            // Leading-edge emit at T0.
-            Assert.AreEqual(EmitAction.Emit, throttler.Offer(1.0d, T0).Action);
+            // Act
+            var result = throttler.Offer(2.0d, T0 + TimeSpan.FromMilliseconds(250));
 
-            // Two changes inside the 250ms window -> both Hold, deadline = T0 + 250ms, latest wins.
+            // Assert
+            Assert.AreEqual(EmitAction.Emit, result.Action);
+            Assert.AreEqual(2.0d, throttler.LastEmitted);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-005.3")]
+        public void HoldTheLatestValueWithinTheInterval()
+        {
+            // Arrange
+            var throttler = new Throttler(Policy());
+            throttler.Offer(1.0d, T0);
+
+            // Act
             var firstHold = throttler.Offer(2.0d, T0 + TimeSpan.FromMilliseconds(50));
-            Assert.AreEqual(EmitAction.Hold, firstHold.Action);
-            Assert.AreEqual(T0 + TimeSpan.FromMilliseconds(250), firstHold.Deadline);
-
             var secondHold = throttler.Offer(3.0d, T0 + TimeSpan.FromMilliseconds(100));
+
+            // Assert — both held to the same deadline, and the later value replaced the earlier.
+            Assert.AreEqual(EmitAction.Hold, firstHold.Action);
             Assert.AreEqual(EmitAction.Hold, secondHold.Action);
             Assert.AreEqual(T0 + TimeSpan.FromMilliseconds(250), secondHold.Deadline);
-
-            Assert.IsTrue(throttler.HasPending);
             Assert.AreEqual(T0 + TimeSpan.FromMilliseconds(250), throttler.PendingDeadline);
+            Assert.IsTrue(throttler.TryFlush(T0 + TimeSpan.FromMilliseconds(250), out var flushed));
+            Assert.AreEqual(3.0d, flushed);
+        }
 
-            // Flush at the deadline -> the latest held value (3.0), pending cleared.
-            var flushed = throttler.TryFlush(T0 + TimeSpan.FromMilliseconds(250), out var value);
-            Assert.IsTrue(flushed);
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-005.4")]
+        public void ReleaseTheHeldValueAndClearTheHold()
+        {
+            // Arrange
+            var throttler = new Throttler(Policy());
+            throttler.Offer(1.0d, T0);
+            throttler.Offer(3.0d, T0 + TimeSpan.FromMilliseconds(50));
+
+            // Act
+            var released = throttler.TryFlush(T0 + TimeSpan.FromMilliseconds(250), out var value);
+
+            // Assert
+            Assert.IsTrue(released);
             Assert.AreEqual(3.0d, value);
             Assert.AreEqual(3.0d, throttler.LastEmitted);
             Assert.IsFalse(throttler.HasPending);
         }
 
         [TestMethod]
-        public void DropAValueEqualToTheLastEmittedEvenAfterTheInterval()
+        [TestProperty("spec", "AC-EMIT-005.4")]
+        public void ReleaseNothingWhenNoValueIsHeld()
         {
+            // Arrange
             var throttler = new Throttler(Policy());
+            throttler.Offer(1.0d, T0);
 
-            Assert.AreEqual(EmitAction.Emit, throttler.Offer(5.0d, T0).Action);
+            // Act
+            var released = throttler.TryFlush(T0 + TimeSpan.FromSeconds(1), out var value);
 
-            // Equal value well past the interval -> floor still drops it.
-            var result = throttler.Offer(5.0d, T0 + TimeSpan.FromSeconds(10));
-
-            Assert.AreEqual(EmitAction.Drop, result.Action);
-            Assert.IsFalse(throttler.HasPending);
-        }
-
-        [TestMethod]
-        public void DropARebuiltEqualRecordViaValueEquality()
-        {
-            var throttler = new Throttler(Policy(valueType: typeof(Sample)));
-
-            var first = new Sample(1, "x");
-            var rebuilt = new Sample(1, "x"); // reference-distinct, value-equal
-
-            Assert.AreEqual(EmitAction.Emit, throttler.Offer(first, T0).Action);
-
-            var result = throttler.Offer(rebuilt, T0 + TimeSpan.FromSeconds(1));
-
-            Assert.AreEqual(EmitAction.Drop, result.Action);
-        }
-
-        [TestMethod]
-        public void DropARebuiltEqualImmutableArrayTableViaTheFloor()
-        {
-            // DF-50: a per-row table rebuilt each control cycle and assigned. ImmutableArray<T>'s IEquatable is
-            // reference equality of the underlying array, so without a content compare the floor can never fire
-            // and the table republishes every MinInterval forever, carrying no news.
-            var throttler = new Throttler(Policy(valueType: typeof(ImmutableArray<Sample>)));
-
-            var table = ImmutableArray.Create(new Sample(1, "x"), new Sample(2, "y"));
-            var rebuilt = ImmutableArray.Create(new Sample(1, "x"), new Sample(2, "y"));
-
-            Assert.AreEqual(EmitAction.Emit, throttler.Offer(table, T0).Action);
-
-            var result = throttler.Offer(rebuilt, T0 + TimeSpan.FromSeconds(10));
-
-            Assert.AreEqual(EmitAction.Drop, result.Action);
-            Assert.IsFalse(throttler.HasPending);
-        }
-
-        [TestMethod]
-        public void EmitAnImmutableArrayTableWhoseRowsActuallyChanged()
-        {
-            var throttler = new Throttler(Policy(valueType: typeof(ImmutableArray<Sample>)));
-
-            Assert.AreEqual(EmitAction.Emit, throttler.Offer(ImmutableArray.Create(new Sample(1, "x")), T0).Action);
-
-            // One field of one row differs -> real news, interval elapsed -> Emit.
-            var result = throttler.Offer(ImmutableArray.Create(new Sample(1, "changed")), T0 + TimeSpan.FromSeconds(1));
-
-            Assert.AreEqual(EmitAction.Emit, result.Action);
-        }
-
-        [TestMethod]
-        public void DropASubThresholdChangeViaTheDeadband()
-        {
-            // MinChange 1.0 on a double property: |candidate-last| must be >= 1.0 to pass.
-            var throttler = new Throttler(Policy("250ms", "1.0"));
-
-            Assert.AreEqual(EmitAction.Emit, throttler.Offer(10.0d, T0).Action);
-
-            // +0.4 past the interval: distinct value, interval elapsed, but deadband blocks it.
-            var result = throttler.Offer(10.4d, T0 + TimeSpan.FromSeconds(1));
-
-            Assert.AreEqual(EmitAction.Drop, result.Action);
-        }
-
-        [TestMethod]
-        public void EmitAnAboveThresholdChangeAfterTheInterval()
-        {
-            var throttler = new Throttler(Policy("250ms", "1.0"));
-
-            Assert.AreEqual(EmitAction.Emit, throttler.Offer(10.0d, T0).Action);
-
-            // +2.0 past the interval: passes deadband and interval -> Emit.
-            var result = throttler.Offer(12.0d, T0 + TimeSpan.FromSeconds(1));
-
-            Assert.AreEqual(EmitAction.Emit, result.Action);
-            Assert.AreEqual(12.0d, throttler.LastEmitted);
-        }
-
-        [TestMethod]
-        public void ImmediateEmitsWithinTheIntervalIgnoringThrottleAndDeadband()
-        {
-            var throttler = new Throttler(Policy("250ms", "1.0", true));
-
-            Assert.AreEqual(EmitAction.Emit, throttler.Offer(10.0d, T0).Action);
-
-            // Within the interval AND sub-threshold (+0.1) -> Immediate still emits.
-            var result = throttler.Offer(10.1d, T0 + TimeSpan.FromMilliseconds(10));
-
-            Assert.AreEqual(EmitAction.Emit, result.Action);
-            Assert.AreEqual(10.1d, throttler.LastEmitted);
-            Assert.IsFalse(throttler.HasPending);
-        }
-
-        [TestMethod]
-        public void ImmediateStillHonorsTheValueEqualityFloor()
-        {
-            var throttler = new Throttler(Policy(immediate: true));
-
-            Assert.AreEqual(EmitAction.Emit, throttler.Offer(7.0d, T0).Action);
-
-            // Equal value -> floor runs before the Immediate bypass -> Drop.
-            var result = throttler.Offer(7.0d, T0 + TimeSpan.FromMilliseconds(10));
-
-            Assert.AreEqual(EmitAction.Drop, result.Action);
-        }
-
-        [TestMethod]
-        public void EmitEveryDistinctChangeWhenMinIntervalIsZero()
-        {
-            var throttler = new Throttler(Policy("0"));
-
-            Assert.AreEqual(EmitAction.Emit, throttler.Offer(1.0d, T0).Action);
-
-            // Same instant, distinct value -> interval (zero) elapsed -> Emit, never Hold.
-            Assert.AreEqual(EmitAction.Emit, throttler.Offer(2.0d, T0).Action);
-            Assert.AreEqual(EmitAction.Emit, throttler.Offer(3.0d, T0).Action);
-            Assert.IsFalse(throttler.HasPending);
-        }
-
-        [TestMethod]
-        public void StillApplyTheFloorWhenMinIntervalIsZero()
-        {
-            var throttler = new Throttler(Policy("0"));
-
-            Assert.AreEqual(EmitAction.Emit, throttler.Offer(1.0d, T0).Action);
-
-            // Equal value -> floor drops even with throttling disabled.
-            Assert.AreEqual(EmitAction.Drop, throttler.Offer(1.0d, T0).Action);
-        }
-
-        [TestMethod]
-        public void StillApplyTheDeadbandWhenMinIntervalIsZero()
-        {
-            var throttler = new Throttler(Policy("0", "1.0"));
-
-            Assert.AreEqual(EmitAction.Emit, throttler.Offer(10.0d, T0).Action);
-
-            // Sub-threshold change -> deadband drops even with throttling disabled.
-            Assert.AreEqual(EmitAction.Drop, throttler.Offer(10.2d, T0).Action);
-        }
-
-        [TestMethod]
-        public void ReturnFalseFromTryFlushWhenNothingIsPending()
-        {
-            var throttler = new Throttler(Policy());
-
-            Assert.AreEqual(EmitAction.Emit, throttler.Offer(1.0d, T0).Action);
-
-            // No held value -> TryFlush is a no-op, LastEmitted unchanged.
-            var flushed = throttler.TryFlush(T0 + TimeSpan.FromSeconds(1), out var value);
-
-            Assert.IsFalse(flushed);
+            // Assert
+            Assert.IsFalse(released);
             Assert.IsNull(value);
             Assert.AreEqual(1.0d, throttler.LastEmitted);
         }
 
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-005.5")]
+        [DataRow("0")]
+        [DataRow("0ms")]
+        public void EmitEveryDistinctValueWhenThrottlingIsDisabled(string minInterval)
+        {
+            // Arrange
+            var throttler = new Throttler(Policy(minInterval));
+            throttler.Offer(1.0d, T0);
+
+            // Act — same instant, so only a disabled interval can let these through.
+            var second = throttler.Offer(2.0d, T0);
+            var third = throttler.Offer(3.0d, T0);
+
+            // Assert
+            Assert.AreEqual(EmitAction.Emit, second.Action);
+            Assert.AreEqual(EmitAction.Emit, third.Action);
+            Assert.IsFalse(throttler.HasPending);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-EMIT-005.5")]
+        public void StillSuppressInsideTheDeadbandWhenThrottlingIsDisabled()
+        {
+            // Arrange
+            var throttler = new Throttler(Policy("0", "1.0"));
+            throttler.Offer(10.0d, T0);
+
+            // Act
+            var result = throttler.Offer(10.2d, T0);
+
+            // Assert
+            Assert.AreEqual(EmitAction.Drop, result.Action);
+        }
+
         private static ThrottlePolicy Policy(string minInterval = "250ms", string? minChange = null, bool immediate = false, Type? valueType = null)
         {
-            return ThrottlePolicy.FromConfigured(new Cfg { MinInterval = minInterval, MinChange = minChange, Immediate = immediate }, valueType ?? typeof(double));
+            return ThrottlePolicy.FromConfigured(new ThrottleKnobs { MinInterval = minInterval, MinChange = minChange, Immediate = immediate }, valueType ?? typeof(double));
         }
 
-        private sealed class Cfg : IThrottleConfigured
-        {
-            public string MinInterval { get; set; } = "250ms";
-
-            public string? MinChange { get; set; }
-
-            public bool Immediate { get; set; }
-        }
-
-        private sealed record Sample(int A, string B);
+        private readonly record struct Row(int Index, string Name);
     }
 }
