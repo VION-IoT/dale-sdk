@@ -8,9 +8,11 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Vion.Contracts.Events.CloudToMesh;
+using Vion.Dale.DevHost.Control;
 using Vion.Dale.DevHost.Mocking;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Core;
+using Vion.Dale.Sdk.Diagnostics;
 using Vion.Dale.Sdk.Messages;
 using Vion.Dale.Sdk.Utils;
 
@@ -235,11 +237,23 @@ namespace Vion.Dale.DevHost
             // D3: the runtime pauses here for a stop grace period — a bounded, best-effort window that gives a
             // device write a block enqueued in Stopping() a chance to reach the wire before termination disposes
             // the per-block DI scopes and, with them, the clients that own the request queues. DevHost
-            // deliberately has none, and this is the one place the message sequence intentionally diverges. A
-            // wall-clock pause would be dead weight charged to every one of the 100+ `await using … Build()`
-            // teardowns in Vion.Dale.DevHost.Test, and a virtual one is worse: on a stepped host nothing advances
-            // the fake clock during teardown, so the pause would never elapse. Do not add one — the gap is
-            // decided, not an oversight.
+            // deliberately has no such pause, and this is the one place the message sequence intentionally
+            // diverges: a wall-clock pause would be dead weight charged to every one of the 100+
+            // `await using … Build()` teardowns in Vion.Dale.DevHost.Test, and a virtual one is worse — on a
+            // stepped host nothing advances the fake clock during teardown, so it would never elapse.
+            //
+            // What DevHost waits for instead is quiescence, not time. A block acknowledges the stop as soon as
+            // Stopping() returns, while the publishes Stopping() issued (the property writes, DrainThrottlers'
+            // final values) are still queued on the mock handlers' mailboxes; terminating and shutting down
+            // right behind the ack drops whichever of them a contended runner has not dispatched yet — the
+            // final values the UI is meant to show before a recycle, and the event a test subscribes for. The
+            // barrier is the stepper's exact predicate (every mailbox drained, no handler mid-flight): it
+            // returns in microseconds on the normal path because the mailboxes are already empty, waits
+            // exactly as long as a queued publish needs otherwise, and is bounded by the same wall-clock
+            // backstop as every other step so no clock mode can stall it.
+            await AwaitTeardownStepAsync(WaitForQuiescenceAsync(RemainingBackstop(sequenceStarted)),
+                                         RemainingBackstop(sequenceStarted),
+                                         "draining the publishes issued during stop");
 
             // Termination gets whatever is left of the deadline but never less than TerminateFloor: it is the
             // step that actually releases the actors and their per-block DI scopes, so a deadline already
@@ -262,6 +276,16 @@ namespace Vion.Dale.DevHost
         private static TimeSpan Max(TimeSpan a, TimeSpan b)
         {
             return a > b ? a : b;
+        }
+
+        // The stepper's barrier over the same two live signals (RuntimeVitals is the SDK's per-message mailbox
+        // statistics; the in-flight monitor is DevHost's own opt-in). Resolved here rather than injected so the
+        // internal barrier type stays off this public class's constructor, as StandIns does.
+        private async Task WaitForQuiescenceAsync(TimeSpan budget)
+        {
+            var barrier = new QuiescenceBarrier(_serviceProvider.GetRequiredService<RuntimeVitals>(), _serviceProvider.GetService<IActorActivityMonitor>());
+            using var budgetSource = new CancellationTokenSource(budget);
+            await barrier.WaitForQuiescenceAsync(budgetSource.Token);
         }
 
         // The runtime's GetLogicBlockActors: every actor whose name carries the logic block prefix.
@@ -313,8 +337,8 @@ namespace Vion.Dale.DevHost
             _logger.LogDebug("Discovering service-provider handlers (the same IServiceProviderHandlerActor scan the runtime uses)...");
 
             var events = _serviceProvider.GetRequiredService<DevHostEvents>();
-            var outputCache = _serviceProvider.GetRequiredService<Control.ServiceProviderOutputCache>();
-            var introspection = _serviceProvider.GetRequiredService<Control.DevHostIntrospection>();
+            var outputCache = _serviceProvider.GetRequiredService<ServiceProviderOutputCache>();
+            var introspection = _serviceProvider.GetRequiredService<DevHostIntrospection>();
             var loggerFactory = _serviceProvider.GetRequiredService<ILoggerFactory>();
 
             // Mirror the runtime: scan the loaded assemblies for service-provider handler types. By this point
