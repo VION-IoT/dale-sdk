@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -25,6 +26,21 @@ namespace Vion.Dale.Cli.Commands
     /// </summary>
     public static class ScenarioFileChecks
     {
+        /// <summary>
+        ///     The closed step vocabulary, in the schema's declaration order. One of the four sites that must
+        ///     agree on this set (the others: the schema's <c>$defs/step/oneOf</c>, the runner's
+        ///     <c>ScenarioStep.Kind</c>, and the SPA's step forms), which a DevHost test compares.
+        /// </summary>
+        public static readonly string[] StepKinds = ["set", "serviceProviderSet", "serviceProviderExpect", "waitUntil", "expect", "advance", "settle"];
+
+        /// <summary>The subset legal in <c>setup</c> — staging only, no waits, asserts or time steps.</summary>
+        public static readonly string[] SetupStepKinds = ["set", "serviceProviderSet"];
+
+        // The DevHost's ScenarioFile.MaxDurationSeconds, restated because this validator deliberately does not
+        // reference Vion.Dale.DevHost — it judges an exported configuration, never a loaded host. The
+        // definition-site agreement test compares the two numbers.
+        private const double MaxDurationSeconds = 922337203685;
+
         private static readonly Regex IdSlug = new("^[A-Za-z0-9][A-Za-z0-9._-]*$", RegexOptions.Compiled);
 
         public static ScenarioCheckOutcome Validate(string fileName, string json, JsonNode config)
@@ -62,7 +78,7 @@ namespace Vion.Dale.Cli.Commands
             }
 
             var topology = scenario["topology"]?.GetValue<string>();
-            if (string.IsNullOrEmpty(topology))
+            if (string.IsNullOrWhiteSpace(topology))
             {
                 errors.Add("topology is required");
             }
@@ -285,10 +301,10 @@ namespace Vion.Dale.Cli.Commands
                     continue;
                 }
 
-                var shapes = new[] { "set", "serviceProviderSet", "serviceProviderExpect", "waitUntil", "expect", "advance", "settle" }.Count(k => step.ContainsKey(k));
-                if (shapes != 1)
+                var present = StepKinds.Where(step.ContainsKey).ToList();
+                if (present.Count != 1)
                 {
-                    errors.Add($"{where}: a step is exactly one of set / serviceProviderSet / serviceProviderExpect / waitUntil / expect / advance / settle");
+                    errors.Add($"{where}: a step is exactly one of {string.Join(" / ", StepKinds)}");
                     continue;
                 }
 
@@ -297,6 +313,21 @@ namespace Vion.Dale.Cli.Commands
                 {
                     errors.Add($"{where}: setup entries stage state — waits, expects, output asserts, and time steps belong in steps");
                     continue;
+                }
+
+                // A field the kind does not carry, mirroring ScenarioFile.StructuralErrors word-for-word (the
+                // definition-site agreement test compares the two sentences). Without these two the validator
+                // green-lit a file the runner then refused — the asymmetric quiet failure the four-sites rule
+                // exists to prevent.
+                var kind = present[0];
+                if (step.ContainsKey("value") && kind != "set" && kind != "serviceProviderSet")
+                {
+                    errors.Add($"{where}: value is not valid on {Article(kind)} {kind} step");
+                }
+
+                if (step.ContainsKey("timeoutSeconds") && kind != "waitUntil")
+                {
+                    errors.Add($"{where}: timeoutSeconds is only valid on a waitUntil step");
                 }
 
                 if (step.ContainsKey("set"))
@@ -359,6 +390,10 @@ namespace Vion.Dale.Cli.Commands
                     {
                         errors.Add($"{where}: advance.seconds must be a positive number");
                     }
+                    else
+                    {
+                        AddWhenLongerThanARunCanSpend(step["advance"]!["seconds"]!.GetValue<double>(), "advance.seconds", where, errors);
+                    }
                 }
                 else if (step.ContainsKey("settle"))
                 {
@@ -368,6 +403,10 @@ namespace Vion.Dale.Cli.Commands
                         if (settle.ContainsKey("maxSeconds") && (settle["maxSeconds"]?.GetValueKind() != JsonValueKind.Number || settle["maxSeconds"]!.GetValue<double>() <= 0))
                         {
                             errors.Add($"{where}: settle.maxSeconds must be a positive number");
+                        }
+                        else if (settle.ContainsKey("maxSeconds"))
+                        {
+                            AddWhenLongerThanARunCanSpend(settle["maxSeconds"]!.GetValue<double>(), "settle.maxSeconds", where, errors);
                         }
 
                         // settle.until, when present, scopes convergence to explicit target paths: a non-empty
@@ -425,9 +464,16 @@ namespace Vion.Dale.Cli.Commands
                 ResolvePath(path, config, where, false, errors);
             }
 
-            if (step.TryGetPropertyValue("timeoutSeconds", out var timeout) && (timeout?.GetValueKind() != JsonValueKind.Number || timeout.GetValue<double>() <= 0))
+            if (step.TryGetPropertyValue("timeoutSeconds", out var timeout))
             {
-                errors.Add($"{where}: timeoutSeconds must be a positive number");
+                if (timeout?.GetValueKind() != JsonValueKind.Number || timeout.GetValue<double>() <= 0)
+                {
+                    errors.Add($"{where}: timeoutSeconds must be a positive number");
+                }
+                else
+                {
+                    AddWhenLongerThanARunCanSpend(timeout.GetValue<double>(), "timeoutSeconds", where, errors);
+                }
             }
         }
 
@@ -521,6 +567,23 @@ namespace Vion.Dale.Cli.Commands
                 {
                     errors.Add($"{where}: {shape}.tolerance is only valid with a numeric equals");
                 }
+            }
+        }
+
+        // "an advance step", "a settle step" — mirrors ScenarioFile.Article so the two sentences match.
+        private static string Article(string kind)
+        {
+            return "aeiou".Contains(kind[0]) ? "an" : "a";
+        }
+
+        // Every duration in the file becomes a TimeSpan before it is spent, and TimeSpan cannot hold one past
+        // this bound (a JSON literal like 1e400 parses to +infinity, which is past it too). Refusing here means
+        // CI names the number in the file instead of the run reporting a TimeSpan overflow mid-step.
+        private static void AddWhenLongerThanARunCanSpend(double seconds, string field, string where, List<string> errors)
+        {
+            if (!double.IsFinite(seconds) || seconds > MaxDurationSeconds)
+            {
+                errors.Add($"{where}: {field} is longer than a run can spend (at most {MaxDurationSeconds.ToString("R", CultureInfo.InvariantCulture)} s)");
             }
         }
 

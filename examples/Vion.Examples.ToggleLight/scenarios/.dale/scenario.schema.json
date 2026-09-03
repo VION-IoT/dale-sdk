@@ -20,8 +20,11 @@
     },
     "id": {
       "type": "string",
-      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
-      "description": "URL-safe slug; must match the file name (<id>.scenario.json). Deep-link route: #/scenario/{id}."
+      "pattern": "^(?!.*\\.\\.)[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "not": {
+        "pattern": "^[Ss][Cc][Hh][Ee][Mm][Aa]$"
+      },
+      "description": "URL-safe slug, no '..'; must match the file name (<id>.scenario.json). 'schema' is reserved (GET /api/scenarios/schema). Deep-link route: #/scenario/{id}."
     },
     "title": {
       "type": "string"
@@ -73,7 +76,9 @@
         "properties": {
           "text": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "pattern": "\\S",
+            "description": "The judgment a human renders; whitespace only is not one."
           },
           "spec": {
             "type": "string"
@@ -268,15 +273,23 @@
               ]
             }
           ],
-          "dependentRequired": {
-            "tolerance": [
-              "equals"
-            ]
+          "dependentSchemas": {
+            "tolerance": {
+              "required": [
+                "equals"
+              ],
+              "properties": {
+                "equals": {
+                  "type": "number"
+                }
+              }
+            }
           }
         },
         "timeoutSeconds": {
           "type": "number",
           "exclusiveMinimum": 0,
+          "maximum": 922337203685,
           "default": 20
         }
       }
@@ -353,10 +366,17 @@
               ]
             }
           ],
-          "dependentRequired": {
-            "tolerance": [
-              "equals"
-            ]
+          "dependentSchemas": {
+            "tolerance": {
+              "required": [
+                "equals"
+              ],
+              "properties": {
+                "equals": {
+                  "$ref": "#/$defs/numericComparand"
+                }
+              }
+            }
           }
         }
       }
@@ -384,7 +404,8 @@
             "seconds": {
               "type": "number",
               "exclusiveMinimum": 0,
-              "description": "Seconds of time to let elapse — virtual on a stepped host, real wall-clock on a real-clock host."
+              "maximum": 922337203685,
+              "description": "Seconds of time to let elapse — virtual on a stepped host, real wall-clock on a real-clock host. Capped at what a run can spend."
             }
           }
         }
@@ -419,8 +440,9 @@
             "maxSeconds": {
               "type": "number",
               "exclusiveMinimum": 0,
+              "maximum": 922337203685,
               "default": 60,
-              "description": "Maximum seconds (virtual on a stepped host, real on a real-clock host) to spend waiting for convergence."
+              "description": "Maximum seconds (virtual on a stepped host, real on a real-clock host) to spend waiting for convergence. Capped at what a run can spend."
             }
           }
         }
@@ -553,10 +575,17 @@
           ]
         }
       ],
-      "dependentRequired": {
-        "tolerance": [
-          "equals"
-        ]
+      "dependentSchemas": {
+        "tolerance": {
+          "required": [
+            "equals"
+          ],
+          "properties": {
+            "equals": {
+              "type": "number"
+            }
+          }
+        }
       }
     },
     "setupEntry": {

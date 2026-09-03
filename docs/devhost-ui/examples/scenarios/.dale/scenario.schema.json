@@ -11,8 +11,9 @@
     "version": { "const": 1, "description": "Vocabulary version. Runners reject unknown versions loudly; evolution is by version bump." },
     "id": {
       "type": "string",
-      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
-      "description": "URL-safe slug; must match the file name (<id>.scenario.json). Deep-link route: #/scenario/{id}."
+      "pattern": "^(?!.*\\.\\.)[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "not": { "pattern": "^[Ss][Cc][Hh][Ee][Mm][Aa]$" },
+      "description": "URL-safe slug, no '..'; must match the file name (<id>.scenario.json). 'schema' is reserved (GET /api/scenarios/schema). Deep-link route: #/scenario/{id}."
     },
     "title": { "type": "string" },
     "description": { "type": "string" },
@@ -44,7 +45,7 @@
         "additionalProperties": false,
         "required": ["text"],
         "properties": {
-          "text": { "type": "string", "minLength": 1 },
+          "text": { "type": "string", "minLength": 1, "pattern": "\\S", "description": "The judgment a human renders; whitespace only is not one." },
           "spec": { "type": "string" }
         }
       }
@@ -132,9 +133,11 @@
             { "required": ["notEquals"] },
             { "required": ["oneOf"] }
           ],
-          "dependentRequired": { "tolerance": ["equals"] }
+          "dependentSchemas": {
+            "tolerance": { "required": ["equals"], "properties": { "equals": { "type": "number" } } }
+          }
         },
-        "timeoutSeconds": { "type": "number", "exclusiveMinimum": 0, "default": 20 }
+        "timeoutSeconds": { "type": "number", "exclusiveMinimum": 0, "maximum": 922337203685, "default": 20 }
       }
     },
     "expectStep": {
@@ -165,7 +168,9 @@
             { "required": ["notEquals"] },
             { "required": ["oneOf"] }
           ],
-          "dependentRequired": { "tolerance": ["equals"] }
+          "dependentSchemas": {
+            "tolerance": { "required": ["equals"], "properties": { "equals": { "$ref": "#/$defs/numericComparand" } } }
+          }
         }
       }
     },
@@ -181,7 +186,7 @@
           "additionalProperties": false,
           "required": ["seconds"],
           "properties": {
-            "seconds": { "type": "number", "exclusiveMinimum": 0, "description": "Seconds of time to let elapse — virtual on a stepped host, real wall-clock on a real-clock host." }
+            "seconds": { "type": "number", "exclusiveMinimum": 0, "maximum": 922337203685, "description": "Seconds of time to let elapse — virtual on a stepped host, real wall-clock on a real-clock host. Capped at what a run can spend." }
           }
         }
       },
@@ -204,7 +209,7 @@
               "items": { "$ref": "#/$defs/namePath" },
               "description": "Explicit target paths that must stabilize for convergence; omit to settle over the whole watch list. A large watch set is for observability — scope settle to the specific values meant to settle so a volatile tile (free-running counter / clock-derived value / noisy sensor) does not burn the budget."
             },
-            "maxSeconds": { "type": "number", "exclusiveMinimum": 0, "default": 60, "description": "Maximum seconds (virtual on a stepped host, real on a real-clock host) to spend waiting for convergence." }
+            "maxSeconds": { "type": "number", "exclusiveMinimum": 0, "maximum": 922337203685, "default": 60, "description": "Maximum seconds (virtual on a stepped host, real on a real-clock host) to spend waiting for convergence. Capped at what a run can spend." }
           }
         }
       },
@@ -266,7 +271,9 @@
         { "required": ["notEquals"] },
         { "required": ["oneOf"] }
       ],
-      "dependentRequired": { "tolerance": ["equals"] }
+      "dependentSchemas": {
+        "tolerance": { "required": ["equals"], "properties": { "equals": { "type": "number" } } }
+      }
     },
     "setupEntry": {
       "oneOf": [

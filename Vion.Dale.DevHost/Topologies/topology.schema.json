@@ -10,8 +10,9 @@
     "$schema": { "type": "string" },
     "id": {
       "type": "string",
-      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
-      "description": "URL-safe slug; must match the file name (<id>.topology.json). Scenario files reference it via \"topology\"."
+      "pattern": "^(?!.*\\.\\.)[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "not": { "pattern": "^[Ss][Cc][Hh][Ee][Mm][Aa]$" },
+      "description": "URL-safe slug, no '..'; must match the file name (<id>.topology.json). 'schema' is reserved (GET /api/topologies/schema). Scenario files reference it via \"topology\"."
     },
     "logicBlockInstances": {
       "type": "array",
@@ -30,8 +31,8 @@
           },
           "instantiationParameters": {
             "type": "object",
-            "description": "Operator-chosen [InstantiationParameter] values (identifier -> JSON scalar; enums as member-name strings), applied to the block before Configure so config-time inclusion gates resolve. null is accepted only for a parameter whose declared type is nullable. Optional.",
-            "additionalProperties": { "type": ["boolean", "integer", "string", "null"] }
+            "description": "Operator-chosen [InstantiationParameter] values (identifier -> JSON scalar; enums as member-name strings), applied to the block before Configure so config-time inclusion gates resolve. Any JSON scalar the parameter's own declared type decodes, so a numeric parameter takes a fractional value. null is accepted only for a parameter whose declared type is nullable. Optional.",
+            "additionalProperties": { "type": ["boolean", "number", "integer", "string", "null"] }
           }
         }
       }

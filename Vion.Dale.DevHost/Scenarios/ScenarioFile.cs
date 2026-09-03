@@ -349,7 +349,7 @@ namespace Vion.Dale.DevHost.Scenarios
             }
             else if (Value.ValueKind != JsonValueKind.Undefined && ServiceProviderSet is null)
             {
-                yield return $"value is not valid on a {Kind} step";
+                yield return $"value is not valid on {Article(Kind)} {Kind} step";
             }
 
             if (ServiceProviderSet is not null)
@@ -429,6 +429,14 @@ namespace Vion.Dale.DevHost.Scenarios
                     }
                 }
             }
+        }
+
+        // The stray-field message names the step kind, so the article has to follow it: "an advance step",
+        // "a settle step". `dale scenario validate` emits the same sentence, and the two are compared
+        // word-for-word by the definition-site agreement test.
+        private static string Article(string kind)
+        {
+            return "aeiou".Contains(kind[0]) ? "an" : "a";
         }
 
         // Every duration in the file is converted to a TimeSpan before it is spent — virtual on a stepped

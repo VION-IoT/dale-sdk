@@ -224,9 +224,9 @@ namespace Vion.Dale.DevHost.Test
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-002.6")]
         [DataRow("""{ "waitUntil": { "property": "A.B", "above": 1 }, "value": 3 }""", "value is not valid on a waitUntil step", DisplayName = "value on waitUntil")]
-        [DataRow("""{ "advance": { "seconds": 1 }, "value": 3 }""", "value is not valid on a advance step", DisplayName = "value on advance")]
+        [DataRow("""{ "advance": { "seconds": 1 }, "value": 3 }""", "value is not valid on an advance step", DisplayName = "value on advance")]
         [DataRow("""{ "settle": {}, "value": 3 }""", "value is not valid on a settle step", DisplayName = "value on settle")]
-        [DataRow("""{ "expect": { "property": "A.B", "equals": 1 }, "value": 3 }""", "value is not valid on a expect step", DisplayName = "value on expect")]
+        [DataRow("""{ "expect": { "property": "A.B", "equals": 1 }, "value": 3 }""", "value is not valid on an expect step", DisplayName = "value on expect")]
         [DataRow("""{ "set": "A.B", "value": 1, "timeoutSeconds": 5 }""", "timeoutSeconds is only valid on a waitUntil step", DisplayName = "timeoutSeconds on set")]
         [DataRow("""{ "settle": {}, "timeoutSeconds": 5 }""", "timeoutSeconds is only valid on a waitUntil step", DisplayName = "timeoutSeconds on settle")]
         public void RejectFieldTheStepKindDoesNotCarry(string step, string expectedError)

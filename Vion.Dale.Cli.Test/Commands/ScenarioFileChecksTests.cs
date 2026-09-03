@@ -667,5 +667,72 @@ namespace Vion.Dale.Cli.Test.Commands
                                                       config);
             Assert.AreEqual(0, outcome.Errors.Count, string.Join("; ", outcome.Errors));
         }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-001.4")]
+        public void RefuseWhitespaceTopology()
+        {
+            // Arrange / Act
+            var outcome = ScenarioFileChecks.Validate("ws.scenario.json", """{ "version": 1, "id": "ws", "topology": "   " }""", Config);
+
+            // Assert
+            Assert.IsTrue(outcome.Errors.Any(e => e.Contains("topology is required")), string.Join("; ", outcome.Errors));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-002.6")]
+        [DataRow("""{ "waitUntil": { "property": "Counter.Counter", "above": 1 }, "value": 3 }""", "value is not valid on a waitUntil step", DisplayName = "value on waitUntil")]
+        [DataRow("""{ "advance": { "seconds": 1 }, "value": 3 }""", "value is not valid on an advance step", DisplayName = "value on advance")]
+        [DataRow("""{ "settle": {}, "value": 3 }""", "value is not valid on a settle step", DisplayName = "value on settle")]
+        [DataRow("""{ "expect": { "property": "Counter.Counter", "equals": 1 }, "value": 3 }""", "value is not valid on an expect step", DisplayName = "value on expect")]
+        [DataRow("""{ "serviceProviderExpect": { "logicBlock": "Counter", "contract": "EnableInput", "equals": true }, "value": 3 }""",
+                 "value is not valid on a serviceProviderExpect step", DisplayName = "value on output assert")]
+        [DataRow("""{ "set": "Counter.Counter", "value": 1, "timeoutSeconds": 5 }""", "timeoutSeconds is only valid on a waitUntil step", DisplayName = "timeout on set")]
+        [DataRow("""{ "settle": {}, "timeoutSeconds": 5 }""", "timeoutSeconds is only valid on a waitUntil step", DisplayName = "timeout on settle")]
+        public void RefuseFieldTheStepKindDoesNotCarry(string step, string expectedError)
+        {
+            // Arrange / Act
+            var outcome = ScenarioFileChecks.Validate("stray.scenario.json",
+                                                      $$"""{ "version": 1, "id": "stray", "topology": "demo", "steps": [{{step}}] }""",
+                                                      Config);
+
+            // Assert
+            Assert.IsTrue(outcome.Errors.Any(e => e.Contains(expectedError)), string.Join("; ", outcome.Errors));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-003.2")]
+        [DataRow("""{ "advance": { "seconds": 1e400 } }""", "advance.seconds", DisplayName = "advance, overflows to infinity")]
+        [DataRow("""{ "advance": { "seconds": 1e308 } }""", "advance.seconds", DisplayName = "advance, finite but past the cap")]
+        [DataRow("""{ "settle": { "maxSeconds": 1e308 } }""", "settle.maxSeconds", DisplayName = "maxSeconds, past the cap")]
+        [DataRow("""{ "waitUntil": { "property": "Counter.Counter", "above": 1 }, "timeoutSeconds": 1e308 }""", "timeoutSeconds", DisplayName = "timeout, past the cap")]
+        public void RefuseDurationLongerThanTheRunnerCanSpend(string step, string expectedField)
+        {
+            // Arrange / Act
+            var outcome = ScenarioFileChecks.Validate("long.scenario.json",
+                                                      $$"""{ "version": 1, "id": "long", "topology": "demo", "steps": [{{step}}] }""",
+                                                      Config);
+
+            // Assert
+            Assert.IsTrue(outcome.Errors.Any(e => e.Contains(expectedField) && e.Contains("longer than a run can spend")), string.Join("; ", outcome.Errors));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-003.2")]
+        public void AcceptDurationTheRunnerCanSpend()
+        {
+            // Arrange / Act
+            var outcome = ScenarioFileChecks.Validate("ok-long.scenario.json",
+                                                      """
+                                                      {
+                                                        "version": 1, "id": "ok-long", "topology": "demo",
+                                                        "steps": [{ "advance": { "seconds": 922337203685 } }]
+                                                      }
+                                                      """,
+                                                      Config);
+
+            // Assert
+            Assert.AreEqual(0, outcome.Errors.Count, string.Join("; ", outcome.Errors));
+        }
     }
 }

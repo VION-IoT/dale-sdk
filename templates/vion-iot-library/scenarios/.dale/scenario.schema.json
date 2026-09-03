@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://vion.swiss/dale/scenario.schema.json",
   "title": "Dale DevHost scenario file (RFC 0006, vocabulary v1)",
-  "description": "A git-committed description of a manual-test scenario: setup, ordered stimuli, watch list, human judgments. The generic structural schema shipped with Vion.Dale.DevHost; \u0027dale scenario schema\u0027 (R4) emits a per-project variant enriched with the topology\u0027s actual block names and property identifiers.",
+  "description": "A git-committed description of a manual-test scenario: setup, ordered stimuli, watch list, human judgments. The generic structural schema shipped with Vion.Dale.DevHost; 'dale scenario schema' (R4) emits a per-project variant enriched with the topology's actual block names and property identifiers.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -20,8 +20,11 @@
     },
     "id": {
       "type": "string",
-      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
-      "description": "URL-safe slug; must match the file name (\u003Cid\u003E.scenario.json). Deep-link route: #/scenario/{id}."
+      "pattern": "^(?!.*\\.\\.)[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "not": {
+        "pattern": "^[Ss][Cc][Hh][Ee][Mm][Aa]$"
+      },
+      "description": "URL-safe slug, no '..'; must match the file name (<id>.scenario.json). 'schema' is reserved (GET /api/scenarios/schema). Deep-link route: #/scenario/{id}."
     },
     "title": {
       "type": "string"
@@ -31,7 +34,7 @@
     },
     "topology": {
       "type": "string",
-      "description": "The topology id this scenario expects (a C# preset\u0027s declared name or a topology file id). Mismatch blocks the run."
+      "description": "The topology id this scenario expects (a C# preset's declared name or a topology file id). Mismatch blocks the run."
     },
     "specs": {
       "type": "array",
@@ -73,7 +76,9 @@
         "properties": {
           "text": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "pattern": "\\S",
+            "description": "The judgment a human renders; whitespace only is not one."
           },
           "spec": {
             "type": "string"
@@ -109,7 +114,7 @@
           "array"
         ]
       },
-      "description": "A scalar, enum member name, or null \u2014 structs/arrays are not comparable in v1."
+      "description": "A scalar, enum member name, or null — structs/arrays are not comparable in v1."
     },
     "pathComparand": {
       "type": "object",
@@ -122,7 +127,7 @@
           "$ref": "#/$defs/namePath"
         }
       },
-      "description": "A relational comparand resolved to another path\u0027s current value at assert time (expect only)."
+      "description": "A relational comparand resolved to another path's current value at assert time (expect only)."
     },
     "relationalComparand": {
       "oneOf": [
@@ -157,7 +162,7 @@
           ]
         }
       },
-      "description": "A non-empty array of scalars/enum names; value \u2208 this set satisfies the comparator."
+      "description": "A non-empty array of scalars/enum names; value ∈ this set satisfies the comparator."
     },
     "stepCommon": {
       "label": {
@@ -262,15 +267,23 @@
               ]
             }
           ],
-          "dependentRequired": {
-            "tolerance": [
-              "equals"
-            ]
+          "dependentSchemas": {
+            "tolerance": {
+              "required": [
+                "equals"
+              ],
+              "properties": {
+                "equals": {
+                  "type": "number"
+                }
+              }
+            }
           }
         },
         "timeoutSeconds": {
           "type": "number",
           "exclusiveMinimum": 0,
+          "maximum": 922337203685,
           "default": 20
         }
       }
@@ -347,10 +360,17 @@
               ]
             }
           ],
-          "dependentRequired": {
-            "tolerance": [
-              "equals"
-            ]
+          "dependentSchemas": {
+            "tolerance": {
+              "required": [
+                "equals"
+              ],
+              "properties": {
+                "equals": {
+                  "$ref": "#/$defs/numericComparand"
+                }
+              }
+            }
           }
         }
       }
@@ -378,7 +398,8 @@
             "seconds": {
               "type": "number",
               "exclusiveMinimum": 0,
-              "description": "Seconds of time to let elapse \u2014 virtual on a stepped host, real wall-clock on a real-clock host."
+              "maximum": 922337203685,
+              "description": "Seconds of time to let elapse — virtual on a stepped host, real wall-clock on a real-clock host. Capped at what a run can spend."
             }
           }
         }
@@ -408,13 +429,14 @@
               "items": {
                 "$ref": "#/$defs/namePath"
               },
-              "description": "Explicit target paths that must stabilize for convergence; omit to settle over the whole watch list. A large watch set is for observability \u2014 scope settle to the specific values meant to settle so a volatile tile (free-running counter / clock-derived value / noisy sensor) does not burn the budget."
+              "description": "Explicit target paths that must stabilize for convergence; omit to settle over the whole watch list. A large watch set is for observability — scope settle to the specific values meant to settle so a volatile tile (free-running counter / clock-derived value / noisy sensor) does not burn the budget."
             },
             "maxSeconds": {
               "type": "number",
               "exclusiveMinimum": 0,
+              "maximum": 922337203685,
               "default": 60,
-              "description": "Maximum seconds (virtual on a stepped host, real on a real-clock host) to spend waiting for convergence."
+              "description": "Maximum seconds (virtual on a stepped host, real on a real-clock host) to spend waiting for convergence. Capped at what a run can spend."
             }
           }
         }
@@ -445,7 +467,7 @@
         "serviceProviderSet",
         "value"
       ],
-      "description": "Drives the wire value a service provider delivers on a [ServiceProviderContractType] contract \u2014 a scalar for digital/analog, a JSON object for a struct contract (PPC). Available on any contract whose handler declares a [ScenarioWire] inbound: an input, a bidirectional contract, or the confirmation an output\u0027s provider sends back. The generic replacement for digitalInput / analogInput (RFC 0010).",
+      "description": "Drives the wire value a service provider delivers on a [ServiceProviderContractType] contract — a scalar for digital/analog, a JSON object for a struct contract (PPC). Available on any contract whose handler declares a [ScenarioWire] inbound: an input, a bidirectional contract, or the confirmation an output's provider sends back. The generic replacement for digitalInput / analogInput (RFC 0010).",
       "properties": {
         "label": {
           "$ref": "#/$defs/stepCommon/label"
@@ -487,7 +509,7 @@
         "logicBlock",
         "contract"
       ],
-      "description": "A service-provider value-output contract reference (logicBlock \u002B contract), an optional field selecting one scalar of a multi-field command, plus exactly one comparator, checked against the value the block last wrote on that contract. Comparands are literals only (no relational { path } form).",
+      "description": "A service-provider value-output contract reference (logicBlock + contract), an optional field selecting one scalar of a multi-field command, plus exactly one comparator, checked against the value the block last wrote on that contract. Comparands are literals only (no relational { path } form).",
       "properties": {
         "logicBlock": {
           "type": "string"
@@ -497,7 +519,7 @@
         },
         "field": {
           "type": "string",
-          "description": "Which scalar of the command to compare, for a contract whose outbound carries more than one field \u2014 the wire keys, dotted through a nested struct (limits.activePowerW), matched case-insensitively. Required for such a contract (a whole command is not comparable) and rejected for one that writes a single value."
+          "description": "Which scalar of the command to compare, for a contract whose outbound carries more than one field — the wire keys, dotted through a nested struct (limits.activePowerW), matched case-insensitively. Required for such a contract (a whole command is not comparable) and rejected for one that writes a single value."
         },
         "above": {
           "type": "number"
@@ -547,10 +569,17 @@
           ]
         }
       ],
-      "dependentRequired": {
-        "tolerance": [
-          "equals"
-        ]
+      "dependentSchemas": {
+        "tolerance": {
+          "required": [
+            "equals"
+          ],
+          "properties": {
+            "equals": {
+              "type": "number"
+            }
+          }
+        }
       }
     },
     "setupEntry": {
