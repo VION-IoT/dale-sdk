@@ -392,8 +392,8 @@ mappings optional.
 - `AC-SCEN-013.3` (Event-driven): WHEN a topology names a type that is not loadable or is not a logic
   block THE SYSTEM SHALL refuse the topology reporting every such instance at once.
 - `AC-SCEN-013.4` (Ubiquitous): THE SYSTEM SHALL resolve an instance type from a single snapshot of
-  the loaded assemblies, then from the application base directory, then from an assembly-qualified
-  lookup.
+  the loaded assemblies, then from an assembly-qualified lookup, then from a probe of the application
+  base directory.
 - `AC-SCEN-013.5` (Ubiquitous): THE SYSTEM SHALL leave a contract the file does not map on its
   auto-created mock endpoint, and SHALL refuse a mapping that names an instance or a contract the
   topology does not carry.
@@ -482,8 +482,9 @@ renames without booting a host per file. The runner stays authoritative; the val
 - `AC-SCEN-015.1` (Ubiquitous): THE SYSTEM SHALL resolve name paths in the offline validator by the
   same rules the runner applies.
 - `AC-SCEN-015.2` (Event-driven): WHEN a scenario declares a topology the exported configuration does
-  not describe THE SYSTEM SHALL skip name-path resolution, report the file as skipped, and keep its
-  structural errors.
+  not describe THE SYSTEM SHALL skip name-path resolution and still apply every structural check,
+  reporting the file as skipped for that topology when the structural checks found nothing and
+  reporting the errors otherwise.
 - `AC-SCEN-015.3` (Ubiquitous): THE SYSTEM SHALL emit a per-project scenario schema that is the
   generic document with its name-path definition replaced by that topology's valid paths and nothing
   else changed.

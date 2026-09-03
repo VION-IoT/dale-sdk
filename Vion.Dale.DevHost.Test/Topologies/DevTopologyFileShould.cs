@@ -185,12 +185,14 @@ namespace Vion.Dale.DevHost.Test
         [TestProperty("spec", "AC-SCEN-013.7")]
         public void OmitEmptyOptionalCollectionOnSerialization()
         {
-            // Arrange — an editor that added and then removed a pairing hands back an empty array, and an
-            // instance with no gated members hands back an empty parameter map; neither may reach the file.
+            // Arrange — an editor that added and then removed a pairing hands back an empty array, a topology
+            // whose contracts are all auto-mocked hands back an empty mapping list, and an instance with no
+            // gated members hands back an empty parameter map; none of the three may reach the file.
             var emptied = DevTopologyFile.Parse("""
                                                 {
                                                   "id": "t",
                                                   "logicBlockInstances": [{ "typeFullName": "X.Y", "name": "A", "instantiationParameters": {} }],
+                                                  "contractMappings": [],
                                                   "contractPairings": []
                                                 }
                                                 """);
@@ -200,6 +202,7 @@ namespace Vion.Dale.DevHost.Test
 
             // Assert
             Assert.DoesNotContain("contractPairings", json);
+            Assert.DoesNotContain("contractMappings", json);
             Assert.DoesNotContain("instantiationParameters", json);
         }
 
@@ -215,6 +218,9 @@ namespace Vion.Dale.DevHost.Test
                                                       { "typeFullName": "X.Y", "name": "A", "instantiationParameters": { "P": 1 } },
                                                       { "typeFullName": "X.Z", "name": "B" }
                                                     ],
+                                                    "contractMappings": [
+                                                      { "logicBlockName": "A", "contractIdentifier": "C" }
+                                                    ],
                                                     "contractPairings": [
                                                       { "a": { "logicBlockName": "A", "contractIdentifier": "C" }, "b": { "logicBlockName": "B", "contractIdentifier": "D" } }
                                                     ]
@@ -226,6 +232,7 @@ namespace Vion.Dale.DevHost.Test
 
             // Assert
             StringAssert.Contains(json, "contractPairings");
+            StringAssert.Contains(json, "contractMappings");
             StringAssert.Contains(json, "instantiationParameters");
         }
     }

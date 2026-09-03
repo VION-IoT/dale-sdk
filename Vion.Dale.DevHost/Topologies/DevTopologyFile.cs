@@ -40,6 +40,8 @@ namespace Vion.Dale.DevHost.Topologies
                                                                                WriteIndented = true,
                                                                            };
 
+        private readonly IReadOnlyList<TopologyContractMapping>? _contractMappings;
+
         private readonly IReadOnlyList<TopologyContractPairing>? _contractPairings;
 
         [JsonPropertyName("$schema")]
@@ -51,8 +53,20 @@ namespace Vion.Dale.DevHost.Topologies
 
         public IReadOnlyList<TopologyInterfaceMapping>? InterfaceMappings { get; init; }
 
-        /// <summary>Optional explicit endpoint mappings (e.g. shared contracts); unlisted contracts are auto-mocked.</summary>
-        public IReadOnlyList<TopologyContractMapping>? ContractMappings { get; init; }
+        /// <summary>
+        ///     Optional explicit endpoint mappings (e.g. shared contracts); unlisted contracts are auto-mocked.
+        ///     <para>
+        ///         "No mappings" has one spelling, the same way <see cref="ContractPairings" /> and
+        ///         <see cref="TopologyLogicBlockInstance.InstantiationParameters" /> do: the key is absent, never
+        ///         an empty array, so every writer inherits the normalisation instead of repeating it.
+        ///     </para>
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public IReadOnlyList<TopologyContractMapping>? ContractMappings
+        {
+            get => _contractMappings is { Count: > 0 } ? _contractMappings : null;
+            init => _contractMappings = value;
+        }
 
         /// <summary>
         ///     Optional declarations that two service-provider contract endpoints are ONE wire — each
