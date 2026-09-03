@@ -738,8 +738,10 @@ namespace Vion.Dale.DevHost.Test.Stepping
     }
 
     /// <summary>
-    ///     Declares no timer, so a host built from it alone schedules nothing — the fixture that shows what a
-    ///     <c>settle</c> does when there is no next event to advance to.
+    ///     Declares no timer of its own, so nothing a <c>settle</c> could target is ever scheduled — the
+    ///     fixture that shows what a <c>settle</c> does when no watched value moves. A host built from it is
+    ///     not idle: the framework's own periodic event is still on the schedule, which is what the single hop
+    ///     lands on.
     /// </summary>
     [LogicBlock(Name = "Quiet")]
     public class QuietBlock : LogicBlockBase

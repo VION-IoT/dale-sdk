@@ -74,10 +74,9 @@ namespace Vion.Dale.DevHost.Topologies
                                                                })
                                                  .ToList(),
 
-                       // Contract mappings are omitted from the default topology: the loader auto-mocks
-                       // them, exactly matching the C# preset behavior. Consumers can add explicit mappings
-                       // to the written file to express shared-endpoint wiring.
-                       ContractMappings = Array.Empty<TopologyContractMapping>(),
+                       // ContractMappings is left unset: the loader auto-mocks every unlisted contract,
+                       // exactly matching the C# preset behavior. Consumers can add explicit mappings to the
+                       // written file to express shared-endpoint wiring.
                    };
         }
 

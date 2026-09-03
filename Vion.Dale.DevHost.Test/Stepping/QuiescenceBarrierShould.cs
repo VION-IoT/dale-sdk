@@ -14,6 +14,15 @@ namespace Vion.Dale.DevHost.Test.Stepping
     ///     states — depth zero with a handler running, and a handler done with traffic still queued — are
     ///     what this suite pins.
     ///     <para>
+    ///         Both "still waiting" claims are observed over a real-clock window, not the fake clock:
+    ///         <see cref="QuiescenceBarrier" /> takes no <see cref="TimeProvider" /> and exposes no
+    ///         poll-completion seam, so there is nothing to advance and nothing to await but wall time — the
+    ///         same absence the ledger records for <c>DeterministicStepper.QuiescenceTimeout</c>. The window's
+    ///         <em>expiry</em> is what is asserted, and that direction is load-safe: only the wait completing
+    ///         early would falsify the claim, and a slow machine cannot cause that. A longer window would make
+    ///         the suite slower, never flakier.
+    ///     </para>
+    ///     <para>
     ///         The stepper's real-clock safety timeout around this wait is not covered: it is a fixed ten
     ///         seconds with no injection seam, so a test could only reach it by waiting it out
     ///         (<c>docs/specs/_findings.md</c>).
