@@ -429,10 +429,7 @@ namespace Vion.Dale.DevHost.Topologies
                                 LogicBlockInstances = file.LogicBlockInstances,
                                 InterfaceMappings = file.InterfaceMappings,
 
-                                // An EMPTY pairing list is written back as no list at all: an editor that added
-                                // and then removed a pairing must leave an unpaired file byte-identical, and a
-                                // saved `"contractPairings": []` would fail that even though it means nothing.
-                                ContractPairings = file.ContractPairings is { Count: > 0 } ? file.ContractPairings : null,
+                                ContractPairings = file.ContractPairings,
                                 ContractMappings = configuration.LogicBlocks
                                                                 .SelectMany(lb => lb.ContractMappings.Select(cm => new TopologyContractMapping
                                                                                                                    {

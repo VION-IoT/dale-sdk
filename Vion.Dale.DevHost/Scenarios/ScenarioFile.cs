@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -24,6 +25,15 @@ namespace Vion.Dale.DevHost.Scenarios
     {
         /// <summary>The vocabulary version this implementation understands.</summary>
         public const int SupportedVersion = 1;
+
+        /// <summary>
+        ///     The largest duration, in seconds, any of the file's budgets may name — <c>advance.seconds</c>,
+        ///     <c>settle.maxSeconds</c>, <c>timeoutSeconds</c>. A whole number so the JSON schema's
+        ///     <c>maximum</c>, <c>dale scenario validate</c> and this validator all name the identical bound,
+        ///     and comfortably under <see cref="TimeSpan.MaxValue" />, which every one of the three budgets is
+        ///     converted to before it is spent.
+        /// </summary>
+        public const double MaxDurationSeconds = 922337203685;
 
         internal static readonly JsonSerializerOptions SerializerOptions = new()
                                                                            {
@@ -145,7 +155,7 @@ namespace Vion.Dale.DevHost.Scenarios
                 errors.Add("id 'schema' is reserved (GET /api/scenarios/schema serves the format schema)");
             }
 
-            if (string.IsNullOrEmpty(Topology))
+            if (string.IsNullOrWhiteSpace(Topology))
             {
                 errors.Add("topology is required — the topology id this scenario expects to run against");
             }
@@ -370,9 +380,9 @@ namespace Vion.Dale.DevHost.Scenarios
                     yield return error;
                 }
 
-                if (TimeoutSeconds is <= 0)
+                foreach (var error in DurationErrors(TimeoutSeconds, "timeoutSeconds"))
                 {
-                    yield return "timeoutSeconds must be positive";
+                    yield return error;
                 }
             }
             else if (TimeoutSeconds is not null)
@@ -388,14 +398,20 @@ namespace Vion.Dale.DevHost.Scenarios
                 }
             }
 
-            if (Advance is not null && Advance.Seconds <= 0)
+            if (Advance is not null)
             {
-                yield return "advance.seconds must be positive";
+                foreach (var error in DurationErrors(Advance.Seconds, "advance.seconds"))
+                {
+                    yield return error;
+                }
             }
 
-            if (Settle is not null && Settle.MaxSeconds is <= 0)
+            if (Settle is not null)
             {
-                yield return "settle.maxSeconds must be positive";
+                foreach (var error in DurationErrors(Settle.MaxSeconds, "settle.maxSeconds"))
+                {
+                    yield return error;
+                }
             }
 
             if (Settle?.Until is { } until)
@@ -412,6 +428,31 @@ namespace Vion.Dale.DevHost.Scenarios
                         yield return $"settle.until[{i}]: empty name path";
                     }
                 }
+            }
+        }
+
+        // Every duration in the file is converted to a TimeSpan before it is spent — virtual on a stepped
+        // host, a real wait or a real timeout otherwise. TimeSpan.FromSeconds throws on a NaN and on anything
+        // past its range, and that throw used to land in the runner's per-step catch-all, so an author who
+        // wrote 1e400 (which parses to +infinity) read "TimeSpan overflowed" mid-run instead of being sent to
+        // the number in their file. A null budget is the field's documented default, not a value.
+        private static IEnumerable<string> DurationErrors(double? seconds, string field)
+        {
+            if (seconds is not { } value)
+            {
+                yield break;
+            }
+
+            if (double.IsNaN(value) || value <= 0)
+            {
+                yield return $"{field} must be positive";
+
+                yield break;
+            }
+
+            if (!double.IsFinite(value) || value > ScenarioFile.MaxDurationSeconds)
+            {
+                yield return $"{field} is longer than a run can spend (at most {ScenarioFile.MaxDurationSeconds.ToString("R", CultureInfo.InvariantCulture)} s)";
             }
         }
     }
