@@ -220,20 +220,25 @@ namespace Vion.Dale.Cli.Test.Commands
         }
 
         [TestMethod]
-        public void RejectsAmbiguousTwoSegmentPaths_ListingQualifiedCandidates()
+        [TestProperty("spec", "AC-SCEN-015.1")]
+        public void RefuseAmbiguousTwoSegmentPathListingQualifiedCandidates()
         {
+            // Arrange / Act
             var outcome = ScenarioFileChecks.Validate("amb.scenario.json",
                                                       """{ "version": 1, "id": "amb", "topology": "demo", "steps": [ { "set": "DualPoint.Limit", "value": 1 } ] }""",
                                                       Config);
             var error = outcome.Errors.Single();
+            // Assert
             StringAssert.Contains(error, "ambiguous");
             StringAssert.Contains(error, "DualPoint.PointA.Limit");
             StringAssert.Contains(error, "DualPoint.PointB.Limit");
         }
 
         [TestMethod]
-        public void RejectsWritesToMeasuringPointsAndReadOnlyProperties()
+        [TestProperty("spec", "AC-SCEN-015.1")]
+        public void RefuseWritesToMeasuringPointsAndReadOnlyProperties()
         {
+            // Arrange / Act
             var outcome = ScenarioFileChecks.Validate("ro.scenario.json",
                                                       """
                                                       { "version": 1, "id": "ro", "topology": "demo",
@@ -243,13 +248,16 @@ namespace Vion.Dale.Cli.Test.Commands
                                                         ] }
                                                       """,
                                                       Config);
+            // Assert
             Assert.IsTrue(outcome.Errors.Any(e => e.Contains("measuring point")), string.Join("; ", outcome.Errors));
             Assert.IsTrue(outcome.Errors.Any(e => e.Contains("read-only property")), string.Join("; ", outcome.Errors));
         }
 
         [TestMethod]
-        public void RejectsUnknownBlocksMembersAndContracts()
+        [TestProperty("spec", "AC-SCEN-015.1")]
+        public void RefuseUnknownBlocksMembersAndContracts()
         {
+            // Arrange / Act
             var outcome = ScenarioFileChecks.Validate("bad.scenario.json",
                                                       """
                                                       { "version": 1, "id": "bad", "topology": "demo",
@@ -260,15 +268,19 @@ namespace Vion.Dale.Cli.Test.Commands
                                                         ] }
                                                       """,
                                                       Config);
+            // Assert
             Assert.AreEqual(3, outcome.Errors.Count, string.Join("; ", outcome.Errors));
         }
 
         [TestMethod]
-        public void SkipsPathResolutionForOtherTopologies_ButKeepsStructuralChecks()
+        [TestProperty("spec", "AC-SCEN-015.2")]
+        public void SkipPathResolutionForForeignTopologyKeepingStructuralChecks()
         {
+            // Arrange / Act
             var clean = ScenarioFileChecks.Validate("other.scenario.json",
                                                     """{ "version": 1, "id": "other", "topology": "elsewhere", "steps": [ { "set": "Nope.X", "value": 1 } ] }""",
                                                     Config);
+            // Assert
             Assert.AreEqual(0, clean.Errors.Count, string.Join("; ", clean.Errors));
             Assert.AreEqual("elsewhere", clean.SkippedForTopology);
 
@@ -436,8 +448,10 @@ namespace Vion.Dale.Cli.Test.Commands
         }
 
         [TestMethod]
-        public void ResolvesStructFieldPaths_TheEnricherEmitsAndTheRunnerResolves()
+        [TestProperty("spec", "AC-SCEN-015.4")]
+        public void ResolveStructFieldPathsEmittedByEnricher()
         {
+            // Arrange / Act
             // DF-26: validate must resolve the struct-field name paths its own enricher emits and the runner
             // accepts — both the Block.Member.Field (3-seg) and Block.Service.Member.Field (4-seg) forms.
             var outcome = ScenarioFileChecks.Validate("sf.scenario.json",
@@ -454,6 +468,7 @@ namespace Vion.Dale.Cli.Test.Commands
                                                       }
                                                       """,
                                                       StructConfig);
+            // Assert
             Assert.AreEqual(0, outcome.Errors.Count, string.Join("; ", outcome.Errors));
         }
 
@@ -486,12 +501,15 @@ namespace Vion.Dale.Cli.Test.Commands
         }
 
         [TestMethod]
-        public void EnrichesTheSchemaWithThisTopologysNamePaths()
+        [TestProperty("spec", "AC-SCEN-015.3")]
+        public void EnrichSchemaWithThisTopologyNamePaths()
         {
+            // Arrange / Act
             var schema = JsonNode.Parse("""{ "$defs": { "namePath": { "type": "string", "pattern": "x" } } }""")!;
             ScenarioFileChecks.EnrichSchemaWithNamePaths(schema, Config);
 
             var namePath = schema["$defs"]!["namePath"]!.AsObject();
+            // Assert
             Assert.IsFalse(namePath.ContainsKey("pattern"));
             var paths = namePath["enum"]!.AsArray().Select(n => n!.GetValue<string>()).ToList();
 
@@ -629,8 +647,10 @@ namespace Vion.Dale.Cli.Test.Commands
         }
 
         [TestMethod]
-        public void OffersTwoSegmentForm_WhenAMemberIsBothPropertyAndMeasuringPointOnOneService()
+        [TestProperty("spec", "AC-SCEN-015.4")]
+        public void OfferTwoSegmentFormOnlyWhenUnambiguous()
         {
+            // Arrange / Act
             // A single-service block can expose the same member as BOTH a serviceProperty and a
             // serviceMeasuringPoint — the real EnergyManager does exactly this for ActivePowerImportingKw.
             // The resolver counts ONE carrier service, so the two-segment path resolves; the schema enricher
@@ -657,6 +677,7 @@ namespace Vion.Dale.Cli.Test.Commands
             ScenarioFileChecks.EnrichSchemaWithNamePaths(schema, config);
 
             var paths = schema["$defs"]!["namePath"]!["enum"]!.AsArray().Select(n => n!.GetValue<string>()).ToList();
+            // Assert
             CollectionAssert.Contains(paths, "EnergyManager.ActivePowerImportingKw");
             CollectionAssert.Contains(paths, "EnergyManager.EnergyManager.ActivePowerImportingKw");
 
