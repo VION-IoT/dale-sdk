@@ -23,6 +23,10 @@ namespace Vion.Dale.DevHost.Test.Stepping
     [TestClass]
     public class DeterministicSteppingShould
     {
+        // A hang guard, never a synchronisation point: every wait in this class is on a signal the SUT or the
+        // fake clock raises, and this bound only decides how long a hung one takes to report.
+        private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
+
         private static readonly DateTimeOffset Epoch = new(2026,
                                                            1,
                                                            1,
@@ -87,24 +91,20 @@ namespace Vion.Dale.DevHost.Test.Stepping
         public async Task FireTimerDelayOnAdvance()
         {
             // Arrange — the premise, isolated from the actor system: a fake clock's pending delay is what
-            // re-enters an actor when the stepper moves the clock.
+            // re-enters an actor when the stepper moves the clock. The delay's own task is the signal, so
+            // nothing here waits on the real clock (section 16); the timeout below is a hang guard, not
+            // synchronisation.
             var clock = new FakeTimeProvider(Epoch);
-            var fired = false;
-            _ = Task.Run(async () =>
-                         {
-                             await Task.Delay(TimeSpan.FromSeconds(1), clock);
-                             fired = true;
-                         });
+            var pending = Task.Delay(TimeSpan.FromSeconds(1), clock);
 
-            await Task.Delay(50);
-            Assert.IsFalse(fired, "the delay completed before the clock moved");
+            Assert.IsFalse(pending.IsCompleted, "the delay completed before the clock moved");
 
             // Act
             clock.Advance(TimeSpan.FromSeconds(1));
-            await Task.Delay(50);
 
             // Assert
-            Assert.IsTrue(fired);
+            await pending.WaitAsync(Timeout);
+            Assert.IsTrue(pending.IsCompletedSuccessfully);
         }
 
         private static IDevHost SteppedHost(FakeTimeProvider clock)

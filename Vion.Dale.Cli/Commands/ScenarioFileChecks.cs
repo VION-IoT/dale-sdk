@@ -36,10 +36,10 @@ namespace Vion.Dale.Cli.Commands
         ///     agree on this set (the others: the schema's <c>$defs/step/oneOf</c>, the runner's
         ///     <c>ScenarioStep.Kind</c>, and the SPA's step forms), which a DevHost test compares.
         /// </summary>
-        public static readonly string[] StepKinds = ["set", "serviceProviderSet", "serviceProviderExpect", "waitUntil", "expect", "advance", "settle"];
+        public static readonly IReadOnlyList<string> StepKinds = ["set", "serviceProviderSet", "serviceProviderExpect", "waitUntil", "expect", "advance", "settle"];
 
         /// <summary>The subset legal in <c>setup</c> — staging only, no waits, asserts or time steps.</summary>
-        public static readonly string[] SetupStepKinds = ["set", "serviceProviderSet"];
+        public static readonly IReadOnlyList<string> SetupStepKinds = ["set", "serviceProviderSet"];
 
         private static readonly Regex IdSlug = new("^[A-Za-z0-9][A-Za-z0-9._-]*$", RegexOptions.Compiled);
 

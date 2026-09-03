@@ -22,6 +22,13 @@ namespace Vion.Dale.DevHost.Test.Stepping
     [TestClass]
     public class QuiescenceBarrierShould
     {
+        // The window a "still waiting" claim is observed over. Load can only make it MORE likely to hold —
+        // the wait completing early is what would falsify it, and a slow machine cannot cause that.
+        private static readonly TimeSpan Window = TimeSpan.FromMilliseconds(200);
+
+        // A hang guard for the waits that are expected to complete.
+        private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
+
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-012.5")]
         public async Task ReturnOnceEveryMailboxDrainedAndNoHandlerRunning()
@@ -49,16 +56,19 @@ namespace Vion.Dale.DevHost.Test.Stepping
             activity.EnterHandler();
 
             // Act
-            using var giveUp = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
-            var waiting = Assert.ThrowsExactlyAsync<TaskCanceledException>(() => barrier.WaitForQuiescenceAsync(giveUp.Token));
+            var waiting = barrier.WaitForQuiescenceAsync(CancellationToken.None);
 
-            // Assert — it did not treat the system as settled; it was still waiting when the token fired.
-            await waiting;
+            // Assert — it did not treat the system as settled: the observation window expires with the wait
+            // still pending, and the expiry IS the assertion. A cancellation token here would race the
+            // barrier's first observation instead — on a loaded machine the token can fire before the wait is
+            // entered, and the entry throw is an OperationCanceledException, not the TaskCanceledException a
+            // cancelled wait produces.
+            await Assert.ThrowsExactlyAsync<TimeoutException>(() => waiting.WaitAsync(Window));
             Assert.AreEqual(1, activity.InFlight);
 
             // And it returns as soon as the handler leaves.
             activity.ExitHandler();
-            await barrier.WaitForQuiescenceAsync(CancellationToken.None);
+            await waiting.WaitAsync(Timeout);
         }
 
         [TestMethod]
@@ -73,14 +83,14 @@ namespace Vion.Dale.DevHost.Test.Stepping
             var barrier = new QuiescenceBarrier(vitals, new InFlightActivityMonitor());
 
             // Act
-            using var giveUp = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
+            var waiting = barrier.WaitForQuiescenceAsync(CancellationToken.None);
 
-            // Assert
-            await Assert.ThrowsExactlyAsync<TaskCanceledException>(() => barrier.WaitForQuiescenceAsync(giveUp.Token));
+            // Assert — same shape as the sibling: the window expiring while the wait is pending is the claim.
+            await Assert.ThrowsExactlyAsync<TimeoutException>(() => waiting.WaitAsync(Window));
 
             // Draining the mailbox satisfies the predicate.
             vitals.OnMessageReceived("actor-1");
-            await barrier.WaitForQuiescenceAsync(CancellationToken.None);
+            await waiting.WaitAsync(Timeout);
         }
     }
 }

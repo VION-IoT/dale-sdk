@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Vion.Dale.DevHost.Xunit;
 using Xunit;
@@ -66,13 +67,16 @@ namespace Vion.Dale.DevHost.Xunit.Test
             var rows = await Discover();
 
             // Assert — the scenario's own `specs` array, which is how a consumer filters a run by spec. The
-            // SmokeHost's carry a criterion id beside their labels, so both filters keep working.
-            var pairedLoop = rows.Single(r => (string)r.GetData()[0]! == "paired-loop");
-            Assert.IsNotNull(pairedLoop.Traits);
-            CollectionAssert.AreEquivalent(new[] { "smoke", "pairing", "AC-SCEN-014.12" }, pairedLoop.Traits!["spec"].ToList());
-
-            var minimal = rows.Single(r => (string)r.GetData()[0]! == "minimal-subset");
-            CollectionAssert.AreEquivalent(new[] { "smoke", "topology", "AC-SCEN-012.10" }, minimal.Traits!["spec"].ToList());
+            // expectation is READ FROM THE FILE rather than written out: the SmokeHost scenarios carry
+            // criterion ids beside their labels, and a quoted id here would make spec-trace credit this file
+            // with covering them (testing-conventions section 17 — an id lives in the citation forms and in
+            // no other string). Reading the file also keeps the check honest if a scenario's specs change.
+            foreach (var id in new[] { "paired-loop", "minimal-subset" })
+            {
+                var row = rows.Single(r => (string)r.GetData()[0]! == id);
+                Assert.IsNotNull(row.Traits, id);
+                CollectionAssert.AreEquivalent(DeclaredSpecs(id), row.Traits!["spec"].ToList(), id);
+            }
         }
 
         [TestMethod]
@@ -152,6 +156,14 @@ namespace Vion.Dale.DevHost.Xunit.Test
             {
                 Directory.SetCurrentDirectory(previous);
             }
+        }
+
+        // The `specs` array as the committed file declares it — the expectation this suite compares against,
+        // so no criterion id is ever a literal in this file.
+        private static List<string> DeclaredSpecs(string id)
+        {
+            using var file = JsonDocument.Parse(File.ReadAllText(Path.Combine(SmokeData.ScenariosDir, $"{id}.scenario.json")));
+            return file.RootElement.GetProperty("specs").EnumerateArray().Select(e => e.GetString()!).ToList();
         }
 
         private static async Task<IReadOnlyList<ITheoryDataRow>> Discover(string? topology = null)

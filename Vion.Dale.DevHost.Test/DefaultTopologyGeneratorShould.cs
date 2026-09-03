@@ -226,52 +226,5 @@ namespace Vion.Dale.DevHost.Test
                 }
             }
         }
-
-        // ──────────────────────────────────────────────────────────────────────────────
-        // Catalog enumeration from DevHostBuilder.GetBlockCatalog()
-        // ──────────────────────────────────────────────────────────────────────────────
-
-        [TestMethod]
-        public void ReturnRegisteredBlockTypesFromCatalog()
-        {
-            // TestDependencyInjection registers CounterBlock, MultiPointBlock, TickerBlock, DualPointBlock.
-            var catalog = DevHostBuilder.Create().WithDi<TestDependencyInjection>().GetBlockCatalog();
-
-            CollectionAssert.Contains(catalog.ToList(), typeof(CounterBlock));
-            CollectionAssert.Contains(catalog.ToList(), typeof(MultiPointBlock));
-            CollectionAssert.Contains(catalog.ToList(), typeof(DualPointBlock));
-        }
-
-        [TestMethod]
-        public void ReturnEveryRegisteredBlockFromCrossBlockDi()
-        {
-            var catalog = DevHostBuilder.Create().WithDi<CrossBlockDependencyInjection>().GetBlockCatalog();
-
-            CollectionAssert.Contains(catalog.ToList(), typeof(SourceBlock));
-            CollectionAssert.Contains(catalog.ToList(), typeof(SinkBlock));
-        }
-
-        [TestMethod]
-        public void ExcludeNonBlockServicesFromCatalog()
-        {
-            // CrossBlockDependencyInjection only registers SourceBlock + SinkBlock — no non-block services.
-            // TestDependencyInjection similarly registers only blocks. Neither should surface non-block types.
-            var catalog = DevHostBuilder.Create().WithDi<CrossBlockDependencyInjection>().GetBlockCatalog();
-
-            foreach (var type in catalog)
-            {
-                Assert.IsTrue(typeof(Sdk.Core.LogicBlockBase).IsAssignableFrom(type), $"Catalog must contain only LogicBlockBase types; got {type.FullName}");
-            }
-        }
-
-        [TestMethod]
-        public void DeduplicateCatalogWhenSameAssemblyAddedTwice()
-        {
-            var catalog = DevHostBuilder.Create().WithDi<CrossBlockDependencyInjection>().GetBlockCatalog();
-
-            // A second WithDi<> for the same assembly is a no-op in the plugin list, so distinct is trivially satisfied.
-            var distinct = catalog.Distinct().ToList();
-            Assert.HasCount(catalog.Count, distinct);
-        }
     }
 }

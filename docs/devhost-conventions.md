@@ -169,7 +169,7 @@ Separately, on the drive path: a write to a **read-only or unknown** member retu
 
 ## 9. A contract pairing is a declared wire, and the host never transforms
 
-`docs/specs/scenarios.md`. A topology can declare that two **service-provider contract endpoints** are one wire:
+Specified in [`specs/scenarios.md`](specs/scenarios.md) (`AC-SCEN-014.*`). A topology can declare that two **service-provider contract endpoints** are one wire:
 
 ```json
 "contractPairings": [
@@ -214,8 +214,8 @@ and must be loud. The scenario drive gate's stand-down is a different situation 
 **Two invariants worth not breaking.** The forward happens in `Capture` **after** the output cache is
 written, so `serviceProviderExpect` still reads the command a paired output wrote. And the *drive*
 path must never consult the pairing table: a forward that re-entered it would let stand-ins originate
-messages, and a closed loop would converge on stand-in recursion instead of on block cadence (
-§4.7). Because every hop is a plain actor message, a paired loop is visible to the quiescence barrier —
+messages, and a closed loop would converge on stand-in recursion instead of on block cadence
+(`specs/scenarios.md`, `AC-SCEN-014.10`). Because every hop is a plain actor message, a paired loop is visible to the quiescence barrier —
 a closed-loop bench runs **stepped and deterministic**.
 
 The fixtures to read and to extend: `Vion.Dale.DevHost.SmokeHost/topologies/paired.topology.json`

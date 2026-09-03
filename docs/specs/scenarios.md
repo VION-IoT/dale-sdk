@@ -276,7 +276,7 @@ entries, refuses one for the empty list, and stands down entirely when the list 
 - `AC-SCEN-009.9` (Ubiquitous): THE SYSTEM SHALL record a wall-clock duration for every step and a
   virtual duration only on a stepped host, so that two runs of one scenario on one host agree on every
   deterministic field.
-- `AC-SCEN-009.10` (Event-driven): WHEN a `set` step's acknowledgement consumes its safety window THE SYSTEM SHALL record why in the step's detail, and SHALL fail the step only when a block exception was logged for that write. GAP: the window is a fixed five real seconds with no injection seam, so no test reaches it without a five-second wait per case; the seam is in `_findings.md`.
+- `AC-SCEN-009.10` (Event-driven): WHEN a `set` step's acknowledgement consumes its safety window THE SYSTEM SHALL record why in the step's detail, and SHALL fail the step only when a block exception was logged for that write. GAP: the window is a fixed, just-under-five real seconds with no injection seam, so no test reaches it without a five-second wait per case; the seam is in `_findings.md`.
 - `AC-SCEN-009.11` (Ubiquitous): THE SYSTEM SHALL report a `serviceProviderSet` as fire-and-forget.
 - `AC-SCEN-009.12` (Event-driven): WHEN a `serviceProviderExpect` reads a contract the block never
   wrote, or a captured command with no scalar leaf at the addressed field, THE SYSTEM SHALL fail the

@@ -54,8 +54,7 @@ namespace Vion.Dale.DevHost.Scenarios
 
         /// <summary>
         ///     Non-fatal findings collected while resolving — reported on the run, never failing it. Today the
-        ///     only one is `docs/specs/scenarios.md` (`AC-SCEN-007.10`): a <c>serviceProviderSet</c> onto an inbound a contract
-        ///     pairing also
+        ///     only one is `AC-SCEN-007.10`: a <c>serviceProviderSet</c> onto an inbound a contract pairing also
         ///     feeds. That is legal (last write wins) and occasionally what an author wants — seeding a loop, or
         ///     overriding the peer for one step — but usually a bench-design smell worth seeing in the report.
         /// </summary>
@@ -375,8 +374,8 @@ namespace Vion.Dale.DevHost.Scenarios
             return true;
         }
 
-        // Resolves a generic service-provider value-contract reference (serviceProviderSet / serviceProviderExpect,
-        // `docs/specs/scenarios.md`). Any [ServiceProviderContractType] contract on the block is addressable. Direction is read
+        // Resolves a generic service-provider value-contract reference (serviceProviderSet /
+        // serviceProviderExpect). Any [ServiceProviderContractType] contract on the block is addressable. Direction is read
         // per operation, never as one binary classification: [ScenarioWire] is authoritative where it has
         // spoken, and the contract's Consumers multiplicity is the fallback.
         //   DRIVE  — permitted exactly when the contract carries the scenarioInputFields annotation, which
@@ -639,7 +638,7 @@ namespace Vion.Dale.DevHost.Scenarios
     }
 
     /// <summary>
-    ///     The comparator semantics  shared by <c>waitUntil</c> and <c>expect</c>, evaluated
+    ///     The comparator semantics shared by <c>waitUntil</c> and <c>expect</c>, evaluated
     ///     against live CLR values from the event stream / value cache: <c>above</c>/<c>below</c> numeric;
     ///     <c>equals</c>/<c>notEquals</c> exact — numbers (optional tolerance), booleans, strings, enums by
     ///     case-sensitive member name, <c>null</c>; <c>oneOf</c> tests set membership. For <c>expect</c> a
