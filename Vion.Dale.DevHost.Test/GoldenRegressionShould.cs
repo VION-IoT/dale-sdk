@@ -28,12 +28,18 @@ namespace Vion.Dale.DevHost.Test
     ///         contract mappings; guards decision-4 (Save completes the auto-mocked contract mappings so the
     ///         saved file is self-contained rather than dependent on load-time fill).
     ///     </para>
+    ///     <para>
+    ///         <c>RoundTripAndRunCommittedGoldenScenario</c> cites no criterion by design: it is a whole-stack
+    ///         integration premise — one committed file survives PUT, comes back deep-equal, and still runs
+    ///         green — and no single criterion states that. It used to cite `AC-SCEN-001.6` (an id equals its
+    ///         file name), which it never asserts; that criterion is proven by <c>ScenarioStoreShould</c>. Its
+    ///         sibling below does cite one, because Save completing the contract mappings IS a stated rule.
+    ///     </para>
     /// </summary>
     [TestClass]
     public class GoldenRegressionShould
     {
         [TestMethod]
-        [TestProperty("spec", "AC-SCEN-001.6")]
         [TestCategory("Smoke")]
         public async Task RoundTripAndRunCommittedGoldenScenario()
         {

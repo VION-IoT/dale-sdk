@@ -452,7 +452,8 @@ namespace Vion.Dale.Cli.Test.Commands
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-SCEN-015.4")]
+        [TestProperty("spec", "AC-SCEN-015.1")]
+        [TestProperty("spec", "AC-SCEN-006.1")]
         public void ResolveStructFieldPathsEmittedByEnricher()
         {
             // Arrange / Act

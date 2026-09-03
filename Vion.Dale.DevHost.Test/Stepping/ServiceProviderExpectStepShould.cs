@@ -478,7 +478,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-SCEN-007.6")]
+        [TestProperty("spec", "AC-SCEN-008.7")]
         [TestCategory("Smoke")]
         public async Task CarryAddressableFieldsOverHttpWhereEditorReadsThem()
         {

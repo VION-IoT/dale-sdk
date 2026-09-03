@@ -121,7 +121,7 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-SCEN-008.5")]
+        [TestProperty("spec", "AC-SCEN-008.3")]
         public void ReportNoAddressableLeafForSingleFieldStruct()
         {
             // Arrange / Act

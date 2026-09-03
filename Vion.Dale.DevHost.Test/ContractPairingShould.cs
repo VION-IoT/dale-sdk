@@ -358,7 +358,7 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-SCEN-014.1")]
+        [TestProperty("spec", "AC-SCEN-014.15")]
         public void KeepPairedTopologyEntriesThroughUnrelatedEdit()
         {
             // Arrange / Act

@@ -241,9 +241,16 @@ scenario's JSON instead of a hardware frame.
 - `AC-SCEN-008.6` (Event-driven): WHEN a declared wire struct exposes no constructor THE SYSTEM SHALL
   describe it without failing, because leaves are enumerated for every discovered handler when a
   configuration is built.
+- `AC-SCEN-008.7` (Ubiquitous): THE SYSTEM SHALL publish a contract's addressable outbound and inbound
+  leaves on the exported configuration, in wire keys, as an empty list when the direction carries no
+  addressable leaf and as no list at all when the contract declares that direction nowhere.
 
 A `[ScenarioWire]` type that cannot be represented this way is a compile-time error — `DALE046`, the
 analyzer registry's — so a consumer learns it from their own build rather than from a scenario run.
+
+`AC-SCEN-008.7`'s three states are read as three: the editor offers a field picker for a list with
+entries, refuses one for the empty list, and stands down entirely when the list is absent
+(`AC-SCEN-007.8`). Collapsing empty and absent is what let a whole command be asserted uncompared.
 
 ## Running a scenario
 
@@ -377,7 +384,10 @@ stand-down. A generous real-clock safety budget bounds the wait so a genuinely s
 as a thrown failure naming the predicate rather than as a hang — that budget is a backstop, not a
 tolerance, and no scenario is meant to reach it. `AC-SCEN-012.10` is what makes a run reproducible; the round-trip a
 caller performs to get there is the control API's contract
-([`../devhost-conventions.md`](../devhost-conventions.md) § 8).
+([`../devhost-conventions.md`](../devhost-conventions.md) § 8). It is proven in parts, deliberately:
+its clean-slate and single-active-run halves are unit-level, while the committed `minimal-subset`
+scenario demonstrates only that a run lands on the topology the scenario declares — which is the half
+a bench actually notices, and the only half a scenario file can show about itself.
 
 ## The topology file
 
@@ -467,6 +477,8 @@ The declaration is symmetric; which directions carry a value is derived.
   block mapped to that contract.
 - `AC-SCEN-014.14` (Event-driven): WHEN a config-time gate excludes a contract THE SYSTEM SHALL refuse
   a pairing that names it.
+- `AC-SCEN-014.15` (Ubiquitous): THE SYSTEM SHALL preserve a saved topology's declared pairings across
+  an edit that names none of them.
 
 `AC-SCEN-014.10` is the invariant a closed loop rests on: a forward that re-entered the delivery path
 would let stand-ins originate messages, and the loop would converge on stand-in recursion instead of
