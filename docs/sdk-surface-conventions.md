@@ -19,7 +19,7 @@ were dropped because they *"can be done in user land via c#, no magic from SDK"*
 - **Syntactic sugar earns its keep or goes.** Where a general mechanism already covers a case, the
   special-cased shorthand is removed rather than kept for symmetry. This is why the four hard-coded
   HAL scenario steps became one generic `serviceProviderSet` / `serviceProviderExpect` pair
-  (RFC 0010) — platform-authored service providers now use exactly the path a third-party author uses.
+  — platform-authored service providers now use exactly the path a third-party author uses.
 - **One line of boilerplate is not a reason to generate code.** Reach for the generator when the
   boilerplate is wrong-able, not when it is merely repetitive.
 - **Convenience for one call site is not a feature.** Name the second consumer or don't add it.
@@ -90,7 +90,7 @@ supersedes it: *"breaking is no problem, the devhost is the only user"*, *"if th
 much of a win i'd prefer removing it"*, *"let's do it right as long as we can"*.
 
 - When a mechanism is generalised, **delete the specific one and migrate its callers in the same PR**
-  (RFC 0010 deleted the four HAL step kinds; contract-carried service relations deleted
+  (the four HAL step kinds were deleted; contract-carried service relations deleted
   `AutoDetectServiceRelationsForInterface`, `ServiceDeclaration<T>.DefineRelation` and the orphan
   example interfaces).
 - **Thin wrappers belong to the caller, not the API.** If `IDevHostControl` gains a member only the SPA

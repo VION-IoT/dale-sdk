@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://vion.swiss/dale/scenario.schema.json",
-  "title": "Dale DevHost scenario file (RFC 0006, vocabulary v1)",
+  "title": "Dale DevHost scenario file (vocabulary v1)",
   "description": "A git-committed description of a manual-test scenario: setup, ordered stimuli, watch list, human judgments. The generic structural schema shipped with Vion.Dale.DevHost; 'dale scenario schema' (R4) emits a per-project variant enriched with the topology's actual block names and property identifiers.",
   "type": "object",
   "additionalProperties": false,
@@ -12,7 +12,8 @@
     "id": {
       "type": "string",
       "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
-      "description": "URL-safe slug; must match the file name (<id>.scenario.json). Deep-link route: #/scenario/{id}."
+      "not": { "anyOf": [ { "pattern": "^[Ss][Cc][Hh][Ee][Mm][Aa]$" }, { "pattern": "\\.\\." } ] },
+      "description": "URL-safe slug, no '..'; must match the file name (<id>.scenario.json). 'schema' is reserved (GET /api/scenarios/schema). Deep-link route: #/scenario/{id}."
     },
     "title": { "type": "string" },
     "description": { "type": "string" },
@@ -44,7 +45,7 @@
         "additionalProperties": false,
         "required": ["text"],
         "properties": {
-          "text": { "type": "string", "minLength": 1 },
+          "text": { "type": "string", "minLength": 1, "pattern": "\\S", "description": "The judgment a human renders; whitespace only is not one." },
           "spec": { "type": "string" }
         }
       }
@@ -53,8 +54,8 @@
   "$defs": {
     "namePath": {
       "type": "string",
-      "pattern": "^[^.]+\\.[^.]+(\\.[^.]+)?$",
-      "description": "Block.Property (when unambiguous within the block) or Block.Service.Property (the qualified form for multi-service blocks)."
+      "pattern": "^[^.]+(\\.[^.]+)+$",
+      "description": "Block.Property (when unambiguous within the block) or Block.Service.Property (the qualified form for multi-service blocks), either optionally followed by a struct field path."
     },
     "value": {
       "description": "A scalar, an enum member name (case-sensitive string), a complete struct/array literal, or null (nullable properties)."
@@ -132,9 +133,11 @@
             { "required": ["notEquals"] },
             { "required": ["oneOf"] }
           ],
-          "dependentRequired": { "tolerance": ["equals"] }
+          "dependentSchemas": {
+            "tolerance": { "required": ["equals"], "properties": { "equals": { "type": "number" } } }
+          }
         },
-        "timeoutSeconds": { "type": "number", "exclusiveMinimum": 0, "default": 20 }
+        "timeoutSeconds": { "type": "number", "exclusiveMinimum": 0, "maximum": 4294967, "default": 20 }
       }
     },
     "expectStep": {
@@ -165,7 +168,9 @@
             { "required": ["notEquals"] },
             { "required": ["oneOf"] }
           ],
-          "dependentRequired": { "tolerance": ["equals"] }
+          "dependentSchemas": {
+            "tolerance": { "required": ["equals"], "properties": { "equals": { "$ref": "#/$defs/numericComparand" } } }
+          }
         }
       }
     },
@@ -181,7 +186,7 @@
           "additionalProperties": false,
           "required": ["seconds"],
           "properties": {
-            "seconds": { "type": "number", "exclusiveMinimum": 0, "description": "Seconds of time to let elapse — virtual on a stepped host, real wall-clock on a real-clock host." }
+            "seconds": { "type": "number", "exclusiveMinimum": 0, "maximum": 4294967, "description": "Seconds of time to let elapse — virtual on a stepped host, real wall-clock on a real-clock host. Capped at what a run can spend." }
           }
         }
       },
@@ -204,7 +209,7 @@
               "items": { "$ref": "#/$defs/namePath" },
               "description": "Explicit target paths that must stabilize for convergence; omit to settle over the whole watch list. A large watch set is for observability — scope settle to the specific values meant to settle so a volatile tile (free-running counter / clock-derived value / noisy sensor) does not burn the budget."
             },
-            "maxSeconds": { "type": "number", "exclusiveMinimum": 0, "default": 60, "description": "Maximum seconds (virtual on a stepped host, real on a real-clock host) to spend waiting for convergence." }
+            "maxSeconds": { "type": "number", "exclusiveMinimum": 0, "maximum": 4294967, "default": 60, "description": "Maximum seconds (virtual on a stepped host, real on a real-clock host) to spend waiting for convergence. Capped at what a run can spend." }
           }
         }
       },
@@ -214,7 +219,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["logicBlock", "contract"],
-      "description": "A service-provider value-contract reference: the consuming logic block name plus the contract identifier (RFC 0010).",
+      "description": "A service-provider value-contract reference: the consuming logic block name plus the contract identifier.",
       "properties": {
         "logicBlock": { "type": "string" },
         "contract": { "type": "string" }
@@ -224,7 +229,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["serviceProviderSet", "value"],
-      "description": "Drives the wire value a service provider delivers on a [ServiceProviderContractType] contract — a scalar for digital/analog, a JSON object for a struct contract (PPC). Available on any contract whose handler declares a [ScenarioWire] inbound: an input, a bidirectional contract, or the confirmation an output's provider sends back. The generic replacement for digitalInput / analogInput (RFC 0010).",
+      "description": "Drives the wire value a service provider delivers on a [ServiceProviderContractType] contract — a scalar for digital/analog, a JSON object for a struct contract (PPC). Available on any contract whose handler declares a [ScenarioWire] inbound: an input, a bidirectional contract, or the confirmation an output's provider sends back. The generic replacement for digitalInput / analogInput.",
       "properties": {
         "label": { "$ref": "#/$defs/stepCommon/label" },
         "spec": { "$ref": "#/$defs/stepCommon/spec" },
@@ -236,7 +241,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["serviceProviderExpect"],
-      "description": "A deterministic, point-in-time auto-assertion on the value a block last wrote on a [ServiceProviderContractType] value contract (CI-failing tier) — an output, or a bidirectional contract whose handler declares a [ScenarioWire] Outbound. The generic replacement for digitalOutput / analogOutput (RFC 0010).",
+      "description": "A deterministic, point-in-time auto-assertion on the value a block last wrote on a [ServiceProviderContractType] value contract (CI-failing tier) — an output, or a bidirectional contract whose handler declares a [ScenarioWire] Outbound. The generic replacement for digitalOutput / analogOutput.",
       "properties": {
         "label": { "$ref": "#/$defs/stepCommon/label" },
         "spec": { "$ref": "#/$defs/stepCommon/spec" },
@@ -266,7 +271,9 @@
         { "required": ["notEquals"] },
         { "required": ["oneOf"] }
       ],
-      "dependentRequired": { "tolerance": ["equals"] }
+      "dependentSchemas": {
+        "tolerance": { "required": ["equals"], "properties": { "equals": { "type": "number" } } }
+      }
     },
     "setupEntry": {
       "oneOf": [

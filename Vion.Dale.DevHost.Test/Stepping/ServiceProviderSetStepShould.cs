@@ -10,19 +10,25 @@ using Vion.Dale.DevHost.Scenarios;
 namespace Vion.Dale.DevHost.Test.Stepping
 {
     /// <summary>
-    ///     The generic <c>serviceProviderSet</c> drive step (RFC 0010): one step kind drives any
+    ///     The generic <c>serviceProviderSet</c> drive step: one step kind drives any
     ///     <c>[ServiceProviderContractType]</c> value contract whose handler declares a <c>[ScenarioWire]</c>
-    ///     Inbound — replacing the per-family <c>digitalInput</c> / <c>analogInput</c>. That declaration, not the
-    ///     contract's multiplicity, is the gate (VION-131), so an output confirmed by its provider is drivable
-    ///     too; the drive is routed to the generic stand-in registered under the contract's
-    ///     <c>ContractHandlerActorName</c>.
+    ///     Inbound. That declaration, not the contract's multiplicity, is the gate, so an output confirmed by
+    ///     its provider is drivable too; the drive is routed to the generic stand-in registered under the
+    ///     contract's <c>ContractHandlerActorName</c>.
+    ///     <para>
+    ///         Cross-tier: <c>AC-SCEN-007.3</c> is proven here at the resolver, where the multiplicity is read
+    ///         explicitly so the re-keyed gate is exercised, and by the committed <c>output-confirmation</c>
+    ///         scenario, which drives a real provider confirmation end to end.
+    ///     </para>
     /// </summary>
     [TestClass]
     public class ServiceProviderSetStepShould
     {
         [TestMethod]
-        public async Task DriveAValueInputContract_ReachingTheConsumingBlock()
+        [TestProperty("spec", "AC-SCEN-007.1")]
+        public async Task DriveValueInputContractReachingConsumingBlock()
         {
+            // Arrange
             await using var host = BuildSteppedIoHost();
             await host.StartAsync();
 
@@ -37,8 +43,10 @@ namespace Vion.Dale.DevHost.Test.Stepping
                                               }
                                               """);
 
+            // Act
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+            // Assert - the drive is addressed as (block, contract), and the report echoes that addressing.
             Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
             Assert.AreEqual("serviceProviderSet", report.Steps[0].Kind);
             Assert.AreEqual("io.EnableInput", report.Steps[0].Target);
@@ -46,13 +54,16 @@ namespace Vion.Dale.DevHost.Test.Stepping
         }
 
         [TestMethod]
-        public async Task ResolveADriveOnTheDeclaredInbound_NotOnTheContractsMultiplicity()
+        [TestProperty("spec", "AC-SCEN-007.3")]
+        public async Task ResolveDriveOnDeclaredInboundNotOnContractsMultiplicity()
         {
+            // Arrange
             await using var host = BuildSteppedIoHost();
             await host.StartAsync();
             var configuration = host.Control.GetConfiguration();
             var resolver = new ScenarioResolver(configuration);
 
+            // Act / Assert
             // EnableInput is a value input (ZeroOrMore) → drivable; resolves to its generic stand-in name.
             var inputErrors = new List<string>();
             var input = resolver.ResolveStep(new ScenarioStep { ServiceProviderSet = new ScenarioServiceProviderRef { LogicBlock = "io", Contract = "EnableInput" } },
@@ -79,14 +90,18 @@ namespace Vion.Dale.DevHost.Test.Stepping
         }
 
         [TestMethod]
-        public async Task RefuseADrive_OnAContractWhoseHandlerDeclaresNoInbound()
+        [TestProperty("spec", "AC-SCEN-007.2")]
+        public async Task RefuseDriveOnContractWhoseHandlerDeclaresNoInbound()
         {
+            // Arrange
             await using var host = BuildSteppedGridHost();
             await host.StartAsync();
 
             // GridSetpointHandler declares an Outbound only, so nothing could ever be delivered to the block on
             // it — the drive is refused at resolve time rather than dropped by the stand-in mid-run. This is the
             // gate `dale scenario validate` mirrors, so the message has to say what is wrong and what to do.
+
+            // Act
             var errors = new List<string>();
             new ScenarioResolver(host.Control.GetConfiguration()).ResolveStep(new ScenarioStep
                                                                               {
@@ -97,6 +112,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
                                                                               "steps[0]",
                                                                               errors);
 
+            // Assert
             Assert.IsNotEmpty(errors);
             StringAssert.Contains(errors[0], "cannot be driven");
             StringAssert.Contains(errors[0], "Inbound");
@@ -105,12 +121,14 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
         [TestMethod]
         [TestCategory("Smoke")]
-        public async Task DeliverAnOutputConfirmation_IncludingADeliberatelyMismatchedOne()
+        [TestProperty("spec", "AC-SCEN-007.3")]
+        public async Task DeliverOutputConfirmationIncludingDeliberatelyMismatchedOne()
         {
+            // Arrange
             await using var host = BuildSteppedIoHost();
             await host.StartAsync();
 
-            // VION-131. Off production, DigitalOutputChanged was constructed nowhere a DevHost bench could reach,
+            // Off production, DigitalOutputChanged was constructed nowhere a DevHost bench could reach,
             // so a block's OutputChanged subscription was structurally dead. Driving the output contract's
             // declared inbound is that confirmation — first truthfully, then with a value the block never
             // commanded, which is the diagnostic real hardware cannot be asked to produce.
@@ -137,8 +155,10 @@ namespace Vion.Dale.DevHost.Test.Stepping
                                               }
                                               """);
 
+            // Act
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
             Assert.AreEqual("serviceProviderSet", report.Steps[5].Kind);
             Assert.AreEqual("io.ActiveOutput", report.Steps[5].Target, "the drive addresses the same contract identifier the assert reads");
@@ -147,23 +167,6 @@ namespace Vion.Dale.DevHost.Test.Stepping
             // cache. serviceProviderExpect still reads what the BLOCK commanded (true), not the false the
             // provider last confirmed — if the two ever shared a slot, that step fails and the run is red.
             Assert.AreEqual("== true", report.Steps[14].Argument);
-        }
-
-        [TestMethod]
-        public void RequireAValue_OnAServiceProviderSetStep()
-        {
-            // Parses with a value.
-            ScenarioFile.Parse("""
-                               { "version": 1, "id": "ok", "topology": "io",
-                                 "steps": [ { "serviceProviderSet": { "logicBlock": "io", "contract": "EnableInput" }, "value": true } ] }
-                               """);
-
-            // Missing value is a structural error.
-            var error = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse("""
-                                                                                               { "version": 1, "id": "bad", "topology": "io",
-                                                                                                 "steps": [ { "serviceProviderSet": { "logicBlock": "io", "contract": "EnableInput" } } ] }
-                                                                                               """));
-            Assert.IsTrue(error.Errors.Any(e => e.Contains("serviceProviderSet requires value")), error.Message);
         }
 
         private static IDevHost BuildSteppedIoHost()

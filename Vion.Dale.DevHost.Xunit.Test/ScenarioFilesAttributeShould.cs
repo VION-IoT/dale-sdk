@@ -1,6 +1,8 @@
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Vion.Dale.DevHost.Xunit;
 using Xunit;
@@ -8,6 +10,11 @@ using Xunit.Sdk;
 
 namespace Vion.Dale.DevHost.Xunit.Test
 {
+    /// <summary>
+    ///     The theory data source a consumer points at their committed scenarios: one test case per file,
+    ///     carrying the id and the topology the case needs a host on, named by the scenario's title, and
+    ///     tagged with the scenario's own trace ids.
+    /// </summary>
     [TestClass]
     public class ScenarioFilesAttributeShould
     {
@@ -15,12 +22,14 @@ namespace Vion.Dale.DevHost.Xunit.Test
         private static readonly MethodInfo AnyMethod = typeof(ScenarioFilesAttributeShould).GetMethods()[0];
 
         [TestMethod]
-        public async Task Discover_every_committed_scenario_as_an_id_topology_row()
+        [TestProperty("spec", "AC-SCEN-016.1")]
+        public async Task YieldOneRowPerCommittedScenarioCarryingIdAndTopology()
         {
+            // Arrange / Act
             var rows = await Discover();
 
+            // Assert
             var byId = rows.ToDictionary(r => (string)r.GetData()[0]!, r => (string)r.GetData()[1]!);
-
             CollectionAssert.AreEquivalent(new[]
                                            {
                                                "showcase-tour", "io-control", "output-confirmation", "provider-faces", "paired-loop", "grid-demand", "plant-control",
@@ -38,30 +47,123 @@ namespace Vion.Dale.DevHost.Xunit.Test
         }
 
         [TestMethod]
-        public async Task Use_the_scenario_title_as_the_display_name()
+        [TestProperty("spec", "AC-SCEN-016.1")]
+        public async Task NameEachRowByItsScenarioTitle()
         {
+            // Arrange / Act
             var rows = await Discover();
 
+            // Assert
             var showcase = rows.Single(r => (string)r.GetData()[0]! == "showcase-tour");
-
             Assert.IsNotNull(showcase.TestDisplayName);
             StringAssert.Contains(showcase.TestDisplayName!, "Showcase tour");
         }
 
         [TestMethod]
-        public async Task Filter_to_a_single_topology_when_requested()
+        [TestProperty("spec", "AC-SCEN-016.2")]
+        public async Task CarryEachScenariosTraceIdsAsTraits()
         {
+            // Arrange / Act
+            var rows = await Discover();
+
+            // Assert — the scenario's own `specs` array, which is how a consumer filters a run by spec. The
+            // expectation is READ FROM THE FILE rather than written out: the SmokeHost scenarios carry
+            // criterion ids beside their labels, and a quoted id here would make spec-trace credit this file
+            // with covering them (testing-conventions section 17 — an id lives in the citation forms and in
+            // no other string). Reading the file also keeps the check honest if a scenario's specs change.
+            foreach (var id in new[] { "paired-loop", "minimal-subset" })
+            {
+                var row = rows.Single(r => (string)r.GetData()[0]! == id);
+                Assert.IsNotNull(row.Traits, id);
+                CollectionAssert.AreEquivalent(DeclaredSpecs(id), row.Traits!["spec"].ToList(), id);
+            }
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-016.3")]
+        public async Task RestrictRowsToOneTopologyWhenNamed()
+        {
+            // Arrange / Act
             var defaultRows = await Discover("default");
+            var pairedRows = await Discover("paired");
+            var minimalRows = await Discover("minimal");
+
+            // Assert
             CollectionAssert.AreEquivalent(new[] { "showcase-tour", "io-control", "output-confirmation", "provider-faces", "grid-demand", "plant-control" },
                                            defaultRows.Select(r => (string)r.GetData()[0]!).ToList());
-
-            var pairedRows = await Discover("paired");
             Assert.HasCount(1, pairedRows);
             Assert.AreEqual("paired-loop", (string)pairedRows[0].GetData()[0]!);
-
-            var minimalRows = await Discover("minimal");
             Assert.HasCount(1, minimalRows);
             Assert.AreEqual("minimal-subset", (string)minimalRows[0].GetData()[0]!);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-016.3")]
+        public async Task OmitBrokenAndTopologylessScenariosFromRows()
+        {
+            // Arrange — a directory holding one runnable scenario beside a broken one and one that declares
+            // no topology. Catching those two is `dale scenario validate`'s job in CI, not the runner's.
+            var directory = Path.Combine(Path.GetTempPath(), "scen-" + Path.GetRandomFileName());
+            Directory.CreateDirectory(directory);
+            File.WriteAllText(Path.Combine(directory, "runnable.scenario.json"), """{ "version": 1, "id": "runnable", "topology": "default", "title": "Runnable" }""");
+            File.WriteAllText(Path.Combine(directory, "broken.scenario.json"), """{ "version": 1, "id": "broken" """);
+            File.WriteAllText(Path.Combine(directory, "homeless.scenario.json"), """{ "version": 1, "id": "homeless", "topology": "" }""");
+
+            try
+            {
+                // Act
+                var attribute = new ScenarioFilesAttribute { Directory = directory };
+                var rows = (await attribute.GetData(AnyMethod, new DisposalTracker())).ToList();
+
+                // Assert
+                CollectionAssert.AreEqual(new[] { "runnable" }, rows.Select(r => (string)r.GetData()[0]!).ToList());
+            }
+            finally
+            {
+                Directory.Delete(directory, true);
+            }
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-016.4")]
+        public void SurfaceRowsAtDiscoveryTime()
+        {
+            // Arrange
+            var attribute = new ScenarioFilesAttribute { Directory = SmokeData.ScenariosDir };
+
+            // Act / Assert — without this, every scenario would collapse into one unnamed theory entry.
+            Assert.IsTrue(attribute.SupportsDiscoveryEnumeration());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-016.6")]
+        public async Task ResolveScenariosDirectoryFromWorkingDirectoryUpward()
+        {
+            // Arrange — no explicit directory, and the test host's working directory is its bin folder, which
+            // holds the copied `scenarios/`. A consumer's project root behaves the same way.
+            var previous = Directory.GetCurrentDirectory();
+            Directory.SetCurrentDirectory(Path.GetDirectoryName(SmokeData.ScenariosDir)!);
+
+            try
+            {
+                // Act
+                var rows = (await new ScenarioFilesAttribute().GetData(AnyMethod, new DisposalTracker())).ToList();
+
+                // Assert
+                CollectionAssert.Contains(rows.Select(r => (string)r.GetData()[0]!).ToList(), "showcase-tour");
+            }
+            finally
+            {
+                Directory.SetCurrentDirectory(previous);
+            }
+        }
+
+        // The `specs` array as the committed file declares it — the expectation this suite compares against,
+        // so no criterion id is ever a literal in this file.
+        private static List<string> DeclaredSpecs(string id)
+        {
+            using var file = JsonDocument.Parse(File.ReadAllText(Path.Combine(SmokeData.ScenariosDir, $"{id}.scenario.json")));
+            return file.RootElement.GetProperty("specs").EnumerateArray().Select(e => e.GetString()!).ToList();
         }
 
         private static async Task<IReadOnlyList<ITheoryDataRow>> Discover(string? topology = null)

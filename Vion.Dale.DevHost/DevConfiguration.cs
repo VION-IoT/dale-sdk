@@ -25,18 +25,18 @@ namespace Vion.Dale.DevHost
         /// <summary>
         ///     Optional name identifying this wired topology (the consumer's preset, e.g.
         ///     "EnergyManagerClosedLoop"). Surfaced via <c>ConfigurationOutput.TopologyName</c> so the web UI
-        ///     and agents can tell which preset is running; scenario files reference it (RFC 0006).
+        ///     and agents can tell which preset is running; scenario files reference it.
         /// </summary>
         public string? TopologyName { get; set; }
 
         /// <summary>
-        ///     Optional override for the scenario-file directory (RFC 0006). Defaults to
+        ///     Optional override for the scenario-file directory. Defaults to
         ///     <c>{current directory}/scenarios</c> when null.
         /// </summary>
         public string? ScenariosPath { get; set; }
 
         /// <summary>
-        ///     Optional override for the topology-file directory (RFC 0006 R5). Defaults to
+        ///     Optional override for the topology-file directory. Defaults to
         ///     <c>{current directory}/topologies</c> when null.
         /// </summary>
         public string? TopologiesPath { get; set; }
@@ -48,7 +48,7 @@ namespace Vion.Dale.DevHost
         public List<DevInterfaceMapping> InterfaceMappings { get; set; } = [];
 
         /// <summary>
-        ///     RFC 0020: contract endpoints declared as one wire. Resolved at build/load time from
+        ///     Contract endpoints declared as one wire. Resolved at build/load time from
         ///     <c>DevConfigurationBuilder.PairContracts</c> or a topology file's <c>contractPairings</c>; the
         ///     wire-type identity check and the runtime table are built when the host loads (the handler a
         ///     contract talks to is known only once the blocks are introspected).
@@ -56,7 +56,7 @@ namespace Vion.Dale.DevHost
         public List<DevContractPairing> ContractPairings { get; set; } = [];
     }
 
-    /// <summary>Two contract endpoints the topology declares as one wire (RFC 0020 §4.2). Symmetric.</summary>
+    /// <summary>Two contract endpoints the topology declares as one wire. Symmetric.</summary>
     public class DevContractPairing
     {
         public DevContractPairingEndpoint A { get; set; } = null!;

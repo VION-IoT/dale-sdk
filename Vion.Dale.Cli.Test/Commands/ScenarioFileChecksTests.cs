@@ -6,7 +6,7 @@ using Vion.Dale.Cli.Commands;
 namespace Vion.Dale.Cli.Test.Commands
 {
     /// <summary>
-    ///     The `dale scenario validate` core — the lite, language-neutral mirror of the RFC 0006 format
+    ///     The `dale scenario validate` core — the lite, language-neutral mirror of the format
     ///     rules and revision 5 name-path resolution, evaluated against a configuration export.
     /// </summary>
     [TestClass]
@@ -220,20 +220,26 @@ namespace Vion.Dale.Cli.Test.Commands
         }
 
         [TestMethod]
-        public void RejectsAmbiguousTwoSegmentPaths_ListingQualifiedCandidates()
+        [TestProperty("spec", "AC-SCEN-015.1")]
+        public void RefuseAmbiguousTwoSegmentPathListingQualifiedCandidates()
         {
+            // Arrange / Act
             var outcome = ScenarioFileChecks.Validate("amb.scenario.json",
                                                       """{ "version": 1, "id": "amb", "topology": "demo", "steps": [ { "set": "DualPoint.Limit", "value": 1 } ] }""",
                                                       Config);
             var error = outcome.Errors.Single();
+
+            // Assert
             StringAssert.Contains(error, "ambiguous");
             StringAssert.Contains(error, "DualPoint.PointA.Limit");
             StringAssert.Contains(error, "DualPoint.PointB.Limit");
         }
 
         [TestMethod]
-        public void RejectsWritesToMeasuringPointsAndReadOnlyProperties()
+        [TestProperty("spec", "AC-SCEN-015.1")]
+        public void RefuseWritesToMeasuringPointsAndReadOnlyProperties()
         {
+            // Arrange / Act
             var outcome = ScenarioFileChecks.Validate("ro.scenario.json",
                                                       """
                                                       { "version": 1, "id": "ro", "topology": "demo",
@@ -243,13 +249,17 @@ namespace Vion.Dale.Cli.Test.Commands
                                                         ] }
                                                       """,
                                                       Config);
+
+            // Assert
             Assert.IsTrue(outcome.Errors.Any(e => e.Contains("measuring point")), string.Join("; ", outcome.Errors));
             Assert.IsTrue(outcome.Errors.Any(e => e.Contains("read-only property")), string.Join("; ", outcome.Errors));
         }
 
         [TestMethod]
-        public void RejectsUnknownBlocksMembersAndContracts()
+        [TestProperty("spec", "AC-SCEN-015.1")]
+        public void RefuseUnknownBlocksMembersAndContracts()
         {
+            // Arrange / Act
             var outcome = ScenarioFileChecks.Validate("bad.scenario.json",
                                                       """
                                                       { "version": 1, "id": "bad", "topology": "demo",
@@ -260,15 +270,21 @@ namespace Vion.Dale.Cli.Test.Commands
                                                         ] }
                                                       """,
                                                       Config);
+
+            // Assert
             Assert.AreEqual(3, outcome.Errors.Count, string.Join("; ", outcome.Errors));
         }
 
         [TestMethod]
-        public void SkipsPathResolutionForOtherTopologies_ButKeepsStructuralChecks()
+        [TestProperty("spec", "AC-SCEN-015.2")]
+        public void SkipPathResolutionForForeignTopologyKeepingStructuralChecks()
         {
+            // Arrange / Act
             var clean = ScenarioFileChecks.Validate("other.scenario.json",
                                                     """{ "version": 1, "id": "other", "topology": "elsewhere", "steps": [ { "set": "Nope.X", "value": 1 } ] }""",
                                                     Config);
+
+            // Assert
             Assert.AreEqual(0, clean.Errors.Count, string.Join("; ", clean.Errors));
             Assert.AreEqual("elsewhere", clean.SkippedForTopology);
 
@@ -381,7 +397,7 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void RejectsServiceProviderExpectStructuralProblems()
         {
-            // serviceProviderExpect (RFC 0010) is step-only and takes exactly one comparator (topology
+            // serviceProviderExpect is step-only and takes exactly one comparator (topology
             // "elsewhere" skips path/contract resolution, isolating the structural checks).
             var outcome = ScenarioFileChecks.Validate("bad-out.scenario.json",
                                                       """
@@ -436,8 +452,11 @@ namespace Vion.Dale.Cli.Test.Commands
         }
 
         [TestMethod]
-        public void ResolvesStructFieldPaths_TheEnricherEmitsAndTheRunnerResolves()
+        [TestProperty("spec", "AC-SCEN-015.1")]
+        [TestProperty("spec", "AC-SCEN-006.1")]
+        public void ResolveStructFieldPathsEmittedByEnricher()
         {
+            // Arrange / Act
             // DF-26: validate must resolve the struct-field name paths its own enricher emits and the runner
             // accepts — both the Block.Member.Field (3-seg) and Block.Service.Member.Field (4-seg) forms.
             var outcome = ScenarioFileChecks.Validate("sf.scenario.json",
@@ -454,6 +473,8 @@ namespace Vion.Dale.Cli.Test.Commands
                                                       }
                                                       """,
                                                       StructConfig);
+
+            // Assert
             Assert.AreEqual(0, outcome.Errors.Count, string.Join("; ", outcome.Errors));
         }
 
@@ -486,12 +507,16 @@ namespace Vion.Dale.Cli.Test.Commands
         }
 
         [TestMethod]
-        public void EnrichesTheSchemaWithThisTopologysNamePaths()
+        [TestProperty("spec", "AC-SCEN-015.3")]
+        public void EnrichSchemaWithThisTopologyNamePaths()
         {
+            // Arrange / Act
             var schema = JsonNode.Parse("""{ "$defs": { "namePath": { "type": "string", "pattern": "x" } } }""")!;
             ScenarioFileChecks.EnrichSchemaWithNamePaths(schema, Config);
 
             var namePath = schema["$defs"]!["namePath"]!.AsObject();
+
+            // Assert
             Assert.IsFalse(namePath.ContainsKey("pattern"));
             var paths = namePath["enum"]!.AsArray().Select(n => n!.GetValue<string>()).ToList();
 
@@ -629,8 +654,10 @@ namespace Vion.Dale.Cli.Test.Commands
         }
 
         [TestMethod]
-        public void OffersTwoSegmentForm_WhenAMemberIsBothPropertyAndMeasuringPointOnOneService()
+        [TestProperty("spec", "AC-SCEN-015.4")]
+        public void OfferTwoSegmentFormOnlyWhenUnambiguous()
         {
+            // Arrange / Act
             // A single-service block can expose the same member as BOTH a serviceProperty and a
             // serviceMeasuringPoint — the real EnergyManager does exactly this for ActivePowerImportingKw.
             // The resolver counts ONE carrier service, so the two-segment path resolves; the schema enricher
@@ -657,6 +684,8 @@ namespace Vion.Dale.Cli.Test.Commands
             ScenarioFileChecks.EnrichSchemaWithNamePaths(schema, config);
 
             var paths = schema["$defs"]!["namePath"]!["enum"]!.AsArray().Select(n => n!.GetValue<string>()).ToList();
+
+            // Assert
             CollectionAssert.Contains(paths, "EnergyManager.ActivePowerImportingKw");
             CollectionAssert.Contains(paths, "EnergyManager.EnergyManager.ActivePowerImportingKw");
 
@@ -665,6 +694,70 @@ namespace Vion.Dale.Cli.Test.Commands
             var outcome = ScenarioFileChecks.Validate("imp.scenario.json",
                                                       """{ "version": 1, "id": "imp", "topology": "demo", "watch": [ "EnergyManager.ActivePowerImportingKw" ] }""",
                                                       config);
+            Assert.AreEqual(0, outcome.Errors.Count, string.Join("; ", outcome.Errors));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-001.4")]
+        public void RefuseWhitespaceTopology()
+        {
+            // Arrange / Act
+            var outcome = ScenarioFileChecks.Validate("ws.scenario.json", """{ "version": 1, "id": "ws", "topology": "   " }""", Config);
+
+            // Assert
+            Assert.IsTrue(outcome.Errors.Any(e => e.Contains("topology is required")), string.Join("; ", outcome.Errors));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-002.6")]
+        [DataRow("""{ "waitUntil": { "property": "Counter.Counter", "above": 1 }, "value": 3 }""", "value is not valid on a waitUntil step", DisplayName = "value on waitUntil")]
+        [DataRow("""{ "advance": { "seconds": 1 }, "value": 3 }""", "value is not valid on an advance step", DisplayName = "value on advance")]
+        [DataRow("""{ "settle": {}, "value": 3 }""", "value is not valid on a settle step", DisplayName = "value on settle")]
+        [DataRow("""{ "expect": { "property": "Counter.Counter", "equals": 1 }, "value": 3 }""", "value is not valid on an expect step", DisplayName = "value on expect")]
+        [DataRow("""{ "serviceProviderExpect": { "logicBlock": "Counter", "contract": "EnableInput", "equals": true }, "value": 3 }""",
+                 "value is not valid on a serviceProviderExpect step",
+                 DisplayName = "value on output assert")]
+        [DataRow("""{ "set": "Counter.Counter", "value": 1, "timeoutSeconds": 5 }""", "timeoutSeconds is only valid on a waitUntil step", DisplayName = "timeout on set")]
+        [DataRow("""{ "settle": {}, "timeoutSeconds": 5 }""", "timeoutSeconds is only valid on a waitUntil step", DisplayName = "timeout on settle")]
+        public void RefuseFieldForeignToStepKind(string step, string expectedError)
+        {
+            // Arrange / Act
+            var outcome = ScenarioFileChecks.Validate("stray.scenario.json", $$"""{ "version": 1, "id": "stray", "topology": "demo", "steps": [{{step}}] }""", Config);
+
+            // Assert
+            Assert.IsTrue(outcome.Errors.Any(e => e.Contains(expectedError)), string.Join("; ", outcome.Errors));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-003.2")]
+        [DataRow("""{ "advance": { "seconds": 1e400 } }""", "advance.seconds", DisplayName = "advance, overflows to infinity")]
+        [DataRow("""{ "advance": { "seconds": 1e308 } }""", "advance.seconds", DisplayName = "advance, finite but past the cap")]
+        [DataRow("""{ "settle": { "maxSeconds": 1e308 } }""", "settle.maxSeconds", DisplayName = "maxSeconds, past the cap")]
+        [DataRow("""{ "waitUntil": { "property": "Counter.Counter", "above": 1 }, "timeoutSeconds": 1e308 }""", "timeoutSeconds", DisplayName = "timeout, past the cap")]
+        public void RefuseDurationLongerThanRealClockCanWait(string step, string expectedField)
+        {
+            // Arrange / Act
+            var outcome = ScenarioFileChecks.Validate("long.scenario.json", $$"""{ "version": 1, "id": "long", "topology": "demo", "steps": [{{step}}] }""", Config);
+
+            // Assert
+            Assert.IsTrue(outcome.Errors.Any(e => e.Contains(expectedField) && e.Contains("longer than a real clock can wait")), string.Join("; ", outcome.Errors));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-003.2")]
+        public void AcceptDurationRealClockCanWait()
+        {
+            // Arrange / Act
+            var outcome = ScenarioFileChecks.Validate("ok-long.scenario.json",
+                                                      """
+                                                      {
+                                                        "version": 1, "id": "ok-long", "topology": "demo",
+                                                        "steps": [{ "advance": { "seconds": 4294967 } }]
+                                                      }
+                                                      """,
+                                                      Config);
+
+            // Assert
             Assert.AreEqual(0, outcome.Errors.Count, string.Join("; ", outcome.Errors));
         }
     }

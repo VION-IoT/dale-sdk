@@ -12,18 +12,25 @@ using Vion.Dale.DevHost.Web;
 namespace Vion.Dale.DevHost.Test
 {
     /// <summary>
-    ///     Recycle-on-run (RFC 0008): a scenario runs against the topology it declares, from a clean slate, so
+    ///     Recycle-on-run: a scenario runs against the topology it declares, from a clean slate, so
     ///     every run is reproducible. On a supervised host a dirty (already-advanced) stepped generation
     ///     recycles onto the scenario's topology before running — apply answers <c>{ recycling: true }</c> and
     ///     the caller re-applies on the fresh, clean generation, which runs in place. There is no <c>force</c>.
+    ///     <para>
+    ///         Cross-tier: <c>AC-SCEN-012.10</c> is proven here as the recycle round-trip over the API, and by
+    ///         the committed <c>minimal-subset</c> scenario, which declares a topology the host is not on and
+    ///         so drives the switch from a scenario's own side.
+    ///     </para>
     /// </summary>
     [TestClass]
     public class RecycleOnRunShould
     {
         [TestMethod]
+        [TestProperty("spec", "AC-SCEN-012.10")]
         [TestCategory("Smoke")]
-        public async Task ApplyOnADirtySteppedHost_RecyclesToACleanSlate_ThenRunsOnReapply()
+        public async Task RecycleToCleanSlateThenRunOnReapply()
         {
+            // Arrange / Act
             var dir = NewScenarioDir();
             File.WriteAllText(Path.Combine(dir, "recyclable.scenario.json"),
                               """
@@ -53,6 +60,7 @@ namespace Vion.Dale.DevHost.Test
                 runner = DevHostWebRunner.RunAsync(Factory, port, cts.Token);
                 using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(10) };
 
+                // Assert
                 Assert.IsTrue(await PollSteppedReadyAsync(client, TimeSpan.FromSeconds(30)), "Generation 1 (stepped, supervised) should come up.");
 
                 // Dirty the generation: advance the virtual clock so it is no longer at the clean baseline.

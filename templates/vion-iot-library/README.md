@@ -17,7 +17,7 @@ A Vion IoT Library template for creating LogicBlocks on the Vion Dale SDK.
 3. **Add your own blocks:**
    - Implement them in the `VionIotLibraryTemplate` project.
    - Register them in `DependencyInjection.cs`.
-   - The DevHost boots **folder-driven** (RFC 0008, topology-as-data): it discovers the instance graph
+   - The DevHost boots **folder-driven** (topology-as-data): it discovers the instance graph
      from `topologies/*.topology.json` and replayable checks from `scenarios/*.scenario.json`. Add a new
      block instance to `topologies/default.topology.json` (or delete that file and let the DevHost
      regenerate it from your registered blocks on the next boot). You don't edit `Program.cs`.

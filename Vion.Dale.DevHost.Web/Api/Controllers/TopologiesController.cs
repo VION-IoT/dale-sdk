@@ -10,7 +10,7 @@ using Vion.Dale.DevHost.Topologies;
 namespace Vion.Dale.DevHost.Web.Api.Controllers
 {
     /// <summary>
-    ///     Topology discovery and switching (RFC 0006 R5). Switching rides the R2 run-control reset: the
+    ///     Topology discovery and switching. Switching rides the R2 run-control reset: the
     ///     request parks the topology id on the run control and triggers a recycle; a topology-aware
     ///     supervisor (<c>DevHostWebRunner.RunAsync(Func&lt;string?, IDevHost&gt;, …)</c>) builds the next
     ///     generation from it. Without such a supervisor the switch is refused, like reset.
@@ -29,7 +29,7 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
             _control = control;
         }
 
-        /// <summary>The generic topology-file JSON Schema shipped with the DevHost (RFC 0006 R5).</summary>
+        /// <summary>The generic topology-file JSON Schema shipped with the DevHost.</summary>
         [HttpGet("schema")]
         public IActionResult Schema()
         {
@@ -93,7 +93,7 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
 
         /// <summary>
         ///     Validate a draft topology (RFC 0013) without writing it: structural + catalog + compatibility +
-        ///     the running host's own checks (the RFC 0020 wire-type identity rule), in-process against the live
+        ///     the running host's own checks (the wire-type identity rule), in-process against the live
         ///     catalog. The store owns that sequence so validate and save cannot drift apart. The draft may be
         ///     un-named (a brand-new draft has no saved id).
         /// </summary>

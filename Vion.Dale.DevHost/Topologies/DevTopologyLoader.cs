@@ -12,7 +12,7 @@ using Vion.Dale.Sdk.Core;
 namespace Vion.Dale.DevHost.Topologies
 {
     /// <summary>
-    ///     Builds a <see cref="DevConfiguration" /> from a topology file (RFC 0006 R5): instance types are
+    ///     Builds a <see cref="DevConfiguration" /> from a topology file: instance types are
     ///     resolved against the loaded assemblies (the DevHost project references its block libraries, so
     ///     they are loadable by full name), interface mappings are applied as declared, and contracts get
     ///     DevHost mocks exactly like a C#-preset build — explicit contract mappings, when present,
@@ -166,19 +166,24 @@ namespace Vion.Dale.DevHost.Topologies
             }
 
             // Explicit contract mappings override the auto-created defaults per (block, contract) —
-            // how a file expresses shared endpoints. Unmentioned contracts keep their mocks.
+            // how a file expresses shared endpoints. Unmentioned contracts keep their mocks. Every bad entry
+            // is collected before throwing, like the type, parameter, interface and pairing passes: an
+            // author fixing one mapping should not have to re-run the loader to be shown the next.
+            var contractErrors = new List<string>();
             foreach (var mapping in topology.ContractMappings ?? Array.Empty<TopologyContractMapping>())
             {
                 if (mapping.LogicBlockName is null || !handles.TryGetValue(mapping.LogicBlockName, out var handle))
                 {
-                    throw new InvalidDataException($"contractMappings: '{mapping.LogicBlockName}' is not a declared instance");
+                    contractErrors.Add($"contractMappings: '{mapping.LogicBlockName}' is not a declared instance");
+                    continue;
                 }
 
                 var block = configuration.LogicBlocks.Single(lb => lb.Id == handle.Id);
                 var existing = block.ContractMappings.FirstOrDefault(cm => cm.ContractIdentifier == mapping.ContractIdentifier);
                 if (existing is null)
                 {
-                    throw new InvalidDataException($"contractMappings: block '{mapping.LogicBlockName}' has no contract '{mapping.ContractIdentifier}'");
+                    contractErrors.Add($"contractMappings: block '{mapping.LogicBlockName}' has no contract '{mapping.ContractIdentifier}'");
+                    continue;
                 }
 
                 existing.ServiceProviderIdentifier = mapping.MappedServiceProviderIdentifier ?? existing.ServiceProviderIdentifier;
@@ -186,7 +191,12 @@ namespace Vion.Dale.DevHost.Topologies
                 existing.ContractEndpointIdentifier = mapping.MappedContractIdentifier ?? existing.ContractEndpointIdentifier;
             }
 
-            // RFC 0020: contract pairings resolve LAST, against the endpoints the two passes above settled — an
+            if (contractErrors.Count > 0)
+            {
+                throw new InvalidDataException(string.Join("; ", contractErrors));
+            }
+
+            // Contract pairings resolve LAST, against the endpoints the two passes above settled — an
             // explicit contractMappings override must be reflected in the endpoint a forward addresses. Structure
             // only here (unknown contract, coinciding endpoints, a pair declared twice); the wire-type identity
             // rule needs the handler each contract talks to, which is known once the blocks are introspected, so
@@ -305,8 +315,8 @@ namespace Vion.Dale.DevHost.Topologies
 
     /// <summary>
     ///     A check a running host can apply to a built draft configuration on top of
-    ///     <see cref="DevTopologyLoader.Build" />'s host-independent structural rules — today the RFC 0020 §4.3
-    ///     wire-type identity rule, which needs the handler each contract talks to and therefore introspected
+    ///     <see cref="DevTopologyLoader.Build" />'s host-independent structural rules — today the wire-type identity
+    ///     rule, which needs the handler each contract talks to and therefore introspected
     ///     blocks. Throws <see cref="InvalidDataException" /> listing every problem, the same shape
     ///     <c>Build</c> throws, so every caller reports it identically.
     /// </summary>
@@ -429,10 +439,7 @@ namespace Vion.Dale.DevHost.Topologies
                                 LogicBlockInstances = file.LogicBlockInstances,
                                 InterfaceMappings = file.InterfaceMappings,
 
-                                // An EMPTY pairing list is written back as no list at all: an editor that added
-                                // and then removed a pairing must leave an unpaired file byte-identical, and a
-                                // saved `"contractPairings": []` would fail that even though it means nothing.
-                                ContractPairings = file.ContractPairings is { Count: > 0 } ? file.ContractPairings : null,
+                                ContractPairings = file.ContractPairings,
                                 ContractMappings = configuration.LogicBlocks
                                                                 .SelectMany(lb => lb.ContractMappings.Select(cm => new TopologyContractMapping
                                                                                                                    {
@@ -455,7 +462,7 @@ namespace Vion.Dale.DevHost.Topologies
         ///     Everything <see cref="Save" /> checks, minus the id match and the write: the catalog +
         ///     interface-compatibility build, then the host check when a running host supplied one. This is what
         ///     <c>POST /api/topologies/validate</c> runs on a draft that may not be named yet, so the editor's
-        ///     validate and its save reach exactly the same verdict — including the RFC 0020 wire-type identity
+        ///     validate and its save reach exactly the same verdict — including the wire-type identity
         ///     rule, which would otherwise only refuse at the next host start. Throws
         ///     <see cref="InvalidDataException" /> with every problem at once.
         /// </summary>

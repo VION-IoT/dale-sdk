@@ -214,7 +214,7 @@ namespace Vion.Dale.Sdk.Introspection
 
                                         // The handler actor that services this contract — surfaced so the DevHost
                                         // can address the generic stand-in registered under it when a scenario
-                                        // drives the contract (RFC 0010).
+                                        // drives the contract.
                                         annotations[ServiceProviderContractAnnotations.ContractHandlerActorName] = i.Value.ContractHandlerActorName;
 
                                         // Development-only contracts (provider faces a simulator binds) are flagged

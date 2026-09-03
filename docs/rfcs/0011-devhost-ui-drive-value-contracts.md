@@ -3,7 +3,7 @@
 Status: **Parked** (knowledge capture — not scheduled; no solution prescribed yet).
 Author: jonas.bertsch. Date: 2026-06-22.
 
-> **Purpose of this document.** RFC 0010 made every `[ServiceProviderContractType]` **value** contract
+> **Purpose of this document.** The generic step kinds made every `[ServiceProviderContractType]` **value** contract
 > drivable/assertable from a committed *scenario* (`serviceProviderSet` / `serviceProviderExpect`). The
 > *live* DevHost UI's manual I/O panel did **not** follow — it is still hardwired to the four built-in
 > HAL families. This RFC records **what we already know** about closing that gap so the design does not
@@ -15,7 +15,7 @@ In the running DevHost UI, a block's "wiring" panel lets a developer **interacti
 digital input, type an analog input, read back a digital/analog output (see the four HAL families today).
 This is the manual counterpart to a committed scenario — invaluable for exploratory testing.
 
-After RFC 0010, the DevHost wires a stand-in for **every** value contract (PPC and other third-party
+After the generic service-provider step kinds, the DevHost wires a stand-in for **every** value contract (PPC and other third-party
 contracts included), so a custom contract now *appears* in the wiring panel — but cannot be driven there,
 because the panel only knows how to render a `bool` toggle (DI) and a `number` field (AI). Before the
 RFC-0010 correctness fix it was worse: a custom contract was **mislabeled** (silently bucketed into the
@@ -24,7 +24,7 @@ about making it *useful*.
 
 The goal: let a developer interactively drive (and observe) **any** value contract in the UI, the way they
 drive a digital/analog input today — including the struct-payload contracts (e.g. PPC) that are the whole
-point of RFC 0010.
+point of `docs/specs/scenarios.md`.
 
 ## What we already know (carry-forward knowledge)
 
@@ -32,7 +32,7 @@ point of RFC 0010.
 
 A contract is UI-driveable exactly when it is scenario-driveable: it has a `[ScenarioWire]` codec (a
 **value** contract). The same JSON→struct path (`ScenarioWireCodec`) that backs `serviceProviderSet` backs
-a UI drive. The RFC 0010 scope boundary (§4) carries over unchanged:
+a UI drive. That scope boundary carries over unchanged:
 
 | mechanism | UI-driveable here? |
 |---|---|
@@ -85,13 +85,13 @@ upstream. Known considerations:
 
 ### 5. Two planes — do not conflate
 
-RFC 0010 owns the **deterministic / committed / CI** plane (scenarios — done, works for structs). This RFC
+`docs/specs/scenarios.md` owns the **deterministic / committed / CI** plane (scenarios — done, works for structs). This RFC
 is the **real-time / interactive / lease-aware** plane (live UI driving). They are different planes with
 different time models; the design should keep them separate, not fold lease-cadence into the scenario format.
 
-## Current state (what RFC 0010 left in place)
+## Current state (what the generic step kinds left in place)
 
-- **Correctness fix shipped with RFC 0010:** the wiring panel now classifies contracts honestly —
+- **Correctness fix shipped with the generic step kinds:** the wiring panel now classifies contracts honestly —
   `contractTypeShort` maps the four HAL families to `DI/DO/AI/AO` and **every other value contract to a
   generic `SP`** (with the real `matchingContractType` in the badge tooltip), rendered as **"scenario-driven"**
   rather than a fabricated read-out / dead control. (`format.js`, `components.js`, `app.css`.)
@@ -100,7 +100,7 @@ different time models; the design should keep them separate, not fold lease-cade
 ## Out of scope / non-goals
 
 - Request/response contracts (Modbus RTU) and direct-DI clients (HTTP, Modbus-TCP) — they are out of the
-  value-contract boundary (RFC 0010 §4).
+  value-contract boundary.
 - Protocol mocking / non-conventional payloads (opaque types, callbacks).
 - Changing the committed scenario format — scenarios already cover structs (`serviceProviderSet`).
 
@@ -112,14 +112,14 @@ different time models; the design should keep them separate, not fold lease-cade
    service-property struct editor reused for a contract drive?
 3. How does a **held** drive interact with scenario runs, recycle-on-run, and topology switches (stop on
    recycle? survive?)?
-4. **Observing** struct/array *output* contracts in the UI (and in `serviceProviderExpect` — RFC 0010 reads
+4. **Observing** struct/array *output* contracts in the UI (and in `serviceProviderExpect` — the assert step reads
    only scalars today; a struct output reads as null). Field-level display/assert?
 5. Should `SP` drive be one **"drive (JSON)"** affordance (paste/edit the wire JSON) as a first step before
    a full schema-driven form?
 
 ## Relation to other work
 
-- **RFC 0010** — the scenario-side mechanism this builds on (`[ScenarioWire]`, `ScenarioWireCodec`, the
+- **`docs/specs/scenarios.md`** — the scenario-side mechanism this builds on (`[ScenarioWire]`, `ScenarioWireCodec`, the
   generic stand-in, the output cache).
 - **DF-25** — typed `serviceProviderSet` value schema; shares the wire-struct-schema dependency (§3).
-- **RFC 0008** — the deterministic-stepping / real-time split that frames the two-planes point (§5).
+- **`docs/specs/scenarios.md`** — the deterministic-stepping / real-time split that frames the two-planes point (§5).

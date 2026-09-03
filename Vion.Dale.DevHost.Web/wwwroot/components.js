@@ -882,7 +882,7 @@ export const WiringSection = {
     props: ['lb', 'sharedLookup'],
     setup(props) {
         const connections = connectionsForLb(props.lb.id);
-        // RFC 0020: pairings are a SECOND wire kind through this panel — an interface link joins two blocks'
+        // Pairings are a SECOND wire kind through this panel — an interface link joins two blocks'
         // logic interfaces, a pairing joins two service-provider contract endpoints. They render as their own
         // badge row (and a per-contract marker below) so neither is mistaken for the other.
         const pairings = pairingsForLb(props.lb.name);
@@ -921,7 +921,7 @@ export const WiringSection = {
                     <b>{{ c.arrow }}</b> {{ c.otherName }} <i>via {{ c.sourceIface }} ↔ {{ c.targetIface }}</i>
                 </span>
                 <span v-for="(p, i) in pairings" :key="'pairing-' + i" class="connection-badge pairing-badge"
-                      :title="'contract pairing (RFC 0020) — one wire, delivered ' + p.deliveryHint">
+                      :title="'contract pairing — one wire, delivered ' + p.deliveryHint">
                     <b>paired {{ p.arrow }}</b> {{ p.otherName }} <i>{{ p.ownContract }} ↔ {{ p.otherContract }}</i>
                 </span>
             </div>
@@ -1360,7 +1360,7 @@ const ResidueRow = {
     `,
 };
 
-// One declared contract pairing (RFC 0020) rendered as `blockA.contractA ⇄ blockB.contractB` with an unpair
+// One declared contract pairing rendered as `blockA.contractA ⇄ blockB.contractB` with an unpair
 // button — the WiringRow shape, deliberately, because a pairing IS a wire; only the endpoints differ (contract
 // bindings, not logic interfaces). The '⇄' is the DECLARATION, which is symmetric: which directions actually
 // carry a value is the host's answer and shows in the running topology's wiring panel, not here.
@@ -1526,7 +1526,7 @@ const TopologyEditor = {
         // mapping index drives that row's accent; the full list feeds the footer summary.
         const contractMappings = computed(() => (draft.value && draft.value.contractMappings) || []);
 
-        // ── contract pairings (RFC 0020) ───────────────────────────────────────────
+        // ── contract pairings ───────────────────────────────────────────
         // The draft carries contractPairings only when it HAS any — the key is created on the first pair and
         // deleted with the last, so an unpaired topology round-trips through the editor byte-identically
         // instead of gaining an empty array. pairingProblemsOf is the client mirror of the server's structural
@@ -1670,7 +1670,7 @@ const TopologyEditor = {
                 </template>
 
                 <h3 class="topo-section">contract pairings</h3>
-                <div v-if="!pairings.length" class="topo-meta">no pairings — pair a contract with a simulator's provider face to close a loop (RFC 0020)</div>
+                <div v-if="!pairings.length" class="topo-meta">no pairings — pair a contract with a simulator's provider face to close a loop</div>
                 <PairingRow v-for="(p, i) in pairings" :key="'pairing-' + i" :pairing="p" :index="i" :problem="pairingProblemFor(i)" @unpair="unpair"/>
                 <PairingPicker :instances="instances" @pair="pair"/>
 
@@ -1979,7 +1979,7 @@ export const GalleryCard = {
     `,
 };
 
-// ── Player (RFC 0006): scenario list, working-set view, run progress, judgments, report ────────
+// ── Player: scenario list, working-set view, run progress, judgments, report ────────
 // The Player renders ONLY a scenario's working set: ordered steps with server-side run state
 // (polled — F5-safe, agent-visible), the watch tiles, and the human-judgment checklist. The web UI
 // triggers and renders runs; it never executes them — the C# ScenarioRunner is the one evaluator.

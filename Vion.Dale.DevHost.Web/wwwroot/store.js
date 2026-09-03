@@ -52,9 +52,9 @@ export const store = reactive({
     runActive: false,
     // The host's virtual clock (ISO string), shown in the stepped-mode control cluster.
     virtualTime: null,
-    // Top-level view: 'explorer' (default), 'topology', 'gallery', or 'player' (scenarios, RFC 0006).
+    // Top-level view: 'explorer' (default), 'topology', 'gallery', or 'player' (scenarios, `docs/specs/scenarios.md`).
     view: 'explorer',
-    // Topology files (RFC 0006 R5): the discovery payload for the switcher in the topology panel.
+    // Topology files: the discovery payload for the switcher in the topology panel.
     topologies: null,
     // Topology authoring (RFC 0013): logic-block definitions (the palette + wiring source of truth) and
     // the in-progress topology draft the editor mutates. Draft is null when no editor is open.
@@ -73,7 +73,7 @@ export const store = reactive({
     topologySelectedId: null,
     // The fetched topology file object (GET /api/topologies/{id}) rendered read-only on the Detail screen.
     topologyDetail: null,
-    // Scenario surface (RFC 0006): the discovery payload, the opened scenario (parsed file), and the
+    // Scenario surface: the discovery payload, the opened scenario (parsed file), and the
     // latest run report. Run state lives SERVER-side (F5-safe, agent-visible) — the client only polls.
     scenarios: null,
     scenarioId: null,
@@ -86,7 +86,7 @@ export const store = reactive({
     scenarioFileHash: null,
     scenarioError: null,
     run: null,
-    // Recycle-on-run (RFC 0008): when an apply recycles the host onto the scenario's topology for a clean
+    // Recycle-on-run: when an apply recycles the host onto the scenario's topology for a clean
     // slate, the run is parked here and re-applied once the fresh generation is up (in reinitClientState).
     pendingScenarioRun: null,
     // Human judgment ticks, keyed `${runId}/${index}` -> 'ok' | 'notOk'. Local to this browser;
@@ -297,7 +297,7 @@ export async function setProperty(serviceId, propertyId, value) {
     }
 }
 
-// Drive any value-contract input (RFC 0010): one generic endpoint for every contract type. The caller builds
+// Drive any value-contract input: one generic endpoint for every contract type. The caller builds
 // the wire `value` from the rendered control — a bool for a digital toggle, a number for an analog field — and
 // `handlerName` is the contract's stand-in actor name (its contractHandlerActorName annotation).
 export async function driveContract(handlerName, spId, svcId, contractId, value) {
@@ -350,7 +350,7 @@ export async function resumeHost() {
     }
 }
 
-// Manual stepping (RFC 0008 §Part 4): drive the virtual clock by hand on a stepped host. The server
+// Manual stepping (the stepped-host enabler): drive the virtual clock by hand on a stepped host. The server
 // 409s when not stepped or while a scenario run is driving the clock — surfaced as an error toast.
 export async function stepHost() {
     await driveClock('/api/control/step', 'step');
@@ -610,7 +610,7 @@ async function connectHub() {
     }
 }
 
-// ── Topology files (RFC 0006 R5) ────────────────────────────────────────────────
+// ── Topology files ────────────────────────────────────────────────
 
 export async function loadTopologies() {
     try {
@@ -641,7 +641,7 @@ export async function cloneTopologyDraft(id) {
         const res = await fetch(`/api/topologies/${encodeURIComponent(id)}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const file = await res.json();
-        // contractPairings (RFC 0020) rides along UNEDITED and only when the file has it: the editor cannot
+        // contractPairings rides along UNEDITED and only when the file has it: the editor cannot
         // author pairings yet (that is the wiring-view slice), and a draft that dropped them would silently
         // delete a paired topology's wires on the next save. Conditional so an unpaired file still saves
         // byte-identically instead of gaining an empty array.
@@ -830,7 +830,7 @@ export async function switchClockMode(stepped) {
     }
 }
 
-// ── Scenarios / Player (RFC 0006) ───────────────────────────────────────────────
+// ── Scenarios / Player ───────────────────────────────────────────────
 
 const JUDGE_STORAGE_KEY = 'dale.devhost.judge';
 
@@ -1133,7 +1133,7 @@ function loadJudgeTicks() {
     }
 }
 
-// Deep links (RFC 0006): #/scenario/{id} opens the Player on that scenario; #/scenarios opens the
+// Deep links: #/scenario/{id} opens the Player on that scenario; #/scenarios opens the
 // list. Applied on boot and on every hash change (back/forward navigation included).
 function applyHash() {
     const match = /^#\/scenario\/([A-Za-z0-9._-]+)$/.exec(location.hash);
@@ -1198,7 +1198,7 @@ export function connectionsForLb(lbId) {
     return connections;
 }
 
-// RFC 0020 contract pairings touching this block, read off the SAME /api/configuration payload the wiring
+// contract pairings touching this block, read off the SAME /api/configuration payload the wiring
 // panel already has — a pairing needs no endpoint of its own. Each entry carries this block's own contract,
 // the peer endpoint, and which directions the HOST actually materialised (aToB / bToA are derived from the
 // two handlers' declared wire types, so a one-way provider face reads one-way here too). Keyed by block NAME

@@ -332,7 +332,7 @@ namespace Vion.Dale.DevHost.Test
             // A browser that connects after a value was written is primed by PublishAllStates (the SignalR
             // hub's OnConnectedAsync). It used to ask the four HAL handlers by name, so a consumer's own value
             // contract — or a provider face — stayed dark on that client until the next write. Now every
-            // discovered stand-in is asked, which is what "no hardcoded contract support" means (RFC 0020 §7).
+            // discovered stand-in is asked, which is what "no hardcoded contract support" means.
             // GridBlock.Demand is the non-HAL case: a third-party-shaped struct contract on GridDemandHandler.
             var config = DevConfigurationBuilder.Create().WithTopologyName("grid").AddLogicBlock<SmokeHost.LogicBlocks.GridBlock>("grid").Build();
             await using var host = DevHostBuilder.Create().WithDi<SmokeHost.DependencyInjection>().WithConfiguration(config).WithDeterministicStepping().Build();

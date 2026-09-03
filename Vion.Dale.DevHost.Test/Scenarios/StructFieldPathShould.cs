@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -23,8 +25,11 @@ namespace Vion.Dale.DevHost.Test
         // ── waitUntil on a struct field (above / below / equals) ──────────────────────────────────────
 
         [TestMethod]
-        public async Task ResolveAndEvaluate_WaitUntilOnAStructField_AboveBelowEquals()
+        [TestProperty("spec", "AC-SCEN-006.4")]
+        [TestProperty("spec", "AC-SCEN-006.1")]
+        public async Task ResolveAndEvaluateWaitUntilOnStructFieldWithEveryComparator()
         {
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
@@ -40,15 +45,19 @@ namespace Vion.Dale.DevHost.Test
                                               }
                                               """);
 
+            // Act
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
             Assert.IsTrue(report.Steps.All(s => s.Status == ScenarioStepStatus.Ok), Join(report));
         }
 
         [TestMethod]
-        public async Task ResolveAndEvaluate_WaitUntilOnAStructMeasuringPointField()
+        [TestProperty("spec", "AC-SCEN-005.7")]
+        public async Task ResolveAndEvaluateWaitUntilOnStructMeasuringPointField()
         {
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
@@ -62,14 +71,18 @@ namespace Vion.Dale.DevHost.Test
                                               }
                                               """);
 
+            // Act
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
         }
 
         [TestMethod]
-        public async Task ResolveWatchOnAStructField()
+        [TestProperty("spec", "AC-SCEN-006.1")]
+        public async Task ResolveWatchOnStructField()
         {
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
@@ -81,8 +94,10 @@ namespace Vion.Dale.DevHost.Test
                                               }
                                               """);
 
+            // Act
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
             Assert.IsEmpty(report.ValidationErrors);
         }
@@ -90,8 +105,10 @@ namespace Vion.Dale.DevHost.Test
         // ── the 3-segment ambiguity ───────────────────────────────────────────────────────────────────
 
         [TestMethod]
-        public async Task ResolveServiceQualifiedPath_WhenSeg1IsAService()
+        [TestProperty("spec", "AC-SCEN-005.3")]
+        public async Task ResolveServiceQualifiedPathWhenSegmentOneNamesService()
         {
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
@@ -107,15 +124,19 @@ namespace Vion.Dale.DevHost.Test
                                               }
                                               """);
 
+            // Act
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
             Assert.AreEqual(4.5, host.Control.GetProperty("DualPoint", "PointA", "Limit"));
         }
 
         [TestMethod]
-        public async Task ResolvePropertyPlusFieldPath_WhenSeg1IsNotAService()
+        [TestProperty("spec", "AC-SCEN-005.3")]
+        public async Task ResolvePropertyPlusFieldPathWhenSegmentOneNamesMember()
         {
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
@@ -130,14 +151,18 @@ namespace Vion.Dale.DevHost.Test
                                               }
                                               """);
 
+            // Act
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
         }
 
         [TestMethod]
-        public async Task ErrorWhenSeg1IsBothAServiceAndAMember()
+        [TestProperty("spec", "AC-SCEN-005.4")]
+        public async Task ErrorWhenSegmentOneNamesBothServiceAndMember()
         {
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
@@ -150,8 +175,10 @@ namespace Vion.Dale.DevHost.Test
                                               }
                                               """);
 
+            // Act
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.Failed, report.Status, Join(report));
             Assert.IsTrue(report.ValidationErrors.Any(e => e.Contains("ambiguous") && e.Contains("Allocated")), Join(report));
         }
@@ -159,8 +186,10 @@ namespace Vion.Dale.DevHost.Test
         // ── whole-struct still guarded ────────────────────────────────────────────────────────────────
 
         [TestMethod]
-        public async Task RejectWholeStructTarget_WhenNoFieldPath()
+        [TestProperty("spec", "AC-SCEN-006.3")]
+        public async Task RejectWholeStructTargetWhenNoFieldPath()
         {
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
@@ -174,8 +203,10 @@ namespace Vion.Dale.DevHost.Test
                                               }
                                               """);
 
+            // Act
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.Failed, report.Status, Join(report));
             Assert.IsTrue(report.ValidationErrors.Any(e => e.Contains("object-typed member") && e.Contains("not comparable")), Join(report));
         }
@@ -183,8 +214,10 @@ namespace Vion.Dale.DevHost.Test
         // ── unknown field → PascalCase suggestion ─────────────────────────────────────────────────────
 
         [TestMethod]
-        public async Task SuggestThePascalCaseFieldName_OnAFieldTypo()
+        [TestProperty("spec", "AC-SCEN-006.2")]
+        public async Task SuggestPascalCaseFieldNameOnFieldTypo()
         {
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
@@ -197,15 +230,20 @@ namespace Vion.Dale.DevHost.Test
                                               }
                                               """);
 
+            // Act
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.Failed, report.Status, Join(report));
             Assert.IsTrue(report.ValidationErrors.Any(e => e.Contains("has no field 'Neutralcurrent'") && e.Contains("did you mean 'NeutralCurrent'")), Join(report));
         }
 
         [TestMethod]
-        public async Task RejectAboveBelowOnANonNumericField_AndAFieldOfAScalar()
+        [TestProperty("spec", "AC-SCEN-006.4")]
+        [TestProperty("spec", "AC-SCEN-006.2")]
+        public async Task RejectAboveBelowOnNonNumericFieldAndOnFieldOfScalar()
         {
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
@@ -219,8 +257,10 @@ namespace Vion.Dale.DevHost.Test
                                               }
                                               """);
 
+            // Act
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.Failed, report.Status, Join(report));
             Assert.IsTrue(report.ValidationErrors.Any(e => e.Contains("is not a struct") || e.Contains("has no field")), Join(report));
         }
@@ -228,8 +268,10 @@ namespace Vion.Dale.DevHost.Test
         // ── deterministic stepped waitUntil on a struct field ─────────────────────────────────────────
 
         [TestMethod]
-        public async Task RunAStepped_WaitUntilOnAStructField_Deterministically()
+        [TestProperty("spec", "AC-SCEN-006.1")]
+        public async Task RunSteppedWaitUntilOnStructFieldDeterministically()
         {
+            // Arrange
             for (var run = 0; run < 5; run++)
             {
                 var clock = new FakeTimeProvider(new DateTimeOffset(2026,
@@ -253,11 +295,112 @@ namespace Vion.Dale.DevHost.Test
                                                   }
                                                   """);
 
+                // Act
                 var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+                // Assert
                 Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, $"run {run}: {Join(report)}");
                 StringAssert.Contains(report.Steps[0].Detail, "virtual s", $"run {run}: {report.Steps[0].Detail}");
             }
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-005.1")]
+        [DataRow("Allocator", "is not a name path", DisplayName = "one segment")]
+        [DataRow("Allocator..Counter", "is not a name path", DisplayName = "empty inner segment")]
+        [DataRow("Allocator.", "is not a name path", DisplayName = "trailing dot")]
+        [DataRow(".Counter", "is not a name path", DisplayName = "leading dot")]
+        [DataRow("Allocator.  ", "is not a name path", DisplayName = "whitespace segment")]
+        public async Task RefuseNamePathWithoutTwoNonEmptySegments(string path, string expectedError)
+        {
+            // Arrange
+            await using var host = BuildHost();
+            await host.StartAsync();
+
+            // Act
+            var errors = new List<string>();
+            new ScenarioResolver(host.Control.GetConfiguration()).ResolveProperty(path, "watch[0]", errors);
+
+            // Assert
+            Assert.IsNotEmpty(errors);
+            StringAssert.Contains(errors[0], expectedError);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-005.5")]
+        public async Task AcceptTwoSegmentFormWhenExactlyOneServiceCarriesMember()
+        {
+            // Arrange — Allocator has one service, so Counter is unambiguous; Collision has two, and only
+            // one of them carries Limit.
+            await using var host = BuildHost();
+            await host.StartAsync();
+            var resolver = new ScenarioResolver(host.Control.GetConfiguration());
+
+            // Act
+            var errors = new List<string>();
+            var counter = resolver.ResolveProperty("Allocator.Counter", "steps[0]", errors);
+            var limit = resolver.ResolveProperty("Collision.Limit", "steps[1]", errors);
+
+            // Assert — the qualified form resolves to the same member, which is what makes the short one safe.
+            Assert.IsEmpty(errors, string.Join("; ", errors));
+            Assert.AreEqual("Counter", counter!.PropertyName);
+            Assert.AreEqual("Limit", limit!.PropertyName);
+            Assert.AreEqual("Allocated", limit.ServiceIdentifier);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-006.5")]
+        public async Task ReadNullableWidenedLeafAsItsNonNullType()
+        {
+            // Arrange — Nullable.Reading is a nullable struct, so its schema type is ["object","null"] and
+            // its numeric leaf is ["number","null"]. Without the normalisation, above/below on the leaf
+            // would be refused as non-numeric and the whole-struct refusal would not fire.
+            await using var host = BuildHost();
+            await host.StartAsync();
+            var resolver = new ScenarioResolver(host.Control.GetConfiguration());
+
+            // Act
+            var leafErrors = new List<string>();
+            resolver.ResolveStep(new ScenarioStep { WaitUntil = new ScenarioWaitUntil { Property = "Nullable.Reading.L1", Above = Json("1") } }, "steps[0]", leafErrors);
+
+            var wholeErrors = new List<string>();
+            resolver.ResolveStep(new ScenarioStep { WaitUntil = new ScenarioWaitUntil { Property = "Nullable.Reading", EqualTo = Json("1") } }, "steps[1]", wholeErrors);
+
+            // Assert
+            Assert.IsEmpty(leafErrors, string.Join("; ", leafErrors));
+            Assert.IsNotEmpty(wholeErrors);
+            StringAssert.Contains(wholeErrors[0], "object-typed member");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-006.6")]
+        public async Task YieldNullLeafWhenStructItselfNull()
+        {
+            // Arrange — the block leaves Reading null, so the field path reads through nothing.
+            await using var host = BuildHost();
+            await host.StartAsync();
+
+            var scenario = ScenarioFile.Parse("""
+                                              {
+                                                "version": 1, "id": "null-leaf", "topology": "struct-topology",
+                                                "watch": ["Nullable.Reading.L1"],
+                                                "steps": [ { "expect": { "property": "Nullable.Reading.L1", "equals": null } } ]
+                                              }
+                                              """);
+
+            // Act
+            var report = await ScenarioRunner.RunAsync(scenario, host.Control);
+
+            // Assert — a null intermediate is a state, not a run failure, and the watch sampler survives it
+            // even though it runs outside the per-step try/catch.
+            Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, string.Join("; ", report.ValidationErrors));
+            Assert.HasCount(2, report.WatchTrace);
+            Assert.IsNull(report.WatchTrace[0].Values["Nullable.Reading.L1"]);
+        }
+
+        private static JsonElement Json(string raw)
+        {
+            return JsonDocument.Parse(raw).RootElement.Clone();
         }
 
         // ── Helpers ───────────────────────────────────────────────────────────────────────────────────
@@ -269,6 +412,7 @@ namespace Vion.Dale.DevHost.Test
                                                 .AddLogicBlock<AllocatorBlock>("Allocator")
                                                 .AddLogicBlock<CollisionBlock>("Collision")
                                                 .AddLogicBlock<DualPointBlock>("DualPoint")
+                                                .AddLogicBlock<NullableStructBlock>("Nullable")
                                                 .Build();
             return DevHostBuilder.Create().WithDi<StructFieldDependencyInjection>().WithConfiguration(config).Build();
         }
@@ -283,6 +427,25 @@ namespace Vion.Dale.DevHost.Test
         {
             var steps = report.Setup.Concat(report.Steps).Select(s => $"[{s.Index} {s.Kind} {s.Status}: {s.Detail}]");
             return string.Join("; ", report.ValidationErrors.Concat(steps));
+        }
+    }
+
+    /// <summary>
+    ///     A block whose struct <c>[ServiceProperty]</c> is NULLABLE and left null — the shape that widens the
+    ///     schema type to <c>["object","null"]</c> and makes a field path read through nothing.
+    /// </summary>
+    [LogicBlock(Name = "Nullable")]
+    public class NullableStructBlock : LogicBlockBase
+    {
+        [ServiceProperty(Title = "Reading")]
+        public PhaseCurrents? Reading { get; set; }
+
+        public NullableStructBlock(ILogger logger) : base(logger)
+        {
+        }
+
+        protected override void Ready()
+        {
         }
     }
 
@@ -407,6 +570,7 @@ namespace Vion.Dale.DevHost.Test
             serviceCollection.AddTransient<CollisionBlock>();
             serviceCollection.AddTransient<DualPointBlock>();
             serviceCollection.AddTransient<RampBlock>();
+            serviceCollection.AddTransient<NullableStructBlock>();
         }
     }
 }

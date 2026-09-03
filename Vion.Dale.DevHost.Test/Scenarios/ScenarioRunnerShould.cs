@@ -1,89 +1,32 @@
 using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Vion.Dale.DevHost.Scenarios;
 
 namespace Vion.Dale.DevHost.Test
 {
     /// <summary>
-    ///     The RFC 0006 scenario interpreter, end to end against a real host: structural parsing, name-path
-    ///     resolution (incl. the revision 5 ambiguity rule), the topology guard, the waitUntil protocol, and
-    ///     the failure taxonomy. The runner is the ONE evaluator the Player, CI, and agents share — these
-    ///     tests are the semantics contract.
+    ///     The scenario interpreter end to end against a real host: name-path resolution against the wired
+    ///     configuration, the topology guard, the real-clock waitUntil protocol, and the failure taxonomy. The
+    ///     runner is the one evaluator the Player, CI and agents share, so these tests are the semantics
+    ///     contract.
+    ///     <para>
+    ///         Structural parsing is <c>ScenarioFileShould</c>'s — it needs no host, and proving it here too
+    ///         made the same rule answer to two suites.
+    ///     </para>
     /// </summary>
     [TestClass]
     public class ScenarioRunnerShould
     {
         [TestMethod]
-        public void RejectUnknownVocabularyVersions()
-        {
-            var e = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse("""{ "version": 2, "id": "x", "topology": "t" }"""));
-            Assert.IsTrue(e.Errors.Any(m => m.Contains("version must be 1")), string.Join("; ", e.Errors));
-        }
-
-        [TestMethod]
-        public void RejectUnknownFields()
-        {
-            // additionalProperties: false posture — evolution is by version bump, not silent extra fields.
-            var e = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse("""{ "version": 1, "id": "x", "topology": "t", "checks": [] }"""));
-            Assert.IsTrue(e.Errors.Any(m => m.Contains("not valid scenario JSON")), string.Join("; ", e.Errors));
-        }
-
-        [TestMethod]
-        public void RejectMalformedSteps()
-        {
-            var twoShapes = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse("""
-                                                                                                   {
-                                                                                                     "version": 1, "id": "x", "topology": "t",
-                                                                                                     "steps": [ { "set": "A.B", "value": 1, "advance": { "seconds": 1 } } ]
-                                                                                                   }
-                                                                                                   """));
-            Assert.IsTrue(twoShapes.Errors.Any(m => m.Contains("exactly one of")), string.Join("; ", twoShapes.Errors));
-
-            var setWithoutValue = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse("""
-                                                                                                         { "version": 1, "id": "x", "topology": "t", "steps": [ { "set": "A.B" } ] }
-                                                                                                         """));
-            Assert.IsTrue(setWithoutValue.Errors.Any(m => m.Contains("set requires value")), string.Join("; ", setWithoutValue.Errors));
-
-            var twoComparators = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse("""
-                                                                                                        {
-                                                                                                          "version": 1, "id": "x", "topology": "t",
-                                                                                                          "steps": [ { "waitUntil": { "property": "A.B", "above": 1, "below": 2 } } ]
-                                                                                                        }
-                                                                                                        """));
-            Assert.IsTrue(twoComparators.Errors.Any(m => m.Contains("exactly one of above")), string.Join("; ", twoComparators.Errors));
-
-            var waitInSetup = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse("""
-                                                                                                     { "version": 1, "id": "x", "topology": "t", "setup": [ { "advance": { "seconds": 1 } } ] }
-                                                                                                     """));
-            Assert.IsTrue(waitInSetup.Errors.Any(m => m.Contains("setup entries stage state")), string.Join("; ", waitInSetup.Errors));
-        }
-
-        [TestMethod]
-        public void DistinguishExplicitNullFromAbsentValue()
-        {
-            // "value": null is a legal write (nullable properties); a missing "value" is a format error.
-            var file = ScenarioFile.Parse("""
-                                          { "version": 1, "id": "x", "topology": "t", "steps": [ { "set": "A.B", "value": null } ] }
-                                          """);
-            Assert.AreEqual(System.Text.Json.JsonValueKind.Null, file.Steps![0].Value.ValueKind);
-        }
-
-        [TestMethod]
-        public void RejectReservedAndDuplicateKeyedFiles()
-        {
-            // 'schema' is shadowed by GET /api/scenarios/schema; duplicate keys would silently last-win
-            // against the additionalProperties: false posture.
-            var reserved = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse("""{ "version": 1, "id": "schema", "topology": "t" }"""));
-            Assert.IsTrue(reserved.Errors.Any(m => m.Contains("reserved")), string.Join("; ", reserved.Errors));
-
-            var duplicate = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse("""{ "version": 1, "id": "x", "topology": "t", "topology": "u" }"""));
-            Assert.IsTrue(duplicate.Errors.Any(m => m.Contains("not valid scenario JSON")), string.Join("; ", duplicate.Errors));
-        }
-
-        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-009.2")]
+        [TestProperty("spec", "AC-SCEN-005.8")]
+        [TestProperty("spec", "AC-SCEN-005.4")]
+        [TestProperty("spec", "AC-SCEN-005.2")]
         public async Task FailValidationForUnknownAndAmbiguousNamePaths()
         {
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
@@ -99,8 +42,10 @@ namespace Vion.Dale.DevHost.Test
                                               }
                                               """);
 
+            // Act
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.Failed, report.Status);
             Assert.IsTrue(report.ValidationErrors.Any(e => e.Contains("NoSuchBlock")), Join(report));
 
@@ -112,8 +57,10 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task BlockOnTopologyMismatch()
+        [TestProperty("spec", "AC-SCEN-009.1")]
+        public async Task RefuseRunOnTopologyMismatch()
         {
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
@@ -125,15 +72,23 @@ namespace Vion.Dale.DevHost.Test
             // A scenario only runs against the topology it declares — there is no "force" override. The web
             // caller brings the host to the right topology first (recycle-on-run); the in-process runner just
             // refuses a mismatch loudly.
+
+            // Act
             var blocked = await ScenarioRunner.RunAsync(scenario, host.Control);
+
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.TopologyMismatch, blocked.Status);
             Assert.AreEqual("scenario-topology", blocked.HostTopology);
             Assert.IsTrue(blocked.Steps.All(s => s.Status == ScenarioStepStatus.Skipped), Join(blocked));
         }
 
         [TestMethod]
-        public async Task RunSetupStepsAndWaits_EndToEnd()
+        [TestProperty("spec", "AC-SCEN-009.8")]
+        [TestProperty("spec", "AC-SCEN-009.6")]
+        [TestProperty("spec", "AC-SCEN-009.3")]
+        public async Task RunSetupThenStepsInFileOrder()
         {
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
@@ -152,8 +107,10 @@ namespace Vion.Dale.DevHost.Test
                                               }
                                               """);
 
+            // Act
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
             Assert.AreEqual(ScenarioStepStatus.Ok, report.Setup[0].Status);
             Assert.IsTrue(report.Steps.All(s => s.Status == ScenarioStepStatus.Ok), Join(report));
@@ -169,8 +126,10 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task ObserveAFutureEventInWaitUntil()
+        [TestProperty("spec", "AC-SCEN-011.7")]
+        public async Task ObserveFutureEventInWaitUntilOnRealClock()
         {
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
@@ -184,14 +143,18 @@ namespace Vion.Dale.DevHost.Test
                                                 }
                                                 """);
 
+            // Act
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
         }
 
         [TestMethod]
-        public async Task FailTheStepOnWaitUntilTimeout_AndSkipTheRest()
+        [TestProperty("spec", "AC-SCEN-009.3")]
+        public async Task FailStepOnWaitUntilTimeoutAndSkipRemainder()
         {
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
@@ -205,8 +168,10 @@ namespace Vion.Dale.DevHost.Test
                                               }
                                               """);
 
+            // Act
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.Failed, report.Status, Join(report));
             Assert.AreEqual(ScenarioStepStatus.Failed, report.Steps[0].Status);
             StringAssert.Contains(report.Steps[0].Detail, "condition not met within 1 s");
@@ -214,8 +179,50 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-SCEN-009.5")]
+        public async Task ReportCancelledRunAsCancelledAndSkipRemainder()
+        {
+            // Arrange - cancel from the progress callback the moment the first step starts running, so the
+            // run is cancelled mid-step without any test waiting on a clock.
+            await using var host = BuildHost();
+            await host.StartAsync();
+
+            using var cancellation = new CancellationTokenSource();
+            var options = new ScenarioRunOptions
+                          {
+                              OnProgress = report =>
+                                           {
+                                               if (report.Steps[0].Status == ScenarioStepStatus.Running)
+                                               {
+                                                   cancellation.Cancel();
+                                               }
+                                           },
+                          };
+
+            var scenario = ScenarioFile.Parse("""
+                                              {
+                                                "version": 1, "id": "canceled", "topology": "scenario-topology",
+                                                "steps": [
+                                                  { "label": "never", "waitUntil": { "property": "Counter.Counter", "above": 999999 }, "timeoutSeconds": 30 },
+                                                  { "label": "unreached", "advance": { "seconds": 0.1 } }
+                                                ]
+                                              }
+                                              """);
+
+            // Act
+            var report = await ScenarioRunner.RunAsync(scenario, host.Control, options, cancellation.Token);
+
+            // Assert
+            Assert.AreEqual(ScenarioRunStatus.Canceled, report.Status, Join(report));
+            Assert.AreEqual(ScenarioStepStatus.Skipped, report.Steps[1].Status, Join(report));
+            StringAssert.Contains(report.Steps[1].Detail, "canceled");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-005.6")]
         public async Task ReachShadowedServicesViaQualifiedPaths()
         {
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
@@ -230,16 +237,20 @@ namespace Vion.Dale.DevHost.Test
                                               }
                                               """);
 
+            // Act
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
             Assert.AreEqual(3.5, host.Control.GetProperty("DualPoint", "PointA", "Limit"));
             Assert.AreEqual(7.5, host.Control.GetProperty("DualPoint", "PointB", "Limit"));
         }
 
         [TestMethod]
-        public async Task ThrowFromApplyOnFailure_ForCSharpComposition()
+        [TestProperty("spec", "AC-SCEN-009.4")]
+        public async Task ThrowFromApplyOnFailureForCSharpComposition()
         {
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
@@ -248,7 +259,10 @@ namespace Vion.Dale.DevHost.Test
                                                 "steps": [ { "set": "NoSuchBlock.X", "value": 1 } ] }
                                               """);
 
+            // Act
             var e = await Assert.ThrowsExactlyAsync<ScenarioRunException>(() => ScenarioRunner.ApplyAsync(scenario, host.Control));
+
+            // Assert
             StringAssert.Contains(e.Message, "NoSuchBlock");
             Assert.AreEqual(ScenarioRunStatus.Failed, e.Report.Status);
         }

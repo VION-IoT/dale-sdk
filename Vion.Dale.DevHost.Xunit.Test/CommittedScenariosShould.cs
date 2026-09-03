@@ -14,14 +14,17 @@ namespace Vion.Dale.DevHost.Xunit.Test
     public class CommittedScenariosShould
     {
         [TestMethod]
-        public async Task Run_green_through_the_fixture_and_run_helpers()
+        [TestProperty("spec", "AC-SCEN-016.5")]
+        public async Task RunEveryCommittedScenarioGreenOnItsOwnHost()
         {
+            // Arrange
             var attribute = new ScenarioFilesAttribute { Directory = SmokeData.ScenariosDir };
             var rows = await attribute.GetData(typeof(CommittedScenariosShould).GetMethods()[0], new DisposalTracker());
 
             var fixture = new SmokeScenarioFixture();
             var ran = 0;
 
+            // Act
             foreach (var row in rows)
             {
                 var data = row.GetData();
@@ -38,6 +41,7 @@ namespace Vion.Dale.DevHost.Xunit.Test
                 ran++;
             }
 
+            // Assert
             Assert.AreEqual(8, ran);
         }
     }

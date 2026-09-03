@@ -13,7 +13,7 @@ cross-fill rule — metadata declared once on `[ServiceProperty]`, inherited by 
 `[ServiceMeasuringPoint]`), a `TotalIncreasing` accumulator, and a `[Timer]`. Run `dale dev`
 and open it. `scenarios/thermostat.scenario.json` drives it end to end — run it with
 `dale scenario run thermostat` while `dale dev --stepped` is up, or open it in the Player. The
-DevHost boots **folder-driven** (RFC 0008): the instance graph lives in `topologies/*.topology.json`,
+DevHost boots **folder-driven**: the instance graph lives in `topologies/*.topology.json`,
 replayable checks in `scenarios/*.scenario.json` — you don't configure blocks in `Program.cs`.
 
 ## CLI
@@ -80,7 +80,7 @@ identifier; services and properties have none. `<PackageId>` is unique platform-
 ```
 {ProjectName}/                  # LogicBlock library (netstandard2.1)
 {ProjectName}.Test/             # Unit tests (MSTest + Vion.Dale.Sdk.TestKit)
-{ProjectName}.DevHost/          # Dev runtime with web UI — boots folder-driven (RFC 0008)
+{ProjectName}.DevHost/          # Dev runtime with web UI — boots folder-driven
 topologies/                     # *.topology.json — the instance graph (topology-as-data)
 scenarios/                      # *.scenario.json — replayable, deterministic checks
 ```
@@ -217,7 +217,7 @@ The DevHost boots the *real* wired network (unlike TestKit, which stubs every co
 bugs that only appear in the wired, real-messaging path (e.g. a block that never actually sends the request a
 unit test hand-feeds it). Three ways to drive it without a browser, in order of what to reach for:
 
-**1. Scenario files (RFC 0008) — the committed, replayable artifact.** A `scenarios/*.scenario.json` file
+**1. Scenario files — the committed, replayable artifact.** A `scenarios/*.scenario.json` file
 describes setup → ordered steps → a watch list → human judgments, consumed identically by the Player, by
 CI, and by agents (see `scenarios/thermostat.scenario.json`):
 

@@ -1,6 +1,6 @@
 # Writing a simulator block
 
-A DevHost bench needs something on the far side of a service-provider contract. Until RFC 0020 there
+A DevHost bench needs something on the far side of a service-provider contract. Before contract pairings there
 was nothing: a scenario could *drive* a contract, but no block could answer one, so a closed loop —
 an output whose confirmation comes back, an input a device model decides — could not exist off
 production.

@@ -30,7 +30,7 @@ namespace Vion.Dale.DevHost.Control
     ///     <para>
     ///         Quiescence DETECTION alone is not enough on a fan-in network: it waits for concurrently-running
     ///         handlers to finish but does not ORDER them, so the relative order of same-virtual-instant
-    ///         messages would be thread-pool-dependent (RFC 0008 / DF-18). Two further pieces pin the order:
+    ///         messages would be thread-pool-dependent (DF-18). Two further pieces pin the order:
     ///         (1) every actor runs on a single shared serial dispatcher in stepped mode
     ///         (<c>DeterministicDispatcher</c>), so a message cascade drains in one reproducible order rather
     ///         than fanning out across the thread pool; and (2) the stepper DELIVERS each due timer send itself,
@@ -100,7 +100,7 @@ namespace Vion.Dale.DevHost.Control
             // iteration takes the SINGLE earliest entry (by due-time, then registration order) and — for a
             // stepper-delivered timer send — delivers it itself, so several timers due at the same virtual
             // instant deliver one at a time in a fixed order rather than via racing Task.Delay continuations
-            // (RFC 0008 / DF-18). A plain (Task.Delay-backed) entry has no delivery action; advancing the clock
+            // (DF-18). A plain (Task.Delay-backed) entry has no delivery action; advancing the clock
             // to its due-time fires it.
             while (_schedule.NextDue() is { } due && due <= target)
             {
@@ -134,7 +134,7 @@ namespace Vion.Dale.DevHost.Control
             // one at a time in (due, registration) order, quiescing between each. Per-instant (not per-event)
             // granularity is what the hop-based waitUntil / settle protocols rely on — a hop moves the clock
             // forward, and a settle "stable across one hop" check sees the full effect of that instant — while
-            // same-instant fires still deliver in a single deterministic order (RFC 0008 / DF-18). Re-querying
+            // same-instant fires still deliver in a single deterministic order (DF-18). Re-querying
             // each iteration drains any further entries that remain due at this instant; reschedules land later
             // and end the loop.
             if (_schedule.NextDue() is { } instant)

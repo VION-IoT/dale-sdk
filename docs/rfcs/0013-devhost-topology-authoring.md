@@ -3,7 +3,7 @@
 - **Status:** Implemented — Phases 1 (server) + 2 (SPA editor); Phase 3 (dashboard exporter) pending
 - **Date:** 2026-06-25
 - **Author:** jonas.bertsch
-- **Related:** RFC 0006 (scenario files), RFC 0008 (unified scenario+topology), RFC 0012 (DevHost UI observe/drive model), RFC 0003 (headless control). Cross-repo: `dashboard` (Logic Editor), `cloud-api` / `vion-contracts` (introspection contract).
+- **Related:** `docs/specs/scenarios.md` (scenario and topology files, the unified data model — absorbed the RFCs this document was written against), RFC 0012 (DevHost UI observe/drive model), RFC 0003 (headless control). Cross-repo: `dashboard` (Logic Editor), `cloud-api` / `vion-contracts` (introspection contract).
 
 > This is a design contract, not an implementation. It is the document an implementation plan is generated from. It deliberately stops at the seams (exact field names, route bodies, component layout) so the plan can fill them in against current `main`.
 
@@ -33,7 +33,7 @@ The user verdict that scopes this RFC: **topology is priority 1, especially gett
 Rejected:
 
 - **Dashboard-export-first (DevHost only imports + clone-tweaks).** Inverts the dependency the wrong way: it drags the cloud dashboard (online, auth, GUID-keyed) into authoring *local* synthetic rigs. Fights "mostly synthetic."
-- **Shared vue-flow editor across both apps.** Requires a Vue/Vite build inside the no-build SPA and couples the local tool to the dashboard stack — RFC 0008 §6.3 already made this a non-goal. Over-built for "lightweight."
+- **Shared vue-flow editor across both apps.** Requires a Vue/Vite build inside the no-build SPA and couples the local tool to the dashboard stack — the stepped-host enabler already made this a non-goal. Over-built for "lightweight."
 
 ## 4. UX principles
 
@@ -212,7 +212,7 @@ Three independently-shippable phases:
 - **`topology` → `logic configuration` rename** (§5).
 - **Reverse dashboard import** (DevHost→dashboard).
 - **`DELETE /api/topologies/{id}`** — neither scenarios nor topologies expose delete today.
-- **A node-graph canvas** — an explicit non-goal (principle 1; RFC 0008 §6.3).
+- **A node-graph canvas** — an explicit non-goal (principle 1; the stepped-host enabler).
 
 ## 14. Risks
 

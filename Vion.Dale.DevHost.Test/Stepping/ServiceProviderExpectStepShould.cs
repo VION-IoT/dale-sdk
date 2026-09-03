@@ -14,7 +14,7 @@ using Vion.Dale.DevHost.Web;
 namespace Vion.Dale.DevHost.Test.Stepping
 {
     /// <summary>
-    ///     The generic <c>serviceProviderExpect</c> assert step (RFC 0010): asserts the value a block last wrote
+    ///     The generic <c>serviceProviderExpect</c> assert step: asserts the value a block last wrote
     ///     on any <c>[ServiceProviderContractType]</c> value output contract, read from the generic output cache
     ///     the stand-in fills. Replaces <c>digitalOutput</c> / <c>analogOutput</c>; an input is drive-only.
     /// </summary>
@@ -22,8 +22,10 @@ namespace Vion.Dale.DevHost.Test.Stepping
     public class ServiceProviderExpectStepShould
     {
         [TestMethod]
-        public async Task AssertOutputs_DrivenAndAssertedEntirelyThroughTheGenericVocabulary()
+        [TestProperty("spec", "AC-SCEN-007.1")]
+        public async Task AssertOutputsDrivenAndAssertedThroughOneVocabulary()
         {
+            // Arrange
             await using var host = BuildSteppedIoHost();
             await host.StartAsync();
 
@@ -43,8 +45,10 @@ namespace Vion.Dale.DevHost.Test.Stepping
                                               }
                                               """);
 
+            // Act
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
             Assert.AreEqual("serviceProviderExpect", report.Steps[4].Kind);
             Assert.AreEqual("io.ActiveOutput", report.Steps[4].Target);
@@ -53,8 +57,10 @@ namespace Vion.Dale.DevHost.Test.Stepping
         }
 
         [TestMethod]
-        public async Task SupportEveryComparator_OnOutputs()
+        [TestProperty("spec", "AC-SCEN-004.7")]
+        public async Task HoldForEveryComparatorOnOutputs()
         {
+            // Arrange
             await using var host = BuildSteppedIoHost();
             await host.StartAsync();
 
@@ -74,14 +80,18 @@ namespace Vion.Dale.DevHost.Test.Stepping
                                               }
                                               """);
 
+            // Act
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
         }
 
         [TestMethod]
-        public async Task FailLoudly_WhenTheOutputDoesNotHold()
+        [TestProperty("spec", "AC-SCEN-009.13")]
+        public async Task FailLoudlyWhenOutputDoesNotHold()
         {
+            // Arrange
             await using var host = BuildSteppedIoHost();
             await host.StartAsync();
 
@@ -96,23 +106,31 @@ namespace Vion.Dale.DevHost.Test.Stepping
                                               }
                                               """);
 
+            // Act
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.Failed, report.Status, Join(report));
             StringAssert.Contains(report.Steps[1].Detail!, "expected io.ActiveOutput to equal true");
         }
 
         [TestMethod]
-        public async Task ResolveAnOutput_AndRejectAnExpectOnAnInput()
+        [TestProperty("spec", "AC-SCEN-007.4")]
+        public async Task ResolveOutputAndRejectExpectOnInput()
         {
+            // Arrange
             await using var host = BuildSteppedIoHost();
             await host.StartAsync();
             var resolver = new ScenarioResolver(host.Control.GetConfiguration());
 
             var outputErrors = new List<string>();
+
+            // Act
             var output = resolver.ResolveStep(new ScenarioStep { ServiceProviderExpect = new ScenarioServiceProviderAssert { LogicBlock = "io", Contract = "ActiveOutput" } },
                                               "steps[0]",
                                               outputErrors);
+
+            // Assert
             Assert.IsEmpty(outputErrors, string.Join("; ", outputErrors));
             Assert.IsNotNull(output.Contract);
 
@@ -131,9 +149,11 @@ namespace Vion.Dale.DevHost.Test.Stepping
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-SCEN-007.6")]
         [TestCategory("Smoke")]
-        public async Task AssertEachDeterministicField_OfAMultiFieldOutboundCommand()
+        public async Task AssertEachFieldOfMultiFieldOutboundCommand()
         {
+            // Arrange
             await using var host = BuildSteppedGridHost();
             await host.StartAsync();
 
@@ -157,15 +177,19 @@ namespace Vion.Dale.DevHost.Test.Stepping
                                               }
                                               """);
 
+            // Act
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
             Assert.AreEqual("grid.Setpoint.limits.activePowerW", report.Steps[5].Target, "the field belongs in the reported target, not only in the step body");
         }
 
         [TestMethod]
-        public async Task FailAMultiFieldCommandWithNoFieldSelector_RatherThanPassNotEqualsVacuously()
+        [TestProperty("spec", "AC-SCEN-007.6")]
+        public async Task FailMultiFieldCommandWithNoFieldSelector()
         {
+            // Arrange
             await using var host = BuildSteppedGridHost();
             await host.StartAsync();
 
@@ -184,8 +208,10 @@ namespace Vion.Dale.DevHost.Test.Stepping
                                               }
                                               """);
 
+            // Act
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.Failed, report.Status, Join(report));
             var error = report.ValidationErrors.Single();
             StringAssert.Contains(error, "multi-field command");
@@ -193,8 +219,10 @@ namespace Vion.Dale.DevHost.Test.Stepping
         }
 
         [TestMethod]
-        public async Task FailAnOutputTheBlockNeverWrote_RatherThanPassNotEqualsVacuously()
+        [TestProperty("spec", "AC-SCEN-009.12")]
+        public async Task FailOutputNeverWritten()
         {
+            // Arrange
             await using var host = BuildSteppedIoHost();
             await host.StartAsync();
 
@@ -210,23 +238,31 @@ namespace Vion.Dale.DevHost.Test.Stepping
                                               }
                                               """);
 
+            // Act
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.Failed, report.Status, Join(report));
             StringAssert.Contains(report.Steps[0].Detail!, "has not written this contract yet");
         }
 
         [TestMethod]
-        public async Task RejectAMisspelledField_AndOneThatLandsOnANestedStruct()
+        [TestProperty("spec", "AC-SCEN-007.6")]
+        public async Task RejectMisspelledFieldAndOneLandingOnNestedStruct()
         {
+            // Arrange
             await using var host = BuildSteppedGridHost();
             await host.StartAsync();
             var resolver = new ScenarioResolver(host.Control.GetConfiguration());
 
             var misspelled = new List<string>();
+
+            // Act
             resolver.ResolveStep(new ScenarioStep { ServiceProviderExpect = new ScenarioServiceProviderAssert { LogicBlock = "grid", Contract = "Setpoint", Field = "enforcd" } },
                                  "steps[0]",
                                  misspelled);
+
+            // Assert
             Assert.IsNotEmpty(misspelled);
             StringAssert.Contains(misspelled[0], "has no field 'enforcd'");
             StringAssert.Contains(misspelled[0], "enforced", StringComparison.Ordinal, "the error must list what is addressable");
@@ -241,8 +277,10 @@ namespace Vion.Dale.DevHost.Test.Stepping
         }
 
         [TestMethod]
-        public async Task RejectAFieldOnASingleValueOutput()
+        [TestProperty("spec", "AC-SCEN-007.6")]
+        public async Task RejectFieldOnSingleValueOutput()
         {
+            // Arrange
             await using var host = BuildSteppedIoHost();
             await host.StartAsync();
             var resolver = new ScenarioResolver(host.Control.GetConfiguration());
@@ -250,17 +288,22 @@ namespace Vion.Dale.DevHost.Test.Stepping
             // SetDigitalOutput(bool) is single-field, so the codec unwraps it to a bare scalar on the wire: there
             // is nothing to address, and offering a field is an authoring mistake rather than a no-op.
             var errors = new List<string>();
+
+            // Act
             resolver.ResolveStep(new ScenarioStep { ServiceProviderExpect = new ScenarioServiceProviderAssert { LogicBlock = "io", Contract = "ActiveOutput", Field = "value" } },
                                  "steps[0]",
                                  errors);
 
+            // Assert
             Assert.IsNotEmpty(errors);
             StringAssert.Contains(errors[0], "writes a single value");
         }
 
         [TestMethod]
-        public async Task FailAFieldTheCommandDidNotCarry_SayingSoRatherThanComparingAgainstNothing()
+        [TestProperty("spec", "AC-SCEN-009.12")]
+        public async Task FailFieldAbsentFromCapturedCommand()
         {
+            // Arrange
             await using var host = BuildSteppedGridHost();
             await host.StartAsync();
 
@@ -278,16 +321,20 @@ namespace Vion.Dale.DevHost.Test.Stepping
                                               }
                                               """);
 
+            // Act
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.Failed, report.Status, Join(report));
             StringAssert.Contains(report.Steps[1].Detail!, "field 'limits.activePowerW' is not a scalar of the last written command");
             StringAssert.Contains(report.Steps[1].Detail!, "\"limits\":null", StringComparison.Ordinal, "the captured command is shown so the author can see why");
         }
 
         [TestMethod]
-        public async Task StandDownTheStaticFieldCheck_WhenTheHostCouldNotDescribeTheContract()
+        [TestProperty("spec", "AC-SCEN-007.8")]
+        public async Task StandDownStaticFieldCheckWhenContractUndescribed()
         {
+            // Arrange
             await using var host = BuildSteppedGridHost();
             await host.StartAsync();
 
@@ -299,6 +346,8 @@ namespace Vion.Dale.DevHost.Test.Stepping
             Assert.IsTrue(contract.Annotations.Remove("scenarioOutputFields"), "the fixture must have carried the annotation to begin with");
 
             var errors = new List<string>();
+
+            // Act
             var resolved = new ScenarioResolver(configuration).ResolveStep(new ScenarioStep
                                                                            {
                                                                                ServiceProviderExpect = new ScenarioServiceProviderAssert
@@ -307,13 +356,16 @@ namespace Vion.Dale.DevHost.Test.Stepping
                                                                            "steps[0]",
                                                                            errors);
 
+            // Assert
             Assert.IsEmpty(errors, string.Join("; ", errors));
             CollectionAssert.AreEqual(new[] { "anything", "at", "all" }, resolved.Contract!.FieldPath!.ToArray());
         }
 
         [TestMethod]
-        public async Task NotDemandAField_OfAContractThatIsAlsoDrivable()
+        [TestProperty("spec", "AC-SCEN-007.9")]
+        public async Task DemandNoFieldOfContractAlsoDrivable()
         {
+            // Arrange
             await using var host = BuildSteppedGridHost();
             await host.StartAsync();
 
@@ -325,17 +377,22 @@ namespace Vion.Dale.DevHost.Test.Stepping
             contract.Annotations["scenarioOutputFields"] = new[] { "enforced", "limits.activePowerW" };
 
             var errors = new List<string>();
+
+            // Act
             new ScenarioResolver(configuration).ResolveStep(new ScenarioStep { ServiceProviderSet = new ScenarioServiceProviderRef { LogicBlock = "grid", Contract = "Demand" } },
                                                             "steps[0]",
                                                             errors);
 
+            // Assert
             Assert.IsEmpty(errors, string.Join("; ", errors));
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-SCEN-007.5")]
         [TestCategory("Smoke")]
-        public async Task DriveAndAssertTheSameBidirectionalContract_InOneScenario()
+        public async Task DriveAndAssertOneBidirectionalContractInOneScenario()
         {
+            // Arrange
             await using var host = BuildSteppedPlantHost();
             await host.StartAsync();
 
@@ -367,15 +424,19 @@ namespace Vion.Dale.DevHost.Test.Stepping
                                               }
                                               """);
 
+            // Act
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
             Assert.AreEqual("plant.Control.valid", report.Steps[3].Target, "the assert names the field it read, on the same contract the first step drove");
         }
 
         [TestMethod]
-        public async Task ReadAMultiFieldCommand_AsUnreadableRatherThanNull()
+        [TestProperty("spec", "AC-SCEN-009.12")]
+        public async Task ReadMultiFieldCommandAsUnreadableRatherThanNull()
         {
+            // Arrange
             await using var host = BuildSteppedGridHost();
             await host.StartAsync();
 
@@ -384,6 +445,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
             Assert.AreEqual(ServiceProviderOutputState.NeverWritten, beforeAnyWrite.State, "nothing has written the contract yet");
             Assert.IsNull(beforeAnyWrite.Captured);
 
+            // Act
             await ScenarioRunner.RunAsync(ScenarioFile.Parse("""
                                                              {
                                                                "version": 1, "id": "sp-read", "topology": "grid",
@@ -399,6 +461,8 @@ namespace Vion.Dale.DevHost.Test.Stepping
             // The whole command: written, but with no scalar leaf — the state the old surface collapsed into the
             // same null as "never written", which is what let notEquals pass.
             var whole = host.Control.ReadServiceProviderOutput(endpoint.Sp, endpoint.Svc, endpoint.Contract);
+
+            // Assert
             Assert.AreEqual(ServiceProviderOutputState.Unreadable, whole.State);
             Assert.IsNotNull(whole.Captured, "the captured command is carried so a failing assert can show it");
             StringAssert.Contains(whole.Captured!, "activePowerW");
@@ -414,9 +478,11 @@ namespace Vion.Dale.DevHost.Test.Stepping
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-SCEN-008.7")]
         [TestCategory("Smoke")]
-        public async Task CarryTheAddressableFieldsOverHttp_WhereTheEditorReadsThem()
+        public async Task CarryAddressableFieldsOverHttpWhereEditorReadsThem()
         {
+            // Arrange
             var port = FreePort();
             await using var host = DevHostBuilder.Create()
                                                  .WithDi<SmokeHost.DependencyInjection>()
@@ -433,10 +499,12 @@ namespace Vion.Dale.DevHost.Test.Stepping
             // `scenarioOutputFields` is a literal in three places — the C# writer, the CLI validator, and the
             // SPA editor's picker — and nothing else checks they agree. This pins the wire half: the key, its
             // camelCase leaf paths, and the EMPTY list that tells the editor a scalar output takes no field.
+            // Act
             using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
             using var configuration = JsonDocument.Parse(await client.GetStringAsync("/api/configuration"));
-
             var blocks = configuration.RootElement.GetProperty("logicBlocks").EnumerateArray().ToList();
+
+            // Assert
             var fields = Contract(blocks, "grid", "Setpoint").GetProperty("annotations").GetProperty("scenarioOutputFields");
             CollectionAssert.AreEqual(new[] { "enforced", "scope", "limits.activePowerW", "limits.reactivePowerVar", "issuedAt" },
                                       fields.EnumerateArray().Select(f => f.GetString()).ToArray(),
@@ -470,16 +538,6 @@ namespace Vion.Dale.DevHost.Test.Stepping
                              .EnumerateArray()
                              .Single(c => c.GetProperty("identifier").GetString() == contract);
             }
-        }
-
-        [TestMethod]
-        public void RejectAServiceProviderExpect_InSetup()
-        {
-            var error = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse("""
-                                                                                               { "version": 1, "id": "bad", "topology": "io",
-                                                                                                 "setup": [ { "serviceProviderExpect": { "logicBlock": "io", "contract": "ActiveOutput", "equals": true } } ] }
-                                                                                               """));
-            Assert.IsTrue(error.Errors.Any(e => e.Contains("setup entries stage state")), error.Message);
         }
 
         private static IDevHost BuildSteppedIoHost()

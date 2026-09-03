@@ -6,7 +6,7 @@ using Vion.Dale.Sdk.Utils;
 namespace Vion.Dale.DevHost.Mocking
 {
     /// <summary>
-    ///     Drives a service-provider value contract from a scenario / the control surface (RFC 0010): the
+    ///     Drives a service-provider value contract from a scenario / the control surface: the
     ///     generic <see cref="ServiceProviderContractHandler" /> builds the exact closed contract message from
     ///     <paramref name="Value" /> via its <c>[ScenarioWire]</c> codec and forwards it to every logic block
     ///     mapped to <paramref name="Contract" />. Replaces the contract-specific

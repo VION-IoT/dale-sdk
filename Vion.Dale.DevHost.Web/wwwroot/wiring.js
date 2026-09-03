@@ -199,7 +199,7 @@ export function gatedOutMappingProblems(definitions, instances, interfaceMapping
     return problems;
 }
 
-// ── contract pairings (RFC 0020) ────────────────────────────────────────────────────────────────────
+// ── contract pairings ────────────────────────────────────────────────────────────────────
 // A pairing declares two service-provider contract ENDPOINTS to be one wire, so the editor's vocabulary
 // here is (block, contract), never an endpoint triple and never an interface. Which directions actually
 // materialise is the host's answer (wire-type identity, §4.3) — the client has no handler wire types, so it

@@ -10,7 +10,7 @@ using Vion.Dale.Sdk.Utils;
 namespace Vion.Dale.DevHost.Mocking
 {
     /// <summary>
-    ///     The one generic DevHost stand-in for a service-provider <b>value</b> contract (RFC 0010): it replaces
+    ///     The one generic DevHost stand-in for a service-provider <b>value</b> contract: it replaces
     ///     the four hardcoded <c>MockHal*Handler</c> classes and is created once per discovered
     ///     <see cref="IServiceProviderHandlerActor" /> type under that handler's class name (the name the
     ///     consumer's contract already looks up), so no production code path changes. Its
@@ -38,12 +38,12 @@ namespace Vion.Dale.DevHost.Mocking
     ///     </para>
     ///     <para>
     ///         What may deliver that inbound is a <c>serviceProviderSet</c>, the control surface — or, when the
-    ///         topology declared the two endpoints ONE WIRE, the peer of a contract pairing (RFC 0020). A capture
+    ///         topology declared the two endpoints ONE WIRE, the peer of a contract pairing. A capture
     ///         then also re-drives the captured JSON onto the peer stand-in, which delivers it through its
     ///         ordinary drive path; the peer's own block decides what happens next. The default is unchanged: on
     ///         an unpaired topology the pairing lookup misses and nothing is forwarded. Stand-ins never originate
     ///         a message — the forward is a re-delivery of a value a block just wrote, which is what keeps a
-    ///         closed loop converging on block cadence and visible to the quiescence barrier (RFC 0020 §4.7).
+    ///         closed loop converging on block cadence and visible to the quiescence barrier.
     ///     </para>
     /// </summary>
     internal sealed class ServiceProviderContractHandler : IActorReceiver
@@ -164,7 +164,7 @@ namespace Vion.Dale.DevHost.Mocking
             }
         }
 
-        // RFC 0020 4.1: one lookup. On a hit the captured JSON is re-driven onto the peer stand-in as the
+        // One lookup. On a hit the captured JSON is re-driven onto the peer stand-in as the
         // ordinary drive message, so the peer builds its own typed ContractMessage and delivers it to every block
         // mapped to the peer endpoint. Pairs are type-identical by rule, so nothing is adapted in flight — and
         // this is deliberately the ONLY place a pairing is consulted: the drive path must stay ignorant of
@@ -193,7 +193,7 @@ namespace Vion.Dale.DevHost.Mocking
             }
         }
 
-        // Raise the one generic value-changed event (RFC 0010) for any value contract — the SPA wiring panel
+        // Raise the one generic value-changed event for any value contract — the SPA wiring panel
         // renders the JSON value per the contract's own type. No digital/analog discrimination here.
         private void RaiseContractChanged(ServiceProviderContractId contract, JsonElement value)
         {

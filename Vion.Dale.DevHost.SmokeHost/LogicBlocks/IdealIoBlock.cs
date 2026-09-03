@@ -6,7 +6,7 @@ using Vion.Dale.Sdk.DigitalIo.Output;
 namespace Vion.Dale.DevHost.SmokeHost.LogicBlocks
 {
     /// <summary>
-    ///     The fixture's <b>ideal I/O module</b> (RFC 0020 §4.5) — the reference recipe for the bench
+    ///     The fixture's <b>ideal I/O module</b> — the reference recipe for the bench
     ///     participant a paired topology needs, and the whole of it. It stands in for the hardware side of two
     ///     channels: an <see cref="IDigitalOutputProvider" /> that confirms back exactly what it was commanded
     ///     (an ideal contact: no delay, no drop, no disagreement), and an <see cref="IDigitalInputProvider" />
@@ -22,7 +22,7 @@ namespace Vion.Dale.DevHost.SmokeHost.LogicBlocks
     ///     <para>
     ///         The input is written <b>edge-only</b>, from a timer rather than from a property setter: a paired
     ///         loop converges on block cadence, so a simulator that re-drives an unchanged value on every tick
-    ///         adds messages the quiescence barrier must chase for nothing (RFC 0020 §4.7).
+    ///         adds messages the quiescence barrier must chase for nothing.
     ///     </para>
     /// </summary>
     [LogicBlock(Name = "Ideal I/O", Icon = "device-line")]

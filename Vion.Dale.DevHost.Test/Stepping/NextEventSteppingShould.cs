@@ -10,147 +10,150 @@ using Vion.Dale.Sdk.Core;
 namespace Vion.Dale.DevHost.Test.Stepping
 {
     /// <summary>
-    ///     The decisive acceptance tests for NEXT-EVENT virtual-time stepping (Phase 1b Task 1). The
-    ///     regression they guard: a single <c>FakeTimeProvider.Advance(5s)</c> fires a <c>[Timer(1)]</c> only
-    ///     ONCE — its reschedule runs async, after Advance returns. Next-event stepping advances the fake clock
-    ///     to EACH scheduled event and quiesces between, so a <c>[Timer(1)]</c> fires the right number of times
-    ///     with no drift even though delays self-reschedule.
+    ///     Next-event stepping, as distinct from a single clock jump. The regression it guards: one
+    ///     <c>FakeTimeProvider.Advance(5s)</c> fires a <c>[Timer(1)]</c> only ONCE, because its reschedule runs
+    ///     after Advance returns. Stepping to each scheduled event and quiescing between fires every due timer
+    ///     the right number of times with no drift, even though delays self-reschedule.
+    ///     <para>
+    ///         <see cref="TrackPendingRegistrationsWithoutLeaking" /> cites no criterion: it pins an
+    ///         implementation <em>premise</em> (the engine-owned schedule's bookkeeping), not a
+    ///         consumer-observable requirement. The live proof is the no-drift test, which would fail if the
+    ///         schedule accumulated stale entries.
+    ///     </para>
     /// </summary>
     [TestClass]
     public class NextEventSteppingShould
     {
-        /// <summary>
-        ///     The headline regression guard: <c>AdvanceAsync(5s)</c> over a <c>[Timer(1)]</c> fires it
-        ///     EXACTLY 5 times — never once (the single-jump-fires-once bug). Run across 20 iterations:
-        ///     identical every time, proving determinism.
-        /// </summary>
+        private static readonly DateTimeOffset Epoch = new(2026,
+                                                           1,
+                                                           1,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           TimeSpan.Zero);
+
         [TestMethod]
-        public async Task FireTimerFiveTimes_Under5sAdvance_DeterministicallyAcrossIterations()
+        [TestProperty("spec", "AC-SCEN-012.1")]
+        public async Task FireEveryDueTimerWithoutDrift()
         {
-            for (var run = 0; run < 20; run++)
-            {
-                var clock = NewClock();
-                var config = DevConfigurationBuilder.Create().AddLogicBlock<TickerBlock>("ticker").Build();
-
-                await using var host = DevHostBuilder.Create()
-                                                     .WithDi<TestDependencyInjection>()
-                                                     .WithConfiguration(config)
-                                                     .ConfigureServices(s => s.AddSingleton<TimeProvider>(clock))
-                                                     .Build();
-
-                await host.StartAsync();
-
-                await host.Control.AdvanceAsync(TimeSpan.FromSeconds(5));
-
-                Assert.AreEqual(5,
-                                (int)host.Control.GetProperty("ticker", "Ticks")!,
-                                $"run {run}: a [Timer(1)] must fire exactly 5 times under AdvanceAsync(5s). " +
-                                "A value of 1 is the single-jump-fires-once bug; any other value is drift.");
-            }
-        }
-
-        /// <summary>
-        ///     No drift: after <c>AdvanceAsync(5s)</c> (5 ticks), advancing one more second yields the 6th
-        ///     tick — proving the 6th tick was scheduled at virtual t=6s, not drifted off-cadence.
-        /// </summary>
-        [TestMethod]
-        public async Task NotDrift_SixthTickFiresOnExtraSecond()
-        {
-            var clock = NewClock();
-            var config = DevConfigurationBuilder.Create().AddLogicBlock<TickerBlock>("ticker").Build();
-
-            await using var host = DevHostBuilder.Create()
-                                                 .WithDi<TestDependencyInjection>()
-                                                 .WithConfiguration(config)
-                                                 .ConfigureServices(s => s.AddSingleton<TimeProvider>(clock))
-                                                 .Build();
-
+            // Arrange
+            await using var host = SteppedHost<TickerBlock, TestDependencyInjection>("ticker", new FakeTimeProvider(Epoch));
             await host.StartAsync();
 
+            // Act
             await host.Control.AdvanceAsync(TimeSpan.FromSeconds(5));
-            Assert.AreEqual(5, (int)host.Control.GetProperty("ticker", "Ticks")!, "Five seconds → five ticks.");
-
+            var afterFive = (int)host.Control.GetProperty("ticker", "Ticks")!;
             await host.Control.AdvanceAsync(TimeSpan.FromSeconds(1));
-            Assert.AreEqual(6, (int)host.Control.GetProperty("ticker", "Ticks")!, "The 6th tick was scheduled at virtual t=6s; one more second must fire it with no drift.");
+
+            // Assert — the sixth tick was scheduled at virtual t=6 s; one more second must fire it. A count of
+            // 1 after the first advance would be the single-jump-fires-once bug.
+            Assert.AreEqual(5, afterFive);
+            Assert.AreEqual(6, (int)host.Control.GetProperty("ticker", "Ticks")!);
         }
 
-        /// <summary>
-        ///     Mixed rates: a block with both a 1s and a 5s timer. <c>AdvanceAsync(5s)</c> must fire the
-        ///     1s timer 5× and the 5s timer 1× — next-event stepping advances to each distinct due-time
-        ///     (t=1,2,3,4,5 for the fast timer; t=5 for the slow one) and fires the right one each hop.
-        /// </summary>
         [TestMethod]
-        public async Task FireMixedRates_FastFiveTimes_SlowOnce()
+        [TestProperty("spec", "AC-SCEN-012.3")]
+        public async Task FireEachRateAtItsOwnCadence()
         {
-            var clock = NewClock();
-            var config = DevConfigurationBuilder.Create().AddLogicBlock<DualRateBlock>("dual").Build();
-
-            await using var host = DevHostBuilder.Create()
-                                                 .WithDi<DualRateDependencyInjection>()
-                                                 .WithConfiguration(config)
-                                                 .ConfigureServices(s => s.AddSingleton<TimeProvider>(clock))
-                                                 .Build();
-
+            // Arrange — one block, a 1 s and a 5 s timer, so the hops land on distinct due-times.
+            await using var host = SteppedHost<DualRateBlock, DualRateDependencyInjection>("dual", new FakeTimeProvider(Epoch));
             await host.StartAsync();
 
+            // Act
             await host.Control.AdvanceAsync(TimeSpan.FromSeconds(5));
 
-            Assert.AreEqual(5, (int)host.Control.GetProperty("dual", "Fast")!, "The 1s timer must fire 5× over 5 virtual seconds.");
-            Assert.AreEqual(1, (int)host.Control.GetProperty("dual", "Slow")!, "The 5s timer must fire exactly 1× over 5 virtual seconds.");
+            // Assert
+            Assert.AreEqual(5, (int)host.Control.GetProperty("dual", "Fast")!);
+            Assert.AreEqual(1, (int)host.Control.GetProperty("dual", "Slow")!);
         }
 
-        /// <summary>
-        ///     Schedule hygiene: register/unregister must not leak tokens. A focused unit test on the real
-        ///     <see cref="VirtualSchedule" /> (exposed via InternalsVisibleTo) — the live-system proof is the
-        ///     no-drift test above, which would fail if the schedule accumulated stale entries.
-        /// </summary>
         [TestMethod]
-        public void VirtualSchedule_RegistersAndUnregisters_WithoutLeaking()
+        [TestProperty("spec", "AC-SCEN-012.2")]
+        public async Task AdvanceRemainderWhenNoEventFallsAtBudgetEnd()
         {
+            // Arrange — the only scheduled event is at t=1 s, so a 0.4 s budget contains none of it.
+            var clock = new FakeTimeProvider(Epoch);
+            await using var host = SteppedHost<TickerBlock, TestDependencyInjection>("ticker", clock);
+            await host.StartAsync();
+
+            // Act
+            await host.Control.AdvanceAsync(TimeSpan.FromMilliseconds(400));
+
+            // Assert — the caller asked for 0.4 virtual seconds and got exactly that, with nothing fired.
+            Assert.AreEqual(Epoch.AddMilliseconds(400), host.Control.VirtualTimeUtc);
+            Assert.AreEqual(0, (int)host.Control.GetProperty("ticker", "Ticks")!);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-012.3")]
+        public async Task AdvanceOneVirtualInstantPerEventHop()
+        {
+            // Arrange
+            var clock = new FakeTimeProvider(Epoch);
+            await using var host = SteppedHost<TickerBlock, TestDependencyInjection>("ticker", clock);
+            await host.StartAsync();
+
+            // Act — one hop moves the clock to the next scheduled instant and no further.
+            await host.Control.AdvanceToNextEventAsync();
+            var afterOneHop = host.Control.VirtualTimeUtc;
+            await host.Control.AdvanceToNextEventAsync();
+
+            // Assert
+            Assert.AreEqual(Epoch.AddSeconds(1), afterOneHop);
+            Assert.AreEqual(Epoch.AddSeconds(2), host.Control.VirtualTimeUtc);
+            Assert.AreEqual(2, (int)host.Control.GetProperty("ticker", "Ticks")!);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-012.4")]
+        public async Task RefuseNegativeAdvanceBudget()
+        {
+            // Arrange
+            await using var host = SteppedHost<TickerBlock, TestDependencyInjection>("ticker", new FakeTimeProvider(Epoch));
+            await host.StartAsync();
+
+            // Act / Assert
+            await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(() => host.Control.AdvanceAsync(TimeSpan.FromSeconds(-1)));
+        }
+
+        [TestMethod]
+        public void TrackPendingRegistrationsWithoutLeaking()
+        {
+            // Arrange
             var schedule = new VirtualSchedule();
-            var t0 = new DateTimeOffset(2026,
-                                        1,
-                                        1,
-                                        0,
-                                        0,
-                                        0,
-                                        TimeSpan.Zero);
-
-            Assert.IsNull(schedule.NextDue(), "Empty schedule has no next-due.");
-            Assert.AreEqual(0, schedule.PendingCount);
-
             var early = new object();
             var late = new object();
-            schedule.Register(late, t0.AddSeconds(5));
-            schedule.Register(early, t0.AddSeconds(1));
 
-            Assert.AreEqual(2, schedule.PendingCount, "Both registrations are pending.");
-            Assert.AreEqual(t0.AddSeconds(1), schedule.NextDue(), "NextDue is the minimum pending due-time.");
+            // Act / Assert — the empty, populated and drained states in the order the stepper meets them.
+            Assert.IsNull(schedule.NextDue());
+            Assert.AreEqual(0, schedule.PendingCount);
 
-            // Unregistering the earliest exposes the later one — and never leaves the earlier token behind.
+            schedule.Register(late, Epoch.AddSeconds(5));
+            schedule.Register(early, Epoch.AddSeconds(1));
+            Assert.AreEqual(2, schedule.PendingCount);
+            Assert.AreEqual(Epoch.AddSeconds(1), schedule.NextDue());
+
             schedule.Unregister(early);
             Assert.AreEqual(1, schedule.PendingCount);
-            Assert.AreEqual(t0.AddSeconds(5), schedule.NextDue(), "After unregistering the earliest, NextDue moves to the later one.");
+            Assert.AreEqual(Epoch.AddSeconds(5), schedule.NextDue());
 
             schedule.Unregister(late);
-            Assert.AreEqual(0, schedule.PendingCount, "Unregistering every token drains the schedule — no leak.");
+            Assert.AreEqual(0, schedule.PendingCount);
             Assert.IsNull(schedule.NextDue());
 
-            // Unregistering an unknown / already-removed token is a harmless no-op.
+            // An unknown or already-removed token is a harmless no-op.
             schedule.Unregister(new object());
             schedule.Unregister(early);
             Assert.AreEqual(0, schedule.PendingCount);
         }
 
-        private static FakeTimeProvider NewClock()
+        private static IDevHost SteppedHost<TBlock, TDi>(string name, FakeTimeProvider clock)
+            where TBlock : LogicBlockBase
+            where TDi : IConfigureServices
         {
-            return new FakeTimeProvider(new DateTimeOffset(2026,
-                                                           1,
-                                                           1,
-                                                           0,
-                                                           0,
-                                                           0,
-                                                           TimeSpan.Zero));
+            var config = DevConfigurationBuilder.Create().AddLogicBlock<TBlock>(name).Build();
+
+            return DevHostBuilder.Create().WithDi<TDi>().WithConfiguration(config).ConfigureServices(s => s.AddSingleton<TimeProvider>(clock)).Build();
         }
     }
 

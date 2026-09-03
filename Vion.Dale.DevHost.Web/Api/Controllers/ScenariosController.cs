@@ -10,7 +10,7 @@ using Vion.Dale.DevHost.Web.Services;
 namespace Vion.Dale.DevHost.Web.Api.Controllers
 {
     /// <summary>
-    ///     The scenario surface (RFC 0006, additive to RFC 0003's <c>/api</c>): discovery, file serving,
+    ///     The scenario surface (additive to RFC 0003's <c>/api</c>): discovery, file serving,
     ///     run triggering, run status, and the Explorer's save-as-scenario. Scenario files are served and
     ///     stored byte-for-byte — the parsed model exists for validation and the runner, not as a wire shape.
     /// </summary>
@@ -43,7 +43,7 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
                       });
         }
 
-        /// <summary>The generic scenario-file JSON Schema shipped with the DevHost (RFC 0006).</summary>
+        /// <summary>The generic scenario-file JSON Schema shipped with the DevHost.</summary>
         [HttpGet("schema")]
         public IActionResult Schema()
         {
@@ -85,7 +85,7 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
         }
 
         /// <summary>
-        ///     Start a run (RFC 0008 recycle-on-run). A scenario runs against the topology it declares, from a
+        ///     Start a run (recycle-on-run). A scenario runs against the topology it declares, from a
         ///     clean slate — so every run is reproducible. When the host is on a different topology, or this
         ///     stepped generation has already been advanced/run (dirty), the host is recycled onto the
         ///     scenario's topology first (a fresh generation: epoch clock, freshly-instantiated blocks) and the

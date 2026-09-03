@@ -23,7 +23,7 @@ namespace Vion.Dale.DevHost.SmokeHost.Contracts
     /// <summary>
     ///     A synthetic third-party-shaped service-provider <b>value</b> contract for the SmokeHost — nothing
     ///     HAL-specific. Its wire struct is multi-field with a 1-level nested struct + an enum, so it proves the
-    ///     RFC 0010 generic path drives a struct payload end to end (<c>serviceProviderSet</c>) and that the
+    ///     generic step kinds drive a struct payload end to end (<c>serviceProviderSet</c>) and that the
     ///     wiring panel renders a non-HAL contract honestly ("SP" / scenario-driven).
     /// </summary>
     [ServiceProviderContractType("GridDemand")]

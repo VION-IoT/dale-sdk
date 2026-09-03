@@ -35,7 +35,7 @@ namespace Vion.Dale.DevHost.Web.Services
         private readonly DevHostEvents _devHostEvents;
 
         // The running host's introspection — handed to the topology store so an editor Save / validate applies
-        // the RFC 0020 wire-type identity rule, which needs introspected blocks and so cannot live in the
+        // the wire-type identity rule, which needs introspected blocks and so cannot live in the
         // host-independent DevTopologyLoader.Build.
         private readonly DevHostIntrospection _introspection;
 
@@ -119,7 +119,7 @@ namespace Vion.Dale.DevHost.Web.Services
             _app.UseRouting();
             _app.UseCors();
 
-            // Origin/Host guard on mutating requests (RFC 0006 security note): the server binds loopback
+            // Origin/Host guard on mutating requests (the local-tool security posture): the server binds loopback
             // only, but a hostile page in the developer's own browser can still fire cross-origin POSTs at
             // http://localhost:{port} — CORS does not prevent cross-origin sends. Reads stay open; mutations
             // require a loopback Host (DNS-rebinding guard) and, when a browser declares an Origin, a
@@ -180,7 +180,7 @@ namespace Vion.Dale.DevHost.Web.Services
 
             Console.WriteLine($"DevHost Web UI running at http://localhost:{_config.Port}");
 
-            // Discovered scenario deep links (RFC 0006) — printed before the runner's readiness line so
+            // Discovered scenario deep links — printed before the runner's readiness line so
             // both humans and agents see what's stageable on this host.
             var scenarios = _app.Services.GetRequiredService<ScenarioStore>().List();
             foreach (var scenario in scenarios)

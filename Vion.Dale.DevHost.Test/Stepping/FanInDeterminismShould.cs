@@ -14,55 +14,40 @@ namespace Vion.Dale.DevHost.Test.Stepping
     ///     each fire a <c>[Timer(1)]</c> at the SAME virtual instant and send to one aggregator, which records
     ///     the order it received them. The aggregator's received-order is exactly the cross-actor processing
     ///     order within a quiescence round — which, under the default thread-pool dispatcher, is
-    ///     thread-pool-dependent and varies run to run. The fix (deterministic in-round scheduling) must make
-    ///     this order identical across fresh stepped hosts.
+    ///     thread-pool-dependent and varies run to run. Deterministic in-round scheduling must make this
+    ///     order identical across fresh stepped hosts, for the fan-in shape and for the fan-out cascade (one
+    ///     timer, three workers) that a real energy manager takes.
     /// </summary>
     [TestClass]
     public class FanInDeterminismShould
     {
+        // Both network shapes are value variations of one condition: the aggregator's receive log must be one
+        // string across fresh stepped hosts. Fan-in has three timers firing at the same virtual instant;
+        // fan-out has one timer whose cascade reaches three workers, which without a serial dispatcher run
+        // concurrently on the thread pool even though only one timer fired.
         [TestMethod]
-        public async Task ProduceTheSameReceiveOrderAcrossFreshSteppedHosts()
+        [TestProperty("spec", "AC-SCEN-012.8")]
+        [DataRow(false, DisplayName = "fan-in: three timers, one instant")]
+        [DataRow(true, DisplayName = "fan-out: one timer, three workers")]
+        public async Task DeliverOneReceiveOrderAcrossFreshSteppedHosts(bool fanOut)
         {
-            // Advance enough virtual seconds that the cross-actor order is exercised many times; a single
-            // accidental agreement won't mask a real race. Compare the aggregator's received-order log across
-            // independent fresh hosts — a deterministic stepper yields one identical log.
+            // Arrange — enough virtual seconds that the cross-actor order is exercised many times, so a single
+            // accidental agreement cannot mask a race.
             const int seconds = 8;
-            string? first = null;
-            for (var run = 0; run < 8; run++)
+            var logs = new string[8];
+
+            // Act
+            for (var run = 0; run < logs.Length; run++)
             {
-                await using var host = BuildFanInHost();
+                await using var host = fanOut ? BuildFanOutHost() : BuildFanInHost();
                 await host.StartAsync();
-
                 await host.Control.AdvanceAsync(TimeSpan.FromSeconds(seconds));
-
-                var log = host.Control.GetProperty("Aggregator", "ReceiveLog") as string ?? string.Empty;
-                Assert.AreEqual(seconds * 3, log.Length, $"run {run}: expected {seconds * 3} receipts (3 sources × {seconds} ticks), got '{log}'");
-                first ??= log;
-                Assert.AreEqual(first, log, $"run {run}: fan-in receive order differs across fresh stepped hosts — not bit-reproducible (DF-18). '{first}' vs '{log}'");
+                logs[run] = host.Control.GetProperty("Aggregator", "ReceiveLog") as string ?? string.Empty;
             }
-        }
 
-        [TestMethod]
-        public async Task ProduceTheSameReceiveOrderAcrossFreshSteppedHosts_ForAFanOutCascade()
-        {
-            // The EM's shape: ONE timer fires (the coordinator) and fans OUT to three workers within a single
-            // cascade; each worker forwards to the aggregator. Without the serial dispatcher the three worker
-            // handlers run concurrently on the thread pool, so the aggregator's receive order is racy even
-            // though only one timer fired. The serial dispatcher drains the cascade in a single order.
-            const int seconds = 8;
-            string? first = null;
-            for (var run = 0; run < 8; run++)
-            {
-                await using var host = BuildFanOutHost();
-                await host.StartAsync();
-
-                await host.Control.AdvanceAsync(TimeSpan.FromSeconds(seconds));
-
-                var log = host.Control.GetProperty("Aggregator", "ReceiveLog") as string ?? string.Empty;
-                Assert.AreEqual(seconds * 3, log.Length, $"run {run}: expected {seconds * 3} receipts (1 coordinator tick → 3 workers × {seconds} ticks), got '{log}'");
-                first ??= log;
-                Assert.AreEqual(first, log, $"run {run}: fan-out cascade receive order differs across fresh stepped hosts — not bit-reproducible (DF-18). '{first}' vs '{log}'");
-            }
+            // Assert
+            Assert.AreEqual(seconds * 3, logs[0].Length, $"expected {seconds * 3} receipts, got '{logs[0]}'");
+            CollectionAssert.AreEqual(Enumerable.Repeat(logs[0], logs.Length).ToArray(), logs);
         }
 
         private static IDevHost BuildFanInHost()

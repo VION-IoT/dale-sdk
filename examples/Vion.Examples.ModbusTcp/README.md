@@ -195,7 +195,7 @@ wildly wrong, with `LswToMsw` it is the kW figure the device meant.
 - `LogicBlocks/ModbusTcpSimServer.cs` — the simulated device described above. It binds `127.0.0.1`
   rather than the SDK server's default `0.0.0.0`, so a wrong address stays wrong and the simulator does
   not answer the network; *Listen address* opens it up when you want that.
-- `scenarios/` — two committed scenarios (RFC 0006): `modbus-healthy` and `modbus-link-policy`, the
+- `scenarios/` — two committed scenarios: `modbus-healthy` and `modbus-link-policy`, the
   replayable form of the two tours. They run in the DevHost Player, from `pwsh scripts/smoke-modbus.ps1`,
   and in CI through `Vion.Examples.ModbusTcp.IntegrationTest`, which drives the same files headlessly.
   All three run on the **real** clock: the client's sockets and timeouts are real time, so a stepped

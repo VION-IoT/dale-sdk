@@ -7,7 +7,7 @@ using Vion.Dale.Sdk.Abstractions;
 namespace Vion.Dale.DevHost.Test
 {
     /// <summary>
-    ///     The convention scan that replaces the hardcoded four-handler list (RFC 0010 increment 2): it
+    ///     The convention scan that replaces the hardcoded four-handler list: it
     ///     discovers every <see cref="IServiceProviderHandlerActor" /> the way the runtime does and builds a
     ///     codec for each that declares <c>[ScenarioWire]</c>, skipping the ones that do not (Modbus RTU
     ///     request/response and other out-of-scope handlers).
@@ -16,11 +16,14 @@ namespace Vion.Dale.DevHost.Test
     public class ServiceProviderContractHandlerScanShould
     {
         [TestMethod]
-        public void Discover_a_codec_for_each_ScenarioWire_handler_and_skip_undeclared()
+        [TestProperty("spec", "AC-SCEN-008.1")]
+        public void BuildCodecForEachScenarioWireHandlerAndSkipUndeclared()
         {
+            // Arrange / Act
             var discovered = ServiceProviderContractHandlerScan.Discover([typeof(ProbeInboundHandler).Assembly]);
             var byName = discovered.ToDictionary(d => d.HandlerType.Name, d => d.Codec);
 
+            // Assert
             Assert.IsTrue(byName.ContainsKey(nameof(ProbeInboundHandler)), "An [ScenarioWire(Inbound=...)] handler must be discovered.");
             Assert.IsTrue(byName.ContainsKey(nameof(ProbeOutputHandler)), "An [ScenarioWire(Outbound=...)] handler must be discovered.");
             Assert.IsFalse(byName.ContainsKey(nameof(ProbeUndecoratedHandler)), "A handler without [ScenarioWire] (e.g. Modbus RTU) is out of scope and must be skipped.");

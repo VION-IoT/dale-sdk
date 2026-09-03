@@ -12,7 +12,7 @@ namespace Vion.Examples.Gating.DevHost
 
         public static Task Main(string[] args)
         {
-            // Folder-driven boot (RFC 0008, topology-as-data): topologies/*.topology.json defines the
+            // Folder-driven boot (topology-as-data): topologies/*.topology.json defines the
             // instance graph — here a single station whose instantiationParameters set ChargePointCount, so
             // `dale dev` shows exactly that many charge-point services live. Register block types in
             // DependencyInjection.cs. See the README for what to watch for.

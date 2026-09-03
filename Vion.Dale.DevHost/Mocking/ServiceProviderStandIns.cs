@@ -7,11 +7,11 @@ namespace Vion.Dale.DevHost.Mocking
     ///     <c>[ScenarioWire]</c> handler, recorded by <c>DevLogicSystemInitializer</c> as it creates them, so the
     ///     rest of the host addresses "every stand-in" without naming a single contract.
     ///     <para>
-    ///         Two callers need exactly that set: the contract link map is fanned out to all of them (RFC 0010),
+    ///         Two callers need exactly that set: the contract link map is fanned out to all of them,
     ///         and <c>DevHostControl.PublishAllStates</c> replays each one's last inbound/outbound to a late web
     ///         subscriber. The replay used to name the four HAL handlers literally, which left every other value
     ///         contract — a consumer's own, a provider face — dark in a browser that connected after the value was
-    ///         written (RFC 0010's "no hardcoded contract support", RFC 0020 §7).
+    ///         written (the no-hardcoded-contract-support rule, the pairing design).
     ///     </para>
     /// </summary>
     internal sealed class ServiceProviderStandIns

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -18,13 +19,28 @@ namespace Vion.Dale.Cli.Commands
 
     /// <summary>
     ///     The language-neutral validation core behind <c>dale scenario validate</c>: a deliberately lite
-    ///     mirror of the RFC 0006 format rules and revision 5 name-path resolution, evaluated against the
+    ///     mirror of the format rules and revision 5 name-path resolution, evaluated against the
     ///     wired-host configuration JSON (<c>dale dev --export-config</c> / <c>GET /api/configuration</c>).
     ///     The C# ScenarioRunner stays authoritative — this exists so CI and editors catch renames and
     ///     ambiguity without booting a host per file.
     /// </summary>
     public static class ScenarioFileChecks
     {
+        // The DevHost's ScenarioFile.MaxDurationSeconds, restated because this validator deliberately does not
+        // reference Vion.Dale.DevHost — it judges an exported configuration, never a loaded host. The
+        // definition-site agreement test compares the two numbers.
+        private const double MaxDurationSeconds = 4294967;
+
+        /// <summary>
+        ///     The closed step vocabulary, in the schema's declaration order. One of the four sites that must
+        ///     agree on this set (the others: the schema's <c>$defs/step/oneOf</c>, the runner's
+        ///     <c>ScenarioStep.Kind</c>, and the SPA's step forms), which a DevHost test compares.
+        /// </summary>
+        public static readonly IReadOnlyList<string> StepKinds = ["set", "serviceProviderSet", "serviceProviderExpect", "waitUntil", "expect", "advance", "settle"];
+
+        /// <summary>The subset legal in <c>setup</c> — staging only, no waits, asserts or time steps.</summary>
+        public static readonly IReadOnlyList<string> SetupStepKinds = ["set", "serviceProviderSet"];
+
         private static readonly Regex IdSlug = new("^[A-Za-z0-9][A-Za-z0-9._-]*$", RegexOptions.Compiled);
 
         public static ScenarioCheckOutcome Validate(string fileName, string json, JsonNode config)
@@ -62,7 +78,7 @@ namespace Vion.Dale.Cli.Commands
             }
 
             var topology = scenario["topology"]?.GetValue<string>();
-            if (string.IsNullOrEmpty(topology))
+            if (string.IsNullOrWhiteSpace(topology))
             {
                 errors.Add("topology is required");
             }
@@ -113,7 +129,7 @@ namespace Vion.Dale.Cli.Commands
         /// <summary>
         ///     Enrich the generic schema's name-path definition with an enum of every valid path in this
         ///     topology — completion and red squiggles in any editor, the type-safety substitute for the
-        ///     rejected C# builder (RFC 0006). Two-segment forms are listed only when unambiguous.
+        ///     rejected C# builder. Two-segment forms are listed only when unambiguous.
         ///     Struct-typed members are expanded: for each scalar field leaf (possibly nested) a
         ///     <c>Block.Member.Field</c> (or <c>Block.Service.Member.Field</c>) path is also emitted.
         ///     Field segment keys are PascalCase (the schema <c>properties</c> keys are camelCase; the first
@@ -285,10 +301,10 @@ namespace Vion.Dale.Cli.Commands
                     continue;
                 }
 
-                var shapes = new[] { "set", "serviceProviderSet", "serviceProviderExpect", "waitUntil", "expect", "advance", "settle" }.Count(k => step.ContainsKey(k));
-                if (shapes != 1)
+                var present = StepKinds.Where(step.ContainsKey).ToList();
+                if (present.Count != 1)
                 {
-                    errors.Add($"{where}: a step is exactly one of set / serviceProviderSet / serviceProviderExpect / waitUntil / expect / advance / settle");
+                    errors.Add($"{where}: a step is exactly one of {string.Join(" / ", StepKinds)}");
                     continue;
                 }
 
@@ -297,6 +313,21 @@ namespace Vion.Dale.Cli.Commands
                 {
                     errors.Add($"{where}: setup entries stage state — waits, expects, output asserts, and time steps belong in steps");
                     continue;
+                }
+
+                // A field the kind does not carry, mirroring ScenarioFile.StructuralErrors word-for-word (the
+                // definition-site agreement test compares the two sentences). Without these two the validator
+                // green-lit a file the runner then refused — the asymmetric quiet failure the four-sites rule
+                // exists to prevent.
+                var kind = present[0];
+                if (step.ContainsKey("value") && kind != "set" && kind != "serviceProviderSet")
+                {
+                    errors.Add($"{where}: value is not valid on {Article(kind)} {kind} step");
+                }
+
+                if (step.ContainsKey("timeoutSeconds") && kind != "waitUntil")
+                {
+                    errors.Add($"{where}: timeoutSeconds is only valid on a waitUntil step");
                 }
 
                 if (step.ContainsKey("set"))
@@ -314,7 +345,7 @@ namespace Vion.Dale.Cli.Commands
                 }
                 else if (step.ContainsKey("serviceProviderSet"))
                 {
-                    // The generic value-input drive (RFC 0010): a logicBlock + contract ref and a wire value of
+                    // The generic value-input drive: a logicBlock + contract ref and a wire value of
                     // any shape. Direction (this must be a drivable input) is the runner's authoritative check;
                     // the lite validator just confirms the contract exists and a value is present.
                     if (!step.ContainsKey("value"))
@@ -329,7 +360,7 @@ namespace Vion.Dale.Cli.Commands
                 }
                 else if (step.ContainsKey("serviceProviderExpect"))
                 {
-                    // The generic value-output assert (RFC 0010): a logicBlock + contract ref, an optional field
+                    // The generic value-output assert: a logicBlock + contract ref, an optional field
                     // selecting one scalar of a multi-field command, plus one comparator (literals only).
                     // Direction is the runner's authoritative check.
                     if (step["serviceProviderExpect"] is JsonObject assert)
@@ -359,6 +390,10 @@ namespace Vion.Dale.Cli.Commands
                     {
                         errors.Add($"{where}: advance.seconds must be a positive number");
                     }
+                    else
+                    {
+                        AddWhenLongerThanARunCanSpend(step["advance"]!["seconds"]!.GetValue<double>(), "advance.seconds", where, errors);
+                    }
                 }
                 else if (step.ContainsKey("settle"))
                 {
@@ -368,6 +403,10 @@ namespace Vion.Dale.Cli.Commands
                         if (settle.ContainsKey("maxSeconds") && (settle["maxSeconds"]?.GetValueKind() != JsonValueKind.Number || settle["maxSeconds"]!.GetValue<double>() <= 0))
                         {
                             errors.Add($"{where}: settle.maxSeconds must be a positive number");
+                        }
+                        else if (settle.ContainsKey("maxSeconds"))
+                        {
+                            AddWhenLongerThanARunCanSpend(settle["maxSeconds"]!.GetValue<double>(), "settle.maxSeconds", where, errors);
                         }
 
                         // settle.until, when present, scopes convergence to explicit target paths: a non-empty
@@ -425,9 +464,16 @@ namespace Vion.Dale.Cli.Commands
                 ResolvePath(path, config, where, false, errors);
             }
 
-            if (step.TryGetPropertyValue("timeoutSeconds", out var timeout) && (timeout?.GetValueKind() != JsonValueKind.Number || timeout.GetValue<double>() <= 0))
+            if (step.TryGetPropertyValue("timeoutSeconds", out var timeout))
             {
-                errors.Add($"{where}: timeoutSeconds must be a positive number");
+                if (timeout?.GetValueKind() != JsonValueKind.Number || timeout.GetValue<double>() <= 0)
+                {
+                    errors.Add($"{where}: timeoutSeconds must be a positive number");
+                }
+                else
+                {
+                    AddWhenLongerThanARunCanSpend(timeout.GetValue<double>(), "timeoutSeconds", where, errors);
+                }
             }
         }
 
@@ -521,6 +567,23 @@ namespace Vion.Dale.Cli.Commands
                 {
                     errors.Add($"{where}: {shape}.tolerance is only valid with a numeric equals");
                 }
+            }
+        }
+
+        // "an advance step", "a settle step" — mirrors ScenarioFile.Article so the two sentences match.
+        private static string Article(string kind)
+        {
+            return "aeiou".Contains(kind[0]) ? "an" : "a";
+        }
+
+        // Every duration in the file becomes a TimeSpan before it is spent, and TimeSpan cannot hold one past
+        // this bound (a JSON literal like 1e400 parses to +infinity, which is past it too). Refusing here means
+        // CI names the number in the file instead of the run reporting a TimeSpan overflow mid-step.
+        private static void AddWhenLongerThanARunCanSpend(double seconds, string field, string where, List<string> errors)
+        {
+            if (!double.IsFinite(seconds) || seconds > MaxDurationSeconds)
+            {
+                errors.Add($"{where}: {field} is longer than a real clock can wait (at most {MaxDurationSeconds.ToString("R", CultureInfo.InvariantCulture)} s)");
             }
         }
 
@@ -690,7 +753,7 @@ namespace Vion.Dale.Cli.Commands
             return null;
         }
 
-        // The lite resolution for a generic serviceProviderSet / serviceProviderExpect reference (RFC 0010):
+        // The lite resolution for a generic serviceProviderSet / serviceProviderExpect reference:
         // any [ServiceProviderContractType] contract on the block is addressable, so existence is checked here
         // (block + contract) plus, per operation, the direction the exported configuration can speak to — a
         // set's drivable inbound, an expect's field selector. The runner / ScenarioResolver stays the

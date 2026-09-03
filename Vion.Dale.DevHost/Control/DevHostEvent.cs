@@ -28,7 +28,7 @@ namespace Vion.Dale.DevHost.Control
     /// <summary>
     ///     A service-provider value contract's current value changed (its wire JSON) — an input was driven or an
     ///     output was written. One event for every <c>[ServiceProviderContractType]</c> value contract; the
-    ///     subscriber knows the contract's direction and type from the configuration (RFC 0010).
+    ///     subscriber knows the contract's direction and type from the configuration.
     /// </summary>
     public sealed record ServiceProviderContractChanged(string ServiceProviderId, string ServiceId, string ContractId, JsonElement Value) : DevHostEvent;
 }

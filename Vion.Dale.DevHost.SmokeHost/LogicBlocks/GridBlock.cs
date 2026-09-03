@@ -9,7 +9,7 @@ namespace Vion.Dale.DevHost.SmokeHost.LogicBlocks
     ///     contract whose wire payload is a multi-field struct with a 1-level nested struct + an enum. The
     ///     <c>grid-demand</c> scenario drives it with <c>serviceProviderSet</c>; the block surfaces the fields
     ///     (including the nested ones) as service properties, asserted with <c>expect</c>. This is the
-    ///     committed end-to-end proof of the RFC 0010 / DF-27 struct unblock through the real DevHost.
+    ///     committed end-to-end proof of the DF-27 struct unblock through the real DevHost.
     ///     <para>
     ///         It also writes the <b>outbound</b> half, <see cref="IGridSetpoint" />: a timer mirrors the
     ///         received demand onto a multi-field setpoint command carrying a publish-time stamp. That is the

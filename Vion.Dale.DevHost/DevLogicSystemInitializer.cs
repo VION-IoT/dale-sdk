@@ -104,8 +104,8 @@ namespace Vion.Dale.DevHost
         private readonly IServiceProvider _serviceProvider;
 
         // The names the generic service-provider stand-ins were registered under (one per discovered
-        // [ScenarioWire] handler) — the contract link map is fanned out to exactly these (RFC 0010), and the
-        // same registry hands the set to PublishAllStates (RFC 0020 §7). Resolved rather than injected: it is a
+        // [ScenarioWire] handler) — the contract link map is fanned out to exactly these, and the
+        // same registry hands the set to PublishAllStates. Resolved rather than injected: it is a
         // per-generation singleton and this class is public, so the internal type stays off the constructor.
         private ServiceProviderStandIns StandIns
         {
@@ -127,9 +127,9 @@ namespace Vion.Dale.DevHost
             {
                 _logger.LogInformation("Initializing development logic system with {Count} LogicBlocks...", configuration.LogicBlocks.Count);
 
-                // Step 1: Create a generic stand-in per discovered service-provider handler (RFC 0010 — the
+                // Step 1: Create a generic stand-in per discovered service-provider handler (the
                 // convention scan that replaces the hardcoded four HAL mocks), each carrying the topology's
-                // contract-pairing table (RFC 0020). Building the table validates it, so a pairing with no
+                // contract-pairing table. Building the table validates it, so a pairing with no
                 // type-identical direction fails the host here rather than going quiet at runtime.
                 CreateServiceProviderHandlers(configuration);
 
@@ -348,7 +348,7 @@ namespace Vion.Dale.DevHost
             var assemblies = AppDomain.CurrentDomain.GetAssemblies().Where(assembly => !assembly.IsDynamic).ToArray();
             var discovered = ServiceProviderContractHandlerScan.Discover(assemblies);
 
-            // RFC 0020 §4.3: the wire-type identity check lives here rather than in the topology loader because
+            // The wire-type identity check lives here rather than in the topology loader because
             // the handler a contract talks to is carried by the contract INSTANCE the binder constructed —
             // introspection, which has already run, is the only place that join exists. A pairing that can carry
             // nothing throws, which InitializeAsync reports as a failed host start naming both declared types.

@@ -380,9 +380,9 @@ namespace Vion.Dale.DevHost.Control
         }
 
         // Every value contract replays, not just the four HAL ones: the stand-ins are asked by the names they
-        // were actually created under (RFC 0010's convention scan), so a consumer's own contract and a provider
+        // were actually created under (the convention scan), so a consumer's own contract and a provider
         // face reach a late web subscriber exactly like a digital input does. Naming the four HAL handlers here
-        // was the last fragment of hardcoded contract support (RFC 0020 §7); the two mock handlers below are
+        // was the last fragment of hardcoded contract support; the two mock handlers below are
         // host-owned singletons — service properties and measuring points, not contracts — so they stay named.
         public void PublishAllStates()
         {

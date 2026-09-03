@@ -8,7 +8,7 @@ using Vion.Dale.DevHost.Scenarios;
 namespace Vion.Dale.DevHost.Web.Services
 {
     /// <summary>
-    ///     Server-side scenario run state (RFC 0006 "Run identity &amp; concurrency"): one active run per
+    ///     Server-side scenario run state (run identity and concurrency): one active run per
     ///     host — two scenarios interleaving sets on one shared network is semantically incoherent, so a
     ///     second apply conflicts instead; <c>restart</c> cancels the in-flight run (including its pending
     ///     waits) and starts the new one. Latest reports are kept per scenario id so the Player is F5-safe
@@ -23,7 +23,7 @@ namespace Vion.Dale.DevHost.Web.Services
         private ActiveRun? _active;
 
         /// <summary>
-        ///     True while a scenario run is in flight. Manual stepping (RFC 0008 §Part 4) must not drive the
+        ///     True while a scenario run is in flight. Manual stepping (the stepped-host enabler) must not drive the
         ///     clock while a run does — the two would race on the shared virtual schedule.
         /// </summary>
         public bool HasActiveRun

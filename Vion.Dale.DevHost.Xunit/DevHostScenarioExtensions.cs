@@ -36,7 +36,7 @@ namespace Vion.Dale.DevHost.Xunit
         }
 
         /// <summary>
-        ///     Apply a scenario by id as the arrange/stimulate phase of a test (RFC 0006 "Composition rule"):
+        ///     Apply a scenario by id as the arrange/stimulate phase of a test (the composition rule):
         ///     setup + steps run, throwing <see cref="ScenarioRunException" /> on any failure, after which the
         ///     test adds its own typed assertions on <c>host.Control</c>.
         /// </summary>

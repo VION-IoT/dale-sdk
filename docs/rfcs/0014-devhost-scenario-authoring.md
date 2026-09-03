@@ -3,7 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-06-26
 - **Author:** jonas.bertsch
-- **Related:** RFC 0006 (scenario files / Player), RFC 0008 (unified scenario+topology data model), RFC 0012 (DevHost UI observe/drive model), **RFC 0013 (DevHost topology authoring — the sibling this mirrors)**, RFC 0010 (serviceProvider contracts + struct values).
+- **Related:** `docs/specs/scenarios.md` (scenario files and the Player, the unified data model, service-provider contracts and struct values — absorbed the RFCs this document was written against), RFC 0012 (DevHost UI observe/drive model), **RFC 0013 (DevHost topology authoring — the sibling this mirrors)**.
 
 ## 1. Summary
 
@@ -36,7 +36,7 @@ The decisive difference from RFC 0013: **the backend already exists.** Scenarios
 
 ## 5. Terminology
 
-- **Scenario** — the dev-time `*.scenario.json`: a `topology` + `setup` + `steps` + `watch` + `judge` (RFC 0006). Unchanged.
+- **Scenario** — the dev-time `*.scenario.json`: a `topology` + `setup` + `steps` + `watch` + `judge`. Unchanged.
 - **setup** — the **arrange** phase: drive-shapes only (`set` / `serviceProviderSet`), runs *before* `steps`, reported as its own group. Distinct from `steps` (act + assert).
 - **The seven step kinds** (`ScenarioStep`, exactly one per step, each with optional `label` + `spec`):
   `set` (`"Block.Property"` + `value`) · `serviceProviderSet` (`{logicBlock, contract}` + `value`) · `serviceProviderExpect` (`{logicBlock, contract, equals, tolerance?}`) · `waitUntil` (`{property, equals}` + `timeoutSeconds`) · `expect` (`{property, equals|above|below, tolerance?}`) · `advance` (`{seconds}`) · `settle` (budget). The **schema / `ScenarioStep` model stays the source of truth** for exact fields — no new kinds (so the four cross-repo vocabulary sites are untouched).

@@ -1,9 +1,9 @@
-// Unit tests for the contract-pairing half of wiring.js (RFC 0020) — the pure, DOM-free logic behind the
+// Unit tests for the contract-pairing half of wiring.js — the pure, DOM-free logic behind the
 // topology editor's pairing section: which endpoints can be paired, and the client mirror of the server's
 // structural refusals. Dev-time only (`node --test Vion.Dale.DevHost.Web/test/wiring-pairings.test.mjs`);
 // sits above wwwroot so the embed glob never bundles it.
 //
-// Deliberately NOT covered here: the wire-type identity rule (RFC 0020 §4.3). It needs the two handlers'
+// Deliberately NOT covered here: the wire-type identity rule. It needs the two handlers'
 // declared wire structs, which no client payload carries — the server reports it on validate / save, and
 // ContractPairingShould pins that.
 

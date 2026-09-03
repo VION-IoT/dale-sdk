@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -9,7 +10,7 @@ using System.Text.RegularExpressions;
 namespace Vion.Dale.DevHost.Scenarios
 {
     /// <summary>
-    ///     A parsed <c>*.scenario.json</c> file — the RFC 0006 v1 vocabulary: a tiny, versioned, git-committed
+    ///     A parsed <c>*.scenario.json</c> file — the v1 vocabulary: a tiny, versioned, git-committed
     ///     JSON description of a manual-test scenario (setup, ordered stimuli, watch list, human judgments),
     ///     executed by <see cref="ScenarioRunner" /> over <see cref="Control.IDevHostControl" /> and consumed
     ///     identically by the web UI ("Player"), CI, and agents.
@@ -24,6 +25,18 @@ namespace Vion.Dale.DevHost.Scenarios
     {
         /// <summary>The vocabulary version this implementation understands.</summary>
         public const int SupportedVersion = 1;
+
+        /// <summary>
+        ///     The largest duration, in seconds, any of the file's budgets may name — <c>advance.seconds</c>,
+        ///     <c>settle.maxSeconds</c>, <c>timeoutSeconds</c>. A whole number so the JSON schema's
+        ///     <c>maximum</c>, <c>dale scenario validate</c> and this validator all name the identical bound.
+        ///     The bound is what a REAL clock can wait, not what a <see cref="TimeSpan" /> can hold: every
+        ///     budget ends in a <c>Task.Delay</c> on a real-clock host, whose ceiling is
+        ///     <c>Timer.MaxSupportedTimeout</c> (0xFFFFFFFE ms, just under 4 294 967.3 s / 49.7 days). At
+        ///     <see cref="TimeSpan" />'s range instead, a file every validator accepted ran instantly on a
+        ///     stepped host and threw a framework argument exception on a real one.
+        /// </summary>
+        public const double MaxDurationSeconds = 4294967;
 
         internal static readonly JsonSerializerOptions SerializerOptions = new()
                                                                            {
@@ -133,7 +146,7 @@ namespace Vion.Dale.DevHost.Scenarios
 
             if (Version != SupportedVersion)
             {
-                errors.Add($"version must be {SupportedVersion} (got {Version}) — unknown vocabulary versions are rejected loudly (RFC 0006)");
+                errors.Add($"version must be {SupportedVersion} (got {Version}) — unknown vocabulary versions are rejected loudly");
             }
 
             if (string.IsNullOrEmpty(Id) || !IdSlug.IsMatch(Id) || Id.Contains(".."))
@@ -145,7 +158,7 @@ namespace Vion.Dale.DevHost.Scenarios
                 errors.Add("id 'schema' is reserved (GET /api/scenarios/schema serves the format schema)");
             }
 
-            if (string.IsNullOrEmpty(Topology))
+            if (string.IsNullOrWhiteSpace(Topology))
             {
                 errors.Add("topology is required — the topology id this scenario expects to run against");
             }
@@ -185,9 +198,10 @@ namespace Vion.Dale.DevHost.Scenarios
     }
 
     /// <summary>
-    ///     One setup entry or step — exactly one of the closed shapes (<c>set</c>, <c>digitalInput</c> /
-    ///     <c>analogInput</c>, <c>waitUntil</c>, <c>expect</c>, <c>advance</c>, <c>settle</c>),
-    ///     each with optional <c>label</c> and <c>spec</c>.
+    ///     One setup entry or step — exactly one of the seven closed shapes (<c>set</c>,
+    ///     <c>serviceProviderSet</c>, <c>serviceProviderExpect</c>, <c>waitUntil</c>, <c>expect</c>,
+    ///     <c>advance</c>, <c>settle</c>), each with optional <c>label</c> and <c>spec</c>. Only <c>set</c>
+    ///     and <c>serviceProviderSet</c> are legal in <c>setup</c>.
     /// </summary>
     public sealed class ScenarioStep
     {
@@ -199,13 +213,13 @@ namespace Vion.Dale.DevHost.Scenarios
 
         public JsonElement Value { get; init; }
 
-        /// <summary>Drives any <c>[ServiceProviderContractType]</c> value input contract from <c>value</c> (RFC 0010).</summary>
+        /// <summary>Drives any <c>[ServiceProviderContractType]</c> value input contract from <c>value</c>.</summary>
         public ScenarioServiceProviderRef? ServiceProviderSet { get; init; }
 
         /// <summary>
-        ///     Asserts the value a block last wrote on a <c>[ServiceProviderContractType]</c> value contract (RFC 0010,
-        ///     step-only) — an output, or a bidirectional contract whose handler declares a <c>[ScenarioWire]</c>
-        ///     <c>Outbound</c>.
+        ///     Asserts the value a block last wrote on a <c>[ServiceProviderContractType]</c> value contract
+        ///     (step-only) — an output, or a bidirectional contract whose handler declares a
+        ///     <c>[ScenarioWire]</c> <c>Outbound</c>.
         /// </summary>
         public ScenarioServiceProviderAssert? ServiceProviderExpect { get; init; }
 
@@ -339,7 +353,7 @@ namespace Vion.Dale.DevHost.Scenarios
             }
             else if (Value.ValueKind != JsonValueKind.Undefined && ServiceProviderSet is null)
             {
-                yield return $"value is not valid on a {Kind} step";
+                yield return $"value is not valid on {Article(Kind)} {Kind} step";
             }
 
             if (ServiceProviderSet is not null)
@@ -370,9 +384,9 @@ namespace Vion.Dale.DevHost.Scenarios
                     yield return error;
                 }
 
-                if (TimeoutSeconds is <= 0)
+                foreach (var error in DurationErrors(TimeoutSeconds, "timeoutSeconds"))
                 {
-                    yield return "timeoutSeconds must be positive";
+                    yield return error;
                 }
             }
             else if (TimeoutSeconds is not null)
@@ -388,14 +402,20 @@ namespace Vion.Dale.DevHost.Scenarios
                 }
             }
 
-            if (Advance is not null && Advance.Seconds <= 0)
+            if (Advance is not null)
             {
-                yield return "advance.seconds must be positive";
+                foreach (var error in DurationErrors(Advance.Seconds, "advance.seconds"))
+                {
+                    yield return error;
+                }
             }
 
-            if (Settle is not null && Settle.MaxSeconds is <= 0)
+            if (Settle is not null)
             {
-                yield return "settle.maxSeconds must be positive";
+                foreach (var error in DurationErrors(Settle.MaxSeconds, "settle.maxSeconds"))
+                {
+                    yield return error;
+                }
             }
 
             if (Settle?.Until is { } until)
@@ -414,11 +434,44 @@ namespace Vion.Dale.DevHost.Scenarios
                 }
             }
         }
+
+        // The stray-field message names the step kind, so the article has to follow it: "an advance step",
+        // "a settle step". `dale scenario validate` emits the same sentence, and the two are compared
+        // word-for-word by the definition-site agreement test.
+        private static string Article(string kind)
+        {
+            return "aeiou".Contains(kind[0]) ? "an" : "a";
+        }
+
+        // Every duration in the file is converted to a TimeSpan before it is spent — virtual on a stepped
+        // host, a real wait or a real timeout otherwise. TimeSpan.FromSeconds throws on a NaN and on anything
+        // past its range, and that throw used to land in the runner's per-step catch-all, so an author who
+        // wrote 1e400 (which parses to +infinity) read "TimeSpan overflowed" mid-run instead of being sent to
+        // the number in their file. A null budget is the field's documented default, not a value.
+        private static IEnumerable<string> DurationErrors(double? seconds, string field)
+        {
+            if (seconds is not { } value)
+            {
+                yield break;
+            }
+
+            if (double.IsNaN(value) || value <= 0)
+            {
+                yield return $"{field} must be positive";
+
+                yield break;
+            }
+
+            if (!double.IsFinite(value) || value > ScenarioFile.MaxDurationSeconds)
+            {
+                yield return $"{field} is longer than a real clock can wait (at most {ScenarioFile.MaxDurationSeconds.ToString("R", CultureInfo.InvariantCulture)} s)";
+            }
+        }
     }
 
     /// <summary>
-    ///     A service-provider value-contract reference (<c>serviceProviderSet</c>, RFC 0010): the consuming
-    ///     logic block's name plus the contract identifier. Addresses any <c>[ServiceProviderContractType]</c>
+    ///     A service-provider value-contract reference (<c>serviceProviderSet</c>): the consuming logic
+    ///     block's name plus the contract identifier. Addresses any <c>[ServiceProviderContractType]</c>
     ///     value contract uniformly — the four HAL contracts and third-party ones like PPC — replacing the
     ///     per-family <c>digitalInput</c> / <c>analogInput</c> references.
     /// </summary>
@@ -443,7 +496,7 @@ namespace Vion.Dale.DevHost.Scenarios
     }
 
     /// <summary>
-    ///     A <c>serviceProviderExpect</c> auto-assertion (RFC 0010): a service-provider value <em>output</em>
+    ///     A <c>serviceProviderExpect</c> auto-assertion: a service-provider value <em>output</em>
     ///     contract reference (<c>logicBlock</c> + <c>contract</c>), an optional <c>field</c> selecting one
     ///     scalar of a multi-field command, plus exactly one comparator, checked against the value the block
     ///     last wrote on that contract. The generic replacement for <c>digitalOutput</c> / <c>analogOutput</c>;
@@ -509,7 +562,7 @@ namespace Vion.Dale.DevHost.Scenarios
 
     /// <summary>
     ///     A <c>waitUntil</c> condition: a property name path plus exactly one comparator. Comparison semantics
-    ///     per RFC 0006 ("Comparison semantics"): <c>above</c>/<c>below</c> are numeric; <c>equals</c>/
+    ///     per the comparison semantics: <c>above</c>/<c>below</c> are numeric; <c>equals</c>/
     ///     <c>notEquals</c> are exact (numbers optionally with <c>tolerance</c>, enums by case-sensitive member
     ///     name, <c>null</c> legal); <c>oneOf</c> tests set membership against a JSON array of scalars/enum
     ///     names; structs/arrays are not comparable in v1.
@@ -553,7 +606,7 @@ namespace Vion.Dale.DevHost.Scenarios
     }
 
     /// <summary>
-    ///     An <c>expect</c> auto-assertion (RFC 0006 "Assert tier"): a deterministic, point-in-time check on
+    ///     An <c>expect</c> auto-assertion (the assert tier): a deterministic, point-in-time check on
     ///     the CURRENT value of a name path. Unlike <c>waitUntil</c> (which awaits), <c>expect</c> reads the
     ///     value once and FAILS the run if the comparator doesn't hold — the CI-failing tier. Comparators are
     ///     the same as <c>waitUntil</c> (<c>above</c>/<c>below</c>/<c>equals</c>+<c>tolerance</c>/
@@ -747,8 +800,8 @@ namespace Vion.Dale.DevHost.Scenarios
     ///     short quiet window. Fails if <see cref="MaxSeconds" /> (default 60 s) elapses while a target still
     ///     moves. The targeted set is
     ///     <see cref="Until" /> when given, else the scenario's <c>watch</c> list — a large watch set is for
-    ///     observability and need not all settle (RFC 0008 §8.6). Non-convergence FAILS the step, naming the
-    ///     still-changing target. Requires a stepped host.
+    ///     observability and need not all settle. Non-convergence FAILS the step, naming the
+    ///     still-changing target.
     /// </summary>
     public sealed class ScenarioSettle
     {

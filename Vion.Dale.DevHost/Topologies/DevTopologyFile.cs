@@ -11,7 +11,7 @@ using Vion.Dale.DevHost.Control;
 namespace Vion.Dale.DevHost.Topologies
 {
     /// <summary>
-    ///     A parsed <c>*.topology.json</c> file (RFC 0006 "Topology files") — the dev profile of the
+    ///     A parsed <c>*.topology.json</c> file — the dev profile of the
     ///     production <c>SetLogicConfigurationPayload</c>: logic-block instances (type full name + instance
     ///     name) and interface mappings, without deployment concerns (MQTT topics, package pinning).
     ///     Contract mappings are optional — contracts left unmapped get DevHost mocks, exactly the
@@ -40,6 +40,10 @@ namespace Vion.Dale.DevHost.Topologies
                                                                                WriteIndented = true,
                                                                            };
 
+        private readonly IReadOnlyList<TopologyContractMapping>? _contractMappings;
+
+        private readonly IReadOnlyList<TopologyContractPairing>? _contractPairings;
+
         [JsonPropertyName("$schema")]
         public string? Schema { get; init; }
 
@@ -49,19 +53,42 @@ namespace Vion.Dale.DevHost.Topologies
 
         public IReadOnlyList<TopologyInterfaceMapping>? InterfaceMappings { get; init; }
 
-        /// <summary>Optional explicit endpoint mappings (e.g. shared contracts); unlisted contracts are auto-mocked.</summary>
-        public IReadOnlyList<TopologyContractMapping>? ContractMappings { get; init; }
+        /// <summary>
+        ///     Optional explicit endpoint mappings (e.g. shared contracts); unlisted contracts are auto-mocked.
+        ///     <para>
+        ///         "No mappings" has one spelling, the same way <see cref="ContractPairings" /> and
+        ///         <see cref="TopologyLogicBlockInstance.InstantiationParameters" /> do: the key is absent, never
+        ///         an empty array, so every writer inherits the normalisation instead of repeating it.
+        ///     </para>
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public IReadOnlyList<TopologyContractMapping>? ContractMappings
+        {
+            get => _contractMappings is { Count: > 0 } ? _contractMappings : null;
+
+            init => _contractMappings = value;
+        }
 
         /// <summary>
-        ///     RFC 0020: optional declarations that two service-provider contract endpoints are ONE wire — each
+        ///     Optional declarations that two service-provider contract endpoints are ONE wire — each
         ///     side's captured outbound is delivered as the other side's inbound, so a simulator block bound to a
         ///     provider face closes the loop a real service provider would close. Symmetric; which directions
         ///     actually materialise is derived from the two handlers' <c>[ScenarioWire]</c> declarations and
-        ///     validated when the host loads the topology. Omitted from serialization when null so topologies
-        ///     without pairings round-trip byte-identically.
+        ///     validated when the host loads the topology.
+        ///     <para>
+        ///         "No pairings" has exactly one spelling on the wire: the key is absent, never an empty array,
+        ///         so a topology an editor added and then removed a pairing from saves byte-identically. The
+        ///         getter collapses an empty list to none so every writer inherits that rather than repeating
+        ///         the normalisation.
+        ///     </para>
         /// </summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public IReadOnlyList<TopologyContractPairing>? ContractPairings { get; init; }
+        public IReadOnlyList<TopologyContractPairing>? ContractPairings
+        {
+            get => _contractPairings is { Count: > 0 } ? _contractPairings : null;
+
+            init => _contractPairings = value;
+        }
 
         /// <summary>Parse and structurally validate topology JSON, throwing with every problem at once.</summary>
         public static DevTopologyFile Parse(string json)
@@ -82,9 +109,18 @@ namespace Vion.Dale.DevHost.Topologies
             }
 
             var errors = new List<string>();
-            if (string.IsNullOrEmpty(file.Id) || !IdSlug.IsMatch(file.Id))
+
+            // The same three id rules a scenario id carries (ScenarioFile.StructuralErrors): a slug, no
+            // dot-dot, and not the reserved name the schema route already answers on. The dot-dot check is
+            // load-bearing because DevTopologyLoader.Load combines an id with the directory unconfined, and
+            // 'schema' would be shadowed by GET /api/topologies/schema.
+            if (string.IsNullOrEmpty(file.Id) || !IdSlug.IsMatch(file.Id) || file.Id.Contains(".."))
             {
-                errors.Add("id is required and must be a URL-safe slug");
+                errors.Add("id is required and must be a URL-safe slug ([A-Za-z0-9._-], starting alphanumeric, no '..')");
+            }
+            else if (string.Equals(file.Id, "schema", StringComparison.OrdinalIgnoreCase))
+            {
+                errors.Add("id 'schema' is reserved (GET /api/topologies/schema serves the format schema)");
             }
 
             if (file.LogicBlockInstances is null || file.LogicBlockInstances.Count == 0)
@@ -95,12 +131,12 @@ namespace Vion.Dale.DevHost.Topologies
             var names = new HashSet<string>(StringComparer.Ordinal);
             foreach (var (instance, index) in (file.LogicBlockInstances ?? Array.Empty<TopologyLogicBlockInstance>()).Select((x, i) => (x, i)))
             {
-                if (string.IsNullOrEmpty(instance.TypeFullName))
+                if (string.IsNullOrWhiteSpace(instance.TypeFullName))
                 {
                     errors.Add($"logicBlockInstances[{index}]: typeFullName is required");
                 }
 
-                if (string.IsNullOrEmpty(instance.Name))
+                if (string.IsNullOrWhiteSpace(instance.Name))
                 {
                     errors.Add($"logicBlockInstances[{index}]: name is required");
                 }
@@ -116,8 +152,8 @@ namespace Vion.Dale.DevHost.Topologies
 
             foreach (var (mapping, index) in (file.InterfaceMappings ?? Array.Empty<TopologyInterfaceMapping>()).Select((x, i) => (x, i)))
             {
-                if (string.IsNullOrEmpty(mapping.SourceLogicBlockName) || string.IsNullOrEmpty(mapping.TargetLogicBlockName) ||
-                    string.IsNullOrEmpty(mapping.SourceInterfaceIdentifier) || string.IsNullOrEmpty(mapping.TargetInterfaceIdentifier))
+                if (string.IsNullOrWhiteSpace(mapping.SourceLogicBlockName) || string.IsNullOrWhiteSpace(mapping.TargetLogicBlockName) ||
+                    string.IsNullOrWhiteSpace(mapping.SourceInterfaceIdentifier) || string.IsNullOrWhiteSpace(mapping.TargetInterfaceIdentifier))
                 {
                     errors.Add($"interfaceMappings[{index}]: sourceLogicBlockName, sourceInterfaceIdentifier, targetLogicBlockName, targetInterfaceIdentifier are all required");
                 }
@@ -140,7 +176,7 @@ namespace Vion.Dale.DevHost.Topologies
                 ValidatePairingEndpoint(pairing.A, $"contractPairings[{index}].a", names, errors);
                 ValidatePairingEndpoint(pairing.B, $"contractPairings[{index}].b", names, errors);
 
-                // Self-pairing is the dropped host-synthesised confirmation (RFC 0020 §4.5): an endpoint wired to
+                // Self-pairing is the dropped host-synthesised confirmation: an endpoint wired to
                 // itself would echo every command back as its own confirmation, which is exactly the magic this
                 // design replaces with a visible simulator block.
                 if (pairing.A is not null && pairing.B is not null && pairing.A.LogicBlockName == pairing.B.LogicBlockName &&
@@ -216,21 +252,23 @@ namespace Vion.Dale.DevHost.Topologies
                                                                                                               MappedContractIdentifier = cm.MappedContractIdentifier,
                                                                                                           }))
                                                        .ToList(),
-                       ContractPairings = configuration.ContractPairings.Count == 0 ? null : configuration.ContractPairings
-                                                                                                          .Select(cp => new TopologyContractPairing
-                                                                                                                      {
-                                                                                                                          A = new TopologyContractPairingEndpoint
-                                                                                                                              {
-                                                                                                                                  LogicBlockName = cp.A.LogicBlockName,
-                                                                                                                                  ContractIdentifier = cp.A.ContractIdentifier,
-                                                                                                                              },
-                                                                                                                          B = new TopologyContractPairingEndpoint
-                                                                                                                              {
-                                                                                                                                  LogicBlockName = cp.B.LogicBlockName,
-                                                                                                                                  ContractIdentifier = cp.B.ContractIdentifier,
-                                                                                                                              },
-                                                                                                                      })
-                                                                                                          .ToList(),
+
+                       // No empty-check needed: ContractPairings collapses an empty list to none itself.
+                       ContractPairings = configuration.ContractPairings
+                                                       .Select(cp => new TopologyContractPairing
+                                                                     {
+                                                                         A = new TopologyContractPairingEndpoint
+                                                                             {
+                                                                                 LogicBlockName = cp.A.LogicBlockName,
+                                                                                 ContractIdentifier = cp.A.ContractIdentifier,
+                                                                             },
+                                                                         B = new TopologyContractPairingEndpoint
+                                                                             {
+                                                                                 LogicBlockName = cp.B.LogicBlockName,
+                                                                                 ContractIdentifier = cp.B.ContractIdentifier,
+                                                                             },
+                                                                     })
+                                                       .ToList(),
                    };
         }
 
@@ -241,7 +279,7 @@ namespace Vion.Dale.DevHost.Topologies
 
         private static void ValidatePairingEndpoint(TopologyContractPairingEndpoint? endpoint, string where, ICollection<string> declaredNames, ICollection<string> errors)
         {
-            if (endpoint is null || string.IsNullOrEmpty(endpoint.LogicBlockName) || string.IsNullOrEmpty(endpoint.ContractIdentifier))
+            if (endpoint is null || string.IsNullOrWhiteSpace(endpoint.LogicBlockName) || string.IsNullOrWhiteSpace(endpoint.ContractIdentifier))
             {
                 errors.Add($"{where}: logicBlockName and contractIdentifier are both required");
                 return;
@@ -256,6 +294,8 @@ namespace Vion.Dale.DevHost.Topologies
 
     public sealed class TopologyLogicBlockInstance
     {
+        private readonly IReadOnlyDictionary<string, JsonNode>? _instantiationParameters;
+
         public string? TypeFullName { get; init; }
 
         public string? Name { get; init; }
@@ -266,11 +306,17 @@ namespace Vion.Dale.DevHost.Topologies
         ///     Optional — an instance with no gated members needs none. Because parsing is strict on both
         ///     layers (<see cref="DevTopologyFile.SerializerOptions" /> and the JSON schema's
         ///     <c>additionalProperties: false</c>), the field is declared here and in every
-        ///     <c>topology.schema.json</c> copy. Omitted from serialization when null so instances without
+        ///     <c>topology.schema.json</c> copy. Like <see cref="DevTopologyFile.ContractPairings" />, "no
+        ///     parameters" has one spelling — the key absent, never an empty object — so instances without
         ///     parameters round-trip byte-identically (existing goldens unaffected).
         /// </summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public IReadOnlyDictionary<string, JsonNode>? InstantiationParameters { get; init; }
+        public IReadOnlyDictionary<string, JsonNode>? InstantiationParameters
+        {
+            get => _instantiationParameters is { Count: > 0 } ? _instantiationParameters : null;
+
+            init => _instantiationParameters = value;
+        }
     }
 
     public sealed class TopologyInterfaceMapping
@@ -285,7 +331,7 @@ namespace Vion.Dale.DevHost.Topologies
     }
 
     /// <summary>
-    ///     RFC 0020 §4.2: two service-provider contract endpoints declared as one wire. Keyed on (block,
+    ///     Two service-provider contract endpoints declared as one wire. Keyed on (block,
     ///     contract binding), never on endpoint triples — every contract already has an auto-created endpoint,
     ///     so a pairing needs nothing from <c>contractMappings</c>. The declaration is symmetric; the host
     ///     derives which directions materialise from the two handlers' <c>[ScenarioWire]</c> types.

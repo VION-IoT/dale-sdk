@@ -28,14 +28,22 @@ namespace Vion.Dale.DevHost.Test
     ///         contract mappings; guards decision-4 (Save completes the auto-mocked contract mappings so the
     ///         saved file is self-contained rather than dependent on load-time fill).
     ///     </para>
+    ///     <para>
+    ///         <c>RoundTripAndRunCommittedGoldenScenario</c> cites no criterion by design: it is a whole-stack
+    ///         integration premise — one committed file survives PUT, comes back deep-equal, and still runs
+    ///         green — and no single criterion states that. It used to cite `AC-SCEN-001.6` (an id equals its
+    ///         file name), which it never asserts; that criterion is proven by <c>ScenarioStoreShould</c>. Its
+    ///         sibling below does cite one, because Save completing the contract mappings IS a stated rule.
+    ///     </para>
     /// </summary>
     [TestClass]
     public class GoldenRegressionShould
     {
         [TestMethod]
         [TestCategory("Smoke")]
-        public async Task Scenario_FeatureTour_GoldenRoundTripsAndRuns()
+        public async Task RoundTripAndRunCommittedGoldenScenario()
         {
+            // Arrange / Act
             // The feature-tour scenario targets topology "default" — boot with all 5 SmokeHost blocks
             // on that topology so apply can run in place on a clean, matching host.
             var scenariosDir = NewTempDir("dale-golden-scenario-");
@@ -58,6 +66,8 @@ namespace Vion.Dale.DevHost.Test
 
             // Read the golden file from the output directory.
             var goldenPath = Path.Combine(AppContext.BaseDirectory, "Golden", "feature-tour.scenario.json");
+
+            // Assert
             Assert.IsTrue(File.Exists(goldenPath), $"Golden fixture not found at {goldenPath}. Ensure the csproj copies Golden/**/*.json to output.");
             var goldenJson = await File.ReadAllTextAsync(goldenPath);
 
@@ -108,9 +118,11 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-SCEN-013.5")]
         [TestCategory("Smoke")]
-        public async Task Topology_FeatureRig_GoldenCompletesContractMappings()
+        public async Task CompleteContractMappingsOfCommittedGoldenTopology()
         {
+            // Arrange / Act
             // Boot with all 5 SmokeHost blocks and a writable topologies dir.
             var topologiesDir = NewTempDir("dale-golden-topology-");
             var port = FreePort();
@@ -132,6 +144,8 @@ namespace Vion.Dale.DevHost.Test
 
             // Read the golden file from the output directory.
             var goldenPath = Path.Combine(AppContext.BaseDirectory, "Golden", "feature-rig.topology.json");
+
+            // Assert
             Assert.IsTrue(File.Exists(goldenPath), $"Golden fixture not found at {goldenPath}. Ensure the csproj copies Golden/**/*.json to output.");
             var goldenJson = await File.ReadAllTextAsync(goldenPath);
 

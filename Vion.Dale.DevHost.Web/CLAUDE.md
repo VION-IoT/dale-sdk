@@ -1,7 +1,7 @@
 # CLAUDE.md — Vion.Dale.DevHost.Web
 
 The DevHost web UI ("Explorer"). Design contract: [docs/devhost-ui/mockups](../docs/devhost-ui/mockups/README.md)
-(screen states + design vocabulary) and [RFC 0006](../docs/rfcs/0006-scenario-files.md) (scenario
+(screen states + design vocabulary) and [the scenario & topology spec](../docs/specs/scenarios.md) (scenario
 files / Player, R3+).
 
 ## The no-build discipline (read before touching wwwroot)

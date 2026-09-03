@@ -13,7 +13,7 @@ using Vion.Dale.DevHost.Web;
 namespace Vion.Dale.DevHost.Test
 {
     /// <summary>
-    ///     Topology files (RFC 0006 R5): the dev-profile loader (types from loaded assemblies, explicit
+    ///     Topology files: the dev-profile loader (types from loaded assemblies, explicit
     ///     interface wiring, auto-mocked contracts), the export projection as the C#-preset migration path,
     ///     and Player-driven switching riding the run-control reset.
     /// </summary>
@@ -21,10 +21,11 @@ namespace Vion.Dale.DevHost.Test
     public class TopologyFilesShould
     {
         [TestMethod]
-        public async Task BuildARunningNetworkFromATopologyFile()
+        [TestProperty("spec", "AC-SCEN-013.2")]
+        public async Task BuildRunningNetworkFromTopologyFile()
         {
-            // Source/Sink with their PollLink contract — the interface mapping comes from the FILE,
-            // not auto-discovery, so a working poll proves the declared wiring took effect.
+            // Arrange — Source/Sink with their PollLink contract. The interface mapping comes from the
+            // FILE, not auto-discovery, so a working poll proves the declared wiring took effect.
             var topology = DevTopologyFile.Parse($$"""
                                                    {
                                                      "id": "cross-block",
@@ -39,7 +40,10 @@ namespace Vion.Dale.DevHost.Test
                                                    }
                                                    """);
 
+            // Act
             var config = DevTopologyLoader.Build(topology);
+
+            // Assert
             Assert.AreEqual("cross-block", config.TopologyName);
 
             await using var host = DevHostBuilder.Create().WithDi<CrossBlockDependencyInjection>().WithConfiguration(config).Build();
@@ -55,19 +59,25 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-SCEN-013.3")]
         public void RejectUnresolvableTypesLoudly()
         {
+            // Arrange
             var topology = DevTopologyFile.Parse("""
                                                  { "id": "broken", "logicBlockInstances": [ { "typeFullName": "No.Such.BlockType", "name": "x" } ] }
                                                  """);
+
+            // Act / Assert
             var e = Assert.ThrowsExactly<InvalidDataException>(() => DevTopologyLoader.Build(topology));
             StringAssert.Contains(e.Message, "No.Such.BlockType");
         }
 
         [TestMethod]
-        public async Task RoundTripACSharpPresetThroughExportAndLoader()
+        [TestProperty("spec", "AC-SCEN-013.10")]
+        public async Task RoundTripCSharpPresetThroughExportAndLoader()
         {
             // The migration path: C# preset → export projection → file → loader → equivalent network.
+            // Arrange / Act
             var preset = DevConfigurationBuilder.Create()
                                                 .WithTopologyName("round-trip")
                                                 .AddLogicBlock<SourceBlock>("source", out var source)
@@ -80,6 +90,7 @@ namespace Vion.Dale.DevHost.Test
             var exported = DevTopologyFile.FromConfiguration(host.Control.GetConfiguration());
             var reloaded = DevTopologyLoader.Build(DevTopologyFile.Parse(exported.ToJson()));
 
+            // Assert
             Assert.AreEqual("round-trip", reloaded.TopologyName);
             CollectionAssert.AreEquivalent(preset.LogicBlocks.Select(b => b.Name).ToList(), reloaded.LogicBlocks.Select(b => b.Name).ToList());
             Assert.HasCount(preset.InterfaceMappings.Count, reloaded.InterfaceMappings);
@@ -87,10 +98,12 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public void ExportEmitsConvergedContractFieldNamesAndASchemaRef()
+        [TestProperty("spec", "AC-SCEN-013.10")]
+        public void ExportConvergedContractFieldNamesAndSchemaRef()
         {
             // DF-11: the topology contract-mapping field names converged on ConfigurationOutput's `mapped*`
             // convention, and export now emits a real $schema ref (was null) so editors can validate.
+            // Arrange / Act
             var file = new DevTopologyFile
                        {
                            Schema = DevTopologyFile.SchemaRef,
@@ -110,6 +123,8 @@ namespace Vion.Dale.DevHost.Test
                        };
 
             var json = file.ToJson();
+
+            // Assert
             StringAssert.Contains(json, "\"$schema\": \"./.dale/topology.schema.json\"");
             StringAssert.Contains(json, "\"mappedServiceProviderIdentifier\": \"sp_1\"");
             StringAssert.Contains(json, "\"mappedServiceIdentifier\": \"svc_1\"");
@@ -120,10 +135,12 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public void RejectsTheOldUnprefixedContractFieldNames()
+        [TestProperty("spec", "AC-SCEN-001.2")]
+        public void RejectOldUnprefixedContractFieldNames()
         {
             // The convergence is a real (preview) break — strict parsing rejects the pre-convergence field
             // names, so a stale hand-edit fails loudly rather than silently dropping the mapping.
+            // Arrange / Act
             var e = Assert.ThrowsExactly<InvalidDataException>(() => DevTopologyFile.Parse("""
                                                                                            {
                                                                                              "id": "demo",
@@ -131,10 +148,68 @@ namespace Vion.Dale.DevHost.Test
                                                                                              "contractMappings": [ { "logicBlockName": "a", "contractIdentifier": "C", "serviceProviderIdentifier": "sp_1" } ]
                                                                                            }
                                                                                            """));
+
+            // Assert
             StringAssert.Contains(e.Message, "serviceProviderIdentifier");
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-SCEN-013.14")]
+        public void ReportEveryBadContractMappingTogether()
+        {
+            // Arrange - two contract mappings, both wrong in different ways. Every other collection in the
+            // loader collects; this one used to throw on the first entry, so the second was invisible.
+            var topology = DevTopologyFile.Parse($$"""
+                                                   {
+                                                     "id": "mapped",
+                                                     "logicBlockInstances": [
+                                                       { "typeFullName": "{{typeof(SmokeHost.LogicBlocks.IoBlock).FullName}}", "name": "Io" }
+                                                     ],
+                                                     "contractMappings": [
+                                                       { "logicBlockName": "NoSuchBlock", "contractIdentifier": "ActiveOutput" },
+                                                       { "logicBlockName": "Io", "contractIdentifier": "NoSuchContract" }
+                                                     ]
+                                                   }
+                                                   """);
+
+            // Act / Assert
+            var failure = Assert.ThrowsExactly<InvalidDataException>(() => DevTopologyLoader.Build(topology));
+
+            StringAssert.Contains(failure.Message, "NoSuchBlock");
+            StringAssert.Contains(failure.Message, "NoSuchContract");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-013.14")]
+        public void ReportOnlyFirstFailingPhasesErrors()
+        {
+            // Arrange - one error per phase: an unloadable type, an unknown instantiation parameter, and a
+            // contract mapping naming no declared instance. Each later phase needs what the phase before it
+            // settled, so only the type error can be reported.
+            var topology = DevTopologyFile.Parse($$"""
+                                                   {
+                                                     "id": "layered",
+                                                     "logicBlockInstances": [
+                                                       { "typeFullName": "No.Such.BlockType", "name": "Ghost" },
+                                                       { "typeFullName": "{{typeof(SmokeHost.LogicBlocks.GatedStationBlock).FullName}}", "name": "Station",
+                                                         "instantiationParameters": { "Kount": 2 } }
+                                                     ],
+                                                     "contractMappings": [
+                                                       { "logicBlockName": "NoSuchBlock", "contractIdentifier": "ActiveOutput" }
+                                                     ]
+                                                   }
+                                                   """);
+
+            // Act / Assert
+            var failure = Assert.ThrowsExactly<InvalidDataException>(() => DevTopologyLoader.Build(topology));
+
+            StringAssert.Contains(failure.Message, "No.Such.BlockType");
+            Assert.DoesNotContain("Kount", failure.Message);
+            Assert.DoesNotContain("contractMappings", failure.Message);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-013.6")]
         [TestProperty("spec", "AC-GATE-012.2")]
         public void CarryInstantiationParametersFromTopologyFileThroughBuild()
         {
@@ -231,6 +306,7 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-SCEN-013.6")]
         [TestProperty("spec", "AC-GATE-012.12")]
         public void CarryNullThroughForNullableParameter()
         {
@@ -257,6 +333,7 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-SCEN-013.6")]
         [TestProperty("spec", "AC-GATE-012.8")]
         public void AcceptTopologyNamingDeclaredInstantiationParameters()
         {
@@ -281,9 +358,12 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public void RoundTripInstantiationParametersThroughTheEditorSave()
+        [TestProperty("spec", "AC-SCEN-013.9")]
+        [TestProperty("spec", "AC-SCEN-013.7")]
+        public void RoundTripInstantiationParametersThroughEditorSave()
         {
             // The editor Save re-serializes a fixed field set — instantiationParameters must survive it.
+            // Arrange / Act
             var dir = Path.Combine(Path.GetTempPath(), "dale-topo-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(dir);
             try
@@ -301,6 +381,8 @@ namespace Vion.Dale.DevHost.Test
                                         """);
 
                 var saved = File.ReadAllText(path);
+
+                // Assert
                 StringAssert.Contains(saved, "instantiationParameters");
 
                 var reparsed = DevTopologyFile.Parse(saved);
@@ -313,9 +395,11 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task ServeTheGenericTopologySchema()
+        [TestProperty("spec", "AC-SCEN-013.13")]
+        public async Task ServeGenericTopologySchema()
         {
             // DF-12: the topology schema ships embedded and is served symmetrically to /api/scenarios/schema.
+            // Arrange / Act
             var port = FreePort();
             var config = DevConfigurationBuilder.Create().WithTopologyName("counter-topology").AddLogicBlock<CounterBlock>("counter").Build();
             await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithWebUi(port).Build();
@@ -324,6 +408,7 @@ namespace Vion.Dale.DevHost.Test
             using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
             var response = await client.GetAsync("/api/topologies/schema");
 
+            // Assert
             Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
             var schema = await response.Content.ReadAsStringAsync();
             StringAssert.Contains(schema, "logicBlockInstances");
@@ -339,7 +424,7 @@ namespace Vion.Dale.DevHost.Test
 
         [TestMethod]
         [TestCategory("Smoke")]
-        public async Task SwitchTopologiesFromTheWebApi_RidingTheReset()
+        public async Task SwitchTopologiesFromWebApiRidingTheReset()
         {
             var topologiesDir = Path.Combine(Path.GetTempPath(), "dale-topologies-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(topologiesDir);

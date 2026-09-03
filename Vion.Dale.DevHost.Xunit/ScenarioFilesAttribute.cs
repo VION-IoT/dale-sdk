@@ -11,7 +11,7 @@ namespace Vion.Dale.DevHost.Xunit
 {
     /// <summary>
     ///     An xUnit.net v3 theory data source that yields one row per committed <c>*.scenario.json</c> under the
-    ///     scenarios directory (RFC 0006 R4). Each row is <c>(string id, string topology)</c>, display-named by
+    ///     scenarios directory. Each row is <c>(string id, string topology)</c>, display-named by
     ///     the scenario title, with the scenario's <c>specs</c> as <c>spec</c> traits — so each scenario is its
     ///     own entry in Test Explorer / <c>--list-tests</c>. Files that fail to parse, or declare no topology,
     ///     are skipped: catching those is the job of <c>dale scenario validate</c> in CI, not the runner.

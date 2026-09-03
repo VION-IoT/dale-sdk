@@ -5,7 +5,7 @@ Author: jonas.bertsch. Date: 2026-06-23.
 
 > **Purpose of this document.** The DevHost web UI ("Explorer", `Vion.Dale.DevHost.Web/wwwroot`)
 > grew a four-way view toggle and a global clock cluster *after* its design mockups were drawn and
-> *while* deterministic stepping (RFC 0008) was being bolted on. The result reads awkwardly: manual
+> *while* deterministic stepping was being bolted on. The result reads awkwardly: manual
 > clock-stepping and running a scenario look like the same thing, a finished run's trace is thrown
 > away, the header is an undivided strip of controls, and switching topology is a silent multi-second
 > freeze. This RFC **rethinks the UI's information-architecture** around what a human (or agent)
@@ -13,9 +13,9 @@ Author: jonas.bertsch. Date: 2026-06-23.
 > realizes it. It is the design contract that the implementation plan is generated from.
 
 This RFC supersedes the **wall-clock framing** of the `docs/devhost-ui/mockups/*` set (drawn 2026-06-11,
-pre-stepping) and takes RFC 0008 (deterministic stepping) as the behavioural contract for the clock. It
+pre-stepping) and takes `docs/specs/scenarios.md` (deterministic stepping) as the behavioural contract for the clock. It
 builds on, and does not contradict, the mockups' **layout/density** grammar (identifiers-first,
-value-as-control, pinned-baseline, the three-register guard taxonomy) and RFC 0006 (scenario files /
+value-as-control, pinned-baseline, the three-register guard taxonomy) and `docs/specs/scenarios.md` (scenario files /
 the Player).
 
 ---
@@ -25,7 +25,7 @@ the Player).
 ### 1.1 The reframe: the UI is older than the model it now runs
 
 The mockups (`docs/devhost-ui/mockups/01–06`) describe a **wall-clock** Explorer + Player. Deterministic
-stepping (RFC 0008 / `0008-stepped-host-enabler.md`) landed days later — *one virtual clock with two
+stepping landed days later — *one virtual clock with two
 drivers* (the manual stepper and the scenario runner) — and was surfaced as an extra header chip that was
 never mocked. **All five reported pain points live in that seam.**
 
@@ -191,7 +191,7 @@ One virtual clock, two drivers, made structurally distinct:
 - **Clock mode (`stepped ⇄ real`) is switchable at runtime, via a recycle.** Today the mode is fixed at
   boot (`DALE_DEVHOST_STEPPED`, set by `dale dev --stepped`). A `stepped ⇄ real` toggle in the shell clock
   cluster — available in **both** Explore and Verify (in Verify: "run this scenario deterministically vs
-  live", per RFC 0008) — rebuilds the generation in the other mode. A reload/recycle is acceptable and is
+  live", per `docs/specs/scenarios.md`) — rebuilds the generation in the other mode. A reload/recycle is acceptable and is
   exactly the mechanism: it rides the existing host-recycle machinery (§6) and surfaces the same host-busy
   progress.
 
@@ -433,8 +433,8 @@ to grow):
   scenario/topology API controllers (the 409s, recycle-on-run, `/api/control/status`).
 - **Design contract:** `docs/devhost-ui/mockups/{README.md, 02-explorer-pinned-baseline.html,
   04-scenario-player.html, 05-player-guard-states.html, 06-scenario-unification.html}`.
-- **Behavioural contract for the clock:** `docs/rfcs/0008-unified-scenario-topology.md`,
-  `0008-stepped-host-enabler.md`; scenario files: `0006-scenario-files.md`; control surface:
+- **Behavioural contract for the clock:** `docs/specs/scenarios.md`,
+  `docs/specs/scenarios.md`; scenario files: the same page; control surface:
   `0003-headless-devhost-control.md`.
 - **Design system source-of-truth:** `dashboard/src/css/tokens.scss`, `VionSparkline.vue`, `VionSlider.vue`,
   `VionBadge.vue` / `VionState.vue` (patterns reimplemented no-build).

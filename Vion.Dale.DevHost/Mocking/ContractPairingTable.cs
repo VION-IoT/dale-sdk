@@ -15,14 +15,14 @@ namespace Vion.Dale.DevHost.Mocking
 
     /// <summary>
     ///     The pairing lookup a <see cref="ServiceProviderContractHandler" /> consults after capturing a command
-    ///     (RFC 0020 §4.1): <c>(handler actor name, endpoint)</c> → the peer stand-in and endpoint the captured
+    ///     : <c>(handler actor name, endpoint)</c> → the peer stand-in and endpoint the captured
     ///     value is re-driven onto. One entry per materialised DIRECTION, so a pairing that is type-identical
     ///     both ways yields two, and a one-way pairing (a provider face that only drives, like
     ///     <c>IDigitalInputProvider</c>) yields one.
     ///     <para>
     ///         <b>Capture only.</b> The stand-in serves every contract of its handler type, and the drive path
     ///         must never consult this table — a forward that re-entered the drive path would let stand-ins
-    ///         originate messages, which RFC 0020 §4.7 forbids because it is what makes a closed loop converge on
+    ///         originate messages, which the pairing rules forbid because it is what makes a closed loop converge on
     ///         block cadence instead of on stand-in recursion.
     ///     </para>
     /// </summary>
@@ -46,7 +46,7 @@ namespace Vion.Dale.DevHost.Mocking
 
         /// <summary>
         ///     Resolve every declared pairing to its materialised directions and build the table, refusing the
-        ///     whole configuration when a pairing cannot carry anything (RFC 0020 §4.3).
+        ///     whole configuration when a pairing cannot carry anything.
         ///     <para>
         ///         A direction a→b materialises exactly when a declared OUTBOUND type of a's handler is also a
         ///         declared INBOUND type of b's handler — wire-type identity, never shape compatibility, so a
@@ -123,7 +123,7 @@ namespace Vion.Dale.DevHost.Mocking
         /// <summary>
         ///     The endpoints a materialised direction FEEDS — the inbound side of every forward. The resolver
         ///     warns when a scenario also drives one of these (legal, last write wins; usually a bench-design
-        ///     smell — RFC 0020 §4.6).
+        ///     smell — `docs/specs/scenarios.md` (`AC-SCEN-007.10`)).
         /// </summary>
         public static IEnumerable<(DevContractPairingEndpoint Source, DevContractPairingEndpoint Fed)> FedDirections(IReadOnlyList<DevContractPairing> pairings,
                                                                                                                      Func<string, string, string?> handlerActorNameOf,

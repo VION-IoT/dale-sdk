@@ -53,3 +53,11 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   attribute families and two declaration levels — `DALE043`/`DALE044`-sized work in the analyzer
   registry, which failed the pass's size guard. *(INTRO pass amendment 2, rows 68 and 69's
   compile-time half — `ANLZ`.)*
+- **Two real-clock safety budgets have no injection seam, so neither can be tested without waiting them
+  out.** `ScenarioRunner.AckCeilingMs` (just under five seconds — 4900 ms — the hollow-ack guard behind
+  `AC-SCEN-009.10`) and `DeterministicStepper.QuiescenceTimeout` (10 s, the never-settles backstop behind
+  the prose under `AC-SCEN-012.6`) are both private constants. Making them constructor or option
+  parameters would retire one GAP and let the second criterion state its failure message rather than only
+  its patience. The change touches `DeterministicStepper`'s construction, which `CTRL` owns.
+  *(SCEN pass, rows 123 and 138 — `CTRL`.)*
+

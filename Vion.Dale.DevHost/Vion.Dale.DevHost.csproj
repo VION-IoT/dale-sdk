@@ -10,7 +10,7 @@
         <IsPackable>true</IsPackable>
     </PropertyGroup>
     <ItemGroup>
-        <!-- The generic scenario-file schema (RFC 0006) ships inside the assembly; 'dale scenario schema'
+        <!-- The generic scenario-file schema ships inside the assembly; 'dale scenario schema'
              (R4) emits per-project enriched variants from it. The topology-file schema (R5) ships the same
              way and is served at GET /api/topologies/schema. -->
         <EmbeddedResource Include="Scenarios\scenario.schema.json"/>

@@ -27,7 +27,7 @@ namespace Vion.Dale.ProtoActor
         // registered, so a host without it keeps the original scheduling behaviour.
         private readonly IDelayedSendGate? _delayedSendGate;
 
-        // RFC 0008 deterministic stepping: on a stepped host (a controllable FakeTimeProvider clock) every
+        // deterministic stepping: on a stepped host (a controllable FakeTimeProvider clock) every
         // actor is spawned onto one shared serial dispatcher so the message cascade within a quiescence round
         // drains in a single reproducible order instead of fanning out across the thread pool. Null on a
         // real-clock host (free-running Player / production), so Proto's ThreadPoolDispatcher is used as before.
@@ -375,7 +375,7 @@ namespace Vion.Dale.ProtoActor
             return new ActorReference(PidUtils.FromName(name));
         }
 
-        // RFC 0008: on a stepped host, route the actor onto the shared serial dispatcher so its handlers never
+        // On a stepped host, route the actor onto the shared serial dispatcher so its handlers never
         // run concurrently with another actor's. No-op on a real-clock host (keeps Proto's ThreadPoolDispatcher).
         private Props WithDeterministicDispatcher(Props props)
         {

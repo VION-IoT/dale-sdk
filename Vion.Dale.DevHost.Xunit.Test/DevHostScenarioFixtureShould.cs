@@ -3,29 +3,44 @@ using Vion.Dale.DevHost;
 
 namespace Vion.Dale.DevHost.Xunit.Test
 {
+    /// <summary>
+    ///     The fixture a consumer derives from: a host factory, not a host. Each load hands back a fresh host
+    ///     on the named topology, in the requested clock mode, which the caller owns and disposes.
+    /// </summary>
     [TestClass]
     public class DevHostScenarioFixtureShould
     {
         [TestMethod]
-        public async Task Load_a_named_topology_on_a_real_clock_by_default()
+        [TestProperty("spec", "AC-SCEN-016.5")]
+        [DataRow("default", false, DisplayName = "real clock by default")]
+        [DataRow("minimal", true, DisplayName = "stepped when requested")]
+        public async Task LoadNamedTopologyInRequestedClockMode(string topology, bool stepped)
         {
+            // Arrange
             var fixture = new SmokeScenarioFixture();
 
-            await using var host = await fixture.LoadAsync("default", topologiesDir: SmokeData.TopologiesDir);
+            // Act
+            await using var host = await fixture.LoadAsync(topology, stepped, SmokeData.TopologiesDir);
 
-            Assert.IsFalse(host.Control.IsStepped);
-            Assert.AreEqual("default", host.Control.GetConfiguration().TopologyName);
+            // Assert
+            Assert.AreEqual(stepped, host.Control.IsStepped);
+            Assert.AreEqual(topology, host.Control.GetConfiguration().TopologyName);
         }
 
         [TestMethod]
-        public async Task Load_a_stepped_host_when_requested()
+        [TestProperty("spec", "AC-SCEN-016.5")]
+        public async Task HandBackFreshHostPerLoadFromFixtureHoldingNone()
         {
+            // Arrange - one fixture, shared the way an IClassFixture is.
             var fixture = new SmokeScenarioFixture();
 
-            await using var host = await fixture.LoadAsync("minimal", true, SmokeData.TopologiesDir);
+            // Act
+            await using var first = await fixture.LoadAsync("minimal", true, SmokeData.TopologiesDir);
+            await using var second = await fixture.LoadAsync("minimal", true, SmokeData.TopologiesDir);
 
-            Assert.IsTrue(host.Control.IsStepped);
-            Assert.AreEqual("minimal", host.Control.GetConfiguration().TopologyName);
+            // Assert - two independent hosts, so two scenarios can never interleave on a shared network.
+            Assert.AreNotSame(first, second);
+            Assert.AreNotSame(first.Control, second.Control);
         }
     }
 }
