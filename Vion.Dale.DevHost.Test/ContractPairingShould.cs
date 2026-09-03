@@ -9,6 +9,10 @@ using System.Threading.Tasks;
 using Vion.Dale.DevHost.Scenarios;
 using Vion.Dale.DevHost.Topologies;
 using Vion.Dale.DevHost.Web;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Vion.Dale.Sdk.Core;
+using Vion.Dale.Sdk.DigitalIo.Input;
 
 namespace Vion.Dale.DevHost.Test
 {
@@ -427,6 +431,52 @@ namespace Vion.Dale.DevHost.Test
                      """;
         }
 
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-014.14")]
+        public async Task RefusePairingNamingContractConfigTimeGatingExcluded()
+        {
+            // Arrange - GatedIo binds Spare only WHILE its instantiation parameter says so, and a pairing is
+            // resolved against the endpoints the BUILT configuration settled, after gating. Both topologies
+            // are otherwise identical, so the parameter is the only thing that moves.
+            const string body = """
+                                {
+                                  "id": "gated-pair",
+                                  "logicBlockInstances": [
+                                    { "typeFullName": "Vion.Dale.DevHost.Test.GatedIoBlock", "name": "GatedIo", "instantiationParameters": { "SpareCount": {0} } },
+                                    { "typeFullName": "Vion.Dale.DevHost.SmokeHost.LogicBlocks.IdealIoBlock", "name": "IdealIo" }
+                                  ],
+                                  "contractPairings": [
+                                    { "a": { "logicBlockName": "GatedIo", "contractIdentifier": "Spare" },
+                                      "b": { "logicBlockName": "IdealIo", "contractIdentifier": "InputChannel" } }
+                                  ]
+                                }
+                                """;
+
+            // Act - the endpoints a pairing addresses are the ones the BUILT configuration carries, and a
+            // gate resolves when the block binds, so both files build; the wire-type pass at host load is
+            // where the excluded contract has no handler to join.
+            var included = Host(body.Replace("{0}", "1"));
+            var excluded = Host(body.Replace("{0}", "0"));
+            await included.StartAsync();
+
+            // Assert
+            Assert.HasCount(1, included.Control.GetConfiguration().ContractPairings);
+            var refused = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => excluded.StartAsync());
+            StringAssert.Contains(refused.Message, "has no contract 'Spare'");
+
+            await included.DisposeAsync();
+            await excluded.DisposeAsync();
+
+            static IDevHost Host(string topology)
+            {
+                return DevHostBuilder.Create()
+                                     .WithDi<GatedIoDependencyInjection>()
+                                     .WithDi<SmokeHost.DependencyInjection>()
+                                     .WithConfiguration(DevTopologyLoader.Build(DevTopologyFile.Parse(topology)))
+                                     .Build();
+            }
+        }
+
         private static DevTopologyFile Topology(string pairings)
         {
             return DevTopologyFile.Parse($$"""
@@ -440,6 +490,45 @@ namespace Vion.Dale.DevHost.Test
                                              "contractPairings": [ {{pairings}} ]
                                            }
                                            """);
+        }
+    }
+
+    /// <summary>
+    ///     A block whose service-provider contract binding is behind a config-time inclusion gate: with
+    ///     <c>SpareCount</c> at zero the <c>Spare</c> contract is not part of the configured instance at all,
+    ///     which is the state a pairing naming it has to be refused in.
+    /// </summary>
+    [LogicBlock(Name = "Gated IO")]
+    public class GatedIoBlock : LogicBlockBase
+    {
+        [ServiceProperty(Title = "Spare inputs", Minimum = 0, Maximum = 1)]
+        [InstantiationParameter]
+        public int SpareCount { get; init; }
+
+        [ServiceProviderContractBinding(DefaultName = "Always")]
+        public IDigitalInput AlwaysInput { get; private set; }
+
+        [ServiceProviderContractBinding(DefaultName = "Spare")]
+        [IncludedWhen("SpareCount >= 1")]
+        public IDigitalInput Spare { get; private set; }
+
+        public GatedIoBlock(ILogger logger) : base(logger)
+        {
+            AlwaysInput = null!;
+            Spare = null!;
+        }
+
+        protected override void Ready()
+        {
+        }
+    }
+
+    /// <summary>DI registration for the gated-contract fixture.</summary>
+    public class GatedIoDependencyInjection : IConfigureServices
+    {
+        public void ConfigureServices(IServiceCollection serviceCollection)
+        {
+            serviceCollection.AddTransient<GatedIoBlock>();
         }
     }
 }

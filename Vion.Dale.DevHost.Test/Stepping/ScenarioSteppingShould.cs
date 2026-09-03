@@ -498,6 +498,115 @@ namespace Vion.Dale.DevHost.Test.Stepping
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-SCEN-009.9")]
+        public async Task RecordWallClockAlwaysAndVirtualOnlyWhenStepped()
+        {
+            // Arrange
+            await using var stepped = BuildTickerHost(NewClock());
+            await using var realClock = BuildRealClockTickerHost();
+            await stepped.StartAsync();
+            await realClock.StartAsync();
+
+            const string body = """
+                                {
+                                  "version": 1, "id": "elapsed", "topology": "stepping-topology",
+                                  "steps": [ { "advance": { "seconds": 2 } } ]
+                                }
+                                """;
+
+            // Act
+            var onStepped = await ScenarioRunner.RunAsync(ScenarioFile.Parse(body), stepped.Control);
+            var onRealClock = await ScenarioRunner.RunAsync(ScenarioFile.Parse(body), realClock.Control);
+
+            // Assert — the wall-clock figure is instrumentation and varies; the virtual one is the
+            // reproducible number, and it exists only where there is a virtual clock to read.
+            Assert.IsNotNull(onStepped.Steps[0].ElapsedMs);
+            Assert.IsNotNull(onRealClock.Steps[0].ElapsedMs);
+            Assert.AreEqual(2000d, onStepped.Steps[0].VirtualElapsedMs!.Value, 0.001);
+            Assert.IsNull(onRealClock.Steps[0].VirtualElapsedMs);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-009.9")]
+        public async Task AgreeOnEveryDeterministicReportFieldAcrossTwoRuns()
+        {
+            // Arrange — two runs of one scenario on one host, the second after a recycle-free re-run.
+            await using var first = BuildTickerHost(NewClock());
+            await using var second = BuildTickerHost(NewClock());
+            await first.StartAsync();
+            await second.StartAsync();
+
+            const string body = """
+                                {
+                                  "version": 1, "id": "twice", "topology": "stepping-topology",
+                                  "watch": ["Ticker.Ticks"],
+                                  "steps": [
+                                    { "advance": { "seconds": 2 } },
+                                    { "expect": { "property": "Ticker.Ticks", "equals": 2 } }
+                                  ]
+                                }
+                                """;
+
+            // Act
+            var one = await ScenarioRunner.RunAsync(ScenarioFile.Parse(body), first.Control);
+            var two = await ScenarioRunner.RunAsync(ScenarioFile.Parse(body), second.Control);
+
+            // Assert — every deterministic field agrees; the run id and the start instant are by construction
+            // per-run, which is why "byte-identical report" is not the guarantee.
+            Assert.AreEqual(Deterministic(one), Deterministic(two));
+            Assert.AreNotEqual(one.RunId, two.RunId);
+            Assert.AreNotEqual(one.StartedAt, two.StartedAt);
+
+            static string Deterministic(ScenarioRunReport report)
+            {
+                var steps = report.Steps.Select(s => $"{s.Index}:{s.Kind}:{s.Target}:{s.Argument}:{s.Status}:{s.VirtualElapsedMs}:{s.Detail}");
+                var trace = report.WatchTrace.Select(s => $"{s.Phase}:{s.StepIndex}:{s.Values["Ticker.Ticks"]}@{s.VirtualElapsedMs}");
+                return $"{report.Status}|{report.ScenarioId}|{report.Topology}|{string.Join(";", steps)}|{string.Join(";", trace)}";
+            }
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-009.11")]
+        public async Task ReportDriveAsFireAndForget()
+        {
+            // Arrange
+            await using var host = BuildIoHost();
+            await host.StartAsync();
+
+            // Act
+            var report = await ScenarioRunner.RunAsync(ScenarioFile.Parse("""
+                                                                          {
+                                                                            "version": 1, "id": "drive-detail", "topology": "io",
+                                                                            "steps": [ { "serviceProviderSet": { "logicBlock": "io", "contract": "EnableInput" }, "value": true } ]
+                                                                          }
+                                                                          """),
+                                                       host.Control);
+
+            // Assert — an author who expects a drive to have landed needs to be told to pair it with a wait.
+            Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
+            StringAssert.Contains(report.Steps[0].Detail, "fire-and-forget");
+            StringAssert.Contains(report.Steps[0].Detail, "waitUntil");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-012.7")]
+        public async Task SettleStartupTrafficBeforeTheFirstEventHop()
+        {
+            // Arrange — the ticker publishes its initial state during startup, and the first hop must begin
+            // from a settled system rather than racing that traffic.
+            await using var host = BuildSteppedHost();
+            await host.StartAsync();
+
+            // Act — a zero budget does no stepping at all; the settle is the whole of its work.
+            await host.Control.AdvanceAsync(TimeSpan.Zero);
+
+            // Assert
+            Assert.AreEqual(Epoch, host.Control.VirtualTimeUtc);
+            Assert.AreEqual(0, (int)host.Control.GetProperty("Ticker", "Ticks")!);
+            Assert.IsFalse(host.Control.HasAdvancedFromBaseline);
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-SCEN-012.9")]
         public async Task ReportWhetherSteppedGenerationMovedFromItsBaseline()
         {
@@ -531,6 +640,13 @@ namespace Vion.Dale.DevHost.Test.Stepping
             var config = DevConfigurationBuilder.Create().WithTopologyName("stepping-topology").AddLogicBlock<TickerBlock>("Ticker").Build();
 
             return DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithDeterministicStepping().Build();
+        }
+
+        private static IDevHost BuildIoHost()
+        {
+            var config = DevConfigurationBuilder.Create().WithTopologyName("io").AddLogicBlock<SmokeHost.LogicBlocks.IoBlock>("io").Build();
+
+            return DevHostBuilder.Create().WithDi<SmokeHost.DependencyInjection>().WithConfiguration(config).WithDeterministicStepping().Build();
         }
 
         private static IDevHost BuildRealClockTickerHost()
