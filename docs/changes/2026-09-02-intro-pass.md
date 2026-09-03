@@ -1,4 +1,4 @@
----
+﻿---
 slug: intro-pass
 status: in-flight        # proposed | in-flight | parked | archived
 blocked-on: none           # for parked docs: what's blocking + ref
@@ -204,7 +204,7 @@ it read. `⚠` rows have a failure sketch under the table.
 | 11 | WHEN the development-only exclusion is requested THE SYSTEM SHALL leave out every logic block that binds a development-only contract and SHALL name each excluded block and its bindings on standard output. | `Program.cs:169`–`:172`, `:189`–`:230`; **(probe 3)** `Vion Dale: 1 logic block(s) are development-only …` / `  IntroProbe.DevOnlyProbe — binds Face (DigitalOutputProvider)` | `LogicBlockIntrospectionShould.ReportEveryDevelopmentOnlyContractOfASimulatorBlock` (the predicate only) | intended | bench surface must not reach the cloud, and a pack log that did not say which blocks it dropped would make the omission look like a bug |
 | 12 | THE SYSTEM SHALL prefix every such notice line with a stable marker. | `Program.cs:32`, `:236` | GAP | intended | `dale upload` captures the pack output rather than inheriting it and repeats the lines carrying the prefix |
 | 13 | THE SYSTEM SHALL emit a byte-identical document for repeated runs over one assembly. | `LogicBlockIntrospection.cs:520`–`:588`; **(probe 1)** three separate processes, one MD5 | `LogicBlockIntrospectionShould.SerializeTheStatusAndLabelMapsInSortedKeyOrder`, `StructFieldPresentationShould.SerializeTheStructFieldPresentationInSortedKeyOrder` | intended | VION-77: .NET randomizes string hashing per process, so an unsorted map made every pack write a different file and every export undiffable |
-| 14 | ⚠ THE SYSTEM SHALL report a logic block's identity as its full type name, written the way every other type name in the document is written. | `LogicBlockIntrospection.cs:39` uses `Type.FullName` where `ReflectionHelper.GetDisplayFullName` (`:287`) is used everywhere else; **(probe 2)** a nested block emits `"IntroProbe.Outer+NestedBlock"` while the same run's log line says `IntroProbe.Outer.NestedBlock` | GAP | park | `typeFullName` is a translation-key part used **verbatim** (decision `0110`), and `Vion.Dale.Cli/Commands/ListCommand.cs:72` derives a block's short name by splitting on `.`, so a nested block lists as `Outer+NestedBlock`. Changing it is a wire change |
+| 14 | **MODIFIED — the operator reversed Phase A's direction.** THE SYSTEM SHALL report a logic block's identity as its CLR full type name, and every other type name in the document in display form. | `LogicBlockIntrospection.cs:39` (`Type.FullName`) against `ReflectionHelper.GetDisplayFullName` (`:287`) everywhere else; **(probe 2)** a nested block emits `"IntroProbe.Outer+NestedBlock"` | GAP | intended | a block's type name is what a host **loads the type by** (`Vion.Dale.DevHost/Topologies/DevTopologyLoader.cs:230` resolves it through `Type.GetType`), so it is the CLR's spelling or it resolves nothing. Nested blocks were never a design intent but are supported. The split is stated on the page; the `dale list` short-name split is row 88's, in the ledger |
 | 15 | THE SYSTEM SHALL write the document indented, with camelCase member names and camelCase annotation keys, and enum values as their member names. | `Program.cs:36`–`:46` | GAP | intended | the annotation *dictionary* keys are camelCased at this boundary, so the producer's `DefaultName` reaches the file as `defaultName` — the wire form decision `0110` quotes verbatim |
 
 #### The block record — `LogicBlockIntrospection.cs`
@@ -653,14 +653,155 @@ DevHost definition and catalog tests (`CTRL` — rows 89, 90).
 - 2026-09-02: The brief's edge-value sweep asks for "a recursive struct". Not expressible either — a
   value type cannot contain itself. The nested case is row 38.
 
+### Phase B — after the operator's classification
+
+- 2026-09-02: **Row 14 reversed.** Phase A read the block identity's `+` as an inconsistency with every
+  other type name in the document and recommended `park`. The operator's classification restates it as
+  `intended`: the block's type name is the identifier a host *loads the type by*, so it must be the CLR
+  spelling, while every other type name is descriptive and takes the display form. `AC-INTRO-004.1` and
+  `AC-INTRO-004.2` state the split. No code change on the block's own identity.
+- 2026-09-02: **The test written for the restated row 14 found a defect the extraction missed.** The
+  service-interface list spelled the same field two ways: the property half used `Type.FullName` and the
+  measuring-point half `GetDisplayFullName` (`LogicBlockIntrospection.cs:346`–`:355`), so one nested
+  service interface reached the document as `Outer+IReading` through a property binding and as
+  `Outer.IReading` through a measuring point — one field, two spellings, decided by which member kind
+  happened to bind. Both halves take the display form now, which is `AC-INTRO-004.2` made true rather
+  than a new proposal. `ReportServiceInterfaceTypeNamesInTheirDisplayForm` is red on the pre-fix code.
+  **Sibling sweep: done** — the remaining `Type.FullName` reads in the producer are the block identity
+  (`AC-INTRO-004.1`, deliberate) and exception messages.
+- 2026-09-02: **Row 30's shape reaches one site this pass does not own.**
+  `Vion.Dale.DevHost/Topologies/LogicBlockDefinition.cs:149`,`:154` tests an instantiation parameter's
+  editor bounds with `double.IsInfinity`, which a `NaN` passes, and then casts to `long`. Same one-sided
+  shape, different area's field (`AC-GATE-010.6`) and different area's suite. **Sibling sweep: handed
+  off** — one ledger line, `CTRL`'s. The two sites this page owns are both fixed.
+- 2026-09-02: **Q3 answered yes, and cheaply.** The spike was time-boxed at 30 minutes and took under
+  it: two `netstandard2.1` fixture libraries `ProjectReference`d into `Vion.Dale.LogicBlockParser.Test`
+  land beside the whole SDK closure in that project's output directory, which is the single directory
+  the parser's load context needs — no publish step in the test at all. The test shells out to the
+  parser's own build output, because a project reference does not copy an executable's
+  `runtimeconfig.json`. 16 tests, 3 s. The unregistered-block case needs its **own** assembly, because
+  after row 6's fix a plugin carrying one fails the whole run — which is precisely what that test
+  asserts.
+- 2026-09-02: **The `--package-id` sweep found two invocation sites, not one.** The brief named the
+  targets and the CLI's parser runner; both are the whole set — `RunParserDll` is the only place in the
+  repository that spawns the parser, and `Vion.Dale.Sdk.targets` the only place MSBuild does.
+- 2026-09-02: **Rows 68 and 69's compile-time half is parked, per the size guard.** The amendment
+  allowed an analyzer rule for a blank or colliding `Identifier =` "only if it fits the size guard". It
+  does not: a collision check is a whole-type analysis across two attribute families and two
+  declaration levels, which is `DALE043`/`DALE044`-sized work in `ANLZ`'s area. The bind-time refusal
+  ships; the diagnostic is `ANLZ`'s.
+- 2026-09-02: **The style gate's rename round cost 18 names**, exactly the budget the skill warns about
+  — the natural phrasing of an assertion carries an article (`OmitABoundThatIsNotFinite`,
+  `RefuseAPluginPathThatDoesNotExist`). Renamed before the REPORT, not after.
+- 2026-09-02: **`spec-trace` reads the `GAP` marker line-wise**, so a criterion carrying one is a single
+  long line on the page, and a criterion whose id also appears in ordinary prose loses the exemption.
+  `AC-INTRO-017.3` failed the gate on the second rule until the prose stopped repeating its id.
+- 2026-09-02: **Twelve of the pass's own tests pin the presentation attribute's default values rather
+  than a criterion.** They are premise tests — the sentinels `AC-INTRO-009.3` and `AC-INTRO-009.4` rest
+  on — and stay uncited by design, per `docs/spec-process.md`'s category. Said so in
+  `PresentationAttributeShould`'s class summary; listed in the REPORT.
+
 ---
 
 ## Spec delta (to distill)
 
-_(Phase B — ids are minted after the operator classifies the table.)_
+> One line per id, applied into `docs/specs/introspection.md`. Every line's text is the page's own
+> text: the list below was generated from the page, so the two cannot disagree.
+
+- ADDED AC-INTRO-001.1 -> docs/specs/introspection.md : (Event-driven) WHEN a plugin assembly is introspected THE SYSTEM SHALL emit one document carrying the package identity, the package version and one record per logic block.
+- ADDED AC-INTRO-001.2 -> docs/specs/introspection.md : (Event-driven) WHEN the pack supplies a package identity THE SYSTEM SHALL report it as the document's package identity, and SHALL report the plugin assembly's simple name where no identity is supplied or the supplied one is blank.
+- ADDED AC-INTRO-001.3 -> docs/specs/introspection.md : (Event-driven) WHEN the plugin assembly declares an informational version THE SYSTEM SHALL report it with any build-metadata suffix removed.
+- ADDED AC-INTRO-001.4 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL report an empty annotation map at document level.
+- ADDED AC-INTRO-001.5 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL introspect every non-abstract logic block of the plugin assembly, ordered by full type name.
+- ADDED AC-INTRO-001.6 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL write the document with camelCase member names and camelCase annotation keys, and every enum value as its member name.
+- ADDED AC-INTRO-002.1 -> docs/specs/introspection.md : (Event-driven) WHEN a non-abstract logic block of the plugin assembly is not registered in the plugin's service registration THE SYSTEM SHALL fail the run naming that type, and SHALL write no document.
+- ADDED AC-INTRO-002.3 -> docs/specs/introspection.md : (Event-driven) WHEN the plugin path or the output path is missing or empty THE SYSTEM SHALL fail the run and print its usage.
+- ADDED AC-INTRO-002.4 -> docs/specs/introspection.md : (Event-driven) WHEN the named plugin assembly does not exist THE SYSTEM SHALL fail the run.
+- ADDED AC-INTRO-002.5 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL accept its options in any position and case-insensitively, and SHALL treat neither an option nor an option's value as a positional argument.
+- ADDED AC-INTRO-002.6 -> docs/specs/introspection.md : (Event-driven) WHEN the development-only exclusion is requested THE SYSTEM SHALL leave out every logic block that binds a development-only contract and SHALL name each excluded block and its bindings on standard output.
+- ADDED AC-INTRO-002.7 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL prefix every such notice with a stable marker.
+- ADDED AC-INTRO-002.8 -> docs/specs/introspection.md : (Event-driven) WHEN introspecting a logic block throws THE SYSTEM SHALL report the originating exception rather than a reflection wrapper.
+- ADDED AC-INTRO-003.1 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL emit a byte-identical document for repeated runs over one assembly.
+- ADDED AC-INTRO-003.2 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL report the status-mapping, enum-label and struct-field maps in ordinal key order.
+- ADDED AC-INTRO-003.3 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL report a service's properties and measuring points in base-to-derived declaration order.
+- ADDED AC-INTRO-004.1 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL report a logic block's identity as its CLR full type name, so a nested block's identity carries the CLR nesting separator.
+- ADDED AC-INTRO-004.2 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL report every other type name in the document in display form, with the nesting separator written the way source spells it.
+- ADDED AC-INTRO-004.3 -> docs/specs/introspection.md : (Event-driven) WHEN a logic block declares a name THE SYSTEM SHALL report it as the block's default-name annotation.
+- ADDED AC-INTRO-004.4 -> docs/specs/introspection.md : (Event-driven) WHEN a logic block declares an icon or groups THE SYSTEM SHALL report them, and SHALL omit each annotation whose declared value is empty.
+- ADDED AC-INTRO-004.5 -> docs/specs/introspection.md : (Event-driven) WHEN a logic block declares no annotations at all THE SYSTEM SHALL report an empty annotation map.
+- ADDED AC-INTRO-004.6 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL carry a display string into the document verbatim, whatever characters it contains.
+- ADDED AC-INTRO-005.1 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL identify a logic block's root service by the block's short class name.
+- ADDED AC-INTRO-005.2 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL identify a component service by the name of the property holding it.
+- ADDED AC-INTRO-005.3 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL distinguish service identifiers case-sensitively.
+- ADDED AC-INTRO-005.4 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL report on each service the service-interface types its bound members came through, without repetition.
+- ADDED AC-INTRO-005.5 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL identify a service property and a measuring point by its C# property name.
+- ADDED AC-INTRO-006.1 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL report a member declaring both as one identifier in each of the two member lists, carrying one title and one description.
+- ADDED AC-INTRO-006.2 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL report the measuring-point kind on the measuring point's schema and not on the service property's.
+- ADDED AC-INTRO-006.3 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL report a measuring point's kind as its wire token.
+- ADDED AC-INTRO-007.2 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL take a member's title, description, unit and string format from either of its emission declarations, preferring the service property's.
+- ADDED AC-INTRO-007.3 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL report a declared bound only where it is finite.
+- ADDED AC-INTRO-007.4 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL report a member as read-only when it is a measuring point without a service property, when its implementing property has no public setter, when its declaration opts in, or when it is an instantiation parameter.
+- ADDED AC-INTRO-007.5 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL report write-only from a member's service-property declaration alone.
+- ADDED AC-INTRO-007.6 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL build a member's schema from a bool, a byte, a short, a ushort, an int, a uint, a long, a float, a double, a date-time, a duration, a globally unique identifier, a string, an enum, a flat readonly record struct, an immutable array of those, or a nullable of any value type or string, and SHALL refuse any other type naming it.
+- ADDED AC-INTRO-007.7 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL report a declared minimum above a declared maximum unchanged.
+- ADDED AC-INTRO-007.8 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL report an authored title, description, unit or string format that is empty as an empty value rather than omitting it.
+- ADDED AC-INTRO-008.1 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL report an enum as its short type name and its member-name strings, never its ordinals.
+- ADDED AC-INTRO-008.2 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL report a struct as its short type name and its positional-constructor parameters in declaration order, each keyed camelCase, requiring only the non-nullable ones and permitting no additional members.
+- ADDED AC-INTRO-008.3 -> docs/specs/introspection.md : (Event-driven) WHEN a struct declares more than one constructor THE SYSTEM SHALL enumerate its fields from the one with the most parameters.
+- ADDED AC-INTRO-008.4 -> docs/specs/introspection.md : (Event-driven) WHEN a struct used as a member's type has no positional constructor THE SYSTEM SHALL refuse the introspection naming that struct.
+- ADDED AC-INTRO-008.5 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL report struct-field annotations, member labels and severities for the fields of a member's own struct type and no deeper.
+- ADDED AC-INTRO-008.6 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL report a struct field's authored title, description, unit, string format, bounds and write-only flag on that field's own schema, and SHALL omit a field that declares none.
+- ADDED AC-INTRO-008.7 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL detect a nullable reference member from the compiler-emitted nullability annotation, falling back to the declaring constructor's and then the declaring type's.
+- ADDED AC-INTRO-009.1 -> docs/specs/introspection.md : (Event-driven) WHEN a member has no presentation to report THE SYSTEM SHALL report no presentation document rather than an empty one.
+- ADDED AC-INTRO-009.2 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL report a member's display name, group, order, importance, UI hint, decimals, format and visibility predicate as declared.
+- ADDED AC-INTRO-009.3 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL treat the integer sentinel as unset for order and for decimals, reporting neither.
+- ADDED AC-INTRO-009.4 -> docs/specs/introspection.md : (Unwanted) WHERE a member's importance is the default THE SYSTEM SHALL omit it.
+- ADDED AC-INTRO-009.5 -> docs/specs/introspection.md : (Event-driven) WHEN a member is declared a status indicator and declares no explicit UI hint THE SYSTEM SHALL report the status-indicator hint.
+- ADDED AC-INTRO-009.6 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL accept a presentation declaration on a service property or a measuring point and nowhere else.
+- ADDED AC-INTRO-010.1 -> docs/specs/introspection.md : (Event-driven) WHEN a member is declared a status indicator THE SYSTEM SHALL report the severity of each member of its enum type, and SHALL report none otherwise.
+- ADDED AC-INTRO-010.2 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL read severities through a nullable enum and SHALL NOT read them through an array of enum.
+- ADDED AC-INTRO-010.3 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL report each declared enum-member label without requiring any flag, reading through a nullable enum and through an array of enum, and SHALL omit an unlabelled member.
+- ADDED AC-INTRO-010.4 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL report a declared label whatever its value, including an empty one, one repeated on another member, and one on a combined flags member.
+- ADDED AC-INTRO-011.1 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL report a struct field's authored title beside the schema only where that field's own schema title carries type identity, leaving a scalar field's title inline.
+- ADDED AC-INTRO-011.2 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL report a struct field's enum-member labels and severities without requiring the status-indicator flag.
+- ADDED AC-INTRO-011.3 -> docs/specs/introspection.md : (Event-driven) WHEN a member's struct has nothing to carry beside its schema THE SYSTEM SHALL report no struct-field presentation at all.
+- ADDED AC-INTRO-011.4 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL leave a member's own presentation intact beside the struct-field presentation it carries.
+- ADDED AC-INTRO-012.1 -> docs/specs/introspection.md : (Event-driven) WHEN a member's schema title carries its own type identity THE SYSTEM SHALL route the authored title to the presentation display name instead.
+- ADDED AC-INTRO-012.2 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL build an interface-bound member's schema from the interface's declaration and its presentation and runtime from the implementing property.
+- ADDED AC-INTRO-012.3 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL take each presentation field from the implementing property where it sets one and from the interface otherwise.
+- ADDED AC-INTRO-012.4 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL decide a member's writability from the implementing property.
+- ADDED AC-INTRO-013.1 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL report a member as persistent when it opts in without excluding itself, and SHALL report no runtime document where there is nothing to report.
+- ADDED AC-INTRO-014.1 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL identify an interface binding by its declared identifier, and where none is declared by the holding property's name joined to the interface's name for a property-based binding and by the bare interface name for a class-implemented one.
+- ADDED AC-INTRO-014.2 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL identify a contract binding by its declared identifier, and by the holding property's name where none is declared.
+- ADDED AC-INTRO-014.3 -> docs/specs/introspection.md : (Event-driven) WHEN a binding declares an identifier that is empty or blank THE SYSTEM SHALL refuse the introspection naming the member.
+- ADDED AC-INTRO-014.4 -> docs/specs/introspection.md : (Event-driven) WHEN two bindings of one logic block resolve to one identifier THE SYSTEM SHALL refuse the introspection naming both members.
+- ADDED AC-INTRO-015.2 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL report an interface binding's default name, tags and multiplicity, omitting each where it is unset or default, and SHALL report its contract's name.
+- ADDED AC-INTRO-015.3 -> docs/specs/introspection.md : (Event-driven) WHEN a logic interface's contract declares role default names THE SYSTEM SHALL report this side's and the counterpart's separately, omitting each where unset.
+- ADDED AC-INTRO-015.4 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL resolve a contract's declared direction to an inbound or an outbound arrow for the side the endpoint is on, and to none where the contract declares none.
+- ADDED AC-INTRO-015.5 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL report a contract binding's contract type and its contract-type token.
+- ADDED AC-INTRO-015.6 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL report a contract binding's default name, tags, multiplicity, provider-side consumer limit, handler-actor name and development-only flag, omitting each where it is unset or default.
+- ADDED AC-INTRO-016.1 -> docs/specs/introspection.md : (Event-driven) WHEN a bound endpoint's contract declares a service relation THE SYSTEM SHALL report one relation half per declaration on the service owning that endpoint, carrying the endpoint's own identifier.
+- ADDED AC-INTRO-016.2 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL report a half as outward where the endpoint's interface is the one the declaration names, and as inward otherwise.
+- ADDED AC-INTRO-016.3 -> docs/specs/introspection.md : (Event-driven) WHEN an endpoint's holding property carries no service surface THE SYSTEM SHALL report no relation half for it.
+- ADDED AC-INTRO-016.4 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL report a relation half with an empty annotation map.
+- ADDED AC-INTRO-016.5 -> docs/specs/introspection.md : (Event-driven) WHEN a service relation names an interface that is neither side of its contract, or is declared on a class carrying no contract declaration, THE SYSTEM SHALL refuse the introspection.
+- ADDED AC-INTRO-016.6 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL report the halves of a gated component in the definition view and none of them for an instance whose configuration excludes it.
+- ADDED AC-INTRO-017.1 -> docs/specs/introspection.md : (Event-driven) WHEN a logic-block library is packed THE SYSTEM SHALL publish the project, run the introspection over the published assembly excluding development-only blocks, and fail the pack if that run fails. GAP: a targets test is a pack-and-consume round trip, which nothing in this repository has a harness for; the parser half it drives is covered by the document and refusal criteria above.
+- ADDED AC-INTRO-017.2 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL write the document beside the published output under the project's name and pack the whole published folder. GAP: as `AC-INTRO-017.1`.
+- ADDED AC-INTRO-017.3 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL skip the introspection entirely for a project that opts out. GAP: as `AC-INTRO-017.1`.
+- ADDED AC-INTRO-017.4 -> docs/specs/introspection.md : (Ubiquitous) THE SYSTEM SHALL supply the source generator and analyzers to every consuming project.
 
 ---
 
 ## Tasks
 
-_(Phase B.)_
+- `T-001` (`AC-INTRO-001.2`, `AC-INTRO-002.1`, `AC-INTRO-006.2`, `AC-INTRO-007.3`, `AC-INTRO-009.6`,
+  `AC-INTRO-014.3`, `AC-INTRO-014.4`): the seven classified fixes, each proven red before its fix and
+  measured against the one mutation that reddens it; the parser test project that answers Q3.
+- `T-002` (`AC-INTRO-004.2`, `AC-INTRO-005.*`, `AC-INTRO-007.5`, `AC-INTRO-007.6`, `AC-INTRO-008.5`,
+  `AC-INTRO-009.1`, `AC-INTRO-010.4`, `AC-INTRO-012.4`, `AC-INTRO-013.1`): the GAP-closing tests, and
+  the display-form defect the first of them uncovered.
+- `T-003` (every id): the suite's citations and its §12/§13 rename round.
+- `T-004` (every id): the spec page, the two RFCs absorbed and deleted, the reference sweep, the
+  identifier-stability fold and its link re-points, `testing-conventions.md` § 4, the ledger.
+

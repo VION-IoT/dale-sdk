@@ -1,4 +1,4 @@
-// All Explorer components. Plain-object Vue components with template strings (runtime-compiled —
+﻿// All Explorer components. Plain-object Vue components with template strings (runtime-compiled —
 // the no-build substrate, see CLAUDE.md). Conventions: components render from the store and
 // format.js policy helpers; writable controls keep a local draft + dirty flag so incoming live
 // updates never clobber an edit (the R0 guarantee, expressed the Vue way: the live value only
@@ -82,7 +82,7 @@ function badgeList(item) {
     if (presentation.decimals !== undefined && presentation.decimals !== null) push('decimals', `${presentation.decimals} dp`);
     if (presentation.order !== undefined && presentation.order !== null) push('order', `order=${presentation.order}`);
     if (presentation.format) push('decimals', `format=${presentation.format}`);
-    if (presentation.visibleWhen) push('visiblewhen', `visibleWhen: ${presentation.visibleWhen}`, 'RFC 0017: shown only while this predicate holds (evaluated live against sibling properties)');
+    if (presentation.visibleWhen) push('visiblewhen', `visibleWhen: ${presentation.visibleWhen}`, 'shown only while this predicate holds (evaluated live against sibling properties)');
 
     // runtime emission policy (throttle/deadband/immediate) + persistence.
     const runtime = item.runtime || {};
@@ -731,7 +731,7 @@ export const ItemRow = {
         const isStatus = presentation.uiHint === 'statusIndicator' || !!presentation.statusMappings;
         const unit = resolveUnit(schema);
 
-        // Conditional visibility (RFC 0017, UI profile). A predicate is evaluated reactively against live
+        // Conditional visibility (UI profile). A predicate is evaluated reactively against live
         // sibling-property values of the same logic-block instance; when it is false the row is hidden the
         // same way a static Importance.Hidden row is. Bare refs resolve against this item's own service;
         // qualified refs against a sibling service keyed by its definition identifier (the DevHost resolves

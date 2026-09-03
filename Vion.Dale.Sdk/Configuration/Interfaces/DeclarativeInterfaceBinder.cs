@@ -120,7 +120,7 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
                 // Get explicitly defined interface attributes for the property
                 var interfaceAttributes = property.GetCustomAttributes<LogicBlockInterfaceBindingAttribute>().ToList();
 
-                // RFC 0019: the component service that owns this property's endpoints — the same service the
+                // The component service that owns this property's endpoints — the same service the
                 // service binder mints from the property name. A component without a service surface has no
                 // node in the cloud graph, so its endpoints own no relation half (null); DALE045 warns.
                 var owningServiceIdentifier = ServiceSurface.IsServiceBearing(propertyType) ? property.Name : null;
@@ -180,7 +180,7 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
         }
 
         /// <summary>
-        ///     RFC 0019: derives this endpoint's service-relation halves from the <c>[ServiceRelation]</c>
+        ///     Derives this endpoint's service-relation halves from the <c>[ServiceRelation]</c>
         ///     declarations on the contract its logic interface belongs to — one half per declaration, on the
         ///     service that owns the endpoint.
         ///     <para>
@@ -228,7 +228,7 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
                                                   $"nor its AndInterface (\"{contractAttribute.AndInterface}\").");
                 }
 
-                // No owning service → no node in the cloud graph to anchor the edge to (RFC 0019 §4.2). The
+                // No owning service → no node in the cloud graph to anchor the edge to. The
                 // endpoint still binds and wires; the omission is flagged at compile time by DALE045.
                 if (owningServiceIdentifier == null)
                 {

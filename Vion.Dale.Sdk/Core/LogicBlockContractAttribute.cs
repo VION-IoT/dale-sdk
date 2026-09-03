@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace Vion.Dale.Sdk.Core
 {
@@ -12,7 +12,7 @@ namespace Vion.Dale.Sdk.Core
     ///     The role names below are translatable in the cloud, but not keyed on this contract: each block
     ///     that binds one of these interfaces carries its own copy, keyed by that block's
     ///     <see cref="LogicBlockInterfaceBindingAttribute" /> identifier. See
-    ///     <c>docs/identifier-stability.md</c>.
+    ///     <c>docs/specs/introspection.md</c>.
     /// </remarks>
     [PublicApi]
     [AttributeUsage(AttributeTargets.Class)]

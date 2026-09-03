@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.DependencyInjection;
@@ -122,12 +122,17 @@ namespace Vion.Dale.Sdk.Test.Introspection
         [DataRow("ObservedLink")]
         [DataRow("Link")]
         [DataRow("LinkTrend")]
-        public void CarryAnEnumFieldsAuthoredTitleOnEveryEmissionPath(string identifier)
+        [TestProperty("spec", "AC-INTRO-011.1")]
+        public void CarryEnumFieldAuthoredTitleOnEveryEmissionPath(string identifier)
         {
+            // Arrange
             // The one thing [StructField(Title)] on an enum field cannot do is ride schema.title —
             // the type identity holds that slot. presentation.fields is the second slot.
+
+            // Act
             var state = FieldEntry(identifier, "state");
 
+            // Assert
             Assert.AreEqual("Link state", state["displayName"]?.GetValue<string>());
         }
 
@@ -136,12 +141,18 @@ namespace Vion.Dale.Sdk.Test.Introspection
         [DataRow("ObservedLink")]
         [DataRow("Link")]
         [DataRow("LinkTrend")]
+        [TestProperty("spec", "AC-INTRO-011.2")]
         public void CarryEnumLabelsAndSeveritiesOnEveryEmissionPath(string identifier)
         {
+            // Arrange
+
+            // Act
             var state = FieldEntry(identifier, "state");
 
             // "Device error" ≠ "DeviceError" — the multi-word member is the discriminating one. An
             // assertion on Online would pass without the fix, since that label equals its member name.
+
+            // Assert
             Assert.AreEqual("Device error", (state["enumLabels"] as JsonObject)?["DeviceError"]?.GetValue<string>());
 
             // D3: severities are emitted unconditionally. Nothing here carries
@@ -150,12 +161,17 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
-        public void LabelAFieldThatCarriesNoStructFieldAttributeAtAll()
+        [TestProperty("spec", "AC-INTRO-011.2")]
+        public void LabelFieldCarryingNoStructFieldAttribute()
         {
+            // Arrange
             // [StructField] is optional; labels and severities belong to the field's enum type. The field
             // is also a Nullable<TEnum>, so it exercises the peel.
+
+            // Act
             var outcome = FieldEntry("DesiredLink", "lastFailureOutcome");
 
+            // Assert
             Assert.AreEqual("Device error", (outcome["enumLabels"] as JsonObject)?["DeviceError"]?.GetValue<string>());
             Assert.AreEqual("error", (outcome["statusMappings"] as JsonObject)?["DeviceError"]?.GetValue<string>());
 
@@ -164,12 +180,17 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
-        public void LeaveAScalarFieldsAuthoredTitleInlineRatherThanDuplicatingIt()
+        [TestProperty("spec", "AC-INTRO-011.1")]
+        public void LeaveScalarFieldAuthoredTitleInlineRatherThanDuplicatingIt()
         {
+            // Arrange
             // "Last contact" lands in schema.title, which is free for a scalar. Emitting it in both
             // places would leave two sources with no rule about which wins.
+
+            // Act
             var fields = Fields("DesiredLink");
 
+            // Assert
             Assert.IsNull(fields["lastContactAt"], "A scalar field must not get a presentation entry.");
             Assert.AreEqual("Last contact", SchemaFields("DesiredLink")["lastContactAt"]?["title"]?.GetValue<string>());
         }
@@ -179,24 +200,37 @@ namespace Vion.Dale.Sdk.Test.Introspection
         [DataRow("ObservedLink")]
         [DataRow("Link")]
         [DataRow("LinkTrend")]
-        public void LeaveTheEnumFieldsSchemaTitleCarryingItsTypeIdentity(string identifier)
+        [TestProperty("spec", "AC-INTRO-011.1")]
+        public void LeaveEnumFieldSchemaTitleCarryingItsTypeIdentity(string identifier)
         {
-            // schema.title is the cloud's translation key (TranslationResourceWalker branches on it).
-            // The second slot is an addition, not a replacement.
-            Assert.AreEqual(nameof(LinkOutcome), SchemaFields(identifier)["state"]?["title"]?.GetValue<string>());
+            // Arrange
+
+            // Act
+            var fields = SchemaFields(identifier);
+
+            // Assert
+            // schema.title is the type's identity, and the cloud keys that type's labels by it. The second
+            // slot is an addition, not a replacement.
+            Assert.AreEqual(nameof(LinkOutcome), fields["state"]?["title"]?.GetValue<string>());
         }
 
         [TestMethod]
-        public void SerializeTheStructFieldPresentationInSortedKeyOrder()
+        [TestProperty("spec", "AC-INTRO-003.2")]
+        public void SerializeStructFieldPresentationInSortedKeyOrder()
         {
+            // Arrange
             // VION-77 again, one level down: the nested maps are built as immutable dictionaries and .NET
             // randomizes string hashing per process, so without canonicalization the same assembly writes a
             // different `dale dev --export-config` on every run. As in the property-level test, the assertion
             // is sorted order rather than "two serializations agree" — two serializations inside one test
             // process share a hash seed and agree either way.
+
+            // Act
             var fields = Fields("DesiredLink");
 
             // Constructor order is state, lastFailureOutcome — genuinely not the sorted order.
+
+            // Assert
             CollectionAssert.AreEqual(new[] { "lastFailureOutcome", "state" }, fields.Select(entry => entry.Key).ToList());
 
             var state = FieldEntry("DesiredLink", "state");
@@ -206,24 +240,34 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
-        public void LeaveAStructWithNothingToCarryWithoutAFieldsNodeAtAll()
+        [TestProperty("spec", "AC-INTRO-011.3")]
+        public void LeaveStructWithNothingToCarryWithoutFieldsNode()
         {
+            // Arrange
             // Coordinates' fields are scalars with no Title — every annotation lands inline, so an
             // otherwise-empty presentation must still serialize to null rather than to `{"fields":{}}`.
+
+            // Act
             var result = LogicBlockIntrospection.IntrospectLogicBlock(new RichTypesLogicBlock(), _serviceProvider);
             var location = ServiceOf(result).MeasuringPoints.Single(m => m.Identifier == "Location");
 
+            // Assert
             Assert.IsNull(location.Presentation);
         }
 
         [TestMethod]
-        public void KeepThePropertyLevelPresentationItRidesAlongside()
+        [TestProperty("spec", "AC-INTRO-011.4")]
+        public void KeepPropertyLevelPresentationItRidesAlongside()
         {
+            // Arrange
             // The fields node is injected into the serialized presentation doc; the keys already there
             // must survive it. DesiredLink's own Title routes to displayName (its schema.title is the
             // struct's identity), which is exactly the key a naive overwrite would drop.
+
+            // Act
             var presentation = PresentationOf("DesiredLink");
 
+            // Assert
             Assert.AreEqual("Gewünschte Verbindung", presentation["displayName"]?.GetValue<string>());
             Assert.IsNotNull(presentation["fields"]);
         }

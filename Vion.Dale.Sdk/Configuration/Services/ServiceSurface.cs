@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Reflection;
 using Vion.Dale.Sdk.Core;
@@ -9,7 +9,7 @@ namespace Vion.Dale.Sdk.Configuration.Services
     ///     The single authority on what makes a type <i>service-bearing</i> — i.e. whether binding it
     ///     produces a service node. Two passes depend on the same answer and must never drift:
     ///     <see cref="DeclarativeServiceBinder" /> uses it to decide whether a property becomes a component
-    ///     service, and <c>DeclarativeInterfaceBinder</c> uses it (RFC 0019) to decide whether a
+    ///     service, and <c>DeclarativeInterfaceBinder</c> uses it to decide whether a
     ///     property-bound interface endpoint has an owning service to attach its relation half to.
     /// </summary>
     internal static class ServiceSurface

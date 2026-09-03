@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
@@ -9,7 +9,7 @@ using Vion.Dale.Sdk.Generators.Predicates;
 namespace Vion.Dale.Sdk.Generators.Analyzers
 {
     /// <summary>
-    ///     DALE041 / DALE042 — validates <c>[Presentation(VisibleWhen = "...")]</c> predicates (RFC 0017).
+    ///     DALE041 / DALE042 — validates <c>[Presentation(VisibleWhen = "...")]</c> predicates.
     ///     <para />
     ///     Registered on the logic-block <see cref="INamedTypeSymbol" />. It reconstructs the same service
     ///     map the runtime <c>DeclarativeServiceBinder</c> builds — the <b>root service</b> (identified by

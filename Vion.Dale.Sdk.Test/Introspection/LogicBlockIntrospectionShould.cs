@@ -278,8 +278,6 @@ namespace Vion.Dale.Sdk.Test.Introspection
     [TestClass]
     public class LogicBlockIntrospectionShould
     {
-        private readonly LogicBlockIntrospectionResult _result;
-
         private readonly IServiceProvider _serviceProvider = new ServiceCollection().AddSingleton<ILoggerFactory>(NullLoggerFactory.Instance)
                                                                                     .AddSingleton(typeof(ILogger<>), typeof(NullLogger<>))
                                                                                     .BuildServiceProvider();
@@ -293,98 +291,152 @@ namespace Vion.Dale.Sdk.Test.Introspection
             }
         }
 
-        public LogicBlockIntrospectionShould()
-        {
-            var logicBlock = new TestLogicBlock();
-            _result = LogicBlockIntrospection.IntrospectLogicBlock(logicBlock, _serviceProvider);
-        }
-
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-004.3")]
+        [TestProperty("spec", "AC-INTRO-004.4")]
         public void ReadBlockLevelAnnotations()
         {
-            Assert.AreEqual("Testgerät", _result.Annotations["DefaultName"]);
-            Assert.AreEqual("device-line", _result.Annotations["Icon"]);
+            // Arrange
+
+            // Act
+            var annotations = GetAnnotations();
+
+            // Assert
+            Assert.AreEqual("Testgerät", annotations["DefaultName"]);
+            Assert.AreEqual("device-line", annotations["Icon"]);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-004.5")]
         public void ReturnEmptyAnnotationsWhenNoLogicBlockAttribute()
         {
+            // Arrange
             var block = new PlainLogicBlock();
+
+            // Act
             var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
 
+            // Assert
             Assert.IsEmpty(result.Annotations);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-009.2")]
         public void ReadImportanceAnnotation()
         {
+            // Arrange
+
+            // Act
             var activePower = GetProperty("ActivePower");
 
             // Importance maps to presentation.importance
+
+            // Assert
             Assert.AreEqual("Primary", activePower.Presentation?["importance"]?.GetValue<string>());
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-009.2")]
         public void ReadGroupAnnotation()
         {
+            // Arrange
+
+            // Act
             var maxPower = GetProperty("MaxPower");
 
             // Configuration is set via [Presentation(Group = PropertyGroup.Configuration)]
             // and maps to presentation.group.
+
+            // Assert
             Assert.AreEqual("configuration", maxPower.Presentation?["group"]?.GetValue<string>());
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-009.2")]
         public void ReadDisplayGroupAnnotation()
         {
+            // Arrange
+
+            // Act
             var activePower = GetProperty("ActivePower");
 
             // Group maps to presentation.group
+
+            // Assert
             Assert.AreEqual("Energy", activePower.Presentation?["group"]?.GetValue<string>());
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-009.2")]
         public void ReadDisplayNameOverridingDefaultName()
         {
+            // Arrange
+
+            // Act
             var brightness = GetProperty("Brightness");
 
             // DisplayName maps to presentation.displayName
+
+            // Assert
             Assert.AreEqual("Helligkeit", brightness.Presentation?["displayName"]?.GetValue<string>());
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-009.2")]
         public void ReadDisplayOrderAnnotation()
         {
+            // Arrange
+
+            // Act
             var brightness = GetProperty("Brightness");
 
             // Order maps to presentation.order
+
+            // Assert
             Assert.AreEqual(5, brightness.Presentation?["order"]?.GetValue<int>());
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-009.2")]
         public void ReadUIHintAnnotation()
         {
+            // Arrange
+
+            // Act
             var brightness = GetProperty("Brightness");
 
             // UIHint maps to presentation.uiHint
+
+            // Assert
             Assert.AreEqual("slider", brightness.Presentation?["uiHint"]?.GetValue<string>());
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-009.5")]
         public void ReadStatusIndicatorAnnotation()
         {
+            // Arrange
+
+            // Act
             var connectionState = GetProperty("ConnectionState");
 
             // StatusIndicator presence is indicated by statusMappings being populated.
+
+            // Assert
             Assert.IsNotNull(connectionState.Presentation?["statusMappings"]);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-010.1")]
         public void ReadStatusMappingsFromStatusIndicatorProperty()
         {
+            // Arrange
+
+            // Act
             var connectionState = GetProperty("ConnectionState");
             var mappings = connectionState.Presentation?["statusMappings"] as JsonObject;
 
+            // Assert
             Assert.IsNotNull(mappings);
 
             // New shape: statusMappings is a flat object mapping member name → severity string.
@@ -396,8 +448,10 @@ namespace Vion.Dale.Sdk.Test.Introspection
         [TestMethod]
         [DataRow("statusMappings")]
         [DataRow("enumLabels")]
-        public void SerializeTheStatusAndLabelMapsInSortedKeyOrder(string mapName)
+        [TestProperty("spec", "AC-INTRO-003.2")]
+        public void SerializeStatusAndLabelMapsInSortedKeyOrder(string mapName)
         {
+            // Arrange
             // VION-77: both maps are built as immutable dictionaries, and .NET randomizes string hashing per
             // process — so the same assembly serialized them in a different order on every run, and
             // `dale dev --export-config` wrote a different file each time.
@@ -406,8 +460,11 @@ namespace Vion.Dale.Sdk.Test.Introspection
             // DeviceConnectionState is declared Unknown, Connected, Disconnected, Blocked, Authenticating — so
             // declaration order and sorted order are genuinely different documents, and only the fix produces
             // the sorted one.
+
+            // Act
             var map = GetProperty("ConnectionState").Presentation?[mapName] as JsonObject;
 
+            // Assert
             Assert.IsNotNull(map, $"ConnectionState must carry {mapName} for this test to mean anything.");
 
             var keys = map.Select(entry => entry.Key).ToList();
@@ -415,13 +472,19 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-008.1")]
         public void ReadEnumMembersInSchema()
         {
+            // Arrange
+
+            // Act
             var mode = GetProperty("Mode");
 
             // New shape: enum members are inline in schema.enum as an array of name strings.
             // Integer values are NOT on the wire per spec §5.1.
             var enumArray = mode.Schema["enum"] as JsonArray;
+
+            // Assert
             Assert.IsNotNull(enumArray);
             Assert.HasCount(2, enumArray);
             Assert.IsTrue(enumArray.Any(e => e?.GetValue<string>() == "Auto"));
@@ -429,44 +492,66 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-007.2")]
         public void ReadServicePropertySchemaAnnotations()
         {
+            // Arrange
+
+            // Act
             var activePower = GetProperty("ActivePower");
 
             // Title maps to schema.title; Unit maps to schema["x-unit"].
+
+            // Assert
             Assert.AreEqual("Leistung", activePower.Schema["title"]?.GetValue<string>());
             Assert.AreEqual("kW", activePower.Schema["x-unit"]?.GetValue<string>());
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-007.2")]
         public void ReadMeasuringPointSchemaAnnotations()
         {
-            var service = _result.Services.First();
-            var temperature = service.MeasuringPoints.First(m => m.Identifier == "Temperature");
+            // Arrange
 
+            // Act
+            var temperature = GetMeasuringPoint("Temperature");
+
+            // Assert
             // Title and Unit map to schema fields.
             Assert.AreEqual("Temperatur", temperature.Schema["title"]?.GetValue<string>());
             Assert.AreEqual("°C", temperature.Schema["x-unit"]?.GetValue<string>());
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-009.2")]
         public void ReadUiAnnotationsOnMeasuringPoints()
         {
-            var service = _result.Services.First();
-            var energyTotal = service.MeasuringPoints.First(m => m.Identifier == "EnergyTotal");
+            // Arrange
 
-            // EnergyTotal has [Importance(Secondary)] and [Display(group: "Energy")] from the
-            // logic-block property, which maps to presentation.
+            // Act
+            var energyTotal = GetMeasuringPoint("EnergyTotal");
+
+            // Assert
+            // EnergyTotal carries its importance and group from the logic-block property, which maps to
+            // presentation.
             Assert.AreEqual("Secondary", energyTotal.Presentation?["importance"]?.GetValue<string>());
             Assert.AreEqual("Energy", energyTotal.Presentation?["group"]?.GetValue<string>());
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-009.2")]
+        [TestProperty("spec", "AC-INTRO-010.1")]
+        [TestProperty("spec", "AC-INTRO-009.2")]
+        [TestProperty("spec", "AC-INTRO-010.1")]
         public void NotIncludeAbsentPresentationKeys()
         {
+            // Arrange
             // MaxPower has only [Presentation(Group = ...)] — no Importance / Order / UiHint.
+
+            // Act
             var maxPower = GetProperty("MaxPower");
 
+            // Assert
             Assert.IsNull(maxPower.Presentation?["importance"]);
             Assert.IsNull(maxPower.Presentation?["uiHint"]);
             Assert.IsNull(maxPower.Presentation?["order"]);
@@ -476,64 +561,100 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-015.2")]
         public void ReadContractNameOnBetweenSideInterface()
         {
+            // Arrange
             var block = new BetweenSideTestBlock();
+
+            // Act
             var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
 
             var iface = result.Interfaces.First();
+
+            // Assert
             Assert.AreEqual("TestDirectionalContract", iface.Annotations["ContractName"]);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-015.4")]
         public void ResolveOutboundDirectionOnBetweenSide()
         {
+            // Arrange
             var block = new BetweenSideTestBlock();
+
+            // Act
             var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
 
             var iface = result.Interfaces.First();
+
+            // Assert
             Assert.AreEqual("Outbound", iface.Annotations["ArrowDirection"]);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-015.4")]
         public void ResolveInboundDirectionOnAndSide()
         {
+            // Arrange
             var block = new AndSideTestBlock();
+
+            // Act
             var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
 
             var iface = result.Interfaces.First();
+
+            // Assert
             Assert.AreEqual("Inbound", iface.Annotations["ArrowDirection"]);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-015.3")]
         public void ReadRoleDefaultNamesOnBetweenSide()
         {
+            // Arrange
             var block = new BetweenSideTestBlock();
+
+            // Act
             var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
 
             var iface = result.Interfaces.First();
+
+            // Assert
             Assert.AreEqual("Provider", iface.Annotations["RoleDefaultName"]);
             Assert.AreEqual("Consumer", iface.Annotations["MatchingRoleDefaultName"]);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-015.3")]
         public void ReadRoleDefaultNamesOnAndSide()
         {
+            // Arrange
             var block = new AndSideTestBlock();
+
+            // Act
             var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
 
             var iface = result.Interfaces.First();
+
+            // Assert
             Assert.AreEqual("Consumer", iface.Annotations["RoleDefaultName"]);
             Assert.AreEqual("Provider", iface.Annotations["MatchingRoleDefaultName"]);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-015.2")]
         public void ReadInterfaceMultiplicityAnnotation()
         {
+            // Arrange
             var block = new BetweenSideTestBlock();
+
+            // Act
             var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
 
             var iface = result.Interfaces.First();
+
+            // Assert
             Assert.AreEqual("Quelle", iface.Annotations["DefaultName"]);
 
             // Frozen forward-contract shape: the consumer-side link multiplicity rides
@@ -548,23 +669,34 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-015.2")]
         public void ReadInterfaceDependencyTagsAnnotation()
         {
+            // Arrange
             var block = new BetweenSideTestBlock();
+
+            // Act
             var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
 
             var iface = result.Interfaces.First();
             var tags = (List<string>)iface.Annotations["Tags"];
+
+            // Assert
             Assert.HasCount(1, tags);
             Assert.Contains("provider-tag", tags);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-014.2")]
         public void IntrospectContractsWithIdentifiers()
         {
+            // Arrange
             var block = new ContractTestLogicBlock();
+
+            // Act
             var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
 
+            // Assert
             Assert.HasCount(3, result.Contracts);
             Assert.IsTrue(result.Contracts.Any(c => c.Identifier == "Button"));
             Assert.IsTrue(result.Contracts.Any(c => c.Identifier == "LED"));
@@ -572,12 +704,18 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-015.5")]
         public void IntrospectContractMatchingContractType()
         {
+            // Arrange
             var block = new ContractTestLogicBlock();
+
+            // Act
             var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
 
             var button = result.Contracts.First(c => c.Identifier == "Button");
+
+            // Assert
             Assert.AreEqual("DigitalInput", button.MatchingContractType);
 
             var led = result.Contracts.First(c => c.Identifier == "LED");
@@ -588,12 +726,18 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-015.6")]
         public void IntrospectContractDefaultNameAnnotation()
         {
+            // Arrange
             var block = new ContractTestLogicBlock();
+
+            // Act
             var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
 
             var button = result.Contracts.First(c => c.Identifier == "Button");
+
+            // Assert
             Assert.AreEqual("Taster", button.Annotations["DefaultName"]);
 
             var led = result.Contracts.First(c => c.Identifier == "LED");
@@ -601,14 +745,20 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-015.6")]
         public void IntrospectContractMultiplicityAndConsumersAnnotations()
         {
+            // Arrange
             var block = new ContractTestLogicBlock();
+
+            // Act
             var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
 
             // Button: IDigitalInput bound with consumer-side Multiplicity = ZeroOrOne.
             // Inputs default provider-side Consumers to ZeroOrMore → no Consumers key.
             var button = result.Contracts.First(c => c.Identifier == "Button");
+
+            // Assert
             Assert.AreEqual(LogicBlockWiringConventions.ZeroOrOne, button.Annotations[LogicBlockWiringConventions.MultiplicityAnnotationKey]);
             Assert.IsFalse(button.Annotations.ContainsKey(LogicBlockWiringConventions.ConsumersAnnotationKey));
             Assert.IsFalse(button.Annotations.ContainsKey("Cardinality"));
@@ -629,14 +779,20 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-015.6")]
         public void IntrospectContractHandlerActorNameAnnotation()
         {
+            // Arrange
             // The contract's ContractHandlerActorName is surfaced so the DevHost can address the generic
             // stand-in registered under it when a scenario drives the contract (RFC 0010).
             var block = new ContractTestLogicBlock();
+
+            // Act
             var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
 
             var button = result.Contracts.First(c => c.Identifier == "Button");
+
+            // Assert
             Assert.AreEqual("DigitalInputHandler", button.Annotations[ServiceProviderContractAnnotations.ContractHandlerActorName]);
 
             var led = result.Contracts.First(c => c.Identifier == "LED");
@@ -647,11 +803,15 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-015.6")]
         public void IntrospectDevelopmentOnlyAnnotationOnEveryProviderFace()
         {
+            // Arrange
             // Every provider face is development surface, so each carries the flag — and its contract-type
             // name is the consumer face's name with the Provider suffix (a stable introspection identifier).
             var block = new ProviderContractTestLogicBlock();
+
+            // Act
             var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
 
             var expected = new Dictionary<string, string>
@@ -665,6 +825,8 @@ namespace Vion.Dale.Sdk.Test.Introspection
             foreach (var (identifier, contractType) in expected)
             {
                 var contract = result.Contracts.First(c => c.Identifier == identifier);
+
+            // Assert
                 Assert.AreEqual(contractType, contract.MatchingContractType);
                 Assert.IsTrue(contract.Annotations.TryGetValue(ServiceProviderContractAnnotations.DevelopmentOnly, out var flag) && flag is true,
                               $"{identifier} must be flagged development-only.");
@@ -672,86 +834,122 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
-        public void OmitTheDevelopmentOnlyAnnotationOnOrdinaryContracts()
+        [TestProperty("spec", "AC-INTRO-015.6")]
+        public void OmitDevelopmentOnlyAnnotationOnOrdinaryContracts()
         {
+            // Arrange
             // The flag is emitted only when set — an ordinary HAL contract's annotation bag is unchanged.
             var block = new ContractTestLogicBlock();
+
+            // Act
             var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
 
             foreach (var contract in result.Contracts)
             {
+
+            // Assert
                 Assert.IsFalse(contract.Annotations.ContainsKey(ServiceProviderContractAnnotations.DevelopmentOnly),
                                $"{contract.Identifier} must not carry the development-only flag.");
             }
         }
 
         [TestMethod]
-        public void ReportEveryDevelopmentOnlyContractOfASimulatorBlock()
+        [TestProperty("spec", "AC-INTRO-002.6")]
+        public void ReportEveryDevelopmentOnlyContractOfSimulatorBlock()
         {
+            // Arrange
             // The pack gate's predicate: a block that binds any provider face is development surface, and the
             // report names each binding so a pack log can say what the production artifact does not carry.
             var block = new ProviderContractTestLogicBlock();
+
+            // Act
             var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
 
             var developmentOnly = LogicBlockIntrospection.GetDevelopmentOnlyContracts(result);
 
+            // Assert
             CollectionAssert.AreEquivalent(new[] { "ButtonProvider", "LedProvider", "TemperatureProvider", "DimmerProvider" },
                                            developmentOnly.Select(contract => contract.Identifier).ToList());
         }
 
         [TestMethod]
-        public void ReportNoDevelopmentOnlyContractForAProductionBlock()
+        [TestProperty("spec", "AC-INTRO-002.6")]
+        public void ReportNoDevelopmentOnlyContractForProductionBlock()
         {
+            // Arrange
             var block = new ContractTestLogicBlock();
+
+            // Act
             var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
 
+            // Assert
             Assert.IsEmpty(LogicBlockIntrospection.GetDevelopmentOnlyContracts(result));
         }
 
         [TestMethod]
-        public void ReportADevelopmentOnlyContractEvenWhenItsBindingIsGated()
+        [TestProperty("spec", "AC-INTRO-002.6")]
+        public void ReportDevelopmentOnlyContractEvenForGatedBinding()
         {
+            // Arrange
             // Strict by design, and consistent with the production runtime's refusal: the flag is judged on the
             // declaration, so an [IncludedWhen] gate cannot argue a block back into the production artifact.
             var block = new GatedProviderContractTestLogicBlock();
+
+            // Act
             var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
 
             var developmentOnly = LogicBlockIntrospection.GetDevelopmentOnlyContracts(result);
 
+            // Assert
             Assert.HasCount(1, developmentOnly);
             Assert.AreEqual("LedProvider", developmentOnly[0].Identifier);
             Assert.AreEqual("ChannelCount >= 2", result.Contracts.First(c => c.Identifier == "LedProvider").Annotations[LogicBlockWiringConventions.IncludedWhenAnnotationKey]);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-015.6")]
         public void IntrospectContractTagsAnnotation()
         {
+            // Arrange
             var block = new ContractTestLogicBlock();
+
+            // Act
             var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
 
             var button = result.Contracts.First(c => c.Identifier == "Button");
             var tags = (List<string>)button.Annotations["Tags"];
+
+            // Assert
             Assert.HasCount(2, tags);
             Assert.Contains("input", tags);
             Assert.Contains("sensor", tags);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-014.2")]
         public void UsePropertyNameAsContractIdentifierWhenNotSpecified()
         {
+            // Arrange
             var block = new ContractTestLogicBlock();
+
+            // Act
             var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
 
+            // Assert
             Assert.IsTrue(result.Contracts.Any(c => c.Identifier == "Temperature"));
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-006.3")]
         public void EmitByteIdenticalXKindWireTokenForEachMeasuringPointKind()
         {
+            // Arrange
             // The Kind attribute now carries the SDK-Core mirror enum; PropertyMetadataBuilder
             // casts it back to the canonical wire enum. The emitted x-kind token must stay
             // byte-identical to the pre-mirror output (measurement / total / totalIncreasing).
             var block = new MeasuringPointKindLogicBlock();
+
+            // Act
             var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
             var service = result.Services.First();
 
@@ -759,6 +957,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
             var daily = service.MeasuringPoints.First(m => m.Identifier == "DailyEnergy");
             var instant = service.MeasuringPoints.First(m => m.Identifier == "InstantPower");
 
+            // Assert
             Assert.AreEqual("totalIncreasing", lifetime.Schema["x-kind"]?.GetValue<string>());
             Assert.AreEqual("total", daily.Schema["x-kind"]?.GetValue<string>());
             Assert.AreEqual("measurement", instant.Schema["x-kind"]?.GetValue<string>());
@@ -766,7 +965,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-007.3")]
-        public void OmitABoundThatIsNotFinite()
+        public void OmitNonFiniteBound()
         {
             // Arrange
             var block = new NonFiniteBoundBlock();
@@ -790,7 +989,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-007.3")]
-        public void OmitAStructFieldBoundThatIsNotFinite()
+        public void OmitNonFiniteStructFieldBound()
         {
             // Arrange
             var block = new NonFiniteBoundBlock();
@@ -810,7 +1009,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-007.3")]
-        public void SerializeADocumentDeclaringABoundThatIsNotFinite()
+        public void SerializeDocumentDeclaringNonFiniteBound()
         {
             // Arrange
             var block = new NonFiniteBoundBlock();
@@ -829,7 +1028,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-006.2")]
-        public void ReportMeasuringPointKindOnTheMeasuringPointStreamOnly()
+        public void ReportMeasuringPointKindOnMeasuringPointStreamOnly()
         {
             // Arrange
             var block = new DualStreamKindBlock();
@@ -845,7 +1044,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-006.1")]
-        public void ReportOneTitleAndDescriptionForAMemberOnBothStreams()
+        public void ReportOneTitleAndDescriptionForMemberOnBothStreams()
         {
             // Arrange
             var block = new DualStreamKindBlock();
@@ -869,7 +1068,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-014.3")]
         [DynamicData(nameof(BlankIdentifierBlocks))]
-        public void RefuseABindingWhoseIdentifierIsBlank(LogicBlockBase block, string memberName)
+        public void RefuseBindingWhoseIdentifierBlank(LogicBlockBase block, string memberName)
         {
             // Arrange / Act / Assert
             var exception = Assert.ThrowsExactly<InvalidOperationException>(() => LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider));
@@ -993,7 +1192,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-007.7")]
-        public void ReportABoundedRangeThatCannotBeSatisfied()
+        public void ReportBoundedRangeThatCannotBeSatisfied()
         {
             // Arrange
             var block = new VerbatimStringBlock();
@@ -1102,10 +1301,206 @@ namespace Vion.Dale.Sdk.Test.Introspection
             Assert.EndsWith("IntrospectionOuter+NestedBlock", result.TypeFullName);
         }
 
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-005.1")]
+        [TestProperty("spec", "AC-INTRO-005.2")]
+        public void IdentifyServicesByBlockClassAndHoldingPropertyName()
+        {
+            // Arrange
+            var block = new CaseDistinctServiceBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            Assert.Contains(nameof(CaseDistinctServiceBlock), result.Services.Select(service => service.Identifier).ToList());
+            Assert.Contains(nameof(CaseDistinctServiceBlock.Sensor), result.Services.Select(service => service.Identifier).ToList());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-005.5")]
+        public void IdentifyMembersByTheirPropertyName()
+        {
+            // Arrange
+            var block = new MemberFlagsBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            CollectionAssert.AreEquivalent(new[]
+                                           {
+                                               nameof(MemberFlagsBlock.Passphrase), nameof(MemberFlagsBlock.Retained), nameof(MemberFlagsBlock.Excluded),
+                                               nameof(MemberFlagsBlock.Plain), nameof(MemberFlagsBlock.Labels),
+                                           },
+                                           result.Services.Single().Properties.Select(property => property.Identifier).ToList());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-004.2")]
+        [TestProperty("spec", "AC-INTRO-005.4")]
+        public void ReportServiceInterfaceTypeNamesInTheirDisplayForm()
+        {
+            // Arrange
+            var block = new NestedSurfaceBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            // The nesting separator is the block identity's alone: every other type name in the document is
+            // written the way a reader spells it in source.
+            var interfaceNames = result.Services.Single().InterfaceTypeFullNames;
+            Assert.Contains("Vion.Dale.Sdk.Test.TestHelpers.NestedSurface.IReading", interfaceNames);
+            Assert.EndsWith("NestedSurfaceBlock", result.TypeFullName);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-002.8")]
+        public void ReportOriginatingExceptionRatherThanReflectionWrapper()
+        {
+            // Arrange
+            var block = new UnsupportedTypeBlock();
+
+            // Act / Assert
+            // Configure is reached by reflection, so without the rethrow every refusal above would arrive as
+            // "Exception has been thrown by the target of an invocation." — which is what a pack would print.
+            Assert.ThrowsExactly<NotSupportedException>(() => LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-007.6")]
+        public void RefuseMemberTypeOutsideServiceElementSet()
+        {
+            // Arrange
+            var block = new UnsupportedTypeBlock();
+
+            // Act / Assert
+            var exception = Assert.ThrowsExactly<NotSupportedException>(() => LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider));
+
+            Assert.Contains("System.Decimal", exception.Message);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-007.5")]
+        public void ReportWriteOnlyFromServicePropertyDeclarationAlone()
+        {
+            // Arrange
+            var block = new MemberFlagsBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            var properties = result.Services.Single().Properties;
+            Assert.IsTrue(properties.Single(property => property.Identifier == nameof(MemberFlagsBlock.Passphrase)).Schema["writeOnly"]?.GetValue<bool>());
+            Assert.IsNull(properties.Single(property => property.Identifier == nameof(MemberFlagsBlock.Plain)).Schema["writeOnly"]);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-013.1")]
+        public void ReportPersistenceFromItsOptIn()
+        {
+            // Arrange
+            var block = new MemberFlagsBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            var properties = result.Services.Single().Properties;
+            Assert.IsTrue(properties.Single(property => property.Identifier == nameof(MemberFlagsBlock.Retained)).Runtime?["persistent"]?.GetValue<bool>());
+            Assert.IsNull(properties.Single(property => property.Identifier == nameof(MemberFlagsBlock.Excluded)).Runtime);
+            Assert.IsNull(properties.Single(property => property.Identifier == nameof(MemberFlagsBlock.Plain)).Runtime);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-009.1")]
+        public void ReportNoPresentationForMemberDeclaringNone()
+        {
+            // Arrange
+            var block = new MemberFlagsBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            Assert.IsNull(result.Services.Single().Properties.Single(property => property.Identifier == nameof(MemberFlagsBlock.Plain)).Presentation);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-010.4")]
+        public void CarryEveryDeclaredEnumLabelWhateverItsValue()
+        {
+            // Arrange
+            var block = new MemberFlagsBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            var labels = result.Services.Single().Properties.Single(property => property.Identifier == nameof(MemberFlagsBlock.Labels)).Presentation?["enumLabels"];
+            Assert.AreEqual(string.Empty, labels?[nameof(EdgeLabelEnum.Empty)]?.GetValue<string>());
+            Assert.AreEqual("Same", labels?[nameof(EdgeLabelEnum.First)]?.GetValue<string>());
+            Assert.AreEqual("Same", labels?[nameof(EdgeLabelEnum.Second)]?.GetValue<string>());
+            Assert.IsNull(labels?[nameof(EdgeLabelEnum.Unlabelled)]);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-012.4")]
+        public void DecideWritabilityFromImplementingProperty()
+        {
+            // Arrange
+            var block = new WritabilityBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            // The interface declares the member get-only; the implementation is what a set-value request
+            // writes, so its public setter is what decides.
+            Assert.IsNull(result.Services.Single().Properties.Single().Schema["readOnly"]);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-008.5")]
+        public void ReportStructFieldAnnotationsOneLevelDeepOnly()
+        {
+            // Arrange
+            var block = new NestedStructBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            var property = result.Services.Single().Properties.Single();
+            var child = property.Schema["properties"]?["child"];
+
+            Assert.AreEqual("A", property.Schema["properties"]?["amp"]?["x-unit"]?.GetValue<string>());
+            Assert.IsNull(child?["properties"]?["volt"]?["x-unit"]);
+            Assert.IsNull(child?["properties"]?["volt"]?["title"]);
+            Assert.IsNull(property.Presentation?["fields"]?["child"]?["fields"]);
+        }
+
         private LogicBlockIntrospectionResult.ServicePropertyInfo GetProperty(string identifier)
         {
-            var service = _result.Services.First();
-            return service.Properties.First(p => p.Identifier == identifier);
+            return Introspected().Services.First().Properties.First(property => property.Identifier == identifier);
+        }
+
+        private LogicBlockIntrospectionResult.ServiceMeasuringPointInfo GetMeasuringPoint(string identifier)
+        {
+            return Introspected().Services.First().MeasuringPoints.First(measuringPoint => measuringPoint.Identifier == identifier);
+        }
+
+        private Dictionary<string, object> GetAnnotations()
+        {
+            return Introspected().Annotations;
+        }
+
+        /// <summary>The standing fixture, introspected fresh: each test owns its own Act.</summary>
+        private LogicBlockIntrospectionResult Introspected()
+        {
+            return LogicBlockIntrospection.IntrospectLogicBlock(new TestLogicBlock(), _serviceProvider);
         }
     }
 }

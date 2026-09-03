@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Immutable;
 using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Core;
@@ -101,7 +101,7 @@ namespace Vion.Dale.DevHost.SmokeHost.LogicBlocks
         [Presentation(Group = PropertyGroup.Configuration, Order = 40)]
         public double? OptionalLimit { get; set; }
 
-        // ── Conditional visibility (RFC 0017 — VisibleWhen) ─────────────────────────
+        // ── Conditional visibility (VisibleWhen) ────────────────────────────────────
         // The DirectMeasurement pattern: when direct measurement is on, the two CT-ratio commissioning
         // inputs become internal no-ops, so hiding them is a pure display decision — they keep existing
         // and functioning. Toggle DirectMeasurement to watch the two inputs hide/show live.

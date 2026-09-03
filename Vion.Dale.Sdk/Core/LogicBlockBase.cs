@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -514,7 +514,7 @@ namespace Vion.Dale.Sdk.Core
             // were supplied), encoded to the shared JSON-scalar form. Definition mode binds the full set.
             var parameterContext = mode == BindingMode.Live ? InclusionGate.BuildParameterContext(this) : null;
 
-            // RFC 0019: the interface binder also registers the contract-carried service-relation halves, so it
+            // The interface binder also registers the contract-carried service-relation halves, so it
             // needs the service binder. Order stays irrelevant — halves are keyed by service identifier and the
             // introspection joins by key, so the services created below pick up halves registered above.
             var serviceBinder = (ServiceBinder)configurationBuilder.Services;

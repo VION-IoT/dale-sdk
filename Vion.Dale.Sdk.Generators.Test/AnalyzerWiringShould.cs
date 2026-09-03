@@ -54,6 +54,7 @@ namespace Vion.Dale.Sdk.Generators.Test
         private static readonly string[] ProbedProjects = ["Vion.Dale.Sdk.DigitalIo", "Vion.Dale.Sdk.AnalogIo"];
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-017.4")]
         [DataRow("Vion.Dale.Sdk.DigitalIo")]
         [DataRow("Vion.Dale.Sdk.AnalogIo")]
         public void RunTheDaleAnalyzersOverTheIoProjects(string projectName)

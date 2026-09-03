@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Immutable;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -303,6 +303,143 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
         [ServiceProperty(Title = "Nothing to describe")]
         public FieldlessStruct Nothing { get; set; }
 #pragma warning restore DALE003, DALE016
+
+        protected override void Ready()
+        {
+        }
+    }
+
+    /// <summary>A service interface declared inside a static class, so its CLR full name is a nested one.</summary>
+    public static class NestedSurface
+    {
+        /// <summary>The nested service interface itself.</summary>
+        [ServiceInterface]
+        public interface IReading
+        {
+            /// <summary>The one member the interface contributes.</summary>
+            [ServiceProperty(Title = "Reading")]
+            double Reading { get; }
+        }
+    }
+
+    /// <summary>Implements the nested service interface, so the emitted interface name is a display name.</summary>
+    public class NestedSurfaceBlock : LogicBlockBase, NestedSurface.IReading
+    {
+        public NestedSurfaceBlock() : base(NullLogger.Instance)
+        {
+        }
+
+        public double Reading { get; private set; }
+
+        protected override void Ready()
+        {
+        }
+    }
+
+    /// <summary>A struct whose own field is a struct — outside the flat whitelist, and the pack-path shape.</summary>
+    public readonly record struct NestedLeaf([StructField(Title = "Leaf title", Unit = "V")] double Volt, IntrospectionSeverityEnum State);
+
+    /// <summary>The outer struct carrying the nested one.</summary>
+    public readonly record struct NestedBranch([StructField(Title = "Branch title")] NestedLeaf Child, [StructField(Title = "Top", Unit = "A")] double Amp);
+
+    /// <summary>Carries the nested struct, which DALE016 refuses at compile time.</summary>
+    public class NestedStructBlock : LogicBlockBase
+    {
+        public NestedStructBlock() : base(NullLogger.Instance)
+        {
+        }
+
+        // DALE003 and DALE016 refuse a struct whose own field is a struct. The fixture exists to pin what the
+        // pack path does behind that diagnostic, so both are suppressed here and nowhere else.
+#pragma warning disable DALE003, DALE016
+        [ServiceProperty(Title = "Nested struct")]
+        public NestedBranch Nested { get; set; }
+#pragma warning restore DALE003, DALE016
+
+        protected override void Ready()
+        {
+        }
+    }
+
+    /// <summary>A type outside the service-element whitelist.</summary>
+    public class UnsupportedTypeBlock : LogicBlockBase
+    {
+        public UnsupportedTypeBlock() : base(NullLogger.Instance)
+        {
+        }
+
+        // DALE003 refuses this type at compile time; the fixture pins the pack-path backstop behind it.
+#pragma warning disable DALE003
+        [ServiceProperty(Title = "Not a service-element type")]
+        public decimal Money { get; set; }
+#pragma warning restore DALE003
+
+        protected override void Ready()
+        {
+        }
+    }
+
+    /// <summary>Members that decide their own writability, persistence and enum labels.</summary>
+    public class MemberFlagsBlock : LogicBlockBase
+    {
+        public MemberFlagsBlock() : base(NullLogger.Instance)
+        {
+        }
+
+        [ServiceProperty(Title = "Passphrase", WriteOnly = true)]
+        public string? Passphrase { get; set; }
+
+        [ServiceProperty(Title = "Retained")]
+        [Persistent]
+        public int Retained { get; set; }
+
+        [ServiceProperty(Title = "Excluded")]
+        [Persistent(Exclude = true)]
+        public int Excluded { get; set; }
+
+        [ServiceProperty(Title = "Plain")]
+        public int Plain { get; set; }
+
+        [ServiceProperty(Title = "Edge labels")]
+        public EdgeLabelEnum Labels { get; set; }
+
+        protected override void Ready()
+        {
+        }
+    }
+
+    /// <summary>Labels the compiler accepts that a translation catalogue must receive unchanged.</summary>
+    public enum EdgeLabelEnum
+    {
+        [EnumLabel("")]
+        Empty,
+
+        [EnumLabel("Same")]
+        First,
+
+        [EnumLabel("Same")]
+        Second,
+
+        Unlabelled,
+    }
+
+    /// <summary>A service interface whose implementing property decides writability, not the interface.</summary>
+    [ServiceInterface]
+    public interface IWritabilitySurface
+    {
+        /// <summary>Declared read-only on the interface; the implementation decides what ships.</summary>
+        [ServiceProperty(Title = "Setpoint")]
+        double Setpoint { get; }
+    }
+
+    /// <summary>Implements the interface with a public setter, so the wire reports the member writable.</summary>
+    public class WritabilityBlock : LogicBlockBase, IWritabilitySurface
+    {
+        public WritabilityBlock() : base(NullLogger.Instance)
+        {
+        }
+
+        public double Setpoint { get; set; }
 
         protected override void Ready()
         {

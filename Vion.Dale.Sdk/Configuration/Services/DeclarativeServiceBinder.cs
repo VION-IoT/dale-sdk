@@ -46,7 +46,7 @@ namespace Vion.Dale.Sdk.Configuration.Services
 
                 // Skip if neither service interfaces nor service-property attributes present. The same
                 // predicate decides whether a property-bound interface endpoint has an owning service for
-                // its RFC 0019 relation half — hence the shared helper.
+                // its relation half — hence the shared helper.
                 if (!ServiceSurface.IsServiceBearing(propertyType))
                 {
                     continue;

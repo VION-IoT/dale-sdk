@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -111,7 +111,7 @@ namespace Vion.Dale.LogicBlockParser.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-001.2")]
-        public void FallBackToAssemblyNameWhenSuppliedPackageIdentityIsBlank()
+        public void FallBackToAssemblyNameWhenSuppliedPackageIdentityBlank()
         {
             // Arrange
             var output = Path.Combine(OutputDirectory, $"{Guid.NewGuid():N}.json");
@@ -218,7 +218,7 @@ namespace Vion.Dale.LogicBlockParser.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-002.1")]
-        public void RefuseAPluginWhoseConcreteBlockIsNotRegistered()
+        public void RefusePluginWhoseConcreteBlockUnregistered()
         {
             // Arrange
             var output = Path.Combine(OutputDirectory, $"{Guid.NewGuid():N}.json");
@@ -236,7 +236,7 @@ namespace Vion.Dale.LogicBlockParser.Test
         [TestProperty("spec", "AC-INTRO-002.3")]
         [DataRow(0, DisplayName = "no arguments")]
         [DataRow(1, DisplayName = "plugin path only")]
-        public void RefuseAnIncompleteCommandLine(int argumentCount)
+        public void RefuseIncompleteCommandLine(int argumentCount)
         {
             // Arrange
             var arguments = new[] { Path.Combine(OutputDirectory, PluginAssembly) }.Take(argumentCount).ToArray();
@@ -251,7 +251,7 @@ namespace Vion.Dale.LogicBlockParser.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-002.4")]
-        public void RefuseAPluginPathThatDoesNotExist()
+        public void RefuseMissingPluginPath()
         {
             // Arrange
             var missing = Path.Combine(OutputDirectory, $"{Guid.NewGuid():N}.dll");

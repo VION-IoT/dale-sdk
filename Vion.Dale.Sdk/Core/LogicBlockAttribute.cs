@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace Vion.Dale.Sdk.Core
 {
@@ -8,7 +8,7 @@ namespace Vion.Dale.Sdk.Core
     /// <remarks>
     ///     Every display string this block declares is translatable in the cloud, under a key rooted in the
     ///     block's <b>full type name — namespace included</b>. Renaming or moving the class orphans those
-    ///     translations. See <c>docs/identifier-stability.md</c>.
+    ///     translations. See <c>docs/specs/introspection.md</c>.
     /// </remarks>
     [PublicApi]
     [AttributeUsage(AttributeTargets.Class)]

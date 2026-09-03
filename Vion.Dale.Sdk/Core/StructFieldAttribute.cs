@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace Vion.Dale.Sdk.Core
 {
@@ -10,7 +10,7 @@ namespace Vion.Dale.Sdk.Core
     ///     <see cref="Title" /> and <see cref="Description" /> are translatable in the cloud, keyed by the
     ///     struct's <b>short type name</b> (the namespace is not part of the key) and the field's
     ///     <b>camelCase wire name</b> — the constructor parameter's name, first letter lower-cased.
-    ///     Renaming either orphans the translations. See <c>docs/identifier-stability.md</c>.
+    ///     Renaming either orphans the translations. See <c>docs/specs/introspection.md</c>.
     /// </remarks>
     [PublicApi]
     [AttributeUsage(AttributeTargets.Parameter | AttributeTargets.Property)]

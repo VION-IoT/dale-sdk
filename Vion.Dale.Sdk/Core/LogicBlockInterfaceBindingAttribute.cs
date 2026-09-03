@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace Vion.Dale.Sdk.Core
 {
@@ -17,7 +17,7 @@ namespace Vion.Dale.Sdk.Core
     ///     <see cref="LogicBlockContractAttribute.AndDefaultName" />) — are translatable in the cloud, keyed
     ///     by the block's full type name and this binding's <see cref="Identifier" />, which defaults to a
     ///     C# name. Pin <see cref="Identifier" /> to rename the property, interface or class without
-    ///     orphaning the translations. See <c>docs/identifier-stability.md</c>.
+    ///     orphaning the translations. See <c>docs/specs/introspection.md</c>.
     /// </remarks>
     [PublicApi]
     [AttributeUsage(AttributeTargets.Property | AttributeTargets.Class, AllowMultiple = true)]

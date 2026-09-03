@@ -1,4 +1,4 @@
-# Writing a simulator block
+﻿# Writing a simulator block
 
 A DevHost bench needs something on the far side of a service-provider contract. Until RFC 0020 there
 was nothing: a scenario could *drive* a contract, but no block could answer one, so a closed loop —
@@ -69,7 +69,7 @@ consumer handler's declaration with the two halves swapped. `DigitalOutputProvid
 `Vion.Dale.Sdk.DigitalIo` is the shipped example to copy line for line.
 
 The contract-type string (`"PowerPlantControlPvProvider"`) is a stable introspection identifier —
-[`identifier-stability.md`](identifier-stability.md). Choose it once.
+[`specs/introspection.md`](specs/introspection.md). Choose it once.
 
 ## 3. The ideal-I/O recipe — about twenty lines
 

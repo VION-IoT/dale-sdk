@@ -328,7 +328,7 @@ namespace Vion.Dale.Sdk.Introspection
                                    Decimals = decimals,
                                    Format = presentationAttr?.Format,
 
-                                   // Conditional-visibility predicate (RFC 0017). Emitted verbatim into
+                                   // Conditional-visibility predicate. Emitted verbatim into
                                    // presentation.visibleWhen; parse/type discipline is enforced by the
                                    // DALE041/DALE042 analyzers, not here. Rides both sibling docs
                                    // automatically for a dual-annotated [ServiceProperty]+[ServiceMeasuringPoint]

@@ -1,11 +1,11 @@
-# SDK surface conventions
+﻿# SDK surface conventions
 
 Read this before adding or changing anything a library author sees: an attribute, a public type or
 member, an analyzer, or a shape that reaches the introspection JSON.
 
 This repo is a **published SDK**. Every public name here becomes someone else's compile error later,
 and every introspection identifier becomes a translation key in the cloud
-([`identifier-stability.md`](identifier-stability.md)). The rules below exist because the cost of a
+([`specs/introspection.md`](specs/introspection.md)). The rules below exist because the cost of a
 wrong surface is paid by consumers, not by this repo's tests.
 
 ## 1. The surface is the smallest thing that does the job
@@ -90,8 +90,9 @@ supersedes it: *"breaking is no problem, the devhost is the only user"*, *"if th
 much of a win i'd prefer removing it"*, *"let's do it right as long as we can"*.
 
 - When a mechanism is generalised, **delete the specific one and migrate its callers in the same PR**
-  (RFC 0010 deleted the four HAL step kinds; RFC 0019 deleted `AutoDetectServiceRelationsForInterface`,
-  `ServiceDeclaration<T>.DefineRelation` and the orphan example interfaces).
+  (RFC 0010 deleted the four HAL step kinds; contract-carried service relations deleted
+  `AutoDetectServiceRelationsForInterface`, `ServiceDeclaration<T>.DefineRelation` and the orphan
+  example interfaces).
 - **Thin wrappers belong to the caller, not the API.** If `IDevHostControl` gains a member only the SPA
   uses, the question is whether it should live in the UI instead.
 - **Nullability and required-ness are decided while the surface is young.** A field that is
@@ -179,7 +180,7 @@ provider where possible, be explicit"*, and a scenario step field went `"block" 
   — a name that leaves its scope ambiguous is a finding.
 - **Identifiers are translation keys.** Renaming a service, member, contract, interface, enum member or
   enum/struct type orphans authored translations in the cloud. Read
-  [`identifier-stability.md`](identifier-stability.md) before any rename.
+  [`specs/introspection.md`](specs/introspection.md) before any rename.
   **The decoupling knob does not cover everything**: `Identifier =` exists on
   `[ServiceProviderContractBinding]` and `[LogicBlockInterfaceBinding]`, so those C# names can change
   freely. Services, service properties and measuring points have **no** such override — their C# names
@@ -193,7 +194,8 @@ each of which cost a round:
 
 - **An empty `else if` that drops a declaration.** A relation whose interface matched zero or more than
   one implemented interface was discarded with no diagnostic — a typo'd relation type was invisible end
-  to end. (The code is gone: RFC 0019 replaced it with bind-time throws plus `DALE045`. It is here
+  to end. (The code is gone: contract-carried service relations replaced it with bind-time throws plus
+  `DALE045` — [`docs/specs/introspection.md`](specs/introspection.md). It is here
   because it took a consumer's bug report to find, not a test.)
 - **A "no-throw" test standing in for a round-trip test.** Asserting a message does not throw passes
   when the message is silently dropped. Assert the *consumer received it*.
