@@ -13,13 +13,11 @@
         <PackageId>Vion.Dale.ParserProbe.Unregistered</PackageId>
         <Version>7.8.9-probe.1</Version>
 
-        <!-- The parser publishes nothing: the test runs it over this assembly in the test project's own
-             output directory, where every SDK dependency already sits. -->
-        <SkipVionDaleLogicBlockParser>true</SkipVionDaleLogicBlockParser>
     </PropertyGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\Vion.Dale.Sdk\Vion.Dale.Sdk.csproj"/>
+        <ProjectReference Include="..\Vion.Dale.Sdk.DigitalIo\Vion.Dale.Sdk.DigitalIo.csproj"/>
         <ProjectReference Include="..\Vion.Dale.Sdk.Generators\Vion.Dale.Sdk.Generators.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer"/>
     </ItemGroup>
 

@@ -29,8 +29,10 @@ namespace Vion.Dale.Sdk.Test.Core
         [TestMethod]
         public void DerivedStructFieldAttributeIsFoundByBaseType()
         {
-            var prop = typeof(Subject).GetProperty(nameof(Subject.TestStructFieldProperty))!;
-            var attr = prop.GetCustomAttribute<StructFieldAttribute>();
+            // The attribute is read off a struct's positional constructor parameter, which is the only
+            // place either introspection reader looks for it.
+            var parameter = typeof(SubjectStruct).GetConstructors()[0].GetParameters()[0];
+            var attr = parameter.GetCustomAttribute<StructFieldAttribute>();
             Assert.IsNotNull(attr);
             Assert.AreEqual("V", attr.Unit);
         }
@@ -68,9 +70,8 @@ namespace Vion.Dale.Sdk.Test.Core
 
             [TestKilowattsMeter]
             public double TestMeasuringPoint { get; private set; }
-
-            [TestStructField]
-            public double TestStructFieldProperty { get; set; }
         }
+
+        public readonly record struct SubjectStruct([TestStructField] double Volts);
     }
 }

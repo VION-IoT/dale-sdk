@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -236,8 +236,6 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-INTRO-012.2")]
-        [TestProperty("spec", "AC-INTRO-012.3")]
         [TestProperty("spec", "AC-INTRO-012.2")]
         [TestProperty("spec", "AC-INTRO-012.3")]
         public void MergePresentationFromInterfaceAndClassPerField()
@@ -597,6 +595,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-006.1")]
+        [TestProperty("spec", "AC-INTRO-006.4")]
         public void EmitVisibleWhenIntoBothDocumentsOfDualAnnotatedMember()
         {
             // Arrange

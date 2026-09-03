@@ -1,4 +1,4 @@
-﻿# Testing conventions
+# Testing conventions
 
 Read this before writing or changing a test. §1–8 are this repo's specific traps; §9–17 are the
 authoring discipline (adapted from mesh's testing conventions), applied in full whenever a test is

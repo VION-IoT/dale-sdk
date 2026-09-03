@@ -14,6 +14,7 @@ using Vion.Dale.Sdk.Configuration.Contract;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.DigitalIo.Input;
 using Vion.Dale.Sdk.DigitalIo.Output;
+using Vion.Dale.Sdk.Examples.FunctionInterfaces;
 using Vion.Dale.Sdk.Introspection;
 using Vion.Dale.Sdk.Test.TestHelpers;
 
@@ -337,33 +338,17 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-009.2")]
-        public void ReadGroupAnnotation()
+        [DataRow("MaxPower", "configuration", DisplayName = "a well-known group key")]
+        [DataRow("ActivePower", "Energy", DisplayName = "a custom group key")]
+        public void ReadGroupAnnotation(string identifier, string expectedGroup)
         {
             // Arrange
 
             // Act
-            var maxPower = GetProperty("MaxPower");
-
-            // Configuration is set via [Presentation(Group = PropertyGroup.Configuration)]
-            // and maps to presentation.group.
+            var property = GetProperty(identifier);
 
             // Assert
-            Assert.AreEqual("configuration", maxPower.Presentation?["group"]?.GetValue<string>());
-        }
-
-        [TestMethod]
-        [TestProperty("spec", "AC-INTRO-009.2")]
-        public void ReadDisplayGroupAnnotation()
-        {
-            // Arrange
-
-            // Act
-            var activePower = GetProperty("ActivePower");
-
-            // Group maps to presentation.group
-
-            // Assert
-            Assert.AreEqual("Energy", activePower.Presentation?["group"]?.GetValue<string>());
+            Assert.AreEqual(expectedGroup, property.Presentation?["group"]?.GetValue<string>());
         }
 
         [TestMethod]
@@ -539,8 +524,6 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-INTRO-009.2")]
-        [TestProperty("spec", "AC-INTRO-010.1")]
         [TestProperty("spec", "AC-INTRO-009.2")]
         [TestProperty("spec", "AC-INTRO-010.1")]
         public void NotIncludeAbsentPresentationKeys()
@@ -1018,11 +1001,13 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
             // Assert
             // The harm the omission prevents: System.Text.Json cannot write a NaN or an infinity, so one such
-            // bound aborted the whole document with an exception naming neither the member nor the block.
-            foreach (var property in result.Services.Single().Properties)
-            {
-                Assert.IsNotNull(property.Schema.ToJsonString());
-            }
+            // bound aborted the whole document with an exception naming neither the member nor the block. The
+            // assertion is the serialized text, because that is the thing that used to throw.
+            var serialized = string.Join(string.Empty, result.Services.Single().Properties.Select(property => property.Schema.ToJsonString()));
+
+            Assert.Contains("\"minimum\":1", serialized);
+            Assert.DoesNotContain("NaN", serialized);
+            Assert.DoesNotContain("Infinity", serialized);
         }
 
         [TestMethod]
@@ -1087,7 +1072,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
             Assert.Contains("Shared", exception.Message);
             Assert.Contains(nameof(CollidingInterfaceIdentifierBlock.Peer), exception.Message);
-            Assert.Contains(nameof(CollidingInterfaceIdentifierBlock), exception.Message);
+            Assert.Contains(nameof(IToggleable), exception.Message);
         }
 
         [TestMethod]
@@ -1479,6 +1464,179 @@ namespace Vion.Dale.Sdk.Test.Introspection
             Assert.IsNull(child?["properties"]?["volt"]?["x-unit"]);
             Assert.IsNull(child?["properties"]?["volt"]?["title"]);
             Assert.IsNull(property.Presentation?["fields"]?["child"]?["fields"]);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-007.1")]
+        public void ReportSchemaForEveryMemberOfBothKinds()
+        {
+            // Arrange
+            var block = new DualStreamKindBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            var service = result.Services.Single();
+            Assert.IsNotNull(service.Properties.Single().Schema);
+            Assert.IsNotNull(service.MeasuringPoints.Single().Schema);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-014.5")]
+        public void MintSeparateIdentifierNamespacesForContractAndInterfaceBindings()
+        {
+            // Arrange
+            var block = new CrossKindIdentifierBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            // One identifier, two endpoints, no refusal: the document keeps contracts and interfaces in
+            // separate arrays, so a name addresses one endpoint of each kind.
+            Assert.AreEqual("Shared", result.Contracts.Single().Identifier);
+            Assert.AreEqual("Shared", result.Interfaces.Single().Identifier);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-014.5")]
+        public void DistinguishEndpointIdentifiersDifferingOnlyInCase()
+        {
+            // Arrange
+            var block = new CaseDistinctEndpointBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            CollectionAssert.AreEquivalent(new[] { "Relay", "relay" }, result.Contracts.Select(contract => contract.Identifier).ToList());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-015.1")]
+        public void ReportInterfaceBindingTypeAndItsMatchingCounterpart()
+        {
+            // Arrange
+            var block = new DistinctInterfaceIdentifierBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            var endpoint = result.Interfaces.First(logicInterface => logicInterface.Identifier == "Left_IToggleable");
+            CollectionAssert.AreEqual(new[] { typeof(IToggleable).FullName }, endpoint.InterfaceTypeFullNames);
+            CollectionAssert.AreEqual(new[] { typeof(IToggler).FullName }, endpoint.MatchingInterfaceTypeFullNames);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-016.8")]
+        public void ReportNoRelationHalfForComponentPropertyHoldingNull()
+        {
+            // Arrange
+            var block = new NullComponentEndpointBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            // The endpoint is described — its identity is type-level — but a null component contributes no
+            // service, and a relation half has no service to hang on. The control beside it is the component
+            // that does exist: its half is reported.
+            var halves = result.Services.SelectMany(service => service.OutwardRelations).Select(relation => relation.InterfaceIdentifier).ToList();
+
+            Assert.Contains("Absent_IToggleable", result.Interfaces.Select(logicInterface => logicInterface.Identifier).ToList());
+            CollectionAssert.DoesNotContain(result.Services.Select(service => service.Identifier).ToList(), nameof(NullComponentEndpointBlock.Absent));
+            CollectionAssert.DoesNotContain(halves, "Absent_IToggleable");
+            Assert.Contains("Present_IToggleable", halves);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-011.5")]
+        public void CarryEmptyAuthoredStructFieldTitle()
+        {
+            // Arrange
+            var block = new EmptyStructFieldTitleBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            // The enum field's schema title is its type identity, so its authored title is re-routed — and an
+            // authored empty title is carried there exactly as the same empty title is carried inline on the
+            // scalar field beside it.
+            var property = result.Services.Single().Properties.Single();
+            Assert.AreEqual(string.Empty, property.Presentation?["fields"]?["state"]?["displayName"]?.GetValue<string>());
+            Assert.AreEqual(string.Empty, property.Schema["properties"]?["scalar"]?["title"]?.GetValue<string>());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-003.3")]
+        public void ReportComponentServiceMembersInBaseToDerivedDeclarationOrder()
+        {
+            // Arrange
+            var block = new OrderedComponentBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            // A component's members are ordered by the component's own declarations, not the block's — a
+            // position map belongs to one type's inheritance chain and says nothing about another's.
+            var component = result.Services.Single(service => service.Identifier == nameof(OrderedComponentBlock.Component));
+
+            CollectionAssert.AreEqual(new[]
+                                      {
+                                          nameof(OrderedComponentBase.Alpha), nameof(OrderedComponentBase.Bravo), nameof(OrderedComponent.Charlie),
+                                          nameof(OrderedComponent.Delta),
+                                      },
+                                      component.Properties.Select(property => property.Identifier).ToList());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-008.7")]
+        [DataRow("NullableElements", true, DisplayName = "a member whose elements may be null")]
+        [DataRow("NonNullableElements", false, DisplayName = "a member whose elements may not")]
+        public void ReportArrayElementNullability(string identifier, bool elementsNullable)
+        {
+            // Arrange
+            var block = new ArrayElementNullabilityBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            // The element carries its own annotation: without it the outbound codec refuses a null element
+            // and the whole publish is dropped, which is the failure the member-level rule already avoids.
+            var items = result.Services.Single().Properties.Single(property => property.Identifier == identifier).Schema["items"];
+            var expected = elementsNullable ? new[] { "string", "null" } : null;
+
+            if (expected is null)
+            {
+                Assert.AreEqual("string", items?["type"]?.GetValue<string>());
+            }
+            else
+            {
+                CollectionAssert.AreEqual(expected, (items?["type"] as JsonArray)?.Select(node => node!.GetValue<string>()).ToList());
+            }
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-008.7")]
+        public void ReportArrayElementNullabilityAtEveryNestingDepth()
+        {
+            // Arrange
+            var block = new ArrayElementNullabilityBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            // The flags are one pre-order walk of the member's type, so the walk of the type follows it down.
+            var nested = result.Services.Single().Properties.Single(property => property.Identifier == nameof(ArrayElementNullabilityBlock.NestedNullableElements));
+            var inner = nested.Schema["items"]?["items"];
+
+            CollectionAssert.AreEqual(new[] { "string", "null" }, (inner?["type"] as JsonArray)?.Select(node => node!.GetValue<string>()).ToList());
         }
 
         private LogicBlockIntrospectionResult.ServicePropertyInfo GetProperty(string identifier)

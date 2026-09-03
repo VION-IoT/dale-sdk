@@ -38,6 +38,37 @@ per-stream knob rule, `AC-GATE-010.*` the gate and instantiation-parameter field
 the empty-gate recording. `docs/identifier-stability.md` becomes a short pointer to the page carrying
 only advice. `docs/testing-conventions.md` § 4's golden-file list is corrected (Drift checkpoints).
 
+### Consumer-visible change — relay this in the PR body
+
+Seven things a consumer or a downstream service sees differently after this pass. Nothing else on the
+page changes what an existing, conforming library emits.
+
+**To cloud-api and the dashboard — the document's own values:**
+
+- **`packageId` is the nuspec package id**, not the plugin assembly's name. MSBuild defaults the one to
+  the other, and no known library sets them apart, so every current artifact is byte-identical; a library
+  that sets `<AssemblyName>` or `<PackageId>` alone now reports the id the platform registers it under.
+- **A service property's schema no longer carries `x-kind`.** The measuring-point kind describes the
+  series, so it rides the measuring point's schema alone. Please confirm nothing reads `x-kind` off a
+  service property — the DevHost's own badge did, and does not now.
+- **A component service's members arrive in declaration order**, base class before derived, as a block's
+  own members always have. They used to arrive in binder-insertion order. Order only.
+- **An array whose elements may be null now says so**: `ImmutableArray<string?>` emits
+  `items.type: ["string","null"]` where it emitted `"string"`. Only that shape changes, and only towards
+  what the codec already required.
+
+**To library authors — declarations that used to compile and now do not:**
+
+- **A logic block missing from its plugin's `IConfigureServices` fails the pack**, naming the type.
+  Register every concrete block, or make the type abstract. Verified against `logic-block-libraries`:
+  every concrete block there is registered.
+- **`[Presentation]` is properties-only** and **`[StructField]` is constructor-parameters-only.** Both
+  were declarable in a second place that no reader ever looked at, so a declaration there compiled,
+  emitted nothing and warned about nothing. A compile break only for a declaration that never did
+  anything; nothing in this repo, the examples, the template or `logic-block-libraries` had one.
+- **A blank or duplicated endpoint identifier fails the pack and block start**, naming the declarations.
+  A blank one addressed nothing; a duplicated one silently dropped whichever binding bound first.
+
 ### Decisions
 
 - `D1` — RFCs 0017 and 0019 are absorbed and deleted; the rows of 0019 that are bind-time semantics
@@ -570,7 +601,11 @@ DevHost definition and catalog tests (`CTRL` — rows 89, 90).
   5, 14, 16–18, with `Interfaces` / `Contracts` / `Services` as rows 20–24 and 66–82); interface 4
   (rows 66, 70–73); contract 4 (rows 67, 74–75); service 7 (rows 20–24, with `IncludedWhen` cited to
   `AC-GATE-010.1`); property and measuring point 4 + 4 (rows 25, 28, 43, 63); relation 4 (rows
-  77–80).
+  77–80). **Corrected in amendment 2:** the interface record's two type-name fields were visited by
+  row 70 and stated by nothing — this line claimed the field set covered when the *page* did not carry
+  it. `AC-INTRO-015.1` states it now, and the same correction applies to the relation record's
+  interface type (`AC-INTRO-016.7`) and to the mandatory schema field (`AC-INTRO-007.1`): a field is
+  visited by a row and covered by a criterion, and this self-check had conflated the two.
 - **A2 sibling-model fields**: 28 enumerated, **28 visited** — `TypeAnnotations` 9 (rows 29–32, 42),
   `Presentation` 11 (rows 44–48, 50, 53–56, 59), `RuntimeMetadata` and `ThrottleMetadata` 5 (rows
   63–65, cited to `AC-EMIT-013.*`), `TypeSchema` and the `TypeRef` shapes and `StructField` (rows
@@ -741,6 +776,23 @@ The eight SDK tests and the two parser tests above were run **red against the pr
 their fix — eight failures out of 58 in the introspection class, two out of 16 in the parser class,
 and nothing else in either.
 
+**Amendment 2's additions.** Same discipline: applied, run, read, reverted.
+
+| Test | Mutation that reddens it |
+| --- | --- |
+| `StructFieldAttributeShould.BeDeclarableOnConstructorParametersOnly` | `AttributeTargets.Parameter` back to `Parameter \| Property` |
+| `LogicBlockIntrospectionShould.CarryEmptyAuthoredStructFieldTitle` | the title test back to `is { Length: > 0 }` |
+| `…ReportSchemaForEveryMemberOfBothKinds` | a measuring point's `Schema` emitted as `null!` — **over-determined**: it reddens seventeen tests, because seventeen presuppose it |
+| `…MintSeparateIdentifierNamespacesForContractAndInterfaceBindings` | `BindingIdentifiers.NamespacedKey` returns the bare identifier |
+| `…DistinguishEndpointIdentifiersDifferingOnlyInCase` | the block's identifier namespace built `OrdinalIgnoreCase` |
+| `…RefuseTwoInterfaceBindingsResolvingToOneIdentifier` | a class-level binding named by the block instead of by its interface |
+| `…ReportNoRelationHalfForComponentPropertyHoldingNull` | the service list joined with the relation keys, so a half revives its service |
+| `…ReportComponentServiceMembersInBaseToDerivedDeclarationOrder` | every member's position read as `int.MaxValue` (also reddens `EmitPropertiesInBaseToDerivedOrder`, which is the same rule on the root service) |
+| `…ReportArrayElementNullability` (nullable row), `…ReportArrayElementNullabilityAtEveryNestingDepth` | the array element built with a fresh, empty nullability walk |
+| `LogicBlockParserShould.RefuseUnregisteredBlockEvenWhenExclusionWouldDropIt` | the unregistered guard reading `&& !excludeDevelopmentOnly` |
+| `…IntrospectNoAbstractLogicBlock` | the `!type.IsAbstract` filter dropped |
+| `…RefuseMissingPluginPath` | the refusal no longer naming the path |
+
 ### Gates
 
 Every line pasted from the terminal.
@@ -786,6 +838,106 @@ cleanupcode applied changes - review with 'git diff' and commit:
 
 Stryker.NET was not run: `Vion.Dale.Sdk.Test` references four mutatable projects, which the runner
 cannot handle.
+
+### Amendment 2 — after the completeness critic and `/vion-code-review`
+
+**The id holes the REPORT explained and the doc did not (item 3).**
+
+- 2026-09-03: `AC-INTRO-002.2` does not exist because it was **merged into `AC-INTRO-002.1`**. It would
+  have said "a refused run writes no document", and the same mutation — the `return 1` removed — reddens
+  both halves, so it was not a second requirement. `AC-INTRO-002.1` carries the clause.
+- 2026-09-03: `AC-INTRO-007.1` was left as prose in Phase B on the reasoning that every schema criterion
+  presupposes it. That reasoning lived only in the REPORT, which is not a durable record, and it was
+  half wrong: a mutation *does* exist — a member kind's schema emitted as null — and it reddens the
+  criterion's own test. It is minted. The mutation reddens seventeen tests, because seventeen tests
+  presuppose it; the criterion is **over-determined** and is kept, as the binary rule requires.
+- 2026-09-03: `AC-INTRO-015.1` was a genuine miss, not a decision. The step-9 self-check claimed the
+  interface record's four fields visited while nothing stated the two type-name fields, and the test that
+  asserts one of them cited only the empty-annotation criterion. Minted, cited from that test and from a
+  new one over the endpoint shape. The self-check's counts below are corrected with it.
+
+**The critic's misses, and what each cost.**
+
+- 2026-09-03: **M1** — `[StructField]` was declarable on a property, which no reader walks and no
+  diagnostic judges: row 52's shape one level down. Narrowed to `AttributeTargets.Parameter`
+  (`AC-INTRO-008.8`). The amendment's verification said nothing in this repo writes it there; that was
+  true of the literal `[property: StructField]` spelling and **not** of a derived preset —
+  `AttributeInheritanceShould.Subject.TestStructFieldProperty` carried one on a plain property. It was a
+  carrier for an attribute-inheritance assertion with no wire meaning, and it now carries the same
+  assertion on a positional constructor parameter, where the attribute is read.
+- 2026-09-03: **M3** — a component service's members came out in binder-insertion order, because every
+  service looked its members up in the *block's* position map. The map is a pure function of a type; the
+  fix is to look each member up under the type that owns it, cached per type for the one introspection.
+  `AC-INTRO-003.3` is kept as written and is now true of every service. `ReflectedType` is the
+  component's concrete type for every binding the binders produce, so the brief's stop-and-record branch
+  did not arise. **Relay note:** a component service's member order changes once.
+- 2026-09-03: **M4** — an array element's reference nullability was hardcoded absent, so
+  `ImmutableArray<string?>` reached the wire with a non-nullable item schema and the outbound codec
+  refused every null element. `NullabilityInfoContext` does not exist on `netstandard2.1`, which is why
+  the builder reads the compiler's flag bytes itself; those bytes are **one flag per position of a
+  pre-order walk of the member's type**, so the reader walks the same positions the type does. Nested
+  arrays fall out of the same walk and are tested. **Relay note:** the item schema of an array with
+  nullable elements now says so. One half of the brief's test list is **not expressible**: a struct field
+  cannot be an array at all — `DALE003`/`DALE016` restrict a flat struct's fields to primitives, enums,
+  strings and nullables of those — so there is no struct-field-array shape to assert. The parameter entry
+  point is exercised by the existing `string?` field tests.
+- 2026-09-03: **M5** — an authored struct-field title that is empty was dropped at the one place a title
+  changes documents, while the same empty title on a scalar field landed inline. Carried
+  (`AC-INTRO-011.5`).
+- 2026-09-03: **M6** — the two binding kinds minted into separate namespaces **by accident**: each binder
+  happened to allocate its own dictionary, so nothing expressed the rule and no mutation could reach it.
+  One namespace per block now, with the binding kind in the key, so `AC-INTRO-014.5` is a line a reviewer
+  reads and a mutation deletes. Case-sensitivity is the other half of the same criterion.
+- 2026-09-03: **M8's test was vacuous when first written, and the mutation is what caught it.** The
+  fixture edit that gives the forgotten block a development-only binding silently matched nothing — the
+  style cleanup had reordered that class's members after the edit was written — so the test asserted an
+  unregistered block fails the run without the block being development-only at all, which is
+  `AC-INTRO-002.1` again. The provider face is on the fixture now, and the mutation that reddens the test
+  is the guard reading `!excludeDevelopmentOnly`. A `str.replace` with no assertion is how a fixture edit
+  can be applied, reported and absent.
+- 2026-09-03: **M9** — a component property holding null contributes no service, so its endpoint's
+  relation half is registered and then dropped by the join. `AC-INTRO-016.8` states it. The first test
+  written for it passed under every mutation of the join, because it asserted only that no *service*
+  appeared; it asserts that no *half* names the endpoint now, which is what the criterion claims.
+- 2026-09-03: **M7 → parked** by the operator (`CLI`, Tier B): `dale list` runs the introspection without
+  the development-only exclusion, so it lists blocks the packed artifact omits. The page's `dale list`
+  sentences say so rather than implying the artifact's contents.
+
+**Conventions.**
+
+- 2026-09-03: **A UTF-8 BOM had been prepended to 46 files that had none on `main`** — every file this
+  pass touched with a Python helper. The cause is `io.open(..., encoding='utf-8-sig')`, which *strips* a
+  BOM on read and *writes* one on write; it was chosen to read the files that legitimately carry one.
+  Stripped from all 46; the files that already carried one on `main` are untouched. Two of them
+  (`TestAttributeStubs.cs`, `DeclarativeServiceBinder.cs`) had differed from `main` by the BOM alone and
+  now show their one real line each. Every helper in this round reads and writes with `newline=''` and
+  plain `utf-8` instead.
+- 2026-09-03: `TypeRefBuilderShould` had been brought to § 17 and not to § 12 — 34 names in the
+  third-person form that does not make a sentence with the class, several naming the collaborator rather
+  than the outcome. The lint gates articles only, so nothing caught it. All renamed.
+- 2026-09-03: The three merge candidates the Phase A table scheduled are done: five primitive cases into
+  one `[DataRow]` set, the two group-annotation cases into one, and the nullable/non-nullable struct pair
+  into one — the last of which is also `AC-INTRO-008.9`, whose claim the pair was making without stating.
+- 2026-09-03: Four duplicated citations removed. They came from running the citation pass twice: the
+  first run renamed the methods it cited, so the second run's map missed them and it re-cited the rest.
+
+**Judgments.**
+
+- 2026-09-03: `SerializeDocumentDeclaringNonFiniteBound` asserted `IsNotNull(…ToJsonString())`, which only
+  a throw can fail. It asserts the serialized text now — the finite bound present, no `NaN` and no
+  `Infinity` anywhere in it.
+- 2026-09-03: `RefuseTwoInterfaceBindingsResolvingToOneIdentifier` asserted the block's name, which the
+  message's own "on logic block 'X'" clause satisfies alone. The refusal now names a class-level binding
+  by the interface it binds — a class-level declaration has no member name, and repeating the block's
+  told a reader nothing — and the test asserts both declarations.
+- 2026-09-03: `LogicBlockParserShould` wrote a GUID-named document per test into the build output and
+  removed none. One temp directory per run, removed in `[ClassCleanup]`.
+- 2026-09-03: `SkipVionDaleLogicBlockParser` on both fixture plugins was inert — a `ProjectReference`
+  never imports the SDK's `build/` targets, so the hook it suppresses was never going to fire. Removed
+  rather than re-explained.
+- 2026-09-03: `AC-INTRO-002.1`'s "non-abstract" had no fixture. The unregistered plugin carries an
+  abstract block now, also unregistered, and the mutation "drop the `IsAbstract` filter" reddens the test
+  that says its absence is not a refusal.
 
 ---
 
@@ -876,6 +1028,34 @@ cannot handle.
 - ADDED AC-INTRO-017.2 -> docs/specs/introspection.md : THE SYSTEM SHALL write the document beside the published output under the project's name and pack the whole published folder. GAP: as `AC-INTRO-017.1`.
 - ADDED AC-INTRO-017.3 -> docs/specs/introspection.md : THE SYSTEM SHALL skip the introspection entirely for a project that opts out. GAP: as `AC-INTRO-017.1`.
 - ADDED AC-INTRO-017.4 -> docs/specs/introspection.md : THE SYSTEM SHALL supply the source generator and analyzers to every consuming project.
+
+
+### Amendment 2
+
+> Applied by hand into the page, which is already distilled: `spec-change.ps1 archive` does not re-run
+> on an archived doc, so these lines and the page's own text were generated from the page together.
+
+- MODIFIED AC-INTRO-002.4 -> docs/specs/introspection.md : WHEN the named plugin assembly does not exist THE SYSTEM SHALL fail the run, naming the path it looked at.
+- ADDED AC-INTRO-002.9 -> docs/specs/introspection.md : THE SYSTEM SHALL apply the development-only exclusion to the document alone, so an excluded block is still introspected and every refusal above still applies to it.
+- MODIFIED AC-INTRO-004.3 -> docs/specs/introspection.md : WHEN a logic block declares a name THE SYSTEM SHALL report it as the block's default-name annotation, and SHALL report its icon and its groups under their own.
+- MODIFIED AC-INTRO-004.4 -> docs/specs/introspection.md : WHERE a logic block's declared name, icon or group set is empty THE SYSTEM SHALL omit that annotation.
+- ADDED AC-INTRO-006.4 -> docs/specs/introspection.md : THE SYSTEM SHALL report a member declaring both streams with the same presentation document on each.
+- ADDED AC-INTRO-007.1 -> docs/specs/introspection.md : THE SYSTEM SHALL report a schema for every service property and every measuring point.
+- MODIFIED AC-INTRO-007.2 -> docs/specs/introspection.md : THE SYSTEM SHALL take a member's title, description, unit and string format from either of its emission declarations, preferring the service property's, and SHALL report them on the member's own schema — on an array member's root and not on its element schema.
+- ADDED AC-INTRO-007.9 -> docs/specs/introspection.md : THE SYSTEM SHALL report the format a member's CLR type implies — a date-time for a `DateTime`, a duration for a `TimeSpan`, a unique identifier for a `Guid` — at every depth its schema reaches.
+- MODIFIED AC-INTRO-008.7 -> docs/specs/introspection.md : THE SYSTEM SHALL read the declared nullability of every reference position of a member's type — the member itself and each element it nests — from the compiler-emitted annotation, falling back to the declaring constructor's and then the declaring type's.
+- ADDED AC-INTRO-008.8 -> docs/specs/introspection.md : THE SYSTEM SHALL accept a struct-field declaration on a positional constructor parameter and nowhere else.
+- ADDED AC-INTRO-008.9 -> docs/specs/introspection.md : THE SYSTEM SHALL report the same field schemas for a nullable struct member as for a non-nullable one of the same type, widening only the member's own type.
+- MODIFIED AC-INTRO-010.1 -> docs/specs/introspection.md : WHEN a member is declared a status indicator THE SYSTEM SHALL report the severity of each member of its enum type as its lower-cased wire token, and SHALL report none otherwise.
+- MODIFIED AC-INTRO-010.3 -> docs/specs/introspection.md : THE SYSTEM SHALL report each declared enum-member label without requiring any flag, reading through a nullable enum and through an array of enum, and SHALL omit an unlabelled member and every member whose type is not an enum.
+- ADDED AC-INTRO-011.5 -> docs/specs/introspection.md : THE SYSTEM SHALL report an authored struct-field title that is empty rather than omitting it.
+- MODIFIED AC-INTRO-014.4 -> docs/specs/introspection.md : WHEN two bindings of one logic block and of the same kind resolve to one identifier THE SYSTEM SHALL refuse the introspection naming both declarations.
+- ADDED AC-INTRO-014.5 -> docs/specs/introspection.md : THE SYSTEM SHALL mint contract-binding and interface-binding identifiers in separate namespaces, each distinguished case-sensitively.
+- ADDED AC-INTRO-015.1 -> docs/specs/introspection.md : THE SYSTEM SHALL report an interface binding's logic-interface type and its matching counterpart type by display full name.
+- MODIFIED AC-INTRO-015.6 -> docs/specs/introspection.md : THE SYSTEM SHALL report a contract binding's handler-actor name always, and its default name, tags, multiplicity, provider-side consumer limit and development-only flag only where each is set or non-default.
+- ADDED AC-INTRO-016.7 -> docs/specs/introspection.md : THE SYSTEM SHALL report on each relation half the logic-interface type of the endpoint it was derived from.
+- ADDED AC-INTRO-016.8 -> docs/specs/introspection.md : WHEN a component property holds null THE SYSTEM SHALL report no relation half for its endpoints, having reported no service for it to hang on.
+- MODIFIED AC-INTRO-017.1 -> docs/specs/introspection.md : WHEN a logic-block library is packed THE SYSTEM SHALL publish the project, run the introspection over the published assembly supplying the project's package id and excluding development-only blocks, and fail the pack if that run fails. GAP: a targets test is a pack-and-consume round trip, which nothing in this repository has a harness for; the parser half it drives is covered by the document and refusal criteria above.
 
 ---
 

@@ -55,7 +55,7 @@ much cheaper than an artifact that is quietly incomplete.
 - `AC-INTRO-002.3` (Event-driven): WHEN the plugin path or the output path is missing or empty THE
   SYSTEM SHALL fail the run and print its usage.
 - `AC-INTRO-002.4` (Event-driven): WHEN the named plugin assembly does not exist THE SYSTEM SHALL
-  fail the run.
+  fail the run, naming the path it looked at.
 - `AC-INTRO-002.5` (Ubiquitous): THE SYSTEM SHALL accept its options in any position and
   case-insensitively, and SHALL treat neither an option nor an option's value as a positional
   argument.
@@ -63,12 +63,16 @@ much cheaper than an artifact that is quietly incomplete.
   leave out every logic block that binds a development-only contract and SHALL name each excluded
   block and its bindings on standard output.
 - `AC-INTRO-002.7` (Ubiquitous): THE SYSTEM SHALL prefix every such notice with a stable marker.
+- `AC-INTRO-002.9` (Ubiquitous): THE SYSTEM SHALL apply the development-only exclusion to the document
+  alone, so an excluded block is still introspected and every refusal above still applies to it.
 - `AC-INTRO-002.8` (Event-driven): WHEN introspecting a logic block throws THE SYSTEM SHALL report
   the originating exception rather than a reflection wrapper.
 
-`AC-INTRO-002.1` exists because the alternative shipped silently: the block was simply missing from
-the artifact, `dale upload` succeeded, and the omission was discovered by the block's absence in the
-dashboard. Register every concrete block, or make the type abstract.
+`AC-INTRO-002.1` is why a pack either produces a complete document or none: an artifact missing one
+block uploads without complaint and is discovered by that block's absence in the dashboard. Register
+every concrete block, or make the type abstract. `AC-INTRO-002.9` is the boundary beside it — the
+development-only filter decides what the document *carries*, never what the run *checks*, so a block
+the filter would drop must still be registered and still fails the pack if introspecting it throws.
 
 `AC-INTRO-002.6` keeps bench surface off the wire. A simulator binds a provider face — the inverse of
 a hardware contract — and no such block has a production deployment, so the artifact the cloud reads
@@ -92,11 +96,10 @@ assembly must produce one file.
 - `AC-INTRO-003.3` (Ubiquitous): THE SYSTEM SHALL report a service's properties and measuring points
   in base-to-derived declaration order.
 
-`AC-INTRO-003.2` and `AC-INTRO-003.3` are the two ways the same document used to come out different
-each time. The maps are built as immutable dictionaries and .NET randomizes string hashing per
-process; reflection does not promise a member order at all. Sorting the maps and ordering members by
-declaration is what makes the file diffable — and the sort happens in the producer rather than at an
-export boundary, so every reader of the document gets the canonical form.
+`AC-INTRO-003.2` and `AC-INTRO-003.3` are what a byte-identical document rests on. The maps are built
+as immutable dictionaries and .NET randomizes string hashing per process; reflection promises no member
+order at all. Neither is stable without being made so. The sort belongs to the producer rather than to
+an export boundary, so every reader of the document gets the canonical form.
 
 ## A block's identity and its annotations
 
@@ -105,9 +108,9 @@ export boundary, so every reader of the document gets the canonical form.
 - `AC-INTRO-004.2` (Ubiquitous): THE SYSTEM SHALL report every other type name in the document in
   display form, with the nesting separator written the way source spells it.
 - `AC-INTRO-004.3` (Event-driven): WHEN a logic block declares a name THE SYSTEM SHALL report it as
-  the block's default-name annotation.
-- `AC-INTRO-004.4` (Event-driven): WHEN a logic block declares an icon or groups THE SYSTEM SHALL
-  report them, and SHALL omit each annotation whose declared value is empty.
+  the block's default-name annotation, and SHALL report its icon and its groups under their own.
+- `AC-INTRO-004.4` (Unwanted): WHERE a logic block's declared name, icon or group set is empty THE
+  SYSTEM SHALL omit that annotation.
 - `AC-INTRO-004.5` (Event-driven): WHEN a logic block declares no annotations at all THE SYSTEM SHALL
   report an empty annotation map.
 - `AC-INTRO-004.6` (Ubiquitous): THE SYSTEM SHALL carry a display string into the document verbatim,
@@ -153,6 +156,8 @@ and a charted series off one value. The two are independent streams of one membe
 - `AC-INTRO-006.2` (Ubiquitous): THE SYSTEM SHALL report the measuring-point kind on the measuring
   point's schema and not on the service property's.
 - `AC-INTRO-006.3` (Ubiquitous): THE SYSTEM SHALL report a measuring point's kind as its wire token.
+- `AC-INTRO-006.4` (Ubiquitous): THE SYSTEM SHALL report a member declaring both streams with the same
+  presentation document on each.
 
 `AC-INTRO-006.1` is what makes such a member **one translatable member**: one title key, one
 description key, not two.
@@ -160,7 +165,9 @@ description key, not two.
 `AC-INTRO-006.2` is the same per-stream discipline `AC-EMIT-013.4` states for the emission policy,
 one document over. The kind describes the series, so it belongs to the series' document; reported on
 the property's as well, a client badges a writable service property with a policy that describes the
-chart beside it.
+chart beside it. `AC-INTRO-006.4` is the other half of that split: the *presentation* is the member's,
+not a stream's, so both documents carry it — one label, one group, one visibility predicate, whichever
+surface renders the member.
 
 ## The schema document
 
@@ -168,8 +175,11 @@ Every member carries a `schema` — the introspection contract makes it mandator
 null-checks it. What rides on it is the member's data shape plus the annotations a schema has a slot
 for.
 
+- `AC-INTRO-007.1` (Ubiquitous): THE SYSTEM SHALL report a schema for every service property and every
+  measuring point.
 - `AC-INTRO-007.2` (Ubiquitous): THE SYSTEM SHALL take a member's title, description, unit and string
-  format from either of its emission declarations, preferring the service property's.
+  format from either of its emission declarations, preferring the service property's, and SHALL report
+  them on the member's own schema — on an array member's root and not on its element schema.
 - `AC-INTRO-007.3` (Ubiquitous): THE SYSTEM SHALL report a declared bound only where it is finite.
 - `AC-INTRO-007.4` (Ubiquitous): THE SYSTEM SHALL report a member as read-only when it is a measuring
   point without a service property, when its implementing property has no public setter, when its
@@ -184,6 +194,9 @@ for.
   unchanged.
 - `AC-INTRO-007.8` (Ubiquitous): THE SYSTEM SHALL report an authored title, description, unit or
   string format that is empty as an empty value rather than omitting it.
+- `AC-INTRO-007.9` (Ubiquitous): THE SYSTEM SHALL report the format a member's CLR type implies — a
+  date-time for a `DateTime`, a duration for a `TimeSpan`, a unique identifier for a `Guid` — at every
+  depth its schema reaches.
 
 `AC-INTRO-007.3` reads as a formatting rule and is a durability rule. The two infinities are the
 declaration's own defaults — one per bound — so "finite" is the same test as "declared", and it closes
@@ -194,6 +207,12 @@ used to abort the whole document with an error naming no member and no block.
 `AC-INTRO-007.4`'s fourth clause is `AC-GATE-010.3`'s, restated here only because it lands in the same
 field. `AC-INTRO-007.5` has no matching clause: a measuring point is published and never written, so a
 write-only measuring point has no meaning.
+
+`AC-INTRO-007.9` is where the schema stops being a transcription of what the author wrote: some formats
+are the CLR type's own, so they hold at every depth a schema reaches — a `DateTime` field inside a struct
+inside an array carries the same format token as one declared at the top. `AC-INTRO-008.9` is the same
+idea for a nullable struct member: only the member's own type widens, so a client that has learned the
+non-nullable shape has learned both.
 
 `AC-INTRO-007.7` and `AC-INTRO-007.8` are the same boundary from two sides. The document reports what
 the author declared; it is an editor that renders bounds and a renderer that renders strings, and
@@ -222,9 +241,13 @@ which is what a cloud keys that type's labels by.
 - `AC-INTRO-008.6` (Ubiquitous): THE SYSTEM SHALL report a struct field's authored title, description,
   unit, string format, bounds and write-only flag on that field's own schema, and SHALL omit a field
   that declares none.
-- `AC-INTRO-008.7` (Ubiquitous): THE SYSTEM SHALL detect a nullable reference member from the
-  compiler-emitted nullability annotation, falling back to the declaring constructor's and then the
-  declaring type's.
+- `AC-INTRO-008.7` (Ubiquitous): THE SYSTEM SHALL read the declared nullability of every reference
+  position of a member's type — the member itself and each element it nests — from the compiler-emitted
+  annotation, falling back to the declaring constructor's and then the declaring type's.
+- `AC-INTRO-008.8` (Ubiquitous): THE SYSTEM SHALL accept a struct-field declaration on a positional
+  constructor parameter and nowhere else.
+- `AC-INTRO-008.9` (Ubiquitous): THE SYSTEM SHALL report the same field schemas for a nullable struct
+  member as for a non-nullable one of the same type, widening only the member's own type.
 
 `AC-INTRO-008.1` keeps ordinals off the wire so reordering an enum's members is not a data change.
 
@@ -235,9 +258,11 @@ field encodes as null outbound and may be omitted inbound.
 is refused at compile time, so the walk that stops one level down is what a conforming library never
 reaches; the rule is stated because the pack path is what an assembly built without the analyzers hits.
 
-`AC-INTRO-008.7` is the difference between a `string?` field that publishes and one that throws: the
-outbound codec refuses a null for a non-nullable field, and the whole property publish is dropped with
-it.
+`AC-INTRO-008.7` is the difference between a `string?` that publishes and one that throws: the outbound
+codec refuses a null where the schema says none is allowed, and the whole property publish is dropped
+with it. The annotation the compiler emits is one flag per position of a walk of the member's type, so
+an array's element is read the same way its member is, at any nesting depth — a member and its elements
+are one declaration, not a declaration with an untyped interior.
 
 ## The presentation document
 
@@ -267,9 +292,9 @@ the knob. `AC-INTRO-009.4` is the same economy for a value every member has.
 `AC-INTRO-009.5` lets a dashboard detect a status tile from an explicit hint rather than infer it from
 the presence of severities, which an enum can legitimately lack.
 
-`AC-INTRO-009.6` is a surface rule that reads like a triviality and was a real hole: the declaration
-was also accepted on a method, where no producer read it and no diagnostic judged it — it compiled,
-emitted nothing, and warned about nothing.
+`AC-INTRO-009.6` and `AC-INTRO-008.8` read like trivia and are the same rule: a declaration the surface
+accepts in a place nothing reads is a declaration that compiles, emits nothing and warns about nothing.
+Presentation is read off a property; a struct field is read off a positional constructor parameter.
 
 The visibility predicate on this document is the **soft** sibling of config-time gating
 ([`config-gating.md`](config-gating.md)): a hidden member still exists, still binds and still
@@ -283,12 +308,13 @@ wire exactly as written.
 Neither has a slot on a JSON schema, so both ride the presentation document.
 
 - `AC-INTRO-010.1` (Event-driven): WHEN a member is declared a status indicator THE SYSTEM SHALL
-  report the severity of each member of its enum type, and SHALL report none otherwise.
+  report the severity of each member of its enum type as its lower-cased wire token, and SHALL report
+  none otherwise.
 - `AC-INTRO-010.2` (Ubiquitous): THE SYSTEM SHALL read severities through a nullable enum and SHALL
   NOT read them through an array of enum.
 - `AC-INTRO-010.3` (Ubiquitous): THE SYSTEM SHALL report each declared enum-member label without
   requiring any flag, reading through a nullable enum and through an array of enum, and SHALL omit an
-  unlabelled member.
+  unlabelled member and every member whose type is not an enum.
 - `AC-INTRO-010.4` (Ubiquitous): THE SYSTEM SHALL report a declared label whatever its value,
   including an empty one, one repeated on another member, and one on a combined flags member.
 
@@ -318,6 +344,8 @@ title is a type identity, and the field's enum labels and severities.
   SYSTEM SHALL report no struct-field presentation at all.
 - `AC-INTRO-011.4` (Ubiquitous): THE SYSTEM SHALL leave a member's own presentation intact beside the
   struct-field presentation it carries.
+- `AC-INTRO-011.5` (Ubiquitous): THE SYSTEM SHALL report an authored struct-field title that is empty
+  rather than omitting it.
 
 `AC-INTRO-011.1` is one rule at two levels: wherever a schema title is an identity, the authored title
 goes to the presentation document instead of being silently dropped. Duplicating a scalar field's
@@ -325,6 +353,10 @@ title into both would leave two sources with no rule about which wins.
 
 `AC-INTRO-011.3` is what keeps `AC-INTRO-009.1` true — an always-present struct-field node would stop
 an otherwise-empty presentation from being absent.
+
+`AC-INTRO-011.5` is `AC-INTRO-007.8` at the one place a title changes documents. An authored empty title
+is still authored, and a length test here would make the re-routed title the single string in the
+document that is not carried as written.
 
 ## Where a member's schema and its presentation come from
 
@@ -369,8 +401,10 @@ a decoupling knob, and the ones a topology names.
   identifier, and by the holding property's name where none is declared.
 - `AC-INTRO-014.3` (Event-driven): WHEN a binding declares an identifier that is empty or blank THE
   SYSTEM SHALL refuse the introspection naming the member.
-- `AC-INTRO-014.4` (Event-driven): WHEN two bindings of one logic block resolve to one identifier THE
-  SYSTEM SHALL refuse the introspection naming both members.
+- `AC-INTRO-014.4` (Event-driven): WHEN two bindings of one logic block and of the same kind resolve
+  to one identifier THE SYSTEM SHALL refuse the introspection naming both declarations.
+- `AC-INTRO-014.5` (Ubiquitous): THE SYSTEM SHALL mint contract-binding and interface-binding
+  identifiers in separate namespaces, each distinguished case-sensitively.
 
 The declared identifier is the decoupling knob: pin it and the C# member can be renamed without
 minting a new key. `AC-INTRO-014.1`'s derived forms are what a topology names when it is not pinned,
@@ -378,15 +412,21 @@ which is why the property name is part of it — one property implementing two i
 two endpoints.
 
 `AC-INTRO-014.3` and `AC-INTRO-014.4` are one posture in two shapes: an identifier addresses exactly
-one endpoint, so a blank one addresses nothing and a repeated one addresses two things. Both used to
-pass. A blank identifier reached the document as an endpoint named by the empty string — unwireable,
-invisible to `dale list`, and a translation key with an empty part. A repeated one was worse: the
-second binding overwrote the first, so the artifact carried one endpoint while the block bound two,
-and a relation derived for the first now named the second. Both are refused where the binder mints
-them, so `dotnet pack` and a starting block report the same thing.
+one endpoint, so a blank one addresses nothing and a repeated one addresses two things. A blank
+identifier would reach the document as an endpoint named by the empty string — unwireable, invisible to
+`dale list`, and a translation key with an empty part; a repeated one would leave the artifact carrying
+one endpoint while the block binds two, with a relation derived for the first naming the second. Both
+are refused where the binder mints them, so `dotnet pack` and a starting block report the same thing.
+
+`AC-INTRO-014.5` is the boundary that keeps the refusal narrow. Contract bindings and interface
+bindings are separate arrays in the document and separate namespaces in the cloud's key grammar, so one
+name may address one endpoint of each kind. Case is not such a boundary: `Relay` and `relay` are two
+endpoints, as they are two services (`AC-INTRO-005.3`).
 
 ## What an endpoint carries
 
+- `AC-INTRO-015.1` (Ubiquitous): THE SYSTEM SHALL report an interface binding's logic-interface type
+  and its matching counterpart type by display full name.
 - `AC-INTRO-015.2` (Ubiquitous): THE SYSTEM SHALL report an interface binding's default name, tags and
   multiplicity, omitting each where it is unset or default, and SHALL report its contract's name.
 - `AC-INTRO-015.3` (Event-driven): WHEN a logic interface's contract declares role default names THE
@@ -396,12 +436,19 @@ them, so `dotnet pack` and a starting block report the same thing.
   none.
 - `AC-INTRO-015.5` (Ubiquitous): THE SYSTEM SHALL report a contract binding's contract type and its
   contract-type token.
-- `AC-INTRO-015.6` (Ubiquitous): THE SYSTEM SHALL report a contract binding's default name, tags,
-  multiplicity, provider-side consumer limit, handler-actor name and development-only flag, omitting
-  each where it is unset or default.
+- `AC-INTRO-015.6` (Ubiquitous): THE SYSTEM SHALL report a contract binding's handler-actor name
+  always, and its default name, tags, multiplicity, provider-side consumer limit and development-only
+  flag only where each is set or non-default.
+
+`AC-INTRO-015.1` is what decides which endpoints may be linked at all: the platform pairs a binding to
+its counterpart by the two type names, so they travel together.
 
 `AC-INTRO-015.4` is resolved in the producer rather than in each client so two renderers cannot
 disagree about which way an edge points.
+
+`AC-INTRO-015.6` has one member outside its own omission rule. The handler-actor name is not an authored
+value that may be absent — it is how the runtime addresses the actor servicing the contract — so it is
+reported for every binding.
 
 The contract-type token in `AC-INTRO-015.5` is the one identifier on this page that is **not** a
 translation key. Nothing translates it; the platform matches a binding to its handler through it, and
@@ -431,14 +478,24 @@ declaration becomes one half on each bound endpoint's owning service.
   introspection.
 - `AC-INTRO-016.6` (Ubiquitous): THE SYSTEM SHALL report the halves of a gated component in the
   definition view and none of them for an instance whose configuration excludes it.
+- `AC-INTRO-016.7` (Ubiquitous): THE SYSTEM SHALL report on each relation half the logic-interface type
+  of the endpoint it was derived from.
+- `AC-INTRO-016.8` (Event-driven): WHEN a component property holds null THE SYSTEM SHALL report no
+  relation half for its endpoints, having reported no service for it to hang on.
 
 `AC-INTRO-016.1` carries a load-bearing detail: the half is registered by the same code path that just
 minted the endpoint's identifier, so a relation's endpoint reference can never diverge from the
 endpoint's actual wiring identifier. There is no second resolution rule.
 
-`AC-INTRO-016.3` is the one case where a declaration produces nothing. A component with no service
-surface has no node in the cloud's graph to anchor an edge to; the endpoint still binds and still
-wires, and the omission is reported at compile time.
+`AC-INTRO-016.3` and `AC-INTRO-016.8` are the two cases where a declaration produces nothing, and they
+are the same reason twice: a relation half hangs on a service, so no service means no half. A component
+with no service surface has none by declaration, and the omission is reported at compile time; a
+component property holding null has none because a service's members are enumerated off the object
+(`AC-GATE-007.7`), and nothing reports that at all — a gated component must exist by the time the
+configuration runs. The endpoint is described in both cases: its identity is type-level.
+
+`AC-INTRO-016.7` is what makes a half readable without resolving its endpoint first — the type on the
+half is the endpoint's own, put there by the code path that minted the endpoint's identifier.
 
 `AC-INTRO-016.6`'s definition half is `AC-GATE-006.1`'s — the definition view describes the type, so
 it binds the full set. The relation half following the endpoint is this page's.
@@ -448,8 +505,7 @@ it binds the full set. The relation half following the endpoint is this page's.
 The SDK's MSBuild targets are what make all of the above happen without a library author doing
 anything.
 
-<!-- The next three criteria are one line each: spec-trace reads the GAP marker line-wise. -->
-- `AC-INTRO-017.1` (Event-driven): WHEN a logic-block library is packed THE SYSTEM SHALL publish the project, run the introspection over the published assembly excluding development-only blocks, and fail the pack if that run fails. GAP: a targets test is a pack-and-consume round trip, which nothing in this repository has a harness for; the parser half it drives is covered by the document and refusal criteria above.
+- `AC-INTRO-017.1` (Event-driven): WHEN a logic-block library is packed THE SYSTEM SHALL publish the project, run the introspection over the published assembly supplying the project's package id and excluding development-only blocks, and fail the pack if that run fails. GAP: a targets test is a pack-and-consume round trip, which nothing in this repository has a harness for; the parser half it drives is covered by the document and refusal criteria above.
 - `AC-INTRO-017.2` (Ubiquitous): THE SYSTEM SHALL write the document beside the published output under the project's name and pack the whole published folder. GAP: as `AC-INTRO-017.1`.
 - `AC-INTRO-017.3` (Ubiquitous): THE SYSTEM SHALL skip the introspection entirely for a project that opts out. GAP: as `AC-INTRO-017.1`.
 - `AC-INTRO-017.4` (Ubiquitous): THE SYSTEM SHALL supply the source generator and analyzers to every
@@ -499,13 +555,16 @@ Three consequences worth knowing before renaming anything:
   library's own translations.
 
 Changing the package identity re-namespaces every key in the library, which makes it the single most
-expensive rename available — and it is now the nuspec id rather than the assembly name
-(`AC-INTRO-001.2`), so a project that sets one without the other changes its keys by changing the one
-that counts. The exact key grammar belongs to the cloud platform and is not part of this SDK's
+expensive rename available. The identity is the nuspec package id (`AC-INTRO-001.2`) — the id the
+platform registers the library under — so it is that property, and not the assembly name, that a rename
+has to leave alone. The exact key grammar belongs to the cloud platform and is not part of this SDK's
 contract; the durable rule is the one above — the identifier goes in, the key comes out.
 
 `dale list` prints the block identities and the service, member, contract and interface identifiers as
-the document emits them, which is the cheapest way to see what a rename would cost.
+the introspection emits them, which is the cheapest way to see what a rename would cost. It lists every
+block the assembly declares, development-only ones included: it runs the introspection without the
+exclusion `AC-INTRO-002.6` describes, so its listing is the declared surface rather than the packed
+artifact's.
 
 ## Who reads the document
 
@@ -516,6 +575,8 @@ Four consumers, and what each depends on:
   It is the reason every rule on this page about a *field's value* is a wire rule.
 - **`dale list` and `dale build`** read it through a hand-maintained mirror of the contracts types,
   every member optional, so the CLI can read a document produced by an older or newer SDK than its own.
+  They run the introspection themselves rather than reading a packed artifact, and without the
+  development-only exclusion, so what they list is the declared surface.
 - **The development host** reads a member's writability from its schema and an instantiation
   parameter's marker and default from its runtime document, and passes the presentation document
   through untouched.

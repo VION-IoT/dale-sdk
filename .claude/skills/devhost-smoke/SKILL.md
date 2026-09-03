@@ -1,4 +1,4 @@
-﻿---
+---
 name: devhost-smoke
 description: Smoke-test the Vion Dale DevHost end-to-end. Tier 1 (headless, CI) covers the HTTP/runtime surface; Tier 2 (live, chrome-devtools) drives the no-build SPA UI on a real server. Use after changing anything under Vion.Dale.DevHost / Vion.Dale.DevHost.Web / the scenario runner / deterministic stepping, or when asked to verify the DevHost is healthy. A subagent can run Tier 2 after DevHost work.
 ---

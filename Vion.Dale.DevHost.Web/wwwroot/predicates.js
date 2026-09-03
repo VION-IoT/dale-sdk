@@ -1,4 +1,4 @@
-﻿// Presentation-predicate evaluator for the DevHost SPA — the UI profile of the VisibleWhen dialect
+// Presentation-predicate evaluator for the DevHost SPA — the UI profile of the VisibleWhen dialect
 // No-build plain JS (see CLAUDE.md): a small recursive-descent parser + evaluator that
 // mirrors the dale-sdk analyzer's parser and the dashboard's jsep-subset compiler, pinned by the
 // shared conformance vector (Predicates/predicate-conformance.json in vion-contracts; vendored here

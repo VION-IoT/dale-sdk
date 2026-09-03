@@ -1,4 +1,4 @@
-﻿---
+---
 description: Adversarially review a change (uncommitted, branch, or PR) against this repo's conventions, the lead's known findings taxonomy, and a spec if one is given
 argument-hint: [uncommitted|branch[:base]|pr[:N]] [spec-path] [notes]
 ---

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -32,14 +32,34 @@ namespace Vion.Dale.LogicBlockParser.Test
 
         private const string UnregisteredPluginAssembly = "Vion.Dale.ParserProbe.Unregistered.dll";
 
-        private static readonly string OutputDirectory = AppContext.BaseDirectory;
+        /// <summary>Where the fixture plugins and the whole SDK closure sit: what the parser is pointed at.</summary>
+        private static readonly string PluginDirectory = AppContext.BaseDirectory;
+
+        /// <summary>
+        ///     Where the documents these tests produce go. One directory per run, deleted after it: writing
+        ///     them beside the plugins left a JSON file per test in the build output, and a build output that
+        ///     grows every run is a mess a later `clean` fixes by accident.
+        /// </summary>
+        private static string _outputDirectory = null!;
+
+        [ClassInitialize]
+        public static void CreateOutputDirectory(TestContext context)
+        {
+            _outputDirectory = Directory.CreateTempSubdirectory("dale-parser-test-").FullName;
+        }
+
+        [ClassCleanup]
+        public static void RemoveOutputDirectory()
+        {
+            Directory.Delete(_outputDirectory, true);
+        }
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-001.1")]
         public void EmitOneRecordPerLogicBlock()
         {
             // Arrange
-            var output = Path.Combine(OutputDirectory, $"{Guid.NewGuid():N}.json");
+            var output = Path.Combine(_outputDirectory, $"{Guid.NewGuid():N}.json");
 
             // Act
             var run = RunParser(PluginAssembly, output);
@@ -56,7 +76,7 @@ namespace Vion.Dale.LogicBlockParser.Test
         public void OrderLogicBlocksByFullTypeName()
         {
             // Arrange
-            var output = Path.Combine(OutputDirectory, $"{Guid.NewGuid():N}.json");
+            var output = Path.Combine(_outputDirectory, $"{Guid.NewGuid():N}.json");
 
             // Act
             RunParser(PluginAssembly, output);
@@ -71,7 +91,7 @@ namespace Vion.Dale.LogicBlockParser.Test
         public void ReportNestedBlockIdentityWithItsClrNestingSeparator()
         {
             // Arrange
-            var output = Path.Combine(OutputDirectory, $"{Guid.NewGuid():N}.json");
+            var output = Path.Combine(_outputDirectory, $"{Guid.NewGuid():N}.json");
 
             // Act
             RunParser(PluginAssembly, output);
@@ -85,7 +105,7 @@ namespace Vion.Dale.LogicBlockParser.Test
         public void ReportSuppliedPackageIdentity()
         {
             // Arrange
-            var output = Path.Combine(OutputDirectory, $"{Guid.NewGuid():N}.json");
+            var output = Path.Combine(_outputDirectory, $"{Guid.NewGuid():N}.json");
 
             // Act
             var run = RunParser(PluginAssembly, output, "--package-id", "Contoso.Supplied");
@@ -100,7 +120,7 @@ namespace Vion.Dale.LogicBlockParser.Test
         public void FallBackToAssemblyNameWhenNoPackageIdentitySupplied()
         {
             // Arrange
-            var output = Path.Combine(OutputDirectory, $"{Guid.NewGuid():N}.json");
+            var output = Path.Combine(_outputDirectory, $"{Guid.NewGuid():N}.json");
 
             // Act
             RunParser(PluginAssembly, output);
@@ -114,7 +134,7 @@ namespace Vion.Dale.LogicBlockParser.Test
         public void FallBackToAssemblyNameWhenSuppliedPackageIdentityBlank()
         {
             // Arrange
-            var output = Path.Combine(OutputDirectory, $"{Guid.NewGuid():N}.json");
+            var output = Path.Combine(_outputDirectory, $"{Guid.NewGuid():N}.json");
 
             // Act
             RunParser(PluginAssembly, output, "--package-id", "   ");
@@ -128,7 +148,7 @@ namespace Vion.Dale.LogicBlockParser.Test
         public void ReportPluginAssemblyVersion()
         {
             // Arrange
-            var output = Path.Combine(OutputDirectory, $"{Guid.NewGuid():N}.json");
+            var output = Path.Combine(_outputDirectory, $"{Guid.NewGuid():N}.json");
 
             // Act
             RunParser(PluginAssembly, output);
@@ -142,7 +162,7 @@ namespace Vion.Dale.LogicBlockParser.Test
         public void ReportEmptyDocumentLevelAnnotations()
         {
             // Arrange
-            var output = Path.Combine(OutputDirectory, $"{Guid.NewGuid():N}.json");
+            var output = Path.Combine(_outputDirectory, $"{Guid.NewGuid():N}.json");
 
             // Act
             RunParser(PluginAssembly, output);
@@ -156,7 +176,7 @@ namespace Vion.Dale.LogicBlockParser.Test
         public void WriteCamelCasedMemberNamesAndAnnotationKeys()
         {
             // Arrange
-            var output = Path.Combine(OutputDirectory, $"{Guid.NewGuid():N}.json");
+            var output = Path.Combine(_outputDirectory, $"{Guid.NewGuid():N}.json");
 
             // Act
             RunParser(PluginAssembly, output);
@@ -172,8 +192,8 @@ namespace Vion.Dale.LogicBlockParser.Test
         public void EmitByteIdenticalDocumentsForRepeatedRuns()
         {
             // Arrange
-            var first = Path.Combine(OutputDirectory, $"{Guid.NewGuid():N}.json");
-            var second = Path.Combine(OutputDirectory, $"{Guid.NewGuid():N}.json");
+            var first = Path.Combine(_outputDirectory, $"{Guid.NewGuid():N}.json");
+            var second = Path.Combine(_outputDirectory, $"{Guid.NewGuid():N}.json");
 
             // Act
             RunParser(PluginAssembly, first);
@@ -189,7 +209,7 @@ namespace Vion.Dale.LogicBlockParser.Test
         public void ExcludeDevelopmentOnlyBlocksAndNameThem()
         {
             // Arrange
-            var output = Path.Combine(OutputDirectory, $"{Guid.NewGuid():N}.json");
+            var output = Path.Combine(_outputDirectory, $"{Guid.NewGuid():N}.json");
 
             // Act
             var run = RunParser(PluginAssembly, output, "--exclude-development-only");
@@ -206,10 +226,10 @@ namespace Vion.Dale.LogicBlockParser.Test
         public void AcceptOptionsInAnyPositionAndCase()
         {
             // Arrange
-            var output = Path.Combine(OutputDirectory, $"{Guid.NewGuid():N}.json");
+            var output = Path.Combine(_outputDirectory, $"{Guid.NewGuid():N}.json");
 
             // Act
-            var run = RunParserRaw("--EXCLUDE-DEVELOPMENT-ONLY", Path.Combine(OutputDirectory, PluginAssembly), output);
+            var run = RunParserRaw("--EXCLUDE-DEVELOPMENT-ONLY", Path.Combine(PluginDirectory, PluginAssembly), output);
 
             // Assert
             Assert.AreEqual(0, run.ExitCode, run.Output);
@@ -221,7 +241,7 @@ namespace Vion.Dale.LogicBlockParser.Test
         public void RefusePluginWhoseConcreteBlockUnregistered()
         {
             // Arrange
-            var output = Path.Combine(OutputDirectory, $"{Guid.NewGuid():N}.json");
+            var output = Path.Combine(_outputDirectory, $"{Guid.NewGuid():N}.json");
 
             // Act
             var run = RunParser(UnregisteredPluginAssembly, output);
@@ -239,7 +259,7 @@ namespace Vion.Dale.LogicBlockParser.Test
         public void RefuseIncompleteCommandLine(int argumentCount)
         {
             // Arrange
-            var arguments = new[] { Path.Combine(OutputDirectory, PluginAssembly) }.Take(argumentCount).ToArray();
+            var arguments = new[] { Path.Combine(PluginDirectory, PluginAssembly) }.Take(argumentCount).ToArray();
 
             // Act
             var run = RunParserRaw(arguments);
@@ -254,14 +274,46 @@ namespace Vion.Dale.LogicBlockParser.Test
         public void RefuseMissingPluginPath()
         {
             // Arrange
-            var missing = Path.Combine(OutputDirectory, $"{Guid.NewGuid():N}.dll");
+            var missing = Path.Combine(_outputDirectory, $"{Guid.NewGuid():N}.dll");
 
             // Act
-            var run = RunParserRaw(missing, Path.Combine(OutputDirectory, $"{Guid.NewGuid():N}.json"));
+            var run = RunParserRaw(missing, Path.Combine(_outputDirectory, $"{Guid.NewGuid():N}.json"));
 
             // Assert
             Assert.AreEqual(1, run.ExitCode);
             Assert.Contains(missing, run.Output);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-002.9")]
+        public void RefuseUnregisteredBlockEvenWhenExclusionWouldDropIt()
+        {
+            // Arrange
+            var output = Path.Combine(_outputDirectory, $"{Guid.NewGuid():N}.json");
+
+            // Act
+            // The forgotten block binds a provider face, so the filter would leave it out of the document.
+            var run = RunParser(UnregisteredPluginAssembly, output, "--exclude-development-only");
+
+            // Assert
+            Assert.AreEqual(1, run.ExitCode, run.Output);
+            Assert.Contains("Vion.Dale.ParserProbe.Unregistered.ForgottenBlock", run.Output);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-001.5")]
+        public void IntrospectNoAbstractLogicBlock()
+        {
+            // Arrange
+            var output = Path.Combine(_outputDirectory, $"{Guid.NewGuid():N}.json");
+
+            // Act
+            // The unregistered plugin carries an abstract block that the registration also omits. Only the
+            // concrete one may be refused; an abstract type is never introspected, so it is never missing.
+            var run = RunParser(UnregisteredPluginAssembly, output);
+
+            // Assert
+            Assert.DoesNotContain("AbstractBaseBlock", run.Output);
         }
 
         private static JsonObject ReadDocument(string path)
@@ -289,7 +341,7 @@ namespace Vion.Dale.LogicBlockParser.Test
 
         private static ParserRun RunParser(string pluginAssemblyFileName, string outputJsonPath, params string[] options)
         {
-            return RunParserRaw(new[] { Path.Combine(OutputDirectory, pluginAssemblyFileName), outputJsonPath }.Concat(options).ToArray());
+            return RunParserRaw(new[] { Path.Combine(PluginDirectory, pluginAssemblyFileName), outputJsonPath }.Concat(options).ToArray());
         }
 
         private static ParserRun RunParserRaw(params string[] arguments)
@@ -299,7 +351,7 @@ namespace Vion.Dale.LogicBlockParser.Test
                                 UseShellExecute = false,
                                 RedirectStandardOutput = true,
                                 RedirectStandardError = true,
-                                WorkingDirectory = OutputDirectory,
+                                WorkingDirectory = PluginDirectory,
                             };
 
             startInfo.ArgumentList.Add(ParserDll());
@@ -323,7 +375,7 @@ namespace Vion.Dale.LogicBlockParser.Test
         /// </summary>
         private static string ParserDll()
         {
-            var directory = new DirectoryInfo(OutputDirectory);
+            var directory = new DirectoryInfo(PluginDirectory);
             while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Vion.Dale.Sdk.sln")))
             {
                 directory = directory.Parent;
@@ -331,7 +383,7 @@ namespace Vion.Dale.LogicBlockParser.Test
 
             Assert.IsNotNull(directory, "Could not locate the repository root above the test output directory.");
 
-            var configuration = OutputDirectory.Contains($"{Path.DirectorySeparatorChar}Release{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase) ? "Release" :
+            var configuration = PluginDirectory.Contains($"{Path.DirectorySeparatorChar}Release{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase) ? "Release" :
                                     "Debug";
             var parser = Path.Combine(directory.FullName,
                                       "Vion.Dale.LogicBlockParser",

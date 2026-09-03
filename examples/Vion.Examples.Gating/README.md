@@ -1,4 +1,4 @@
-﻿# Vion.Examples.Gating
+# Vion.Examples.Gating
 
 A **dashboard-UI test fixture** for **config-time structural gating** — it exercises *every*
 gateable member kind, driven by a **number**, an **enum**, and a **string** `[InstantiationParameter]`, and

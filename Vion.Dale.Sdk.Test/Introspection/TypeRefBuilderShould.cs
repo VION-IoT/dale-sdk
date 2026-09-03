@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.DependencyInjection;
 using Vion.Dale.Sdk.Introspection;
@@ -10,77 +10,26 @@ namespace Vion.Dale.Sdk.Test.Introspection
     {
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-007.6")]
-        public void EmitsPrimitiveSchemaForBool()
+        [DataRow("BoolValue", "boolean", null, DisplayName = "bool")]
+        [DataRow("ByteValue", "integer", "uint8", DisplayName = "byte")]
+        [DataRow("UShortValue", "integer", "uint16", DisplayName = "ushort")]
+        [DataRow("UIntValue", "integer", "uint32", DisplayName = "uint")]
+        [DataRow("LongValue", "integer", "int64", DisplayName = "long")]
+        public void EmitPrimitiveSchemaForEachSupportedKind(string identifier, string expectedType, string? expectedFormat)
         {
             // Arrange
 
             // Act
-            var schema = GetSchema("BoolValue");
+            var schema = GetSchema(identifier);
 
             // Assert
-            Assert.AreEqual("boolean", schema["type"]?.GetValue<string>());
-            Assert.IsNull(schema["format"]);
+            Assert.AreEqual(expectedType, schema["type"]?.GetValue<string>());
+            Assert.AreEqual(expectedFormat, schema["format"]?.GetValue<string>());
         }
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-007.6")]
-        public void EmitsPrimitiveSchemaForByte()
-        {
-            // Arrange
-
-            // Act
-            var schema = GetSchema("ByteValue");
-
-            // Assert
-            Assert.AreEqual("integer", schema["type"]?.GetValue<string>());
-            Assert.AreEqual("uint8", schema["format"]?.GetValue<string>());
-        }
-
-        [TestMethod]
-        [TestProperty("spec", "AC-INTRO-007.6")]
-        public void EmitsPrimitiveSchemaForUShort()
-        {
-            // Arrange
-
-            // Act
-            var schema = GetSchema("UShortValue");
-
-            // Assert
-            Assert.AreEqual("integer", schema["type"]?.GetValue<string>());
-            Assert.AreEqual("uint16", schema["format"]?.GetValue<string>());
-        }
-
-        [TestMethod]
-        [TestProperty("spec", "AC-INTRO-007.6")]
-        public void EmitsPrimitiveSchemaForUInt()
-        {
-            // Arrange
-
-            // Act
-            var schema = GetSchema("UIntValue");
-
-            // Assert
-            Assert.AreEqual("integer", schema["type"]?.GetValue<string>());
-            Assert.AreEqual("uint32", schema["format"]?.GetValue<string>());
-        }
-
-        [TestMethod]
-        [TestProperty("spec", "AC-INTRO-007.6")]
-        public void EmitsPrimitiveSchemaForLong()
-        {
-            // Arrange
-
-            // Act
-            var schema = GetSchema("LongValue");
-
-            // Assert
-            Assert.AreEqual("integer", schema["type"]?.GetValue<string>());
-            Assert.AreEqual("int64", schema["format"]?.GetValue<string>());
-        }
-
-        [TestMethod]
-        [TestProperty("spec", "AC-INTRO-007.6")]
-        public void EmitsNullablePrimitiveSchemaForOptionalDouble()
+        public void EmitNullablePrimitiveSchemaForOptionalDouble()
         {
             // Arrange
 
@@ -98,7 +47,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-007.6")]
-        public void EmitsNullablePrimitiveSchemaForOptionalInt()
+        public void EmitNullablePrimitiveSchemaForOptionalInt()
         {
             // Arrange
 
@@ -116,7 +65,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-008.7")]
-        public void EmitsNonNullableStringSchemaForNonNullName()
+        public void EmitNonNullableStringSchemaForNonNullableMember()
         {
             // Arrange
 
@@ -130,7 +79,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-008.7")]
-        public void EmitsNullableStringSchemaForOptionalErrorMessage()
+        public void EmitNullableStringSchemaForNullableMember()
         {
             // Arrange
 
@@ -147,7 +96,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-007.2")]
-        public void EmitsAnnotationsForVoltageSetpoint()
+        public void EmitAuthoredUnitAndBoundsOnNumericMember()
         {
             // Arrange
 
@@ -163,7 +112,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-007.6")]
-        public void EmitsArraySchemaForImmutableArrayOfDouble()
+        public void EmitArraySchemaForImmutableArrayMember()
         {
             // Arrange
 
@@ -178,7 +127,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-007.2")]
-        public void EmitsUnitOnArrayRootOnlyForAnnotatedImmutableArray()
+        public void EmitUnitOnArrayRootRatherThanOnItems()
         {
             // Arrange
             // Property-level x-unit lives on the array root only — items carries element-shape
@@ -195,7 +144,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-007.6")]
-        public void EmitsArrayOfNullableSchemaForSamplesWithGaps()
+        public void EmitArrayOfNullableSchemaForNullableElements()
         {
             // Arrange
 
@@ -213,7 +162,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-008.2")]
-        public void EmitsStructSchemaForLocation()
+        public void EmitStructSchemaForRecordStructMember()
         {
             // Arrange
 
@@ -236,7 +185,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-008.2")]
-        public void EmitsAdditionalPropertiesFalseOnStruct()
+        public void PermitNoAdditionalMembersOnStructSchema()
         {
             // Arrange
 
@@ -249,7 +198,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-008.2")]
-        public void EmitsNullableStructSchemaForLastKnownLocation()
+        public void EmitNullableStructSchemaForNullableStructMember()
         {
             // Arrange
 
@@ -267,15 +216,17 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-008.6")]
-        public void EmitsStructFieldAnnotationsForNullableStruct()
+        [TestProperty("spec", "AC-INTRO-008.9")]
+        [DataRow("Location", DisplayName = "non-nullable struct member")]
+        [DataRow("LastKnownLocation", DisplayName = "nullable struct member")]
+        public void EmitStructFieldAnnotationsWhateverMemberNullability(string identifier)
         {
             // Arrange
-            // Regression (Vion.Contracts < 0.10.2): the nullable wrapper stripped [StructField]
-            // metadata — LastKnownLocation (Coordinates?) emitted bare field schemas while
-            // Location (Coordinates) carried description/minimum/maximum/x-unit.
+            // The nullable wrapper once stripped the field metadata, so the two members carried different
+            // field schemas. Both rows assert the same annotations, which is what makes them one behavior.
 
             // Act
-            var schema = GetSchema("LastKnownLocation");
+            var schema = GetSchema(identifier);
             var props = schema["properties"] as JsonObject;
 
             // Assert
@@ -291,24 +242,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-008.2")]
-        public void EmitsIdenticalFieldSchemasForNullableAndNonNullableStruct()
-        {
-            // Arrange
-            // A nullable struct property differs from its non-nullable twin only by the
-            // property-level type widening to ["object","null"] — the field subschemas
-            // must be bit-identical.
-
-            // Act
-            var nonNullable = GetSchema("Location");
-            var nullable = GetSchema("LastKnownLocation");
-
-            // Assert
-            Assert.AreEqual(nonNullable["properties"]!.ToJsonString(), nullable["properties"]!.ToJsonString());
-        }
-
-        [TestMethod]
-        [TestProperty("spec", "AC-INTRO-008.2")]
-        public void EmitsArrayOfStructSchemaForRoute()
+        public void EmitArrayOfStructSchemaForStructArrayMember()
         {
             // Arrange
 
@@ -323,7 +257,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-008.6")]
-        public void EmitsStructFieldAnnotationsForScheduledSetpoint()
+        public void EmitAuthoredStructFieldAnnotations()
         {
             // Arrange
             // [StructField(Unit = "kW")] on PowerSetpoint should travel through to schema.
@@ -344,7 +278,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-008.6")]
-        public void EmitsWriteOnlyOnlyForSecretStructField()
+        public void EmitWriteOnlyOnlyForFieldDeclaringIt()
         {
             // Arrange
 
@@ -361,7 +295,8 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-008.6")]
-        public void EmitsDateTimeFormatForScheduledSetpointAtField()
+        [TestProperty("spec", "AC-INTRO-007.9")]
+        public void EmitFormatImpliedByFieldClrType()
         {
             // Arrange
 
@@ -379,7 +314,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-008.2")]
-        public void EmitsNullableStructFieldSchemasForRegisterWrites()
+        public void EmitNullableFieldSchemasForNullableFields()
         {
             // Arrange
             // Regression: an ImmutableArray<record struct> whose fields are independently nullable
@@ -421,7 +356,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-008.2")]
-        public void RequiresOnlyNonNullableStructFields()
+        public void RequireOnlyNonNullableStructFields()
         {
             // Arrange
             // Only the non-nullable field is required; nullable fields must be omitted from required so a
@@ -440,7 +375,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-008.1")]
-        public void EmitsEnumSchemaForCurrentAlarm()
+        public void EmitEnumSchemaAsMemberNameStrings()
         {
             // Arrange
 
@@ -460,7 +395,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-008.1")]
-        public void EmitsNullableEnumSchemaForLastAlarm()
+        public void EmitNullableEnumSchemaForNullableEnumMember()
         {
             // Arrange
 
@@ -482,7 +417,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-007.4")]
-        public void EmitsReadOnlyOnMeasuringPointSchema()
+        public void ReportMeasuringPointReadOnly()
         {
             // Arrange
             // MeasuringPoints are marked readOnly in the schema.
@@ -496,7 +431,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-007.4")]
-        public void OmitsReadOnlyOnServicePropertySchema()
+        public void ReportWritableServicePropertyNotReadOnly()
         {
             // Arrange
             // ServiceProperties with a public setter are writable; readOnly must be absent.
@@ -510,7 +445,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-007.4")]
-        public void EmitsReadOnlyOnServicePropertyWithPrivateSetter()
+        public void ReportServicePropertyWithoutPublicSetterReadOnly()
         {
             // Arrange
             // [ServiceProperty] on `{ get; private set; }` is a published-only value:
@@ -526,7 +461,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-007.4")]
-        public void EmitsReadOnlyOnArrayMeasuringPointSchema()
+        public void ReportArrayMeasuringPointReadOnly()
         {
             // Arrange
 
@@ -539,7 +474,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-007.4")]
-        public void EmitsReadOnlyOnServicePropertyWithReadOnlyOptIn()
+        public void ReportServicePropertyOptingIntoReadOnly()
         {
             // Arrange
             // [ServiceProperty(ReadOnly = true)] forces the wire read-only flag even though the C# property
@@ -555,7 +490,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-012.1")]
-        public void RoutesEnumPropertyTitleToPresentationDisplayName()
+        public void RouteEnumMemberTitleToDisplayName()
         {
             // Arrange
             // PreferredMode is `OperatingMode?` (nullable enum). schema.title carries the enum's
@@ -576,7 +511,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-012.1")]
-        public void RoutesStructPropertyTitleToPresentationDisplayName()
+        public void RouteStructMemberTitleToDisplayName()
         {
             // Arrange
             // PreferredLocation is `Coordinates?`. Same routing rule as the enum case.
@@ -592,7 +527,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-009.5")]
-        public void EmitsUIHintStatusIndicatorFromStatusIndicatorAttribute()
+        public void ReportStatusIndicatorHintForStatusIndicator()
         {
             // Arrange
             // CurrentStatus is `[StatusIndicator] AlarmState?`. The presence of [StatusIndicator]
@@ -608,7 +543,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-009.5")]
-        public void OmitsUIHintWhenNoUIHintNorStatusIndicator()
+        public void ReportNoHintWhenNeitherDeclared()
         {
             // Arrange
             // PreferredMode has no [UIHint] and no [StatusIndicator] — uiHint must be absent.
@@ -622,7 +557,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-010.3")]
-        public void EmitsEnumLabelsFromEnumLabelAttribute()
+        public void ReportDeclaredEnumLabels()
         {
             // Arrange
             // AlarmState's members carry [EnumLabel("Alles in Ordnung")] etc.
@@ -643,7 +578,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-010.3")]
-        public void OmitsEnumLabelsOnNonEnumProperty()
+        public void ReportNoEnumLabelsForNonEnumMember()
         {
             // Arrange
             // VoltageSetpoint is a double — no enum labels possible.

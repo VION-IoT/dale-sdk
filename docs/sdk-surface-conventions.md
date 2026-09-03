@@ -1,4 +1,4 @@
-﻿# SDK surface conventions
+# SDK surface conventions
 
 Read this before adding or changing anything a library author sees: an attribute, a public type or
 member, an analyzer, or a shape that reaches the introspection JSON.

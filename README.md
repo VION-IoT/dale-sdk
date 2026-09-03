@@ -1,4 +1,4 @@
-﻿# Vion Dale SDK
+# Vion Dale SDK
 
 An IoT runtime SDK for actor-based logic blocks. Logic blocks are composable units of behaviour that talk to hardware (Modbus, digital/analog I/O, HTTP) and to each other, hosted by the Vion Dale runtime.
 

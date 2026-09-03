@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Core;
+using Vion.Dale.Sdk.DigitalIo.Output;
 
 namespace Vion.Dale.ParserProbe.Unregistered
 {
@@ -33,10 +34,18 @@ namespace Vion.Dale.ParserProbe.Unregistered
         }
     }
 
-    /// <summary>The block the registration above forgets — a concrete type the parser cannot instantiate.</summary>
+    /// <summary>
+    ///     The block the registration above forgets — a concrete type the parser cannot instantiate. It also
+    ///     binds a provider face, so the development-only filter would leave it out of the document: the
+    ///     filter decides what the document carries and never what the run checks, and this block is how that
+    ///     is asserted.
+    /// </summary>
     [LogicBlock(Name = "Forgotten")]
     public class ForgottenBlock : LogicBlockBase
     {
+        [ServiceProviderContractBinding(DefaultName = "Bench face")]
+        public IDigitalOutputProvider Face { get; private set; } = null!;
+
         [ServiceProperty(Title = "Value")]
         public int Value { get; set; }
 
@@ -45,6 +54,21 @@ namespace Vion.Dale.ParserProbe.Unregistered
         }
 
         protected override void Ready()
+        {
+        }
+    }
+
+    /// <summary>
+    ///     An abstract logic block, deliberately unregistered. Abstract types are not introspected, so its
+    ///     absence from the registration above must not fail the run — the control for
+    ///     <see cref="ForgottenBlock" />.
+    /// </summary>
+    public abstract class AbstractBaseBlock : LogicBlockBase
+    {
+        [ServiceProperty(Title = "Value")]
+        public int Value { get; set; }
+
+        protected AbstractBaseBlock(ILogger logger) : base(logger)
         {
         }
     }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -15,14 +15,14 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
                                                         IInterfaceFactory interfaceFactory,
                                                         ServiceBinder serviceBinder,
                                                         BindingMode mode,
-                                                        IReadOnlyDictionary<string, JsonNode?>? parameterContext)
+                                                        IReadOnlyDictionary<string, JsonNode?>? parameterContext,
+                                                        Dictionary<string, string> mintedBy)
         {
             var type = logicBlock.GetType();
 
-            // One identifier namespace per block, shared by both paths below: a class-level binding and a
+            // Both paths below mint into the block's one namespace: a class-level binding and a
             // property-level one can pin the same Identifier, and only the second would have survived into
             // the endpoint dictionary the introspection reads.
-            var mintedBy = new Dictionary<string, string>(StringComparer.Ordinal);
 
             // Handle class-based interfaces with automatic detection. Class-implemented interfaces are not
             // gateable (no member to carry [IncludedWhen] — DALE043 enforces this), so they bind unconditionally.
@@ -64,7 +64,12 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
                                    // A class-implemented endpoint belongs to the root service, which the service
                                    // binder creates unconditionally from the class name.
                                    type.Name,
-                                   type.Name,
+
+                                   // A class-implemented binding has no member to name, so it is named by the
+                                   // interface it binds — which is what distinguishes it from its peers in a
+                                   // refusal, where naming the class would only repeat the block the message
+                                   // already names.
+                                   implementedLogicInterface.Name,
                                    type,
                                    mintedBy);
             }

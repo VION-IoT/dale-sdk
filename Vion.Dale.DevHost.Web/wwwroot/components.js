@@ -1,4 +1,4 @@
-﻿// All Explorer components. Plain-object Vue components with template strings (runtime-compiled —
+// All Explorer components. Plain-object Vue components with template strings (runtime-compiled —
 // the no-build substrate, see CLAUDE.md). Conventions: components render from the store and
 // format.js policy helpers; writable controls keep a local draft + dirty flag so incoming live
 // updates never clobber an edit (the R0 guarantee, expressed the Vue way: the live value only

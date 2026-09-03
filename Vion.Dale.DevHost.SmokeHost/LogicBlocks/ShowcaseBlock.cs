@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Immutable;
 using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Core;

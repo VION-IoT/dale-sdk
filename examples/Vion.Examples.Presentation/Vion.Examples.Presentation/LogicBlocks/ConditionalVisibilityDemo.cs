@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Core;
 
 namespace Vion.Examples.Presentation.LogicBlocks

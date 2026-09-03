@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
@@ -21,8 +21,7 @@ namespace Vion.Dale.Sdk.Introspection
         /// </summary>
         public static TypeRef BuildForProperty(PropertyInfo property)
         {
-            var isNullableRef = IsNullableReferenceType(property);
-            return Build(property.PropertyType, isNullableRef);
+            return Build(property.PropertyType, NullabilityOf(property));
         }
 
         /// <summary>
@@ -84,7 +83,7 @@ namespace Vion.Dale.Sdk.Introspection
         /// </summary>
         internal static TypeRef BuildForStructField(ParameterInfo parameter)
         {
-            return Build(parameter.ParameterType, IsNullableReferenceType(parameter));
+            return Build(parameter.ParameterType, NullabilityOf(parameter));
         }
 
         /// <summary>
@@ -174,21 +173,28 @@ namespace Vion.Dale.Sdk.Introspection
             return !double.IsNaN(declared) && !double.IsInfinity(declared) ? declared : null;
         }
 
-        private static TypeRef Build(Type type, bool isNullableRef)
+        /// <summary>
+        ///     Builds the reference for one position of a member's type, consuming that position's nullability
+        ///     flag from <paramref name="nullability" /> before recursing — so the walk of the type and the
+        ///     walk of the flags stay in step at any nesting depth.
+        /// </summary>
+        private static TypeRef Build(Type type, NullabilityWalk nullability)
         {
+            var isNullableRef = nullability.NextPosition();
+
             // Nullable<T> for value types — structural (e.g. int?, double?).
             if (Nullable.GetUnderlyingType(type) is { } underlying)
             {
-                // The inner value type is never a nullable reference, so pass false.
-                return new NullableTypeRef(Build(underlying, false));
+                return new NullableTypeRef(Build(underlying, nullability));
             }
 
             // ImmutableArray<T>
             if (IsImmutableArray(type, out var elementType))
             {
-                // Array element nullability: not tracked at property level for netstandard2.1.
-                // Struct parameters use their own NullabilityInfo via BuildStructTypeRef.
-                return new ArrayTypeRef(Build(elementType!, false));
+                // The element is the next position of the same walk, so ImmutableArray<string?> reaches the
+                // wire as a nullable item — without it the outbound codec refuses a null element and drops
+                // the whole publish, which is the failure the member-level rule already avoids.
+                return new ArrayTypeRef(Build(elementType!, nullability));
             }
 
             // string — honour nullable annotation (string? → NullableTypeRef(String)).
@@ -318,10 +324,11 @@ namespace Vion.Dale.Sdk.Introspection
                 // becomes NullableTypeRef(String) rather than a bare (non-nullable) string — otherwise the
                 // outbound codec throws on a null field and dale drops the whole property publish. DALE003
                 // permits these nullable fields (see AnalyzerHelper.IsFlatReadonlyRecordStruct).
-                var isNullableRef = IsNullableReferenceType(p);
+                var nullability = NullabilityOf(p);
+                var isNullableRef = nullability.Peek();
                 var isNullableValue = Nullable.GetUnderlyingType(p.ParameterType) is not null;
 
-                var fieldRef = Build(p.ParameterType, isNullableRef);
+                var fieldRef = Build(p.ParameterType, nullability);
                 var camelName = ToCamelCase(p.Name!);
                 fieldsBuilder.Add(new StructField(camelName, fieldRef));
 
@@ -337,55 +344,39 @@ namespace Vion.Dale.Sdk.Introspection
         }
 
         /// <summary>
-        ///     Detects whether a property is declared as a nullable reference type (e.g. <c>string?</c>) by
-        ///     reading the compiler-emitted <c>[Nullable(2)]</c> attribute, falling back to
-        ///     <c>[NullableContext]</c> on the declaring type. Only applicable to reference types; value types
-        ///     use <c>Nullable&lt;T&gt;</c> instead.
+        ///     The nullability flags a property carries, as a walk. <c>netstandard2.1</c> has no
+        ///     <c>NullabilityInfoContext</c>, so the compiler-emitted attribute is read directly; the fallback
+        ///     is <c>[NullableContext]</c> on the declaring type, which states one flag for every position.
         /// </summary>
-        private static bool IsNullableReferenceType(PropertyInfo property)
+        private static NullabilityWalk NullabilityOf(PropertyInfo property)
         {
-            if (property.PropertyType.IsValueType)
-            {
-                // Value-type nullability is handled via Nullable<T> — not via the attribute.
-                return false;
-            }
-
-            return ReadNullableAnnotation(property.GetCustomAttributes(false)) ??
-                   (property.DeclaringType is { } declaring ? ReadNullableContext(declaring.GetCustomAttributes(false)) : null) ?? false;
+            return new NullabilityWalk(ReadNullableFlags(property.GetCustomAttributes(false)),
+                                       property.DeclaringType is { } declaring ? ReadNullableContext(declaring.GetCustomAttributes(false)) : null);
         }
 
         /// <summary>
-        ///     Detects whether a positional record-struct field (a primary-constructor parameter) is a nullable
-        ///     reference type (e.g. <c>string?</c>). The compiler emits <c>[Nullable]</c> on the parameter; when
-        ///     the whole constructor / type shares one nullability it emits <c>[NullableContext]</c> on the
-        ///     constructor or declaring type instead, so both fallbacks are consulted. Only applicable to
-        ///     reference types; value-type fields use <c>Nullable&lt;T&gt;</c>.
+        ///     The same walk for a positional record-struct field. The compiler emits <c>[Nullable]</c> on the
+        ///     parameter; where the whole constructor or type shares one nullability it emits
+        ///     <c>[NullableContext]</c> on the constructor or the declaring type instead, so both fallbacks are
+        ///     consulted in that order.
         /// </summary>
-        private static bool IsNullableReferenceType(ParameterInfo parameter)
+        private static NullabilityWalk NullabilityOf(ParameterInfo parameter)
         {
-            if (parameter.ParameterType.IsValueType)
-            {
-                return false;
-            }
-
-            return ReadNullableAnnotation(parameter.GetCustomAttributes(false)) ?? ReadNullableContext(parameter.Member.GetCustomAttributes(false)) ??
-                   (parameter.Member.DeclaringType is { } declaring ? ReadNullableContext(declaring.GetCustomAttributes(false)) : null) ?? false;
+            return new NullabilityWalk(ReadNullableFlags(parameter.GetCustomAttributes(false)),
+                                       ReadNullableContext(parameter.Member.GetCustomAttributes(false)) ??
+                                       (parameter.Member.DeclaringType is { } declaring ? ReadNullableContext(declaring.GetCustomAttributes(false)) : null));
         }
 
         /// <summary>
-        ///     Reads the compiler-emitted <c>[Nullable(b)]</c> flag from a member's own attributes:
-        ///     <c>true</c> = annotated (may be null), <c>false</c> = not annotated, <c>null</c> = no
-        ///     <c>[Nullable]</c> attribute present (so the caller falls back to <c>[NullableContext]</c>).
+        ///     Reads the compiler-emitted <c>[Nullable(…)]</c> flags from a member's own attributes, or
+        ///     <c>null</c> where the attribute is absent. The compiler emits <b>one flag per position</b> of a
+        ///     pre-order walk of the member's type — the member itself, then each type argument in turn — and
+        ///     collapses the array to a single flag where every position agrees.
         /// </summary>
-        private static bool? ReadNullableAnnotation(object[] attributes)
+        private static byte[]? ReadNullableFlags(object[] attributes)
         {
             var nullable = attributes.FirstOrDefault(a => a.GetType().FullName == "System.Runtime.CompilerServices.NullableAttribute");
-            if (nullable is not null && nullable.GetType().GetField("NullableFlags")?.GetValue(nullable) is byte[] bytes && bytes.Length > 0)
-            {
-                return bytes[0] == 2; // 2 = annotated (may be null), 1 = not annotated.
-            }
-
-            return null;
+            return nullable?.GetType().GetField("NullableFlags")?.GetValue(nullable) as byte[];
         }
 
         /// <summary>
@@ -401,6 +392,48 @@ namespace Vion.Dale.Sdk.Introspection
             }
 
             return null;
+        }
+
+        /// <summary>
+        ///     Hands out one nullability flag per position of a type walk, in the order the compiler emitted
+        ///     them. A single-flag attribute states the same answer for every position, and an absent one
+        ///     defers to the declaring context — so a caller never has to know which of the three shapes it
+        ///     got. <c>2</c> is the annotated flag; anything else, and any position past the end, is not.
+        /// </summary>
+        private sealed class NullabilityWalk
+        {
+            private readonly bool? _context;
+
+            private readonly byte[]? _flags;
+
+            private int _position;
+
+            public NullabilityWalk(byte[]? flags, bool? context)
+            {
+                _flags = flags is { Length: > 0 } ? flags : null;
+                _context = context;
+            }
+
+            /// <summary>The flag for the next position, consuming it.</summary>
+            public bool NextPosition()
+            {
+                var annotated = Peek();
+                _position++;
+                return annotated;
+            }
+
+            /// <summary>The flag for the next position, leaving it for <see cref="NextPosition" />.</summary>
+            public bool Peek()
+            {
+                if (_flags is null)
+                {
+                    return _context ?? false;
+                }
+
+                // One flag stands for every position; past the end, nothing is annotated.
+                var index = _flags.Length == 1 ? 0 : _position;
+                return index < _flags.Length && _flags[index] == 2;
+            }
         }
     }
 }

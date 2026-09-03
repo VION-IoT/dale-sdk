@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Immutable;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -447,6 +447,150 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
         }
 
         public double Setpoint { get; set; }
+
+        protected override void Ready()
+        {
+        }
+    }
+
+    /// <summary>A contract binding and an interface binding pinned to one identifier — two namespaces.</summary>
+    public class CrossKindIdentifierBlock : LogicBlockBase
+    {
+        [ServiceProviderContractBinding(Identifier = "Shared", DefaultName = "Contract side")]
+        public IDigitalOutput Output { get; private set; } = null!;
+
+#pragma warning disable DALE045 // The fixture is about the identifier namespaces, not the relation halves.
+        [LogicBlockInterfaceBinding(typeof(IToggleable), Identifier = "Shared", DefaultName = "Interface side")]
+        public TogglingEndpoint Endpoint { get; } = new();
+#pragma warning restore DALE045
+        public CrossKindIdentifierBlock() : base(NullLogger.Instance)
+        {
+        }
+
+        protected override void Ready()
+        {
+        }
+    }
+
+    /// <summary>Two contract bindings whose identifiers differ only in case.</summary>
+    public class CaseDistinctEndpointBlock : LogicBlockBase
+    {
+        [ServiceProviderContractBinding(Identifier = "Relay")]
+        public IDigitalOutput Upper { get; private set; } = null!;
+
+        [ServiceProviderContractBinding(Identifier = "relay")]
+        public IDigitalOutput Lower { get; private set; } = null!;
+
+        public CaseDistinctEndpointBlock() : base(NullLogger.Instance)
+        {
+        }
+
+        protected override void Ready()
+        {
+        }
+    }
+
+    /// <summary>
+    ///     A component that would own a relation half — it carries a service surface and implements a
+    ///     relation-bearing interface — held by a property that is null when the block is introspected.
+    /// </summary>
+    public class NullComponentEndpointBlock : LogicBlockBase
+    {
+        public RelationBearingComponent? Absent { get; }
+
+        public RelationBearingComponent Present { get; } = new();
+
+        public NullComponentEndpointBlock() : base(NullLogger.Instance)
+        {
+        }
+
+        protected override void Ready()
+        {
+        }
+    }
+
+    /// <summary>The component behind <see cref="NullComponentEndpointBlock" />.</summary>
+    public class RelationBearingComponent : IToggleable
+    {
+        [ServiceProperty(Title = "Reading")]
+        public int Reading { get; set; }
+
+        public void HandleStateUpdate(InterfaceId functionId, Toggling.TogglePressed response)
+        {
+        }
+
+        public void HandleStateUpdate(InterfaceId functionId, Toggling.ToggleReleased response)
+        {
+        }
+    }
+
+    /// <summary>A struct whose enum field carries an authored title that is empty.</summary>
+    public readonly record struct EmptyTitleStruct([StructField(Title = "")] IntrospectionSeverityEnum State, [StructField(Title = "")] double Scalar);
+
+    /// <summary>Carries the struct whose authored titles are empty.</summary>
+    public class EmptyStructFieldTitleBlock : LogicBlockBase
+    {
+        [ServiceProperty(Title = "Empty field titles")]
+        public EmptyTitleStruct Fields { get; set; }
+
+        public EmptyStructFieldTitleBlock() : base(NullLogger.Instance)
+        {
+        }
+
+        protected override void Ready()
+        {
+        }
+    }
+
+    /// <summary>A component whose members a base class and a derived class both declare.</summary>
+    public class OrderedComponentBase
+    {
+        [ServiceProperty(Title = "Declared first, on the base")]
+        public int Alpha { get; set; }
+
+        [ServiceProperty(Title = "Declared second, on the base")]
+        public int Bravo { get; set; }
+    }
+
+    /// <summary>The derived half, whose own members must follow the base's.</summary>
+    public class OrderedComponent : OrderedComponentBase
+    {
+        [ServiceProperty(Title = "Declared first, on the derived type")]
+        public int Charlie { get; set; }
+
+        [ServiceProperty(Title = "Declared second, on the derived type")]
+        public int Delta { get; set; }
+    }
+
+    /// <summary>Holds the component whose member order the document must report.</summary>
+    public class OrderedComponentBlock : LogicBlockBase
+    {
+        public OrderedComponent Component { get; } = new();
+
+        public OrderedComponentBlock() : base(NullLogger.Instance)
+        {
+        }
+
+        protected override void Ready()
+        {
+        }
+    }
+
+    /// <summary>Arrays whose elements differ in reference nullability, at the member and the field level.</summary>
+    public class ArrayElementNullabilityBlock : LogicBlockBase
+    {
+        [ServiceProperty(Title = "Elements that may be null")]
+        public ImmutableArray<string?> NullableElements { get; set; } = ImmutableArray<string?>.Empty;
+
+        [ServiceProperty(Title = "Elements that may not")]
+        public ImmutableArray<string> NonNullableElements { get; set; } = ImmutableArray<string>.Empty;
+
+        [ServiceProperty(Title = "Elements nested two deep")]
+        public ImmutableArray<ImmutableArray<string?>> NestedNullableElements { get; set; } = ImmutableArray<ImmutableArray<string?>>.Empty;
+
+        public ArrayElementNullabilityBlock() : base(NullLogger.Instance)
+        {
+        }
 
         protected override void Ready()
         {

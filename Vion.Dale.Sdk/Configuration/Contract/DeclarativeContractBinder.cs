@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -13,10 +13,10 @@ namespace Vion.Dale.Sdk.Configuration.Contract
         public static void BindContractsFromAttributes(object logicBlock,
                                                        IContractFactory contractFactory,
                                                        BindingMode mode,
-                                                       IReadOnlyDictionary<string, JsonNode?>? parameterContext)
+                                                       IReadOnlyDictionary<string, JsonNode?>? parameterContext,
+                                                       Dictionary<string, string> mintedBy)
         {
             var type = logicBlock.GetType();
-            var mintedBy = new Dictionary<string, string>(StringComparer.Ordinal);
             var contractProperties = GetContractProperties(type);
             var invalidContractProperties = GetInvalidContractProperties(type);
 

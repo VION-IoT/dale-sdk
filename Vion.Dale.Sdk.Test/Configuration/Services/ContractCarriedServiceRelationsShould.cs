@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -271,6 +271,8 @@ namespace Vion.Dale.Sdk.Test.Configuration.Services
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-016.4")]
+        [TestProperty("spec", "AC-INTRO-015.1")]
+        [TestProperty("spec", "AC-INTRO-016.7")]
         public void EmitEndpointLogicInterfaceTypeAndEmptyAnnotationBag()
         {
             // Arrange
@@ -519,7 +521,12 @@ namespace Vion.Dale.Sdk.Test.Configuration.Services
             var serviceBinder = new ServiceBinder();
             var interfaceFactory = new RecordingInterfaceFactory();
 
-            DeclarativeInterfaceBinder.BindInterfacesFromAttributes(block, interfaceFactory, serviceBinder, BindingMode.Live, InclusionGate.BuildParameterContext(block));
+            DeclarativeInterfaceBinder.BindInterfacesFromAttributes(block,
+                                                                    interfaceFactory,
+                                                                    serviceBinder,
+                                                                    BindingMode.Live,
+                                                                    InclusionGate.BuildParameterContext(block),
+                                                                    new Dictionary<string, string>(StringComparer.Ordinal));
 
             return (interfaceFactory.Identifiers, serviceBinder.GetAllServiceRelations().ToDictionary(kvp => kvp.Key, kvp => kvp.Value, StringComparer.Ordinal));
         }

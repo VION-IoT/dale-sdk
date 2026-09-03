@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -519,8 +519,18 @@ namespace Vion.Dale.Sdk.Core
             // introspection joins by key, so the services created below pick up halves registered above.
             var serviceBinder = (ServiceBinder)configurationBuilder.Services;
 
-            DeclarativeInterfaceBinder.BindInterfacesFromAttributes(this, configurationBuilder.Interfaces, serviceBinder, mode, parameterContext);
-            DeclarativeContractBinder.BindContractsFromAttributes(this, configurationBuilder.Contracts, mode, parameterContext);
+            // One endpoint-identifier namespace per block, shared by both binders: a contract binding and an
+            // interface binding may carry the same identifier, and two bindings of one kind may not, which is
+            // a rule about the whole block rather than about either binder.
+            var endpointIdentifiers = new Dictionary<string, string>(StringComparer.Ordinal);
+
+            DeclarativeInterfaceBinder.BindInterfacesFromAttributes(this,
+                                                                    configurationBuilder.Interfaces,
+                                                                    serviceBinder,
+                                                                    mode,
+                                                                    parameterContext,
+                                                                    endpointIdentifiers);
+            DeclarativeContractBinder.BindContractsFromAttributes(this, configurationBuilder.Contracts, mode, parameterContext, endpointIdentifiers);
             DeclarativeServiceBinder.BindServicesFromAttributes(this, serviceBinder, mode, parameterContext);
             DeclarativeTimerBinder.BindTimersFromAttributes(this, configurationBuilder.Timers);
         }

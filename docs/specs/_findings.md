@@ -1,4 +1,4 @@
-﻿# Finding ledger
+# Finding ledger
 
 Defects an area pass found and deliberately did **not** fix: too big for the pass, or reaching past the
 area that found them. One line each, newest area last. Triaged in bulk at the retro
@@ -42,3 +42,8 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   platform registers; a project that changes only its assembly name now silently keeps its keys, and one
   that changes only its package id silently re-namespaces them. A `dale build` / `dale pack` warning is
   where an author would see it. *(INTRO pass, residue of row 2 — `CLI`.)*
+- **`dale list` runs the introspection without the development-only exclusion**, so it lists blocks the
+  packed artifact omits (`Vion.Dale.Cli/Helpers/ParserRunner.cs:250`–`:258` passes only `--package-id`).
+  Whether the CLI should filter them or mark them in its output is a question about what `dale list` is
+  for, which is decided when the CLI is specced; the introspection page says what the listing means in
+  the meantime. *(INTRO pass amendment 2, M7 — `CLI`.)*

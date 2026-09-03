@@ -1,4 +1,4 @@
-﻿# Spec-driven development — how to run it
+# Spec-driven development — how to run it
 
 The operational playbook for this repo's spec corpus, change docs, and area passes. Rationale and
 the adoption decisions (D1–D11): the archived change doc

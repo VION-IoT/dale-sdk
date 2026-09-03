@@ -1,4 +1,4 @@
-﻿# RFC 0020 — Contract pairing: simulating the provider side of a service-provider contract
+# RFC 0020 — Contract pairing: simulating the provider side of a service-provider contract
 
 - **Status:** Draft — 2026-08-28. Design only; implementation not started.
 - **Author:** jonas.bertsch (design drafted with Claude)

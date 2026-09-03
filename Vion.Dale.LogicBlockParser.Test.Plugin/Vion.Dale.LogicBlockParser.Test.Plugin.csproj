@@ -13,9 +13,6 @@
         <PackageId>Vion.Dale.ParserProbe.Packaged</PackageId>
         <Version>7.8.9-probe.1</Version>
 
-        <!-- The parser publishes nothing: the test runs it over this assembly in the test project's own
-             output directory, where every SDK dependency already sits. -->
-        <SkipVionDaleLogicBlockParser>true</SkipVionDaleLogicBlockParser>
     </PropertyGroup>
 
     <ItemGroup>
