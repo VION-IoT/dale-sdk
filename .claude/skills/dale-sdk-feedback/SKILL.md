@@ -36,7 +36,7 @@ comments, never briefs, never implements.
    - Already tracked? JQL over the whole backlog **including resolved**:
      `project = VION AND labels = dale-sdk AND text ~ "<terms>"` — a closed item's resolution
      (`Wird nicht gemacht` / `Duplikat`) is a recorded position, not noise.
-   - By design / documented? RFCs, `docs/*-conventions.md`, RFC 0008 §11.7 boundaries.
+   - By design / documented? RFCs, `docs/*-conventions.md`, stepping and observability boundaries.
    - Read the source path the report names. A report can be wrong in detail and right in
      substance — the item states what WE verified.
    - **Walk the reporter's case top-down, not only the cited mechanism bottom-up.** Start from

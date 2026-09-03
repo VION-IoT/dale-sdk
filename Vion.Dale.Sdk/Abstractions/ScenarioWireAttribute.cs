@@ -6,7 +6,7 @@ namespace Vion.Dale.Sdk.Abstractions
     /// <summary>
     ///     Marks a <see cref="ServiceProviderHandlerBase" /> with the wire struct its contract carries, so the
     ///     DevHost can drive (<c>serviceProviderSet</c>) and assert (<c>serviceProviderExpect</c>) that contract
-    ///     from a committed scenario through the generic service-provider handler (RFC 0010).
+    ///     from a committed scenario through the generic service-provider handler.
     ///     <para>
     ///         <b>Scenario-testing / DevHost only.</b> The production runtime reaches hardware over MQTT
     ///         (FlatBuffers) and never reads this — it carries no runtime behaviour. It is a declarative marker the

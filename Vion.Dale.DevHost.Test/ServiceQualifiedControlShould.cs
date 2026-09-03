@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 namespace Vion.Dale.DevHost.Test
 {
     /// <summary>
-    ///     The service-qualified control overloads (RFC 0006 revision 5): duplicate member names across one
+    ///     The service-qualified control overloads: duplicate member names across one
     ///     block's services collapse last-service-wins in the flat name map, so the qualified forms are the
     ///     only name-level way to reach the shadowed service.
     /// </summary>

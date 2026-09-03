@@ -2,7 +2,7 @@
 
 - **Status:** Proposed — 2026-07-01
 - **Author:** jonas.bertsch
-- **Related:** RFC 0006 (scenario files — the `topology.json` format), RFC 0013 (DevHost topology authoring; this RFC **completes its §11 "Dashboard export", still pending**), RFC 0008 (unified scenario+topology; deterministic stepping), RFC 0005 (runtime observability). Cross-repo: `dashboard` (Logic Editor ↔ export **and** import), `architecture` (`libraries/dale-sdk.md`, `systems/dashboard.md`).
+- **Related:** `docs/specs/scenarios.md` (the `topology.json` format, the unified data model, deterministic stepping — absorbed the RFCs this document was written against), RFC 0013 (DevHost topology authoring; this RFC **completes its §11 "Dashboard export", still pending**), RFC 0005 (runtime observability). Cross-repo: `dashboard` (Logic Editor ↔ export **and** import), `architecture` (`libraries/dale-sdk.md`, `systems/dashboard.md`).
 
 > This is a design contract, not an implementation. It is the document an implementation plan is generated from. It deliberately stops at the seams (exact store-action names, dialog layout, i18n keys) so the plan can fill them in against current `main` of each repo.
 
@@ -10,13 +10,13 @@
 
 Make field-debugging reproducible in an agent-first loop, **bidirectionally**: **export** a running project's / edge gateway's logic configuration from the dashboard as a dale-sdk topology file, consume it in the places a debugging session lands (an agent working on a logic-block library, the DevHost topology editor, the SDK scenario/test flow), **and import** an edited topology back into the dashboard as a new draft config.
 
-The unit of exchange is the **existing `<id>.topology.json`** (RFC 0006 R5), unchanged. Nothing new is embedded in the file. Compatibility information travels as human/agent-readable context alongside it. Export and import are each a **pure transform** in the dashboard; neither is a lossless round-trip (import is import-as-new — §8). The DevHost side needs **no new code** (its editor already accepts pasted JSON); the agent side is a **documented convention**, not tooling.
+The unit of exchange is the **existing `<id>.topology.json`**, unchanged. Nothing new is embedded in the file. Compatibility information travels as human/agent-readable context alongside it. Export and import are each a **pure transform** in the dashboard; neither is a lossless round-trip (import is import-as-new — §8). The DevHost side needs **no new code** (its editor already accepts pasted JSON); the agent side is a **documented convention**, not tooling.
 
 The one genuinely new obligation this feature creates is a **cross-repo format coupling**: the dashboard now both **produces and consumes** the file, and dale-sdk consumes it strictly. §10 makes that coupling explicit, states its evolution policy, and enforces it with a contract test — because dale-sdk parses the file strictly, so the two repos can drift into silent breakage otherwise.
 
 ## 2. Motivation
 
-The RFC 0006 thesis — *"export an installation's logic configuration, run it locally in DevHost with mocks"* — is the local-reproduction story for field debugging. RFC 0013 §11 sketched the dashboard export button but left it pending and scoped to a file download. Three things push it further now:
+The local-reproduction thesis — *"export an installation's logic configuration, run it locally in DevHost with mocks"* — is the local-reproduction story for field debugging. RFC 0013 §11 sketched the dashboard export button but left it pending and scoped to a file download. Three things push it further now:
 
 - **Debugging is increasingly agentic.** The common loop is: something misbehaves in the field → copy the config → hand it to an agent working in the logic-block-library repo → the agent reproduces it locally against mocks and iterates. The natural transport for that hand-off is the **clipboard**, not a downloaded file, and the natural next step is the agent **building a scenario on top** of the exported topology.
 - **The format is already the lowest common denominator.** The dashboard's `LogicConfigurationModel` is the same three arrays (`logicBlockInstances` / `interfaceMappings` / `contractMappings`) as `DevTopologyFile`, differing only in identity (GUID vs name) and a few field names. A topology file is the deliberate "dev profile" of the cloud `SetLogicConfigurationPayload`. So export is a transform, not a format negotiation.
@@ -39,7 +39,7 @@ Each axis, with the alternative rejected:
 
 ### 4.1 The file — unchanged
 
-The unit of exchange is exactly the RFC 0006 topology file: `Vion.Dale.DevHost/Topologies/topology.schema.json` (`$id: https://vion.swiss/dale/topology.schema.json`), strict (`additionalProperties: false`, required `["id", "logicBlockInstances"]`), parsed by `DevTopologyFile` with `JsonUnmappedMemberHandling.Disallow`. No new fields, no version key, no envelope.
+The unit of exchange is exactly the topology file: `Vion.Dale.DevHost/Topologies/topology.schema.json` (`$id: https://vion.swiss/dale/topology.schema.json`), strict (`additionalProperties: false`, required `["id", "logicBlockInstances"]`), parsed by `DevTopologyFile` with `JsonUnmappedMemberHandling.Disallow`. No new fields, no version key, no envelope.
 
 ### 4.2 The export transform (dashboard side)
 
@@ -75,7 +75,7 @@ The transform and both transports are driven by a store action (`useLogicConfigu
 
 No new tooling. A documented convention added to the library template's existing agent docs, `templates/vion-iot-library/{CLAUDE.md,AGENTS.md}`:
 
-> **Given a topology JSON** (e.g. pasted from the dashboard export), save it to `topologies/<id>.topology.json` where `<id>` is the JSON's `id` field. **To build a scenario on it,** create `scenarios/<id>-<case>.scenario.json` with `"topology": "<id>"` and author `setup` / `steps` / `watch` (RFC 0006 vocabulary). **To validate,** run the DevHost (or the xunit `[ScenarioFiles]` lane): an *"type … is not loadable"* error means your project doesn't reference the block's library — add the `PackageReference` named in the export's compatibility note.
+> **Given a topology JSON** (e.g. pasted from the dashboard export), save it to `topologies/<id>.topology.json` where `<id>` is the JSON's `id` field. **To build a scenario on it,** create `scenarios/<id>-<case>.scenario.json` with `"topology": "<id>"` and author `setup` / `steps` / `watch` (the scenario vocabulary). **To validate,** run the DevHost (or the xunit `[ScenarioFiles]` lane): an *"type … is not loadable"* error means your project doesn't reference the block's library — add the `PackageReference` named in the export's compatibility note.
 
 That is the entire "paste → agent saves it in the right place → agent builds a scenario on top" loop, riding on file conventions the SDK already enforces and validation that already exists.
 
@@ -159,8 +159,8 @@ Both sides now play **both roles** — the dashboard exports *and* imports (Flow
 All ride on the plain file **by reference**, not by embedding — which is why the format stays untouched:
 
 - **Scenario base.** An exported topology's `id` is directly what a `*.scenario.json` names (`"topology": "<id>"`). Flow B is the first consumer.
-- **Scenario recording.** The deferred `Recorder` (RFC 0006 §7 — an `IDevHostControl` decorator that captures a run as a sibling `*.scenario.json`) runs against a topology loaded from the exchange file; no format change.
-- **Trace / debug capture.** `ScenarioRunReport` + `WatchTrace` already carry per-step samples; on a stepped host (RFC 0008) `VirtualElapsedMs` is bit-reproducible — *only if the topology is identical*.
+- **Scenario recording.** The deferred `Recorder` (`docs/specs/scenarios.md` — an `IDevHostControl` decorator that captures a run as a sibling `*.scenario.json`) runs against a topology loaded from the exchange file; no format change.
+- **Trace / debug capture.** `ScenarioRunReport` + `WatchTrace` already carry per-step samples; on a stepped host `VirtualElapsedMs` is bit-reproducible — *only if the topology is identical*.
 - **Topology identity pin (the one real gap).** Scenarios pin their own `FileHash` but **not** the topology's. For "export → hand to agent → regression-diff" to be tamper-evident across topology edits, a future revision could have a scenario / run-report reference a topology hash. This is a dale-sdk-side scenario-format change (its own RFC amendment) and is **out of scope here**, but named so it isn't lost.
 
 ## 12. Scope & phasing
@@ -191,9 +191,9 @@ Phases 1–4 are independent enough to land in any order after Phase 0. There is
 
 ## 15. References
 
-- RFC 0006 (scenario files; topology-file format, §"Topology files").
+- `docs/specs/scenarios.md` (scenario and topology files).
 - RFC 0013 §11 (dashboard export, Phase 3 — completed by this RFC).
-- RFC 0008 (deterministic stepping; `VirtualElapsedMs` reproducibility).
+- `docs/specs/scenarios.md` (deterministic stepping; `VirtualElapsedMs` reproducibility).
 - Schema: `Vion.Dale.DevHost/Topologies/topology.schema.json`; model: `DevTopologyFile.cs`; loader/validator: `DevTopologyLoader.cs`, `DevConfigurationBuilder.cs`.
 - Dashboard: `src/domain/apis/logicConfiguration/{models.ts,api.ts}`, `src/domain/apis/logicBlockDefinition/models.ts`, `src/pages/tenant/logicConfiguration/store.ts` (template instantiation ~900-916, block-add ~727-731), `.../editor/EditorToolbar.vue`, `.../editor/AddTemplateDialog.vue`; export/import targets (new) `.../devTopologyExport.ts` + `.../devTopologyImport.ts`.
 - DevHost editor: `Vion.Dale.DevHost.Web/wwwroot/{components.js (TopologyEditor),store.js}`; API `TopologiesController`.

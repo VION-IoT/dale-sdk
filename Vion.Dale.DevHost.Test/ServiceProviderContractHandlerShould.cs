@@ -15,12 +15,12 @@ using Vion.Dale.Sdk.Utils;
 namespace Vion.Dale.DevHost.Test
 {
     /// <summary>
-    ///     The generic DevHost stand-in (RFC 0010): one handler, discovered by convention scan, replaces the
+    ///     The generic DevHost stand-in: one handler, discovered by convention scan, replaces the
     ///     four hardcoded <c>MockHal*Handler</c> classes. It drives any <c>[ScenarioWire]</c> value contract
     ///     into its consuming block via the codec — the DF-27 unblock — and captures outbound commands, raising
     ///     the one generic <see cref="DevHostEvents.ServiceProviderContractChanged" /> event for the live UI and
     ///     the <c>serviceProviderExpect</c> read source. No type-specific events, no output echo — and, when the
-    ///     topology paired the endpoint, one forward of the captured value onto the peer stand-in (RFC 0020).
+    ///     topology paired the endpoint, one forward of the captured value onto the peer stand-in.
     /// </summary>
     [TestClass]
     public class ServiceProviderContractHandlerShould
@@ -105,7 +105,7 @@ namespace Vion.Dale.DevHost.Test
         public void CaptureOutputCommandRaisingGenericEventAndSendNothingWhenEndpointUnpaired()
         {
             // Arrange / Act
-            // The DEFAULT, pinned (RFC 0020 §4.1): an outbound command a block Set raises the one generic
+            // The DEFAULT, pinned: an outbound command a block Set raises the one generic
             // ServiceProviderContractChanged event (the SPA read-out + the serviceProviderExpect read source) and
             // goes nowhere else. The DevHost does NOT synthesize a typed output-confirmation back to the block —
             // the real upstream confirms over MQTT, not the simulation — and with no pairing declared there is no
@@ -180,7 +180,7 @@ namespace Vion.Dale.DevHost.Test
         public void NeverConsultPairingTableOnDrivePath()
         {
             // Arrange / Act
-            // RFC 0020 §4.7: only Capture forwards. A drive that also forwarded would let stand-ins originate
+            // Only Capture forwards. A drive that also forwarded would let stand-ins originate
             // messages, and a closed loop would converge on stand-in recursion rather than on block cadence.
             var handler = NewHandler(typeof(ScalarProviderHandlerStub), handlerActorName: nameof(ScalarProviderHandlerStub), pairings: OutputPairedToItsProviderFace());
             var context = new RecordingActorContext();

@@ -2,7 +2,7 @@
   "version": 1,
   "id": "grid-demand",
   "topology": "default",
-  "title": "Struct contract — drive a multi-field, nested-struct payload end to end, and assert the multi-field command it produces (RFC 0010 / DF-27, VION-71)",
+  "title": "Struct contract — drive a multi-field, nested-struct payload end to end, and assert the multi-field command it produces (DF-27, VION-71)",
   "description": "serviceProviderSet drives a GridDemand wire struct (a bool, an enum-by-name, and a 1-level nested PowerLimits struct) into GridBlock through the real generic contract path. The block observes it and surfaces every field — including the nested ones — as service properties, asserted with expect. It then mirrors the demand onto the GridSetpoint OUTPUT contract, whose command is likewise multi-field: serviceProviderExpect asserts it one scalar at a time with `field`, including a nested one, and leaves the publish-time stamp (issuedAt, deliberately non-deterministic) unasserted. The non-HAL case the four old HAL step kinds could never address, in both directions.",
   "specs": ["smoke", "struct", "df-27", "vion-71"],
   "watch": ["GridBlock.DemandValid", "GridBlock.ActivePowerW"],

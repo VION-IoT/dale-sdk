@@ -28,7 +28,7 @@ namespace Vion.Dale.DevHost.Scenarios
     }
 
     /// <summary>
-    ///     The one scenario interpreter (RFC 0006): a thin sequential executor over existing
+    ///     The one scenario interpreter: a thin sequential executor over existing
     ///     <see cref="IDevHostControl" /> members — validate (topology match, every name path resolves) →
     ///     setup in file order (acked) → steps in order → report. There is no other evaluator: what the
     ///     Player shows, CI ran, byte for byte.
@@ -95,7 +95,7 @@ namespace Vion.Dale.DevHost.Scenarios
         }
 
         /// <summary>
-        ///     The composition entry point (RFC 0006 "Composition rule"): validate + setup + steps, throwing
+        ///     The composition entry point (the composition rule): validate + setup + steps, throwing
         ///     <see cref="ScenarioRunException" /> on any failure — a C# test uses this as its
         ///     arrange/stimulate phase and adds arbitrary assertions on top.
         /// </summary>
@@ -296,7 +296,7 @@ namespace Vion.Dale.DevHost.Scenarios
 
             // settle.until target paths resolve up front too — scoping settle to explicit paths must fail
             // loudly on a typo / topology mismatch, never silently "converge" on an unresolved (null) target
-            // that trivially never changes (RFC 0008 §8.6).
+            // that trivially never changes.
             for (var i = 0; i < runSteps.Count; i++)
             {
                 if (runSteps[i].Settle?.Until is { } until)
@@ -316,7 +316,7 @@ namespace Vion.Dale.DevHost.Scenarios
                 return;
             }
 
-            // Non-fatal findings ride along on the report — the run proceeds (RFC 0020 §4.6).
+            // Non-fatal findings ride along on the report — the run proceeds.
             report.ValidationWarnings = resolver.Warnings;
 
             var watchPaths = scenario.Watch;
@@ -509,7 +509,7 @@ namespace Vion.Dale.DevHost.Scenarios
                         break;
 
                     case "advance":
-                        // Host-adaptive (RFC 0006): a stepped host jumps virtual time deterministically and
+                        // Host-adaptive: a stepped host jumps virtual time deterministically and
                         // instantly; a real-clock host waits the same span of real wall-clock time, during which
                         // its real timers fire. Either way the step means "let N seconds of time elapse".
                         if (control.IsStepped)
@@ -568,7 +568,7 @@ namespace Vion.Dale.DevHost.Scenarios
             return true;
         }
 
-        // The waitUntil protocol (RFC 0006 "Execution model"): two branches depending on the host clock.
+        // The waitUntil protocol (the execution model): two branches depending on the host clock.
         //
         // Stepped host (FakeTimeProvider — control.IsStepped): advance virtual time hop-by-hop until the
         // condition holds or the virtual-time budget is exhausted. No real wall-clock wait occurs; the test
@@ -690,7 +690,7 @@ namespace Vion.Dale.DevHost.Scenarios
             return false;
         }
 
-        // The expect assertion (RFC 0006 "Assert tier"): a single point-in-time check of the target's CURRENT
+        // The expect assertion (the assert tier): a single point-in-time check of the target's CURRENT
         // value. No awaiting — read once, evaluate, and FAIL the step (so the run fails) when the comparator
         // does not hold. For a relational {path} comparand, the comparand path's current value is read too and
         // supplied as the live comparand. Both target and comparand honor struct field paths via ExtractField.
@@ -752,7 +752,7 @@ namespace Vion.Dale.DevHost.Scenarios
             return $"expected {target} to not equal {Bound(expect.NotEquals)}, but was {actual}";
         }
 
-        // The serviceProviderExpect assertion (RFC 0010): a point-in-time check of the value the block last wrote
+        // The serviceProviderExpect assertion: a point-in-time check of the value the block last wrote
         // on a service-provider output contract, read from the generic output cache.
         // A read that yielded no comparable value FAILS the step and says which of the two reasons it is —
         // never written, or written and not a scalar. Comparing against it would report satisfied having
@@ -859,7 +859,7 @@ namespace Vion.Dale.DevHost.Scenarios
             return value is null ? "null" : Convert.ToString(value, CultureInfo.InvariantCulture) ?? "null";
         }
 
-        // Settle protocol (RFC 0008 §8.6): advance hop-by-hop until the TARGETED values are stable across one
+        // Settle protocol: advance hop-by-hop until the TARGETED values are stable across one
         // full hop, or until the virtual-time budget — or the hop backstop — is exhausted, in which case the
         // step FAILS and the detail names the still-changing target. The targeted set is settle.until when
         // given, else the scenario's watch list: a large watch set is for observability and need not all
@@ -995,7 +995,7 @@ namespace Vion.Dale.DevHost.Scenarios
 
                 // Non-convergence: the virtual-time budget is spent while a target still moves. Fail loudly,
                 // naming the still-changing target and its last step — rather than the old silent soft-pass
-                // that let a volatile signal burn the whole budget unnoticed (RFC 0008 §8.6). A non-advancing
+                // that let a volatile signal burn the whole budget unnoticed. A non-advancing
                 // event storm can never reach here: it fails earlier via the quiescence barrier's safety timeout.
                 if (control.VirtualTimeUtc >= deadline)
                 {
@@ -1061,7 +1061,7 @@ namespace Vion.Dale.DevHost.Scenarios
         }
 
         // Deterministic virtual-time duration of a step on a stepped host (from control.VirtualTimeUtc), or
-        // null on a real-clock host — so a stepped run report carries a reproducible elapsed (RFC 0008 / DF-20).
+        // null on a real-clock host — so a stepped run report carries a reproducible elapsed (DF-20).
         private static double? VirtualElapsed(IDevHostControl control, DateTimeOffset virtualStart)
         {
             return control.IsStepped ? (control.VirtualTimeUtc - virtualStart).TotalMilliseconds : null;

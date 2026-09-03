@@ -7,7 +7,7 @@ using Vion.Dale.DevHost.Scenarios;
 namespace Vion.Dale.DevHost.Test.Stepping
 {
     /// <summary>
-    ///     The RFC 0010 / DF-27 unblock proven end to end through the real DevHost: a synthetic third-party
+    ///     The DF-27 unblock proven end to end through the real DevHost: a synthetic third-party
     ///     value contract whose wire payload is a multi-field struct with a 1-level nested struct + an enum is
     ///     driven by <c>serviceProviderSet</c> into its consuming block, which surfaces every field — including
     ///     the nested ones — as service properties. The non-HAL, struct case the four old HAL step kinds could

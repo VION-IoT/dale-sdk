@@ -7,7 +7,7 @@ using System.Text.RegularExpressions;
 namespace Vion.Dale.DevHost.Scenarios
 {
     /// <summary>
-    ///     Scenario-file discovery and persistence (RFC 0006): <c>&lt;id&gt;.scenario.json</c> files under the
+    ///     Scenario-file discovery and persistence: <c>&lt;id&gt;.scenario.json</c> files under the
     ///     scenarios directory (default <c>{cwd}/scenarios</c>, overridable via
     ///     <c>DevConfigurationBuilder.WithScenarios</c>). The directory is re-scanned on every read — editing
     ///     a file in the IDE is picked up by the next request, no watcher state to invalidate. Saving is

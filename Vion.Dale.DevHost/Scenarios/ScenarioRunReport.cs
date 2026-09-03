@@ -7,7 +7,7 @@ namespace Vion.Dale.DevHost.Scenarios
     /// <summary>
     ///     The structured result of a scenario run — what the Player renders, what
     ///     <c>GET /api/scenarios/{id}/run</c> serves, and what the copy-verification-report block is built
-    ///     from (RFC 0006). Mutated in place by the runner as the run progresses (step lists are created
+    ///     from. Mutated in place by the runner as the run progresses (step lists are created
     ///     up front and fixed-size; only fields transition), so a registry can serve live snapshots.
     /// </summary>
     public sealed class ScenarioRunReport
@@ -26,7 +26,7 @@ namespace Vion.Dale.DevHost.Scenarios
 
         /// <summary>
         ///     Git blob hash of the scenario file as run (when the caller had the file bytes) — pins the
-        ///     verification report to an exact file version (RFC 0006 "Copy verification report").
+        ///     verification report to an exact file version (the copy-verification report).
         /// </summary>
         public string? FileHash { get; set; }
 
@@ -42,7 +42,7 @@ namespace Vion.Dale.DevHost.Scenarios
 
         /// <summary>
         ///     Non-fatal findings from the same up-front resolution — the run proceeds. Today: a
-        ///     <c>serviceProviderSet</c> onto an inbound a contract pairing also feeds (RFC 0020 §4.6).
+        ///     <c>serviceProviderSet</c> onto an inbound a contract pairing also feeds.
         /// </summary>
         public IReadOnlyList<string> ValidationWarnings { get; set; } = Array.Empty<string>();
 
@@ -58,7 +58,7 @@ namespace Vion.Dale.DevHost.Scenarios
         ///     the start, after setup) — the forensic trail of what the watched signals did across the run, for
         ///     report-diffing and judge-assist diagnosis. Empty when the scenario declares no <c>watch</c>.
         ///     Deterministic on a stepped host (the values and <see cref="WatchSample.VirtualElapsedMs" /> are
-        ///     reproducible run-to-run); it is observability, not an assertion target (RFC 0008 §11.7).
+        ///     reproducible run-to-run); it is observability, not an assertion target.
         /// </summary>
         public IReadOnlyList<WatchSample> WatchTrace { get; set; } = Array.Empty<WatchSample>();
 
@@ -162,7 +162,7 @@ namespace Vion.Dale.DevHost.Scenarios
         ///     Virtual-time duration of the step on a stepped host (<c>control.VirtualTimeUtc</c> before/after),
         ///     or <c>null</c> on a real-clock host. Unlike <see cref="ElapsedMs" /> this is deterministic, so a
         ///     stepped run report is bit-reproducible across runs — the prerequisite for trace-diff regression
-        ///     and judge-assist forensics (RFC 0008 / DF-20).
+        ///     and judge-assist forensics (DF-20).
         /// </summary>
         public double? VirtualElapsedMs { get; set; }
 

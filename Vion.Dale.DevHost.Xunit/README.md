@@ -1,7 +1,7 @@
 # Vion.Dale.DevHost.Xunit
 
 xUnit.net v3 integration for [Vion Dale](https://github.com/vion-iot/dale-sdk) DevHost scenario
-files (RFC 0006). It removes the boilerplate a consumer otherwise hand-rolls to run committed
+files. It removes the boilerplate a consumer otherwise hand-rolls to run committed
 `*.scenario.json` files as tests:
 
 - **`[ScenarioFiles]`** — a theory data source that discovers every committed scenario and yields one

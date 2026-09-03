@@ -573,7 +573,7 @@ body {
     border-radius: var(--vion-border-radius-md);
 }
 .connection-badge i { color: var(--text-faint); font-style: normal; font-size: 10.5px; }
-/* A contract pairing (RFC 0020) is a different WIRE KIND from an interface link: same badge shape so the
+/* A contract pairing is a different WIRE KIND from an interface link: same badge shape so the
    panel reads as one row of wires, an info accent + a dashed edge so the two are never confused. */
 .connection-badge.pairing-badge {
     background: var(--vion-info-bg-def-primary);
@@ -1085,12 +1085,12 @@ button { cursor: pointer; font-family: inherit; }
 }
 .gallery-samples .struct-viewer { flex: 1; min-width: 0; padding: 2px 0 0; background: none; }
 
-/* ── player (scenarios, RFC 0006) ────────────────────────────────────────── */
+/* ── player (scenarios, `docs/specs/scenarios.md`) ────────────────────────────────────────── */
 
 .player-empty { font-size: 12px; color: var(--text-dim); padding: 10px 2px; }
 .player-empty code { font-family: var(--mono); font-size: 11px; }
 
-/* Tag filter chips above the scenario list — click to narrow to a free-form spec tag (RFC 0008). */
+/* Tag filter chips above the scenario list — click to narrow to a free-form spec tag. */
 .scenario-tags {
     display: flex;
     flex-wrap: wrap;

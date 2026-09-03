@@ -144,7 +144,7 @@ namespace Vion.Dale.DevHost
             _services.AddProtoActorSystem();
 
             // Register mock service handlers. The service-provider contract stand-ins are NOT registered here:
-            // they are discovered by convention scan and created per-handler-type with their codec (RFC 0010).
+            // they are discovered by convention scan and created per-handler-type with their codec.
             _services.AddTransient<MockServicePropertyHandler>();
             _services.AddTransient<MockServiceMeasuringPointHandler>();
             _services.AddTransient<MockPersistentDataHandler>();
@@ -153,11 +153,11 @@ namespace Vion.Dale.DevHost
             _services.AddSingleton<DevHostEvents>();
 
             // The generic service-provider output cache the stand-ins write and serviceProviderExpect reads
-            // (RFC 0010) — one per host generation, reset on recycle.
+            // — one per host generation, reset on recycle.
             _services.AddSingleton<ServiceProviderOutputCache>();
 
             // The names the generic stand-ins get created under, filled during initialization and read back by
-            // the link-map fan-out and by PublishAllStates — so neither has to name a contract (RFC 0020 §7).
+            // the link-map fan-out and by PublishAllStates — so neither has to name a contract.
             _services.AddSingleton<ServiceProviderStandIns>();
 
             // Headless control surface (RFC 0003): a log sink + ILoggerProvider that captures the

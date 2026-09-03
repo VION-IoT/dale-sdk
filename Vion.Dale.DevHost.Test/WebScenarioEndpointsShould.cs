@@ -12,7 +12,7 @@ using Vion.Dale.DevHost.Web;
 namespace Vion.Dale.DevHost.Test
 {
     /// <summary>
-    ///     The scenario HTTP surface (RFC 0006): discovery, raw file serving, apply/run with the
+    ///     The scenario HTTP surface: discovery, raw file serving, apply/run with the
     ///     one-active-run rule, save-as-scenario confinement, and the Origin/Host guard on mutating routes.
     ///     Real Kestrel + plain HttpClient, like the rest of the web contract tests.
     /// </summary>

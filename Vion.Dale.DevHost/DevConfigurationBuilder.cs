@@ -61,7 +61,7 @@ namespace Vion.Dale.DevHost
 
         /// <summary>
         ///     Add a LogicBlock instance by runtime <see cref="Type" /> — the topology-file loader's entry
-        ///     (RFC 0006 R5), where types come from JSON rather than generics.
+        ///    , where types come from JSON rather than generics.
         /// </summary>
         public DevConfigurationBuilder AddLogicBlock(Type logicBlockType, out LogicBlockHandle handle, string? name = null, string? id = null)
         {
@@ -107,7 +107,7 @@ namespace Vion.Dale.DevHost
         /// <summary>
         ///     Name the topology this configuration represents (e.g. "EnergyManagerClosedLoop"). Surfaced in
         ///     <c>ConfigurationOutput.TopologyName</c> and the web UI header; scenario files reference it to
-        ///     guard against running against the wrong preset (RFC 0006).
+        ///     guard against running against the wrong preset.
         /// </summary>
         public DevConfigurationBuilder WithTopologyName(string topologyName)
         {
@@ -116,7 +116,7 @@ namespace Vion.Dale.DevHost
         }
 
         /// <summary>
-        ///     Override the scenario-file directory (RFC 0006). Default: <c>{current directory}/scenarios</c>.
+        ///     Override the scenario-file directory. Default: <c>{current directory}/scenarios</c>.
         /// </summary>
         public DevConfigurationBuilder WithScenarios(string path)
         {
@@ -125,7 +125,7 @@ namespace Vion.Dale.DevHost
         }
 
         /// <summary>
-        ///     Override the topology-file directory (RFC 0006 R5). Default: <c>{current directory}/topologies</c>.
+        ///     Override the topology-file directory. Default: <c>{current directory}/topologies</c>.
         /// </summary>
         public DevConfigurationBuilder WithTopologies(string path)
         {
@@ -143,7 +143,7 @@ namespace Vion.Dale.DevHost
         }
 
         /// <summary>
-        ///     Declare two service-provider contract endpoints to be ONE wire (RFC 0020) — the C# equivalent of a
+        ///     Declare two service-provider contract endpoints to be ONE wire — the C# equivalent of a
         ///     topology file's <c>contractPairings</c>. Each side's captured outbound is delivered as the other
         ///     side's inbound, so a simulator block bound to a provider face closes the loop a real service
         ///     provider would: a digital output's command reaches the simulator, and its confirmation reaches the
@@ -198,7 +198,7 @@ namespace Vion.Dale.DevHost
             }
 
             // Pairings resolve against the endpoints auto-created above; structure only — the wire-type identity
-            // rule needs the handlers, so it runs when the host loads (RFC 0020 §4.3).
+            // rule needs the handlers, so it runs when the host loads.
             var pairingErrors = new List<string>();
             config.ContractPairings = ContractPairingResolution.Resolve(config, _pairedContracts, pairingErrors);
             if (pairingErrors.Count > 0)
@@ -435,7 +435,7 @@ namespace Vion.Dale.DevHost
         // AutoConnect over the catalog wires only UNAMBIGUOUS interface pairs. An interface endpoint (a
         // block + interface identifier) that matches more than one counterpart block is ambiguous — auto-
         // wiring it would build a fighting network (e.g. two "commander" blocks on one device-manager
-        // interface, RFC 0008 §6.3). Ambiguous endpoints are left unwired and noted; the developer resolves
+        // interface, the stepped-host enabler). Ambiguous endpoints are left unwired and noted; the developer resolves
         // them by wiring explicitly in a committed topology file. This makes the behaviour match the
         // method's contract ("auto-wire unambiguous interface matches").
         private void AutoConnectInterfaces(DevConfiguration config)
@@ -472,7 +472,7 @@ namespace Vion.Dale.DevHost
             // multiplicity declares it a many-side: an AGGREGATION fan-in (many sources → one aggregator, e.g.
             // many IGridSimulationParticipant → one IGridSimulationAggregator) is legitimate and should
             // auto-wire, whereas COMMAND CONTENTION (many commanders → one single-writer managed interface,
-            // RFC 0008 §6.3) must be refused. The multiplicity on the ambiguous endpoint's binding is exactly
+            // the stepped-host enabler) must be refused. The multiplicity on the ambiguous endpoint's binding is exactly
             // that distinction: OneOrMore / ZeroOrMore = "I accept many" (fan-in); ExactlyOne / ZeroOrOne =
             // "single writer" (contention). A single match is always fine (DF-19).
             bool Acceptable(string block, string iface)

@@ -17,7 +17,7 @@ namespace Vion.Dale.DevHost
         ///     written. Generic over every <c>[ServiceProviderContractType]</c> value contract (the four HAL
         ///     families and third-party struct contracts alike); the value is the contract's wire JSON, and the
         ///     subscriber (the SPA wiring panel) renders it per the contract's own type. Replaces the former
-        ///     digital/analog input/output-specific events (RFC 0010).
+        ///     digital/analog input/output-specific events.
         /// </summary>
         event EventHandler<ServiceProviderContractChangedEventArgs>? ServiceProviderContractChanged;
     }

@@ -37,7 +37,7 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
         }
 
         /// <summary>
-        ///     Drive any service-provider value <em>input</em> contract (RFC 0010) — the one manual-drive endpoint
+        ///     Drive any service-provider value <em>input</em> contract — the one manual-drive endpoint
         ///     behind the web UI's HAL controls. The UI builds the wire value from the rendered control (a bool
         ///     for a toggle, a number for an analog field, an object for a struct contract) and posts it as
         ///     <c>{ value }</c>; <paramref name="handlerName" /> is the contract's stand-in actor name from the
@@ -131,7 +131,7 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
         }
 
         /// <summary>
-        ///     Manual stepping (RFC 0008 §Part 4): advance the virtual clock to the next scheduled event and
+        ///     Manual stepping (the stepped-host enabler): advance the virtual clock to the next scheduled event and
         ///     quiesce — the atomic "step" of the deterministic why-loop. 409 unless the host is stepped and
         ///     no scenario run is driving the clock.
         /// </summary>
@@ -148,7 +148,7 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
         }
 
         /// <summary>
-        ///     Manual stepping (RFC 0008 §Part 4): advance the virtual clock by <paramref name="seconds" /> of
+        ///     Manual stepping (the stepped-host enabler): advance the virtual clock by <paramref name="seconds" /> of
         ///     simulated time, firing every event due within it. Same 409 guards as <see cref="Step" />.
         /// </summary>
         [HttpPost("control/advance")]

@@ -7,7 +7,7 @@ namespace Vion.Dale.DevHost
     /// <summary>
     ///     One declared pairing before resolution: two (block id, contract identifier) references, exactly what
     ///     <c>DevConfigurationBuilder.PairContracts</c> records and a topology file's <c>contractPairings</c>
-    ///     entry names (RFC 0020 §4.2).
+    ///     entry names.
     /// </summary>
     internal readonly record struct DeclaredContractPairing(string BlockIdA, string ContractIdentifierA, string BlockIdB, string ContractIdentifierB);
 
@@ -16,7 +16,7 @@ namespace Vion.Dale.DevHost
     ///     (<c>DevConfigurationBuilder.PairContracts</c>) and the topology-file loader, so both refuse the same
     ///     structure with the same words and only the exception type differs (an API misuse vs. an invalid file).
     ///     <para>
-    ///         Structure only: the wire-type identity rule of RFC 0020 §4.3 needs the handler each contract talks
+    ///         Structure only: the wire-type identity rule needs the handler each contract talks
     ///         to, which is known once the blocks are introspected — it runs at host load, in
     ///         <c>ContractPairingTable</c>.
     ///     </para>
@@ -43,7 +43,7 @@ namespace Vion.Dale.DevHost
                     continue;
                 }
 
-                // Self-pairing is the dropped host-synthesised confirmation (RFC 0020 §4.5) — an echo back onto
+                // Self-pairing is the dropped host-synthesised confirmation — an echo back onto
                 // the same contract belongs in a simulator block, where it is visible in the topology.
                 if (a.LogicBlockId == b.LogicBlockId && a.ContractIdentifier == b.ContractIdentifier)
                 {

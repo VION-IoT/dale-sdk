@@ -11,7 +11,7 @@ using Vion.Dale.Sdk.Utils;
 namespace Vion.Dale.DevHost.Scenarios
 {
     /// <summary>
-    ///     The DevHost-side codec behind a contract's <see cref="ScenarioWireAttribute" /> (RFC 0010): builds the
+    ///     The DevHost-side codec behind a contract's <see cref="ScenarioWireAttribute" />: builds the
     ///     exact closed <c>ContractMessage&lt;TInbound&gt;</c> a consumer's <c>HandleContractMessage</c> switch
     ///     matches from a scenario JSON value (drive), and decodes an output command back to a JSON value (assert).
     ///     Reflects over the declared wire <see cref="Type" /> — the DevHost never references a consumer's wire
@@ -28,7 +28,7 @@ namespace Vion.Dale.DevHost.Scenarios
         /// <summary>
         ///     The wire struct types this handler declares as INBOUND — what a pairing may deliver onto it, and
         ///     what a <c>serviceProviderSet</c> builds. A SET, not a single type: <c>[ScenarioWire]</c> carries
-        ///     one struct per direction today (RFC 0010), but the pairing rule of RFC 0020 §4.3 is an intersection
+        ///     one struct per direction today (`docs/specs/scenarios.md`), but the pairing rule is an intersection
         ///     over declared types, so lifting that restriction stays local to the attribute and this codec.
         /// </summary>
         public IReadOnlyCollection<Type> DeclaredInbound

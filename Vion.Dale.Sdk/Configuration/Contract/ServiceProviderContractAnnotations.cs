@@ -3,7 +3,7 @@ namespace Vion.Dale.Sdk.Configuration.Contract
     /// <summary>
     ///     Introspection annotation keys for a logic block's service-provider contracts. Surfaced in the
     ///     contract's loose annotation bag so a consumer of the introspection (the DevHost's scenario routing —
-    ///     RFC 0010) can act on them without a model change.
+    ///     `docs/specs/scenarios.md`) can act on them without a model change.
     /// </summary>
     public static class ServiceProviderContractAnnotations
     {

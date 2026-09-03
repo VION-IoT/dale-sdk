@@ -12,7 +12,7 @@ using Vion.Dale.Sdk.Core;
 namespace Vion.Dale.DevHost.Topologies
 {
     /// <summary>
-    ///     Builds a <see cref="DevConfiguration" /> from a topology file (RFC 0006 R5): instance types are
+    ///     Builds a <see cref="DevConfiguration" /> from a topology file: instance types are
     ///     resolved against the loaded assemblies (the DevHost project references its block libraries, so
     ///     they are loadable by full name), interface mappings are applied as declared, and contracts get
     ///     DevHost mocks exactly like a C#-preset build — explicit contract mappings, when present,
@@ -186,7 +186,7 @@ namespace Vion.Dale.DevHost.Topologies
                 existing.ContractEndpointIdentifier = mapping.MappedContractIdentifier ?? existing.ContractEndpointIdentifier;
             }
 
-            // RFC 0020: contract pairings resolve LAST, against the endpoints the two passes above settled — an
+            // Contract pairings resolve LAST, against the endpoints the two passes above settled — an
             // explicit contractMappings override must be reflected in the endpoint a forward addresses. Structure
             // only here (unknown contract, coinciding endpoints, a pair declared twice); the wire-type identity
             // rule needs the handler each contract talks to, which is known once the blocks are introspected, so
@@ -305,8 +305,8 @@ namespace Vion.Dale.DevHost.Topologies
 
     /// <summary>
     ///     A check a running host can apply to a built draft configuration on top of
-    ///     <see cref="DevTopologyLoader.Build" />'s host-independent structural rules — today the RFC 0020 §4.3
-    ///     wire-type identity rule, which needs the handler each contract talks to and therefore introspected
+    ///     <see cref="DevTopologyLoader.Build" />'s host-independent structural rules — today the wire-type identity
+    ///     rule, which needs the handler each contract talks to and therefore introspected
     ///     blocks. Throws <see cref="InvalidDataException" /> listing every problem, the same shape
     ///     <c>Build</c> throws, so every caller reports it identically.
     /// </summary>
@@ -452,7 +452,7 @@ namespace Vion.Dale.DevHost.Topologies
         ///     Everything <see cref="Save" /> checks, minus the id match and the write: the catalog +
         ///     interface-compatibility build, then the host check when a running host supplied one. This is what
         ///     <c>POST /api/topologies/validate</c> runs on a draft that may not be named yet, so the editor's
-        ///     validate and its save reach exactly the same verdict — including the RFC 0020 wire-type identity
+        ///     validate and its save reach exactly the same verdict — including the wire-type identity
         ///     rule, which would otherwise only refuse at the next host start. Throws
         ///     <see cref="InvalidDataException" /> with every problem at once.
         /// </summary>

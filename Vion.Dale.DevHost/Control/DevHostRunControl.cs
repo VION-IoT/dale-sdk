@@ -185,7 +185,7 @@ namespace Vion.Dale.DevHost.Control
         }
 
         /// <summary>
-        ///     Request a recycle into a different topology (RFC 0006 R5) — rides the same reset signal;
+        ///     Request a recycle into a different topology — rides the same reset signal;
         ///     a topology-aware supervisor (<c>DevHostWebRunner.RunAsync(Func&lt;string?, IDevHost&gt;, …)</c>)
         ///     reads <see cref="RequestedTopology" /> and builds the next generation from it. Returns false
         ///     when no supervisor is attached.

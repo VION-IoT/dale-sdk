@@ -10,7 +10,7 @@ using System.Text.RegularExpressions;
 namespace Vion.Dale.DevHost.Scenarios
 {
     /// <summary>
-    ///     A parsed <c>*.scenario.json</c> file — the RFC 0006 v1 vocabulary: a tiny, versioned, git-committed
+    ///     A parsed <c>*.scenario.json</c> file — the v1 vocabulary: a tiny, versioned, git-committed
     ///     JSON description of a manual-test scenario (setup, ordered stimuli, watch list, human judgments),
     ///     executed by <see cref="ScenarioRunner" /> over <see cref="Control.IDevHostControl" /> and consumed
     ///     identically by the web UI ("Player"), CI, and agents.
@@ -143,7 +143,7 @@ namespace Vion.Dale.DevHost.Scenarios
 
             if (Version != SupportedVersion)
             {
-                errors.Add($"version must be {SupportedVersion} (got {Version}) — unknown vocabulary versions are rejected loudly (RFC 0006)");
+                errors.Add($"version must be {SupportedVersion} (got {Version}) — unknown vocabulary versions are rejected loudly");
             }
 
             if (string.IsNullOrEmpty(Id) || !IdSlug.IsMatch(Id) || Id.Contains(".."))
@@ -210,13 +210,13 @@ namespace Vion.Dale.DevHost.Scenarios
 
         public JsonElement Value { get; init; }
 
-        /// <summary>Drives any <c>[ServiceProviderContractType]</c> value input contract from <c>value</c> (RFC 0010).</summary>
+        /// <summary>Drives any <c>[ServiceProviderContractType]</c> value input contract from <c>value</c>.</summary>
         public ScenarioServiceProviderRef? ServiceProviderSet { get; init; }
 
         /// <summary>
-        ///     Asserts the value a block last wrote on a <c>[ServiceProviderContractType]</c> value contract (RFC 0010,
-        ///     step-only) — an output, or a bidirectional contract whose handler declares a <c>[ScenarioWire]</c>
-        ///     <c>Outbound</c>.
+        ///     Asserts the value a block last wrote on a <c>[ServiceProviderContractType]</c> value contract
+        ///     (step-only) — an output, or a bidirectional contract whose handler declares a
+        ///     <c>[ScenarioWire]</c> <c>Outbound</c>.
         /// </summary>
         public ScenarioServiceProviderAssert? ServiceProviderExpect { get; init; }
 
@@ -467,8 +467,8 @@ namespace Vion.Dale.DevHost.Scenarios
     }
 
     /// <summary>
-    ///     A service-provider value-contract reference (<c>serviceProviderSet</c>, RFC 0010): the consuming
-    ///     logic block's name plus the contract identifier. Addresses any <c>[ServiceProviderContractType]</c>
+    ///     A service-provider value-contract reference (<c>serviceProviderSet</c>): the consuming logic
+    ///     block's name plus the contract identifier. Addresses any <c>[ServiceProviderContractType]</c>
     ///     value contract uniformly — the four HAL contracts and third-party ones like PPC — replacing the
     ///     per-family <c>digitalInput</c> / <c>analogInput</c> references.
     /// </summary>
@@ -493,7 +493,7 @@ namespace Vion.Dale.DevHost.Scenarios
     }
 
     /// <summary>
-    ///     A <c>serviceProviderExpect</c> auto-assertion (RFC 0010): a service-provider value <em>output</em>
+    ///     A <c>serviceProviderExpect</c> auto-assertion: a service-provider value <em>output</em>
     ///     contract reference (<c>logicBlock</c> + <c>contract</c>), an optional <c>field</c> selecting one
     ///     scalar of a multi-field command, plus exactly one comparator, checked against the value the block
     ///     last wrote on that contract. The generic replacement for <c>digitalOutput</c> / <c>analogOutput</c>;
@@ -559,7 +559,7 @@ namespace Vion.Dale.DevHost.Scenarios
 
     /// <summary>
     ///     A <c>waitUntil</c> condition: a property name path plus exactly one comparator. Comparison semantics
-    ///     per RFC 0006 ("Comparison semantics"): <c>above</c>/<c>below</c> are numeric; <c>equals</c>/
+    ///     per the comparison semantics: <c>above</c>/<c>below</c> are numeric; <c>equals</c>/
     ///     <c>notEquals</c> are exact (numbers optionally with <c>tolerance</c>, enums by case-sensitive member
     ///     name, <c>null</c> legal); <c>oneOf</c> tests set membership against a JSON array of scalars/enum
     ///     names; structs/arrays are not comparable in v1.
@@ -603,7 +603,7 @@ namespace Vion.Dale.DevHost.Scenarios
     }
 
     /// <summary>
-    ///     An <c>expect</c> auto-assertion (RFC 0006 "Assert tier"): a deterministic, point-in-time check on
+    ///     An <c>expect</c> auto-assertion (the assert tier): a deterministic, point-in-time check on
     ///     the CURRENT value of a name path. Unlike <c>waitUntil</c> (which awaits), <c>expect</c> reads the
     ///     value once and FAILS the run if the comparator doesn't hold — the CI-failing tier. Comparators are
     ///     the same as <c>waitUntil</c> (<c>above</c>/<c>below</c>/<c>equals</c>+<c>tolerance</c>/
@@ -797,7 +797,7 @@ namespace Vion.Dale.DevHost.Scenarios
     ///     short quiet window. Fails if <see cref="MaxSeconds" /> (default 60 s) elapses while a target still
     ///     moves. The targeted set is
     ///     <see cref="Until" /> when given, else the scenario's <c>watch</c> list — a large watch set is for
-    ///     observability and need not all settle (RFC 0008 §8.6). Non-convergence FAILS the step, naming the
+    ///     observability and need not all settle. Non-convergence FAILS the step, naming the
     ///     still-changing target.
     /// </summary>
     public sealed class ScenarioSettle

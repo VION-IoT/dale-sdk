@@ -7,7 +7,7 @@ using Vion.Dale.Sdk.Abstractions;
 namespace Vion.Dale.ProtoActor
 {
     /// <summary>
-    ///     A serial, deterministic <see cref="IDispatcher" /> for stepped DevHosts (RFC 0008 deterministic
+    ///     A serial, deterministic <see cref="IDispatcher" /> for stepped DevHosts (deterministic
     ///     stepping). Every mailbox-processing run is scheduled onto one shared exclusive task scheduler, so no
     ///     two actor handlers ever run concurrently and the message cascade within a quiescence round drains in
     ///     a single, reproducible order — the cross-actor ordering Proto's default <c>ThreadPoolDispatcher</c>

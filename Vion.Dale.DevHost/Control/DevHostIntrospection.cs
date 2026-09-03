@@ -51,7 +51,7 @@ namespace Vion.Dale.DevHost.Control
         private readonly object _gate = new();
 
         // block TYPE → (contract identifier → ContractHandlerActorName), for draft topologies the running
-        // configuration knows nothing about (RFC 0020 §4.3 at Save / validate time). Filled lazily, guarded by
+        // configuration knows nothing about (the wire-type identity rule at Save / validate time). Filled lazily, guarded by
         // _gate like the rest of the introspection state.
         private readonly Dictionary<Type, IReadOnlyDictionary<string, string>> _handlerNamesByBlockType = new();
 
@@ -59,7 +59,7 @@ namespace Vion.Dale.DevHost.Control
 
         // blockId → (propertyOrMeasuringPointName → serviceConfigId). Flat per-block namespace: a
         // duplicate member name across two services collapses last-service-wins — the service-qualified
-        // map below exists so callers can reach the shadowed service (RFC 0006 revision 5).
+        // map below exists so callers can reach the shadowed service.
         private readonly Dictionary<string, Dictionary<string, string>> _propertyToServiceId = new();
 
         private readonly Dictionary<string, LogicBlockIntrospectionResult> _results = new();
@@ -73,7 +73,7 @@ namespace Vion.Dale.DevHost.Control
 
         // handler class name -> that handler's [ScenarioWire] codec, which carries both the addressable field
         // leaves per direction (empty for a scalar wire, null for a direction the handler does not declare) and
-        // the declared wire TYPES the RFC 0020 pairing rule intersects. Cached against the loaded-assembly count
+        // the declared wire TYPES the pairing rule intersects. Cached against the loaded-assembly count
         // rather than once: the plugin / I/O assemblies that declare handlers land during logic-system init,
         // which can be after a first /api/configuration, and the type scan behind it is not free enough to
         // repeat per request.
@@ -117,7 +117,7 @@ namespace Vion.Dale.DevHost.Control
         /// <summary>
         ///     Resolve a block's property/measuring-point name to the service-config id, qualified by the
         ///     service identifier — reaches members the flat per-block name map shadows when two services of
-        ///     one block declare the same member name (RFC 0006 revision 5 name paths).
+        ///     one block declare the same member name (the revision 5 name-path rules).
         /// </summary>
         public bool TryGetServiceId(string blockId, string serviceIdentifier, string propertyName, out string serviceId)
         {
@@ -261,7 +261,7 @@ namespace Vion.Dale.DevHost.Control
         }
 
         /// <summary>
-        ///     Apply the RFC 0020 §4.3 wire-type identity rule to a configuration that is NOT the running one —
+        ///     Apply the wire-type identity rule to a configuration that is NOT the running one —
         ///     the draft a topology editor Save (or <c>POST /api/topologies/validate</c>) is checking. Throws
         ///     <see cref="InvalidDataException" /> listing every problem, in the same words a host start refuses
         ///     with, so a mismatched pairing is caught where it was authored instead of at the next boot.
@@ -335,7 +335,7 @@ namespace Vion.Dale.DevHost.Control
         /// <summary>
         ///     The handler-actor class name servicing one block's contract (its
         ///     <c>ContractHandlerActorName</c>), or null when the block declares no such contract. The join the
-        ///     RFC 0020 pairing table hangs off — it is the one fact only an introspected block carries, because
+        ///     pairing table hangs off — it is the one fact only an introspected block carries, because
         ///     the name lives on the contract INSTANCE the binder constructed.
         /// </summary>
         internal string? ContractHandlerActorName(string blockId, string contractIdentifier)
@@ -397,7 +397,7 @@ namespace Vion.Dale.DevHost.Control
             }
         }
 
-        // RFC 0020: the declared pairings, each carrying the directions the wire-type identity rule actually
+        // The declared pairings, each carrying the directions the wire-type identity rule actually
         // materialised — the resolver reads them to warn about a serviceProviderSet onto an endpoint a pairing
         // also feeds, and the wiring view draws them. Empty on an unpaired topology, so nothing changes there.
         private List<ConfigurationOutput.ContractPairing> BuildContractPairings()

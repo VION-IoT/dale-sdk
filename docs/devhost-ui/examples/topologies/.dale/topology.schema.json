@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://vion.swiss/dale/topology.schema.json",
-  "title": "Dale DevHost topology file (RFC 0006 R5)",
+  "title": "Dale DevHost topology file",
   "description": "The dev profile of a logic configuration: logic-block instances and explicit interface wiring, with contract mappings optional (unlisted contracts get DevHost mocks). The generic structural schema shipped with Vion.Dale.DevHost; 'dale dev --export-topology' writes a C#-built preset in this shape. Parsing is strict (unknown fields are rejected), so this schema catches wrong field names in hand edits.",
   "type": "object",
   "additionalProperties": false,
@@ -54,7 +54,7 @@
     },
     "contractPairings": {
       "type": "array",
-      "description": "RFC 0020: pairs of service-provider contract endpoints declared as ONE wire — each side's captured outbound is delivered as the other side's inbound, so a simulator block bound to a provider face closes the loop a real service provider would. Keyed on (block, contract binding), not on endpoint triples. Symmetric: which directions materialise is derived from the two handlers' [ScenarioWire] types and validated when the host loads the topology.",
+      "description": "Pairs of service-provider contract endpoints declared as ONE wire — each side's captured outbound is delivered as the other side's inbound, so a simulator block bound to a provider face closes the loop a real service provider would. Keyed on (block, contract binding), not on endpoint triples. Symmetric: which directions materialise is derived from the two handlers' [ScenarioWire] types and validated when the host loads the topology.",
       "items": {
         "type": "object",
         "additionalProperties": false,

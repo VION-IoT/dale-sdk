@@ -12,7 +12,7 @@ namespace Vion.Diagnostics.DevHost
 
         public static Task Main(string[] args)
         {
-            // Folder-driven boot (RFC 0008, topology-as-data): topologies/*.topology.json defines the
+            // Folder-driven boot (topology-as-data): topologies/*.topology.json defines the
             // instance graph, discovered from disk — register block types in DependencyInjection.cs.
             // The diagnostics block reports on every actor the DevHost runtime spawns, including itself,
             // so its output reflects the live runtime (not a deterministic scenario surface).

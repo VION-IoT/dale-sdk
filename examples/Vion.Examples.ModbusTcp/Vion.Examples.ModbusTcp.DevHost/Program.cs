@@ -12,7 +12,7 @@ namespace Vion.Examples.ModbusTcp.DevHost
 
         public static Task Main(string[] args)
         {
-            // Folder-driven boot (RFC 0008, topology-as-data): topologies/*.topology.json defines the
+            // Folder-driven boot (topology-as-data): topologies/*.topology.json defines the
             // instance graph and scenarios/*.scenario.json the replayable checks — both discovered from
             // disk, so adding a block or rewiring is a topology edit, not a Program.cs change. Register
             // block types in DependencyInjection.cs. `dale dev --stepped` gives a deterministic virtual

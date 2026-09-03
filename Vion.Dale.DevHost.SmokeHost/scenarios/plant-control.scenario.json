@@ -2,7 +2,7 @@
   "version": 1,
   "id": "plant-control",
   "topology": "default",
-  "title": "Bidirectional contract — drive and assert ONE contract identifier in a single scenario (RFC 0010, VION-129)",
+  "title": "Bidirectional contract — drive and assert ONE contract identifier in a single scenario (VION-129)",
   "description": "PlantBlock binds IPlantControl, a contract carrying BOTH wire directions under one identifier: its handler declares [ScenarioWire(Inbound = ..., Outbound = ...)] while the contract type declares no Consumers, so it classifies as an INPUT. serviceProviderSet drives the inbound demand (a bool, an enum-by-name, and a 1-level nested PlantSupply struct); the block surfaces the fields as service properties; its [Timer(1)] publishes the outbound measurement back on the SAME contract, and serviceProviderExpect asserts that multi-field command one scalar at a time with `field`, leaving the wall-clock `timestamp` unasserted.",
   "specs": ["smoke", "struct", "vion-129"],
   "watch": ["PlantBlock.DemandValid", "PlantBlock.ActivePowerKw"],

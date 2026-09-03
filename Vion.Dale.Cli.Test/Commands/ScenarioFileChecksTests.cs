@@ -6,7 +6,7 @@ using Vion.Dale.Cli.Commands;
 namespace Vion.Dale.Cli.Test.Commands
 {
     /// <summary>
-    ///     The `dale scenario validate` core — the lite, language-neutral mirror of the RFC 0006 format
+    ///     The `dale scenario validate` core — the lite, language-neutral mirror of the format
     ///     rules and revision 5 name-path resolution, evaluated against a configuration export.
     /// </summary>
     [TestClass]
@@ -393,7 +393,7 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void RejectsServiceProviderExpectStructuralProblems()
         {
-            // serviceProviderExpect (RFC 0010) is step-only and takes exactly one comparator (topology
+            // serviceProviderExpect is step-only and takes exactly one comparator (topology
             // "elsewhere" skips path/contract resolution, isolating the structural checks).
             var outcome = ScenarioFileChecks.Validate("bad-out.scenario.json",
                                                       """

@@ -12,7 +12,7 @@ using Vion.Dale.DevHost.Web;
 namespace Vion.Dale.DevHost.Test
 {
     /// <summary>
-    ///     Recycle-on-run (RFC 0008): a scenario runs against the topology it declares, from a clean slate, so
+    ///     Recycle-on-run: a scenario runs against the topology it declares, from a clean slate, so
     ///     every run is reproducible. On a supervised host a dirty (already-advanced) stepped generation
     ///     recycles onto the scenario's topology before running — apply answers <c>{ recycling: true }</c> and
     ///     the caller re-applies on the fresh, clean generation, which runs in place. There is no <c>force</c>.

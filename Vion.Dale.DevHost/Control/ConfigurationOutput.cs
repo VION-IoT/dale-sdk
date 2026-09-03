@@ -15,7 +15,7 @@ namespace Vion.Dale.DevHost.Control
         /// <summary>
         ///     The name of the wired topology (the consumer's preset), when the configuration declared one via
         ///     <c>DevConfigurationBuilder.WithTopologyName</c>. Lets the UI header and agents identify which
-        ///     preset is running; scenario files compare against it (RFC 0006).
+        ///     preset is running; scenario files compare against it.
         /// </summary>
         public string? TopologyName { get; set; }
 
@@ -26,7 +26,7 @@ namespace Vion.Dale.DevHost.Control
         public required List<InterfaceMapping> InterfaceMappings { get; set; }
 
         /// <summary>
-        ///     RFC 0020: the contract endpoints this topology declares as one wire, with the directions that
+        ///     The contract endpoints this topology declares as one wire, with the directions that
         ///     actually materialised. Empty on an unpaired topology. Read by the scenario resolver (a
         ///     <c>serviceProviderSet</c> onto a fed endpoint is legal but warned about) and by the wiring view.
         /// </summary>
@@ -38,7 +38,7 @@ namespace Vion.Dale.DevHost.Control
 
             public required string Name { get; set; }
 
-            /// <summary>The block's CLR type full name — what a topology file's <c>typeFullName</c> resolves (RFC 0006 R5).</summary>
+            /// <summary>The block's CLR type full name — what a topology file's <c>typeFullName</c> resolves.</summary>
             public string? TypeFullName { get; set; }
 
             /// <summary>
@@ -170,7 +170,7 @@ namespace Vion.Dale.DevHost.Control
             public required string TargetInterfaceIdentifier { get; set; }
         }
 
-        /// <summary>One declared pairing and the directions the wire-type identity rule materialised (RFC 0020 §4.3).</summary>
+        /// <summary>One declared pairing and the directions the wire-type identity rule materialised.</summary>
         public class ContractPairing
         {
             public required ContractPairingEndpoint A { get; set; }

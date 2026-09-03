@@ -29,7 +29,7 @@ namespace Vion.Dale.DevHost.Scenarios
     /// <summary>
     ///     A contract reference resolved to its mocked endpoint (service provider / service / contract ids).
     ///     <see cref="HandlerName" /> is the generic stand-in's actor name (the contract's
-    ///     <c>ContractHandlerActorName</c>) for the RFC 0010 <c>serviceProviderSet</c> drive; null for the
+    ///     <c>ContractHandlerActorName</c>) for the <c>serviceProviderSet</c> drive; null for the
     ///     legacy HAL steps, which address their well-known handlers by value type. <see cref="FieldPath" />
     ///     carries a <c>serviceProviderExpect</c>'s <c>field</c> selector, split into wire-key segments.
     /// </summary>
@@ -44,7 +44,7 @@ namespace Vion.Dale.DevHost.Scenarios
 
     /// <summary>
     ///     Resolves scenario name paths and contract references against <see cref="ConfigurationOutput" />
-    ///     (RFC 0006 revision 5 name paths): <c>Block.Property</c> when the property is unambiguous within the
+    ///     (the revision 5 name-path rules): <c>Block.Property</c> when the property is unambiguous within the
     ///     block, <c>Block.Service.Property</c> always. A two-segment path matching members on more than one
     ///     service is an error that lists the qualified candidates — never silent last-wins.
     /// </summary>
@@ -54,7 +54,7 @@ namespace Vion.Dale.DevHost.Scenarios
 
         /// <summary>
         ///     Non-fatal findings collected while resolving — reported on the run, never failing it. Today the
-        ///     only one is RFC 0020 §4.6: a <c>serviceProviderSet</c> onto an inbound a contract pairing also
+        ///     only one is `docs/specs/scenarios.md` (`AC-SCEN-007.10`): a <c>serviceProviderSet</c> onto an inbound a contract pairing also
         ///     feeds. That is legal (last write wins) and occasionally what an author wants — seeding a loop, or
         ///     overriding the peer for one step — but usually a bench-design smell worth seeing in the report.
         /// </summary>
@@ -375,7 +375,7 @@ namespace Vion.Dale.DevHost.Scenarios
         }
 
         // Resolves a generic service-provider value-contract reference (serviceProviderSet / serviceProviderExpect,
-        // RFC 0010). Any [ServiceProviderContractType] contract on the block is addressable. Direction is read
+        // `docs/specs/scenarios.md`). Any [ServiceProviderContractType] contract on the block is addressable. Direction is read
         // per operation, never as one binary classification: [ScenarioWire] is authoritative where it has
         // spoken, and the contract's Consumers multiplicity is the fallback.
         //   DRIVE  — permitted exactly when the contract carries the scenarioInputFields annotation, which
@@ -459,7 +459,7 @@ namespace Vion.Dale.DevHost.Scenarios
             return new ResolvedContract(mapping.MappedServiceProviderIdentifier, mapping.MappedServiceIdentifier, mapping.MappedContractIdentifier, handlerName, fieldPath);
         }
 
-        // RFC 0020 §4.6: a drive onto an endpoint a materialised pairing direction also feeds is legal — the
+        // `docs/specs/scenarios.md` (`AC-SCEN-007.10`): a drive onto an endpoint a materialised pairing direction also feeds is legal — the
         // stand-in delivers whatever arrived last — but the two writers are invisible in the file, so the run
         // says so. A WARNING, never an error: seeding a closed loop from a scenario is a legitimate bench move,
         // and refusing it would make a paired topology untestable from its own scenarios.
@@ -638,7 +638,7 @@ namespace Vion.Dale.DevHost.Scenarios
     }
 
     /// <summary>
-    ///     The comparator semantics (RFC 0006 table) shared by <c>waitUntil</c> and <c>expect</c>, evaluated
+    ///     The comparator semantics  shared by <c>waitUntil</c> and <c>expect</c>, evaluated
     ///     against live CLR values from the event stream / value cache: <c>above</c>/<c>below</c> numeric;
     ///     <c>equals</c>/<c>notEquals</c> exact — numbers (optional tolerance), booleans, strings, enums by
     ///     case-sensitive member name, <c>null</c>; <c>oneOf</c> tests set membership. For <c>expect</c> a
@@ -660,7 +660,7 @@ namespace Vion.Dale.DevHost.Scenarios
                             false);
         }
 
-        // The serviceProviderExpect assert (RFC 0010) — identical comparator semantics, against the value the
+        // The serviceProviderExpect assert — identical comparator semantics, against the value the
         // block last wrote on a service-provider output contract (literals only).
         public static bool IsSatisfied(ScenarioServiceProviderAssert condition, object? live)
         {

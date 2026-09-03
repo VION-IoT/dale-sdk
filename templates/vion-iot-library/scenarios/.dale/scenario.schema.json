@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://vion.swiss/dale/scenario.schema.json",
-  "title": "Dale DevHost scenario file (RFC 0006, vocabulary v1)",
+  "title": "Dale DevHost scenario file (vocabulary v1)",
   "description": "A git-committed description of a manual-test scenario: setup, ordered stimuli, watch list, human judgments. The generic structural schema shipped with Vion.Dale.DevHost; 'dale scenario schema' (R4) emits a per-project variant enriched with the topology's actual block names and property identifiers.",
   "type": "object",
   "additionalProperties": false,
@@ -450,7 +450,7 @@
         "logicBlock",
         "contract"
       ],
-      "description": "A service-provider value-contract reference: the consuming logic block name plus the contract identifier (RFC 0010).",
+      "description": "A service-provider value-contract reference: the consuming logic block name plus the contract identifier.",
       "properties": {
         "logicBlock": {
           "type": "string"
@@ -467,7 +467,7 @@
         "serviceProviderSet",
         "value"
       ],
-      "description": "Drives the wire value a service provider delivers on a [ServiceProviderContractType] contract — a scalar for digital/analog, a JSON object for a struct contract (PPC). Available on any contract whose handler declares a [ScenarioWire] inbound: an input, a bidirectional contract, or the confirmation an output's provider sends back. The generic replacement for digitalInput / analogInput (RFC 0010).",
+      "description": "Drives the wire value a service provider delivers on a [ServiceProviderContractType] contract — a scalar for digital/analog, a JSON object for a struct contract (PPC). Available on any contract whose handler declares a [ScenarioWire] inbound: an input, a bidirectional contract, or the confirmation an output's provider sends back. The generic replacement for digitalInput / analogInput.",
       "properties": {
         "label": {
           "$ref": "#/$defs/stepCommon/label"
@@ -489,7 +489,7 @@
       "required": [
         "serviceProviderExpect"
       ],
-      "description": "A deterministic, point-in-time auto-assertion on the value a block last wrote on a [ServiceProviderContractType] value contract (CI-failing tier) — an output, or a bidirectional contract whose handler declares a [ScenarioWire] Outbound. The generic replacement for digitalOutput / analogOutput (RFC 0010).",
+      "description": "A deterministic, point-in-time auto-assertion on the value a block last wrote on a [ServiceProviderContractType] value contract (CI-failing tier) — an output, or a bidirectional contract whose handler declares a [ScenarioWire] Outbound. The generic replacement for digitalOutput / analogOutput.",
       "properties": {
         "label": {
           "$ref": "#/$defs/stepCommon/label"

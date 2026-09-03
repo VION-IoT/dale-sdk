@@ -7,7 +7,7 @@ namespace Vion.Dale.DevHost.Test
     /// <summary>
     ///     Block with TWO nested interface-bound services declaring the SAME property name — the duplicate
     ///     member name the flat per-block name map collapses last-service-wins. Guards the service-qualified
-    ///     control overloads and the RFC 0006 revision 5 name-path ambiguity rule (a two-segment
+    ///     control overloads and the revision 5 name-path ambiguity rule (a two-segment
     ///     <c>DualPoint.Limit</c> must be rejected as ambiguous; <c>DualPoint.PointA.Limit</c> resolves).
     /// </summary>
     [LogicBlock(Name = "DualPoint")]

@@ -54,7 +54,7 @@ namespace Vion.Dale.DevHost.Test
             // Arrange / Act
             // Two sources both match the one sink — AutoConnect over this uncurated catalog would wire a
             // fighting network (two commanders on one device). The conflict guard leaves the ambiguous
-            // interface unwired (RFC 0008 §6.3): no mapping survives, because the sink's ISink matches both.
+            // interface unwired: no mapping survives, because the sink's ISink matches both.
             var config = DefaultTopologyGenerator.Generate(new[] { typeof(SourceBlock), typeof(SecondSourceBlock), typeof(SinkBlock) });
 
             // Assert

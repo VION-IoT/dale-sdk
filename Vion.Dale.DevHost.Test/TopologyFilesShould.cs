@@ -13,7 +13,7 @@ using Vion.Dale.DevHost.Web;
 namespace Vion.Dale.DevHost.Test
 {
     /// <summary>
-    ///     Topology files (RFC 0006 R5): the dev-profile loader (types from loaded assemblies, explicit
+    ///     Topology files: the dev-profile loader (types from loaded assemblies, explicit
     ///     interface wiring, auto-mocked contracts), the export projection as the C#-preset migration path,
     ///     and Player-driven switching riding the run-control reset.
     /// </summary>

@@ -4,7 +4,7 @@ Static, self-contained HTML mockups from the 2026-06-11 design session. Open any
 browser (no build, no server; icons load from CDN). They are **reference artifacts for implementation**,
 not pixel specs — layout zones, density targets, and interaction vocabulary are the contract.
 
-Companion documents: [RFC 0006 — scenario files](../../rfcs/0006-scenario-files.md) (accepted) and the
+Companion documents: [the scenario & topology spec](../../specs/scenarios.md) and the
 roadmap below.
 
 ## Files
@@ -42,7 +42,7 @@ roadmap below.
 - Property identifiers were corrected against the verified consumer surfaces after a fact-check pass
   (`GridHeadroomConfigUi` fields, `ComputedGridActivePowerKw`, `StateOfChargePercent`). Rail labels use
   short names (`RefCtrlBuffer`) to demonstrate truncation; the real preset assigns no `name:`, so name paths
-  default to type names — see RFC 0006 "Name paths".
+  default to type names — see `docs/specs/scenarios.md`'s name-path rules.
 - Light palette only; the production implementation themes via the same CSS-variable layer.
 
 ## Roadmap context (value-first phasing, decided 2026-06-11)
@@ -53,9 +53,9 @@ roadmap below.
 | R1 | New shell: master-detail navigation + filtering + watch window + struct field forms + baseline diff (mockups 01–03) |
 | R2 | Run control (pause / resume / reset, topology switch) + read-only setup/topology panel |
 | R2.5 | Presentation preview gallery per block (sample values from introspection) |
-| R3 | Scenario files + Player v1 (mockups 04–05; RFC 0006) |
-| R4 | xunit theory + `dale scenario` verbs + template/AGENTS.md enablement (RFC 0006) |
-| R5 | Topology files (`*.topology.json`, dev profile of `SetLogicConfigurationPayload`; RFC 0006) |
+| R3 | Scenario files + Player v1 (mockups 04–05; `docs/specs/scenarios.md`) |
+| R4 | xunit theory + `dale scenario` verbs + template/AGENTS.md enablement |
+| R5 | Topology files (`*.topology.json`, dev profile of `SetLogicConfigurationPayload`; `docs/specs/scenarios.md`) |
 | Later | Sparklines/history, evidence panels (logs + message tap), `checks[]`, `ramp`, Recorder |
 
 Substrate decision: vendored Preact + htm + @preact/signals (+ uPlot) as static ESM in the embedded

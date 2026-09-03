@@ -34,7 +34,7 @@ namespace Vion.Dale.Sdk.Abstractions
         void Unregister(object token);
 
         /// <summary>
-        ///     Record a delayed send the next-event stepper will DELIVER itself (RFC 0008 deterministic
+        ///     Record a delayed send the next-event stepper will DELIVER itself (deterministic
         ///     stepping): instead of a <c>Task.Delay</c> firing the send — whose continuations race onto the
         ///     thread pool when several are due at the same virtual instant — the stepper invokes
         ///     <paramref name="deliver" /> in a fixed order (earliest due-time first, then registration order).

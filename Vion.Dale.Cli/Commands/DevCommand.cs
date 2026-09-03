@@ -32,14 +32,14 @@ namespace Vion.Dale.Cli.Commands
             var exportConfigOption = new Option<string?>("--export-config")
                                      {
                                          Description =
-                                             "Boot the wired network, write its configuration (block names, services, schemas, topology) as JSON to this file, and exit — the data source for `dale scenario validate` and `dale scenario schema` (RFC 0006).",
+                                             "Boot the wired network, write its configuration (block names, services, schemas, topology) as JSON to this file, and exit — the data source for `dale scenario validate` and `dale scenario schema`.",
                                      };
             command.Options.Add(exportConfigOption);
 
             var exportTopologyOption = new Option<string?>("--export-topology")
                                        {
                                            Description =
-                                               "Boot the wired network, write it as a *.topology.json dev profile to this file, and exit — the migration path from C# presets to topology files (RFC 0006 R5).",
+                                               "Boot the wired network, write it as a *.topology.json dev profile to this file, and exit — the migration path from C# presets to topology files.",
                                        };
             command.Options.Add(exportTopologyOption);
 

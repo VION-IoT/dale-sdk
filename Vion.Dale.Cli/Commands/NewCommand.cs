@@ -136,7 +136,7 @@ namespace Vion.Dale.Cli.Commands
                                   DaleConsole.Info($"  {name}/{name}.csproj              (logic block library — the Thermostat example)");
                                   DaleConsole.Info($"  {name}/{name}.DevHost.csproj       (local dev host with web UI)");
                                   DaleConsole.Info($"  {name}/{name}.Test.csproj          (tests)");
-                                  DaleConsole.Info($"  {name}/scenarios/                  (scenario files — RFC 0006)");
+                                  DaleConsole.Info($"  {name}/scenarios/                  (scenario files — `docs/specs/scenarios.md`)");
                                   DaleConsole.Blank();
                                   DaleConsole.Info("Next steps:");
                                   DaleConsole.Info($"  cd {name}");

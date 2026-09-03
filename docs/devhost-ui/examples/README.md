@@ -1,7 +1,7 @@
-# RFC 0006 worked examples
+# Worked examples
 
-Copy-pasteable reference files for the [scenario + topology stack](../../rfcs/0006-scenario-files.md)
-(RFC 0006). These are the canonical shapes the prose describes — a real consumer's first adoption found the
+Copy-pasteable reference files for the [scenario + topology stack](../../specs/scenarios.md)
+. These are the canonical shapes the prose describes — a real consumer's first adoption found the
 SDK's own example files the single most useful reference, so they live here, linked from the RFC, and
 standardized on one convention.
 

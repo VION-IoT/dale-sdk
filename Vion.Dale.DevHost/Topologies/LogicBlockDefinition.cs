@@ -19,7 +19,7 @@ namespace Vion.Dale.DevHost.Topologies
     /// </summary>
     public sealed class LogicBlockDefinition
     {
-        /// <summary>The block's CLR type full name — what a topology file's <c>typeFullName</c> resolves (RFC 0006 R5).</summary>
+        /// <summary>The block's CLR type full name — what a topology file's <c>typeFullName</c> resolves.</summary>
         public required string TypeFullName { get; set; }
 
         public required IReadOnlyList<DefinitionInterface> Interfaces { get; set; }

@@ -39,7 +39,7 @@ namespace Vion.Dale.DevHost.Test
             var configBody = await configResponse.Content.ReadAsStringAsync();
             StringAssert.Contains(configBody,
                                   "\"topologyName\":\"counter-topology\"",
-                                  "/api/configuration must carry the topology name declared via WithTopologyName (RFC 0006 guard prerequisite).");
+                                  "/api/configuration must carry the topology name declared via WithTopologyName (the topology guard's prerequisite).");
 
             // New control routes.
             var blocksResponse = await client.GetAsync("/api/logicblocks");
@@ -508,7 +508,7 @@ namespace Vion.Dale.DevHost.Test
         [TestMethod]
         public async Task ContractsDriveRoute_DrivesAMockedInput_ObservableInBlockState()
         {
-            // POST /api/contracts/drive is the one manual-drive endpoint (RFC 0010) behind the SPA's HAL
+            // POST /api/contracts/drive is the one manual-drive endpoint behind the SPA's HAL
             // controls — generic over every value contract, with no type-specific routes. Drive the SmokeHost
             // IoBlock's digital + analog inputs over HTTP (each addressed by its stand-in handler name from the
             // configuration's contractHandlerActorName annotation), advance the stepped clock to quiesce, then

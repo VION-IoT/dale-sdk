@@ -510,7 +510,7 @@ export function presentationFacts(item) {
     return { authored, missing };
 }
 
-// ── Scenario / Player policy (RFC 0006) ─────────────────────────────────────────
+// ── Scenario / Player policy ─────────────────────────────────────────
 
 // Parse a scenario name path: Block.Property or Block.Service.Property → { block, service, property }
 // (service null in the two-segment form). Returns null when the shape is wrong.

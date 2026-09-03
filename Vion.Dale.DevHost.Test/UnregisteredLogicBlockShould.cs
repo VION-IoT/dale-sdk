@@ -43,7 +43,7 @@ namespace Vion.Dale.DevHost.Test
         [TestMethod]
         public async Task FailTheHost_WhenWiredViaATopologyFile()
         {
-            // The second entry path (RFC 0006 R5). It converges on the same GetService resolution, but a fix
+            // The second entry path. It converges on the same GetService resolution, but a fix
             // that only guarded the fluent builder would leave this half of the bug alive.
             var file = DevTopologyFile.Parse($$"""
                                                {

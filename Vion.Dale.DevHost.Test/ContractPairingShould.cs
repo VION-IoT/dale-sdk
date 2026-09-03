@@ -17,7 +17,7 @@ using Vion.Dale.Sdk.DigitalIo.Input;
 namespace Vion.Dale.DevHost.Test
 {
     /// <summary>
-    ///     Contract pairing (RFC 0020): two service-provider contract endpoints declared as ONE wire, so a
+    ///     Contract pairing: two service-provider contract endpoints declared as ONE wire, so a
     ///     simulator block bound to a provider face closes the loop a real service provider would. The
     ///     structural refusals land at topology load / <c>PairContracts</c>; the wire-type identity rule
     ///     lands when the host loads, where the handler each contract talks to is known.
@@ -120,7 +120,7 @@ namespace Vion.Dale.DevHost.Test
         [TestProperty("spec", "AC-SCEN-007.10")]
         public async Task WarnWithoutFailingWhenScenarioDrivesInboundPairingAlsoFeeds()
         {
-            // RFC 0020 §4.6: legal (last write wins) and occasionally what an author wants, so the run proceeds —
+            // `docs/specs/scenarios.md` (`AC-SCEN-007.10`): legal (last write wins) and occasionally what an author wants, so the run proceeds —
             // but two writers on one inbound are invisible in the file, so the report says so. The scenario
             // asserts nothing about the VALUE deliberately: which writer lands last is exactly the thing the
             // warning is about, so a test that depended on it would be the flake it warns against.

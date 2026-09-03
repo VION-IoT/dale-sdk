@@ -10,7 +10,7 @@ using Vion.Dale.DevHost.Scenarios;
 namespace Vion.Dale.DevHost.Test.Stepping
 {
     /// <summary>
-    ///     The generic <c>serviceProviderSet</c> drive step (RFC 0010): one step kind drives any
+    ///     The generic <c>serviceProviderSet</c> drive step: one step kind drives any
     ///     <c>[ServiceProviderContractType]</c> value contract whose handler declares a <c>[ScenarioWire]</c>
     ///     Inbound. That declaration, not the contract's multiplicity, is the gate, so an output confirmed by
     ///     its provider is drivable too; the drive is routed to the generic stand-in registered under the

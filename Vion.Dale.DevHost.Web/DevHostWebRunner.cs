@@ -31,7 +31,7 @@ namespace Vion.Dale.DevHost.Web
         public const string SteppedEnvVar = "DALE_DEVHOST_STEPPED";
 
         /// <summary>
-        ///     One-shot export mode (RFC 0006 R4): when set to a file path, the runner boots the host, writes
+        ///     One-shot export mode: when set to a file path, the runner boots the host, writes
         ///     the wired network's <c>ConfigurationOutput</c> JSON to that path (the same shape
         ///     <c>GET /api/configuration</c> serves — block instance names, service identifiers, schemas,
         ///     topology name), and exits. <c>dale scenario validate</c> / <c>schema</c> consume the export.
@@ -39,7 +39,7 @@ namespace Vion.Dale.DevHost.Web
         public const string ExportConfigEnvVar = "DALE_DEVHOST_EXPORT_CONFIG";
 
         /// <summary>
-        ///     One-shot export mode (RFC 0006 R5): boot, write the wired network as a
+        ///     One-shot export mode: boot, write the wired network as a
         ///     <c>*.topology.json</c> dev profile (instances, interface mappings, contract mappings), exit —
         ///     the migration path from C# presets to topology files.
         /// </summary>
@@ -106,7 +106,7 @@ namespace Vion.Dale.DevHost.Web
         }
 
         /// <summary>
-        ///     Topology-aware supervised variant (RFC 0006 R5): the factory receives the topology id the UI
+        ///     Topology-aware supervised variant: the factory receives the topology id the UI
         ///     requested via <c>POST /api/topologies/{id}/switch</c> (null = the default preset, and on a
         ///     plain reset the previous selection is kept). A typical consumer composes
         ///     <c>DevTopologyLoader.Load(topologyId)</c> for non-null ids and its C# preset otherwise.

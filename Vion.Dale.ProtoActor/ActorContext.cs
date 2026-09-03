@@ -65,7 +65,7 @@ namespace Vion.Dale.ProtoActor
             // Stepped host (DevHost + FakeTimeProvider): the next-event stepper DELIVERS this send itself, in a
             // deterministic order, instead of a Task.Delay continuation firing it — when several timers are due
             // at the same virtual instant, racing Task.Delay continuations on the thread pool would otherwise
-            // deliver them in a thread-pool-dependent order (RFC 0008 / DF-18). Register the delivery action
+            // deliver them in a thread-pool-dependent order (DF-18). Register the delivery action
             // (no Task.Delay armed); the stepper invokes it at the due virtual time, earliest-then-registration
             // order, having taken (removed) the entry — so the action just performs the send.
             if (_schedule is not null && _stepped)

@@ -78,7 +78,7 @@ namespace Vion.Dale.DevHost.Control
         ///     Read the last-known value of a member qualified by its service identifier — the disambiguating
         ///     form for multi-service blocks (nested <c>[LogicBlockInterfaceBinding]</c> members), where the
         ///     flat per-block name map collapses duplicate member names last-service-wins. The service
-        ///     identifier of a nested member equals the binding member name (RFC 0006 revision 5 name paths).
+        ///     identifier of a nested member equals the binding member name (the revision 5 name-path rules).
         /// </summary>
         object? GetProperty(string logicBlockIdOrName, string serviceIdentifier, string propertyName);
 
@@ -97,7 +97,7 @@ namespace Vion.Dale.DevHost.Control
         /// <summary>
         ///     Write a writable <c>[ServiceProperty]</c> qualified by its service identifier — the
         ///     disambiguating form for multi-service blocks, mirroring the three-argument
-        ///     <see cref="GetProperty(string, string, string)" /> (RFC 0006 revision 5 name paths). Same ack
+        ///     <see cref="GetProperty(string, string, string)" /> (the revision 5 name-path rules). Same ack
         ///     semantics as <see cref="SetPropertyAsync(string, string, object?)" />.
         /// </summary>
         Task SetPropertyAsync(string logicBlockIdOrName, string serviceIdentifier, string propertyName, object? value);
@@ -114,7 +114,7 @@ namespace Vion.Dale.DevHost.Control
         Task SetServicePropertyValueAsync(string serviceId, string propertyName, object? value);
 
         /// <summary>
-        ///     Drive any <c>[ServiceProviderContractType]</c> value <em>input</em> contract (RFC 0010
+        ///     Drive any <c>[ServiceProviderContractType]</c> value <em>input</em> contract (
         ///     <c>serviceProviderSet</c>): one path for digital, analog, and third-party struct contracts, with
         ///     no type-specific entry points. Addressed by the generic stand-in's actor name
         ///     (<paramref name="handlerName" />, the contract's <c>ContractHandlerActorName</c>) plus the mocked
@@ -128,7 +128,7 @@ namespace Vion.Dale.DevHost.Control
 
         /// <summary>
         ///     Read the last value a logic block wrote on any <c>[ServiceProviderContractType]</c> value
-        ///     <em>output</em> contract (RFC 0010 <c>serviceProviderExpect</c>) — one path for the four HAL
+        ///     <em>output</em> contract (<c>serviceProviderExpect</c>) — one path for the four HAL
         ///     outputs and third-party ones. The result says which of three states the read is in: never
         ///     written, readable (carrying the value projected to a comparable scalar), or written but not a
         ///     scalar. Pass <paramref name="fieldPath" /> to address one field of a multi-field command — the
@@ -230,7 +230,7 @@ namespace Vion.Dale.DevHost.Control
         IDisposable OnResetRequested(Action handler);
 
         /// <summary>
-        ///     Request a recycle into a different topology (RFC 0006 R5) — rides the reset signal; a
+        ///     Request a recycle into a different topology — rides the reset signal; a
         ///     topology-aware supervisor (<c>DevHostWebRunner.RunAsync(Func&lt;string?, IDevHost&gt;, …)</c>)
         ///     builds the next generation from the requested id. Returns false when no supervisor is
         ///     attached.

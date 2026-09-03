@@ -9,7 +9,7 @@ using Vion.Dale.Sdk.Reflection;
 namespace Vion.Dale.DevHost.Mocking
 {
     /// <summary>
-    ///     Discovers the service-provider handlers the DevHost should stand in for (RFC 0010): the same
+    ///     Discovers the service-provider handlers the DevHost should stand in for: the same
     ///     <see cref="IServiceProviderHandlerActor" /> convention scan the runtime uses, narrowed to the
     ///     handlers that declare a <c>[ScenarioWire]</c> — the <b>value</b> contracts in scope. Handlers without
     ///     it (Modbus RTU request/response and other out-of-scope mechanisms) yield no codec and are skipped, so
@@ -34,7 +34,7 @@ namespace Vion.Dale.DevHost.Mocking
 
         /// <summary>
         ///     Whether a handler class of that name is loaded at all — regardless of whether it declares a
-        ///     <c>[ScenarioWire]</c>. Only the refusal path asks (the RFC 0020 pairing table, when a contract's
+        ///     <c>[ScenarioWire]</c>. Only the refusal path asks (the pairing table, when a contract's
         ///     <c>ContractHandlerActorName</c> is not among the discovered codecs): a handler that is present but
         ///     silent about its wire structs is an authoring problem in the handler, while one that is absent is a
         ///     missing project reference — two different fixes, so they get two different messages.

@@ -11,7 +11,7 @@ using Vion.Dale.DevHost.Control;
 namespace Vion.Dale.DevHost.Topologies
 {
     /// <summary>
-    ///     A parsed <c>*.topology.json</c> file (RFC 0006 "Topology files") — the dev profile of the
+    ///     A parsed <c>*.topology.json</c> file — the dev profile of the
     ///     production <c>SetLogicConfigurationPayload</c>: logic-block instances (type full name + instance
     ///     name) and interface mappings, without deployment concerns (MQTT topics, package pinning).
     ///     Contract mappings are optional — contracts left unmapped get DevHost mocks, exactly the
@@ -55,7 +55,7 @@ namespace Vion.Dale.DevHost.Topologies
         public IReadOnlyList<TopologyContractMapping>? ContractMappings { get; init; }
 
         /// <summary>
-        ///     RFC 0020: optional declarations that two service-provider contract endpoints are ONE wire — each
+        ///     Optional declarations that two service-provider contract endpoints are ONE wire — each
         ///     side's captured outbound is delivered as the other side's inbound, so a simulator block bound to a
         ///     provider face closes the loop a real service provider would close. Symmetric; which directions
         ///     actually materialise is derived from the two handlers' <c>[ScenarioWire]</c> declarations and
@@ -160,7 +160,7 @@ namespace Vion.Dale.DevHost.Topologies
                 ValidatePairingEndpoint(pairing.A, $"contractPairings[{index}].a", names, errors);
                 ValidatePairingEndpoint(pairing.B, $"contractPairings[{index}].b", names, errors);
 
-                // Self-pairing is the dropped host-synthesised confirmation (RFC 0020 §4.5): an endpoint wired to
+                // Self-pairing is the dropped host-synthesised confirmation: an endpoint wired to
                 // itself would echo every command back as its own confirmation, which is exactly the magic this
                 // design replaces with a visible simulator block.
                 if (pairing.A is not null && pairing.B is not null && pairing.A.LogicBlockName == pairing.B.LogicBlockName &&
@@ -313,7 +313,7 @@ namespace Vion.Dale.DevHost.Topologies
     }
 
     /// <summary>
-    ///     RFC 0020 §4.2: two service-provider contract endpoints declared as one wire. Keyed on (block,
+    ///     Two service-provider contract endpoints declared as one wire. Keyed on (block,
     ///     contract binding), never on endpoint triples — every contract already has an auto-created endpoint,
     ///     so a pairing needs nothing from <c>contractMappings</c>. The declaration is symmetric; the host
     ///     derives which directions materialise from the two handlers' <c>[ScenarioWire]</c> types.

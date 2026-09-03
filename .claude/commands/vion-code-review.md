@@ -101,7 +101,7 @@ Run each as a named adversarial check; cite the D-number in findings.
   *"technically correct but i find the remarks too verbose"*. And: does each claim match the code that
   implements it, rather than the neighbouring docstring? (Worked example, found in the tree on
   2026-08-12: `ScenarioStep`'s summary in `Vion.Dale.DevHost/Scenarios/ScenarioFile.cs` advertised step
-  kinds RFC 0010 had deleted, while the validator three hundred lines below listed the real set.)
+  kinds the generic step kinds had replaced, while the validator three hundred lines below listed the real set.)
   Remember what survives rendering: a member's `<remarks>` is dropped entirely from the docs site
   ([`sdk-surface-conventions.md`](../../docs/sdk-surface-conventions.md) § 2).
 

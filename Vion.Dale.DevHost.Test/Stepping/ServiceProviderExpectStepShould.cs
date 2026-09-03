@@ -14,7 +14,7 @@ using Vion.Dale.DevHost.Web;
 namespace Vion.Dale.DevHost.Test.Stepping
 {
     /// <summary>
-    ///     The generic <c>serviceProviderExpect</c> assert step (RFC 0010): asserts the value a block last wrote
+    ///     The generic <c>serviceProviderExpect</c> assert step: asserts the value a block last wrote
     ///     on any <c>[ServiceProviderContractType]</c> value output contract, read from the generic output cache
     ///     the stand-in fills. Replaces <c>digitalOutput</c> / <c>analogOutput</c>; an input is drive-only.
     /// </summary>

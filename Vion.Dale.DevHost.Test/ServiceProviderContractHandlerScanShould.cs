@@ -7,7 +7,7 @@ using Vion.Dale.Sdk.Abstractions;
 namespace Vion.Dale.DevHost.Test
 {
     /// <summary>
-    ///     The convention scan that replaces the hardcoded four-handler list (RFC 0010 increment 2): it
+    ///     The convention scan that replaces the hardcoded four-handler list: it
     ///     discovers every <see cref="IServiceProviderHandlerActor" /> the way the runtime does and builds a
     ///     codec for each that declares <c>[ScenarioWire]</c>, skipping the ones that do not (Modbus RTU
     ///     request/response and other out-of-scope handlers).

@@ -19,7 +19,7 @@ namespace Vion.Dale.Cli.Commands
 
     /// <summary>
     ///     The language-neutral validation core behind <c>dale scenario validate</c>: a deliberately lite
-    ///     mirror of the RFC 0006 format rules and revision 5 name-path resolution, evaluated against the
+    ///     mirror of the format rules and revision 5 name-path resolution, evaluated against the
     ///     wired-host configuration JSON (<c>dale dev --export-config</c> / <c>GET /api/configuration</c>).
     ///     The C# ScenarioRunner stays authoritative — this exists so CI and editors catch renames and
     ///     ambiguity without booting a host per file.
@@ -129,7 +129,7 @@ namespace Vion.Dale.Cli.Commands
         /// <summary>
         ///     Enrich the generic schema's name-path definition with an enum of every valid path in this
         ///     topology — completion and red squiggles in any editor, the type-safety substitute for the
-        ///     rejected C# builder (RFC 0006). Two-segment forms are listed only when unambiguous.
+        ///     rejected C# builder. Two-segment forms are listed only when unambiguous.
         ///     Struct-typed members are expanded: for each scalar field leaf (possibly nested) a
         ///     <c>Block.Member.Field</c> (or <c>Block.Service.Member.Field</c>) path is also emitted.
         ///     Field segment keys are PascalCase (the schema <c>properties</c> keys are camelCase; the first
@@ -345,7 +345,7 @@ namespace Vion.Dale.Cli.Commands
                 }
                 else if (step.ContainsKey("serviceProviderSet"))
                 {
-                    // The generic value-input drive (RFC 0010): a logicBlock + contract ref and a wire value of
+                    // The generic value-input drive: a logicBlock + contract ref and a wire value of
                     // any shape. Direction (this must be a drivable input) is the runner's authoritative check;
                     // the lite validator just confirms the contract exists and a value is present.
                     if (!step.ContainsKey("value"))
@@ -360,7 +360,7 @@ namespace Vion.Dale.Cli.Commands
                 }
                 else if (step.ContainsKey("serviceProviderExpect"))
                 {
-                    // The generic value-output assert (RFC 0010): a logicBlock + contract ref, an optional field
+                    // The generic value-output assert: a logicBlock + contract ref, an optional field
                     // selecting one scalar of a multi-field command, plus one comparator (literals only).
                     // Direction is the runner's authoritative check.
                     if (step["serviceProviderExpect"] is JsonObject assert)
@@ -753,7 +753,7 @@ namespace Vion.Dale.Cli.Commands
             return null;
         }
 
-        // The lite resolution for a generic serviceProviderSet / serviceProviderExpect reference (RFC 0010):
+        // The lite resolution for a generic serviceProviderSet / serviceProviderExpect reference:
         // any [ServiceProviderContractType] contract on the block is addressable, so existence is checked here
         // (block + contract) plus, per operation, the direction the exported configuration can speak to — a
         // set's drivable inbound, an expect's field selector. The runner / ScenarioResolver stays the

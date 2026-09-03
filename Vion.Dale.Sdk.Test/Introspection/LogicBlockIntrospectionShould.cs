@@ -767,7 +767,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
         {
             // Arrange
             // The contract's ContractHandlerActorName is surfaced so the DevHost can address the generic
-            // stand-in registered under it when a scenario drives the contract (RFC 0010).
+            // stand-in registered under it when a scenario drives the contract.
             var block = new ContractTestLogicBlock();
 
             // Act

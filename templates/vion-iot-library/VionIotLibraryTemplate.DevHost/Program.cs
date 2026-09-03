@@ -12,7 +12,7 @@ namespace VionIotLibraryTemplate.DevHost
 
         public static Task Main(string[] args)
         {
-            // Folder-driven boot (RFC 0008, topology-as-data): the first topology under topologies/
+            // Folder-driven boot (topology-as-data): the first topology under topologies/
             // (preferring "default") is loaded automatically. If none exists, default.topology.json is
             // generated from the DI catalog, announced on the console, and used. Add blocks in
             // DependencyInjection.cs and describe the instance graph in topologies/*.topology.json — the
