@@ -63,10 +63,10 @@ much cheaper than an artifact that is quietly incomplete.
   leave out every logic block that binds a development-only contract and SHALL name each excluded
   block and its bindings on standard output.
 - `AC-INTRO-002.7` (Ubiquitous): THE SYSTEM SHALL prefix every such notice with a stable marker.
-- `AC-INTRO-002.9` (Ubiquitous): THE SYSTEM SHALL apply the development-only exclusion to the document
-  alone, so an excluded block is still introspected and every refusal above still applies to it.
 - `AC-INTRO-002.8` (Event-driven): WHEN introspecting a logic block throws THE SYSTEM SHALL report
   the originating exception rather than a reflection wrapper.
+- `AC-INTRO-002.9` (Ubiquitous): THE SYSTEM SHALL apply the development-only exclusion to the document
+  alone, so an excluded block is still introspected and every refusal above still applies to it.
 
 `AC-INTRO-002.1` is why a pack either produces a complete document or none: an artifact missing one
 block uploads without complaint and is discovered by that block's absence in the dashboard. Register
@@ -201,8 +201,8 @@ for.
 `AC-INTRO-007.3` reads as a formatting rule and is a durability rule. The two infinities are the
 declaration's own defaults — one per bound — so "finite" is the same test as "declared", and it closes
 the two values that are neither: the other infinity, and a value that is not a number. Both are
-accepted by the compiler and judged by no diagnostic, and JSON can carry neither, so one such bound
-used to abort the whole document with an error naming no member and no block.
+accepted by the compiler and judged by no diagnostic, and JSON can carry neither, so a bound that is
+not finite is left out of the member's schema rather than failing the document.
 
 `AC-INTRO-007.4`'s fourth clause is `AC-GATE-010.3`'s, restated here only because it lands in the same
 field. `AC-INTRO-007.5` has no matching clause: a measuring point is published and never written, so a

@@ -222,8 +222,8 @@ namespace Vion.Dale.Sdk.Test.Introspection
         public void EmitStructFieldAnnotationsWhateverMemberNullability(string identifier)
         {
             // Arrange
-            // The nullable wrapper once stripped the field metadata, so the two members carried different
-            // field schemas. Both rows assert the same annotations, which is what makes them one behavior.
+            // The nullable wrapper is the only difference between the two members, and it does not reach the
+            // fields: both rows assert the same annotations, which is what makes them one behavior.
 
             // Act
             var schema = GetSchema(identifier);
@@ -238,6 +238,22 @@ namespace Vion.Dale.Sdk.Test.Introspection
             Assert.AreEqual("deg", props["lon"]?["x-unit"]?.GetValue<string>());
             Assert.AreEqual(-180d, props["lon"]?["minimum"]?.GetValue<double>());
             Assert.AreEqual(180d, props["lon"]?["maximum"]?.GetValue<double>());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-008.9")]
+        public void EmitIdenticalFieldSchemasWhateverStructNullability()
+        {
+            // Arrange
+            // The two members differ only in the nullable wrapper, so the whole field-schema document is the
+            // assertion: a per-key comparison leaves every key it does not name free to diverge.
+
+            // Act
+            var nonNullable = GetSchema("Location");
+            var nullable = GetSchema("LastKnownLocation");
+
+            // Assert
+            Assert.AreEqual(nonNullable["properties"]!.ToJsonString(), nullable["properties"]!.ToJsonString());
         }
 
         [TestMethod]

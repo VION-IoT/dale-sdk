@@ -566,21 +566,22 @@ Inverted     S: {"type":"number","format":"double","title":"Min above max","mini
 
 ### Step 8 — every existing test in scope, mapped
 
-**119 test methods across 6 test classes in 5 files** (`RichTypesLogicBlock.cs` is a fixture, not a
-test class) plus the introspection-level golden assertion.
+**119 test methods across 7 test classes in 5 files** at extraction (`RichTypesLogicBlock.cs` is a
+fixture, not a test class) plus the introspection-level golden assertion. The **today** column is the
+same `[TestMethod]` count after Phase B and the two amendments rewrote the suite — **154**.
 
-| Class | Tests | Rows |
+| Class | Tests (extraction → today) | Rows |
 | --- | --- | --- |
-| `TypeRefBuilderShould` | 37 | 28, 31, 33–35, 39–40, 47, 50, 54 |
-| `LogicBlockIntrospectionShould` | 36 | 11, 13, 16–18, 29, 34, 44, 47–48, 58, 67, 71–75 |
-| `PropertyMetadataBuilderShould` | 12 | 44, 61, 64 |
-| `ContractCarriedServiceRelationsShould` | 12 | 20–21, 66, 70, 77–82 |
-| `ConfigGatingMetadataShould` | 8 | 31, 65 — **`GATE`'s criteria throughout**; the class is rewritten in place and keeps every `AC-GATE-010.*` and `AC-GATE-005.9` citation |
-| `StructFieldPresentationShould` | 8 | 55–58 |
-| `LogicBlockIntrospectionOrderingShould` | 6 | 24, 26, 64 |
+| `TypeRefBuilderShould` | 37 → 33 | 28, 31, 33–35, 39–40, 47, 50, 54 |
+| `LogicBlockIntrospectionShould` | 36 → 75 | 11, 13, 16–18, 29, 34, 44, 47–48, 58, 67, 71–75 |
+| `PropertyMetadataBuilderShould` | 12 → 12 | 44, 61, 64 |
+| `ContractCarriedServiceRelationsShould` | 12 → 12 | 20–21, 66, 70, 77–82 |
+| `ConfigGatingMetadataShould` | 8 → 8 | 31, 65 — **`GATE`'s criteria throughout**; the class is rewritten in place and keeps every `AC-GATE-010.*` and `AC-GATE-005.9` citation |
+| `StructFieldPresentationShould` | 8 → 8 | 55–58 |
+| `LogicBlockIntrospectionOrderingShould` | 6 → 6 | 24, 26, 64 |
 
-**Unmapped tests: 0.** Every test in scope maps to a row. Three merge candidates for Phase B, none a
-deletion:
+**Unmapped tests: 0.** Every test in scope maps to a row. The table scheduled three merges for Phase B,
+none a deletion; all three are done, and the amendment-2 checkpoint below records what each became:
 
 - `TypeRefBuilderShould.EmitsPrimitiveSchemaForBool` … `ForUInt` (6 near-identical cases) → one
   data-driven case per primitive kind under row 33.
@@ -793,6 +794,17 @@ and nothing else in either.
 | `…IntrospectNoAbstractLogicBlock` | the `!type.IsAbstract` filter dropped |
 | `…RefuseMissingPluginPath` | the refusal no longer naming the path |
 
+**Amendment 3's additions.** Same discipline: applied, run, read, reverted. Counts pasted from the
+runs — the SDK class is 504 tests, the parser class 18.
+
+| Test | Mutation that reddens it |
+| --- | --- |
+| `LogicBlockIntrospectionShould.ReportInterfaceBindingTypeAndItsMatchingCounterpart` (the logic-interface half) | `InterfaceTypeFullNames` built from `MatchingLogicInterfaceType` — 1 failed, 499 passed |
+| `…ReportInterfaceBindingTypeAndItsMatchingCounterpart` (the matching-counterpart half) | `MatchingInterfaceTypeFullNames` built from `LogicInterfaceType` — 1 failed, 499 passed |
+| `…ReadBlockLevelAnnotations` | the `annotations["Groups"]` write deleted — 1 failed, 499 passed |
+| `TypeRefBuilderShould.EmitIdenticalFieldSchemasWhateverStructNullability` | the `Nullable<T>` peel dropped from `TypeRefBuilder.ExtractStructType` — 2 failed, 498 passed: **over-determined** with the merged test's nullable row, which is the same claim from seven named keys |
+| `LogicBlockParserShould.IntrospectNoAbstractLogicBlock` | re-proven after its rewrite: the `!type.IsAbstract` filter dropped — 1 failed, 17 passed; and the registration refusal short-circuited — 3 failed, 15 passed, this one among them, where the pre-round form passed that same mutation (1 of 1), which is what the added assertions buy |
+
 ### Gates
 
 Every line pasted from the terminal.
@@ -918,6 +930,8 @@ cannot handle.
 - 2026-09-03: The three merge candidates the Phase A table scheduled are done: five primitive cases into
   one `[DataRow]` set, the two group-annotation cases into one, and the nullable/non-nullable struct pair
   into one — the last of which is also `AC-INTRO-008.9`, whose claim the pair was making without stating.
+  The merged `[DataRow]` form asserts seven named keys per member and not the two documents against each
+  other, so it does not carry `008.9`'s own sentence; amendment 3 restores that comparison beside it.
 - 2026-09-03: Four duplicated citations removed. They came from running the citation pass twice: the
   first run renamed the methods it cited, so the second run's map missed them and it re-cited the rest.
 
@@ -938,6 +952,58 @@ cannot handle.
 - 2026-09-03: `AC-INTRO-002.1`'s "non-abstract" had no fixture. The unregistered plugin carries an
   abstract block now, also unregistered, and the mutation "drop the `IsAbstract` filter" reddens the test
   that says its absence is not a refusal.
+
+### Amendment 3 — the fresh-session fix-up
+
+The round after the two amendment rounds, run from fresh context because the same defect classes had
+recurred twice (a criterion cited for text it does not state, a stale count, a claim outrunning its
+evidence). **No criterion's text moved this round, so the *Spec delta* gains no `Amendment 3`
+heading** — every page edit below is prose or ordering.
+
+- 2026-09-03: `AC-INTRO-015.1` was cited by a test that does not prove it.
+  `ContractCarriedServiceRelationsShould.EmitEndpointLogicInterfaceTypeAndEmptyAnnotationBag` reads a
+  *relation half's* `InterfaceTypeFullName` and its empty annotation bag — `AC-INTRO-016.7` and
+  `AC-INTRO-016.4`, which it also cites — while `015.1` is about an *interface binding's* two type
+  lists. Amendment 2's item 1 asked for the citation on a wrong reading of that assertion; the tag is
+  removed. `015.1`'s one proving test is
+  `LogicBlockIntrospectionShould.ReportInterfaceBindingTypeAndItsMatchingCounterpart`, which the
+  mutation ledger did not name at all — it does now, with one mutation per half.
+- 2026-09-03: `AC-INTRO-008.9` said more than its test proved. The merge of the nullable/non-nullable
+  pair kept the seven named per-field keys and dropped the one assertion that is the criterion's own
+  sentence: the two members' `properties` documents compared whole. Restored beside the merged test as
+  `EmitIdenticalFieldSchemasWhateverStructNullability`. Its mutation is **over-determined** with the
+  merged test's nullable row — the only branch in the producer that can make the two documents diverge
+  is the `Nullable<T>` peel in `TypeRefBuilder.ExtractStructType`, so one mutation reddens both. The
+  restored test still earns its place: it is the only one that fails when a key neither row names
+  (a field `title`, `type`, `format`, or `lon`'s description) diverges.
+- 2026-09-03: `AC-INTRO-004.3`'s "and SHALL report its icon and its groups under their own" had no
+  assertion behind the groups clause. `TestLogicBlock` declares `Groups` now and
+  `ReadBlockLevelAnnotations` asserts them; the mutation is the `annotations["Groups"]` write deleted.
+  The same test's `AC-INTRO-004.4` citation is dropped with it: it asserts three annotations *present*
+  and no omission at all, which is `OmitBlockAnnotationsDeclaredEmpty`'s claim and only its.
+- 2026-09-03: One incident-narrative sentence survived amendment 2's item 29 — the `AC-INTRO-007.3`
+  paragraph still ended on what a non-finite bound "used to" do. Rewritten to what the producer does
+  today; the history is here, above.
+- 2026-09-03: The step-8 map's `TypeRefBuilderShould | 37` was the extraction-time count read as if it
+  were current, and the merges had taken the class to 33. Every row now carries both counts, recounted
+  with `grep -c '^\s*\[TestMethod\]'` per file — 119 at extraction, 154 today — and the header's
+  "6 test classes" is 7, which is what the table has always listed and what its own row sum needs.
+- 2026-09-03: The merge paragraph under that table still announced the three merges in the future
+  tense. It points at the amendment-2 checkpoint that records them, and that checkpoint now says what
+  the third merge cost `AC-INTRO-008.9`.
+- 2026-09-03: `LogicBlockParserShould.IntrospectNoAbstractLogicBlock` asserted only that the run's
+  output does not name the abstract block, which a run that died before the registration check
+  satisfies too. It asserts the exit code and the named concrete block beside it. Both forms were run
+  against the same mutation — the registration refusal short-circuited: the pre-round form passed
+  (1 passed of 1), the strengthened form fails (3 failed, 15 passed, this test among them).
+- 2026-09-03: Both fixture plugins' `.csproj` kept a blank line before `</PropertyGroup>` where
+  `SkipVionDaleLogicBlockParser` had been removed.
+- 2026-09-03: `AC-INTRO-002.9` sat before `AC-INTRO-002.8` on the page. Numeric order.
+- 2026-09-03: The merged `EmitStructFieldAnnotationsWhateverMemberNullability` carried a before/after
+  comment ("the nullable wrapper once stripped the field metadata"), which
+  `docs/comment-conventions.md` refuses for the same reason the page does. Stated in the present tense.
+- 2026-09-03: The journal's amendment-2 line claimed M6 and M9 both became "one line a reviewer reads
+  and a mutation deletes". True of M6 only; M9 moved no production line. Corrected there.
 
 ---
 

@@ -106,7 +106,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
     // using a constant, but here the literals are the unit-under-test.
 #pragma warning disable DALE026
 
-    [LogicBlock(Name = "Testgerät", Icon = "device-line")]
+    [LogicBlock(Name = "Testgerät", Icon = "device-line", Groups = new[] { "Energy", "Devices" })]
     public class TestLogicBlock : LogicBlockBase
     {
         [ServiceProperty(Title = "Leistung", Unit = "kW")]
@@ -294,7 +294,6 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-004.3")]
-        [TestProperty("spec", "AC-INTRO-004.4")]
         public void ReadBlockLevelAnnotations()
         {
             // Arrange
@@ -305,6 +304,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
             // Assert
             Assert.AreEqual("Testgerät", annotations["DefaultName"]);
             Assert.AreEqual("device-line", annotations["Icon"]);
+            CollectionAssert.AreEqual(new[] { "Energy", "Devices" }, (string[])annotations["Groups"]);
         }
 
         [TestMethod]

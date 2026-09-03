@@ -271,7 +271,6 @@ namespace Vion.Dale.Sdk.Test.Configuration.Services
 
         [TestMethod]
         [TestProperty("spec", "AC-INTRO-016.4")]
-        [TestProperty("spec", "AC-INTRO-015.1")]
         [TestProperty("spec", "AC-INTRO-016.7")]
         public void EmitEndpointLogicInterfaceTypeAndEmptyAnnotationBag()
         {

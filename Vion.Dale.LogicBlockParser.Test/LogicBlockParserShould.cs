@@ -313,6 +313,10 @@ namespace Vion.Dale.LogicBlockParser.Test
             var run = RunParser(UnregisteredPluginAssembly, output);
 
             // Assert
+            // The exit code and the named concrete block are what place the run past the registration check:
+            // a run that died loading the plugin names no block at all and would satisfy the absence alone.
+            Assert.AreEqual(1, run.ExitCode, run.Output);
+            Assert.Contains("Vion.Dale.ParserProbe.Unregistered.ForgottenBlock", run.Output);
             Assert.DoesNotContain("AbstractBaseBlock", run.Output);
         }
 
