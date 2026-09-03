@@ -313,9 +313,15 @@ namespace Vion.Dale.DevHost.Test
                                                                                                  """));
             var omitted = ScenarioFile.Parse("""{ "version": 1, "id": "x", "topology": "t", "steps": [{ "settle": { "maxSeconds": 5 } }] }""");
 
+            var populated = ScenarioFile.Parse("""
+                                               { "version": 1, "id": "x", "topology": "t", "steps": [{ "settle": { "until": ["A.B", "C.D.E"], "maxSeconds": 5 } }] }
+                                               """);
+
             // Assert
             Assert.IsTrue(refused.Errors.Any(m => m.Contains("settle.until must be a non-empty array")), string.Join("; ", refused.Errors));
             Assert.IsNull(omitted.Steps![0].Settle!.Until);
+            CollectionAssert.AreEqual(new[] { "A.B", "C.D.E" }, populated.Steps![0].Settle!.Until!.ToList());
+            Assert.AreEqual(5d, populated.Steps![0].Settle!.MaxSeconds);
         }
 
         [TestMethod]

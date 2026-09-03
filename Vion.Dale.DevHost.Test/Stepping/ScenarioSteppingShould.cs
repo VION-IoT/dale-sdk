@@ -1,6 +1,5 @@
 using System;
 using System.Diagnostics;
-using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,626 +12,511 @@ using Vion.Dale.Sdk.Core;
 namespace Vion.Dale.DevHost.Test.Stepping
 {
     /// <summary>
-    ///     End-to-end tests for the <c>advance</c> and <c>settle</c> scenario step shapes (Phase 1b Task 2).
-    ///     All tests use a <see cref="FakeTimeProvider" /> so they are deterministic and instant.
+    ///     What a step means under each clock mode, end to end on a real host: the host-adaptive
+    ///     <c>advance</c> / <c>waitUntil</c> / <c>settle</c> protocols, the watch trace they produce, and the
+    ///     absence of any clock-mode refusal.
+    ///     <para>
+    ///         The structural rules these shapes also have — a non-positive budget, an empty
+    ///         <c>settle.until</c>, the setup subset, the parse round-trip — are
+    ///         <c>ScenarioFileShould</c>'s: they need no host, and proving them twice made one of them a
+    ///         parse assertion wearing a report test's name.
+    ///     </para>
     /// </summary>
     [TestClass]
     public class ScenarioSteppingShould
     {
-        // ── advance step — determinism across many runs ───────────────────────────────────────────────
+        private static readonly DateTimeOffset Epoch = new(2026,
+                                                           1,
+                                                           1,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           TimeSpan.Zero);
 
-        /// <summary>
-        ///     A scenario with <c>set → advance{seconds:3} → waitUntil Ticks >= 3</c> runs green and
-        ///     is deterministic across 15 iterations. The advance fires the [Timer(1)] exactly 3 times.
-        /// </summary>
         [TestMethod]
-        public async Task AdvanceStep_DrivesTimerTicks_AndIsReproducibleAcross15Runs()
+        [TestProperty("spec", "AC-SCEN-011.4")]
+        public async Task JumpVirtualTimeExactlyOnSteppedHost()
         {
-            for (var run = 0; run < 15; run++)
+            // Arrange
+            var ticks = new int[15];
+
+            // Act — repeated because the value of this step is that it is the same every time.
+            for (var run = 0; run < ticks.Length; run++)
             {
-                var clock = NewClock();
-                await using var host = BuildTickerHost(clock);
+                await using var host = BuildTickerHost(NewClock());
                 await host.StartAsync();
-
-                // Scenario: advance 3 virtual seconds → Ticks must have reached 3.
-                var scenario = ScenarioFile.Parse("""
-                                                  {
-                                                    "version": 1, "id": "advance-ticker", "topology": "stepping-topology",
-                                                    "watch": ["Ticker.Ticks"],
-                                                    "steps": [
-                                                      { "advance": { "seconds": 3 } },
-                                                      { "waitUntil": { "property": "Ticker.Ticks", "above": 2 }, "timeoutSeconds": 1 }
-                                                    ]
-                                                  }
-                                                  """);
-
-                var report = await ScenarioRunner.RunAsync(scenario, host.Control);
-
+                var report = await ScenarioRunner.RunAsync(ScenarioFile.Parse("""
+                                                                    {
+                                                                      "version": 1, "id": "advance-ticker", "topology": "stepping-topology",
+                                                                      "watch": ["Ticker.Ticks"],
+                                                                      "steps": [
+                                                                        { "advance": { "seconds": 3 } },
+                                                                        { "waitUntil": { "property": "Ticker.Ticks", "above": 2 }, "timeoutSeconds": 1 }
+                                                                      ]
+                                                                    }
+                                                                    """),
+                                                           host.Control);
                 Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, $"run {run}: {Join(report)}");
+                ticks[run] = (int)host.Control.GetProperty("Ticker", "Ticks")!;
+            }
 
-                // The advance step must have fired exactly 3 ticks.
-                Assert.AreEqual(3, (int)host.Control.GetProperty("Ticker", "Ticks")!, $"run {run}: advancing 3 virtual seconds must yield exactly 3 ticks.");
+            // Assert
+            CollectionAssert.AreEqual(Enumerable.Repeat(3, ticks.Length).ToArray(), ticks);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-011.4")]
+        public async Task WaitRealTimeOnRealClockHostAndSaySo()
+        {
+            // Arrange — no controllable clock, so TimeProvider.System stays in place.
+            await using var host = BuildRealClockTickerHost();
+            await host.StartAsync();
+            Assert.IsFalse(host.Control.IsStepped, "precondition: a real-clock host");
+
+            // Act
+            var report = await ScenarioRunner.RunAsync(ScenarioFile.Parse("""
+                                                                {
+                                                                  "version": 1, "id": "advance-real-clock", "topology": "stepping-topology",
+                                                                  "watch": ["Ticker.Ticks"],
+                                                                  "steps": [ { "advance": { "seconds": 1.5 } } ]
+                                                                }
+                                                                """),
+                                                       host.Control);
+
+            // Assert — the world moved rather than freezing, and the detail says which clock was spent.
+            Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
+            StringAssert.Contains(report.Steps[0].Detail, "real wall-clock wait");
+            Assert.IsGreaterThanOrEqualTo(1, (int)host.Control.GetProperty("Ticker", "Ticks")!);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-011.3")]
+        public async Task RefuseNoStepKindForTheHostsClockMode()
+        {
+            // Arrange — the same three time-sensitive kinds against both clock modes. The criterion states an
+            // absence, so what is asserted is that resolution reports nothing about the mode either way.
+            await using var stepped = BuildTickerHost(NewClock());
+            await using var realClock = BuildRealClockTickerHost();
+            await stepped.StartAsync();
+            await realClock.StartAsync();
+
+            const string timeSensitive = """
+                                         {
+                                           "version": 1, "id": "modes", "topology": "stepping-topology",
+                                           "watch": ["Ticker.Ticks"],
+                                           "steps": [
+                                             { "advance": { "seconds": 1 } },
+                                             { "waitUntil": { "property": "Ticker.Ticks", "above": 0 }, "timeoutSeconds": 5 },
+                                             { "settle": { "until": ["Ticker.Ticks"], "maxSeconds": 1 } }
+                                           ]
+                                         }
+                                         """;
+
+            // Act
+            var onStepped = await ScenarioRunner.RunAsync(ScenarioFile.Parse(timeSensitive), stepped.Control);
+            var onRealClock = await ScenarioRunner.RunAsync(ScenarioFile.Parse(timeSensitive), realClock.Control);
+
+            // Assert — neither run carries a resolution error, and neither step detail refuses a kind for the
+            // mode. (The settle over a free-running ticker fails to converge in both modes, which is the
+            // budget rule and not a mode refusal.)
+            Assert.IsEmpty(onStepped.ValidationErrors, Join(onStepped));
+            Assert.IsEmpty(onRealClock.ValidationErrors, Join(onRealClock));
+            foreach (var detail in onStepped.Steps.Concat(onRealClock.Steps).Select(s => s.Detail ?? string.Empty))
+            {
+                Assert.IsFalse(detail.Contains("not supported", StringComparison.OrdinalIgnoreCase), detail);
+                Assert.IsFalse(detail.Contains("requires a stepped host", StringComparison.OrdinalIgnoreCase), detail);
             }
         }
 
-        // ── watch trace — per-step timeseries of the watched values (forensics, deterministic) ─────────
-
-        /// <summary>
-        ///     The report carries a <c>WatchTrace</c>: one sample after setup (start) and one after each step,
-        ///     each with the watched values and the deterministic virtual elapsed. On a stepped host it is
-        ///     bit-reproducible — observability for report-diffing / judge-assist (RFC 0008 §11.7).
-        /// </summary>
         [TestMethod]
-        public async Task WatchTrace_RecordsAStartAndPerStepSample_DeterministicallyUnderStepping()
+        [TestProperty("spec", "AC-SCEN-011.2")]
+        public async Task StartTheVirtualClockAtFixedEpochAndStepIt()
         {
-            var clock = NewClock();
-            await using var host = BuildTickerHost(clock);
+            // Arrange
+            await using var host = BuildSteppedHost();
             await host.StartAsync();
 
-            var scenario = ScenarioFile.Parse("""
-                                              {
-                                                "version": 1, "id": "watch-trace", "topology": "stepping-topology",
-                                                "watch": ["Ticker.Ticks"],
-                                                "steps": [
-                                                  { "advance": { "seconds": 2 } },
-                                                  { "advance": { "seconds": 1 } }
-                                                ]
-                                              }
-                                              """);
+            // Act
+            var startedAt = host.Control.VirtualTimeUtc;
+            var report = await ScenarioRunner.RunAsync(ScenarioFile.Parse("""
+                                                                {
+                                                                  "version": 1, "id": "epoch", "topology": "stepping-topology",
+                                                                  "steps": [
+                                                                    { "advance": { "seconds": 3 } },
+                                                                    { "expect": { "property": "Ticker.Ticks", "equals": 3 } }
+                                                                  ]
+                                                                }
+                                                                """),
+                                                       host.Control);
 
-            var report = await ScenarioRunner.RunAsync(scenario, host.Control);
-
+            // Assert — a stepped run is reproducible only from a stable start, so the epoch is the contract.
+            Assert.IsTrue(host.Control.IsStepped);
+            Assert.AreEqual(Epoch, startedAt);
+            Assert.AreEqual(Epoch.AddSeconds(3), host.Control.VirtualTimeUtc);
             Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
-
-            // start (after setup) + one per step.
-            Assert.HasCount(3, report.WatchTrace);
-
-            Assert.AreEqual("start", report.WatchTrace[0].Phase);
-            Assert.AreEqual(-1, report.WatchTrace[0].StepIndex);
-            Assert.AreEqual(0, Convert.ToInt32(report.WatchTrace[0].Values["Ticker.Ticks"]));
-            Assert.AreEqual(0.0, report.WatchTrace[0].VirtualElapsedMs!.Value, 0.001);
-
-            // advance 2 s → Ticks 2; advance 1 more → Ticks 3. Virtual elapsed is deterministic (2000, 3000 ms).
-            Assert.AreEqual("steps", report.WatchTrace[1].Phase);
-            Assert.AreEqual(0, report.WatchTrace[1].StepIndex);
-            Assert.AreEqual(2, Convert.ToInt32(report.WatchTrace[1].Values["Ticker.Ticks"]));
-            Assert.AreEqual(2000.0, report.WatchTrace[1].VirtualElapsedMs!.Value, 0.001);
-
-            Assert.AreEqual(1, report.WatchTrace[2].StepIndex);
-            Assert.AreEqual(3, Convert.ToInt32(report.WatchTrace[2].Values["Ticker.Ticks"]));
-            Assert.AreEqual(3000.0, report.WatchTrace[2].VirtualElapsedMs!.Value, 0.001);
         }
 
-        // ── settle step — non-convergence now FAILS the step (RFC 0008 §8.6 footgun fix) ───────────────
-
-        /// <summary>
-        ///     <c>settle</c> over a volatile watch (<c>Ticker.Ticks</c> increments every virtual second,
-        ///     forever) exhausts its <c>maxSeconds</c> budget without converging. Per the §8.6 refinement this
-        ///     now FAILS the step (it previously passed with a soft detail) and names the still-changing target
-        ///     so the failure is diagnosable rather than silent.
-        /// </summary>
         [TestMethod]
-        public async Task SettleStep_NonConvergence_FailsTheStep_AndNamesTheChangingTarget()
+        [TestProperty("spec", "AC-SCEN-011.5")]
+        public async Task SatisfyWaitUntilImmediatelyWhenConditionAlreadyHolds()
         {
-            var clock = NewClock();
-            await using var host = BuildTickerHost(clock);
+            // Arrange — the ticker starts at zero, so "below 1" holds before any event occurs.
+            await using var host = BuildSteppedHost();
             await host.StartAsync();
 
-            // settle with a 3-second budget — Ticks keeps changing so it will exhaust the budget.
-            var scenario = ScenarioFile.Parse("""
-                                              {
-                                                "version": 1, "id": "settle-budget", "topology": "stepping-topology",
-                                                "watch": ["Ticker.Ticks"],
-                                                "steps": [
-                                                  { "settle": { "maxSeconds": 3 } }
-                                                ]
-                                              }
-                                              """);
+            // Act
+            var report = await ScenarioRunner.RunAsync(ScenarioFile.Parse("""
+                                                                {
+                                                                  "version": 1, "id": "already", "topology": "stepping-topology",
+                                                                  "steps": [ { "waitUntil": { "property": "Ticker.Ticks", "below": 1 }, "timeoutSeconds": 5 } ]
+                                                                }
+                                                                """),
+                                                       host.Control);
 
-            var report = await ScenarioRunner.RunAsync(scenario, host.Control);
-
-            // §8.6: a settle that never converges is a real failure, not a silent pass.
-            Assert.AreEqual(ScenarioRunStatus.Failed, report.Status, Join(report));
-
-            var settleResult = report.Steps[0];
-            Assert.AreEqual("settle", settleResult.Kind);
-            Assert.AreEqual(ScenarioStepStatus.Failed, settleResult.Status);
-            Assert.IsNotNull(settleResult.Detail);
-            StringAssert.Contains(settleResult.Detail, "did not converge", $"Detail was: {settleResult.Detail}");
-            StringAssert.Contains(settleResult.Detail, "Ticker.Ticks", $"Detail must name the still-changing target. Was: {settleResult.Detail}");
-        }
-
-        // ── settle.until — scope convergence to explicit paths, ignoring volatile watch tiles ──────────
-
-        /// <summary>
-        ///     A large <c>watch</c> set is for observability; not everything is meant to settle.
-        ///     <c>settle.until</c> scopes convergence to the specific values that must stabilize. Here the watch
-        ///     set includes a never-settling <c>Ticker.Ticks</c>, but the step targets only <c>Latch.Value</c>
-        ///     (which fires once and stops) — so it converges and SUCCEEDS despite the volatile watch tile.
-        /// </summary>
-        [TestMethod]
-        public async Task SettleStep_Until_ScopesConvergenceToExplicitPaths_IgnoringVolatileWatch()
-        {
-            var clock = NewClock();
-            await using var host = BuildSettleHost(clock);
-            await host.StartAsync();
-
-            var scenario = ScenarioFile.Parse("""
-                                              {
-                                                "version": 1, "id": "settle-until", "topology": "stepping-topology",
-                                                "watch": ["Ticker.Ticks", "Latch.Value"],
-                                                "steps": [
-                                                  { "settle": { "until": ["Latch.Value"], "maxSeconds": 30 } }
-                                                ]
-                                              }
-                                              """);
-
-            var report = await ScenarioRunner.RunAsync(scenario, host.Control);
-
+            // Assert — the fast path must not depend on an event arriving after the call.
             Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
-            StringAssert.Contains(report.Steps[0].Detail, "converged", $"Detail was: {report.Steps[0].Detail}");
-            Assert.AreEqual(1, (int)host.Control.GetProperty("Latch", "Value")!);
+            Assert.AreEqual("already satisfied", report.Steps[0].Detail);
+            Assert.AreEqual(Epoch, host.Control.VirtualTimeUtc);
         }
 
-        /// <summary>
-        ///     <c>settle.until</c> targeting a volatile path (independent of the <c>watch</c> set) fails loudly
-        ///     and names the targeted path that would not stabilize.
-        /// </summary>
-        [TestMethod]
-        public async Task SettleStep_Until_NonConvergence_FailsTheStep()
-        {
-            var clock = NewClock();
-            await using var host = BuildSettleHost(clock);
-            await host.StartAsync();
-
-            var scenario = ScenarioFile.Parse("""
-                                              {
-                                                "version": 1, "id": "settle-until-fail", "topology": "stepping-topology",
-                                                "watch": ["Latch.Value"],
-                                                "steps": [
-                                                  { "settle": { "until": ["Ticker.Ticks"], "maxSeconds": 3 } }
-                                                ]
-                                              }
-                                              """);
-
-            var report = await ScenarioRunner.RunAsync(scenario, host.Control);
-
-            Assert.AreEqual(ScenarioRunStatus.Failed, report.Status, Join(report));
-            StringAssert.Contains(report.Steps[0].Detail, "Ticker.Ticks", $"Detail was: {report.Steps[0].Detail}");
-            StringAssert.Contains(report.Steps[0].Detail, "→", $"Detail should show the last value transition. Was: {report.Steps[0].Detail}");
-        }
-
-        /// <summary>
-        ///     An unresolvable <c>settle.until</c> path (a typo or a topology mismatch) must FAIL the run up
-        ///     front — not silently "converge" on a never-changing null. This keeps scoping settle to explicit
-        ///     paths loud, matching how <c>watch</c> paths are validated (RFC 0008 §8.6).
-        /// </summary>
-        [TestMethod]
-        public async Task SettleStep_Until_UnresolvablePath_FailsValidation()
-        {
-            var clock = NewClock();
-            await using var host = BuildTickerHost(clock);
-            await host.StartAsync();
-
-            var scenario = ScenarioFile.Parse("""
-                                              {
-                                                "version": 1, "id": "settle-until-bad", "topology": "stepping-topology",
-                                                "steps": [
-                                                  { "settle": { "until": ["Ticker.Nonexistent"] } }
-                                                ]
-                                              }
-                                              """);
-
-            var report = await ScenarioRunner.RunAsync(scenario, host.Control);
-
-            Assert.AreEqual(ScenarioRunStatus.Failed, report.Status, Join(report));
-            Assert.IsTrue(report.ValidationErrors.Any(e => e.Contains("settle.until")), Join(report));
-        }
-
-        // ── settle step — converges when values stabilize ─────────────────────────────────────────────
-
-        /// <summary>
-        ///     <c>settle</c> over <c>Latch.Value</c> converges before the budget when the latch
-        ///     fires once and then stops changing (the block increments on the first tick, then stays put).
-        /// </summary>
-        [TestMethod]
-        public async Task SettleStep_ConvergesBeforeBudget_WhenWatchStabilizes()
-        {
-            var clock = NewClock();
-            await using var host = BuildSettleHost(clock);
-            await host.StartAsync();
-
-            // settle over Latch.Value with a generous budget — the latch fires once and stops.
-            var scenario = ScenarioFile.Parse("""
-                                              {
-                                                "version": 1, "id": "settle-converge", "topology": "stepping-topology",
-                                                "watch": ["Latch.Value"],
-                                                "steps": [
-                                                  { "settle": { "maxSeconds": 30 } }
-                                                ]
-                                              }
-                                              """);
-
-            var report = await ScenarioRunner.RunAsync(scenario, host.Control);
-
-            Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
-
-            var settleResult = report.Steps[0];
-            StringAssert.Contains(settleResult.Detail, "converged", $"Expected convergence. Detail was: {settleResult.Detail}");
-
-            // Confirm the latch actually fired — it reached 1 and stopped.
-            Assert.AreEqual(1, (int)host.Control.GetProperty("Latch", "Value")!);
-        }
-
-        // ── settle — empty watch list → immediate convergence ─────────────────────────────────────────
-
-        /// <summary>
-        ///     A <c>settle</c> step when the scenario has NO <c>watch</c> list converges immediately
-        ///     with an informative detail message.
-        /// </summary>
-        [TestMethod]
-        public async Task SettleStep_EmptyWatchList_ConvergesImmediately()
-        {
-            var clock = NewClock();
-            await using var host = BuildTickerHost(clock);
-            await host.StartAsync();
-
-            var scenario = ScenarioFile.Parse("""
-                                              {
-                                                "version": 1, "id": "settle-empty-watch", "topology": "stepping-topology",
-                                                "steps": [
-                                                  { "settle": {} }
-                                                ]
-                                              }
-                                              """);
-
-            var report = await ScenarioRunner.RunAsync(scenario, host.Control);
-
-            Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
-            StringAssert.Contains(report.Steps[0].Detail, "no watch paths", $"Detail was: {report.Steps[0].Detail}");
-        }
-
-        // ── waitUntil — stepped path (deterministic + near-instant) ──────────────────────────────────
-
-        /// <summary>
-        ///     A stepped <c>waitUntil Ticks &gt;= 3</c> succeeds by advancing virtual time hop-by-hop,
-        ///     across 15 identical runs, deterministically. Real wall-clock time must be negligible (well
-        ///     under 2 s for a 3 virtual-second wait), proving the wait is virtual, not wall-clock.
-        /// </summary>
         [TestMethod]
         [TestCategory("Smoke")]
-        public async Task WaitUntil_SteppedPath_SucceedsDeterministicallyAndIsNearInstant()
+        [TestProperty("spec", "AC-SCEN-011.6")]
+        public async Task HopVirtualTimeUntilWaitUntilHolds()
         {
-            for (var run = 0; run < 15; run++)
-            {
-                var clock = NewClock();
-                await using var host = BuildTickerHost(clock);
-                await host.StartAsync();
-
-                // Scenario: pure waitUntil with a 5 s virtual timeout — Ticks must reach 3 by advancing.
-                var scenario = ScenarioFile.Parse("""
-                                                  {
-                                                    "version": 1, "id": "wait-until-stepped", "topology": "stepping-topology",
-                                                    "steps": [
-                                                      { "waitUntil": { "property": "Ticker.Ticks", "above": 2 }, "timeoutSeconds": 5 }
-                                                    ]
-                                                  }
-                                                  """);
-
-                var wall = Stopwatch.StartNew();
-                var report = await ScenarioRunner.RunAsync(scenario, host.Control);
-                wall.Stop();
-
-                Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, $"run {run}: {Join(report)}");
-
-                // The Ticks property must be at least 3 (satisfied the condition >= 3).
-                var ticks = (int)host.Control.GetProperty("Ticker", "Ticks")!;
-                Assert.IsGreaterThanOrEqualTo(ticks, 3, $"run {run}: expected Ticks >= 3 but got {ticks}");
-
-                // Determinism: detail must mention hops and virtual seconds.
-                var detail = report.Steps[0].Detail ?? string.Empty;
-                StringAssert.Contains(detail, "virtual s", $"run {run}: detail should mention virtual time. Got: {detail}");
-
-                // Near-instant: real wall time must be well under 2 s (this is a 3+ virtual-second wait).
-                Assert.IsTrue(wall.Elapsed < TimeSpan.FromSeconds(2),
-                              $"run {run}: wall clock was {wall.Elapsed.TotalMilliseconds:0} ms — stepped waitUntil should complete near-instantly.");
-            }
-        }
-
-        /// <summary>
-        ///     A stepped <c>waitUntil Ticks &gt;= 999</c> with a 5 s virtual timeout fails on the virtual
-        ///     budget — not the wall clock. Real time must be negligible (well under 2 s for a 5 virtual-second
-        ///     budget exhaustion), proving the timeout is virtual.
-        /// </summary>
-        [TestMethod]
-        public async Task WaitUntil_SteppedPath_FailsOnVirtualBudget_NearInstant()
-        {
-            var clock = NewClock();
-            await using var host = BuildTickerHost(clock);
+            // Arrange
+            await using var host = BuildTickerHost(NewClock());
             await host.StartAsync();
 
-            // waitUntil for an effectively unreachable threshold (999 ticks) with a 5 s virtual timeout.
-            var scenario = ScenarioFile.Parse("""
-                                              {
-                                                "version": 1, "id": "wait-until-budget", "topology": "stepping-topology",
-                                                "steps": [
-                                                  { "waitUntil": { "property": "Ticker.Ticks", "above": 998 }, "timeoutSeconds": 5 }
-                                                ]
-                                              }
-                                              """);
-
+            // Act
             var wall = Stopwatch.StartNew();
-            var report = await ScenarioRunner.RunAsync(scenario, host.Control);
+            var report = await ScenarioRunner.RunAsync(ScenarioFile.Parse("""
+                                                                {
+                                                                  "version": 1, "id": "wait-until-stepped", "topology": "stepping-topology",
+                                                                  "steps": [ { "waitUntil": { "property": "Ticker.Ticks", "above": 2 }, "timeoutSeconds": 5 } ]
+                                                                }
+                                                                """),
+                                                       host.Control);
             wall.Stop();
 
+            // Assert — a three-virtual-second wait costs no real time, and the detail reports the hops.
+            Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
+            Assert.IsGreaterThanOrEqualTo(3, (int)host.Control.GetProperty("Ticker", "Ticks")!);
+            StringAssert.Contains(report.Steps[0].Detail, "virtual s");
+            StringAssert.Contains(report.Steps[0].Detail, "hop");
+            Assert.IsTrue(wall.Elapsed < TimeSpan.FromSeconds(2), $"wall clock was {wall.Elapsed.TotalMilliseconds:0} ms");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-011.6")]
+        public async Task FailWaitUntilOnTheVirtualBudget()
+        {
+            // Arrange
+            await using var host = BuildTickerHost(NewClock());
+            await host.StartAsync();
+
+            // Act
+            var wall = Stopwatch.StartNew();
+            var report = await ScenarioRunner.RunAsync(ScenarioFile.Parse("""
+                                                                {
+                                                                  "version": 1, "id": "wait-until-budget", "topology": "stepping-topology",
+                                                                  "steps": [ { "waitUntil": { "property": "Ticker.Ticks", "above": 998 }, "timeoutSeconds": 5 } ]
+                                                                }
+                                                                """),
+                                                       host.Control);
+            wall.Stop();
+
+            // Assert — the budget is spent in virtual seconds, so exhausting it is also near-instant.
             Assert.AreEqual(ScenarioRunStatus.Failed, report.Status, Join(report));
-
-            var detail = report.Steps[0].Detail ?? string.Empty;
-            StringAssert.Contains(detail, "5 virtual s", $"Detail should mention the 5 virtual-second budget. Got: {detail}");
-            StringAssert.Contains(detail, "condition not met", $"Detail should say condition not met. Got: {detail}");
-
-            // Near-instant: 5 virtual seconds must not cost 5 real seconds.
-            Assert.IsTrue(wall.Elapsed < TimeSpan.FromSeconds(2),
-                          $"Wall clock was {wall.Elapsed.TotalMilliseconds:0} ms — stepped budget exhaustion should complete near-instantly.");
+            StringAssert.Contains(report.Steps[0].Detail, "condition not met within 5 virtual s");
+            Assert.IsTrue(wall.Elapsed < TimeSpan.FromSeconds(2), $"wall clock was {wall.Elapsed.TotalMilliseconds:0} ms");
         }
 
-        // ── structural validation ─────────────────────────────────────────────────────────────────────
-
-        /// <summary><c>advance</c> and <c>settle</c> are rejected in <c>setup</c> (step-only shapes).</summary>
         [TestMethod]
-        public void AdvanceAndSettle_RejectedInSetup()
+        [TestProperty("spec", "AC-SCEN-011.8")]
+        public async Task ConvergeSettleWhenItsTargetsStabilise()
         {
-            var advanceInSetup = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse("""
-                                                                                                        {
-                                                                                                          "version": 1, "id": "x", "topology": "t",
-                                                                                                          "setup": [ { "advance": { "seconds": 1 } } ]
-                                                                                                        }
-                                                                                                        """));
-            Assert.IsTrue(advanceInSetup.Errors.Any(e => e.Contains("setup entries")), string.Join("; ", advanceInSetup.Errors));
-
-            var settleInSetup = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse("""
-                                                                                                       {
-                                                                                                         "version": 1, "id": "x", "topology": "t",
-                                                                                                         "setup": [ { "settle": {} } ]
-                                                                                                       }
-                                                                                                       """));
-            Assert.IsTrue(settleInSetup.Errors.Any(e => e.Contains("setup entries")), string.Join("; ", settleInSetup.Errors));
-        }
-
-        /// <summary><c>advance.seconds</c> must be positive; zero and negative are rejected.</summary>
-        [TestMethod]
-        public void AdvanceStep_ZeroOrNegativeSeconds_Rejected()
-        {
-            var zero = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse("""
-                                                                                              {
-                                                                                                "version": 1, "id": "x", "topology": "t",
-                                                                                                "steps": [ { "advance": { "seconds": 0 } } ]
-                                                                                              }
-                                                                                              """));
-            Assert.IsTrue(zero.Errors.Any(e => e.Contains("advance.seconds must be positive")), string.Join("; ", zero.Errors));
-
-            var negative = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse("""
-                                                                                                  {
-                                                                                                    "version": 1, "id": "x", "topology": "t",
-                                                                                                    "steps": [ { "advance": { "seconds": -1 } } ]
-                                                                                                  }
-                                                                                                  """));
-            Assert.IsTrue(negative.Errors.Any(e => e.Contains("advance.seconds must be positive")), string.Join("; ", negative.Errors));
-        }
-
-        /// <summary><c>settle.maxSeconds</c>, when present, must be positive.</summary>
-        [TestMethod]
-        public void SettleStep_NonPositiveMaxSeconds_Rejected()
-        {
-            var zero = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse("""
-                                                                                              {
-                                                                                                "version": 1, "id": "x", "topology": "t",
-                                                                                                "steps": [ { "settle": { "maxSeconds": 0 } } ]
-                                                                                              }
-                                                                                              """));
-            Assert.IsTrue(zero.Errors.Any(e => e.Contains("settle.maxSeconds must be positive")), string.Join("; ", zero.Errors));
-        }
-
-        /// <summary>Absent maxSeconds is valid — the default cap is applied at run time.</summary>
-        [TestMethod]
-        public void SettleStep_OmittedMaxSeconds_IsValid()
-        {
-            var file = ScenarioFile.Parse("""
-                                          {
-                                            "version": 1, "id": "x", "topology": "t",
-                                            "steps": [ { "settle": {} } ]
-                                          }
-                                          """);
-            Assert.IsNull(file.Steps![0].Settle!.MaxSeconds);
-        }
-
-        /// <summary><c>settle.until</c>, when present, must be a non-empty array of name paths.</summary>
-        [TestMethod]
-        public void SettleStep_EmptyUntil_Rejected()
-        {
-            var empty = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse("""
-                                                                                               {
-                                                                                                 "version": 1, "id": "x", "topology": "t",
-                                                                                                 "steps": [ { "settle": { "until": [] } } ]
-                                                                                               }
-                                                                                               """));
-            Assert.IsTrue(empty.Errors.Any(e => e.Contains("settle.until")), string.Join("; ", empty.Errors));
-
-            var blank = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse("""
-                                                                                               {
-                                                                                                 "version": 1, "id": "x", "topology": "t",
-                                                                                                 "steps": [ { "settle": { "until": ["  "] } } ]
-                                                                                               }
-                                                                                               """));
-            Assert.IsTrue(blank.Errors.Any(e => e.Contains("settle.until")), string.Join("; ", blank.Errors));
-        }
-
-        /// <summary><c>settle.until</c> parses to the model as the explicit target list.</summary>
-        [TestMethod]
-        public void SettleStep_Until_ParseFromJson_RoundTrip()
-        {
-            var file = ScenarioFile.Parse("""
-                                          {
-                                            "version": 1, "id": "x", "topology": "t",
-                                            "steps": [ { "settle": { "until": ["A.B", "C.D.E"], "maxSeconds": 5 } } ]
-                                          }
-                                          """);
-
-            var settle = file.Steps![0].Settle!;
-            Assert.AreEqual(5.0, settle.MaxSeconds!.Value, 0.0001);
-            CollectionAssert.AreEqual(new[] { "A.B", "C.D.E" }, settle.Until!.ToArray());
-        }
-
-        /// <summary>Round-trip: JSON with <c>advance</c> / <c>settle</c> parses to the expected model.</summary>
-        [TestMethod]
-        public void AdvanceAndSettle_ParseFromJson_RoundTrip()
-        {
-            var file = ScenarioFile.Parse("""
-                                          {
-                                            "version": 1, "id": "x", "topology": "t",
-                                            "steps": [
-                                              { "advance": { "seconds": 1.5 } },
-                                              { "settle": { "maxSeconds": 10 } }
-                                            ]
-                                          }
-                                          """);
-
-            Assert.HasCount(2, file.Steps!);
-
-            var advanceStep = file.Steps![0];
-            Assert.AreEqual("advance", advanceStep.Kind);
-            Assert.AreEqual(1.5, advanceStep.Advance!.Seconds, 0.0001);
-
-            var settleStep = file.Steps[1];
-            Assert.AreEqual("settle", settleStep.Kind);
-            Assert.AreEqual(10.0, settleStep.Settle!.MaxSeconds!.Value, 0.0001);
-        }
-
-        /// <summary>
-        ///     <c>advance</c> on a real-clock host is host-adaptive (RFC 0006): rather than failing, it waits the
-        ///     requested span of real wall-clock time, during which the host's real timers fire — so the step
-        ///     succeeds and the world actually moved (the Ticker's [Timer(1)] ticks at least once over 1.5 s).
-        /// </summary>
-        [TestMethod]
-        public async Task AdvanceStep_OnRealClockHost_WaitsRealTime_AndTimersFire()
-        {
-            // Build WITHOUT registering a FakeTimeProvider — the real TimeProvider.System is in place.
-            var config = DevConfigurationBuilder.Create().WithTopologyName("stepping-topology").AddLogicBlock<TickerBlock>("Ticker").Build();
-            await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).Build();
+            // Arrange — the latch fires once and then holds.
+            await using var host = BuildSettleHost(NewClock());
             await host.StartAsync();
-            Assert.IsFalse(host.Control.IsStepped, "precondition: a real-clock host (no FakeTimeProvider).");
 
-            var scenario = ScenarioFile.Parse("""
-                                              {
-                                                "version": 1, "id": "advance-real-clock", "topology": "stepping-topology",
-                                                "watch": ["Ticker.Ticks"],
-                                                "steps": [ { "advance": { "seconds": 1.5 } } ]
-                                              }
-                                              """);
+            // Act
+            var report = await ScenarioRunner.RunAsync(ScenarioFile.Parse("""
+                                                                {
+                                                                  "version": 1, "id": "settle-converge", "topology": "stepping-topology",
+                                                                  "watch": ["Latch.Value"],
+                                                                  "steps": [ { "settle": { "maxSeconds": 30 } } ]
+                                                                }
+                                                                """),
+                                                       host.Control);
 
-            var report = await ScenarioRunner.RunAsync(scenario, host.Control);
-
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
-            Assert.AreEqual(ScenarioStepStatus.Ok, report.Steps[0].Status, Join(report));
-
-            // The advance waited real wall-clock time, so the Ticker's real [Timer(1)] fired during it — the
-            // world moved rather than freezing (the old wait-in-stepped trap, inverted onto the real clock).
-            var ticks = (int)host.Control.GetProperty("Ticker", "Ticks")!;
-            Assert.IsGreaterThanOrEqualTo(1, ticks, $"the real timer should have ticked during the real-time advance (got {ticks}).");
+            StringAssert.Contains(report.Steps[0].Detail, "converged");
+            Assert.AreEqual(1, (int)host.Control.GetProperty("Latch", "Value")!);
         }
 
-        // ── report rendering ──────────────────────────────────────────────────────────────────────────
-
-        /// <summary><c>BuildReport</c>'s Describe renders <c>advance</c> and <c>settle</c> sensibly.</summary>
         [TestMethod]
-        public void BuildReport_RendersAdvanceAndSettleTargets()
+        [TestProperty("spec", "AC-SCEN-011.8")]
+        [DataRow("""{ "settle": { "maxSeconds": 3 } }""", DisplayName = "over the watch list")]
+        [DataRow("""{ "settle": { "until": ["Ticker.Ticks"], "maxSeconds": 3 } }""", DisplayName = "over a declared target")]
+        public async Task FailSettleNamingTheStillChangingTarget(string step)
         {
-            var file = ScenarioFile.Parse("""
-                                          {
-                                            "version": 1, "id": "x", "topology": "t",
-                                            "steps": [
-                                              { "advance": { "seconds": 2.5 } },
-                                              { "settle": { "maxSeconds": 10 } },
-                                              { "settle": {} }
-                                            ]
-                                          }
-                                          """);
-
-            // The report's Target/Argument for advance and settle is computed by BuildReport.
-            // We verify via ScenarioRunner.RunAsync — even on a topology-mismatch the report is built.
-            // Use a dummy control indirectly via building a minimal host.
-            var config = DevConfigurationBuilder.Create().WithTopologyName("other-topology").AddLogicBlock<TickerBlock>("Ticker").Build();
-
-            // We only need the built ScenarioRunReport (no host needed — topology mismatch short-circuits).
-            // Access via the public RunAsync which builds the report before checking topology.
-            // NOTE: Since we cannot call BuildReport directly (private), we verify the step Kind only here.
-            Assert.AreEqual("advance", file.Steps![0].Kind);
-            Assert.AreEqual(2.5, file.Steps[0].Advance!.Seconds, 0.0001);
-            Assert.AreEqual("settle", file.Steps![1].Kind);
-            Assert.AreEqual(10.0, file.Steps[1].Settle!.MaxSeconds!.Value, 0.0001);
-            Assert.AreEqual("settle", file.Steps![2].Kind);
-            Assert.IsNull(file.Steps[2].Settle!.MaxSeconds);
-        }
-
-        // ── WithDeterministicStepping() builds a stepped host (Part 1) ────────────────────────────────
-
-        /// <summary>
-        ///     <c>DevHostBuilder.WithDeterministicStepping()</c> registers a controllable clock so the host
-        ///     runs stepped — <c>IsStepped</c> is true and <c>advance</c> drives virtual time exactly — without
-        ///     a hand-wired <c>FakeTimeProvider</c>.
-        /// </summary>
-        [TestMethod]
-        public async Task WithDeterministicStepping_BuildsASteppedHost_ThatDrivesVirtualTime()
-        {
-            var config = DevConfigurationBuilder.Create().WithTopologyName("stepping-topology").AddLogicBlock<TickerBlock>("Ticker").Build();
-            await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithDeterministicStepping().Build();
+            // Arrange — the ticker never stops, so the budget is exhausted whichever way the step is scoped.
+            await using var host = BuildSettleHost(NewClock());
             await host.StartAsync();
 
-            Assert.IsTrue(host.Control.IsStepped, "WithDeterministicStepping() must register a controllable clock so IsStepped is true.");
+            // Act
+            var report = await ScenarioRunner.RunAsync(ScenarioFile.Parse($$"""
+                                                                  {
+                                                                    "version": 1, "id": "settle-budget", "topology": "stepping-topology",
+                                                                    "watch": ["Ticker.Ticks"],
+                                                                    "steps": [{{step}}]
+                                                                  }
+                                                                  """),
+                                                       host.Control);
 
-            // It actually steps: advancing 3 virtual seconds fires the [Timer(1)] exactly 3 times.
-            var scenario = ScenarioFile.Parse("""
-                                              {
-                                                "version": 1, "id": "wds", "topology": "stepping-topology",
-                                                "steps": [
-                                                  { "advance": { "seconds": 3 } },
-                                                  { "expect": { "property": "Ticker.Ticks", "equals": 3 } }
-                                                ]
-                                              }
-                                              """);
+            // Assert — a settle that never converges is a failure with a named cause, not a silent pass.
+            Assert.AreEqual(ScenarioRunStatus.Failed, report.Status, Join(report));
+            Assert.AreEqual(ScenarioStepStatus.Failed, report.Steps[0].Status);
+            StringAssert.Contains(report.Steps[0].Detail, "did not converge");
+            StringAssert.Contains(report.Steps[0].Detail, "Ticker.Ticks");
+            StringAssert.Contains(report.Steps[0].Detail, "→");
+        }
 
-            var report = await ScenarioRunner.RunAsync(scenario, host.Control);
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-011.9")]
+        public async Task ScopeSettleToItsDeclaredTargetsIgnoringVolatileWatch()
+        {
+            // Arrange — a large watch set is for observability and need not all settle.
+            await using var host = BuildSettleHost(NewClock());
+            await host.StartAsync();
+
+            // Act
+            var report = await ScenarioRunner.RunAsync(ScenarioFile.Parse("""
+                                                                {
+                                                                  "version": 1, "id": "settle-until", "topology": "stepping-topology",
+                                                                  "watch": ["Ticker.Ticks", "Latch.Value"],
+                                                                  "steps": [ { "settle": { "until": ["Latch.Value"], "maxSeconds": 30 } } ]
+                                                                }
+                                                                """),
+                                                       host.Control);
+
+            // Assert — the never-settling watch tile is ignored because the step named its own target.
             Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
+            StringAssert.Contains(report.Steps[0].Detail, "converged");
+            Assert.AreEqual(1, (int)host.Control.GetProperty("Latch", "Value")!);
         }
 
-        /// <summary>
-        ///     <c>HasAdvancedFromBaseline</c> is the clean-slate signal recycle-on-run reads: false on a freshly
-        ///     started stepped generation (clock at the epoch baseline), true once the virtual clock has moved.
-        /// </summary>
         [TestMethod]
-        public async Task HasAdvancedFromBaseline_TracksWhetherTheSteppedGenerationIsDirty()
+        [TestProperty("spec", "AC-SCEN-011.9")]
+        public async Task ConvergeSettleImmediatelyWhenTheTargetSetIsEmpty()
         {
-            var config = DevConfigurationBuilder.Create().WithTopologyName("stepping-topology").AddLogicBlock<TickerBlock>("Ticker").Build();
-            await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithDeterministicStepping().Build();
+            // Arrange — no watch list and no declared target, so there is nothing to stabilise.
+            await using var host = BuildTickerHost(NewClock());
             await host.StartAsync();
 
-            Assert.IsFalse(host.Control.HasAdvancedFromBaseline, "A freshly-started stepped host is at its clean baseline (epoch clock).");
+            // Act
+            var report = await ScenarioRunner.RunAsync(ScenarioFile.Parse("""
+                                                                {
+                                                                  "version": 1, "id": "settle-empty-watch", "topology": "stepping-topology",
+                                                                  "steps": [ { "settle": {} } ]
+                                                                }
+                                                                """),
+                                                       host.Control);
 
+            // Assert
+            Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
+            StringAssert.Contains(report.Steps[0].Detail, "no watch paths");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-011.10")]
+        public async Task SpendTheSettleBudgetInTheActiveClocksSeconds()
+        {
+            // Arrange — a three-second budget over a target that never settles.
+            await using var host = BuildSettleHost(NewClock());
+            await host.StartAsync();
+
+            // Act
+            var wall = Stopwatch.StartNew();
+            var report = await ScenarioRunner.RunAsync(ScenarioFile.Parse("""
+                                                                {
+                                                                  "version": 1, "id": "settle-virtual-budget", "topology": "stepping-topology",
+                                                                  "steps": [ { "settle": { "until": ["Ticker.Ticks"], "maxSeconds": 3 } } ]
+                                                                }
+                                                                """),
+                                                       host.Control);
+            wall.Stop();
+
+            // Assert — three VIRTUAL seconds cost no real time, and the clock moved by them.
+            Assert.AreEqual(ScenarioRunStatus.Failed, report.Status, Join(report));
+            StringAssert.Contains(report.Steps[0].Detail, "virtual s");
+            Assert.IsGreaterThanOrEqualTo(Epoch.AddSeconds(3), host.Control.VirtualTimeUtc);
+            Assert.IsTrue(wall.Elapsed < TimeSpan.FromSeconds(2), $"wall clock was {wall.Elapsed.TotalMilliseconds:0} ms");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-009.2")]
+        public async Task FailValidationForUnresolvableSettleTarget()
+        {
+            // Arrange
+            await using var host = BuildTickerHost(NewClock());
+            await host.StartAsync();
+
+            // Act
+            var report = await ScenarioRunner.RunAsync(ScenarioFile.Parse("""
+                                                                {
+                                                                  "version": 1, "id": "settle-until-bad", "topology": "stepping-topology",
+                                                                  "steps": [ { "settle": { "until": ["Ticker.Nonexistent"] } } ]
+                                                                }
+                                                                """),
+                                                       host.Control);
+
+            // Assert — a typo must fail up front, never "converge" on an unresolved target that cannot change.
+            Assert.AreEqual(ScenarioRunStatus.Failed, report.Status, Join(report));
+            Assert.IsTrue(report.ValidationErrors.Any(e => e.Contains("settle.until")), Join(report));
+            Assert.AreEqual(ScenarioStepStatus.Skipped, report.Steps[0].Status);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-010.1")]
+        public async Task SampleWatchedValuesAfterSetupAndAfterEachStep()
+        {
+            // Arrange
+            await using var host = BuildTickerHost(NewClock());
+            await host.StartAsync();
+
+            // Act
+            var report = await ScenarioRunner.RunAsync(ScenarioFile.Parse("""
+                                                                {
+                                                                  "version": 1, "id": "watch-trace", "topology": "stepping-topology",
+                                                                  "watch": ["Ticker.Ticks"],
+                                                                  "steps": [
+                                                                    { "advance": { "seconds": 2 } },
+                                                                    { "advance": { "seconds": 1 } }
+                                                                  ]
+                                                                }
+                                                                """),
+                                                       host.Control);
+
+            // Assert — one sample after setup, then one per step.
+            Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
+            Assert.HasCount(3, report.WatchTrace);
+            CollectionAssert.AreEqual(new[] { "start", "steps", "steps" }, report.WatchTrace.Select(s => s.Phase).ToList());
+            CollectionAssert.AreEqual(new[] { -1, 0, 1 }, report.WatchTrace.Select(s => s.StepIndex).ToList());
+            CollectionAssert.AreEqual(new[] { 0, 2, 3 }, report.WatchTrace.Select(s => Convert.ToInt32(s.Values["Ticker.Ticks"])).ToList());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-010.2")]
+        public async Task LeaveTheWatchTraceEmptyWhenNothingIsWatched()
+        {
+            // Arrange
+            await using var host = BuildTickerHost(NewClock());
+            await host.StartAsync();
+
+            // Act
+            var report = await ScenarioRunner.RunAsync(ScenarioFile.Parse("""
+                                                                {
+                                                                  "version": 1, "id": "no-watch", "topology": "stepping-topology",
+                                                                  "steps": [ { "advance": { "seconds": 2 } } ]
+                                                                }
+                                                                """),
+                                                       host.Control);
+
+            // Assert
+            Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
+            Assert.IsEmpty(report.WatchTrace);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-010.3")]
+        public async Task ProduceOneWatchTraceAcrossFreshSteppedHosts()
+        {
+            // Arrange
+            var traces = new string[8];
+
+            // Act
+            for (var run = 0; run < traces.Length; run++)
+            {
+                await using var host = BuildTickerHost(NewClock());
+                await host.StartAsync();
+                var report = await ScenarioRunner.RunAsync(ScenarioFile.Parse("""
+                                                                    {
+                                                                      "version": 1, "id": "watch-repro", "topology": "stepping-topology",
+                                                                      "watch": ["Ticker.Ticks"],
+                                                                      "steps": [
+                                                                        { "advance": { "seconds": 2 } },
+                                                                        { "advance": { "seconds": 1 } }
+                                                                      ]
+                                                                    }
+                                                                    """),
+                                                           host.Control);
+                Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, $"run {run}: {Join(report)}");
+                traces[run] = string.Join(" | ", report.WatchTrace.Select(s => $"{s.Phase}:{s.StepIndex}:{s.Values["Ticker.Ticks"]}@{s.VirtualElapsedMs}"));
+            }
+
+            // Assert — values AND virtual timestamps, which is what makes a trace diffable run to run.
+            StringAssert.Contains(traces[0], "@3000");
+            CollectionAssert.AreEqual(Enumerable.Repeat(traces[0], traces.Length).ToArray(), traces);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-009.7")]
+        [TestProperty("spec", "AC-SCEN-003.4")]
+        public async Task DescribeEveryStepAndItsDefaultBudgetBeforeTheRun()
+        {
+            // Arrange — a topology the host is not on, so the report is built and nothing executes.
+            await using var host = BuildTickerHost(NewClock());
+            await host.StartAsync();
+
+            // Act
+            var report = await ScenarioRunner.RunAsync(ScenarioFile.Parse("""
+                                                                {
+                                                                  "version": 1, "id": "described", "topology": "elsewhere",
+                                                                  "setup": [ { "set": "Ticker.Ticks", "value": 1 } ],
+                                                                  "steps": [
+                                                                    { "advance": { "seconds": 2.5 } },
+                                                                    { "settle": { "maxSeconds": 10 } },
+                                                                    { "settle": {} },
+                                                                    { "settle": { "until": ["Ticker.Ticks"] } },
+                                                                    { "waitUntil": { "property": "Ticker.Ticks", "above": 1 } }
+                                                                  ]
+                                                                }
+                                                                """),
+                                                       host.Control);
+
+            // Assert — kind, target and argument are all present before a step runs, and the two omitted
+            // budgets render as their documented defaults (20 s for a wait, 60 s for a settle).
+            Assert.AreEqual(ScenarioRunStatus.TopologyMismatch, report.Status);
+            CollectionAssert.AreEqual(new[] { "advance", "settle", "settle", "settle", "waitUntil" }, report.Steps.Select(s => s.Kind).ToList());
+            CollectionAssert.AreEqual(new[] { "", "until stable", "until stable", "until Ticker.Ticks", "Ticker.Ticks" }, report.Steps.Select(s => s.Target).ToList());
+            CollectionAssert.AreEqual(new[] { "2.5 s", "≤10 s", "≤60 s", "≤60 s", "> 1 · 20 s timeout" }, report.Steps.Select(s => s.Argument).ToList());
+            Assert.AreEqual("set", report.Setup[0].Kind);
+            Assert.AreEqual("Ticker.Ticks", report.Setup[0].Target);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-012.9")]
+        public async Task ReportWhetherTheSteppedGenerationMovedFromItsBaseline()
+        {
+            // Arrange
+            await using var host = BuildSteppedHost();
+            await host.StartAsync();
+
+            // Act
+            var whenFresh = host.Control.HasAdvancedFromBaseline;
             await host.Control.AdvanceAsync(TimeSpan.FromSeconds(5));
-            Assert.IsTrue(host.Control.HasAdvancedFromBaseline, "Advancing the virtual clock dirties the generation — no longer a clean slate.");
-        }
 
-        // ── Helpers ──────────────────────────────────────────────────────────────────────────────────────
+            // Assert — this is the clean-slate signal recycle-on-run reads.
+            Assert.IsFalse(whenFresh);
+            Assert.IsTrue(host.Control.HasAdvancedFromBaseline);
+        }
 
         private static FakeTimeProvider NewClock()
         {
-            return new FakeTimeProvider(new DateTimeOffset(2026,
-                                                           1,
-                                                           1,
-                                                           0,
-                                                           0,
-                                                           0,
-                                                           TimeSpan.Zero));
+            return new FakeTimeProvider(Epoch);
         }
 
         private static IDevHost BuildTickerHost(FakeTimeProvider clock)
@@ -642,14 +526,26 @@ namespace Vion.Dale.DevHost.Test.Stepping
             return DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).ConfigureServices(s => s.AddSingleton<TimeProvider>(clock)).Build();
         }
 
+        private static IDevHost BuildSteppedHost()
+        {
+            var config = DevConfigurationBuilder.Create().WithTopologyName("stepping-topology").AddLogicBlock<TickerBlock>("Ticker").Build();
+
+            return DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithDeterministicStepping().Build();
+        }
+
+        private static IDevHost BuildRealClockTickerHost()
+        {
+            var config = DevConfigurationBuilder.Create().WithTopologyName("stepping-topology").AddLogicBlock<TickerBlock>("Ticker").Build();
+
+            return DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).Build();
+        }
+
         private static IDevHost BuildSettleHost(FakeTimeProvider clock)
         {
             var config = DevConfigurationBuilder.Create().WithTopologyName("stepping-topology").AddLogicBlock<TickerBlock>("Ticker").AddLogicBlock<LatchBlock>("Latch").Build();
 
             return DevHostBuilder.Create().WithDi<SteppingDependencyInjection>().WithConfiguration(config).ConfigureServices(s => s.AddSingleton<TimeProvider>(clock)).Build();
         }
-
-        // ── helpers ───────────────────────────────────────────────────────────────────────────────────
 
         private static string Join(ScenarioRunReport report)
         {
@@ -658,11 +554,9 @@ namespace Vion.Dale.DevHost.Test.Stepping
         }
     }
 
-    // ── LatchBlock ────────────────────────────────────────────────────────────────────────────────────
-
     /// <summary>
-    ///     Fires its [Timer(1)] exactly once, increments <see cref="Value" /> to 1 and then stops
-    ///     (self-disarms). Used to give <c>settle</c> a watch target that actually converges.
+    ///     Fires its <c>[Timer(1)]</c> exactly once, increments <see cref="Value" /> to 1 and then holds — the
+    ///     fixture that gives <c>settle</c> a target which actually converges.
     /// </summary>
     [LogicBlock(Name = "Latch")]
     public class LatchBlock : LogicBlockBase
