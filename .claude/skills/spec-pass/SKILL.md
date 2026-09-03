@@ -118,16 +118,16 @@ finding the operator actively schedules. Do not proceed to Phase B without the c
 ## Phase B — implement the classified table
 
 1. Flip the doc `in-flight`. Mint ids `AC-<CODE>-NNN.M` (umbrella per behavior cluster, leaves per
-   criterion) and author the Spec-delta lines targeting the brief's page path. **Minting is a
-   consolidation.** Extraction and specification want different granularities: the sweeps
-   over-produce rows on purpose, and the page states one criterion per *rule*, with the fields,
-   tokens or sites the rule ranges over as the `[DataRow]`s of its test — never one criterion per
-   field. A family of schema mirrors folds into the rule they mirror; a doc-comment defect row is
-   a fix without a criterion; a row another page owns is cited there, never re-minted. Aim for
-   roughly half the classified rows as criteria, and record a **consolidation map** (row →
-   criterion, or row → the line saying why it mints nothing) in the change doc, so no classified
-   row vanishes silently — the critic checks it, and a row with neither is a blocker (230 rows
-   became 135 criteria without losing one). A criterion you
+   criterion) and author the Spec-delta lines targeting the brief's page path.
+   **Minting is a consolidation.** Extraction and specification want different granularities: the
+   sweeps over-produce rows on purpose, and the page states one criterion per *rule*, with the
+   fields, tokens or sites the rule ranges over as the `[DataRow]`s of its test — never one
+   criterion per field. A family of schema mirrors folds into the rule they mirror; a doc-comment
+   defect row is a fix without a criterion; a row another page owns is cited there, never
+   re-minted. Aim for roughly half the classified rows as criteria, and record a
+   **consolidation map** (row → criterion, or row → the line saying why it mints nothing) in the
+   change doc, so no classified row vanishes silently — the critic checks it, and a row with
+   neither is a blocker (230 rows became 135 criteria without losing one). A criterion you
    already know no test can reach carries its `GAP: <reason>` marker **on the delta line** —
    `spec-trace` honours it there exactly as on a page. **A criterion's text on the page and on its
    delta line are one text:** reword one, reword the other in the same commit (a `MODIFIED` line
