@@ -18,8 +18,10 @@ namespace Vion.Dale.DevHost.Test.Stepping
     {
         [TestMethod]
         [TestCategory("Smoke")]
-        public async Task DriveAMultiFieldNestedStructContract_ReachingTheConsumingBlock()
+        [TestProperty("spec", "AC-SCEN-008.4")]
+        public async Task DriveMultiFieldNestedStructContractReachingTheConsumingBlock()
         {
+            // Arrange
             await using var host = BuildSteppedGridHost();
             await host.StartAsync();
 
@@ -37,8 +39,10 @@ namespace Vion.Dale.DevHost.Test.Stepping
                                               }
                                               """);
 
+            // Act
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
         }
 

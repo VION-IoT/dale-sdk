@@ -5,31 +5,27 @@ using Vion.Dale.DevHost.Web;
 namespace Vion.Dale.DevHost.Test.Stepping
 {
     /// <summary>
-    ///     Part 2 of the RFC 0008 stepped-host enabler: <c>WithWebUi()</c> boots a stepped host when
-    ///     stepping is requested (<c>dale dev --stepped</c> → <c>DALE_DEVHOST_STEPPED</c>), so server-side
-    ///     scenario runs over HTTP (the Player + <c>dale scenario run</c>) are deterministic — without any
-    ///     <c>Program.cs</c> edit. The host is built (not started), so no web server binds; <c>IsStepped</c>
-    ///     is observable on the control immediately.
+    ///     A web host boots stepped when stepping is requested (<c>dale dev --stepped</c>), so a scenario run
+    ///     over HTTP is deterministic without a <c>Program.cs</c> edit. The host is built and not started, so
+    ///     nothing binds a port; the clock mode is observable on the control immediately.
     /// </summary>
     [TestClass]
     public class SteppedWebHostShould
     {
         [TestMethod]
-        public async Task BeStepped_WhenWebUiRequestsStepping()
+        [TestProperty("spec", "AC-SCEN-011.1")]
+        [DataRow(true, DisplayName = "stepping requested")]
+        [DataRow(false, DisplayName = "stepping not requested")]
+        public async Task ReportTheClockModeTheWebUiRequested(bool stepped)
         {
+            // Arrange
             var config = DevConfigurationBuilder.Create().WithTopologyName("stepping-topology").AddLogicBlock<TickerBlock>("Ticker").Build();
-            await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithWebUi(stepped: true).Build();
 
-            Assert.IsTrue(host.Control.IsStepped, "WithWebUi(stepped: true) must boot a stepped host (controllable clock).");
-        }
+            // Act
+            await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithWebUi(stepped: stepped).Build();
 
-        [TestMethod]
-        public async Task UseTheRealClock_WhenSteppingNotRequested()
-        {
-            var config = DevConfigurationBuilder.Create().WithTopologyName("stepping-topology").AddLogicBlock<TickerBlock>("Ticker").Build();
-            await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithWebUi(stepped: false).Build();
-
-            Assert.IsFalse(host.Control.IsStepped, "WithWebUi(stepped: false) must use the real clock.");
+            // Assert
+            Assert.AreEqual(stepped, host.Control.IsStepped);
         }
     }
 }
