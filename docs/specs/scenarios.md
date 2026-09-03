@@ -139,7 +139,8 @@ a wait would re-read a moving target and could never say what it had compared.
 either optionally followed by a struct field path. Ambiguity is refused, never resolved last-wins.
 
 - `AC-SCEN-005.1` (Ubiquitous): THE SYSTEM SHALL require a name path to carry at least two
-  dot-separated segments, none of them empty or whitespace.
+  dot-separated segments, none of them empty or whitespace, and SHALL impose no upper bound on the
+  number of segments at any site that declares the shape, the canonical schema included.
 - `AC-SCEN-005.2` (Event-driven): WHEN a name path names a block or member the topology does not carry
   THE SYSTEM SHALL refuse it, naming what was not found and appending the exact spelling when one
   differs only in case.

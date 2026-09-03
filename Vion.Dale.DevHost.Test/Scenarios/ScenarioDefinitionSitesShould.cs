@@ -116,6 +116,28 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-SCEN-005.1")]
+        public void AcceptInScenarioSchemaEveryNamePathResolverAccepts()
+        {
+            // Arrange
+            var namePath = ScenarioSchema().GetProperty("$defs").GetProperty("namePath");
+
+            // Act
+            var pattern = namePath.GetProperty("pattern").GetString();
+
+            // Assert - the lower bound is two segments and there is no upper one: ScenarioResolver reads a
+            // struct field path off segment 2 (unqualified) or 3 (service-qualified), so a four-segment path
+            // resolves, and a schema capping at three red-squiggles it in the author's editor.
+            Assert.IsFalse(Regex.IsMatch("Block", pattern!), pattern);
+            Assert.IsFalse(Regex.IsMatch("Block.", pattern!), pattern);
+            Assert.IsTrue(Regex.IsMatch("Block.Member", pattern!), pattern);
+            Assert.IsTrue(Regex.IsMatch("Block.Service.Member", pattern!), pattern);
+            Assert.IsTrue(Regex.IsMatch("Block.Member.field", pattern!), pattern);
+            Assert.IsTrue(Regex.IsMatch("Block.Service.Member.field", pattern!), pattern);
+            Assert.IsTrue(Regex.IsMatch("Block.Service.Member.limits.activePowerW", pattern!), pattern);
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-SCEN-001.4")]
         public void RefuseInScenarioSchemaWhitespaceJudgmentText()
         {

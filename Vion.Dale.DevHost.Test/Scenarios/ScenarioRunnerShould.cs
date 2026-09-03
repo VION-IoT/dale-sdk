@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Vion.Dale.DevHost.Scenarios;
 
@@ -150,7 +151,7 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-SCEN-009.5")]
+        [TestProperty("spec", "AC-SCEN-009.3")]
         public async Task FailStepOnWaitUntilTimeoutAndSkipRemainder()
         {
             // Arrange
@@ -175,6 +176,46 @@ namespace Vion.Dale.DevHost.Test
             Assert.AreEqual(ScenarioStepStatus.Failed, report.Steps[0].Status);
             StringAssert.Contains(report.Steps[0].Detail, "condition not met within 1 s");
             Assert.AreEqual(ScenarioStepStatus.Skipped, report.Steps[1].Status);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-009.5")]
+        public async Task ReportCancelledRunAsCancelledAndSkipRemainder()
+        {
+            // Arrange - cancel from the progress callback the moment the first step starts running, so the
+            // run is cancelled mid-step without any test waiting on a clock.
+            await using var host = BuildHost();
+            await host.StartAsync();
+
+            using var cancellation = new CancellationTokenSource();
+            var options = new ScenarioRunOptions
+            {
+                OnProgress = report =>
+                {
+                    if (report.Steps[0].Status == ScenarioStepStatus.Running)
+                    {
+                        cancellation.Cancel();
+                    }
+                },
+            };
+
+            var scenario = ScenarioFile.Parse("""
+                                              {
+                                                "version": 1, "id": "canceled", "topology": "scenario-topology",
+                                                "steps": [
+                                                  { "label": "never", "waitUntil": { "property": "Counter.Counter", "above": 999999 }, "timeoutSeconds": 30 },
+                                                  { "label": "unreached", "advance": { "seconds": 0.1 } }
+                                                ]
+                                              }
+                                              """);
+
+            // Act
+            var report = await ScenarioRunner.RunAsync(scenario, host.Control, options, cancellation.Token);
+
+            // Assert
+            Assert.AreEqual(ScenarioRunStatus.Canceled, report.Status, Join(report));
+            Assert.AreEqual(ScenarioStepStatus.Skipped, report.Steps[1].Status, Join(report));
+            StringAssert.Contains(report.Steps[1].Detail, "canceled");
         }
 
         [TestMethod]

@@ -54,8 +54,8 @@
   "$defs": {
     "namePath": {
       "type": "string",
-      "pattern": "^[^.]+\\.[^.]+(\\.[^.]+)?$",
-      "description": "Block.Property (when unambiguous within the block) or Block.Service.Property (the qualified form for multi-service blocks)."
+      "pattern": "^[^.]+(\\.[^.]+)+$",
+      "description": "Block.Property (when unambiguous within the block) or Block.Service.Property (the qualified form for multi-service blocks), either optionally followed by a struct field path."
     },
     "value": {
       "description": "A scalar, an enum member name (case-sensitive string), a complete struct/array literal, or null (nullable properties)."
