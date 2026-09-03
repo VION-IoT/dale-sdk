@@ -32,7 +32,10 @@ edits, no fixes, no Jira writes in this phase** — reading and one document onl
 2. **Anchor inventory first.** Enumerate the area's machine-readable surface mechanically — grep
    the attributes, descriptors, schema fields, manifest entries the brief's anchor kinds name — and
    list the inventory in the change doc. This list is the completeness checklist for the sweeps; a
-   sweep without it starts from a blank page and misses silently.
+   sweep without it starts from a blank page and misses silently. For every attribute in the
+   inventory, compare its `AttributeTargets` with the targets its readers actually walk: a target
+   nothing reads is a row (one pass found that shape twice — a method target and a property target
+   that compiled, emitted nothing and warned about nothing).
 3. **Statement sweep.** Walk the scope statement-by-statement (not branch-by-branch —
    [`docs/testing-conventions.md`](../../../docs/testing-conventions.md) §9's observability
    discriminator decides what is a row). Every claim comes from code read **this session**; old
@@ -90,7 +93,11 @@ edits, no fixes, no Jira writes in this phase** — reading and one document onl
    *unmapped tests* list (Phase B merge/delete candidates).
 9. **Self-check** against the anchor inventory and the PublicApi manifest's entries for the
    area's assemblies (where the area has any — some are `[InternalApi]` by design): every member
-   visited or explicitly out-of-scope. State the counts.
+   visited or explicitly out-of-scope. State the counts. *Visited by a row* is not *covered by a
+   criterion*: in Phase B this self-check is re-read so that every classified `intended`/`fix`
+   row maps to a criterion id or to a checkpoint that says why not, and every hole in the id
+   sequence has a checkpoint naming the id (`spec-trace` refuses a hole no archived change doc
+   names) — one pass claimed two fields covered that no criterion stated.
 10. Commit the change doc (status stays `proposed`), push the branch, and STOP with exactly this
     report shape: row/GAP/⚠/unmapped counts · the ⚠ rows verbatim · the unmapped-test list · the
     line *"Classify: reply with row numbers to override, or 'accept recs' to take all
@@ -123,7 +130,12 @@ finding the operator actively schedules. Do not proceed to Phase B without the c
    not what it says; three tests in one pass cited criteria that said something else — read the
    criterion against the assertion before citing it); and any claim that names a test as its
    guarantee — in a comment, a doc, a checkpoint — is read from that test's **call sites**, not its
-   name (a test that feeds one of two parsers pins one parser, whatever it is called). A test that
+   name (a test that feeds one of two parsers pins one parser, whatever it is called). An
+   instruction to cite — in an amendment, in a brief — is not evidence the citation fits: re-read
+   the assertion before adding the tag (an amendment once named the wrong test for a criterion and
+   the session cited it unread). A behaviour that holds by accident of structure — two dictionaries
+   that happen to be separate — has no reachable mutation until it is one line that states the
+   rule: write that line, then mint. A test that
    pins an implementation *premise* rather than a criterion (two parsers agreeing on every vector)
    stays uncited by design, says so in its class summary, and is listed in the REPORT —
    `docs/spec-process.md` names the category; never mint a criterion to hang it on.
@@ -155,7 +167,10 @@ finding the operator actively schedules. Do not proceed to Phase B without the c
    `out-of-spec`, not `GAP`.
 5. **Rewrite the area's whole test suite** to `docs/testing-conventions.md` §9–17 — ids cited via
    the quoted-literal forms (§17), unmapped tests merged or deleted per their list, no assertion on
-   log calls (§15). Names and Triple-A markers are **gated**, not remembered:
+   log calls (§15). A `[DataRow]` merge is a rewrite of the assertion: re-derive the mutation after
+   it, or the merge is a deletion (one dropped a criterion's own sentence). A scripted fixture edit
+   asserts its match count, or it can be applied, reported and absent. Names and Triple-A markers
+   are **gated**, not remembered:
    `pwsh scripts/test-style-lint.ps1` fails on any cited test with an article in its name or no
    markers (§12/§13) — run it **before** the REPORT and budget the rename round (it caught fourteen
    names in one pass that the session wrote after reading §12; the natural phrasing of an assertion
@@ -187,7 +202,10 @@ finding the operator actively schedules. Do not proceed to Phase B without the c
    (zero `DALE` warnings in the SDK's own build — a deliberately illegal fixture gets
    `#pragma warning disable` with its reason) + `dotnet test` on the full solution,
    `scripts/spec-lint.ps1`, `scripts/spec-trace.ps1`, `scripts/test-style-lint.ps1`,
-   `scripts/doc-comment-lint.ps1`, `scripts/run-script-tests.ps1`, `/cleanup` once. Stryker.NET is
+   `scripts/doc-comment-lint.ps1`, `scripts/bom-lint.ps1`, `scripts/run-script-tests.ps1`,
+   `/cleanup` once — and a run under CI's shape where a fixture asserts a build-time literal
+   (`dotnet test <project> -p:Version=0.0.0-ci.1`: CI passes `Version` as a global property, and a
+   project's own `<Version>` loses to it). Stryker.NET is
    **optional**: run it only where the test project references a single mutatable project (it
    cannot run otherwise — MTP runner in preview, multi-reference crash), read survivors by hand,
    never a gate or a score.
@@ -200,7 +218,10 @@ finding the operator actively schedules. Do not proceed to Phase B without the c
        assertion — list the pairs;
     3. every sentence in the change doc that a later checkpoint disproved has been corrected in
        place or annotated;
-    4. every Tier 2 row is a pasted observation.
+    4. every Tier 2 row is a pasted observation;
+    5. every number and tense in the sections above the append was re-read — an amendment appends
+       to the change doc and nothing else re-reads what stands above it (a `37` for a 33-method
+       file and a future-tense plan survived two rounds that way).
 
     Then: commands run + results · the test → mutation list · GAP list · premise tests left
     uncited, with reasons · park rows written to the ledger · friction one-liners (journal
@@ -224,7 +245,7 @@ prompt instead of a message, that is the same round arriving by the other door.
 
 | Measure | Value |
 |---|---|
-| Gates (build/test/lint/trace/style/doc-comment/self-tests/cleanup/CI) | green / what failed |
+| Gates (build/test/lint/trace/style/doc-comment/bom/self-tests/cleanup/CI) | green / what failed |
 | Completeness-critic misses | count + rows added, by the sweep that should have caught them |
 | Evidence errors found in review | count |
 | Mutation evidence | named-mutation list complete? · over-determined criteria stated? |
@@ -246,5 +267,7 @@ prompt instead of a message, that is the same round arriving by the other door.
 | "Another gate already covers this test" | Name the gate and its failure mode. Two passes deleted a test on that sentence and had to restore it. |
 | "I'll write the Tier 2 row from the code" | A Tier 2 row is a paste. No paste, no row. |
 | "The numbers didn't change, I'll carry them" | Paste every gate line, every time. |
+| "The amendment told me to cite it" | A citation is read from the assertion, whoever asked for it. |
+| "I merged the rows, the mutation is the same" | A merge rewrites the assertion; re-derive the mutation. |
 | "Patch the discarded attempt's table by hand" | The next pass repays the same debt. Fix the skill, delete the branch, rerun. |
 | "Enshrine it — the code clearly does this" | The code doing it is evidence of behavior, not intent. Surprising rows get `fix`/`park` or the operator's explicit `intended`. |

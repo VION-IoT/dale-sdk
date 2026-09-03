@@ -132,6 +132,14 @@ status: in-flight
     if ((Invoke-Trace) -ne 0) { throw "Case 11 (GAP on an in-flight delta) expected 0" }
     Remove-Item (Join-Path $tmp 'docs/changes/2026-01-02-y.md')
 
+    # Case 12: an id-sequence hole (009.1 and 009.3 declared, 009.2 absent) with no archived record
+    # -> 1; once an archived change doc names the missing id -> 0
+    Add-Content -LiteralPath $page -Value "`n- ``AC-PLUG-009.1`` (Event-driven): WHEN p THE SYSTEM SHALL q.`n- ``AC-PLUG-009.3`` (Event-driven): WHEN r THE SYSTEM SHALL s."
+    Add-Content -LiteralPath $test -Value "`nclass H { void I() { var a = `"AC-PLUG-009.1`"; var b = `"AC-PLUG-009.3`"; } }"
+    if ((Invoke-Trace) -ne 1) { throw "Case 12 (unexplained id hole) expected 1" }
+    New-File 'docs/changes/archive/2026-01-03-z.md' "---`nslug: z`nstatus: archived`n---`n- 2026-01-03: ``AC-PLUG-009.2`` was withdrawn: no mutation reddens it alone." | Out-Null
+    if ((Invoke-Trace) -ne 0) { throw "Case 12b (hole named in an archived change doc) expected 0" }
+
     Write-Host 'spec-trace.tests: PASS'
     exit 0
 }

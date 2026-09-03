@@ -15,7 +15,10 @@
   comment or method name does not count. A bare umbrella id (no ".M") is
   additionally covered by any of its leaves. An id declared on a line carrying
   the GAP marker is exempt-but-counted: reported as awaiting its test, never
-  an orphan.
+  an orphan. A leaf missing below its umbrella's highest leaf (`AC-X-001.2` absent while
+  `.1` and `.3` exist) is a hole: fine when the pass's archived change doc names the id
+  (a criterion withdrawn or merged), a FAIL otherwise — an unexplained hole once hid a
+  classified row with no criterion behind it.
 #>
 [CmdletBinding()]
 param(
@@ -63,6 +66,38 @@ if (Test-Path $specsDir) {
 # An id both declared normally and marked GAP somewhere is declared — the GAP
 # exemption covers only ids that appear on GAP lines exclusively.
 $gapIds.ExceptWith($declared)
+
+# Id-sequence holes on the traced pages. Every hole must be named somewhere under
+# docs/changes/archive/ — that is where a pass records a criterion it withdrew or merged. A hole
+# nobody explained is the shape that hid a classified row with no criterion behind it.
+$archiveDir = Join-Path $RepoRoot 'docs/changes/archive'
+$archiveText = ''
+if (Test-Path $archiveDir) {
+    $archiveText = (Get-ChildItem -LiteralPath $archiveDir -Filter *.md -File | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw }) -join "`n"
+}
+$leavesByUmbrella = @{}
+foreach ($id in @($declared) + @($gapIds)) {
+    if ($id -match '^((?:AC|SYS)-[A-Z0-9]+-\d+)\.(\d+)$') {
+        $u = $Matches[1]
+        if (-not $leavesByUmbrella.ContainsKey($u)) { $leavesByUmbrella[$u] = [System.Collections.Generic.HashSet[int]]::new() }
+        [void]$leavesByUmbrella[$u].Add([int]$Matches[2])
+    }
+}
+$holes = [System.Collections.Generic.List[string]]::new()
+foreach ($u in $leavesByUmbrella.Keys) {
+    $max = ($leavesByUmbrella[$u] | Measure-Object -Maximum).Maximum
+    for ($k = 1; $k -le $max; $k++) {
+        if ($leavesByUmbrella[$u].Contains($k)) { continue }
+        $hole = "$u.$k"
+        # \b keeps `001.1` from matching inside `001.10`.
+        if ($archiveText -notmatch ('\b' + [regex]::Escape($hole) + '\b')) { $holes.Add($hole) }
+    }
+}
+if ($holes.Count) {
+    Write-Host "spec-trace: FAIL - $($holes.Count) id-sequence hole(s) no archived change doc names (a withdrawn or merged criterion is recorded by id in its pass's change doc; an unexplained hole hid a classified row with no criterion):"
+    $holes | Sort-Object | ForEach-Object { Write-Host "  $_" }
+    exit 1
+}
 
 # Fold in active change-doc deltas (docs/changes/*.md top level, status: in-flight).
 # ADDED/MODIFIED ids must be test-referenced (they may not be in a page yet);
