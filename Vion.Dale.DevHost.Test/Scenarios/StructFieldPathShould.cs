@@ -23,8 +23,11 @@ namespace Vion.Dale.DevHost.Test
         // ── waitUntil on a struct field (above / below / equals) ──────────────────────────────────────
 
         [TestMethod]
-        public async Task ResolveAndEvaluate_WaitUntilOnAStructField_AboveBelowEquals()
+        [TestProperty("spec", "AC-SCEN-006.4")]
+        [TestProperty("spec", "AC-SCEN-006.1")]
+        public async Task ResolveAndEvaluateWaitUntilOnStructFieldWithEveryComparator()
         {
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
@@ -40,15 +43,19 @@ namespace Vion.Dale.DevHost.Test
                                               }
                                               """);
 
+            // Act
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
             Assert.IsTrue(report.Steps.All(s => s.Status == ScenarioStepStatus.Ok), Join(report));
         }
 
         [TestMethod]
-        public async Task ResolveAndEvaluate_WaitUntilOnAStructMeasuringPointField()
+        [TestProperty("spec", "AC-SCEN-005.7")]
+        public async Task ResolveAndEvaluateWaitUntilOnStructMeasuringPointField()
         {
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
@@ -62,14 +69,18 @@ namespace Vion.Dale.DevHost.Test
                                               }
                                               """);
 
+            // Act
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
         }
 
         [TestMethod]
-        public async Task ResolveWatchOnAStructField()
+        [TestProperty("spec", "AC-SCEN-006.1")]
+        public async Task ResolveWatchOnStructField()
         {
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
@@ -81,8 +92,10 @@ namespace Vion.Dale.DevHost.Test
                                               }
                                               """);
 
+            // Act
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
             Assert.IsEmpty(report.ValidationErrors);
         }
@@ -90,8 +103,10 @@ namespace Vion.Dale.DevHost.Test
         // ── the 3-segment ambiguity ───────────────────────────────────────────────────────────────────
 
         [TestMethod]
-        public async Task ResolveServiceQualifiedPath_WhenSeg1IsAService()
+        [TestProperty("spec", "AC-SCEN-005.3")]
+        public async Task ResolveServiceQualifiedPathWhenSegmentOneNamesService()
         {
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
@@ -107,15 +122,19 @@ namespace Vion.Dale.DevHost.Test
                                               }
                                               """);
 
+            // Act
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
             Assert.AreEqual(4.5, host.Control.GetProperty("DualPoint", "PointA", "Limit"));
         }
 
         [TestMethod]
-        public async Task ResolvePropertyPlusFieldPath_WhenSeg1IsNotAService()
+        [TestProperty("spec", "AC-SCEN-005.3")]
+        public async Task ResolvePropertyPlusFieldPathWhenSegmentOneNamesMember()
         {
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
@@ -130,14 +149,18 @@ namespace Vion.Dale.DevHost.Test
                                               }
                                               """);
 
+            // Act
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
         }
 
         [TestMethod]
-        public async Task ErrorWhenSeg1IsBothAServiceAndAMember()
+        [TestProperty("spec", "AC-SCEN-005.4")]
+        public async Task ErrorWhenSegmentOneNamesBothServiceAndMember()
         {
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
@@ -150,8 +173,10 @@ namespace Vion.Dale.DevHost.Test
                                               }
                                               """);
 
+            // Act
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.Failed, report.Status, Join(report));
             Assert.IsTrue(report.ValidationErrors.Any(e => e.Contains("ambiguous") && e.Contains("Allocated")), Join(report));
         }
@@ -159,8 +184,10 @@ namespace Vion.Dale.DevHost.Test
         // ── whole-struct still guarded ────────────────────────────────────────────────────────────────
 
         [TestMethod]
-        public async Task RejectWholeStructTarget_WhenNoFieldPath()
+        [TestProperty("spec", "AC-SCEN-006.3")]
+        public async Task RejectWholeStructTargetWhenNoFieldPath()
         {
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
@@ -174,8 +201,10 @@ namespace Vion.Dale.DevHost.Test
                                               }
                                               """);
 
+            // Act
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.Failed, report.Status, Join(report));
             Assert.IsTrue(report.ValidationErrors.Any(e => e.Contains("object-typed member") && e.Contains("not comparable")), Join(report));
         }
@@ -183,8 +212,10 @@ namespace Vion.Dale.DevHost.Test
         // ── unknown field → PascalCase suggestion ─────────────────────────────────────────────────────
 
         [TestMethod]
-        public async Task SuggestThePascalCaseFieldName_OnAFieldTypo()
+        [TestProperty("spec", "AC-SCEN-006.2")]
+        public async Task SuggestPascalCaseFieldNameOnFieldTypo()
         {
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
@@ -197,15 +228,20 @@ namespace Vion.Dale.DevHost.Test
                                               }
                                               """);
 
+            // Act
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.Failed, report.Status, Join(report));
             Assert.IsTrue(report.ValidationErrors.Any(e => e.Contains("has no field 'Neutralcurrent'") && e.Contains("did you mean 'NeutralCurrent'")), Join(report));
         }
 
         [TestMethod]
-        public async Task RejectAboveBelowOnANonNumericField_AndAFieldOfAScalar()
+        [TestProperty("spec", "AC-SCEN-006.4")]
+        [TestProperty("spec", "AC-SCEN-006.2")]
+        public async Task RejectAboveBelowOnNonNumericFieldAndOnFieldOfScalar()
         {
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
@@ -219,8 +255,10 @@ namespace Vion.Dale.DevHost.Test
                                               }
                                               """);
 
+            // Act
             var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.Failed, report.Status, Join(report));
             Assert.IsTrue(report.ValidationErrors.Any(e => e.Contains("is not a struct") || e.Contains("has no field")), Join(report));
         }
@@ -228,8 +266,10 @@ namespace Vion.Dale.DevHost.Test
         // ── deterministic stepped waitUntil on a struct field ─────────────────────────────────────────
 
         [TestMethod]
-        public async Task RunAStepped_WaitUntilOnAStructField_Deterministically()
+        [TestProperty("spec", "AC-SCEN-006.1")]
+        public async Task RunSteppedWaitUntilOnStructFieldDeterministically()
         {
+            // Arrange
             for (var run = 0; run < 5; run++)
             {
                 var clock = new FakeTimeProvider(new DateTimeOffset(2026,
@@ -253,8 +293,10 @@ namespace Vion.Dale.DevHost.Test
                                                   }
                                                   """);
 
+            // Act
                 var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
+            // Assert
                 Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, $"run {run}: {Join(report)}");
                 StringAssert.Contains(report.Steps[0].Detail, "virtual s", $"run {run}: {report.Steps[0].Detail}");
             }
