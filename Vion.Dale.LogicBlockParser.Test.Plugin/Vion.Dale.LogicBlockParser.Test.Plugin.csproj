@@ -12,6 +12,11 @@
         <AssemblyName>Vion.Dale.ParserProbe</AssemblyName>
         <PackageId>Vion.Dale.ParserProbe.Packaged</PackageId>
         <Version>7.8.9-probe.1</Version>
+        <!-- Pinned explicitly: CI passes Version as a global MSBuild property (Directory.Build.props), which
+             overrides this projects Version and would put the run number into the document the tests read.
+             InformationalVersion survives that override; the source-revision suffix the SDK appends is what
+             the parser strips. -->
+        <InformationalVersion>7.8.9-probe.1</InformationalVersion>
     </PropertyGroup>
 
     <ItemGroup>

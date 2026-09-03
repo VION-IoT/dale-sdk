@@ -1028,6 +1028,22 @@ heading** — every page edit below is prose or ordering.
 
 ---
 
+### Amendment 4 — after the first CI run (coordinator, 2026-09-03)
+
+- 2026-09-03: **`ReportPluginAssemblyVersion` was green on every local run and red on CI.** CI passes
+  `Version` as a global MSBuild property (`Directory.Build.props` says so), which overrides the fixture
+  plugin's own `<Version>7.8.9-probe.1</Version>`, so the document CI read carried the run's
+  `0.0.0-ci.<n>` and the test's literal could not hold there. Reproduced locally with
+  `dotnet test … -p:Version=0.0.0-ci.1` (1 of 18 fails) and fixed by pinning the fixture's
+  `<InformationalVersion>` explicitly, which a global `Version` does not override; the SDK still
+  appends the source-revision `+<sha>` to it, which is exactly the suffix `AC-INTRO-001.3` says the
+  parser strips, so the rule is exercised on every build. Green under both shapes (18 of 18). A
+  fixture that asserts a build-time literal has to survive CI's global properties — a shape no local
+  run shows. The first two CI runs failed earlier, before any build, on `NU1301` 401s from the private
+  feed (an expired `AZURE_DEVOPS_PAT`, renewed by the operator); nothing of the branch was involved.
+
+---
+
 ## Spec delta (to distill)
 
 > One line per id, applied into `docs/specs/introspection.md`. Every line's text is the page's own
