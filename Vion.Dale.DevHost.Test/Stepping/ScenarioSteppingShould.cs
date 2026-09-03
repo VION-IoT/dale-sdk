@@ -289,6 +289,35 @@ namespace Vion.Dale.DevHost.Test.Stepping
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-SCEN-011.11")]
+        public async Task ConvergeSettleOnFirstHopWhenNoTargetMoves()
+        {
+            // Arrange - a block declaring no timer, so nothing the settle targets is ever scheduled. The
+            // schedule is NOT empty even so: a live logic block carries the framework's own periodic event,
+            // which is what the single hop below lands on.
+            await using var host = BuildQuietHost(NewClock());
+            await host.StartAsync();
+
+            // Act
+            var report = await ScenarioRunner.RunAsync(ScenarioFile.Parse("""
+                                                                          {
+                                                                            "version": 1, "id": "settle-quiescent", "topology": "stepping-topology",
+                                                                            "watch": ["Quiet.Value"],
+                                                                            "steps": [ { "settle": { "maxSeconds": 30 } } ]
+                                                                          }
+                                                                          """),
+                                                       host.Control);
+
+            // Assert - one hop, and nothing the settle watches moved across it, so the targets are stable and
+            // the step converges having proved nothing. The detail is the only tell, asserted whole rather
+            // than by substring: "60 virtual s" contains "0 virtual s", so a Contains here would hold for a
+            // hop that jumped a minute as readily as for one that jumped nothing.
+            Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
+            Assert.AreEqual("converged after 1 hop / 60 virtual s", report.Steps[0].Detail);
+            Assert.AreEqual(0, (int)host.Control.GetProperty("Quiet", "Value")!);
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-SCEN-011.9")]
         public async Task ScopeSettleToItsDeclaredTargetsIgnoringVolatileWatch()
         {
@@ -660,6 +689,13 @@ namespace Vion.Dale.DevHost.Test.Stepping
             return DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).Build();
         }
 
+        private static IDevHost BuildQuietHost(FakeTimeProvider clock)
+        {
+            var config = DevConfigurationBuilder.Create().WithTopologyName("stepping-topology").AddLogicBlock<QuietBlock>("Quiet").Build();
+
+            return DevHostBuilder.Create().WithDi<SteppingDependencyInjection>().WithConfiguration(config).ConfigureServices(s => s.AddSingleton<TimeProvider>(clock)).Build();
+        }
+
         private static IDevHost BuildSettleHost(FakeTimeProvider clock)
         {
             var config = DevConfigurationBuilder.Create().WithTopologyName("stepping-topology").AddLogicBlock<TickerBlock>("Ticker").AddLogicBlock<LatchBlock>("Latch").Build();
@@ -707,6 +743,25 @@ namespace Vion.Dale.DevHost.Test.Stepping
         }
     }
 
+    /// <summary>
+    ///     Declares no timer, so a host built from it alone schedules nothing — the fixture that shows what a
+    ///     <c>settle</c> does when there is no next event to advance to.
+    /// </summary>
+    [LogicBlock(Name = "Quiet")]
+    public class QuietBlock : LogicBlockBase
+    {
+        [ServiceProperty(Title = "Value")]
+        public int Value { get; private set; }
+
+        public QuietBlock(ILogger logger) : base(logger)
+        {
+        }
+
+        protected override void Ready()
+        {
+        }
+    }
+
     /// <summary>DI registration for the settle-host fixture.</summary>
     public class SteppingDependencyInjection : IConfigureServices
     {
@@ -714,6 +769,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
         {
             serviceCollection.AddTransient<TickerBlock>();
             serviceCollection.AddTransient<LatchBlock>();
+            serviceCollection.AddTransient<QuietBlock>();
         }
     }
 }

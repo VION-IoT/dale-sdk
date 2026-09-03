@@ -329,6 +329,13 @@ mode it ran in, or is mode-independent.
   targeted set is empty.
 - `AC-SCEN-011.10` (Ubiquitous): THE SYSTEM SHALL spend a `settle` budget in virtual seconds on a
   stepped host and in real seconds otherwise.
+- `AC-SCEN-011.11` (Ubiquitous): THE SYSTEM SHALL converge a `settle` on its first hop when no
+  targeted value changes across that hop, and SHALL report the hop count and the virtual time the hop
+  spent in the step's detail.
+
+`AC-SCEN-011.11` is a warning as much as a guarantee: a `settle` written to prove a cascade converges
+on hop one when the stimulus scheduled nothing, having proved nothing at all. The hop count and the
+virtual span in the detail are the only tell, which is why they are specified rather than incidental.
 
 `AC-SCEN-011.3` states an absence, and it is load-bearing: the alternative history is a step kind that
 was silently mis-timed in one mode. The kind that could not be made honest in both was removed rather
