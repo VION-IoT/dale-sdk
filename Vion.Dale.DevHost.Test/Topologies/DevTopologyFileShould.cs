@@ -199,8 +199,8 @@ namespace Vion.Dale.DevHost.Test
             var json = emptied.ToJson();
 
             // Assert
-            Assert.IsFalse(json.Contains("contractPairings"), json);
-            Assert.IsFalse(json.Contains("instantiationParameters"), json);
+            Assert.DoesNotContain("contractPairings", json);
+            Assert.DoesNotContain("instantiationParameters", json);
         }
 
         [TestMethod]

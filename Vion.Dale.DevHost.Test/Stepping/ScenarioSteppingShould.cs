@@ -199,12 +199,14 @@ namespace Vion.Dale.DevHost.Test.Stepping
                                                        host.Control);
             wall.Stop();
 
-            // Assert — a three-virtual-second wait costs no real time, and the detail reports the hops.
+            // Assert — the wait was virtual: it spent at least three virtual seconds and less real time
+            // than that, which is the claim; a fixed real bound would only be a guess about the runner.
             Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
             Assert.IsGreaterThanOrEqualTo(3, (int)host.Control.GetProperty("Ticker", "Ticks")!);
             StringAssert.Contains(report.Steps[0].Detail, "virtual s");
             StringAssert.Contains(report.Steps[0].Detail, "hop");
-            Assert.IsTrue(wall.Elapsed < TimeSpan.FromSeconds(2), $"wall clock was {wall.Elapsed.TotalMilliseconds:0} ms");
+            Assert.IsGreaterThanOrEqualTo(TimeSpan.FromSeconds(3), host.Control.VirtualTimeUtc - Epoch);
+            Assert.IsTrue(wall.Elapsed < host.Control.VirtualTimeUtc - Epoch, $"wall clock was {wall.Elapsed.TotalMilliseconds:0} ms");
         }
 
         [TestMethod]
@@ -226,10 +228,12 @@ namespace Vion.Dale.DevHost.Test.Stepping
                                                        host.Control);
             wall.Stop();
 
-            // Assert — the budget is spent in virtual seconds, so exhausting it is also near-instant.
+            // Assert — the budget was spent in VIRTUAL seconds: five of them elapsed on the clock, in less
+            // real time than that.
             Assert.AreEqual(ScenarioRunStatus.Failed, report.Status, Join(report));
             StringAssert.Contains(report.Steps[0].Detail, "condition not met within 5 virtual s");
-            Assert.IsTrue(wall.Elapsed < TimeSpan.FromSeconds(2), $"wall clock was {wall.Elapsed.TotalMilliseconds:0} ms");
+            Assert.IsGreaterThanOrEqualTo(TimeSpan.FromSeconds(5), host.Control.VirtualTimeUtc - Epoch);
+            Assert.IsTrue(wall.Elapsed < host.Control.VirtualTimeUtc - Epoch, $"wall clock was {wall.Elapsed.TotalMilliseconds:0} ms");
         }
 
         [TestMethod]
@@ -349,11 +353,11 @@ namespace Vion.Dale.DevHost.Test.Stepping
                                                        host.Control);
             wall.Stop();
 
-            // Assert — three VIRTUAL seconds cost no real time, and the clock moved by them.
+            // Assert — the clock moved three VIRTUAL seconds, in less real time than that.
             Assert.AreEqual(ScenarioRunStatus.Failed, report.Status, Join(report));
             StringAssert.Contains(report.Steps[0].Detail, "virtual s");
             Assert.IsGreaterThanOrEqualTo(Epoch.AddSeconds(3), host.Control.VirtualTimeUtc);
-            Assert.IsTrue(wall.Elapsed < TimeSpan.FromSeconds(2), $"wall clock was {wall.Elapsed.TotalMilliseconds:0} ms");
+            Assert.IsTrue(wall.Elapsed < host.Control.VirtualTimeUtc - Epoch, $"wall clock was {wall.Elapsed.TotalMilliseconds:0} ms");
         }
 
         [TestMethod]

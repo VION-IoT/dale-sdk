@@ -102,7 +102,7 @@ namespace Vion.Dale.DevHost.Test
                                                                                                  """));
 
             // Assert
-            Assert.IsTrue(refused.Errors.Count >= 4, string.Join("; ", refused.Errors));
+            Assert.IsGreaterThanOrEqualTo(4, refused.Errors.Count, string.Join("; ", refused.Errors));
             Assert.IsTrue(refused.Errors.Any(m => m.Contains("version must be 1")), string.Join("; ", refused.Errors));
             Assert.IsTrue(refused.Errors.Any(m => m.Contains("URL-safe slug")), string.Join("; ", refused.Errors));
             Assert.IsTrue(refused.Errors.Any(m => m.Contains("topology is required")), string.Join("; ", refused.Errors));
@@ -185,7 +185,7 @@ namespace Vion.Dale.DevHost.Test
             var parsed = ScenarioFile.Parse($$"""{ "version": 1, "id": "x", "topology": "t", "setup": [{{entry}}] }""");
 
             // Assert
-            Assert.AreEqual(1, parsed.Setup!.Count);
+            Assert.HasCount(1, parsed.Setup!);
         }
 
         [TestMethod]

@@ -245,7 +245,7 @@ namespace Vion.Dale.DevHost.Test
                                   .ToList();
 
             // Act / Assert
-            Assert.IsTrue(copies.Count > 0, $"no committed .dale scenario schema copies under {root}");
+            Assert.IsNotEmpty(copies, $"no committed .dale scenario schema copies under {root}");
             foreach (var copy in copies)
             {
                 var without = WithoutNamePath(JsonNode(File.ReadAllText(copy)));
