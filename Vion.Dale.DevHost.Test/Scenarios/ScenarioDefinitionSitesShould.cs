@@ -29,15 +29,17 @@ namespace Vion.Dale.DevHost.Test
         // One step of each shape, so the runner's discriminator can be read for every kind rather than asserted
         // from its enumeration alone.
         private static readonly Dictionary<string, string> StepOfKind = new()
-                                                                       {
-                                                                           ["set"] = """{ "set": "A.B", "value": 1 }""",
-                                                                           ["serviceProviderSet"] = """{ "serviceProviderSet": { "logicBlock": "B", "contract": "C" }, "value": 1 }""",
-                                                                           ["serviceProviderExpect"] = """{ "serviceProviderExpect": { "logicBlock": "B", "contract": "C", "equals": 1 } }""",
-                                                                           ["waitUntil"] = """{ "waitUntil": { "property": "A.B", "above": 1 } }""",
-                                                                           ["expect"] = """{ "expect": { "property": "A.B", "equals": 1 } }""",
-                                                                           ["advance"] = """{ "advance": { "seconds": 1 } }""",
-                                                                           ["settle"] = """{ "settle": {} }""",
-                                                                       };
+                                                                        {
+                                                                            ["set"] = """{ "set": "A.B", "value": 1 }""",
+                                                                            ["serviceProviderSet"] =
+                                                                                """{ "serviceProviderSet": { "logicBlock": "B", "contract": "C" }, "value": 1 }""",
+                                                                            ["serviceProviderExpect"] =
+                                                                                """{ "serviceProviderExpect": { "logicBlock": "B", "contract": "C", "equals": 1 } }""",
+                                                                            ["waitUntil"] = """{ "waitUntil": { "property": "A.B", "above": 1 } }""",
+                                                                            ["expect"] = """{ "expect": { "property": "A.B", "equals": 1 } }""",
+                                                                            ["advance"] = """{ "advance": { "seconds": 1 } }""",
+                                                                            ["settle"] = """{ "settle": {} }""",
+                                                                        };
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-002.1")]

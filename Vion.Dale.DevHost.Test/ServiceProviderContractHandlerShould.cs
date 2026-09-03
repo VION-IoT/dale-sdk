@@ -44,6 +44,7 @@ namespace Vion.Dale.DevHost.Test
             handler.HandleMessageAsync(new MockSetServiceProviderInputMessage(Sp, Json("true")), context);
 
             var sent = context.Sent.Single();
+
             // Assert
             Assert.AreSame(consumer, sent.Target);
             Assert.IsInstanceOfType<ContractMessage<ScalarChanged>>(sent.Message);
@@ -67,6 +68,7 @@ namespace Vion.Dale.DevHost.Test
             handler.HandleMessageAsync(new MockSetServiceProviderInputMessage(Sp, Json("""{ "valid": true, "scope": "PerPhase", "activePowerW": 1500 }""")), context);
 
             var demand = ((ContractMessage<DemandChanged>)context.Sent.Single().Message).Data;
+
             // Assert
             Assert.IsTrue(demand.Valid);
             Assert.AreEqual(DemandScope.PerPhase, demand.Scope);
@@ -146,6 +148,7 @@ namespace Vion.Dale.DevHost.Test
             handler.HandleMessageAsync(new ContractMessage<SetScalar>(Lb, new SetScalar(true)), context);
 
             var sent = context.Sent.Single();
+
             // Assert
             Assert.AreSame(context.LookupByName(nameof(ScalarProviderHandlerStub)), sent.Target, "The forward addresses the PEER stand-in, not the writing block.");
             var drive = (MockSetServiceProviderInputMessage)sent.Message;
@@ -194,6 +197,7 @@ namespace Vion.Dale.DevHost.Test
             handler.HandleMessageAsync(new MockSetServiceProviderInputMessage(Peer, Json("true")), context);
 
             var sent = context.Sent.Single();
+
             // Assert
             Assert.AreSame(consumer, sent.Target, "A drive reaches the mapped block and nothing else.");
             Assert.IsInstanceOfType<ContractMessage<SetScalar>>(sent.Message);

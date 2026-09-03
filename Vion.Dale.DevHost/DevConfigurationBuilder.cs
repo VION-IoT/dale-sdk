@@ -61,7 +61,7 @@ namespace Vion.Dale.DevHost
 
         /// <summary>
         ///     Add a LogicBlock instance by runtime <see cref="Type" /> — the topology-file loader's entry
-        ///    , where types come from JSON rather than generics.
+        ///     , where types come from JSON rather than generics.
         /// </summary>
         public DevConfigurationBuilder AddLogicBlock(Type logicBlockType, out LogicBlockHandle handle, string? name = null, string? id = null)
         {

@@ -228,6 +228,7 @@ namespace Vion.Dale.Cli.Test.Commands
                                                       """{ "version": 1, "id": "amb", "topology": "demo", "steps": [ { "set": "DualPoint.Limit", "value": 1 } ] }""",
                                                       Config);
             var error = outcome.Errors.Single();
+
             // Assert
             StringAssert.Contains(error, "ambiguous");
             StringAssert.Contains(error, "DualPoint.PointA.Limit");
@@ -248,6 +249,7 @@ namespace Vion.Dale.Cli.Test.Commands
                                                         ] }
                                                       """,
                                                       Config);
+
             // Assert
             Assert.IsTrue(outcome.Errors.Any(e => e.Contains("measuring point")), string.Join("; ", outcome.Errors));
             Assert.IsTrue(outcome.Errors.Any(e => e.Contains("read-only property")), string.Join("; ", outcome.Errors));
@@ -268,6 +270,7 @@ namespace Vion.Dale.Cli.Test.Commands
                                                         ] }
                                                       """,
                                                       Config);
+
             // Assert
             Assert.AreEqual(3, outcome.Errors.Count, string.Join("; ", outcome.Errors));
         }
@@ -280,6 +283,7 @@ namespace Vion.Dale.Cli.Test.Commands
             var clean = ScenarioFileChecks.Validate("other.scenario.json",
                                                     """{ "version": 1, "id": "other", "topology": "elsewhere", "steps": [ { "set": "Nope.X", "value": 1 } ] }""",
                                                     Config);
+
             // Assert
             Assert.AreEqual(0, clean.Errors.Count, string.Join("; ", clean.Errors));
             Assert.AreEqual("elsewhere", clean.SkippedForTopology);
@@ -468,6 +472,7 @@ namespace Vion.Dale.Cli.Test.Commands
                                                       }
                                                       """,
                                                       StructConfig);
+
             // Assert
             Assert.AreEqual(0, outcome.Errors.Count, string.Join("; ", outcome.Errors));
         }
@@ -509,6 +514,7 @@ namespace Vion.Dale.Cli.Test.Commands
             ScenarioFileChecks.EnrichSchemaWithNamePaths(schema, Config);
 
             var namePath = schema["$defs"]!["namePath"]!.AsObject();
+
             // Assert
             Assert.IsFalse(namePath.ContainsKey("pattern"));
             var paths = namePath["enum"]!.AsArray().Select(n => n!.GetValue<string>()).ToList();
@@ -677,6 +683,7 @@ namespace Vion.Dale.Cli.Test.Commands
             ScenarioFileChecks.EnrichSchemaWithNamePaths(schema, config);
 
             var paths = schema["$defs"]!["namePath"]!["enum"]!.AsArray().Select(n => n!.GetValue<string>()).ToList();
+
             // Assert
             CollectionAssert.Contains(paths, "EnergyManager.ActivePowerImportingKw");
             CollectionAssert.Contains(paths, "EnergyManager.EnergyManager.ActivePowerImportingKw");
@@ -707,15 +714,14 @@ namespace Vion.Dale.Cli.Test.Commands
         [DataRow("""{ "settle": {}, "value": 3 }""", "value is not valid on a settle step", DisplayName = "value on settle")]
         [DataRow("""{ "expect": { "property": "Counter.Counter", "equals": 1 }, "value": 3 }""", "value is not valid on an expect step", DisplayName = "value on expect")]
         [DataRow("""{ "serviceProviderExpect": { "logicBlock": "Counter", "contract": "EnableInput", "equals": true }, "value": 3 }""",
-                 "value is not valid on a serviceProviderExpect step", DisplayName = "value on output assert")]
+                 "value is not valid on a serviceProviderExpect step",
+                 DisplayName = "value on output assert")]
         [DataRow("""{ "set": "Counter.Counter", "value": 1, "timeoutSeconds": 5 }""", "timeoutSeconds is only valid on a waitUntil step", DisplayName = "timeout on set")]
         [DataRow("""{ "settle": {}, "timeoutSeconds": 5 }""", "timeoutSeconds is only valid on a waitUntil step", DisplayName = "timeout on settle")]
         public void RefuseFieldForeignToStepKind(string step, string expectedError)
         {
             // Arrange / Act
-            var outcome = ScenarioFileChecks.Validate("stray.scenario.json",
-                                                      $$"""{ "version": 1, "id": "stray", "topology": "demo", "steps": [{{step}}] }""",
-                                                      Config);
+            var outcome = ScenarioFileChecks.Validate("stray.scenario.json", $$"""{ "version": 1, "id": "stray", "topology": "demo", "steps": [{{step}}] }""", Config);
 
             // Assert
             Assert.IsTrue(outcome.Errors.Any(e => e.Contains(expectedError)), string.Join("; ", outcome.Errors));
@@ -730,9 +736,7 @@ namespace Vion.Dale.Cli.Test.Commands
         public void RefuseDurationLongerThanRunCanSpend(string step, string expectedField)
         {
             // Arrange / Act
-            var outcome = ScenarioFileChecks.Validate("long.scenario.json",
-                                                      $$"""{ "version": 1, "id": "long", "topology": "demo", "steps": [{{step}}] }""",
-                                                      Config);
+            var outcome = ScenarioFileChecks.Validate("long.scenario.json", $$"""{ "version": 1, "id": "long", "topology": "demo", "steps": [{{step}}] }""", Config);
 
             // Assert
             Assert.IsTrue(outcome.Errors.Any(e => e.Contains(expectedField) && e.Contains("longer than a run can spend")), string.Join("; ", outcome.Errors));

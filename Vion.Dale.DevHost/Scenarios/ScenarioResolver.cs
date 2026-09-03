@@ -54,7 +54,8 @@ namespace Vion.Dale.DevHost.Scenarios
 
         /// <summary>
         ///     Non-fatal findings collected while resolving — reported on the run, never failing it. Today the
-        ///     only one is `docs/specs/scenarios.md` (`AC-SCEN-007.10`): a <c>serviceProviderSet</c> onto an inbound a contract pairing also
+        ///     only one is `docs/specs/scenarios.md` (`AC-SCEN-007.10`): a <c>serviceProviderSet</c> onto an inbound a contract
+        ///     pairing also
         ///     feeds. That is legal (last write wins) and occasionally what an author wants — seeding a loop, or
         ///     overriding the peer for one step — but usually a bench-design smell worth seeing in the report.
         /// </summary>

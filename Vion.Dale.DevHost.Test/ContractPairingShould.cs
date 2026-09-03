@@ -78,6 +78,7 @@ namespace Vion.Dale.DevHost.Test
             await host.StartAsync();
 
             var pairings = host.Control.GetConfiguration().ContractPairings;
+
             // Assert
             Assert.HasCount(2, pairings);
 
@@ -231,6 +232,7 @@ namespace Vion.Dale.DevHost.Test
                                 """);
 
             var pairing = DevTopologyLoader.Build(file).ContractPairings.Single();
+
             // Assert
             Assert.AreEqual("IoBlock", pairing.A.LogicBlockName);
             Assert.AreEqual("ActiveOutput", pairing.A.ContractEndpointIdentifier, "the endpoint a forward addresses is the auto-created one");
@@ -300,7 +302,8 @@ namespace Vion.Dale.DevHost.Test
 
                 var validate = await client.PostAsync("/api/topologies/validate", new StringContent(mismatched, Encoding.UTF8, "application/json"));
                 var validateBody = await validate.Content.ReadAsStringAsync();
-            // Assert
+
+                // Assert
                 Assert.AreEqual(HttpStatusCode.UnprocessableEntity, validate.StatusCode, validateBody);
                 StringAssert.Contains(validateBody, "SetDigitalOutput", "The refusal must name what was compared, not just that the pairing is wrong.");
                 StringAssert.Contains(validateBody, "GridDemandReceived");
@@ -344,7 +347,7 @@ namespace Vion.Dale.DevHost.Test
 
                 var touched = store.Save("plain", PlainTopologyJson(""", "contractPairings": []"""));
 
-            // Assert
+                // Assert
                 Assert.AreEqual(withoutKey, File.ReadAllText(touched), "An empty pairing list must save exactly as no pairing list at all.");
                 StringAssert.DoesNotMatch(File.ReadAllText(touched), new System.Text.RegularExpressions.Regex("contractPairings"));
             }
@@ -375,7 +378,8 @@ namespace Vion.Dale.DevHost.Test
                 var edited = store.Save("bench", TopologyJson("bench", pairing, true));
 
                 var reparsed = DevTopologyFile.Parse(File.ReadAllText(edited));
-            // Assert
+
+                // Assert
                 Assert.HasCount(4, reparsed.LogicBlockInstances!, "The unrelated edit added a fourth block.");
                 Assert.HasCount(1, reparsed.ContractPairings!, "An unrelated edit must not drop the pairing.");
                 Assert.AreEqual("OutputChannel", reparsed.ContractPairings![0].B!.ContractIdentifier);
@@ -383,6 +387,52 @@ namespace Vion.Dale.DevHost.Test
             finally
             {
                 Directory.Delete(directory, true);
+            }
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-014.14")]
+        public async Task RefusePairingNamingContractConfigTimeGatingExcluded()
+        {
+            // Arrange - GatedIo binds Spare only WHILE its instantiation parameter says so, and a pairing is
+            // resolved against the endpoints the BUILT configuration settled, after gating. Both topologies
+            // are otherwise identical, so the parameter is the only thing that moves.
+            const string body = """
+                                {
+                                  "id": "gated-pair",
+                                  "logicBlockInstances": [
+                                    { "typeFullName": "Vion.Dale.DevHost.Test.GatedIoBlock", "name": "GatedIo", "instantiationParameters": { "SpareCount": {0} } },
+                                    { "typeFullName": "Vion.Dale.DevHost.SmokeHost.LogicBlocks.IdealIoBlock", "name": "IdealIo" }
+                                  ],
+                                  "contractPairings": [
+                                    { "a": { "logicBlockName": "GatedIo", "contractIdentifier": "Spare" },
+                                      "b": { "logicBlockName": "IdealIo", "contractIdentifier": "InputChannel" } }
+                                  ]
+                                }
+                                """;
+
+            // Act - the endpoints a pairing addresses are the ones the BUILT configuration carries, and a
+            // gate resolves when the block binds, so both files build; the wire-type pass at host load is
+            // where the excluded contract has no handler to join.
+            var included = Host(body.Replace("{0}", "1"));
+            var excluded = Host(body.Replace("{0}", "0"));
+            await included.StartAsync();
+
+            // Assert
+            Assert.HasCount(1, included.Control.GetConfiguration().ContractPairings);
+            var refused = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => excluded.StartAsync());
+            StringAssert.Contains(refused.Message, "has no contract 'Spare'");
+
+            await included.DisposeAsync();
+            await excluded.DisposeAsync();
+
+            static IDevHost Host(string topology)
+            {
+                return DevHostBuilder.Create()
+                                     .WithDi<GatedIoDependencyInjection>()
+                                     .WithDi<SmokeHost.DependencyInjection>()
+                                     .WithConfiguration(DevTopologyLoader.Build(DevTopologyFile.Parse(topology)))
+                                     .Build();
             }
         }
 
@@ -435,52 +485,6 @@ namespace Vion.Dale.DevHost.Test
             return $$"""
                      { "id": "plain", "logicBlockInstances": [ { "typeFullName": "{{IoBlockType}}", "name": "IoBlock" } ]{{extraField}} }
                      """;
-        }
-
-        [TestMethod]
-        [TestProperty("spec", "AC-SCEN-014.14")]
-        public async Task RefusePairingNamingContractConfigTimeGatingExcluded()
-        {
-            // Arrange - GatedIo binds Spare only WHILE its instantiation parameter says so, and a pairing is
-            // resolved against the endpoints the BUILT configuration settled, after gating. Both topologies
-            // are otherwise identical, so the parameter is the only thing that moves.
-            const string body = """
-                                {
-                                  "id": "gated-pair",
-                                  "logicBlockInstances": [
-                                    { "typeFullName": "Vion.Dale.DevHost.Test.GatedIoBlock", "name": "GatedIo", "instantiationParameters": { "SpareCount": {0} } },
-                                    { "typeFullName": "Vion.Dale.DevHost.SmokeHost.LogicBlocks.IdealIoBlock", "name": "IdealIo" }
-                                  ],
-                                  "contractPairings": [
-                                    { "a": { "logicBlockName": "GatedIo", "contractIdentifier": "Spare" },
-                                      "b": { "logicBlockName": "IdealIo", "contractIdentifier": "InputChannel" } }
-                                  ]
-                                }
-                                """;
-
-            // Act - the endpoints a pairing addresses are the ones the BUILT configuration carries, and a
-            // gate resolves when the block binds, so both files build; the wire-type pass at host load is
-            // where the excluded contract has no handler to join.
-            var included = Host(body.Replace("{0}", "1"));
-            var excluded = Host(body.Replace("{0}", "0"));
-            await included.StartAsync();
-
-            // Assert
-            Assert.HasCount(1, included.Control.GetConfiguration().ContractPairings);
-            var refused = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => excluded.StartAsync());
-            StringAssert.Contains(refused.Message, "has no contract 'Spare'");
-
-            await included.DisposeAsync();
-            await excluded.DisposeAsync();
-
-            static IDevHost Host(string topology)
-            {
-                return DevHostBuilder.Create()
-                                     .WithDi<GatedIoDependencyInjection>()
-                                     .WithDi<SmokeHost.DependencyInjection>()
-                                     .WithConfiguration(DevTopologyLoader.Build(DevTopologyFile.Parse(topology)))
-                                     .Build();
-            }
         }
 
         private static DevTopologyFile Topology(string pairings)

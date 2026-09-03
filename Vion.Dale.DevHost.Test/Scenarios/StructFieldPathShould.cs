@@ -295,10 +295,10 @@ namespace Vion.Dale.DevHost.Test
                                                   }
                                                   """);
 
-            // Act
+                // Act
                 var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
-            // Assert
+                // Assert
                 Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, $"run {run}: {Join(report)}");
                 StringAssert.Contains(report.Steps[0].Detail, "virtual s", $"run {run}: {report.Steps[0].Detail}");
             }
@@ -361,14 +361,10 @@ namespace Vion.Dale.DevHost.Test
 
             // Act
             var leafErrors = new List<string>();
-            resolver.ResolveStep(new ScenarioStep { WaitUntil = new ScenarioWaitUntil { Property = "Nullable.Reading.L1", Above = Json("1") } },
-                                 "steps[0]",
-                                 leafErrors);
+            resolver.ResolveStep(new ScenarioStep { WaitUntil = new ScenarioWaitUntil { Property = "Nullable.Reading.L1", Above = Json("1") } }, "steps[0]", leafErrors);
 
             var wholeErrors = new List<string>();
-            resolver.ResolveStep(new ScenarioStep { WaitUntil = new ScenarioWaitUntil { Property = "Nullable.Reading", EqualTo = Json("1") } },
-                                 "steps[1]",
-                                 wholeErrors);
+            resolver.ResolveStep(new ScenarioStep { WaitUntil = new ScenarioWaitUntil { Property = "Nullable.Reading", EqualTo = Json("1") } }, "steps[1]", wholeErrors);
 
             // Assert
             Assert.IsEmpty(leafErrors, string.Join("; ", leafErrors));

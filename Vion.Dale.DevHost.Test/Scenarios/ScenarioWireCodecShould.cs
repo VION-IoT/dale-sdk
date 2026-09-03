@@ -27,6 +27,7 @@ namespace Vion.Dale.DevHost.Test
         {
             // Arrange / Act
             var codec = ScenarioWireCodec.ForHandler(typeof(ScalarInputHandlerStub))!;
+
             // Assert
             Assert.IsTrue(codec.CanDrive);
             Assert.IsFalse(codec.CanAssert);
@@ -48,6 +49,7 @@ namespace Vion.Dale.DevHost.Test
             var message = codec.MakeInbound(ContractId, Json("""{ "valid": true, "scope": "PerPhase", "activePowerW": 1500 }"""));
 
             var demand = ((ContractMessage<DemandChanged>)message).Data;
+
             // Assert
             Assert.IsTrue(demand.Valid);
             Assert.AreEqual(DemandScope.PerPhase, demand.Scope);
@@ -60,6 +62,7 @@ namespace Vion.Dale.DevHost.Test
         {
             // Arrange / Act
             var codec = ScenarioWireCodec.ForHandler(typeof(ScalarOutputHandlerStub))!;
+
             // Assert
             Assert.IsTrue(codec.CanAssert);
             Assert.IsFalse(codec.CanDrive);

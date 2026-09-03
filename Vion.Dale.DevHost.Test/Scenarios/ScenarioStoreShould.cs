@@ -44,8 +44,7 @@ namespace Vion.Dale.DevHost.Test
         {
             // Arrange
             var directory = NewDirectory();
-            File.WriteAllText(Path.Combine(directory, "inside.topology.json"),
-                              """{ "id": "inside", "logicBlockInstances": [{ "typeFullName": "X.Y", "name": "A" }] }""");
+            File.WriteAllText(Path.Combine(directory, "inside.topology.json"), """{ "id": "inside", "logicBlockInstances": [{ "typeFullName": "X.Y", "name": "A" }] }""");
             var store = new DevTopologyStore(directory);
 
             // Act / Assert

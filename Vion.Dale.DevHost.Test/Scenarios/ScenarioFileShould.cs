@@ -70,12 +70,15 @@ namespace Vion.Dale.DevHost.Test
         [DataRow("""{ "version": 1, "id": "x", "topology": "t", "watch": ["  "] }""", "watch[0]: empty name path", DisplayName = "watch entry, whitespace")]
         [DataRow("""{ "version": 1, "id": "x", "topology": "t", "judge": [{ "text": "  " }] }""", "judge[0]: text is required", DisplayName = "judge text, whitespace")]
         [DataRow("""{ "version": 1, "id": "x", "topology": "t", "steps": [{ "set": "  ", "value": 1 }] }""", "set: empty name path", DisplayName = "set path, whitespace")]
-        [DataRow("""{ "version": 1, "id": "x", "topology": "t", "steps": [{ "settle": { "until": ["  "] } }] }""", "settle.until[0]: empty name path",
+        [DataRow("""{ "version": 1, "id": "x", "topology": "t", "steps": [{ "settle": { "until": ["  "] } }] }""",
+                 "settle.until[0]: empty name path",
                  DisplayName = "settle.until entry, whitespace")]
         [DataRow("""{ "version": 1, "id": "x", "topology": "t", "steps": [{ "serviceProviderSet": { "logicBlock": "  ", "contract": "C" }, "value": 1 }] }""",
-                 "serviceProviderSet.logicBlock is required", DisplayName = "drive block, whitespace")]
+                 "serviceProviderSet.logicBlock is required",
+                 DisplayName = "drive block, whitespace")]
         [DataRow("""{ "version": 1, "id": "x", "topology": "t", "steps": [{ "serviceProviderSet": { "logicBlock": "B", "contract": "  " }, "value": 1 }] }""",
-                 "serviceProviderSet.contract is required", DisplayName = "drive contract, whitespace")]
+                 "serviceProviderSet.contract is required",
+                 DisplayName = "drive contract, whitespace")]
         public void RejectEmptyOrWhitespaceRequiredString(string json, string expectedError)
         {
             // Arrange / Act
@@ -356,7 +359,8 @@ namespace Vion.Dale.DevHost.Test
         [DataRow("""{ "waitUntil": { "property": "A.B", "above": "x" } }""", "waitUntil.above must be a number", DisplayName = "waitUntil above, string")]
         [DataRow("""{ "waitUntil": { "property": "A.B", "below": true } }""", "waitUntil.below must be a number", DisplayName = "waitUntil below, boolean")]
         [DataRow("""{ "waitUntil": { "property": "A.B", "above": { "path": "C.D" } } }""", "waitUntil.above must be a number", DisplayName = "waitUntil above, path form")]
-        [DataRow("""{ "serviceProviderExpect": { "logicBlock": "B", "contract": "C", "above": "x" } }""", "serviceProviderExpect.above must be a number",
+        [DataRow("""{ "serviceProviderExpect": { "logicBlock": "B", "contract": "C", "above": "x" } }""",
+                 "serviceProviderExpect.above must be a number",
                  DisplayName = "output assert above, string")]
         public void RejectNonNumericRelationalComparand(string step, string expectedError)
         {
@@ -410,10 +414,10 @@ namespace Vion.Dale.DevHost.Test
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-004.5")]
         [DataRow("""{ "waitUntil": { "property": "A.B", "equals": 1, "tolerance": -0.5 } }""", "tolerance must be non-negative", DisplayName = "negative")]
-        [DataRow("""{ "waitUntil": { "property": "A.B", "equals": "Foo", "tolerance": 1 } }""", "tolerance is only valid with a numeric equals",
+        [DataRow("""{ "waitUntil": { "property": "A.B", "equals": "Foo", "tolerance": 1 } }""",
+                 "tolerance is only valid with a numeric equals",
                  DisplayName = "with a string equals")]
-        [DataRow("""{ "waitUntil": { "property": "A.B", "equals": null, "tolerance": 1 } }""", "tolerance is only valid with a numeric equals",
-                 DisplayName = "with a null equals")]
+        [DataRow("""{ "waitUntil": { "property": "A.B", "equals": null, "tolerance": 1 } }""", "tolerance is only valid with a numeric equals", DisplayName = "with a null equals")]
         [DataRow("""{ "waitUntil": { "property": "A.B", "oneOf": [1], "tolerance": 1 } }""", "tolerance is only valid with a numeric equals", DisplayName = "with oneOf")]
         [DataRow("""{ "waitUntil": { "property": "A.B", "above": 1, "tolerance": 1 } }""", "tolerance is only valid with a numeric equals", DisplayName = "with above")]
         public void RejectToleranceModifyingNothingNumeric(string step, string expectedError)
@@ -476,11 +480,11 @@ namespace Vion.Dale.DevHost.Test
         {
             // Arrange / Act
             var refused = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse($$"""
-                                                                                                  {
-                                                                                                    "version": 1, "id": "x", "topology": "t",
-                                                                                                    "steps": [{ "serviceProviderExpect": { "logicBlock": "B", "contract": "C", "field": "{{field}}", "equals": 1 } }]
-                                                                                                  }
-                                                                                                  """));
+                                                                                                   {
+                                                                                                     "version": 1, "id": "x", "topology": "t",
+                                                                                                     "steps": [{ "serviceProviderExpect": { "logicBlock": "B", "contract": "C", "field": "{{field}}", "equals": 1 } }]
+                                                                                                   }
+                                                                                                   """));
 
             // Assert
             Assert.IsTrue(refused.Errors.Any(m => m.Contains("field is not a field path")), string.Join("; ", refused.Errors));

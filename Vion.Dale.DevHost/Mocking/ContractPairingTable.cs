@@ -15,7 +15,7 @@ namespace Vion.Dale.DevHost.Mocking
 
     /// <summary>
     ///     The pairing lookup a <see cref="ServiceProviderContractHandler" /> consults after capturing a command
-    ///    : <c>(handler actor name, endpoint)</c> → the peer stand-in and endpoint the captured
+    ///     : <c>(handler actor name, endpoint)</c> → the peer stand-in and endpoint the captured
     ///     value is re-driven onto. One entry per materialised DIRECTION, so a pairing that is type-identical
     ///     both ways yields two, and a one-way pairing (a provider face that only drives, like
     ///     <c>IDigitalInputProvider</c>) yields one.

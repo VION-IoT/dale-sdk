@@ -55,6 +55,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
             Assert.AreEqual("== true", report.Steps[4].Argument);
             Assert.AreEqual("== 3.3 ±0.001", report.Steps[5].Argument);
         }
+
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-004.7")]
         public async Task HoldForEveryComparatorOnOutputs()
@@ -85,6 +86,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
             // Assert
             Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
         }
+
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-009.13")]
         public async Task FailLoudlyWhenOutputDoesNotHold()
@@ -111,6 +113,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
             Assert.AreEqual(ScenarioRunStatus.Failed, report.Status, Join(report));
             StringAssert.Contains(report.Steps[1].Detail!, "expected io.ActiveOutput to equal true");
         }
+
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-007.4")]
         public async Task ResolveOutputAndRejectExpectOnInput()
@@ -144,6 +147,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
             StringAssert.Contains(inputErrors[0], "nothing to assert");
             StringAssert.Contains(inputErrors[0], "serviceProviderSet");
         }
+
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-007.6")]
         [TestCategory("Smoke")]
@@ -180,6 +184,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
             Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
             Assert.AreEqual("grid.Setpoint.limits.activePowerW", report.Steps[5].Target, "the field belongs in the reported target, not only in the step body");
         }
+
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-007.6")]
         public async Task FailMultiFieldCommandWithNoFieldSelector()
@@ -212,6 +217,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
             StringAssert.Contains(error, "multi-field command");
             StringAssert.Contains(error, "limits.activePowerW", StringComparison.Ordinal, "the error must name the fields that can be addressed");
         }
+
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-009.12")]
         public async Task FailOutputNeverWritten()
@@ -239,6 +245,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
             Assert.AreEqual(ScenarioRunStatus.Failed, report.Status, Join(report));
             StringAssert.Contains(report.Steps[0].Detail!, "has not written this contract yet");
         }
+
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-007.6")]
         public async Task RejectMisspelledFieldAndOneLandingOnNestedStruct()
@@ -268,6 +275,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
             Assert.IsNotEmpty(wholeStruct);
             StringAssert.Contains(wholeStruct[0], "has no field 'limits'");
         }
+
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-007.6")]
         public async Task RejectFieldOnSingleValueOutput()
@@ -290,6 +298,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
             Assert.IsNotEmpty(errors);
             StringAssert.Contains(errors[0], "writes a single value");
         }
+
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-009.12")]
         public async Task FailFieldAbsentFromCapturedCommand()
@@ -320,6 +329,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
             StringAssert.Contains(report.Steps[1].Detail!, "field 'limits.activePowerW' is not a scalar of the last written command");
             StringAssert.Contains(report.Steps[1].Detail!, "\"limits\":null", StringComparison.Ordinal, "the captured command is shown so the author can see why");
         }
+
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-007.8")]
         public async Task StandDownStaticFieldCheckWhenContractUndescribed()
@@ -350,6 +360,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
             Assert.IsEmpty(errors, string.Join("; ", errors));
             CollectionAssert.AreEqual(new[] { "anything", "at", "all" }, resolved.Contract!.FieldPath!.ToArray());
         }
+
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-007.9")]
         public async Task DemandNoFieldOfContractAlsoDrivable()
@@ -375,6 +386,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
             // Assert
             Assert.IsEmpty(errors, string.Join("; ", errors));
         }
+
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-007.5")]
         [TestCategory("Smoke")]
@@ -419,6 +431,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
             Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, Join(report));
             Assert.AreEqual("plant.Control.valid", report.Steps[3].Target, "the assert names the field it read, on the same contract the first step drove");
         }
+
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-009.12")]
         public async Task ReadMultiFieldCommandAsUnreadableRatherThanNull()
@@ -463,6 +476,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
             var missing = host.Control.ReadServiceProviderOutput(endpoint.Sp, endpoint.Svc, endpoint.Contract, ["nope"]);
             Assert.AreEqual(ServiceProviderOutputState.Unreadable, missing.State);
         }
+
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-007.6")]
         [TestCategory("Smoke")]

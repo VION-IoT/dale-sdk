@@ -32,8 +32,6 @@ namespace Vion.Dale.DevHost.Topologies
 
         private static readonly Regex IdSlug = new("^[A-Za-z0-9][A-Za-z0-9._-]*$", RegexOptions.Compiled);
 
-        private readonly IReadOnlyList<TopologyContractPairing>? _contractPairings;
-
         internal static readonly JsonSerializerOptions SerializerOptions = new()
                                                                            {
                                                                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -41,6 +39,8 @@ namespace Vion.Dale.DevHost.Topologies
                                                                                AllowDuplicateProperties = false,
                                                                                WriteIndented = true,
                                                                            };
+
+        private readonly IReadOnlyList<TopologyContractPairing>? _contractPairings;
 
         [JsonPropertyName("$schema")]
         public string? Schema { get; init; }
@@ -71,6 +71,7 @@ namespace Vion.Dale.DevHost.Topologies
         public IReadOnlyList<TopologyContractPairing>? ContractPairings
         {
             get => _contractPairings is { Count: > 0 } ? _contractPairings : null;
+
             init => _contractPairings = value;
         }
 
@@ -236,6 +237,7 @@ namespace Vion.Dale.DevHost.Topologies
                                                                                                               MappedContractIdentifier = cm.MappedContractIdentifier,
                                                                                                           }))
                                                        .ToList(),
+
                        // No empty-check needed: ContractPairings collapses an empty list to none itself.
                        ContractPairings = configuration.ContractPairings
                                                        .Select(cp => new TopologyContractPairing
@@ -297,6 +299,7 @@ namespace Vion.Dale.DevHost.Topologies
         public IReadOnlyDictionary<string, JsonNode>? InstantiationParameters
         {
             get => _instantiationParameters is { Count: > 0 } ? _instantiationParameters : null;
+
             init => _instantiationParameters = value;
         }
     }

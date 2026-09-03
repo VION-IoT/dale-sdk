@@ -90,7 +90,6 @@ namespace Vion.Dale.DevHost.Test
             var exported = DevTopologyFile.FromConfiguration(host.Control.GetConfiguration());
             var reloaded = DevTopologyLoader.Build(DevTopologyFile.Parse(exported.ToJson()));
 
-
             // Assert
             Assert.AreEqual("round-trip", reloaded.TopologyName);
             CollectionAssert.AreEquivalent(preset.LogicBlocks.Select(b => b.Name).ToList(), reloaded.LogicBlocks.Select(b => b.Name).ToList());
@@ -328,7 +327,7 @@ namespace Vion.Dale.DevHost.Test
 
                 var saved = File.ReadAllText(path);
 
-            // Assert
+                // Assert
                 StringAssert.Contains(saved, "instantiationParameters");
 
                 var reparsed = DevTopologyFile.Parse(saved);
@@ -353,7 +352,6 @@ namespace Vion.Dale.DevHost.Test
 
             using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
             var response = await client.GetAsync("/api/topologies/schema");
-
 
             // Assert
             Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);

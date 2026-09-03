@@ -126,6 +126,7 @@ namespace Vion.Dale.DevHost.Test
             var file = DefaultTopologyGenerator.ToTopologyFile(config);
 
             var typeNames = file.LogicBlockInstances!.Select(i => i.TypeFullName).ToList();
+
             // Assert
             CollectionAssert.Contains(typeNames, typeof(SourceBlock).FullName);
             CollectionAssert.Contains(typeNames, typeof(SinkBlock).FullName);
@@ -171,7 +172,7 @@ namespace Vion.Dale.DevHost.Test
             {
                 var path = DefaultTopologyGenerator.WriteDefault(new[] { typeof(SourceBlock), typeof(SinkBlock) }, dir);
 
-            // Assert
+                // Assert
                 Assert.IsTrue(File.Exists(path), "topology file should be written to disk");
                 Assert.IsTrue(path.EndsWith("default" + DevTopologyFile.FileSuffix, StringComparison.OrdinalIgnoreCase));
 
@@ -213,7 +214,7 @@ namespace Vion.Dale.DevHost.Test
                 // WriteDefault should return the same path without touching the file.
                 var returned = DefaultTopologyGenerator.WriteDefault(new[] { typeof(SourceBlock), typeof(SinkBlock) }, dir);
 
-            // Assert
+                // Assert
                 Assert.AreEqual(existingPath, returned, StringComparer.OrdinalIgnoreCase);
                 Assert.AreEqual(sentinelContent, File.ReadAllText(existingPath), "existing file must not be overwritten");
             }

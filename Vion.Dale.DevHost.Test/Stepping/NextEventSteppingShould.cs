@@ -153,11 +153,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
         {
             var config = DevConfigurationBuilder.Create().AddLogicBlock<TBlock>(name).Build();
 
-            return DevHostBuilder.Create()
-                                 .WithDi<TDi>()
-                                 .WithConfiguration(config)
-                                 .ConfigureServices(s => s.AddSingleton<TimeProvider>(clock))
-                                 .Build();
+            return DevHostBuilder.Create().WithDi<TDi>().WithConfiguration(config).ConfigureServices(s => s.AddSingleton<TimeProvider>(clock)).Build();
         }
     }
 

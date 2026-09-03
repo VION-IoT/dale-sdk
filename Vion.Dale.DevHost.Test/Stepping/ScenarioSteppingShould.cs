@@ -46,15 +46,15 @@ namespace Vion.Dale.DevHost.Test.Stepping
                 await using var host = BuildTickerHost(NewClock());
                 await host.StartAsync();
                 var report = await ScenarioRunner.RunAsync(ScenarioFile.Parse("""
-                                                                    {
-                                                                      "version": 1, "id": "advance-ticker", "topology": "stepping-topology",
-                                                                      "watch": ["Ticker.Ticks"],
-                                                                      "steps": [
-                                                                        { "advance": { "seconds": 3 } },
-                                                                        { "waitUntil": { "property": "Ticker.Ticks", "above": 2 }, "timeoutSeconds": 1 }
-                                                                      ]
-                                                                    }
-                                                                    """),
+                                                                              {
+                                                                                "version": 1, "id": "advance-ticker", "topology": "stepping-topology",
+                                                                                "watch": ["Ticker.Ticks"],
+                                                                                "steps": [
+                                                                                  { "advance": { "seconds": 3 } },
+                                                                                  { "waitUntil": { "property": "Ticker.Ticks", "above": 2 }, "timeoutSeconds": 1 }
+                                                                                ]
+                                                                              }
+                                                                              """),
                                                            host.Control);
                 Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, $"run {run}: {Join(report)}");
                 ticks[run] = (int)host.Control.GetProperty("Ticker", "Ticks")!;
@@ -75,12 +75,12 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
             // Act
             var report = await ScenarioRunner.RunAsync(ScenarioFile.Parse("""
-                                                                {
-                                                                  "version": 1, "id": "advance-real-clock", "topology": "stepping-topology",
-                                                                  "watch": ["Ticker.Ticks"],
-                                                                  "steps": [ { "advance": { "seconds": 1.5 } } ]
-                                                                }
-                                                                """),
+                                                                          {
+                                                                            "version": 1, "id": "advance-real-clock", "topology": "stepping-topology",
+                                                                            "watch": ["Ticker.Ticks"],
+                                                                            "steps": [ { "advance": { "seconds": 1.5 } } ]
+                                                                          }
+                                                                          """),
                                                        host.Control);
 
             // Assert — the world moved rather than freezing, and the detail says which clock was spent.
@@ -139,14 +139,14 @@ namespace Vion.Dale.DevHost.Test.Stepping
             // Act
             var startedAt = host.Control.VirtualTimeUtc;
             var report = await ScenarioRunner.RunAsync(ScenarioFile.Parse("""
-                                                                {
-                                                                  "version": 1, "id": "epoch", "topology": "stepping-topology",
-                                                                  "steps": [
-                                                                    { "advance": { "seconds": 3 } },
-                                                                    { "expect": { "property": "Ticker.Ticks", "equals": 3 } }
-                                                                  ]
-                                                                }
-                                                                """),
+                                                                          {
+                                                                            "version": 1, "id": "epoch", "topology": "stepping-topology",
+                                                                            "steps": [
+                                                                              { "advance": { "seconds": 3 } },
+                                                                              { "expect": { "property": "Ticker.Ticks", "equals": 3 } }
+                                                                            ]
+                                                                          }
+                                                                          """),
                                                        host.Control);
 
             // Assert — a stepped run is reproducible only from a stable start, so the epoch is the contract.
@@ -166,11 +166,11 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
             // Act
             var report = await ScenarioRunner.RunAsync(ScenarioFile.Parse("""
-                                                                {
-                                                                  "version": 1, "id": "already", "topology": "stepping-topology",
-                                                                  "steps": [ { "waitUntil": { "property": "Ticker.Ticks", "below": 1 }, "timeoutSeconds": 5 } ]
-                                                                }
-                                                                """),
+                                                                          {
+                                                                            "version": 1, "id": "already", "topology": "stepping-topology",
+                                                                            "steps": [ { "waitUntil": { "property": "Ticker.Ticks", "below": 1 }, "timeoutSeconds": 5 } ]
+                                                                          }
+                                                                          """),
                                                        host.Control);
 
             // Assert — the fast path must not depend on an event arriving after the call.
@@ -191,11 +191,11 @@ namespace Vion.Dale.DevHost.Test.Stepping
             // Act
             var wall = Stopwatch.StartNew();
             var report = await ScenarioRunner.RunAsync(ScenarioFile.Parse("""
-                                                                {
-                                                                  "version": 1, "id": "wait-until-stepped", "topology": "stepping-topology",
-                                                                  "steps": [ { "waitUntil": { "property": "Ticker.Ticks", "above": 2 }, "timeoutSeconds": 5 } ]
-                                                                }
-                                                                """),
+                                                                          {
+                                                                            "version": 1, "id": "wait-until-stepped", "topology": "stepping-topology",
+                                                                            "steps": [ { "waitUntil": { "property": "Ticker.Ticks", "above": 2 }, "timeoutSeconds": 5 } ]
+                                                                          }
+                                                                          """),
                                                        host.Control);
             wall.Stop();
 
@@ -218,11 +218,11 @@ namespace Vion.Dale.DevHost.Test.Stepping
             // Act
             var wall = Stopwatch.StartNew();
             var report = await ScenarioRunner.RunAsync(ScenarioFile.Parse("""
-                                                                {
-                                                                  "version": 1, "id": "wait-until-budget", "topology": "stepping-topology",
-                                                                  "steps": [ { "waitUntil": { "property": "Ticker.Ticks", "above": 998 }, "timeoutSeconds": 5 } ]
-                                                                }
-                                                                """),
+                                                                          {
+                                                                            "version": 1, "id": "wait-until-budget", "topology": "stepping-topology",
+                                                                            "steps": [ { "waitUntil": { "property": "Ticker.Ticks", "above": 998 }, "timeoutSeconds": 5 } ]
+                                                                          }
+                                                                          """),
                                                        host.Control);
             wall.Stop();
 
@@ -242,12 +242,12 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
             // Act
             var report = await ScenarioRunner.RunAsync(ScenarioFile.Parse("""
-                                                                {
-                                                                  "version": 1, "id": "settle-converge", "topology": "stepping-topology",
-                                                                  "watch": ["Latch.Value"],
-                                                                  "steps": [ { "settle": { "maxSeconds": 30 } } ]
-                                                                }
-                                                                """),
+                                                                          {
+                                                                            "version": 1, "id": "settle-converge", "topology": "stepping-topology",
+                                                                            "watch": ["Latch.Value"],
+                                                                            "steps": [ { "settle": { "maxSeconds": 30 } } ]
+                                                                          }
+                                                                          """),
                                                        host.Control);
 
             // Assert
@@ -268,12 +268,12 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
             // Act
             var report = await ScenarioRunner.RunAsync(ScenarioFile.Parse($$"""
-                                                                  {
-                                                                    "version": 1, "id": "settle-budget", "topology": "stepping-topology",
-                                                                    "watch": ["Ticker.Ticks"],
-                                                                    "steps": [{{step}}]
-                                                                  }
-                                                                  """),
+                                                                            {
+                                                                              "version": 1, "id": "settle-budget", "topology": "stepping-topology",
+                                                                              "watch": ["Ticker.Ticks"],
+                                                                              "steps": [{{step}}]
+                                                                            }
+                                                                            """),
                                                        host.Control);
 
             // Assert — a settle that never converges is a failure with a named cause, not a silent pass.
@@ -294,12 +294,12 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
             // Act
             var report = await ScenarioRunner.RunAsync(ScenarioFile.Parse("""
-                                                                {
-                                                                  "version": 1, "id": "settle-until", "topology": "stepping-topology",
-                                                                  "watch": ["Ticker.Ticks", "Latch.Value"],
-                                                                  "steps": [ { "settle": { "until": ["Latch.Value"], "maxSeconds": 30 } } ]
-                                                                }
-                                                                """),
+                                                                          {
+                                                                            "version": 1, "id": "settle-until", "topology": "stepping-topology",
+                                                                            "watch": ["Ticker.Ticks", "Latch.Value"],
+                                                                            "steps": [ { "settle": { "until": ["Latch.Value"], "maxSeconds": 30 } } ]
+                                                                          }
+                                                                          """),
                                                        host.Control);
 
             // Assert — the never-settling watch tile is ignored because the step named its own target.
@@ -318,11 +318,11 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
             // Act
             var report = await ScenarioRunner.RunAsync(ScenarioFile.Parse("""
-                                                                {
-                                                                  "version": 1, "id": "settle-empty-watch", "topology": "stepping-topology",
-                                                                  "steps": [ { "settle": {} } ]
-                                                                }
-                                                                """),
+                                                                          {
+                                                                            "version": 1, "id": "settle-empty-watch", "topology": "stepping-topology",
+                                                                            "steps": [ { "settle": {} } ]
+                                                                          }
+                                                                          """),
                                                        host.Control);
 
             // Assert
@@ -341,11 +341,11 @@ namespace Vion.Dale.DevHost.Test.Stepping
             // Act
             var wall = Stopwatch.StartNew();
             var report = await ScenarioRunner.RunAsync(ScenarioFile.Parse("""
-                                                                {
-                                                                  "version": 1, "id": "settle-virtual-budget", "topology": "stepping-topology",
-                                                                  "steps": [ { "settle": { "until": ["Ticker.Ticks"], "maxSeconds": 3 } } ]
-                                                                }
-                                                                """),
+                                                                          {
+                                                                            "version": 1, "id": "settle-virtual-budget", "topology": "stepping-topology",
+                                                                            "steps": [ { "settle": { "until": ["Ticker.Ticks"], "maxSeconds": 3 } } ]
+                                                                          }
+                                                                          """),
                                                        host.Control);
             wall.Stop();
 
@@ -366,11 +366,11 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
             // Act
             var report = await ScenarioRunner.RunAsync(ScenarioFile.Parse("""
-                                                                {
-                                                                  "version": 1, "id": "settle-until-bad", "topology": "stepping-topology",
-                                                                  "steps": [ { "settle": { "until": ["Ticker.Nonexistent"] } } ]
-                                                                }
-                                                                """),
+                                                                          {
+                                                                            "version": 1, "id": "settle-until-bad", "topology": "stepping-topology",
+                                                                            "steps": [ { "settle": { "until": ["Ticker.Nonexistent"] } } ]
+                                                                          }
+                                                                          """),
                                                        host.Control);
 
             // Assert — a typo must fail up front, never "converge" on an unresolved target that cannot change.
@@ -389,15 +389,15 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
             // Act
             var report = await ScenarioRunner.RunAsync(ScenarioFile.Parse("""
-                                                                {
-                                                                  "version": 1, "id": "watch-trace", "topology": "stepping-topology",
-                                                                  "watch": ["Ticker.Ticks"],
-                                                                  "steps": [
-                                                                    { "advance": { "seconds": 2 } },
-                                                                    { "advance": { "seconds": 1 } }
-                                                                  ]
-                                                                }
-                                                                """),
+                                                                          {
+                                                                            "version": 1, "id": "watch-trace", "topology": "stepping-topology",
+                                                                            "watch": ["Ticker.Ticks"],
+                                                                            "steps": [
+                                                                              { "advance": { "seconds": 2 } },
+                                                                              { "advance": { "seconds": 1 } }
+                                                                            ]
+                                                                          }
+                                                                          """),
                                                        host.Control);
 
             // Assert — one sample after setup, then one per step.
@@ -418,11 +418,11 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
             // Act
             var report = await ScenarioRunner.RunAsync(ScenarioFile.Parse("""
-                                                                {
-                                                                  "version": 1, "id": "no-watch", "topology": "stepping-topology",
-                                                                  "steps": [ { "advance": { "seconds": 2 } } ]
-                                                                }
-                                                                """),
+                                                                          {
+                                                                            "version": 1, "id": "no-watch", "topology": "stepping-topology",
+                                                                            "steps": [ { "advance": { "seconds": 2 } } ]
+                                                                          }
+                                                                          """),
                                                        host.Control);
 
             // Assert
@@ -443,15 +443,15 @@ namespace Vion.Dale.DevHost.Test.Stepping
                 await using var host = BuildTickerHost(NewClock());
                 await host.StartAsync();
                 var report = await ScenarioRunner.RunAsync(ScenarioFile.Parse("""
-                                                                    {
-                                                                      "version": 1, "id": "watch-repro", "topology": "stepping-topology",
-                                                                      "watch": ["Ticker.Ticks"],
-                                                                      "steps": [
-                                                                        { "advance": { "seconds": 2 } },
-                                                                        { "advance": { "seconds": 1 } }
-                                                                      ]
-                                                                    }
-                                                                    """),
+                                                                              {
+                                                                                "version": 1, "id": "watch-repro", "topology": "stepping-topology",
+                                                                                "watch": ["Ticker.Ticks"],
+                                                                                "steps": [
+                                                                                  { "advance": { "seconds": 2 } },
+                                                                                  { "advance": { "seconds": 1 } }
+                                                                                ]
+                                                                              }
+                                                                              """),
                                                            host.Control);
                 Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, $"run {run}: {Join(report)}");
                 traces[run] = string.Join(" | ", report.WatchTrace.Select(s => $"{s.Phase}:{s.StepIndex}:{s.Values["Ticker.Ticks"]}@{s.VirtualElapsedMs}"));
@@ -473,18 +473,18 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
             // Act
             var report = await ScenarioRunner.RunAsync(ScenarioFile.Parse("""
-                                                                {
-                                                                  "version": 1, "id": "described", "topology": "elsewhere",
-                                                                  "setup": [ { "set": "Ticker.Ticks", "value": 1 } ],
-                                                                  "steps": [
-                                                                    { "advance": { "seconds": 2.5 } },
-                                                                    { "settle": { "maxSeconds": 10 } },
-                                                                    { "settle": {} },
-                                                                    { "settle": { "until": ["Ticker.Ticks"] } },
-                                                                    { "waitUntil": { "property": "Ticker.Ticks", "above": 1 } }
-                                                                  ]
-                                                                }
-                                                                """),
+                                                                          {
+                                                                            "version": 1, "id": "described", "topology": "elsewhere",
+                                                                            "setup": [ { "set": "Ticker.Ticks", "value": 1 } ],
+                                                                            "steps": [
+                                                                              { "advance": { "seconds": 2.5 } },
+                                                                              { "settle": { "maxSeconds": 10 } },
+                                                                              { "settle": {} },
+                                                                              { "settle": { "until": ["Ticker.Ticks"] } },
+                                                                              { "waitUntil": { "property": "Ticker.Ticks", "above": 1 } }
+                                                                            ]
+                                                                          }
+                                                                          """),
                                                        host.Control);
 
             // Assert — kind, target and argument are all present before a step runs, and the two omitted

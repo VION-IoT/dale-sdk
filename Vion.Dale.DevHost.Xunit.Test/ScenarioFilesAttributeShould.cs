@@ -101,8 +101,7 @@ namespace Vion.Dale.DevHost.Xunit.Test
             // no topology. Catching those two is `dale scenario validate`'s job in CI, not the runner's.
             var directory = Path.Combine(Path.GetTempPath(), "scen-" + Path.GetRandomFileName());
             Directory.CreateDirectory(directory);
-            File.WriteAllText(Path.Combine(directory, "runnable.scenario.json"),
-                              """{ "version": 1, "id": "runnable", "topology": "default", "title": "Runnable" }""");
+            File.WriteAllText(Path.Combine(directory, "runnable.scenario.json"), """{ "version": 1, "id": "runnable", "topology": "default", "title": "Runnable" }""");
             File.WriteAllText(Path.Combine(directory, "broken.scenario.json"), """{ "version": 1, "id": "broken" """);
             File.WriteAllText(Path.Combine(directory, "homeless.scenario.json"), """{ "version": 1, "id": "homeless", "topology": "" }""");
 

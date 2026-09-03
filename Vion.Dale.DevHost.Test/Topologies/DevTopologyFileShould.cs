@@ -74,11 +74,11 @@ namespace Vion.Dale.DevHost.Test
         {
             // Arrange / Act
             var refused = Assert.ThrowsExactly<InvalidDataException>(() => DevTopologyFile.Parse($$"""
-                                                                                                  {
-                                                                                                    "id": "t", "logicBlockInstances": [{{OneInstance}}],
-                                                                                                    "interfaceMappings": [{{mapping}}]
-                                                                                                  }
-                                                                                                  """));
+                                                                                                   {
+                                                                                                     "id": "t", "logicBlockInstances": [{{OneInstance}}],
+                                                                                                     "interfaceMappings": [{{mapping}}]
+                                                                                                   }
+                                                                                                   """));
 
             // Assert
             StringAssert.Contains(refused.Message, "are all required");
@@ -92,11 +92,11 @@ namespace Vion.Dale.DevHost.Test
         {
             // Arrange / Act
             var refused = Assert.ThrowsExactly<InvalidDataException>(() => DevTopologyFile.Parse($$"""
-                                                                                                  {
-                                                                                                    "id": "t", "logicBlockInstances": [{{OneInstance}}],
-                                                                                                    "contractPairings": [{ "a": {{endpoint}}, "b": { "logicBlockName": "A", "contractIdentifier": "D" } }]
-                                                                                                  }
-                                                                                                  """));
+                                                                                                   {
+                                                                                                     "id": "t", "logicBlockInstances": [{{OneInstance}}],
+                                                                                                     "contractPairings": [{ "a": {{endpoint}}, "b": { "logicBlockName": "A", "contractIdentifier": "D" } }]
+                                                                                                   }
+                                                                                                   """));
 
             // Assert
             StringAssert.Contains(refused.Message, "logicBlockName and contractIdentifier are both required");
@@ -107,7 +107,8 @@ namespace Vion.Dale.DevHost.Test
         [DataRow("""{ "id": "t", "logicBlockInstances": [] }""", "must declare at least one instance", DisplayName = "empty instance list")]
         [DataRow("""{ "id": "t" }""", "must declare at least one instance", DisplayName = "absent instance list")]
         [DataRow("""{ "id": "t", "logicBlockInstances": [{ "typeFullName": "X.Y", "name": "A" }, { "typeFullName": "X.Z", "name": "A" }] }""",
-                 "duplicate instance name 'A'", DisplayName = "duplicate name")]
+                 "duplicate instance name 'A'",
+                 DisplayName = "duplicate name")]
         [DataRow("""{ "id": "t", "logicBlockInstances": [{ "typeFullName": "X.Y", "name": "A.B" }] }""", "must not contain '.'", DisplayName = "name with a dot")]
         public void RejectInstanceListNoNamePathCanAddress(string json, string expectedError)
         {
@@ -121,18 +122,20 @@ namespace Vion.Dale.DevHost.Test
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-014.2")]
         [DataRow("""{ "a": { "logicBlockName": "Z", "contractIdentifier": "C" }, "b": { "logicBlockName": "A", "contractIdentifier": "D" } }""",
-                 "'Z' is not a declared instance", DisplayName = "undeclared instance")]
+                 "'Z' is not a declared instance",
+                 DisplayName = "undeclared instance")]
         [DataRow("""{ "a": { "logicBlockName": "A", "contractIdentifier": "C" }, "b": { "logicBlockName": "A", "contractIdentifier": "C" } }""",
-                 "a pairing joins two distinct endpoints", DisplayName = "coinciding endpoints")]
+                 "a pairing joins two distinct endpoints",
+                 DisplayName = "coinciding endpoints")]
         public void RejectPairingNamingNoWire(string pairing, string expectedError)
         {
             // Arrange / Act
             var refused = Assert.ThrowsExactly<InvalidDataException>(() => DevTopologyFile.Parse($$"""
-                                                                                                  {
-                                                                                                    "id": "t", "logicBlockInstances": [{{OneInstance}}],
-                                                                                                    "contractPairings": [{{pairing}}]
-                                                                                                  }
-                                                                                                  """));
+                                                                                                   {
+                                                                                                     "id": "t", "logicBlockInstances": [{{OneInstance}}],
+                                                                                                     "contractPairings": [{{pairing}}]
+                                                                                                   }
+                                                                                                   """));
 
             // Assert
             StringAssert.Contains(refused.Message, expectedError);
@@ -144,14 +147,14 @@ namespace Vion.Dale.DevHost.Test
         {
             // Arrange / Act
             var refused = Assert.ThrowsExactly<InvalidDataException>(() => DevTopologyFile.Parse($$"""
-                                                                                                  {
-                                                                                                    "id": "t", "logicBlockInstances": [{{OneInstance}}],
-                                                                                                    "interfaceMappings": [
-                                                                                                      { "sourceLogicBlockName": "Z", "sourceInterfaceIdentifier": "I",
-                                                                                                        "targetLogicBlockName": "A", "targetInterfaceIdentifier": "J" }
-                                                                                                    ]
-                                                                                                  }
-                                                                                                  """));
+                                                                                                   {
+                                                                                                     "id": "t", "logicBlockInstances": [{{OneInstance}}],
+                                                                                                     "interfaceMappings": [
+                                                                                                       { "sourceLogicBlockName": "Z", "sourceInterfaceIdentifier": "I",
+                                                                                                         "targetLogicBlockName": "A", "targetInterfaceIdentifier": "J" }
+                                                                                                     ]
+                                                                                                   }
+                                                                                                   """));
 
             // Assert
             StringAssert.Contains(refused.Message, "'Z' is not a declared instance");
@@ -184,13 +187,13 @@ namespace Vion.Dale.DevHost.Test
         {
             // Arrange — an editor that added and then removed a pairing hands back an empty array, and an
             // instance with no gated members hands back an empty parameter map; neither may reach the file.
-            var emptied = DevTopologyFile.Parse($$"""
-                                                 {
-                                                   "id": "t",
-                                                   "logicBlockInstances": [{ "typeFullName": "X.Y", "name": "A", "instantiationParameters": {} }],
-                                                   "contractPairings": []
-                                                 }
-                                                 """);
+            var emptied = DevTopologyFile.Parse("""
+                                                {
+                                                  "id": "t",
+                                                  "logicBlockInstances": [{ "typeFullName": "X.Y", "name": "A", "instantiationParameters": {} }],
+                                                  "contractPairings": []
+                                                }
+                                                """);
 
             // Act
             var json = emptied.ToJson();

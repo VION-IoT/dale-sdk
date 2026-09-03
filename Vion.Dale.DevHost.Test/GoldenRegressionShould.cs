@@ -60,6 +60,7 @@ namespace Vion.Dale.DevHost.Test
 
             // Read the golden file from the output directory.
             var goldenPath = Path.Combine(AppContext.BaseDirectory, "Golden", "feature-tour.scenario.json");
+
             // Assert
             Assert.IsTrue(File.Exists(goldenPath), $"Golden fixture not found at {goldenPath}. Ensure the csproj copies Golden/**/*.json to output.");
             var goldenJson = await File.ReadAllTextAsync(goldenPath);
@@ -137,6 +138,7 @@ namespace Vion.Dale.DevHost.Test
 
             // Read the golden file from the output directory.
             var goldenPath = Path.Combine(AppContext.BaseDirectory, "Golden", "feature-rig.topology.json");
+
             // Assert
             Assert.IsTrue(File.Exists(goldenPath), $"Golden fixture not found at {goldenPath}. Ensure the csproj copies Golden/**/*.json to output.");
             var goldenJson = await File.ReadAllTextAsync(goldenPath);

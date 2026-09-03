@@ -26,6 +26,11 @@ namespace Vion.Dale.Cli.Commands
     /// </summary>
     public static class ScenarioFileChecks
     {
+        // The DevHost's ScenarioFile.MaxDurationSeconds, restated because this validator deliberately does not
+        // reference Vion.Dale.DevHost — it judges an exported configuration, never a loaded host. The
+        // definition-site agreement test compares the two numbers.
+        private const double MaxDurationSeconds = 922337203685;
+
         /// <summary>
         ///     The closed step vocabulary, in the schema's declaration order. One of the four sites that must
         ///     agree on this set (the others: the schema's <c>$defs/step/oneOf</c>, the runner's
@@ -35,11 +40,6 @@ namespace Vion.Dale.Cli.Commands
 
         /// <summary>The subset legal in <c>setup</c> — staging only, no waits, asserts or time steps.</summary>
         public static readonly string[] SetupStepKinds = ["set", "serviceProviderSet"];
-
-        // The DevHost's ScenarioFile.MaxDurationSeconds, restated because this validator deliberately does not
-        // reference Vion.Dale.DevHost — it judges an exported configuration, never a loaded host. The
-        // definition-site agreement test compares the two numbers.
-        private const double MaxDurationSeconds = 922337203685;
 
         private static readonly Regex IdSlug = new("^[A-Za-z0-9][A-Za-z0-9._-]*$", RegexOptions.Compiled);
 

@@ -160,8 +160,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
             // Assert — and the expect itself mutated nothing: the later set never ran, so Counter stays 3.
             Assert.AreEqual(ScenarioRunStatus.Failed, report.Status, Join(report));
-            CollectionAssert.AreEqual(new[] { ScenarioStepStatus.Ok, ScenarioStepStatus.Failed, ScenarioStepStatus.Skipped },
-                                      report.Steps.Select(s => s.Status).ToList());
+            CollectionAssert.AreEqual(new[] { ScenarioStepStatus.Ok, ScenarioStepStatus.Failed, ScenarioStepStatus.Skipped }, report.Steps.Select(s => s.Status).ToList());
             Assert.AreEqual(3, host.Control.GetProperty("Allocator", "Counter"));
         }
 
@@ -170,11 +169,13 @@ namespace Vion.Dale.DevHost.Test.Stepping
         [DataRow("""{ "expect": { "property": "Allocator.Counter", "above": 100 } }""", "expected Counter above 100, but was 42", DisplayName = "above")]
         [DataRow("""{ "expect": { "property": "Allocator.Counter", "below": 10 } }""", "expected Counter below 10, but was 42", DisplayName = "below")]
         [DataRow("""{ "expect": { "property": "Allocator.Counter", "equals": 7 } }""", "expected Counter to equal 7, but was 42", DisplayName = "equals")]
-        [DataRow("""{ "expect": { "property": "Allocator.Counter", "equals": 7, "tolerance": 2 } }""", "expected Counter to equal 7 (±2), but was 42",
+        [DataRow("""{ "expect": { "property": "Allocator.Counter", "equals": 7, "tolerance": 2 } }""",
+                 "expected Counter to equal 7 (±2), but was 42",
                  DisplayName = "equals with tolerance")]
         [DataRow("""{ "expect": { "property": "Allocator.Counter", "notEquals": 42 } }""", "expected Counter to not equal 42, but was 42", DisplayName = "notEquals")]
         [DataRow("""{ "expect": { "property": "Allocator.Counter", "oneOf": [1, 2, 3] } }""", "expected Counter to be one of [1, 2, 3], but was 42", DisplayName = "oneOf")]
-        [DataRow("""{ "expect": { "property": "Allocator.AllocatedCurrent.L1", "equals": 999 } }""", "expected AllocatedCurrent to equal 999, but was 10",
+        [DataRow("""{ "expect": { "property": "Allocator.AllocatedCurrent.L1", "equals": 999 } }""",
+                 "expected AllocatedCurrent to equal 999, but was 10",
                  DisplayName = "struct field leaf")]
         public async Task NameTheTargetTheBoundAndTheActualValueOnFailure(string step, string expectedDetail)
         {

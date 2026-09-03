@@ -111,11 +111,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
         {
             var config = DevConfigurationBuilder.Create().AddLogicBlock<TickerBlock>("ticker").Build();
 
-            return DevHostBuilder.Create()
-                                 .WithDi<TestDependencyInjection>()
-                                 .WithConfiguration(config)
-                                 .ConfigureServices(s => s.AddSingleton<TimeProvider>(clock))
-                                 .Build();
+            return DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).ConfigureServices(s => s.AddSingleton<TimeProvider>(clock)).Build();
         }
     }
 }
