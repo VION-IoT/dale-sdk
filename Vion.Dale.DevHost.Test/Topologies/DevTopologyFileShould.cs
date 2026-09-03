@@ -36,7 +36,7 @@ namespace Vion.Dale.DevHost.Test
         [DataRow("t/u", "URL-safe slug", DisplayName = "separator")]
         [DataRow("schema", "reserved", DisplayName = "reserved, lower case")]
         [DataRow("SCHEMA", "reserved", DisplayName = "reserved, upper case")]
-        public void RejectIdThatIsNotSlugOrIsReserved(string id, string expectedReason)
+        public void RejectNonSlugOrReservedId(string id, string expectedReason)
         {
             // Arrange / Act
             var refused = Assert.ThrowsExactly<InvalidDataException>(() => DevTopologyFile.Parse($$"""{ "id": "{{id}}", "logicBlockInstances": [{{OneInstance}}] }"""));
@@ -51,7 +51,7 @@ namespace Vion.Dale.DevHost.Test
         [DataRow("""{ "typeFullName": "X.Y", "name": "   " }""", "name is required", DisplayName = "instance name, whitespace")]
         [DataRow("""{ "typeFullName": "", "name": "A" }""", "typeFullName is required", DisplayName = "typeFullName, empty")]
         [DataRow("""{ "typeFullName": "  ", "name": "A" }""", "typeFullName is required", DisplayName = "typeFullName, whitespace")]
-        public void RejectInstanceFieldThatIsEmptyOrWhitespace(string instance, string expectedError)
+        public void RejectEmptyOrWhitespaceInstanceField(string instance, string expectedError)
         {
             // Arrange / Act
             var refused = Assert.ThrowsExactly<InvalidDataException>(() => DevTopologyFile.Parse($$"""{ "id": "t", "logicBlockInstances": [{{instance}}] }"""));
@@ -70,7 +70,7 @@ namespace Vion.Dale.DevHost.Test
                  DisplayName = "target block, whitespace")]
         [DataRow("""{ "sourceLogicBlockName": "A", "sourceInterfaceIdentifier": "I", "targetLogicBlockName": "A", "targetInterfaceIdentifier": "  " }""",
                  DisplayName = "target interface, whitespace")]
-        public void RejectInterfaceMappingFieldThatIsWhitespace(string mapping)
+        public void RejectWhitespaceInterfaceMappingField(string mapping)
         {
             // Arrange / Act
             var refused = Assert.ThrowsExactly<InvalidDataException>(() => DevTopologyFile.Parse($$"""
@@ -88,7 +88,7 @@ namespace Vion.Dale.DevHost.Test
         [TestProperty("spec", "AC-SCEN-001.4")]
         [DataRow("""{ "logicBlockName": "  ", "contractIdentifier": "C" }""", DisplayName = "endpoint block, whitespace")]
         [DataRow("""{ "logicBlockName": "A", "contractIdentifier": "  " }""", DisplayName = "endpoint contract, whitespace")]
-        public void RejectPairingEndpointFieldThatIsWhitespace(string endpoint)
+        public void RejectWhitespacePairingEndpointField(string endpoint)
         {
             // Arrange / Act
             var refused = Assert.ThrowsExactly<InvalidDataException>(() => DevTopologyFile.Parse($$"""
@@ -109,7 +109,7 @@ namespace Vion.Dale.DevHost.Test
         [DataRow("""{ "id": "t", "logicBlockInstances": [{ "typeFullName": "X.Y", "name": "A" }, { "typeFullName": "X.Z", "name": "A" }] }""",
                  "duplicate instance name 'A'", DisplayName = "duplicate name")]
         [DataRow("""{ "id": "t", "logicBlockInstances": [{ "typeFullName": "X.Y", "name": "A.B" }] }""", "must not contain '.'", DisplayName = "name with a dot")]
-        public void RejectInstanceListThatCannotBeAddressed(string json, string expectedError)
+        public void RejectInstanceListNoNamePathCanAddress(string json, string expectedError)
         {
             // Arrange / Act
             var refused = Assert.ThrowsExactly<InvalidDataException>(() => DevTopologyFile.Parse(json));
@@ -124,7 +124,7 @@ namespace Vion.Dale.DevHost.Test
                  "'Z' is not a declared instance", DisplayName = "undeclared instance")]
         [DataRow("""{ "a": { "logicBlockName": "A", "contractIdentifier": "C" }, "b": { "logicBlockName": "A", "contractIdentifier": "C" } }""",
                  "a pairing joins two distinct endpoints", DisplayName = "coinciding endpoints")]
-        public void RejectPairingThatNamesNoWire(string pairing, string expectedError)
+        public void RejectPairingNamingNoWire(string pairing, string expectedError)
         {
             // Arrange / Act
             var refused = Assert.ThrowsExactly<InvalidDataException>(() => DevTopologyFile.Parse($$"""

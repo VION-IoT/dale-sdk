@@ -19,7 +19,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
         [TestMethod]
         [TestCategory("Smoke")]
         [TestProperty("spec", "AC-SCEN-008.4")]
-        public async Task DriveMultiFieldNestedStructContractReachingTheConsumingBlock()
+        public async Task DriveMultiFieldNestedStructContractReachingConsumingBlock()
         {
             // Arrange
             await using var host = BuildSteppedGridHost();

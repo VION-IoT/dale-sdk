@@ -69,7 +69,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-012.2")]
-        public async Task AdvanceTheRemainderWhenNoEventFallsAtTheBudgetEnd()
+        public async Task AdvanceRemainderWhenNoEventFallsAtBudgetEnd()
         {
             // Arrange — the only scheduled event is at t=1 s, so a 0.4 s budget contains none of it.
             var clock = new FakeTimeProvider(Epoch);

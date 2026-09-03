@@ -53,7 +53,7 @@ namespace Vion.Dale.DevHost.Test
         [DataRow("a/b", "URL-safe slug", DisplayName = "separator")]
         [DataRow("schema", "reserved", DisplayName = "reserved, lower case")]
         [DataRow("SCHEMA", "reserved", DisplayName = "reserved, upper case")]
-        public void RejectIdThatIsNotSlugOrIsReserved(string id, string expectedReason)
+        public void RejectNonSlugOrReservedId(string id, string expectedReason)
         {
             // Arrange / Act
             var refused = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse($$"""{ "version": 1, "id": "{{id}}", "topology": "t" }"""));
@@ -76,7 +76,7 @@ namespace Vion.Dale.DevHost.Test
                  "serviceProviderSet.logicBlock is required", DisplayName = "drive block, whitespace")]
         [DataRow("""{ "version": 1, "id": "x", "topology": "t", "steps": [{ "serviceProviderSet": { "logicBlock": "B", "contract": "  " }, "value": 1 }] }""",
                  "serviceProviderSet.contract is required", DisplayName = "drive contract, whitespace")]
-        public void RejectRequiredStringThatIsEmptyOrWhitespace(string json, string expectedError)
+        public void RejectEmptyOrWhitespaceRequiredString(string json, string expectedError)
         {
             // Arrange / Act
             var refused = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse(json));
@@ -147,7 +147,7 @@ namespace Vion.Dale.DevHost.Test
         [TestProperty("spec", "AC-SCEN-002.2")]
         [DataRow("""{ "label": "nothing" }""", DisplayName = "no shape")]
         [DataRow("""{ "set": "A.B", "value": 1, "advance": { "seconds": 1 } }""", DisplayName = "two shapes")]
-        public void RejectStepThatIsNotExactlyOneShape(string step)
+        public void RejectStepWithoutExactlyOneShape(string step)
         {
             // Arrange / Act
             var refused = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse($$"""{ "version": 1, "id": "x", "topology": "t", "steps": [{{step}}] }"""));
@@ -229,7 +229,7 @@ namespace Vion.Dale.DevHost.Test
         [DataRow("""{ "expect": { "property": "A.B", "equals": 1 }, "value": 3 }""", "value is not valid on an expect step", DisplayName = "value on expect")]
         [DataRow("""{ "set": "A.B", "value": 1, "timeoutSeconds": 5 }""", "timeoutSeconds is only valid on a waitUntil step", DisplayName = "timeoutSeconds on set")]
         [DataRow("""{ "settle": {}, "timeoutSeconds": 5 }""", "timeoutSeconds is only valid on a waitUntil step", DisplayName = "timeoutSeconds on settle")]
-        public void RejectFieldTheStepKindDoesNotCarry(string step, string expectedError)
+        public void RejectFieldForeignToStepKind(string step, string expectedError)
         {
             // Arrange / Act
             var refused = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse($$"""{ "version": 1, "id": "x", "topology": "t", "steps": [{{step}}] }"""));
@@ -264,7 +264,7 @@ namespace Vion.Dale.DevHost.Test
         [DataRow("""{ "settle": { "maxSeconds": 1e308 } }""", "settle.maxSeconds", DisplayName = "maxSeconds, finite but past the cap")]
         [DataRow("""{ "waitUntil": { "property": "A.B", "above": 1 }, "timeoutSeconds": 1e400 }""", "timeoutSeconds", DisplayName = "timeout, overflows to infinity")]
         [DataRow("""{ "waitUntil": { "property": "A.B", "above": 1 }, "timeoutSeconds": 1e308 }""", "timeoutSeconds", DisplayName = "timeout, finite but past the cap")]
-        public void RejectDurationLongerThanTheRunnerCanSpend(string step, string expectedField)
+        public void RejectDurationLongerThanRunCanSpend(string step, string expectedField)
         {
             // Arrange / Act
             var refused = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse($$"""{ "version": 1, "id": "x", "topology": "t", "steps": [{{step}}] }"""));
@@ -277,7 +277,7 @@ namespace Vion.Dale.DevHost.Test
         [TestProperty("spec", "AC-SCEN-003.2")]
         [DataRow(1e10, DisplayName = "well inside the cap")]
         [DataRow(922337203685d, DisplayName = "exactly at the cap")]
-        public void AcceptDurationTheRunnerCanSpend(double seconds)
+        public void AcceptDurationRunCanSpend(double seconds)
         {
             // Arrange
             var json = $$"""{ "version": 1, "id": "x", "topology": "t", "steps": [{ "advance": { "seconds": {{seconds.ToString("R", CultureInfo.InvariantCulture)}} } }] }""";
@@ -294,7 +294,7 @@ namespace Vion.Dale.DevHost.Test
         [DataRow("""{ "advance": { "seconds": "5" } }""", DisplayName = "advance, quoted")]
         [DataRow("""{ "settle": { "maxSeconds": "5" } }""", DisplayName = "maxSeconds, quoted")]
         [DataRow("""{ "waitUntil": { "property": "A.B", "above": 1 }, "timeoutSeconds": "5" }""", DisplayName = "timeout, quoted")]
-        public void RejectDurationThatIsNotJsonNumber(string step)
+        public void RejectNonNumericDuration(string step)
         {
             // Arrange / Act
             var refused = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse($$"""{ "version": 1, "id": "x", "topology": "t", "steps": [{{step}}] }"""));
@@ -305,7 +305,7 @@ namespace Vion.Dale.DevHost.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-003.5")]
-        public void RejectEmptySettleTargetListButAcceptOmittedOne()
+        public void RejectEmptySettleTargetListWhileAcceptingOmittedOne()
         {
             // Arrange / Act
             var refused = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse("""
@@ -369,7 +369,7 @@ namespace Vion.Dale.DevHost.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-004.3")]
-        public void RejectStructOrArrayComparandButAcceptNull()
+        public void RejectStructOrArrayComparandWhileAcceptingNull()
         {
             // Arrange / Act
             var structComparand = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse("""
@@ -398,7 +398,7 @@ namespace Vion.Dale.DevHost.Test
         [DataRow("""{ "waitUntil": { "property": "A.B", "oneOf": 5 } }""", "must be an array of scalars", DisplayName = "not an array")]
         [DataRow("""{ "waitUntil": { "property": "A.B", "oneOf": [{ "a": 1 }] } }""", "elements must be scalars", DisplayName = "object element")]
         [DataRow("""{ "waitUntil": { "property": "A.B", "oneOf": [[1]] } }""", "elements must be scalars", DisplayName = "array element")]
-        public void RejectOneOfThatIsNotNonEmptyScalarArray(string step, string expectedError)
+        public void RejectOneOfOutsideNonEmptyScalarArray(string step, string expectedError)
         {
             // Arrange / Act
             var refused = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse($$"""{ "version": 1, "id": "x", "topology": "t", "steps": [{{step}}] }"""));
@@ -416,7 +416,7 @@ namespace Vion.Dale.DevHost.Test
                  DisplayName = "with a null equals")]
         [DataRow("""{ "waitUntil": { "property": "A.B", "oneOf": [1], "tolerance": 1 } }""", "tolerance is only valid with a numeric equals", DisplayName = "with oneOf")]
         [DataRow("""{ "waitUntil": { "property": "A.B", "above": 1, "tolerance": 1 } }""", "tolerance is only valid with a numeric equals", DisplayName = "with above")]
-        public void RejectToleranceThatModifiesNothingNumeric(string step, string expectedError)
+        public void RejectToleranceModifyingNothingNumeric(string step, string expectedError)
         {
             // Arrange / Act
             var refused = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse($$"""{ "version": 1, "id": "x", "topology": "t", "steps": [{{step}}] }"""));
@@ -441,7 +441,7 @@ namespace Vion.Dale.DevHost.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-004.6")]
-        public void AcceptRelationalComparandOnlyOnExpectAndOnlyWholeObject()
+        public void AcceptRelationalComparandOnlyOnExpectAsWholeObject()
         {
             // Arrange / Act
             var onExpect = ScenarioFile.Parse("""
@@ -472,7 +472,7 @@ namespace Vion.Dale.DevHost.Test
         [DataRow("a.", DisplayName = "trailing dot")]
         [DataRow(".b", DisplayName = "leading dot")]
         [DataRow("  ", DisplayName = "whitespace")]
-        public void RejectOutputAssertFieldThatIsNotFieldPath(string field)
+        public void RejectMalformedOutputAssertField(string field)
         {
             // Arrange / Act
             var refused = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse($$"""

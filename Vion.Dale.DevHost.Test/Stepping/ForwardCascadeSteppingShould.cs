@@ -23,7 +23,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-012.5")]
-        public async Task DeliverEveryHopOfForwardOnlyCascadeBeforeTheNextAdvance()
+        public async Task DeliverEveryHopOfForwardOnlyCascadeBeforeNextAdvance()
         {
             // Arrange
             var arrivals = new int[Iterations];

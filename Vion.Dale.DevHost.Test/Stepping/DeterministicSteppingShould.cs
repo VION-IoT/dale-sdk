@@ -49,7 +49,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-012.1")]
-        public async Task ReachTheSameTickCountAcrossFreshHosts()
+        public async Task ReachOneTickCountAcrossFreshHosts()
         {
             // Arrange
             var counts = new int[15];
@@ -69,7 +69,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-011.1")]
-        public async Task RefuseToStepRealClockNamingTheProviderAndTheRemedy()
+        public async Task RefuseToStepRealClockNamingProviderAndRemedy()
         {
             // Arrange — no FakeTimeProvider registered, so TimeProvider.System stays in place.
             var config = DevConfigurationBuilder.Create().AddLogicBlock<TickerBlock>("ticker").Build();

@@ -77,7 +77,7 @@ namespace Vion.Dale.DevHost.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-001.3")]
-        public void RefuseInScenarioSchemaTheIdsTheRunnerRefuses()
+        public void RefuseInScenarioSchemaEveryIdRunnerRefuses()
         {
             // Arrange
             var id = ScenarioSchema().GetProperty("properties").GetProperty("id");
@@ -97,7 +97,7 @@ namespace Vion.Dale.DevHost.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-001.3")]
-        public void RefuseInTopologySchemaTheIdsTheParserRefuses()
+        public void RefuseInTopologySchemaEveryIdParserRefuses()
         {
             // Arrange
             var id = TopologySchema().GetProperty("properties").GetProperty("id");
@@ -130,7 +130,7 @@ namespace Vion.Dale.DevHost.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-003.2")]
-        public void BoundEveryDurationInScenarioSchemaAtWhatARunCanSpend()
+        public void BoundEveryDurationInScenarioSchema()
         {
             // Arrange
             var defs = ScenarioSchema().GetProperty("$defs");
@@ -150,7 +150,7 @@ namespace Vion.Dale.DevHost.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-003.2")]
-        public void NameOneDurationBoundInTheValidatorAndTheRunner()
+        public void NameOneDurationBoundInValidatorAndRunner()
         {
             // Arrange
             var source = File.ReadAllText(Path.Combine(RepoRoot(), "Vion.Dale.Cli", "Commands", "ScenarioFileChecks.cs"));
@@ -190,7 +190,7 @@ namespace Vion.Dale.DevHost.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-013.8")]
-        public void AcceptInTopologySchemaEveryInstantiationParameterValueTheLoaderDecodes()
+        public void AcceptInTopologySchemaEveryInstantiationParameterValueLoaderDecodes()
         {
             // Arrange
             var instance = TopologySchema().GetProperty("properties").GetProperty("logicBlockInstances").GetProperty("items");
@@ -215,7 +215,7 @@ namespace Vion.Dale.DevHost.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-015.5")]
-        public void ShipTheCanonicalScenarioSchemaFromEveryServingProject()
+        public void ShipCanonicalScenarioSchemaFromEveryServingProject()
         {
             // Arrange
             var root = RepoRoot();
@@ -231,7 +231,7 @@ namespace Vion.Dale.DevHost.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-015.3")]
-        public void CarryTheCanonicalSchemaInEveryCommittedProjectCopy()
+        public void CarryCanonicalSchemaInEveryCommittedProjectCopy()
         {
             // Arrange — `dale scenario schema` writes the canonical document with one node replaced (the
             // topology's own name-path enum), so every committed copy must equal canonical everywhere else.

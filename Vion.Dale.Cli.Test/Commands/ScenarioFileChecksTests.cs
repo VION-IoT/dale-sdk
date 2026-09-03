@@ -689,7 +689,7 @@ namespace Vion.Dale.Cli.Test.Commands
                  "value is not valid on a serviceProviderExpect step", DisplayName = "value on output assert")]
         [DataRow("""{ "set": "Counter.Counter", "value": 1, "timeoutSeconds": 5 }""", "timeoutSeconds is only valid on a waitUntil step", DisplayName = "timeout on set")]
         [DataRow("""{ "settle": {}, "timeoutSeconds": 5 }""", "timeoutSeconds is only valid on a waitUntil step", DisplayName = "timeout on settle")]
-        public void RefuseFieldTheStepKindDoesNotCarry(string step, string expectedError)
+        public void RefuseFieldForeignToStepKind(string step, string expectedError)
         {
             // Arrange / Act
             var outcome = ScenarioFileChecks.Validate("stray.scenario.json",
@@ -706,7 +706,7 @@ namespace Vion.Dale.Cli.Test.Commands
         [DataRow("""{ "advance": { "seconds": 1e308 } }""", "advance.seconds", DisplayName = "advance, finite but past the cap")]
         [DataRow("""{ "settle": { "maxSeconds": 1e308 } }""", "settle.maxSeconds", DisplayName = "maxSeconds, past the cap")]
         [DataRow("""{ "waitUntil": { "property": "Counter.Counter", "above": 1 }, "timeoutSeconds": 1e308 }""", "timeoutSeconds", DisplayName = "timeout, past the cap")]
-        public void RefuseDurationLongerThanTheRunnerCanSpend(string step, string expectedField)
+        public void RefuseDurationLongerThanRunCanSpend(string step, string expectedField)
         {
             // Arrange / Act
             var outcome = ScenarioFileChecks.Validate("long.scenario.json",
@@ -719,7 +719,7 @@ namespace Vion.Dale.Cli.Test.Commands
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-003.2")]
-        public void AcceptDurationTheRunnerCanSpend()
+        public void AcceptDurationRunCanSpend()
         {
             // Arrange / Act
             var outcome = ScenarioFileChecks.Validate("ok-long.scenario.json",

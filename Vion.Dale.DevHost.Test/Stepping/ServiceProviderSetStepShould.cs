@@ -21,7 +21,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
     {
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-007.1")]
-        public async Task DriveValueInputContractReachingTheConsumingBlock()
+        public async Task DriveValueInputContractReachingConsumingBlock()
         {
             // Arrange
             await using var host = BuildSteppedIoHost();
@@ -50,7 +50,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-007.3")]
-        public async Task ResolveDriveOnTheDeclaredInboundNotOnTheContractsMultiplicity()
+        public async Task ResolveDriveOnDeclaredInboundNotOnContractsMultiplicity()
         {
             // Arrange
             await using var host = BuildSteppedIoHost();

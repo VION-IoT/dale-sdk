@@ -16,7 +16,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
         [TestProperty("spec", "AC-SCEN-011.1")]
         [DataRow(true, DisplayName = "stepping requested")]
         [DataRow(false, DisplayName = "stepping not requested")]
-        public async Task ReportTheClockModeTheWebUiRequested(bool stepped)
+        public async Task ReportClockModeWebUiRequested(bool stepped)
         {
             // Arrange
             var config = DevConfigurationBuilder.Create().WithTopologyName("stepping-topology").AddLogicBlock<TickerBlock>("Ticker").Build();

@@ -91,7 +91,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-011.3")]
-        public async Task RefuseNoStepKindForTheHostsClockMode()
+        public async Task RefuseNoStepKindForHostsClockMode()
         {
             // Arrange — the same three time-sensitive kinds against both clock modes. The criterion states an
             // absence, so what is asserted is that resolution reports nothing about the mode either way.
@@ -130,7 +130,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-011.2")]
-        public async Task StartTheVirtualClockAtFixedEpochAndStepIt()
+        public async Task StartVirtualClockAtFixedEpochAndStepIt()
         {
             // Arrange
             await using var host = BuildSteppedHost();
@@ -209,7 +209,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-011.6")]
-        public async Task FailWaitUntilOnTheVirtualBudget()
+        public async Task FailWaitUntilOnVirtualBudget()
         {
             // Arrange
             await using var host = BuildTickerHost(NewClock());
@@ -310,7 +310,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-011.9")]
-        public async Task ConvergeSettleImmediatelyWhenTheTargetSetIsEmpty()
+        public async Task ConvergeSettleImmediatelyWhenTargetSetEmpty()
         {
             // Arrange — no watch list and no declared target, so there is nothing to stabilise.
             await using var host = BuildTickerHost(NewClock());
@@ -332,7 +332,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-011.10")]
-        public async Task SpendTheSettleBudgetInTheActiveClocksSeconds()
+        public async Task SpendSettleBudgetInActiveClocksSeconds()
         {
             // Arrange — a three-second budget over a target that never settles.
             await using var host = BuildSettleHost(NewClock());
@@ -410,7 +410,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-010.2")]
-        public async Task LeaveTheWatchTraceEmptyWhenNothingIsWatched()
+        public async Task LeaveWatchTraceEmptyWhenNothingWatched()
         {
             // Arrange
             await using var host = BuildTickerHost(NewClock());
@@ -465,7 +465,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-009.7")]
         [TestProperty("spec", "AC-SCEN-003.4")]
-        public async Task DescribeEveryStepAndItsDefaultBudgetBeforeTheRun()
+        public async Task DescribeEveryStepAndItsDefaultBudgetBeforeRun()
         {
             // Arrange — a topology the host is not on, so the report is built and nothing executes.
             await using var host = BuildTickerHost(NewClock());
@@ -499,7 +499,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-012.9")]
-        public async Task ReportWhetherTheSteppedGenerationMovedFromItsBaseline()
+        public async Task ReportWhetherSteppedGenerationMovedFromItsBaseline()
         {
             // Arrange
             await using var host = BuildSteppedHost();
