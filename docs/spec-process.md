@@ -1,4 +1,4 @@
-# Spec-driven development — how to run it
+﻿# Spec-driven development — how to run it
 
 The operational playbook for this repo's spec corpus, change docs, and area passes. Rationale and
 the adoption decisions (D1–D11): the archived change doc
@@ -169,7 +169,7 @@ repo is never half-migrated. One pass, in order:
 
 The protocol is packaged as the `spec-pass` skill; each pass is one change doc + one band-sized
 PR. Order: plugin ABI (done — the pilot) → emission (done) → config gating (done) → introspection +
-identifiers → scenario/stepping/pairing → remainder. `docs/rfcs/` is frozen meanwhile (do not
+identifiers (done) → scenario/stepping/pairing → remainder. `docs/rfcs/` is frozen meanwhile (do not
 cite it in new work) and disappears with the last pass.
 
 ## Dispatching a pass to a fresh session
