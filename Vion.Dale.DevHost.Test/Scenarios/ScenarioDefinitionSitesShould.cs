@@ -189,7 +189,7 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-SCEN-013.13")]
+        [TestProperty("spec", "AC-SCEN-013.8")]
         public void AcceptInTopologySchemaEveryInstantiationParameterValueTheLoaderDecodes()
         {
             // Arrange

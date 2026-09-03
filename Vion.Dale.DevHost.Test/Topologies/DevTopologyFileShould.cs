@@ -119,7 +119,7 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-SCEN-014.3")]
+        [TestProperty("spec", "AC-SCEN-014.2")]
         [DataRow("""{ "a": { "logicBlockName": "Z", "contractIdentifier": "C" }, "b": { "logicBlockName": "A", "contractIdentifier": "D" } }""",
                  "'Z' is not a declared instance", DisplayName = "undeclared instance")]
         [DataRow("""{ "a": { "logicBlockName": "A", "contractIdentifier": "C" }, "b": { "logicBlockName": "A", "contractIdentifier": "C" } }""",
@@ -139,7 +139,7 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-SCEN-014.3")]
+        [TestProperty("spec", "AC-SCEN-013.2")]
         public void RejectInterfaceMappingNamingUndeclaredInstance()
         {
             // Arrange / Act
@@ -179,7 +179,7 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-SCEN-013.12")]
+        [TestProperty("spec", "AC-SCEN-013.7")]
         public void OmitEmptyOptionalCollectionOnSerialization()
         {
             // Arrange — an editor that added and then removed a pairing hands back an empty array, and an
@@ -201,7 +201,7 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-SCEN-013.12")]
+        [TestProperty("spec", "AC-SCEN-013.7")]
         public void KeepPopulatedOptionalCollectionOnSerialization()
         {
             // Arrange
