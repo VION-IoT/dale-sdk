@@ -21,7 +21,10 @@ The order that works:
    the HTTP/runtime surface.
 2. **`devhost-smoke` skill, Tier 2** — the live SPA against the project-referenced
    `Vion.Dale.DevHost.SmokeHost`, driven with chrome-devtools. Unit tests cannot execute the page's JS;
-   nothing else covers it. A subagent can run this.
+   nothing else covers it. A subagent can run this. Drive it through the UI's own controls — click
+   the option, type in the box — never a scripted DOM write: a value set from a script reaches the
+   DOM and not the component's model, so the verdict read back describes the row that was still
+   there. Open the raw view and read the model back before believing an observation.
 3. **A realistic library, not only the fixture.** The SmokeHost's synthetic blocks cover every value
    shape, but they are not a realistic topology. Before handing the change over, boot it against
    `examples/Vion.Examples.Energy` — *"better run it gains the energy examples (with project

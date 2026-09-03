@@ -11,7 +11,10 @@ tests and page **mutually consistent**: defects the extraction finds are fixed i
 parked elsewhere. Two phases with a hard operator STOP between them. The brief that dispatched you
 names: the **area code**, the **scope** as folders and projects (never a transcribed file list —
 two passes running, the brief's file and descriptor counts were the thing that was wrong; count
-them yourself and record a Drift checkpoint where the brief differs), the **anchor kinds**
+them yourself and record a Drift checkpoint where the brief differs — and the **test scope** the
+same way, as the test project's folders with the suites another page owns named by their
+citations, never a list of files: the brief that listed suites missed three in the area's own
+project), the **anchor kinds**
 (attributes, descriptor ranges, schema, manifest — you enumerate the instances; an anchor kind that
 turns out empty, such as an attribute with no named parameters, is a Drift checkpoint, not a row),
 the **RFCs to absorb** (often none), the **spec page path**, and the **attempt number**. Decisions
@@ -87,7 +90,10 @@ edits, no fixes, no Jira writes in this phase** — reading and one document onl
      area-local → AC worded for the correct behavior, fixed in Phase B) · `park` (a defect too big
      or too far-reaching for this pass → one line in `docs/specs/_findings.md`) · `out-of-spec`
      (implementation shape, not contract). One-line **Why** each. A row that *names a harm* names
-     the consumer that suffers it by `file:line`, or it is a guess wearing evidence's clothes.
+     the consumer that suffers it by `file:line`, or it is a guess wearing evidence's clothes. A
+     `park` rec that rests on a member's *history* — added last, newer than its siblings — has no
+     evidence column: recency is not a reason to treat a member differently (an operator overruled
+     one such park; the fix was four lines and retired two special cases).
    - A `fix`/`park` rec is flagged `⚠` and gets a two-line failure sketch under the table.
 8. **Map every existing test in scope** to a row; tests mapping to no row go in an
    *unmapped tests* list (Phase B merge/delete candidates).
@@ -112,7 +118,16 @@ finding the operator actively schedules. Do not proceed to Phase B without the c
 ## Phase B — implement the classified table
 
 1. Flip the doc `in-flight`. Mint ids `AC-<CODE>-NNN.M` (umbrella per behavior cluster, leaves per
-   criterion) and author the Spec-delta lines targeting the brief's page path. A criterion you
+   criterion) and author the Spec-delta lines targeting the brief's page path. **Minting is a
+   consolidation.** Extraction and specification want different granularities: the sweeps
+   over-produce rows on purpose, and the page states one criterion per *rule*, with the fields,
+   tokens or sites the rule ranges over as the `[DataRow]`s of its test — never one criterion per
+   field. A family of schema mirrors folds into the rule they mirror; a doc-comment defect row is
+   a fix without a criterion; a row another page owns is cited there, never re-minted. Aim for
+   roughly half the classified rows as criteria, and record a **consolidation map** (row →
+   criterion, or row → the line saying why it mints nothing) in the change doc, so no classified
+   row vanishes silently — the critic checks it, and a row with neither is a blocker (230 rows
+   became 135 criteria without losing one). A criterion you
    already know no test can reach carries its `GAP: <reason>` marker **on the delta line** —
    `spec-trace` honours it there exactly as on a page. **A criterion's text on the page and on its
    delta line are one text:** reword one, reword the other in the same commit (a `MODIFIED` line
@@ -135,7 +150,11 @@ finding the operator actively schedules. Do not proceed to Phase B without the c
    the assertion before adding the tag (an amendment once named the wrong test for a criterion and
    the session cited it unread). A behaviour that holds by accident of structure — two dictionaries
    that happen to be separate — has no reachable mutation until it is one line that states the
-   rule: write that line, then mint. A test that
+   rule: write that line, then mint. Two assertion shapes read green on exactly the case they
+   exist to exclude: a substring test on a rendered number (`Contains("0 s")` holds on `"60 s"` —
+   assert the field whole, `testing-conventions.md` §11) and a wall-clock bound standing in for a
+   claim about behaviour where a virtual-clock delta or the branch's own effect is observable (§16;
+   one pass wrote three and replaced all three). A test that
    pins an implementation *premise* rather than a criterion (two parsers agreeing on every vector)
    stays uncited by design, says so in its class summary, and is listed in the REPORT —
    `docs/spec-process.md` names the category; never mint a criterion to hang it on.
@@ -174,7 +193,14 @@ finding the operator actively schedules. Do not proceed to Phase B without the c
    `pwsh scripts/test-style-lint.ps1` fails on any cited test with an article in its name or no
    markers (§12/§13) — run it **before** the REPORT and budget the rename round (it caught fourteen
    names in one pass that the session wrote after reading §12; the natural phrasing of an assertion
-   carries an article). A project you cite from without owning (another area's registry) is on the
+   carries an article). The round also invalidates every test name the change doc carries — the
+   behavior table's Test column, the unmapped list, the mutation list: after it, resolve every
+   `Class.Method` token in the doc against a declaration with a script, paste its count, and rewrite
+   the stale cells from the declarations (a per-class declaration list before and after the round is
+   what works; matching bodies by similarity does not on a rewritten suite — 104 stale names survived
+   two rounds that way). §17's "no other string" includes an expectation array: read the ids off the
+   artifact under test, never write them as literals in a `CollectionAssert`. A project you cite from
+   without owning (another area's registry) is on the
    script's exempt list with its reason until that area's pass; **one citation never exempts a
    project**, and a file this pass *authors* in an exempt project conforms anyway — run the lint
    once with the exemption removed locally, fix what it lists, commit nothing of the exemption
@@ -184,8 +210,17 @@ finding the operator actively schedules. Do not proceed to Phase B without the c
    gate already covers this" names the gate **and its failure mode** in the commit — a snapshot that
    is regenerated and auto-committed gates nothing, and a warning-level diagnostic fails no build.
 6. If the brief lists RFCs to absorb: delete them and run the reference sweep
-   (`docs/spec-process.md` § Area passes, step 5). If it lists none, say so in the report. A regex
-   sweep cannot see the sentence it leaves without a subject — re-read every touched line. Vendored
+   (`docs/spec-process.md` § Area passes, step 5). If it lists none, say so in the report. **Sweep
+   discipline:** a scripted sweep deletes only the spans it matched and proves each rewritten line
+   is the original minus exactly those spans (assert the match count, diff the rest); it reads and
+   writes bytes with the file's own line endings (`newline=''`); and it applies no whole-file
+   tidy-up after the edit — two sweeps in one pass reset the tree, one by stripping every empty `()`
+   in the repo, the other by rewriting every CRLF file to LF. `scripts/sweep-residue-lint.ps1` names
+   the shapes a sweep leaves behind (an orphaned `()`, a doubled space, a Markdown line ending on
+   `(`); run it, then re-read every touched sentence anyway, because a regex sweep cannot see the
+   sentence it leaves without a subject, the bare `§` pointing at a deleted file, or the stub a
+   reflow left mid-paragraph. A file `grep` calls binary is skipped by every sweep — check with
+   `grep -a` / `grep -c` before trusting a zero. Vendored
    files (their header says so) are exempt from the sweep; a cross-reference in a still-living RFC
    is re-pointed with one line, not absorbed.
 7. If the area reaches the DevHost SPA (`Vion.Dale.DevHost.Web/wwwroot`): the change is
@@ -195,14 +230,18 @@ finding the operator actively schedules. Do not proceed to Phase B without the c
    the page text or a described screenshot the browser tool returned — never a sentence composed
    from what the code should do. One pass recorded an observation that could not have occurred,
    because the export that produces the string was imported by nothing; the row read as evidence
-   for a whole round.
+   for a whole round. The observation is made through the UI's own controls — click the option,
+   type in the box — never a scripted DOM write: a value set from a script reaches the DOM and not
+   the model, and the verdict read back is about the row that was still there; open the raw view
+   and read the model back before believing it (`docs/devhost-conventions.md` § 1).
 8. Gates, all of them, results verbatim in the report — **every line a paste from the terminal,
    including the ones whose numbers did not move**; a number carried from an earlier run is stale by
    default and a composed one is the same defect (three recurrences in one pass): `dotnet build`
    (zero `DALE` warnings in the SDK's own build — a deliberately illegal fixture gets
    `#pragma warning disable` with its reason) + `dotnet test` on the full solution,
    `scripts/spec-lint.ps1`, `scripts/spec-trace.ps1`, `scripts/test-style-lint.ps1`,
-   `scripts/doc-comment-lint.ps1`, `scripts/bom-lint.ps1`, `scripts/run-script-tests.ps1`,
+   `scripts/doc-comment-lint.ps1`, `scripts/bom-lint.ps1`, `scripts/journal-lint.ps1`,
+   `scripts/sweep-residue-lint.ps1`, `scripts/run-script-tests.ps1`,
    `/cleanup` once — and a run under CI's shape where a fixture asserts a build-time literal
    (`dotnet test <project> -p:Version=0.0.0-ci.1`: CI passes `Version` as a global property, and a
    project's own `<Version>` loses to it). Stryker.NET is
@@ -241,6 +280,14 @@ and the message a notification, and the coordinator reads delivery off your tran
 (`docs/spec-process.md` § Checks and amendments) — if an amendment file appears as your resume
 prompt instead of a message, that is the same round arriving by the other door.
 
+An amendment's premise is a hypothesis until the tree confirms it: a check reading a branch at one
+commit gets the shape right and the constants wrong (an "empty schedule" that was the framework's
+60 s periodic event; a "CRLF file" that was LF). Verify the mechanism at the call site before
+implementing, annotate a refuted premise in the checkpoint, and still test the behaviour the item
+names when it is real — both refuted items of one round were worth doing. An item with two clauses
+owes two proofs: do both and paste each, because the half without a number is the half that gets
+skipped ("the mutation list **and the test map**" — the map stayed stale for a round).
+
 ## Scorecard (coordinator fills, into the change doc before the PR merges)
 
 | Measure | Value |
@@ -271,3 +318,8 @@ prompt instead of a message, that is the same round arriving by the other door.
 | "I merged the rows, the mutation is the same" | A merge rewrites the assertion; re-derive the mutation. |
 | "Patch the discarded attempt's table by hand" | The next pass repays the same debt. Fix the skill, delete the branch, rerun. |
 | "Enshrine it — the code clearly does this" | The code doing it is evidence of behavior, not intent. Surprising rows get `fix`/`park` or the operator's explicit `intended`. |
+| "It was added last, so it is special" | Recency is not a reason to treat a member differently. A park rec argued from a member's history has no evidence column; classify it by its shape. |
+| "One criterion per row keeps the map simple" | Extraction over-produces on purpose; the page states one criterion per rule with the fields as `[DataRow]`s, and the consolidation map is what keeps the rows. |
+| "The sweep is done; a tidy-up regex will polish the rest" | A sweep deletes matched spans and nothing else. Two tidy-ups reset a tree. Run `sweep-residue-lint`, then read every touched sentence. |
+| "I set the input's value from the script and read `valid`" | A scripted write reaches the DOM, not the model. Click the control; read the model back. |
+| "The amendment says the schedule is empty" | A check's finding is a hypothesis. Verify the mechanism at the call site, annotate a refuted premise, test the real behaviour. |

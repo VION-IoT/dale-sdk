@@ -207,6 +207,9 @@ The recurring shapes:
 - **In-place mutation**: when the SUT populates an object and hands it to a collaborator, assert
   through what the collaborator *received* (Callback capture), not through the test's own reference —
   the direct assert passes with the handoff deleted.
+- **Substring on a rendering**: `StringAssert.Contains(detail, "0 virtual s")` passes on
+  `"60 virtual s"` — the string it excludes contains the string it requires. Where a test
+  discriminates two renderings of one field, assert the field whole.
 - **The assertion is whatever would actually fail.** Where the outcome is only observable as "it
   reached a terminal state", the awaited signal *is* the assert — put it under `// Assert` and do
   not follow it with a `Verify` the await already guarantees.
@@ -345,6 +348,12 @@ remainder:
 - **Never depend on beating a configured window** (batch, debounce, poll): park the SUT so the
   inputs are queued before the window opens. Shrinking the interval hides the race, it doesn't
   remove it.
+- **A wall-clock bound is never the discriminator** when the stepped clock or the branch's own
+  effect is observable: force the SUT onto its real-clock branch and assert that branch's effect.
+  A bound standing in for the claim flakes under load and says nothing about behaviour (one pass
+  wrote three and replaced all three). Where nothing but wall time is observable — a private
+  budget with no injection seam — make the window's *expiry* the assertion, the one shape load can
+  only make more likely to hold, and say so in the class summary.
 - **A negative without a synchronisation point is vacuous** — anchor `Times.Never` on a real signal
   the SUT emits under the same conditions, or don't write it.
 - No `Interlocked`/`lock` for ordinary test state — awaiting the SUT serializes its work onto the
@@ -357,6 +366,7 @@ carries the id as a quoted literal — MSTest `[TestProperty("spec", "AC-EMIT-00
 `[Trait("spec", "AC-EMIT-001.1")]`, a committed scenario's `"specs": ["AC-SCEN-003.1"]` — which is
 what `scripts/spec-trace.ps1` counts; a comment or method-name mention does not bind. The gate
 matches any quoted `"AC-…"` literal, so an id belongs in exactly those three forms and in no other
-string — an assert message carrying one would bind by accident. An id proven by **both** a unit
+string — an assert message or an expectation array (a `CollectionAssert` over ids) carrying one
+would bind by accident; read the ids off the artifact under test instead. An id proven by **both** a unit
 test and a scenario states which half each tier owns in the test class summary (a "Cross-tier"
 clause; `spec-trace` warn-notes files missing it).

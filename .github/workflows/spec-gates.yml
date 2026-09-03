@@ -59,3 +59,15 @@ jobs:
       - name: BOM lint
         shell: pwsh
         run: ./scripts/bom-lint.ps1
+
+      # One dated entry per line under "## Entries", in order: an append that does not end the
+      # previous line glues two entries together, and the retro counts entries by line.
+      - name: Journal lint
+        shell: pwsh
+        run: ./scripts/journal-lint.ps1
+
+      # No sweep residue in prose: a scripted reference sweep leaves an orphaned `()`, a doubled
+      # space or a line ending on `(` behind; one pass left five such sentences that no gate saw.
+      - name: Sweep-residue lint
+        shell: pwsh
+        run: ./scripts/sweep-residue-lint.ps1
