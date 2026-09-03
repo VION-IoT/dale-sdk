@@ -47,3 +47,9 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   Whether the CLI should filter them or mark them in its output is a question about what `dale list` is
   for, which is decided when the CLI is specced; the introspection page says what the listing means in
   the meantime. *(INTRO pass amendment 2, M7 — `CLI`.)*
+- **A blank or a colliding endpoint `Identifier =` draws no compile-time diagnostic.** The bind-time
+  refusal (`AC-INTRO-014.3`, `AC-INTRO-014.4`) is the only guard, so an author learns of it at
+  `dotnet pack` rather than in the editor. A collision check is a whole-type analysis across two
+  attribute families and two declaration levels — `DALE043`/`DALE044`-sized work in the analyzer
+  registry, which failed the pass's size guard. *(INTRO pass amendment 2, rows 68 and 69's
+  compile-time half — `ANLZ`.)*

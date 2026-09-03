@@ -122,6 +122,27 @@ page changes what an existing, conforming library emits.
    `C:\_gh\logic-block-libraries` (1040 `[Presentation]` declarations) writes it on a method.
    Recommended `fix`; flagged because it is a published-surface narrowing.
 
+### Outcomes — coordinator close-out (2026-09-03)
+
+1. **Q1, Q2 → applied** as recorded above.
+2. **Q3 → taken, not parked.** The operator's word: "add the tests if cheap". The in-solution seam —
+   two fixture libraries project-referenced into `Vion.Dale.LogicBlockParser.Test` — needed no publish
+   step and came in under the 30-minute box; 18 parser tests, the two parser-level fixes proven red
+   through them. The three MSBuild-targets criteria stay `GAP` with that reason.
+3. **Q4, Q5 → confirmed** as recorded above.
+4. **Q6 → row 2 fix** (`--package-id "$(PackageId)"` from both parser invocations, assembly-name
+   fallback), **row 14 intended, restated** (the block's `typeFullName` is the CLR full type name — the
+   identifier a host loads by; nested blocks were never a design intent but are supported as the CLR
+   spells them; every other type name is the display form — and the two-spellings defect found under
+   that rule fixed), **row 27 fix**, **row 6 fix** (the first consumer verified: every concrete block
+   registered).
+5. **Q7 → fix**; `[StructField]` narrowed the same way after the completeness critic (M1).
+6. **Ratified at close-out, from amendment 2:** M3 fix (the position map applied per owning type —
+   a component service's member order changes once), M4 fix (the array element's nullability read
+   from the compiler's flag bytes at every depth), M7 park (`dale list` without the development-only
+   exclusion — `CLI`'s, filter-or-mark decided when the CLI is specced). Round 3 ran in a fresh
+   session per the skill's rule, after two rounds in which spec-not-carried and a stale count recurred.
+
 ---
 
 ## Full design
@@ -1137,3 +1158,16 @@ heading** — every page edit below is prose or ordering.
 - `T-004` (every id): the spec page, the two RFCs absorbed and deleted, the reference sweep, the
   identifier-stability fold and its link re-points, `testing-conventions.md` § 4, the ledger.
 
+
+---
+
+## Scorecard (pass 4 — attempt 1, one classification relay, two amendments, one fresh-session round, zero reverts)
+
+| Measure | Value |
+|---|---|
+| Gates (build/test/lint/trace/style/doc-comment/self-tests/cleanup/CI) | green — every line below is a paste from the fix-up REPORT on `204112e`, and the coordinator re-ran the read-only gates on the same head with identical numbers. `Build succeeded.` · `24 Warning(s)` (all `NU1900`; `grep -c "warning DALE"` → `0`) · `0 Error(s)`. `dotnet test Vion.Dale.Sdk.sln`: 28 assemblies, every one `Failed: 0` — `Passed: 500, Skipped: 4, Total: 504` (`Vion.Dale.Sdk.Test`), `Passed: 18` (`Vion.Dale.LogicBlockParser.Test`), `Passed: 382` (`…Generators.Test`), `Passed: 254` (`…DevHost.Test`). `spec-lint: OK` · `spec-lint: OK` (`-Diff main`) · `spec-trace: OK - 262 id(s) all referenced by tests (4 traced page(s); 6 GAP id(s) awaiting tests: AC-EMIT-002.4, AC-EMIT-009.4, AC-GATE-012.5, AC-INTRO-017.1, AC-INTRO-017.2, AC-INTRO-017.3)` · `test-style-lint: OK - 354 cited test(s) conform (88 file(s) in exempt projects skipped)` · `doc-comment-lint: OK - 2750 doc block(s) in 842 file(s), none carries a second <summary>` · `run-script-tests: OK - 5 self-test(s) passed; 7 script(s) exempt` · `cleanupcode applied changes` on `9 files changed, 110 insertions(+), 24 deletions(-)` (the round's own edits; a second run reproduces the stat). BOM scan against `main`: 0 files with a new byte-order mark. CI: on the PR. |
+| Completeness-critic misses | **10** — by sweep: statement 3 (M1 `[StructField]` on a property, M2 a relation half's interface type, M10 the pack hook's package id), consumer 1 (M7 `dale list` without the exclusion), edge-value 3 (M4 array element nullability, M5 an empty title on an enum field, M6 identifier namespaces per kind), state-interaction 3 (M3 component-service order, M8 exclusion versus the checks, M9 a null component's half). Closed as 4 fixes (M1, M3, M4, M5), 5 criteria (M2, M6, M8, M9, M10), 1 park (M7). Plus 9 citation-text mismatches and 4 criterion-versus-branch flags, all resolved. |
+| Evidence errors found in review | **5** — the step-9 self-check's "interface 4 (rows 66, 70–73)" claiming two fields covered that no criterion stated (round 1); the test map's `37` for a merged file, the future-tense merge paragraph, and a journal line crediting M9 with a one-line rule the range did not contain (round 2, all three surviving one amendment because nothing re-reads a change doc's earlier sections after an append); and one the coordinator caused — amendment 2 asked for `AC-INTRO-015.1` to be cited from a test that proves the relation-half criteria, and the session cited it without re-reading the assertion (round 2). |
+| Mutation evidence | complete — 12 Phase B rows, 12 amendment-2 rows, 5 amendment-3 rows, each applied, run, read and reverted. Over-determined criteria stated: `AC-INTRO-007.1` (its mutation reddens seventeen tests), `SerializeDocumentDeclaringNonFiniteBound` (either `FiniteBound`), `EmitIdenticalFieldSchemasWhateverStructNullability` (shares its mutation with the `[DataRow]` nullable row). Twelve premise tests in `PresentationAttributeShould` stay uncited by design. The discipline caught two vacuous first drafts (M8's fixture edit that matched nothing; M9's test asserting the wrong absence) and two criteria with no reachable mutation until the behaviour became a rule in one place (`AC-INTRO-014.5`, `AC-INTRO-016.8`). |
+| Operator corrections (table + PR) | at the classification gate: 2 — row 14 reversed from `park` to `intended` (the type name is the identifier a host loads by) and Q3 taken rather than parked; coordinator rounds: 3 — round 1 (critic 10 misses + 9 mismatches + 4 flags; review 1 blocker · 3 conventions · 1 nit · 6 judgments), round 2 (focused review 2 blockers · 3 judgments · 4 nits), round 3 (targeted reads, 0 findings). One operator correction of the coordinator's own record: the ten-hour stall's cause was the sender's permission mode, not the operator's absence. |
+| Cost | 2 Opus sessions (the pass session at high effort, resumed twice — once after the ten-hour stall, once to put it into bypass mode; the fresh fix-up session) · 1 classification relay + 2 amendments · 3 Opus check subagents (critic, review, focused review) · 0 reverts · ~27 h wall, of which ~10 h stalled on undelivered cross-session messages. |
