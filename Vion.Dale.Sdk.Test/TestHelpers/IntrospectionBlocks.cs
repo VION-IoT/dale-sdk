@@ -27,10 +27,6 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
     /// <summary>Bounds the compiler accepts and JSON cannot carry — <c>NaN</c> and each infinity on the wrong side.</summary>
     public class NonFiniteBoundBlock : LogicBlockBase
     {
-        public NonFiniteBoundBlock() : base(NullLogger.Instance)
-        {
-        }
-
         [ServiceProperty(Title = "Not a number", Minimum = double.NaN, Maximum = double.NaN)]
         public double NanBounds { get; set; }
 
@@ -43,28 +39,34 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
         [ServiceProperty(Title = "Bounded field carrier")]
         public NonFiniteBoundStruct Fields { get; set; }
 
+        public NonFiniteBoundBlock() : base(NullLogger.Instance)
+        {
+        }
+
         protected override void Ready()
         {
         }
     }
 
     /// <summary>The same bounds one level down, on a struct field.</summary>
-    public readonly record struct NonFiniteBoundStruct([StructField(Title = "Not a number", Minimum = double.NaN, Maximum = double.NaN)] double Nan,
-                                                       [StructField(Title = "Infinities the wrong way round", Minimum = double.PositiveInfinity,
-                                                                    Maximum = double.NegativeInfinity)]
-                                                       double Swapped,
-                                                       [StructField(Title = "Bounded", Minimum = 1, Maximum = 9)] double Bounded);
+    public readonly record struct NonFiniteBoundStruct(
+        [StructField(Title = "Not a number", Minimum = double.NaN, Maximum = double.NaN)]
+        double Nan,
+        [StructField(Title = "Infinities the wrong way round", Minimum = double.PositiveInfinity, Maximum = double.NegativeInfinity)]
+        double Swapped,
+        [StructField(Title = "Bounded", Minimum = 1, Maximum = 9)]
+        double Bounded);
 
     /// <summary>One property on both publication streams, each stream declaring its own knobs.</summary>
     public class DualStreamKindBlock : LogicBlockBase
     {
-        public DualStreamKindBlock() : base(NullLogger.Instance)
-        {
-        }
-
         [ServiceProperty(Title = "Grid power", Description = "Live state and a chart", Unit = "kW")]
         [ServiceMeasuringPoint(Kind = MeasuringPointKind.TotalIncreasing)]
         public double Power { get; private set; }
+
+        public DualStreamKindBlock() : base(NullLogger.Instance)
+        {
+        }
 
         protected override void Ready()
         {
@@ -74,16 +76,15 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
     /// <summary>An interface binding pinned to an identifier no topology can name.</summary>
     public class BlankInterfaceIdentifierBlock : LogicBlockBase
     {
-        public BlankInterfaceIdentifierBlock() : base(NullLogger.Instance)
-        {
-        }
-
         // DALE045 warns that a non-service-bearing endpoint emits no relation half. That is deliberate
         // here: these fixtures are about the endpoint's identifier, not about its relation halves.
 #pragma warning disable DALE045
         [LogicBlockInterfaceBinding(typeof(IToggleable), Identifier = "   ")]
         public TogglingEndpoint Blank { get; } = new();
 #pragma warning restore DALE045
+        public BlankInterfaceIdentifierBlock() : base(NullLogger.Instance)
+        {
+        }
 
         protected override void Ready()
         {
@@ -93,12 +94,12 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
     /// <summary>A contract binding pinned to an identifier no topology can name.</summary>
     public class BlankContractIdentifierBlock : LogicBlockBase
     {
+        [ServiceProviderContractBinding(Identifier = "")]
+        public IDigitalOutput Blank { get; private set; } = null!;
+
         public BlankContractIdentifierBlock() : base(NullLogger.Instance)
         {
         }
-
-        [ServiceProviderContractBinding(Identifier = "")]
-        public IDigitalOutput Blank { get; private set; } = null!;
 
         protected override void Ready()
         {
@@ -109,14 +110,13 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
     [LogicBlockInterfaceBinding(typeof(IToggleable), Identifier = "Shared", DefaultName = "Class level")]
     public class CollidingInterfaceIdentifierBlock : LogicBlockBase, IToggleable
     {
-        public CollidingInterfaceIdentifierBlock() : base(NullLogger.Instance)
-        {
-        }
-
 #pragma warning disable DALE045 // The fixture is about the identifier, not the relation half.
         [LogicBlockInterfaceBinding(typeof(IToggleable), Identifier = "Shared", DefaultName = "Property level")]
         public TogglingEndpoint Peer { get; } = new();
 #pragma warning restore DALE045
+        public CollidingInterfaceIdentifierBlock() : base(NullLogger.Instance)
+        {
+        }
 
         public void HandleStateUpdate(InterfaceId functionId, Toggling.TogglePressed response)
         {
@@ -134,15 +134,15 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
     /// <summary>Two contract bindings pinned to one identifier.</summary>
     public class CollidingContractIdentifierBlock : LogicBlockBase
     {
-        public CollidingContractIdentifierBlock() : base(NullLogger.Instance)
-        {
-        }
-
         [ServiceProviderContractBinding(Identifier = "Shared", DefaultName = "First")]
         public IDigitalOutput OutputA { get; private set; } = null!;
 
         [ServiceProviderContractBinding(Identifier = "Shared", DefaultName = "Second")]
         public IDigitalOutput OutputB { get; private set; } = null!;
+
+        public CollidingContractIdentifierBlock() : base(NullLogger.Instance)
+        {
+        }
 
         protected override void Ready()
         {
@@ -156,15 +156,15 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
         {
         }
 
+        protected override void Ready()
+        {
+        }
+
 #pragma warning disable DALE045 // The fixture is about the derived identifiers, not the relation halves.
         public TogglingEndpoint Left { get; } = new();
 
         public TogglingEndpoint Right { get; } = new();
 #pragma warning restore DALE045
-
-        protected override void Ready()
-        {
-        }
     }
 
     /// <summary>An endpoint with no service surface of its own — bindable, and owning no relation half.</summary>
@@ -185,12 +185,12 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
         [LogicBlock(Name = "Nested")]
         public class NestedBlock : LogicBlockBase
         {
+            [ServiceProperty(Title = "Value")]
+            public int Value { get; set; }
+
             public NestedBlock() : base(NullLogger.Instance)
             {
             }
-
-            [ServiceProperty(Title = "Value")]
-            public int Value { get; set; }
 
             protected override void Ready()
             {
@@ -201,10 +201,6 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
     /// <summary>Severities and labels reached through a nullable and through an array.</summary>
     public class SeverityReachBlock : LogicBlockBase
     {
-        public SeverityReachBlock() : base(NullLogger.Instance)
-        {
-        }
-
         [ServiceProperty(Title = "Through a nullable")]
         [Presentation(StatusIndicator = true)]
         public IntrospectionSeverityEnum? Nullable { get; set; }
@@ -217,6 +213,9 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
         [Presentation(StatusIndicator = true)]
         public ImmutableArray<IntrospectionSeverityEnum> Array { get; set; } = ImmutableArray<IntrospectionSeverityEnum>.Empty;
 #pragma warning restore DALE024
+        public SeverityReachBlock() : base(NullLogger.Instance)
+        {
+        }
 
         protected override void Ready()
         {
@@ -227,20 +226,25 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
     [LogicBlock(Name = "Tür & <b>Wärme</b> — 20 °C", Icon = "probe-line", Groups = new[] { "acme.custom", PropertyGroup.Status })]
     public class VerbatimStringBlock : LogicBlockBase
     {
-        public VerbatimStringBlock() : base(NullLogger.Instance)
-        {
-        }
-
         [ServiceProperty(Title = "Tür & <i>Wärme</i> — 20 °C", Description = "Ünïcödé — em-dash — and \"quotes\"", Unit = "€/kWh")]
         public string Marked { get; set; } = string.Empty;
 
         [ServiceProperty(Title = "", Description = "", Unit = "", StringFormat = "")]
-        [Presentation(DisplayName = "", Group = PropertyGroup.None, UiHint = "", Format = "", Order = int.MinValue, Decimals = int.MinValue,
+        [Presentation(DisplayName = "",
+                      Group = PropertyGroup.None,
+                      UiHint = "",
+                      Format = "",
+                      Order = int.MinValue,
+                      Decimals = int.MinValue,
                       Importance = Importance.Normal)]
         public int Empties { get; set; }
 
         [ServiceProperty(Title = "Inverted bounds", Minimum = 10, Maximum = 1)]
         public double Inverted { get; set; }
+
+        public VerbatimStringBlock() : base(NullLogger.Instance)
+        {
+        }
 
         protected override void Ready()
         {
@@ -251,12 +255,12 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
     [LogicBlock(Name = "", Icon = "", Groups = new string[0])]
     public class EmptyAnnotationBlock : LogicBlockBase
     {
+        [ServiceProperty(Title = "Value")]
+        public int Value { get; set; }
+
         public EmptyAnnotationBlock() : base(NullLogger.Instance)
         {
         }
-
-        [ServiceProperty(Title = "Value")]
-        public int Value { get; set; }
 
         protected override void Ready()
         {
@@ -272,17 +276,17 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
     }
 
     /// <summary>A struct with no positional constructor — outside the flat-struct whitelist.</summary>
-    public readonly record struct FieldlessStruct();
+    public readonly record struct FieldlessStruct;
 
     /// <summary>Carriers for the two struct shapes above.</summary>
     public class StructShapeBlock : LogicBlockBase
     {
+        [ServiceProperty(Title = "Two constructors")]
+        public TwoConstructorStruct TwoConstructors { get; set; }
+
         public StructShapeBlock() : base(NullLogger.Instance)
         {
         }
-
-        [ServiceProperty(Title = "Two constructors")]
-        public TwoConstructorStruct TwoConstructors { get; set; }
 
         protected override void Ready()
         {
@@ -292,10 +296,6 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
     /// <summary>A carrier for the fieldless struct, which the schema builder refuses.</summary>
     public class FieldlessStructBlock : LogicBlockBase
     {
-        public FieldlessStructBlock() : base(NullLogger.Instance)
-        {
-        }
-
         // DALE016 refuses a struct with no positional constructor at compile time. This fixture exists to
         // pin the pack-path backstop behind that diagnostic, so the diagnostic it deliberately violates is
         // suppressed here and nowhere else.
@@ -303,6 +303,9 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
         [ServiceProperty(Title = "Nothing to describe")]
         public FieldlessStruct Nothing { get; set; }
 #pragma warning restore DALE003, DALE016
+        public FieldlessStructBlock() : base(NullLogger.Instance)
+        {
+        }
 
         protected override void Ready()
         {
@@ -337,24 +340,29 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
     }
 
     /// <summary>A struct whose own field is a struct — outside the flat whitelist, and the pack-path shape.</summary>
-    public readonly record struct NestedLeaf([StructField(Title = "Leaf title", Unit = "V")] double Volt, IntrospectionSeverityEnum State);
+    public readonly record struct NestedLeaf(
+        [StructField(Title = "Leaf title", Unit = "V")]
+        double Volt,
+        IntrospectionSeverityEnum State);
 
     /// <summary>The outer struct carrying the nested one.</summary>
-    public readonly record struct NestedBranch([StructField(Title = "Branch title")] NestedLeaf Child, [StructField(Title = "Top", Unit = "A")] double Amp);
+    public readonly record struct NestedBranch(
+        [StructField(Title = "Branch title")] NestedLeaf Child,
+        [StructField(Title = "Top", Unit = "A")]
+        double Amp);
 
     /// <summary>Carries the nested struct, which DALE016 refuses at compile time.</summary>
     public class NestedStructBlock : LogicBlockBase
     {
-        public NestedStructBlock() : base(NullLogger.Instance)
-        {
-        }
-
         // DALE003 and DALE016 refuse a struct whose own field is a struct. The fixture exists to pin what the
         // pack path does behind that diagnostic, so both are suppressed here and nowhere else.
 #pragma warning disable DALE003, DALE016
         [ServiceProperty(Title = "Nested struct")]
         public NestedBranch Nested { get; set; }
 #pragma warning restore DALE003, DALE016
+        public NestedStructBlock() : base(NullLogger.Instance)
+        {
+        }
 
         protected override void Ready()
         {
@@ -364,15 +372,14 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
     /// <summary>A type outside the service-element whitelist.</summary>
     public class UnsupportedTypeBlock : LogicBlockBase
     {
-        public UnsupportedTypeBlock() : base(NullLogger.Instance)
-        {
-        }
-
         // DALE003 refuses this type at compile time; the fixture pins the pack-path backstop behind it.
 #pragma warning disable DALE003
         [ServiceProperty(Title = "Not a service-element type")]
         public decimal Money { get; set; }
 #pragma warning restore DALE003
+        public UnsupportedTypeBlock() : base(NullLogger.Instance)
+        {
+        }
 
         protected override void Ready()
         {
@@ -382,10 +389,6 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
     /// <summary>Members that decide their own writability, persistence and enum labels.</summary>
     public class MemberFlagsBlock : LogicBlockBase
     {
-        public MemberFlagsBlock() : base(NullLogger.Instance)
-        {
-        }
-
         [ServiceProperty(Title = "Passphrase", WriteOnly = true)]
         public string? Passphrase { get; set; }
 
@@ -402,6 +405,10 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
 
         [ServiceProperty(Title = "Edge labels")]
         public EdgeLabelEnum Labels { get; set; }
+
+        public MemberFlagsBlock() : base(NullLogger.Instance)
+        {
+        }
 
         protected override void Ready()
         {
@@ -449,13 +456,13 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
     /// <summary>Component services whose holding property names differ only in case.</summary>
     public class CaseDistinctServiceBlock : LogicBlockBase
     {
-        public CaseDistinctServiceBlock() : base(NullLogger.Instance)
-        {
-        }
-
         public CaseDistinctComponent Sensor { get; } = new();
 
         public CaseDistinctComponent SENSOR { get; } = new();
+
+        public CaseDistinctServiceBlock() : base(NullLogger.Instance)
+        {
+        }
 
         protected override void Ready()
         {

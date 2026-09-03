@@ -331,8 +331,14 @@ namespace Vion.Dale.LogicBlockParser.Test
 
             Assert.IsNotNull(directory, "Could not locate the repository root above the test output directory.");
 
-            var configuration = OutputDirectory.Contains($"{Path.DirectorySeparatorChar}Release{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase) ? "Release" : "Debug";
-            var parser = Path.Combine(directory.FullName, "Vion.Dale.LogicBlockParser", "bin", configuration, "net10.0", "Vion.Dale.LogicBlockParser.dll");
+            var configuration = OutputDirectory.Contains($"{Path.DirectorySeparatorChar}Release{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase) ? "Release" :
+                                    "Debug";
+            var parser = Path.Combine(directory.FullName,
+                                      "Vion.Dale.LogicBlockParser",
+                                      "bin",
+                                      configuration,
+                                      "net10.0",
+                                      "Vion.Dale.LogicBlockParser.dll");
 
             Assert.IsTrue(File.Exists(parser), $"The parser was not built at {parser}.");
             return parser;

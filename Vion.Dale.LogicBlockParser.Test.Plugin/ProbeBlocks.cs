@@ -26,15 +26,15 @@ namespace Vion.Dale.ParserProbe
     [LogicBlock(Name = "Plain", Icon = "probe-line")]
     public class PlainBlock : LogicBlockBase
     {
-        public PlainBlock(ILogger<PlainBlock> logger) : base(logger)
-        {
-        }
-
         [ServiceProperty(Title = "Setpoint", Unit = "kW", Minimum = 0, Maximum = 100)]
         public double Setpoint { get; set; }
 
         [ServiceMeasuringPoint(Title = "Reading", Unit = "kW")]
         public double Reading { get; private set; }
+
+        public PlainBlock(ILogger<PlainBlock> logger) : base(logger)
+        {
+        }
 
         protected override void Ready()
         {
@@ -47,12 +47,12 @@ namespace Vion.Dale.ParserProbe
         [LogicBlock(Name = "Nested")]
         public class NestedBlock : LogicBlockBase
         {
+            [ServiceProperty(Title = "Value")]
+            public int Value { get; set; }
+
             public NestedBlock(ILogger<NestedBlock> logger) : base(logger)
             {
             }
-
-            [ServiceProperty(Title = "Value")]
-            public int Value { get; set; }
 
             protected override void Ready()
             {
@@ -64,15 +64,15 @@ namespace Vion.Dale.ParserProbe
     [LogicBlock(Name = "Bench")]
     public class DevelopmentOnlyBlock : LogicBlockBase
     {
-        public DevelopmentOnlyBlock(ILogger<DevelopmentOnlyBlock> logger) : base(logger)
-        {
-        }
-
         [ServiceProviderContractBinding(DefaultName = "Bench face")]
         public IDigitalOutputProvider Face { get; private set; } = null!;
 
         [ServiceProperty(Title = "Value")]
         public int Value { get; set; }
+
+        public DevelopmentOnlyBlock(ILogger<DevelopmentOnlyBlock> logger) : base(logger)
+        {
+        }
 
         protected override void Ready()
         {

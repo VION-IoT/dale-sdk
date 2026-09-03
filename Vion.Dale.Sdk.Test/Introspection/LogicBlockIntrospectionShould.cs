@@ -826,7 +826,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
             {
                 var contract = result.Contracts.First(c => c.Identifier == identifier);
 
-            // Assert
+                // Assert
                 Assert.AreEqual(contractType, contract.MatchingContractType);
                 Assert.IsTrue(contract.Annotations.TryGetValue(ServiceProviderContractAnnotations.DevelopmentOnly, out var flag) && flag is true,
                               $"{identifier} must be flagged development-only.");
@@ -846,8 +846,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
             foreach (var contract in result.Contracts)
             {
-
-            // Assert
+                // Assert
                 Assert.IsFalse(contract.Annotations.ContainsKey(ServiceProviderContractAnnotations.DevelopmentOnly),
                                $"{contract.Identifier} must not carry the development-only flag.");
             }

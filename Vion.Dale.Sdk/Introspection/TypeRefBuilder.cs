@@ -59,6 +59,7 @@ namespace Vion.Dale.Sdk.Introspection
                               Description = sf.Description,
                               Unit = sf.Unit,
                               Format = sf.StringFormat,
+
                               // Same rule as a property's bounds: a bound the wire cannot carry is not a bound.
                               Minimum = FiniteBound(sf.Minimum),
                               Maximum = FiniteBound(sf.Maximum),
@@ -72,16 +73,6 @@ namespace Vion.Dale.Sdk.Introspection
             }
 
             return builder.ToImmutable();
-        }
-
-        /// <summary>
-        ///     A declared struct-field bound, or <c>null</c> where it is not a number the wire can carry —
-        ///     the field-level half of the rule <c>PropertyMetadataBuilder.FiniteBound</c> applies to a
-        ///     property's own bounds, and for the same reason.
-        /// </summary>
-        private static double? FiniteBound(double declared)
-        {
-            return !double.IsNaN(declared) && !double.IsInfinity(declared) ? declared : null;
         }
 
         /// <summary>
@@ -171,6 +162,16 @@ namespace Vion.Dale.Sdk.Introspection
 
                 return null;
             }
+        }
+
+        /// <summary>
+        ///     A declared struct-field bound, or <c>null</c> where it is not a number the wire can carry —
+        ///     the field-level half of the rule <c>PropertyMetadataBuilder.FiniteBound</c> applies to a
+        ///     property's own bounds, and for the same reason.
+        /// </summary>
+        private static double? FiniteBound(double declared)
+        {
+            return !double.IsNaN(declared) && !double.IsInfinity(declared) ? declared : null;
         }
 
         private static TypeRef Build(Type type, bool isNullableRef)

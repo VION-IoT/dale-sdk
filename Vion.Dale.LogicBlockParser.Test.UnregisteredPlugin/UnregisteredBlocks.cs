@@ -21,12 +21,12 @@ namespace Vion.Dale.ParserProbe.Unregistered
     [LogicBlock(Name = "Registered")]
     public class RegisteredBlock : LogicBlockBase
     {
+        [ServiceProperty(Title = "Value")]
+        public int Value { get; set; }
+
         public RegisteredBlock(ILogger<RegisteredBlock> logger) : base(logger)
         {
         }
-
-        [ServiceProperty(Title = "Value")]
-        public int Value { get; set; }
 
         protected override void Ready()
         {
@@ -37,12 +37,12 @@ namespace Vion.Dale.ParserProbe.Unregistered
     [LogicBlock(Name = "Forgotten")]
     public class ForgottenBlock : LogicBlockBase
     {
+        [ServiceProperty(Title = "Value")]
+        public int Value { get; set; }
+
         public ForgottenBlock(ILogger<ForgottenBlock> logger) : base(logger)
         {
         }
-
-        [ServiceProperty(Title = "Value")]
-        public int Value { get; set; }
 
         protected override void Ready()
         {

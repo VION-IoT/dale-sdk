@@ -42,8 +42,8 @@ namespace Vion.Dale.LogicBlockParser
         /// </summary>
         private const string NoticePrefix = "Vion Dale: ";
 
-        private const string Usage = "Usage: Vion.Dale.LogicBlockParser.exe <path-to-plugin.dll> <output-json-path> [" + ExcludeDevelopmentOnlyOption + "] [" +
-                                      PackageIdOption + " <id>]";
+        private const string Usage = "Usage: Vion.Dale.LogicBlockParser.exe <path-to-plugin.dll> <output-json-path> [" + ExcludeDevelopmentOnlyOption + "] [" + PackageIdOption +
+                                     " <id>]";
 
         private static readonly JsonSerializerOptions JsonOptions = new()
                                                                     {

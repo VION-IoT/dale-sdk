@@ -39,7 +39,12 @@ namespace Vion.Dale.Sdk.Introspection
             var hasIdentityTitle = HasIdentityBearingTitle(typeRef);
 
             var isInstantiationParameter = property.GetCustomAttribute<InstantiationParameterAttribute>() is not null;
-            var annotations = ExtractTypeAnnotations(sp, mp, HasPublicSetter(property), hasIdentityTitle, isInstantiationParameter, stream);
+            var annotations = ExtractTypeAnnotations(sp,
+                                                     mp,
+                                                     HasPublicSetter(property),
+                                                     hasIdentityTitle,
+                                                     isInstantiationParameter,
+                                                     stream);
             var schema = new TypeSchema(typeRef, annotations, structFieldAnnotations);
             var presentation = ExtractPresentation(property, sp, mp, hasIdentityTitle);
             var runtime = ExtractRuntime(property, stream);
@@ -69,7 +74,12 @@ namespace Vion.Dale.Sdk.Introspection
             // Writability is governed by the implementing logic-block property — that's the actual
             // binding target when cloud calls SetPropertyValue. The interface only declares intent.
             var isInstantiationParameter = presentationSource.GetCustomAttribute<InstantiationParameterAttribute>() is not null;
-            var annotations = ExtractTypeAnnotations(sp, mp, HasPublicSetter(presentationSource), hasIdentityTitle, isInstantiationParameter, stream);
+            var annotations = ExtractTypeAnnotations(sp,
+                                                     mp,
+                                                     HasPublicSetter(presentationSource),
+                                                     hasIdentityTitle,
+                                                     isInstantiationParameter,
+                                                     stream);
             var schema = new TypeSchema(typeRef, annotations, structFieldAnnotations);
 
             // Per-field presentation merge: the class wins on any field it explicitly sets, and

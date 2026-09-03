@@ -352,9 +352,10 @@ namespace Vion.Dale.Sdk.Introspection
             // so one nested service interface reached this list as `Outer+IReading` through a property binding
             // and as `Outer.IReading` through a measuring point — one field, two spellings, decided by which
             // member kind happened to bind. The block's own typeFullName is the document's only CLR-form name.
-            var propertyInterfaces =
-                allServicePropertyBindings.GetValueOrDefault(serviceIdentifier)?.Keys.Where(k => k != ServiceBinder.ExtraPropsKey).Select(ReflectionHelper.GetDisplayFullName) ??
-                [];
+            var propertyInterfaces = allServicePropertyBindings.GetValueOrDefault(serviceIdentifier)
+                                                               ?.Keys
+                                                               .Where(k => k != ServiceBinder.ExtraPropsKey)
+                                                               .Select(ReflectionHelper.GetDisplayFullName) ?? [];
 
             var measuringPointInterfaces = allServiceMeasuringPointBindings.GetValueOrDefault(serviceIdentifier)
                                                                            ?.Keys
