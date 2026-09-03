@@ -65,6 +65,7 @@ namespace Vion.Dale.DevHost.Topologies
         public IReadOnlyList<TopologyContractMapping>? ContractMappings
         {
             get => _contractMappings is { Count: > 0 } ? _contractMappings : null;
+
             init => _contractMappings = value;
         }
 

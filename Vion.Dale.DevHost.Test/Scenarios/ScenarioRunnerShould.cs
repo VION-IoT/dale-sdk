@@ -189,15 +189,15 @@ namespace Vion.Dale.DevHost.Test
 
             using var cancellation = new CancellationTokenSource();
             var options = new ScenarioRunOptions
-            {
-                OnProgress = report =>
-                {
-                    if (report.Steps[0].Status == ScenarioStepStatus.Running)
-                    {
-                        cancellation.Cancel();
-                    }
-                },
-            };
+                          {
+                              OnProgress = report =>
+                                           {
+                                               if (report.Steps[0].Status == ScenarioStepStatus.Running)
+                                               {
+                                                   cancellation.Cancel();
+                                               }
+                                           },
+                          };
 
             var scenario = ScenarioFile.Parse("""
                                               {

@@ -88,15 +88,20 @@ namespace Vion.Dale.DevHost.Test
 
             // Act
             var pattern = id.GetProperty("pattern").GetString();
-            var reserved = id.GetProperty("not").GetProperty("pattern").GetString();
+            var refused = id.GetProperty("not").GetProperty("anyOf").EnumerateArray().Select(c => c.GetProperty("pattern").GetString()!).ToList();
 
-            // Assert — the pattern rejects '..' and the reserved name is refused case-insensitively, matching
-            // ScenarioFile.StructuralErrors. Asserted as the regexes the schema publishes, then exercised.
-            Assert.IsFalse(Regex.IsMatch("a..b", pattern!), pattern);
+            // Assert — the slug shape is the positive pattern; both refusals ('..' anywhere, and the reserved
+            // name case-insensitively) ride the `not`, matching ScenarioFile.StructuralErrors. Neither regex
+            // uses a lookahead: JSON Schema 2020-12 section 6.4 recommends the ECMA-262 subset, and an
+            // RE2-backed validator rejects a whole document that leaves it.
+            Assert.DoesNotContain("(?", pattern!);
             Assert.IsTrue(Regex.IsMatch("a.b-c_1", pattern!), pattern);
-            Assert.IsTrue(Regex.IsMatch("schema", reserved!), reserved);
-            Assert.IsTrue(Regex.IsMatch("SCHEMA", reserved!), reserved);
-            Assert.IsFalse(Regex.IsMatch("schematic", reserved!), reserved);
+            Assert.IsFalse(Regex.IsMatch("-leading", pattern!), pattern);
+            Assert.IsTrue(refused.Any(r => Regex.IsMatch("a..b", r)), string.Join(" | ", refused));
+            Assert.IsFalse(refused.Any(r => Regex.IsMatch("a.b", r)), string.Join(" | ", refused));
+            Assert.IsTrue(refused.Any(r => Regex.IsMatch("schema", r)), string.Join(" | ", refused));
+            Assert.IsTrue(refused.Any(r => Regex.IsMatch("SCHEMA", r)), string.Join(" | ", refused));
+            Assert.IsFalse(refused.Any(r => Regex.IsMatch("schematic", r)), string.Join(" | ", refused));
         }
 
         [TestMethod]
@@ -108,13 +113,14 @@ namespace Vion.Dale.DevHost.Test
 
             // Act
             var pattern = id.GetProperty("pattern").GetString();
-            var reserved = id.GetProperty("not").GetProperty("pattern").GetString();
+            var refused = id.GetProperty("not").GetProperty("anyOf").EnumerateArray().Select(c => c.GetProperty("pattern").GetString()!).ToList();
 
-            // Assert
-            Assert.IsFalse(Regex.IsMatch("a..b", pattern!), pattern);
+            // Assert — same shape as the scenario schema's, and lookahead-free for the same reason.
+            Assert.DoesNotContain("(?", pattern!);
             Assert.IsTrue(Regex.IsMatch("default", pattern!), pattern);
-            Assert.IsTrue(Regex.IsMatch("schema", reserved!), reserved);
-            Assert.IsTrue(Regex.IsMatch("SCHEMA", reserved!), reserved);
+            Assert.IsTrue(refused.Any(r => Regex.IsMatch("a..b", r)), string.Join(" | ", refused));
+            Assert.IsTrue(refused.Any(r => Regex.IsMatch("schema", r)), string.Join(" | ", refused));
+            Assert.IsTrue(refused.Any(r => Regex.IsMatch("SCHEMA", r)), string.Join(" | ", refused));
         }
 
         [TestMethod]

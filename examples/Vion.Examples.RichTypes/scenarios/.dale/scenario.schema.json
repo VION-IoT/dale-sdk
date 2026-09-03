@@ -20,9 +20,16 @@
     },
     "id": {
       "type": "string",
-      "pattern": "^(?!.*\\.\\.)[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
       "not": {
-        "pattern": "^[Ss][Cc][Hh][Ee][Mm][Aa]$"
+        "anyOf": [
+          {
+            "pattern": "^[Ss][Cc][Hh][Ee][Mm][Aa]$"
+          },
+          {
+            "pattern": "\\.\\."
+          }
+        ]
       },
       "description": "URL-safe slug, no '..'; must match the file name (<id>.scenario.json). 'schema' is reserved (GET /api/scenarios/schema). Deep-link route: #/scenario/{id}."
     },
