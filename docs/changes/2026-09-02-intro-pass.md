@@ -1,6 +1,6 @@
 ---
 slug: intro-pass
-status: proposed           # proposed | in-flight | parked | archived
+status: in-flight        # proposed | in-flight | parked | archived
 blocked-on: none           # for parked docs: what's blocking + ref
 areas: INTRO
 author: spec-pass (INTRO, attempt 1)

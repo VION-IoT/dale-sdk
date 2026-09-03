@@ -1,14 +1,20 @@
-using System;
+﻿using System;
 
 namespace Vion.Dale.Sdk.Core
 {
     /// <summary>
-    ///     UI-side presentation hints for a service property, measuring point, or method.
+    ///     UI-side presentation hints for a service property or a measuring point.
     ///     Routes into the per-property <c>presentation</c> sibling document. Open for
     ///     preset inheritance — integrators subclass to ship their own domain vocabulary.
     /// </summary>
+    /// <remarks>
+    ///     Properties only. Nothing reads this attribute off a method: the introspection builds the
+    ///     presentation document from a member's <c>PropertyInfo</c>, and every diagnostic that judges a
+    ///     hint against its member's type is registered on properties — so a declaration on a method
+    ///     compiled, emitted nothing and warned about nothing.
+    /// </remarks>
     [PublicApi]
-    [AttributeUsage(AttributeTargets.Property | AttributeTargets.Method)]
+    [AttributeUsage(AttributeTargets.Property)]
     public class PresentationAttribute : Attribute
     {
         // ── Naming ──

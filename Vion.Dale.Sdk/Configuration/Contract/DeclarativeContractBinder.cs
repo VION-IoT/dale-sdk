@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -16,6 +16,7 @@ namespace Vion.Dale.Sdk.Configuration.Contract
                                                        IReadOnlyDictionary<string, JsonNode?>? parameterContext)
         {
             var type = logicBlock.GetType();
+            var mintedBy = new Dictionary<string, string>(StringComparer.Ordinal);
             var contractProperties = GetContractProperties(type);
             var invalidContractProperties = GetInvalidContractProperties(type);
 
@@ -44,6 +45,7 @@ namespace Vion.Dale.Sdk.Configuration.Contract
 
                 var contractAttribute = property.GetCustomAttribute<ServiceProviderContractBindingAttribute>();
                 var identifier = contractAttribute?.Identifier ?? property.Name;
+                BindingIdentifiers.Claim(mintedBy, identifier, property.Name, "Contract binding", type);
                 var contractInstance = contractFactory.Create(property.PropertyType, identifier);
                 property.SetValue(logicBlock, contractInstance);
                 ApplyMetadata(contractInstance, contractAttribute, includedWhen);

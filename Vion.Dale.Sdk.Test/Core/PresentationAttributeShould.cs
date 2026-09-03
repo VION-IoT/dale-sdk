@@ -1,3 +1,4 @@
+﻿using System;
 using System.Reflection;
 using Vion.Dale.Sdk.Core;
 
@@ -6,6 +7,23 @@ namespace Vion.Dale.Sdk.Test.Core
     [TestClass]
     public class PresentationAttributeShould
     {
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-009.6")]
+        public void BeDeclarableOnPropertiesOnly()
+        {
+            // Arrange
+            var attribute = typeof(PresentationAttribute);
+
+            // Act
+            var usage = attribute.GetCustomAttribute<AttributeUsageAttribute>();
+
+            // Assert
+            // The target set is the whole behavior: nothing reads this attribute off anything but a
+            // PropertyInfo, and no diagnostic judges a hint declared anywhere else.
+            Assert.IsNotNull(usage);
+            Assert.AreEqual(AttributeTargets.Property, usage.ValidOn);
+        }
+
         [TestMethod]
         public void CarryAllFields()
         {

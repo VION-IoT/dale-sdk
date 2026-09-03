@@ -15,6 +15,7 @@ using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.DigitalIo.Input;
 using Vion.Dale.Sdk.DigitalIo.Output;
 using Vion.Dale.Sdk.Introspection;
+using Vion.Dale.Sdk.Test.TestHelpers;
 
 namespace Vion.Dale.Sdk.Test.Introspection
 {
@@ -282,6 +283,15 @@ namespace Vion.Dale.Sdk.Test.Introspection
         private readonly IServiceProvider _serviceProvider = new ServiceCollection().AddSingleton<ILoggerFactory>(NullLoggerFactory.Instance)
                                                                                     .AddSingleton(typeof(ILogger<>), typeof(NullLogger<>))
                                                                                     .BuildServiceProvider();
+
+        public static IEnumerable<object[]> BlankIdentifierBlocks
+        {
+            get
+            {
+                yield return [new BlankInterfaceIdentifierBlock(), nameof(BlankInterfaceIdentifierBlock.Blank)];
+                yield return [new BlankContractIdentifierBlock(), nameof(BlankContractIdentifierBlock.Blank)];
+            }
+        }
 
         public LogicBlockIntrospectionShould()
         {
@@ -752,6 +762,344 @@ namespace Vion.Dale.Sdk.Test.Introspection
             Assert.AreEqual("totalIncreasing", lifetime.Schema["x-kind"]?.GetValue<string>());
             Assert.AreEqual("total", daily.Schema["x-kind"]?.GetValue<string>());
             Assert.AreEqual("measurement", instant.Schema["x-kind"]?.GetValue<string>());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-007.3")]
+        public void OmitABoundThatIsNotFinite()
+        {
+            // Arrange
+            var block = new NonFiniteBoundBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            var properties = result.Services.Single().Properties;
+            var nan = properties.Single(property => property.Identifier == nameof(NonFiniteBoundBlock.NanBounds));
+            var swapped = properties.Single(property => property.Identifier == nameof(NonFiniteBoundBlock.SwappedInfinities));
+            var bounded = properties.Single(property => property.Identifier == nameof(NonFiniteBoundBlock.Bounded));
+
+            Assert.IsNull(nan.Schema["minimum"]);
+            Assert.IsNull(nan.Schema["maximum"]);
+            Assert.IsNull(swapped.Schema["minimum"]);
+            Assert.IsNull(swapped.Schema["maximum"]);
+            Assert.AreEqual(1d, bounded.Schema["minimum"]?.GetValue<double>());
+            Assert.AreEqual(9d, bounded.Schema["maximum"]?.GetValue<double>());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-007.3")]
+        public void OmitAStructFieldBoundThatIsNotFinite()
+        {
+            // Arrange
+            var block = new NonFiniteBoundBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            var fields = result.Services.Single().Properties.Single(property => property.Identifier == nameof(NonFiniteBoundBlock.Fields)).Schema["properties"];
+            Assert.IsNull(fields?["nan"]?["minimum"]);
+            Assert.IsNull(fields?["nan"]?["maximum"]);
+            Assert.IsNull(fields?["swapped"]?["minimum"]);
+            Assert.IsNull(fields?["swapped"]?["maximum"]);
+            Assert.AreEqual(1d, fields?["bounded"]?["minimum"]?.GetValue<double>());
+            Assert.AreEqual(9d, fields?["bounded"]?["maximum"]?.GetValue<double>());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-007.3")]
+        public void SerializeADocumentDeclaringABoundThatIsNotFinite()
+        {
+            // Arrange
+            var block = new NonFiniteBoundBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            // The harm the omission prevents: System.Text.Json cannot write a NaN or an infinity, so one such
+            // bound aborted the whole document with an exception naming neither the member nor the block.
+            foreach (var property in result.Services.Single().Properties)
+            {
+                Assert.IsNotNull(property.Schema.ToJsonString());
+            }
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-006.2")]
+        public void ReportMeasuringPointKindOnTheMeasuringPointStreamOnly()
+        {
+            // Arrange
+            var block = new DualStreamKindBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            var service = result.Services.Single();
+            Assert.IsNull(service.Properties.Single().Schema["x-kind"]);
+            Assert.AreEqual("totalIncreasing", service.MeasuringPoints.Single().Schema["x-kind"]?.GetValue<string>());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-006.1")]
+        public void ReportOneTitleAndDescriptionForAMemberOnBothStreams()
+        {
+            // Arrange
+            var block = new DualStreamKindBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            var service = result.Services.Single();
+            var property = service.Properties.Single();
+            var measuringPoint = service.MeasuringPoints.Single();
+
+            Assert.AreEqual(nameof(DualStreamKindBlock.Power), property.Identifier);
+            Assert.AreEqual(nameof(DualStreamKindBlock.Power), measuringPoint.Identifier);
+            Assert.AreEqual("Grid power", property.Schema["title"]?.GetValue<string>());
+            Assert.AreEqual("Grid power", measuringPoint.Schema["title"]?.GetValue<string>());
+            Assert.AreEqual("Live state and a chart", property.Schema["description"]?.GetValue<string>());
+            Assert.AreEqual("Live state and a chart", measuringPoint.Schema["description"]?.GetValue<string>());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-014.3")]
+        [DynamicData(nameof(BlankIdentifierBlocks))]
+        public void RefuseABindingWhoseIdentifierIsBlank(LogicBlockBase block, string memberName)
+        {
+            // Arrange / Act / Assert
+            var exception = Assert.ThrowsExactly<InvalidOperationException>(() => LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider));
+
+            Assert.Contains(memberName, exception.Message);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-014.4")]
+        public void RefuseTwoInterfaceBindingsResolvingToOneIdentifier()
+        {
+            // Arrange
+            var block = new CollidingInterfaceIdentifierBlock();
+
+            // Act / Assert
+            var exception = Assert.ThrowsExactly<InvalidOperationException>(() => LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider));
+
+            Assert.Contains("Shared", exception.Message);
+            Assert.Contains(nameof(CollidingInterfaceIdentifierBlock.Peer), exception.Message);
+            Assert.Contains(nameof(CollidingInterfaceIdentifierBlock), exception.Message);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-014.4")]
+        public void RefuseTwoContractBindingsResolvingToOneIdentifier()
+        {
+            // Arrange
+            var block = new CollidingContractIdentifierBlock();
+
+            // Act / Assert
+            var exception = Assert.ThrowsExactly<InvalidOperationException>(() => LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider));
+
+            Assert.Contains("Shared", exception.Message);
+            Assert.Contains(nameof(CollidingContractIdentifierBlock.OutputA), exception.Message);
+            Assert.Contains(nameof(CollidingContractIdentifierBlock.OutputB), exception.Message);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-014.1")]
+        public void DeriveDistinctIdentifiersForTwoBindingsOfOneInterface()
+        {
+            // Arrange
+            var block = new DistinctInterfaceIdentifierBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            CollectionAssert.AreEquivalent(new[] { "Left_IToggleable", "Right_IToggleable" }, result.Interfaces.Select(logicInterface => logicInterface.Identifier).ToList());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-005.3")]
+        public void DistinguishServiceIdentifiersDifferingOnlyInCase()
+        {
+            // Arrange
+            var block = new CaseDistinctServiceBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            CollectionAssert.AreEquivalent(new[] { nameof(CaseDistinctServiceBlock), nameof(CaseDistinctServiceBlock.Sensor), nameof(CaseDistinctServiceBlock.SENSOR) },
+                                           result.Services.Select(service => service.Identifier).ToList());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-004.6")]
+        public void CarryDisplayStringsVerbatim()
+        {
+            // Arrange
+            var block = new VerbatimStringBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            var marked = result.Services.Single().Properties.Single(property => property.Identifier == nameof(VerbatimStringBlock.Marked));
+            Assert.AreEqual("Tür & <b>Wärme</b> — 20 °C", result.Annotations["DefaultName"]);
+            Assert.AreEqual("Tür & <i>Wärme</i> — 20 °C", marked.Schema["title"]?.GetValue<string>());
+            Assert.AreEqual("Ünïcödé — em-dash — and \"quotes\"", marked.Schema["description"]?.GetValue<string>());
+            Assert.AreEqual("€/kWh", marked.Schema["x-unit"]?.GetValue<string>());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-007.8")]
+        public void CarryEmptyDisplayStringsRatherThanOmittingThem()
+        {
+            // Arrange
+            var block = new VerbatimStringBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            var empties = result.Services.Single().Properties.Single(property => property.Identifier == nameof(VerbatimStringBlock.Empties));
+            Assert.AreEqual(string.Empty, empties.Schema["title"]?.GetValue<string>());
+            Assert.AreEqual(string.Empty, empties.Schema["description"]?.GetValue<string>());
+            Assert.AreEqual(string.Empty, empties.Schema["x-unit"]?.GetValue<string>());
+            Assert.AreEqual(string.Empty, empties.Presentation?["displayName"]?.GetValue<string>());
+            Assert.AreEqual(string.Empty, empties.Presentation?["group"]?.GetValue<string>());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-009.3")]
+        [TestProperty("spec", "AC-INTRO-009.4")]
+        public void OmitOrderDecimalsAndImportanceDeclaredAtTheirDefaults()
+        {
+            // Arrange
+            var block = new VerbatimStringBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            var empties = result.Services.Single().Properties.Single(property => property.Identifier == nameof(VerbatimStringBlock.Empties));
+            Assert.IsNull(empties.Presentation?["order"]);
+            Assert.IsNull(empties.Presentation?["decimals"]);
+            Assert.IsNull(empties.Presentation?["importance"]);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-007.7")]
+        public void ReportABoundedRangeThatCannotBeSatisfied()
+        {
+            // Arrange
+            var block = new VerbatimStringBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            var inverted = result.Services.Single().Properties.Single(property => property.Identifier == nameof(VerbatimStringBlock.Inverted));
+            Assert.AreEqual(10d, inverted.Schema["minimum"]?.GetValue<double>());
+            Assert.AreEqual(1d, inverted.Schema["maximum"]?.GetValue<double>());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-004.4")]
+        public void OmitBlockAnnotationsDeclaredEmpty()
+        {
+            // Arrange
+            var block = new EmptyAnnotationBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            Assert.IsEmpty(result.Annotations);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-010.2")]
+        public void ReadSeveritiesThroughNullableEnumAndNotThroughArray()
+        {
+            // Arrange
+            var block = new SeverityReachBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            var properties = result.Services.Single().Properties;
+            var throughNullable = properties.Single(property => property.Identifier == nameof(SeverityReachBlock.Nullable));
+            var throughArray = properties.Single(property => property.Identifier == nameof(SeverityReachBlock.Array));
+
+            Assert.IsNotNull(throughNullable.Presentation?["statusMappings"]);
+            Assert.IsNull(throughArray.Presentation?["statusMappings"]);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-010.3")]
+        public void ReadEnumLabelsThroughNullableEnumAndThroughArray()
+        {
+            // Arrange
+            var block = new SeverityReachBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            var properties = result.Services.Single().Properties;
+            var throughNullable = properties.Single(property => property.Identifier == nameof(SeverityReachBlock.Nullable));
+            var throughArray = properties.Single(property => property.Identifier == nameof(SeverityReachBlock.Array));
+
+            Assert.AreEqual("Fine", throughNullable.Presentation?["enumLabels"]?["Good"]?.GetValue<string>());
+            Assert.AreEqual("Fine", throughArray.Presentation?["enumLabels"]?["Good"]?.GetValue<string>());
+            Assert.IsNull(throughNullable.Presentation?["enumLabels"]?["Bad"]);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-008.3")]
+        public void EnumerateStructFieldsFromConstructorWithMostParameters()
+        {
+            // Arrange
+            var block = new StructShapeBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            var properties = result.Services.Single().Properties.Single().Schema["properties"] as JsonObject;
+            CollectionAssert.AreEquivalent(new[] { "left", "right" }, properties!.Select(field => field.Key).ToList());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-008.4")]
+        public void RefuseStructWithNoPositionalConstructor()
+        {
+            // Arrange
+            var block = new FieldlessStructBlock();
+
+            // Act / Assert
+            var exception = Assert.ThrowsExactly<NotSupportedException>(() => LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider));
+
+            Assert.Contains(nameof(FieldlessStruct), exception.Message);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-004.1")]
+        public void ReportNestedBlockIdentityWithItsClrNestingSeparator()
+        {
+            // Arrange
+            var block = new IntrospectionOuter.NestedBlock();
+
+            // Act
+            var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
+
+            // Assert
+            Assert.EndsWith("IntrospectionOuter+NestedBlock", result.TypeFullName);
         }
 
         private LogicBlockIntrospectionResult.ServicePropertyInfo GetProperty(string identifier)

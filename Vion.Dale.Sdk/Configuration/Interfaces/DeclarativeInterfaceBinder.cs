@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -19,9 +19,14 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
         {
             var type = logicBlock.GetType();
 
+            // One identifier namespace per block, shared by both paths below: a class-level binding and a
+            // property-level one can pin the same Identifier, and only the second would have survived into
+            // the endpoint dictionary the introspection reads.
+            var mintedBy = new Dictionary<string, string>(StringComparer.Ordinal);
+
             // Handle class-based interfaces with automatic detection. Class-implemented interfaces are not
             // gateable (no member to carry [IncludedWhen] — DALE043 enforces this), so they bind unconditionally.
-            BindClassBasedInterfaces(logicBlock, interfaceFactory, serviceBinder, type);
+            BindClassBasedInterfaces(logicBlock, interfaceFactory, serviceBinder, type, mintedBy);
 
             // Handle property-based interfaces with automatic detection (the gateable path).
             BindPropertyBasedInterfaces(logicBlock,
@@ -29,10 +34,15 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
                                         serviceBinder,
                                         type,
                                         mode,
-                                        parameterContext);
+                                        parameterContext,
+                                        mintedBy);
         }
 
-        private static void BindClassBasedInterfaces(object logicBlock, IInterfaceFactory interfaceFactory, ServiceBinder serviceBinder, Type type)
+        private static void BindClassBasedInterfaces(object logicBlock,
+                                                     IInterfaceFactory interfaceFactory,
+                                                     ServiceBinder serviceBinder,
+                                                     Type type,
+                                                     Dictionary<string, string> mintedBy)
         {
             // Get all implementation interfaces that the class implements
             var implementedLogicInterfaces = GetImplementedLogicInterfaces(type);
@@ -51,9 +61,12 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
                                    null,
                                    serviceBinder,
 
-                                   // RFC 0019: a class-implemented endpoint belongs to the root service, which the
-                                   // service binder creates unconditionally from the class name.
-                                   type.Name);
+                                   // A class-implemented endpoint belongs to the root service, which the service
+                                   // binder creates unconditionally from the class name.
+                                   type.Name,
+                                   type.Name,
+                                   type,
+                                   mintedBy);
             }
         }
 
@@ -62,7 +75,8 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
                                                         ServiceBinder serviceBinder,
                                                         Type type,
                                                         BindingMode mode,
-                                                        IReadOnlyDictionary<string, JsonNode?>? parameterContext)
+                                                        IReadOnlyDictionary<string, JsonNode?>? parameterContext,
+                                                        Dictionary<string, string> mintedBy)
         {
             var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
 
@@ -125,7 +139,10 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
                                        defaultIdentifier,
                                        includedWhen,
                                        serviceBinder,
-                                       owningServiceIdentifier);
+                                       owningServiceIdentifier,
+                                       property.Name,
+                                       type,
+                                       mintedBy);
                 }
             }
         }
@@ -137,7 +154,10 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
                                                string? defaultIdentifier,
                                                string? includedWhen,
                                                ServiceBinder serviceBinder,
-                                               string? owningServiceIdentifier)
+                                               string? owningServiceIdentifier,
+                                               string memberName,
+                                               Type logicBlockType,
+                                               Dictionary<string, string> mintedBy)
         {
             // Look for explicit attribute for this interface, use explicit attribute or create default
             var interfaceAttribute = interfaceAttributes.FirstOrDefault(attr => attr.ForInterface == implementedLogicInterface) ??
@@ -145,6 +165,7 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
 
             var logicSendInterfaceType = FindLogicSendInterface(implementedLogicInterface);
             var identifier = interfaceAttribute.Identifier ?? defaultIdentifier ?? implementedLogicInterface.Name;
+            BindingIdentifiers.Claim(mintedBy, identifier, memberName, "Interface binding", logicBlockType);
 
             // A null implementation reaches here only from the definition view, which describes a type rather
             // than serving messages (BindPropertyBasedInterfaces skips a null component in Live mode). The

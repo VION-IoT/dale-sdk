@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
@@ -59,8 +59,9 @@ namespace Vion.Dale.Sdk.Introspection
                               Description = sf.Description,
                               Unit = sf.Unit,
                               Format = sf.StringFormat,
-                              Minimum = !double.IsNegativeInfinity(sf.Minimum) ? sf.Minimum : null,
-                              Maximum = !double.IsPositiveInfinity(sf.Maximum) ? sf.Maximum : null,
+                              // Same rule as a property's bounds: a bound the wire cannot carry is not a bound.
+                              Minimum = FiniteBound(sf.Minimum),
+                              Maximum = FiniteBound(sf.Maximum),
                               WriteOnly = sf.WriteOnly,
                           };
 
@@ -71,6 +72,16 @@ namespace Vion.Dale.Sdk.Introspection
             }
 
             return builder.ToImmutable();
+        }
+
+        /// <summary>
+        ///     A declared struct-field bound, or <c>null</c> where it is not a number the wire can carry —
+        ///     the field-level half of the rule <c>PropertyMetadataBuilder.FiniteBound</c> applies to a
+        ///     property's own bounds, and for the same reason.
+        /// </summary>
+        private static double? FiniteBound(double declared)
+        {
+            return !double.IsNaN(declared) && !double.IsInfinity(declared) ? declared : null;
         }
 
         /// <summary>
