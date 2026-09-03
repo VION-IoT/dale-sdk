@@ -180,7 +180,7 @@ namespace Vion.Dale.Sdk.Core
         public required string AndInterface { get; init; }
     }
 
-    // RFC 0019 contract-carried service relations.
+    // Contract-carried service relations.
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
     public sealed class ServiceRelationAttribute : Attribute
     {

@@ -1,11 +1,40 @@
+using System;
 using System.Reflection;
 using Vion.Dale.Sdk.Core;
 
 namespace Vion.Dale.Sdk.Test.Core
 {
+    /// <summary>
+    ///     Where a presentation declaration may be written, and what its knobs default to
+    ///     (<c>docs/specs/introspection.md</c>).
+    ///     <para>
+    ///         The default-value tests below cite no criterion by design: they pin the sentinels the wire
+    ///         rules rest on — <c>int.MinValue</c> for an unset order or decimals, the default importance —
+    ///         rather than anything the emitted document states. They are premise tests in the sense
+    ///         <c>docs/spec-process.md</c> names, and minting a criterion to hang them on would state a C#
+    ///         default as a wire contract.
+    ///     </para>
+    /// </summary>
     [TestClass]
     public class PresentationAttributeShould
     {
+        [TestMethod]
+        [TestProperty("spec", "AC-INTRO-009.6")]
+        public void BeDeclarableOnPropertiesOnly()
+        {
+            // Arrange
+            var attribute = typeof(PresentationAttribute);
+
+            // Act
+            var usage = attribute.GetCustomAttribute<AttributeUsageAttribute>();
+
+            // Assert
+            // The target set is the whole behavior: nothing reads this attribute off anything but a
+            // PropertyInfo, and no diagnostic judges a hint declared anywhere else.
+            Assert.IsNotNull(usage);
+            Assert.AreEqual(AttributeTargets.Property, usage.ValidOn);
+        }
+
         [TestMethod]
         public void CarryAllFields()
         {

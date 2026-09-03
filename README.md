@@ -20,7 +20,8 @@ The identifiers in a published library — the block's full type name, service a
 contract and interface identifiers, enum and struct type names, custom group keys, and the library's
 own `PackageId` — double as the keys the cloud files integrator-authored translations under. Renaming
 one orphans its translations, and `PackageId` is unique across the whole platform. The rules, and the
-one knob that decouples a C# rename from its identifier: [docs/identifier-stability.md](docs/identifier-stability.md).
+one knob that decouples a C# rename from its identifier: [docs/specs/introspection.md](docs/specs/introspection.md),
+with the practical guidance in [docs/identifier-stability.md](docs/identifier-stability.md).
 
 ## Building from source
 

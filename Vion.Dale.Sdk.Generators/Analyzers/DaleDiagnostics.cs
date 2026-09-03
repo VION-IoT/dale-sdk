@@ -492,7 +492,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                                                                                                       DiagnosticSeverity.Error,
                                                                                                       true);
 
-        // --- Presentation-time conditional visibility (RFC 0017 / VisibleWhen) ---
+        // --- Presentation-time conditional visibility (VisibleWhen) ---
 
         /// <summary>
         ///     A <c>[Presentation(VisibleWhen = "...")]</c> predicate does not parse, or references a
@@ -563,7 +563,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
 
         /// <summary>
         ///     A <c>[ServiceRelation]</c> declaration violates its discipline, or a block cannot participate
-        ///     in one it is wired for (RFC 0019 §4.6). Reported as an <b>error</b> for: the attribute on a
+        ///     in one it is wired for. Reported as an <b>error</b> for: the attribute on a
         ///     class without <c>[LogicBlockContract]</c> (bind-time throw); an <c>OutwardsInterface</c> that
         ///     is neither the contract's <c>BetweenInterface</c> nor its <c>AndInterface</c> (bind-time
         ///     throw); a duplicate <c>RelationType</c> across the declarations on one contract (duplicate

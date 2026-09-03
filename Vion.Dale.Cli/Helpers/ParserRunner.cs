@@ -59,7 +59,7 @@ namespace Vion.Dale.Cli.Helpers
                 // Step 4: Run parser against published DLL
                 DaleConsole.Verbose($"Running parser on {dllPath}...");
                 var tempJson = Path.Combine(publishDir, "introspection.json");
-                var exitCode = await RunParserDll(parserDll, dllPath, tempJson);
+                var exitCode = await RunParserDll(parserDll, dllPath, tempJson, project.PackageId);
                 if (exitCode != 0)
                 {
                     return null;
@@ -233,7 +233,12 @@ namespace Vion.Dale.Cli.Helpers
             return null;
         }
 
-        private static async Task<int> RunParserDll(string parserDllPath, string pluginDllPath, string outputJsonPath)
+        /// <summary>
+        ///     Runs the parser the way <c>Vion.Dale.Sdk.targets</c> runs it at pack time, package id included —
+        ///     the emitted document's package identity is the nuspec id, so a `dale list` that omitted the
+        ///     option would show a different identity than the artifact `dale pack` produces.
+        /// </summary>
+        private static async Task<int> RunParserDll(string parserDllPath, string pluginDllPath, string outputJsonPath, string? packageId)
         {
             var psi = new ProcessStartInfo("dotnet")
                       {
@@ -245,6 +250,12 @@ namespace Vion.Dale.Cli.Helpers
             psi.ArgumentList.Add(parserDllPath);
             psi.ArgumentList.Add(pluginDllPath);
             psi.ArgumentList.Add(outputJsonPath);
+
+            if (!string.IsNullOrWhiteSpace(packageId))
+            {
+                psi.ArgumentList.Add("--package-id");
+                psi.ArgumentList.Add(packageId);
+            }
 
             using var process = Process.Start(psi);
             if (process == null)

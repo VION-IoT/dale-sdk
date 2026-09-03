@@ -76,8 +76,12 @@ The introspection JSON that cloud-api reads is produced by `Vion.Dale.LogicBlock
   energy examples nugpk"*. Derive the expectations from the sources and check them off against the
   packed file, rather than reading the file and describing it.
 - In-repo, pin the emitted shape with **golden assertions** at introspection level
-  (`ContractCarriedServiceRelationsShould`, `Vion.Dale.DevHost.Test/Golden/`) so a wire change cannot
-  land silently.
+  (`ContractCarriedServiceRelationsShould`) so a wire change cannot land silently, and run the real
+  parser over a real plugin assembly in `Vion.Dale.LogicBlockParser.Test` — two `netstandard2.1`
+  fixture libraries are `ProjectReference`d into that project's output directory, which is the single
+  directory the parser's load context needs. `Vion.Dale.DevHost.Test/Golden/` is **not** one of these:
+  it holds a committed scenario and topology that `GoldenRegressionShould` round-trips through the
+  development host's API.
 
 ## 5. Determinism belongs to the clock mode, and the mode is checked
 

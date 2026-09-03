@@ -74,9 +74,11 @@ namespace Vion.Dale.Sdk.Introspection
 
             // displayName only where the inline slot cannot carry the title: for a scalar field the
             // authored Title already lands in schema.title, and duplicating it here would leave two
-            // sources with no rule about which wins.
+            // sources with no rule about which wins. An authored empty title is still authored — a
+            // length test here would drop it while the same empty title on a scalar field lands inline,
+            // so the one place a title is re-routed would be the one place it is not carried verbatim.
             var structField = parameter.GetCustomAttribute<StructFieldAttribute>();
-            if (structField?.Title is { Length: > 0 } title && PropertyMetadataBuilder.HasIdentityBearingTitle(TypeRefBuilder.BuildForStructField(parameter)))
+            if (structField?.Title is { } title && PropertyMetadataBuilder.HasIdentityBearingTitle(TypeRefBuilder.BuildForStructField(parameter)))
             {
                 entry["displayName"] = JsonValue.Create(title);
             }

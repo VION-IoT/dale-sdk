@@ -10,8 +10,9 @@
 - **Related:** RFC 0010 (the scenario-wire foundation this extends; its §3 deferred drive-half and
   §4 request/response deferral are both resolved here), RFC 0011 (parked — §4's lease/cadence
   problem is answered for paired benches by sim blocks), RFC 0003 (`IDevHostControl`), RFC 0008
-  (stepping/quiescence — the determinism this design preserves), RFC 0019 (precedent: declarative
-  metadata on the contract, both halves derived mechanically).
+  (stepping/quiescence — the determinism this design preserves), contract-carried service relations (precedent: declarative
+  metadata on the contract, both halves derived mechanically — now
+  [`docs/specs/introspection.md`](../specs/introspection.md)).
   Jira: resolves VION-131; completes VION-129's deferred half; interacts with VION-133;
   orthogonal to VION-130/132.
 
@@ -234,7 +235,7 @@ Naming decision: **`…Provider`**, because the platform already calls the far s
 provider (`ServiceProviderContractType`, `ServiceProviderHandlerBase`,
 `mappedServiceProviderIdentifier`) — a sim binding the face literally provides the service; and it
 is transport-neutral where `Device`/`HAL` are not (PPC). These contract-type strings are stable
-introspection identifiers (docs/identifier-stability.md) — chosen once.
+introspection identifiers (docs/specs/introspection.md) — chosen once.
 
 Provider faces declare `Consumers = LinkMultiplicity.ZeroOrOne` (a single simulator writes a
 channel). All new public types follow docs/sdk-surface-conventions.md: XML docs, PublicApi
@@ -397,7 +398,7 @@ contracts (they already loop natively).
 | `Vion.Dale.LogicBlockParser` + `Vion.Dale.Sdk.targets` | `--exclude-development-only`, passed on the pack path: development-only blocks are dropped from the emitted JSON and named in the pack log (§4.8) |
 | `Vion.Dale.DevHost.Web` | wiring view renders pairings; topology editor edits them; scenario forms unchanged |
 | `Vion.Dale.DevHost.SmokeHost` | ideal-I/O sim block (provider faces), a paired topology, scenarios proving: delivery, confirmation loop, DI drive, mismatch drive, stepped determinism; `devhost-smoke` coverage |
-| Docs | devhost-conventions section on pairing + a simulator-authoring recipe; identifier-stability note for the new contract-type names |
+| Docs | devhost-conventions section on pairing + a simulator-authoring recipe; introspection-spec note for the new contract-type names |
 | Adjacent cleanup | `DevHostControl.PublishAllStates` still hardcodes the four HAL handler names (`DevHostControl.cs:381-389`) — provider handlers make this stale fragment visible; fold its fix in |
 
 ## 8. Jira mapping

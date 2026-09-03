@@ -49,7 +49,7 @@ position to judge whether the change does the right thing, only whether it is do
 
 Read [`CLAUDE.md`](../../CLAUDE.md) and every convention doc its trigger table points to —
 [`sdk-surface`](../../docs/sdk-surface-conventions.md), [`testing`](../../docs/testing-conventions.md),
-[`devhost`](../../docs/devhost-conventions.md), [`identifier-stability`](../../docs/identifier-stability.md),
+[`devhost`](../../docs/devhost-conventions.md), [`introspection`](../../docs/specs/introspection.md),
 [`releasing`](../../docs/releasing.md) — plus the nested `CLAUDE.md` for any area the diff touches
 ([`Vion.Dale.Cli`](../../Vion.Dale.Cli/CLAUDE.md),
 [`Vion.Dale.DevHost.Web`](../../Vion.Dale.DevHost.Web/CLAUDE.md)). Those are your rules. Some content is
@@ -143,7 +143,7 @@ Run each as a named adversarial check; cite the D-number in findings.
   whole review round whose only content was `* "block" -> logicBlock`. Then the consequence check: does
   any rename touch an **introspection identifier** — service, member, contract, interface, enum member,
   enum/struct type name, PackageId? That
-  orphans authored translations ([`identifier-stability.md`](../../docs/identifier-stability.md)) and needs
+  orphans authored translations ([`specs/introspection.md`](../../docs/specs/introspection.md)) and needs
   saying out loud.
 
 - **D9 — Silence is a defect.** An empty `else if` that drops a declaration; a "no-throw" test standing in

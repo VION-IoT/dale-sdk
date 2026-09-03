@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netstandard2.1</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <ImplicitUsings>false</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+
+        <!-- The parser reports the assembly's simple name when the pack does not supply a package id, and
+             the nuspec id when it does. Setting the two apart is what makes that distinguishable. -->
+        <AssemblyName>Vion.Dale.ParserProbe.Unregistered</AssemblyName>
+        <PackageId>Vion.Dale.ParserProbe.Unregistered</PackageId>
+        <Version>7.8.9-probe.1</Version>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vion.Dale.Sdk\Vion.Dale.Sdk.csproj"/>
+        <ProjectReference Include="..\Vion.Dale.Sdk.DigitalIo\Vion.Dale.Sdk.DigitalIo.csproj"/>
+        <ProjectReference Include="..\Vion.Dale.Sdk.Generators\Vion.Dale.Sdk.Generators.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Metalama.Patterns.Observability" Version="2026.1.18"/>
+        <PackageReference Include="IsExternalInit" Version="1.0.3">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+    </ItemGroup>
+
+</Project>

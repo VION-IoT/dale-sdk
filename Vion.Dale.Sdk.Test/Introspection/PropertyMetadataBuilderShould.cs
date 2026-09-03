@@ -121,7 +121,7 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
     }
 
-    // RFC 0017: VisibleWhen on a [ServiceInterface] property, inherited/overridable like every other
+    // VisibleWhen on a [ServiceInterface] property, inherited/overridable like every other
     // presentation field.
     [ServiceInterface]
     public interface IVisibleWhenInterface
@@ -179,20 +179,29 @@ namespace Vion.Dale.Sdk.Test.Introspection
     public class PropertyMetadataBuilderShould
     {
         [TestMethod]
-        public void EmitVisibleWhenFromThePresentationAttribute()
+        [TestProperty("spec", "AC-INTRO-009.2")]
+        public void EmitVisibleWhenFromPresentationDeclaration()
         {
+            // Arrange
+
+            // Act
             var property = typeof(VisibleWhenDirectLb).GetProperty(nameof(VisibleWhenDirectLb.PrimaryCurrentToWriteA))!;
             var pm = PropertyMetadataBuilder.Build(property,
                                                    new PrimitiveTypeRef(PrimitiveKind.Double),
                                                    ImmutableDictionary<string, TypeAnnotations>.Empty,
                                                    ServiceElementStream.Property);
 
+            // Assert
             Assert.AreEqual("DirectMeasurement == false", pm.Presentation.VisibleWhen);
         }
 
         [TestMethod]
-        public void CascadeVisibleWhenFromTheInterfaceWhenTheClassDeclaresNone()
+        [TestProperty("spec", "AC-INTRO-012.3")]
+        public void CascadeVisibleWhenFromInterfaceWhenClassDeclaresNone()
         {
+            // Arrange
+
+            // Act
             var schemaSource = typeof(IVisibleWhenInterface).GetProperty(nameof(IVisibleWhenInterface.Reading))!;
             var presentationSource = typeof(VisibleWhenInheritedLb).GetProperty(nameof(VisibleWhenInheritedLb.Reading))!;
 
@@ -202,12 +211,17 @@ namespace Vion.Dale.Sdk.Test.Introspection
                                                         ImmutableDictionary<string, TypeAnnotations>.Empty,
                                                         ServiceElementStream.Property);
 
+            // Assert
             Assert.AreEqual("Enabled == true", pm.Presentation.VisibleWhen);
         }
 
         [TestMethod]
-        public void PreferTheClassVisibleWhenOverTheInterface()
+        [TestProperty("spec", "AC-INTRO-012.3")]
+        public void PreferClassVisibleWhenOverInterface()
         {
+            // Arrange
+
+            // Act
             var schemaSource = typeof(IVisibleWhenInterface).GetProperty(nameof(IVisibleWhenInterface.Reading))!;
             var presentationSource = typeof(VisibleWhenOverrideLb).GetProperty(nameof(VisibleWhenOverrideLb.Reading))!;
 
@@ -217,12 +231,18 @@ namespace Vion.Dale.Sdk.Test.Introspection
                                                         ImmutableDictionary<string, TypeAnnotations>.Empty,
                                                         ServiceElementStream.Property);
 
+            // Assert
             Assert.AreEqual("Manual == false", pm.Presentation.VisibleWhen);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-012.2")]
+        [TestProperty("spec", "AC-INTRO-012.3")]
         public void MergePresentationFromInterfaceAndClassPerField()
         {
+            // Arrange
+
+            // Act
             var schemaSource = typeof(ITestInterfaceWithPresentation).GetProperty(nameof(ITestInterfaceWithPresentation.Power))!;
             var presentationSource = typeof(LbWithInterfacePresentation).GetProperty(nameof(LbWithInterfacePresentation.Power))!;
 
@@ -233,6 +253,8 @@ namespace Vion.Dale.Sdk.Test.Introspection
                                                         ServiceElementStream.Property);
 
             // Class wins on DisplayName (it was explicitly set on the class).
+
+            // Assert
             Assert.AreEqual("PV-Power", pm.Presentation.DisplayName);
 
             // Interface fills Group and Importance (class didn't set them).
@@ -241,8 +263,12 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-012.3")]
         public void InheritEntirePresentationWhenClassDeclaresNone()
         {
+            // Arrange
+
+            // Act
             var schemaSource = typeof(ITestInterfaceWithPresentation).GetProperty(nameof(ITestInterfaceWithPresentation.Power))!;
             var presentationSource = typeof(LbWithoutClassPresentation).GetProperty(nameof(LbWithoutClassPresentation.Power))!;
 
@@ -253,6 +279,8 @@ namespace Vion.Dale.Sdk.Test.Introspection
                                                         ServiceElementStream.Property);
 
             // Class declared no [Presentation], so all interface presentation cascades through.
+
+            // Assert
             Assert.AreEqual(PropertyGroup.Status, pm.Presentation.Group);
             Assert.AreEqual("Primary", pm.Presentation.Importance);
         }
@@ -546,9 +574,13 @@ namespace Vion.Dale.Sdk.Test.Introspection
                                                                                     .BuildServiceProvider();
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-003.3")]
         public void EmitPropertiesInBaseToDerivedOrder()
         {
+            // Arrange
             var block = new DerivedSortLb();
+
+            // Act
             var result = LogicBlockIntrospection.IntrospectLogicBlock(block, _serviceProvider);
 
             var service = result.Services.Single();
@@ -556,19 +588,28 @@ namespace Vion.Dale.Sdk.Test.Introspection
 
             // BaseSortLb declares BaseProp1, BaseProp2; DerivedSortLb adds DerivedProp1.
             // Expected order: base-class properties first (in declaration order), then derived.
+
+            // Assert
             CollectionAssert.AreEqual(new[] { "BaseProp1", "BaseProp2", "DerivedProp1" }, propIds, $"Got order: {string.Join(", ", propIds)}");
         }
 
         [TestMethod]
-        public void EmitVisibleWhenIntoBothThePropertyAndMeasuringPointDocsOfADualAnnotatedMember()
+        [TestProperty("spec", "AC-INTRO-006.1")]
+        [TestProperty("spec", "AC-INTRO-006.4")]
+        public void EmitVisibleWhenIntoBothDocumentsOfDualAnnotatedMember()
         {
+            // Arrange
             // A member annotated with both [ServiceProperty] and [ServiceMeasuringPoint] rides the same
             // presentation node, so the predicate lands in BOTH sibling docs — the editor row and the
             // chart row hide coherently (spec §4).
+
+            // Act
             var result = LogicBlockIntrospection.IntrospectLogicBlock(new DualAnnotatedVisibilityLb(), _serviceProvider);
             var service = result.Services.Single();
 
             var property = service.Properties.Single(p => p.Identifier == "Power");
+
+            // Assert
             Assert.AreEqual("Enabled == true", property.Presentation?["visibleWhen"]?.GetValue<string>());
 
             var measuringPoint = service.MeasuringPoints.Single(m => m.Identifier == "Power");

@@ -6,7 +6,7 @@ namespace Vion.Dale.Sdk.Generators.Predicates
 {
     /// <summary>
     ///     Self-contained recursive-descent parser for the VION presentation-predicate dialect
-    ///     (<c>Presentation.VisibleWhen</c> — RFC 0017). It parses <b>and</b> shapes the AST but
+    ///     (<c>Presentation.VisibleWhen</c>). It parses <b>and</b> shapes the AST but
     ///     <b>never evaluates</b> — strict-profile C# evaluation is the runtime's job. netstandard2.0,
     ///     no package dependencies (analyzers must not carry <c>Vion.Contracts</c>).
     ///     <para />

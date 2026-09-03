@@ -9,50 +9,35 @@ namespace Vion.Dale.Sdk.Test.Introspection
     public class TypeRefBuilderShould
     {
         [TestMethod]
-        public void EmitsPrimitiveSchemaForBool()
+        [TestProperty("spec", "AC-INTRO-007.6")]
+        [DataRow("BoolValue", "boolean", null, DisplayName = "bool")]
+        [DataRow("ByteValue", "integer", "uint8", DisplayName = "byte")]
+        [DataRow("UShortValue", "integer", "uint16", DisplayName = "ushort")]
+        [DataRow("UIntValue", "integer", "uint32", DisplayName = "uint")]
+        [DataRow("LongValue", "integer", "int64", DisplayName = "long")]
+        public void EmitPrimitiveSchemaForEachSupportedKind(string identifier, string expectedType, string? expectedFormat)
         {
-            var schema = GetSchema("BoolValue");
-            Assert.AreEqual("boolean", schema["type"]?.GetValue<string>());
-            Assert.IsNull(schema["format"]);
+            // Arrange
+
+            // Act
+            var schema = GetSchema(identifier);
+
+            // Assert
+            Assert.AreEqual(expectedType, schema["type"]?.GetValue<string>());
+            Assert.AreEqual(expectedFormat, schema["format"]?.GetValue<string>());
         }
 
         [TestMethod]
-        public void EmitsPrimitiveSchemaForByte()
+        [TestProperty("spec", "AC-INTRO-007.6")]
+        public void EmitNullablePrimitiveSchemaForOptionalDouble()
         {
-            var schema = GetSchema("ByteValue");
-            Assert.AreEqual("integer", schema["type"]?.GetValue<string>());
-            Assert.AreEqual("uint8", schema["format"]?.GetValue<string>());
-        }
+            // Arrange
 
-        [TestMethod]
-        public void EmitsPrimitiveSchemaForUShort()
-        {
-            var schema = GetSchema("UShortValue");
-            Assert.AreEqual("integer", schema["type"]?.GetValue<string>());
-            Assert.AreEqual("uint16", schema["format"]?.GetValue<string>());
-        }
-
-        [TestMethod]
-        public void EmitsPrimitiveSchemaForUInt()
-        {
-            var schema = GetSchema("UIntValue");
-            Assert.AreEqual("integer", schema["type"]?.GetValue<string>());
-            Assert.AreEqual("uint32", schema["format"]?.GetValue<string>());
-        }
-
-        [TestMethod]
-        public void EmitsPrimitiveSchemaForLong()
-        {
-            var schema = GetSchema("LongValue");
-            Assert.AreEqual("integer", schema["type"]?.GetValue<string>());
-            Assert.AreEqual("int64", schema["format"]?.GetValue<string>());
-        }
-
-        [TestMethod]
-        public void EmitsNullablePrimitiveSchemaForOptionalDouble()
-        {
+            // Act
             var schema = GetSchema("Target");
             var typeArr = schema["type"] as JsonArray;
+
+            // Assert
             Assert.IsNotNull(typeArr);
             Assert.HasCount(2, typeArr);
             Assert.AreEqual("number", typeArr[0]!.GetValue<string>());
@@ -61,10 +46,16 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
-        public void EmitsNullablePrimitiveSchemaForOptionalInt()
+        [TestProperty("spec", "AC-INTRO-007.6")]
+        public void EmitNullablePrimitiveSchemaForOptionalInt()
         {
+            // Arrange
+
+            // Act
             var schema = GetSchema("OptionalCount");
             var typeArr = schema["type"] as JsonArray;
+
+            // Assert
             Assert.IsNotNull(typeArr);
             Assert.HasCount(2, typeArr);
             Assert.AreEqual("integer", typeArr[0]!.GetValue<string>());
@@ -73,18 +64,30 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
-        public void EmitsNonNullableStringSchemaForNonNullName()
+        [TestProperty("spec", "AC-INTRO-008.7")]
+        public void EmitNonNullableStringSchemaForNonNullableMember()
         {
+            // Arrange
+
+            // Act
             var schema = GetSchema("NonNullName");
+
+            // Assert
             Assert.AreEqual("string", schema["type"]?.GetValue<string>());
             Assert.IsNull(schema["format"]);
         }
 
         [TestMethod]
-        public void EmitsNullableStringSchemaForOptionalErrorMessage()
+        [TestProperty("spec", "AC-INTRO-008.7")]
+        public void EmitNullableStringSchemaForNullableMember()
         {
+            // Arrange
+
+            // Act
             var schema = GetSchema("OptionalErrorMessage");
             var typeArr = schema["type"] as JsonArray;
+
+            // Assert
             Assert.IsNotNull(typeArr);
             Assert.HasCount(2, typeArr);
             Assert.AreEqual("string", typeArr[0]!.GetValue<string>());
@@ -92,9 +95,15 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
-        public void EmitsAnnotationsForVoltageSetpoint()
+        [TestProperty("spec", "AC-INTRO-007.2")]
+        public void EmitAuthoredUnitAndBoundsOnNumericMember()
         {
+            // Arrange
+
+            // Act
             var schema = GetSchema("VoltageSetpoint");
+
+            // Assert
             Assert.AreEqual("number", schema["type"]?.GetValue<string>());
             Assert.AreEqual("V", schema["x-unit"]?.GetValue<string>());
             Assert.AreEqual(0d, schema["minimum"]?.GetValue<double>());
@@ -102,29 +111,47 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
-        public void EmitsArraySchemaForImmutableArrayOfDouble()
+        [TestProperty("spec", "AC-INTRO-007.6")]
+        public void EmitArraySchemaForImmutableArrayMember()
         {
+            // Arrange
+
+            // Act
             var schema = GetSchema("HistogramBuckets");
+
+            // Assert
             Assert.AreEqual("array", schema["type"]?.GetValue<string>());
             Assert.AreEqual("number", schema["items"]?["type"]?.GetValue<string>());
             Assert.AreEqual("double", schema["items"]?["format"]?.GetValue<string>());
         }
 
         [TestMethod]
-        public void EmitsUnitOnArrayRootOnlyForAnnotatedImmutableArray()
+        [TestProperty("spec", "AC-INTRO-007.2")]
+        public void EmitUnitOnArrayRootRatherThanOnItems()
         {
+            // Arrange
             // Property-level x-unit lives on the array root only — items carries element-shape
             // (type, format, enum, struct properties, etc.) but not property-level annotations.
             // Vion.Contracts >= 0.7.0 dropped the previous double-apply.
+
+            // Act
             var schema = GetSchema("HistogramBuckets");
+
+            // Assert
             Assert.AreEqual("A", schema["x-unit"]?.GetValue<string>());
             Assert.IsNull(schema["items"]?["x-unit"]);
         }
 
         [TestMethod]
-        public void EmitsArrayOfNullableSchemaForSamplesWithGaps()
+        [TestProperty("spec", "AC-INTRO-007.6")]
+        public void EmitArrayOfNullableSchemaForNullableElements()
         {
+            // Arrange
+
+            // Act
             var schema = GetSchema("SamplesWithGaps");
+
+            // Assert
             Assert.AreEqual("array", schema["type"]?.GetValue<string>());
             var itemsType = schema["items"]?["type"] as JsonArray;
             Assert.IsNotNull(itemsType);
@@ -134,9 +161,15 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
-        public void EmitsStructSchemaForLocation()
+        [TestProperty("spec", "AC-INTRO-008.2")]
+        public void EmitStructSchemaForRecordStructMember()
         {
+            // Arrange
+
+            // Act
             var schema = GetSchema("Location");
+
+            // Assert
             Assert.AreEqual("object", schema["type"]?.GetValue<string>());
             Assert.AreEqual("Coordinates", schema["title"]?.GetValue<string>());
             var props = schema["properties"] as JsonObject;
@@ -151,17 +184,29 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
-        public void EmitsAdditionalPropertiesFalseOnStruct()
+        [TestProperty("spec", "AC-INTRO-008.2")]
+        public void PermitNoAdditionalMembersOnStructSchema()
         {
+            // Arrange
+
+            // Act
             var schema = GetSchema("Location");
+
+            // Assert
             Assert.IsFalse(schema["additionalProperties"]?.GetValue<bool>() ?? true);
         }
 
         [TestMethod]
-        public void EmitsNullableStructSchemaForLastKnownLocation()
+        [TestProperty("spec", "AC-INTRO-008.2")]
+        public void EmitNullableStructSchemaForNullableStructMember()
         {
+            // Arrange
+
+            // Act
             var schema = GetSchema("LastKnownLocation");
             var typeArr = schema["type"] as JsonArray;
+
+            // Assert
             Assert.IsNotNull(typeArr);
             Assert.HasCount(2, typeArr);
             Assert.AreEqual("object", typeArr[0]!.GetValue<string>());
@@ -170,13 +215,21 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
-        public void EmitsStructFieldAnnotationsForNullableStruct()
+        [TestProperty("spec", "AC-INTRO-008.6")]
+        [TestProperty("spec", "AC-INTRO-008.9")]
+        [DataRow("Location", DisplayName = "non-nullable struct member")]
+        [DataRow("LastKnownLocation", DisplayName = "nullable struct member")]
+        public void EmitStructFieldAnnotationsWhateverMemberNullability(string identifier)
         {
-            // Regression (Vion.Contracts < 0.10.2): the nullable wrapper stripped [StructField]
-            // metadata — LastKnownLocation (Coordinates?) emitted bare field schemas while
-            // Location (Coordinates) carried description/minimum/maximum/x-unit.
-            var schema = GetSchema("LastKnownLocation");
+            // Arrange
+            // The nullable wrapper is the only difference between the two members, and it does not reach the
+            // fields: both rows assert the same annotations, which is what makes them one behavior.
+
+            // Act
+            var schema = GetSchema(identifier);
             var props = schema["properties"] as JsonObject;
+
+            // Assert
             Assert.IsNotNull(props);
             Assert.AreEqual("deg", props["lat"]?["x-unit"]?.GetValue<string>());
             Assert.AreEqual(-90d, props["lat"]?["minimum"]?.GetValue<double>());
@@ -188,30 +241,47 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
-        public void EmitsIdenticalFieldSchemasForNullableAndNonNullableStruct()
+        [TestProperty("spec", "AC-INTRO-008.9")]
+        public void EmitIdenticalFieldSchemasWhateverStructNullability()
         {
-            // A nullable struct property differs from its non-nullable twin only by the
-            // property-level type widening to ["object","null"] — the field subschemas
-            // must be bit-identical.
+            // Arrange
+            // The two members differ only in the nullable wrapper, so the whole field-schema document is the
+            // assertion: a per-key comparison leaves every key it does not name free to diverge.
+
+            // Act
             var nonNullable = GetSchema("Location");
             var nullable = GetSchema("LastKnownLocation");
+
+            // Assert
             Assert.AreEqual(nonNullable["properties"]!.ToJsonString(), nullable["properties"]!.ToJsonString());
         }
 
         [TestMethod]
-        public void EmitsArrayOfStructSchemaForRoute()
+        [TestProperty("spec", "AC-INTRO-008.2")]
+        public void EmitArrayOfStructSchemaForStructArrayMember()
         {
+            // Arrange
+
+            // Act
             var schema = GetSchema("Route");
+
+            // Assert
             Assert.AreEqual("array", schema["type"]?.GetValue<string>());
             Assert.AreEqual("object", schema["items"]?["type"]?.GetValue<string>());
             Assert.AreEqual("Coordinates", schema["items"]?["title"]?.GetValue<string>());
         }
 
         [TestMethod]
-        public void EmitsStructFieldAnnotationsForScheduledSetpoint()
+        [TestProperty("spec", "AC-INTRO-008.6")]
+        public void EmitAuthoredStructFieldAnnotations()
         {
+            // Arrange
             // [StructField(Unit = "kW")] on PowerSetpoint should travel through to schema.
+
+            // Act
             var schema = GetSchema("Schedule");
+
+            // Assert
             Assert.AreEqual("array", schema["type"]?.GetValue<string>());
             var itemsProps = schema["items"]?["properties"] as JsonObject;
             Assert.IsNotNull(itemsProps);
@@ -223,9 +293,15 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
-        public void EmitsWriteOnlyOnlyForTheSecretStructField()
+        [TestProperty("spec", "AC-INTRO-008.6")]
+        public void EmitWriteOnlyOnlyForFieldDeclaringIt()
         {
+            // Arrange
+
+            // Act
             var schema = GetSchema("Credentials");
+
+            // Assert
             Assert.AreEqual("object", schema["type"]?.GetValue<string>());
             var props = schema["properties"] as JsonObject;
             Assert.IsNotNull(props);
@@ -234,10 +310,17 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
-        public void EmitsDateTimeFormatForScheduledSetpointAtField()
+        [TestProperty("spec", "AC-INTRO-008.6")]
+        [TestProperty("spec", "AC-INTRO-007.9")]
+        public void EmitFormatImpliedByFieldClrType()
         {
+            // Arrange
+
+            // Act
             var schema = GetSchema("Schedule");
             var itemsProps = schema["items"]?["properties"] as JsonObject;
+
+            // Assert
             Assert.IsNotNull(itemsProps);
 
             // DateTime maps to {"type":"string","format":"date-time"}
@@ -246,13 +329,19 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
-        public void EmitsNullableStructFieldSchemasForRegisterWrites()
+        [TestProperty("spec", "AC-INTRO-008.2")]
+        public void EmitNullableFieldSchemasForNullableFields()
         {
+            // Arrange
             // Regression: an ImmutableArray<record struct> whose fields are independently nullable
             // (string? / double? / DateTime?) must emit nullable field subschemas. Before the fix the
             // string? field was a bare (non-nullable) "string", so the outbound codec threw on a null value
             // and dale dropped every populated publish of the property — the cloud widget hung forever.
+
+            // Act
             var schema = GetSchema("RegisterWrites");
+
+            // Assert
             Assert.AreEqual("array", schema["type"]?.GetValue<string>());
             var props = schema["items"]?["properties"] as JsonObject;
             Assert.IsNotNull(props);
@@ -282,22 +371,34 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
-        public void RequiresOnlyNonNullableStructFields()
+        [TestProperty("spec", "AC-INTRO-008.2")]
+        public void RequireOnlyNonNullableStructFields()
         {
+            // Arrange
             // Only the non-nullable field is required; nullable fields must be omitted from required so a
             // legitimately-absent (null) value stays valid on the inbound (set) direction too. Before the fix
             // every positional parameter was added to required.
+
+            // Act
             var schema = GetSchema("RegisterWrites");
             var required = schema["items"]?["required"] as JsonArray;
+
+            // Assert
             Assert.IsNotNull(required);
             Assert.HasCount(1, required);
             Assert.AreEqual("register", required[0]!.GetValue<string>());
         }
 
         [TestMethod]
-        public void EmitsEnumSchemaForCurrentAlarm()
+        [TestProperty("spec", "AC-INTRO-008.1")]
+        public void EmitEnumSchemaAsMemberNameStrings()
         {
+            // Arrange
+
+            // Act
             var schema = GetSchema("CurrentAlarm");
+
+            // Assert
             Assert.AreEqual("string", schema["type"]?.GetValue<string>());
             Assert.AreEqual("AlarmState", schema["title"]?.GetValue<string>());
             var members = schema["enum"] as JsonArray;
@@ -309,10 +410,16 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
-        public void EmitsNullableEnumSchemaForLastAlarm()
+        [TestProperty("spec", "AC-INTRO-008.1")]
+        public void EmitNullableEnumSchemaForNullableEnumMember()
         {
+            // Arrange
+
+            // Act
             var schema = GetSchema("LastAlarm");
             var typeArr = schema["type"] as JsonArray;
+
+            // Assert
             Assert.IsNotNull(typeArr);
             Assert.HasCount(2, typeArr);
             Assert.AreEqual("string", typeArr[0]!.GetValue<string>());
@@ -325,56 +432,92 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
-        public void EmitsReadOnlyOnMeasuringPointSchema()
+        [TestProperty("spec", "AC-INTRO-007.4")]
+        public void ReportMeasuringPointReadOnly()
         {
+            // Arrange
             // MeasuringPoints are marked readOnly in the schema.
+
+            // Act
             var schema = GetSchema("Location");
+
+            // Assert
             Assert.IsTrue(schema["readOnly"]?.GetValue<bool>() ?? false);
         }
 
         [TestMethod]
-        public void OmitsReadOnlyOnServicePropertySchema()
+        [TestProperty("spec", "AC-INTRO-007.4")]
+        public void ReportWritableServicePropertyNotReadOnly()
         {
+            // Arrange
             // ServiceProperties with a public setter are writable; readOnly must be absent.
+
+            // Act
             var schema = GetSchema("VoltageSetpoint");
+
+            // Assert
             Assert.IsNull(schema["readOnly"]);
         }
 
         [TestMethod]
-        public void EmitsReadOnlyOnServicePropertyWithPrivateSetter()
+        [TestProperty("spec", "AC-INTRO-007.4")]
+        public void ReportServicePropertyWithoutPublicSetterReadOnly()
         {
+            // Arrange
             // [ServiceProperty] on `{ get; private set; }` is a published-only value:
             // dale publishes state, but the cloud cannot SetPropertyValue it back.
             // Schema must carry readOnly so the dashboard groups it with measuring points.
+
+            // Act
             var schema = GetSchema("TimesSwitchedOn");
+
+            // Assert
             Assert.IsTrue(schema["readOnly"]?.GetValue<bool>() ?? false);
         }
 
         [TestMethod]
-        public void EmitsReadOnlyOnArrayMeasuringPointSchema()
+        [TestProperty("spec", "AC-INTRO-007.4")]
+        public void ReportArrayMeasuringPointReadOnly()
         {
+            // Arrange
+
+            // Act
             var schema = GetSchema("HistogramBuckets");
+
+            // Assert
             Assert.IsTrue(schema["readOnly"]?.GetValue<bool>() ?? false);
         }
 
         [TestMethod]
-        public void EmitsReadOnlyOnServicePropertyWithReadOnlyOptIn()
+        [TestProperty("spec", "AC-INTRO-007.4")]
+        public void ReportServicePropertyOptingIntoReadOnly()
         {
+            // Arrange
             // [ServiceProperty(ReadOnly = true)] forces the wire read-only flag even though the C# property
             // has a public setter (so cross-assembly helpers can still assign it). The cloud must see
             // readOnly=true and refuse SetPropertyValue.
+
+            // Act
             var schema = GetSchema("WriteRegisters");
+
+            // Assert
             Assert.IsTrue(schema["readOnly"]?.GetValue<bool>() ?? false);
         }
 
         [TestMethod]
-        public void RoutesEnumPropertyTitleToPresentationDisplayName()
+        [TestProperty("spec", "AC-INTRO-012.1")]
+        public void RouteEnumMemberTitleToDisplayName()
         {
+            // Arrange
             // PreferredMode is `OperatingMode?` (nullable enum). schema.title carries the enum's
             // identity ("OperatingMode"); the property-level Title must land in
             // presentation.displayName instead, otherwise it would be silently dropped by the
             // serializer (ApplyAnnotations skips Title when schema.title is already set).
+
+            // Act
             var presentation = GetPresentation("PreferredMode");
+
+            // Assert
             Assert.AreEqual("Bevorzugter Modus", presentation?["displayName"]?.GetValue<string>());
 
             // schema.title stays identity-bearing.
@@ -383,42 +526,66 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
-        public void RoutesStructPropertyTitleToPresentationDisplayName()
+        [TestProperty("spec", "AC-INTRO-012.1")]
+        public void RouteStructMemberTitleToDisplayName()
         {
+            // Arrange
             // PreferredLocation is `Coordinates?`. Same routing rule as the enum case.
+
+            // Act
             var presentation = GetPresentation("PreferredLocation");
+
+            // Assert
             Assert.AreEqual("Bevorzugte Position", presentation?["displayName"]?.GetValue<string>());
             var schema = GetSchema("PreferredLocation");
             Assert.AreEqual("Coordinates", schema["title"]?.GetValue<string>());
         }
 
         [TestMethod]
-        public void EmitsUIHintStatusIndicatorFromStatusIndicatorAttribute()
+        [TestProperty("spec", "AC-INTRO-009.5")]
+        public void ReportStatusIndicatorHintForStatusIndicator()
         {
+            // Arrange
             // CurrentStatus is `[StatusIndicator] AlarmState?`. The presence of [StatusIndicator]
             // routes to presentation.uiHint = "statusIndicator" — explicit hint instead of inferring
             // status-indicator from the presence of statusMappings.
+
+            // Act
             var presentation = GetPresentation("CurrentStatus");
+
+            // Assert
             Assert.AreEqual("statusIndicator", presentation?["uiHint"]?.GetValue<string>());
         }
 
         [TestMethod]
-        public void OmitsUIHintWhenNoUIHintNorStatusIndicator()
+        [TestProperty("spec", "AC-INTRO-009.5")]
+        public void ReportNoHintWhenNeitherDeclared()
         {
+            // Arrange
             // PreferredMode has no [UIHint] and no [StatusIndicator] — uiHint must be absent.
+
+            // Act
             var presentation = GetPresentation("PreferredMode");
+
+            // Assert
             Assert.IsNull(presentation?["uiHint"]);
         }
 
         [TestMethod]
-        public void EmitsEnumLabelsFromEnumLabelAttribute()
+        [TestProperty("spec", "AC-INTRO-010.3")]
+        public void ReportDeclaredEnumLabels()
         {
+            // Arrange
             // AlarmState's members carry [EnumLabel("Alles in Ordnung")] etc.
             // The labels route to presentation.enumLabels keyed by CLR member name.
             // Exercised via CurrentStatus (writable nullable enum) and CurrentAlarm (read-only enum
             // measuring point) — both should carry the same label map.
+
+            // Act
             var presentation = GetPresentation("CurrentStatus");
             var labels = presentation?["enumLabels"]?.AsObject();
+
+            // Assert
             Assert.IsNotNull(labels);
             Assert.AreEqual("Alles in Ordnung", labels["Ok"]?.GetValue<string>());
             Assert.AreEqual("Warnung", labels["Warning"]?.GetValue<string>());
@@ -426,10 +593,16 @@ namespace Vion.Dale.Sdk.Test.Introspection
         }
 
         [TestMethod]
-        public void OmitsEnumLabelsOnNonEnumProperty()
+        [TestProperty("spec", "AC-INTRO-010.3")]
+        public void ReportNoEnumLabelsForNonEnumMember()
         {
+            // Arrange
             // VoltageSetpoint is a double — no enum labels possible.
+
+            // Act
             var presentation = GetPresentation("VoltageSetpoint");
+
+            // Assert
             Assert.IsNull(presentation?["enumLabels"]);
         }
 

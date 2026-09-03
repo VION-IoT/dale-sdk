@@ -9,7 +9,7 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace Vion.Dale.Sdk.Generators.Analyzers
 {
     /// <summary>
-    ///     DALE045 — enforces the discipline of <c>[ServiceRelation]</c> (RFC 0019 §4.6). Relations are
+    ///     DALE045 — enforces the discipline of <c>[ServiceRelation]</c>. Relations are
     ///     declared once on the <c>[LogicBlockContract]</c> that both sides of a wire already share; the SDK
     ///     derives one half per bound interface endpoint. Everything this analyzer reports is otherwise
     ///     invisible: the two bind-time throws surface here in-IDE instead of at <c>dale build</c>, and the
@@ -336,7 +336,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         }
 
         /// <summary>
-        ///     Reports DALE045 at warning severity. Same ID as the errors by design (RFC 0019 §4.6) — an
+        ///     Reports DALE045 at warning severity. Same ID as the errors by design — an
         ///     advisory finding about the same rule family, not a separate one.
         /// </summary>
         private static void ReportWarning(CompilationAnalysisContext context, Location location, string subject, string message)

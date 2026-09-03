@@ -39,7 +39,12 @@ namespace Vion.Dale.Sdk.Introspection
             var hasIdentityTitle = HasIdentityBearingTitle(typeRef);
 
             var isInstantiationParameter = property.GetCustomAttribute<InstantiationParameterAttribute>() is not null;
-            var annotations = ExtractTypeAnnotations(sp, mp, HasPublicSetter(property), hasIdentityTitle, isInstantiationParameter);
+            var annotations = ExtractTypeAnnotations(sp,
+                                                     mp,
+                                                     HasPublicSetter(property),
+                                                     hasIdentityTitle,
+                                                     isInstantiationParameter,
+                                                     stream);
             var schema = new TypeSchema(typeRef, annotations, structFieldAnnotations);
             var presentation = ExtractPresentation(property, sp, mp, hasIdentityTitle);
             var runtime = ExtractRuntime(property, stream);
@@ -69,7 +74,12 @@ namespace Vion.Dale.Sdk.Introspection
             // Writability is governed by the implementing logic-block property — that's the actual
             // binding target when cloud calls SetPropertyValue. The interface only declares intent.
             var isInstantiationParameter = presentationSource.GetCustomAttribute<InstantiationParameterAttribute>() is not null;
-            var annotations = ExtractTypeAnnotations(sp, mp, HasPublicSetter(presentationSource), hasIdentityTitle, isInstantiationParameter);
+            var annotations = ExtractTypeAnnotations(sp,
+                                                     mp,
+                                                     HasPublicSetter(presentationSource),
+                                                     hasIdentityTitle,
+                                                     isInstantiationParameter,
+                                                     stream);
             var schema = new TypeSchema(typeRef, annotations, structFieldAnnotations);
 
             // Per-field presentation merge: the class wins on any field it explicitly sets, and
@@ -218,7 +228,8 @@ namespace Vion.Dale.Sdk.Introspection
                                                               ServiceMeasuringPointAttribute? mp,
                                                               bool hasPublicSetter,
                                                               bool hasIdentityTitle,
-                                                              bool isInstantiationParameter)
+                                                              bool isInstantiationParameter,
+                                                              ServiceElementStream stream)
         {
             // Cross-fill: missing field on one side inherits from the other when both
             // [ServiceProperty] and [ServiceMeasuringPoint] are applied to the same property.
@@ -231,27 +242,8 @@ namespace Vion.Dale.Sdk.Introspection
             var unit = sp?.Unit ?? mp?.Unit;
             var stringFormat = sp?.StringFormat ?? mp?.StringFormat;
 
-            // Minimum / Maximum: NegativeInfinity / PositiveInfinity are the sentinel "absent" values.
-            // Convert finite values to nullable-bearing fields; leave null otherwise.
-            double? minimum = null;
-            if (sp is not null && !double.IsNegativeInfinity(sp.Minimum))
-            {
-                minimum = sp.Minimum;
-            }
-            else if (mp is not null && !double.IsNegativeInfinity(mp.Minimum))
-            {
-                minimum = mp.Minimum;
-            }
-
-            double? maximum = null;
-            if (sp is not null && !double.IsPositiveInfinity(sp.Maximum))
-            {
-                maximum = sp.Maximum;
-            }
-            else if (mp is not null && !double.IsPositiveInfinity(mp.Maximum))
-            {
-                maximum = mp.Maximum;
-            }
+            var minimum = FiniteBound(sp?.Minimum) ?? FiniteBound(mp?.Minimum);
+            var maximum = FiniteBound(sp?.Maximum) ?? FiniteBound(mp?.Maximum);
 
             // ReadOnly on the wire when ANY of:
             //   - measuring point alone, without a service-property attribute (canonical metric — read-only)
@@ -268,10 +260,12 @@ namespace Vion.Dale.Sdk.Introspection
             // (DALE022 analyzer enforces).
             var writeOnly = sp?.WriteOnly ?? false;
 
-            // Kind comes only from [ServiceMeasuringPoint]; null when the property isn't a measuring point.
-            // The attribute now carries the SDK-Core mirror enum; cast to the canonical wire enum
-            // at this boundary. Member values are identical, so the cast is total.
-            MeasuringPointKind? kind = mp is not null ? (MeasuringPointKind)(int)mp.Kind : null;
+            // Kind describes the measuring point's series, so it rides that stream's document and not the
+            // service property's — the same per-stream rule the emission knobs follow. A member declaring both
+            // attributes would otherwise report a measuring-point kind on its property document too, and a
+            // client badges what it finds there. The attribute carries the SDK-Core mirror enum; cast to the
+            // canonical wire enum at this boundary. Member values are identical, so the cast is total.
+            MeasuringPointKind? kind = mp is not null && stream == ServiceElementStream.MeasuringPoint ? (MeasuringPointKind)(int)mp.Kind : null;
 
             return new TypeAnnotations
                    {
@@ -285,6 +279,19 @@ namespace Vion.Dale.Sdk.Introspection
                        WriteOnly = writeOnly,
                        Kind = kind,
                    };
+        }
+
+        /// <summary>
+        ///     A declared bound, or <c>null</c> where it is not a number the wire can carry. The attribute's
+        ///     defaults are the two infinities — one per bound — so the finiteness test doubles as the
+        ///     absent-sentinel test and closes the two cases the one-sided test let through: the other
+        ///     infinity, and <c>NaN</c>. Both are values the compiler accepts and no analyzer judges, and
+        ///     <c>System.Text.Json</c> refuses to write either, so one such bound aborted the whole
+        ///     introspection document with an exception naming neither the member nor the block.
+        /// </summary>
+        private static double? FiniteBound(double? declared)
+        {
+            return declared is { } value && !double.IsNaN(value) && !double.IsInfinity(value) ? value : null;
         }
 
         private static Presentation ExtractPresentation(PropertyInfo property, ServicePropertyAttribute? sp, ServiceMeasuringPointAttribute? mp, bool hasIdentityTitle)
@@ -331,7 +338,7 @@ namespace Vion.Dale.Sdk.Introspection
                                    Decimals = decimals,
                                    Format = presentationAttr?.Format,
 
-                                   // Conditional-visibility predicate (RFC 0017). Emitted verbatim into
+                                   // Conditional-visibility predicate. Emitted verbatim into
                                    // presentation.visibleWhen; parse/type discipline is enforced by the
                                    // DALE041/DALE042 analyzers, not here. Rides both sibling docs
                                    // automatically for a dual-annotated [ServiceProperty]+[ServiceMeasuringPoint]

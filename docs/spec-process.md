@@ -169,7 +169,7 @@ repo is never half-migrated. One pass, in order:
 
 The protocol is packaged as the `spec-pass` skill; each pass is one change doc + one band-sized
 PR. Order: plugin ABI (done — the pilot) → emission (done) → config gating (done) → introspection +
-identifiers → scenario/stepping/pairing → remainder. `docs/rfcs/` is frozen meanwhile (do not
+identifiers (done) → scenario/stepping/pairing → remainder. `docs/rfcs/` is frozen meanwhile (do not
 cite it in new work) and disappears with the last pass.
 
 ## Dispatching a pass to a fresh session
@@ -194,11 +194,16 @@ retires with the migration:
 2. Emit the launch line in a single `bash` fence (the fence is the copy button):
 
    ```
-   pwsh -NoProfile -File "C:\_gh\architecture\scripts\launch-session.ps1" -Repo "C:\_gh\dale-sdk" -Brief "C:\_gh\architecture\.claude\briefs\brief-<slug>-dale-sdk.md" -Model <opus|sonnet> -Effort <medium|high> -Name "<slug>: dale-sdk" -SessionId "<uuid>" -AddDirs "C:\_gh\architecture<,read-only dep>"
+   pwsh -NoProfile -File "C:\_gh\architecture\scripts\launch-session.ps1" -Repo "C:\_gh\dale-sdk" -Brief "C:\_gh\architecture\.claude\briefs\brief-<slug>-dale-sdk.md" -Model <opus|sonnet> -Effort <medium|high> -Name "<slug>: dale-sdk" -SessionId "<uuid>" -AddDirs "C:\_gh\architecture<,read-only dep>" -PermissionMode bypassPermissions
    ```
 
    Model rubric: Opus unless the slice is mechanical (then Sonnet); High effort for
-   design-bearing/correctness-sensitive work, Medium for a contained change.
+   design-bearing/correctness-sensitive work, Medium for a contained change. The permission mode
+   is **per process**: a launch or an `-AmendFile` resume without the flag starts in default mode
+   and stops at a startup prompt before its first turn (CLI 2.1.258 ignores
+   `settings.local.json`'s `defaultMode`; the launcher reads it when the flag is omitted), and a
+   default-mode session holds every inbound peer message. Pass the flag on every launch and every
+   resume.
 3. Ratification round-trips use the launcher's `-AmendFile` + the printed `-SessionId` — the
    two-phase STOP maps onto it directly.
 
@@ -213,9 +218,15 @@ table, and reports misses by the sweep that should have caught them) and an adve
 the branch diff (`/vion-code-review branch` with the change doc as the spec). Both read every cited
 criterion's text against the test that cites it, and both start from the REPORT's self-check
 preamble (`spec-pass` skill, Phase B step 10). Findings go back as one numbered amendment per
-round — to the live session directly, mirrored to
-`C:\_gh\architecture\.claude\briefs\amend-<slug>-N.md` so a closed tab can be resumed with the
-launcher's `-AmendFile`. After two rounds in which the same defect classes recur — stale gate
+round: the amend file `C:\_gh\architecture\.claude\briefs\amend-<slug>-N.md` is the artifact,
+written first; the cross-session message that points at it is only a notification, and it reaches
+the session only when **both** sessions run in bypass mode. The sender checks its own mode before
+sending, then verifies within a minute in the recipient's transcript — a
+`<cross-session-message from-name=…>` entry is delivery, a `Held peer message` entry is not. Held,
+or nothing after two minutes: the operator pastes the file into the tab, or — tab closed, never
+while it is open — resumes with `-AmendFile … -PermissionMode bypassPermissions`. The INTRO pass
+lost ten hours to a relay that was held and expired unseen. After two rounds in which the same
+defect classes recur — stale gate
 numbers, spec not carried, evidence asserted rather than pasted — the next round goes to a
 **fresh** session with a precise brief instead of a further amendment: context depth degrades
 exactly the disciplines the amendments ask for, and the pass that ran its fix-up that way caught

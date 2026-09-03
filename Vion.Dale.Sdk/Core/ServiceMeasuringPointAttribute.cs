@@ -18,7 +18,7 @@ namespace Vion.Dale.Sdk.Core
     ///     block's full type name plus two <b>C# names</b>: the owning service (the logic-block class name,
     ///     or the holding property's name for a component service) and this property's name. There is no
     ///     <c>Identifier</c> override — renaming any of them orphans the translations. See
-    ///     <c>docs/identifier-stability.md</c>.
+    ///     <c>docs/specs/introspection.md</c>.
     /// </remarks>
     [PublicApi]
     [AttributeUsage(AttributeTargets.Property)]

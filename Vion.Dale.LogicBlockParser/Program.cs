@@ -28,12 +28,22 @@ namespace Vion.Dale.LogicBlockParser
         private const string ExcludeDevelopmentOnlyOption = "--exclude-development-only";
 
         /// <summary>
+        ///     The package identity the emitted document reports. <c>Vion.Dale.Sdk.targets</c> passes the
+        ///     consuming project's <c>PackageId</c> — the id <c>dotnet pack</c> writes into the nuspec and the
+        ///     cloud registers the library under — because that, not the assembly name, is the namespace every
+        ///     translation key is prefixed with. Omitted or blank, the assembly's simple name stands in, which
+        ///     is what MSBuild defaults <c>PackageId</c> to anyway.
+        /// </summary>
+        private const string PackageIdOption = "--package-id";
+
+        /// <summary>
         ///     Prefix on every notice line the parser writes to stdout. Stable: <c>dale upload</c> captures the
         ///     pack output rather than inheriting it, and repeats the lines carrying this prefix.
         /// </summary>
         private const string NoticePrefix = "Vion Dale: ";
 
-        private const string Usage = "Usage: Vion.Dale.LogicBlockParser.exe <path-to-plugin.dll> <output-json-path> [" + ExcludeDevelopmentOnlyOption + "]";
+        private const string Usage = "Usage: Vion.Dale.LogicBlockParser.exe <path-to-plugin.dll> <output-json-path> [" + ExcludeDevelopmentOnlyOption + "] [" + PackageIdOption +
+                                     " <id>]";
 
         private static readonly JsonSerializerOptions JsonOptions = new()
                                                                     {
@@ -80,9 +90,11 @@ namespace Vion.Dale.LogicBlockParser
         private static int RunParser(string[] args)
         {
             var excludeDevelopmentOnly = args.Any(argument => string.Equals(argument, ExcludeDevelopmentOnlyOption, StringComparison.OrdinalIgnoreCase));
+            var suppliedPackageId = ReadOptionValue(args, PackageIdOption);
 
-            // The options are ours, not the host's — strip them before the configuration builder sees them.
-            var positional = args.Where(argument => !argument.StartsWith("--", StringComparison.Ordinal)).ToArray();
+            // The options are ours, not the host's — strip them, and the value of any option that takes one,
+            // before the configuration builder sees them.
+            var positional = PositionalArguments(args);
 
             // Keep console for argument validation - critical errors
             if (positional.Length == 0 || string.IsNullOrEmpty(positional[0]))
@@ -158,11 +170,17 @@ namespace Vion.Dale.LogicBlockParser
 
             if (unregisteredLogicBlocks.Count != 0)
             {
-                logger.LogError($"{Environment.NewLine}Failed to instantiate the following logic blocks because they are not registered in the DI:");
+                // A concrete logic block the plugin does not register is one the cloud never sees: the block is
+                // simply missing from the artifact, and a pack that succeeded anyway made that discoverable only
+                // by its absence in the dashboard. Refuse the run instead, naming every such type.
+                Console.Error.WriteLine("Error: the following logic block(s) are not registered in the plugin's IConfigureServices, " +
+                                        "so they cannot be introspected. Register each one, or make the type abstract:");
                 foreach (var logicBlockName in unregisteredLogicBlocks)
                 {
-                    logger.LogInformation(logicBlockName);
+                    Console.Error.WriteLine($"  {logicBlockName}");
                 }
+
+                return 1;
             }
 
             logger.LogInformation($"Instantiated and parsed the following {instantiatedLogicBlocks.Count} logic blocks:");
@@ -178,7 +196,7 @@ namespace Vion.Dale.LogicBlockParser
 
             var result = new DalePluginInfo
                          {
-                             PackageId = GetLogicBlockPackageId(pluginAssembly) ?? "Unknown",
+                             PackageId = ResolvePackageId(suppliedPackageId, pluginAssembly),
                              PackageVersion = GetLogicBlockAssemblyVersion(pluginAssembly) ?? "0.0.0",
                              Annotations = new Dictionary<string, object>(),
                              LogicBlocks = logicBlockResults,
@@ -318,9 +336,55 @@ namespace Vion.Dale.LogicBlockParser
             }
         }
 
-        private static string? GetLogicBlockPackageId(Assembly assembly)
+        /// <summary>
+        ///     The value that follows <paramref name="option" /> on the command line, or <c>null</c> when the
+        ///     option is absent or is the last argument. Matched case-insensitively, like every option here.
+        /// </summary>
+        private static string? ReadOptionValue(string[] args, string option)
         {
-            return assembly.GetName().Name;
+            for (var index = 0; index < args.Length - 1; index++)
+            {
+                if (string.Equals(args[index], option, StringComparison.OrdinalIgnoreCase))
+                {
+                    return args[index + 1];
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        ///     The arguments that are not options and not an option's value. An option's value does not start
+        ///     with <c>--</c>, so dropping option-shaped arguments alone would leave it looking positional.
+        /// </summary>
+        private static string[] PositionalArguments(string[] args)
+        {
+            var positional = new List<string>();
+            for (var index = 0; index < args.Length; index++)
+            {
+                if (!args[index].StartsWith("--", StringComparison.Ordinal))
+                {
+                    positional.Add(args[index]);
+                    continue;
+                }
+
+                if (string.Equals(args[index], PackageIdOption, StringComparison.OrdinalIgnoreCase))
+                {
+                    index++;
+                }
+            }
+
+            return positional.ToArray();
+        }
+
+        /// <summary>
+        ///     The document's package identity: the id the pack supplied, else the plugin assembly's simple
+        ///     name. A blank supplied id is treated as absent — MSBuild expands an unset property to the empty
+        ///     string, so an unset <c>PackageId</c> must not become the library's identity.
+        /// </summary>
+        private static string ResolvePackageId(string? suppliedPackageId, Assembly pluginAssembly)
+        {
+            return !string.IsNullOrWhiteSpace(suppliedPackageId) ? suppliedPackageId! : pluginAssembly.GetName().Name ?? "Unknown";
         }
 
         private static string? GetLogicBlockAssemblyVersion(Assembly assembly)

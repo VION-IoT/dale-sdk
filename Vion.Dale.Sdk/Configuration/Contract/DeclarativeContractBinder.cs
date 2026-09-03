@@ -13,7 +13,8 @@ namespace Vion.Dale.Sdk.Configuration.Contract
         public static void BindContractsFromAttributes(object logicBlock,
                                                        IContractFactory contractFactory,
                                                        BindingMode mode,
-                                                       IReadOnlyDictionary<string, JsonNode?>? parameterContext)
+                                                       IReadOnlyDictionary<string, JsonNode?>? parameterContext,
+                                                       Dictionary<string, string> mintedBy)
         {
             var type = logicBlock.GetType();
             var contractProperties = GetContractProperties(type);
@@ -44,6 +45,7 @@ namespace Vion.Dale.Sdk.Configuration.Contract
 
                 var contractAttribute = property.GetCustomAttribute<ServiceProviderContractBindingAttribute>();
                 var identifier = contractAttribute?.Identifier ?? property.Name;
+                BindingIdentifiers.Claim(mintedBy, identifier, property.Name, "Contract binding", type);
                 var contractInstance = contractFactory.Create(property.PropertyType, identifier);
                 property.SetValue(logicBlock, contractInstance);
                 ApplyMetadata(contractInstance, contractAttribute, includedWhen);

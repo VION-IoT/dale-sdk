@@ -15,13 +15,18 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
                                                         IInterfaceFactory interfaceFactory,
                                                         ServiceBinder serviceBinder,
                                                         BindingMode mode,
-                                                        IReadOnlyDictionary<string, JsonNode?>? parameterContext)
+                                                        IReadOnlyDictionary<string, JsonNode?>? parameterContext,
+                                                        Dictionary<string, string> mintedBy)
         {
             var type = logicBlock.GetType();
 
+            // Both paths below mint into the block's one namespace: a class-level binding and a
+            // property-level one can pin the same Identifier, and only the second would have survived into
+            // the endpoint dictionary the introspection reads.
+
             // Handle class-based interfaces with automatic detection. Class-implemented interfaces are not
             // gateable (no member to carry [IncludedWhen] — DALE043 enforces this), so they bind unconditionally.
-            BindClassBasedInterfaces(logicBlock, interfaceFactory, serviceBinder, type);
+            BindClassBasedInterfaces(logicBlock, interfaceFactory, serviceBinder, type, mintedBy);
 
             // Handle property-based interfaces with automatic detection (the gateable path).
             BindPropertyBasedInterfaces(logicBlock,
@@ -29,10 +34,15 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
                                         serviceBinder,
                                         type,
                                         mode,
-                                        parameterContext);
+                                        parameterContext,
+                                        mintedBy);
         }
 
-        private static void BindClassBasedInterfaces(object logicBlock, IInterfaceFactory interfaceFactory, ServiceBinder serviceBinder, Type type)
+        private static void BindClassBasedInterfaces(object logicBlock,
+                                                     IInterfaceFactory interfaceFactory,
+                                                     ServiceBinder serviceBinder,
+                                                     Type type,
+                                                     Dictionary<string, string> mintedBy)
         {
             // Get all implementation interfaces that the class implements
             var implementedLogicInterfaces = GetImplementedLogicInterfaces(type);
@@ -51,9 +61,17 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
                                    null,
                                    serviceBinder,
 
-                                   // RFC 0019: a class-implemented endpoint belongs to the root service, which the
-                                   // service binder creates unconditionally from the class name.
-                                   type.Name);
+                                   // A class-implemented endpoint belongs to the root service, which the service
+                                   // binder creates unconditionally from the class name.
+                                   type.Name,
+
+                                   // A class-implemented binding has no member to name, so it is named by the
+                                   // interface it binds — which is what distinguishes it from its peers in a
+                                   // refusal, where naming the class would only repeat the block the message
+                                   // already names.
+                                   implementedLogicInterface.Name,
+                                   type,
+                                   mintedBy);
             }
         }
 
@@ -62,7 +80,8 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
                                                         ServiceBinder serviceBinder,
                                                         Type type,
                                                         BindingMode mode,
-                                                        IReadOnlyDictionary<string, JsonNode?>? parameterContext)
+                                                        IReadOnlyDictionary<string, JsonNode?>? parameterContext,
+                                                        Dictionary<string, string> mintedBy)
         {
             var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
 
@@ -106,7 +125,7 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
                 // Get explicitly defined interface attributes for the property
                 var interfaceAttributes = property.GetCustomAttributes<LogicBlockInterfaceBindingAttribute>().ToList();
 
-                // RFC 0019: the component service that owns this property's endpoints — the same service the
+                // The component service that owns this property's endpoints — the same service the
                 // service binder mints from the property name. A component without a service surface has no
                 // node in the cloud graph, so its endpoints own no relation half (null); DALE045 warns.
                 var owningServiceIdentifier = ServiceSurface.IsServiceBearing(propertyType) ? property.Name : null;
@@ -125,7 +144,10 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
                                        defaultIdentifier,
                                        includedWhen,
                                        serviceBinder,
-                                       owningServiceIdentifier);
+                                       owningServiceIdentifier,
+                                       property.Name,
+                                       type,
+                                       mintedBy);
                 }
             }
         }
@@ -137,7 +159,10 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
                                                string? defaultIdentifier,
                                                string? includedWhen,
                                                ServiceBinder serviceBinder,
-                                               string? owningServiceIdentifier)
+                                               string? owningServiceIdentifier,
+                                               string memberName,
+                                               Type logicBlockType,
+                                               Dictionary<string, string> mintedBy)
         {
             // Look for explicit attribute for this interface, use explicit attribute or create default
             var interfaceAttribute = interfaceAttributes.FirstOrDefault(attr => attr.ForInterface == implementedLogicInterface) ??
@@ -145,6 +170,7 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
 
             var logicSendInterfaceType = FindLogicSendInterface(implementedLogicInterface);
             var identifier = interfaceAttribute.Identifier ?? defaultIdentifier ?? implementedLogicInterface.Name;
+            BindingIdentifiers.Claim(mintedBy, identifier, memberName, "Interface binding", logicBlockType);
 
             // A null implementation reaches here only from the definition view, which describes a type rather
             // than serving messages (BindPropertyBasedInterfaces skips a null component in Live mode). The
@@ -159,7 +185,7 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
         }
 
         /// <summary>
-        ///     RFC 0019: derives this endpoint's service-relation halves from the <c>[ServiceRelation]</c>
+        ///     Derives this endpoint's service-relation halves from the <c>[ServiceRelation]</c>
         ///     declarations on the contract its logic interface belongs to — one half per declaration, on the
         ///     service that owns the endpoint.
         ///     <para>
@@ -207,7 +233,7 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
                                                   $"nor its AndInterface (\"{contractAttribute.AndInterface}\").");
                 }
 
-                // No owning service → no node in the cloud graph to anchor the edge to (RFC 0019 §4.2). The
+                // No owning service → no node in the cloud graph to anchor the edge to. The
                 // endpoint still binds and wires; the omission is flagged at compile time by DALE045.
                 if (owningServiceIdentifier == null)
                 {

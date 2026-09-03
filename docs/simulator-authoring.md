@@ -69,7 +69,7 @@ consumer handler's declaration with the two halves swapped. `DigitalOutputProvid
 `Vion.Dale.Sdk.DigitalIo` is the shipped example to copy line for line.
 
 The contract-type string (`"PowerPlantControlPvProvider"`) is a stable introspection identifier —
-[`identifier-stability.md`](identifier-stability.md). Choose it once.
+[`specs/introspection.md`](specs/introspection.md). Choose it once.
 
 ## 3. The ideal-I/O recipe — about twenty lines
 

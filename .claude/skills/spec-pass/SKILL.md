@@ -214,7 +214,11 @@ an adversarial review of the branch diff, both reading every cited criterion's t
 test. Findings return as numbered amendments to the live session. After two rounds in which the
 same defect classes recur — stale gate numbers, spec not carried, evidence asserted rather than
 pasted — the next round is dispatched to a **fresh** session with a precise brief instead of a
-further amendment: context depth degrades exactly the disciplines the amendments ask for.
+further amendment: context depth degrades exactly the disciplines the amendments ask for. An
+amendment reaches you only when both sessions run in bypass mode; the amend file is the artifact
+and the message a notification, and the coordinator reads delivery off your transcript
+(`docs/spec-process.md` § Checks and amendments) — if an amendment file appears as your resume
+prompt instead of a message, that is the same round arriving by the other door.
 
 ## Scorecard (coordinator fills, into the change doc before the PR merges)
 

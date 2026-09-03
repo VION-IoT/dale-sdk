@@ -73,4 +73,4 @@ gated inter-block **interface mappings** are cross-block wiring, verified end to
 ## See also
 
 - [Config-time structural gating](../../docs/specs/config-gating.md) — the spec page this example demonstrates
-- [RFC 0017 — Presentation-time visibility](../../docs/rfcs/0017-presentation-time-visibility.md) (the cosmetic sibling)
+- [The introspection document](../../docs/specs/introspection.md) — presentation-time visibility, the cosmetic sibling of a gate

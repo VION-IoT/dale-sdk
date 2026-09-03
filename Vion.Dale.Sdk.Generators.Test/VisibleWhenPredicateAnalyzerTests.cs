@@ -12,7 +12,7 @@ using Vion.Dale.Sdk.Generators.Test.Helpers;
 namespace Vion.Dale.Sdk.Generators.Test
 {
     /// <summary>
-    ///     DALE041 / DALE042 coverage for <c>VisibleWhenPredicateAnalyzer</c> (RFC 0017). Positive cases
+    ///     DALE041 / DALE042 coverage for <c>VisibleWhenPredicateAnalyzer</c>. Positive cases
     ///     assert a well-formed predicate produces no diagnostic; negative cases assert the right
     ///     diagnostic id fires at the predicate string (the message text is intentionally not pinned).
     /// </summary>
@@ -68,7 +68,8 @@ public class MyBlock : LogicBlockBase
         [TestMethod]
         public async Task VisibleWhenOnMeasuringPoint_NoDiagnostic()
         {
-            // Measuring points can carry VisibleWhen (a deliberate extension of RFC 0017).
+            // Measuring points can carry VisibleWhen, deliberately: the predicate rides both documents
+            // of a member declaring both streams.
             var source = Block("[ServiceMeasuringPoint] [Presentation(VisibleWhen = \"DirectMeasurement == false\")] public int Power { get; private set; }");
             await AnalyzerTestBase.VerifyAnalyzerAsync<VisibleWhenPredicateAnalyzer>(source);
         }

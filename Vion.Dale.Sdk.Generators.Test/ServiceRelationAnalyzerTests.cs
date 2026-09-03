@@ -7,7 +7,7 @@ using Vion.Dale.Sdk.Generators.Test.Helpers;
 namespace Vion.Dale.Sdk.Generators.Test
 {
     /// <summary>
-    ///     DALE045 coverage for <c>ServiceRelationAnalyzer</c> (RFC 0019 §4.6). The ID carries both
+    ///     DALE045 coverage for <c>ServiceRelationAnalyzer</c>. The ID carries both
     ///     severities, so every case asserts which one it is: errors for a broken declaration, warnings for a
     ///     declaration that is legal but silently emits nothing (or collides across contracts).
     /// </summary>

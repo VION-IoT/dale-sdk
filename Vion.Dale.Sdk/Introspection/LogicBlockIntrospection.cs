@@ -32,7 +32,7 @@ namespace Vion.Dale.Sdk.Introspection
             InvokeConfigureMethod(logicBlock, logicBlockSetup);
 
             var logicBlockAnnotations = GetLogicBlockAnnotations(logicBlock.GetType());
-            var naturalPositions = BuildNaturalPositionMap(logicBlock.GetType());
+            var naturalPositions = new NaturalPositions();
 
             return new LogicBlockIntrospectionResult
                    {
@@ -59,45 +59,6 @@ namespace Vion.Dale.Sdk.Introspection
         public static IReadOnlyList<LogicBlockIntrospectionResult.ContractInfo> GetDevelopmentOnlyContracts(LogicBlockIntrospectionResult result)
         {
             return result.Contracts.Where(contract => contract.Annotations.TryGetValue(ServiceProviderContractAnnotations.DevelopmentOnly, out var flag) && flag is true).ToList();
-        }
-
-        /// <summary>
-        ///     Walk the inheritance chain base-to-derived and assign each declared property a
-        ///     monotonically increasing index. Used to sort introspection output deterministically:
-        ///     base-class properties appear before derived-class properties; declaration order
-        ///     within a class is preserved.
-        ///     Keyed by <c>(DeclaringType, Name)</c> rather than <see cref="PropertyInfo" />
-        ///     reference because reflection paths from base-class vs derived-class entry points
-        ///     can yield different PropertyInfo instances for the same logical member.
-        /// </summary>
-        private static Dictionary<(Type DeclaringType, string Name), int> BuildNaturalPositionMap(Type logicBlockType)
-        {
-            var chain = new List<Type>();
-            var t = (Type?)logicBlockType;
-            while (t != null && t != typeof(object))
-            {
-                chain.Add(t);
-                t = t.BaseType;
-            }
-
-            chain.Reverse(); // base-first now
-
-            var map = new Dictionary<(Type, string), int>();
-            var position = 0;
-            foreach (var level in chain)
-            {
-                var declared = level.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
-                foreach (var prop in declared)
-                {
-                    var key = (prop.DeclaringType!, prop.Name);
-                    if (!map.ContainsKey(key))
-                    {
-                        map[key] = position++;
-                    }
-                }
-            }
-
-            return map;
         }
 
         private static LogicBlockConfigurationBuilder CreateLogicBlockConfigurationBuilder(Dictionary<string, LogicBlockContractBase> contracts,
@@ -274,7 +235,7 @@ namespace Vion.Dale.Sdk.Introspection
                             .ToList();
         }
 
-        private static List<LogicBlockIntrospectionResult.ServiceInfo> GetServices(ServiceBinder serviceBinder, Dictionary<(Type DeclaringType, string Name), int> naturalPositions)
+        private static List<LogicBlockIntrospectionResult.ServiceInfo> GetServices(ServiceBinder serviceBinder, NaturalPositions naturalPositions)
         {
             var result = new List<LogicBlockIntrospectionResult.ServiceInfo>();
 
@@ -348,8 +309,14 @@ namespace Vion.Dale.Sdk.Introspection
             IReadOnlyDictionary<string, IReadOnlyDictionary<Type, IReadOnlyDictionary<string, ServiceBinding>>> allServiceMeasuringPointBindings,
             string serviceIdentifier)
         {
-            var propertyInterfaces = allServicePropertyBindings.GetValueOrDefault(serviceIdentifier)?.Keys.Where(k => k != ServiceBinder.ExtraPropsKey).Select(k => k!.FullName) ??
-                                     [];
+            // Both halves spell a type name the same way. They did not: the property half used Type.FullName,
+            // so one nested service interface reached this list as `Outer+IReading` through a property binding
+            // and as `Outer.IReading` through a measuring point — one field, two spellings, decided by which
+            // member kind happened to bind. The block's own typeFullName is the document's only CLR-form name.
+            var propertyInterfaces = allServicePropertyBindings.GetValueOrDefault(serviceIdentifier)
+                                                               ?.Keys
+                                                               .Where(k => k != ServiceBinder.ExtraPropsKey)
+                                                               .Select(ReflectionHelper.GetDisplayFullName) ?? [];
 
             var measuringPointInterfaces = allServiceMeasuringPointBindings.GetValueOrDefault(serviceIdentifier)
                                                                            ?.Keys
@@ -362,7 +329,7 @@ namespace Vion.Dale.Sdk.Introspection
         private static void ProcessBindings<T>(IReadOnlyDictionary<Type, IReadOnlyDictionary<string, ServiceBinding>> bindingMapOfInterface,
                                                ICollection<T> targetCollection,
                                                Func<ServiceBinding, Type?, T> bindingProcessor,
-                                               Dictionary<(Type DeclaringType, string Name), int> naturalPositions)
+                                               NaturalPositions naturalPositions)
         {
             // Flatten bindings across all interfaces, then sort by base-to-derived natural position
             // so introspection output is deterministic regardless of reflection iteration order.
@@ -373,9 +340,7 @@ namespace Vion.Dale.Sdk.Introspection
             {
                 foreach (var binding in bindingMap.Values)
                 {
-                    var prop = binding.RootSourcePropertyInfo;
-                    var natural = prop.DeclaringType is { } declaringType && naturalPositions.TryGetValue((declaringType, prop.Name), out var pos) ? pos : int.MaxValue;
-                    flat.Add((binding, serviceInterfaceType, natural));
+                    flat.Add((binding, serviceInterfaceType, naturalPositions.Of(binding.RootSourcePropertyInfo)));
                 }
             }
 
@@ -664,6 +629,78 @@ namespace Vion.Dale.Sdk.Introspection
             }
 
             return annotations;
+        }
+
+        /// <summary>
+        ///     The declaration position of every property a service's members can come from. A member's
+        ///     position is looked up under the type that <b>owns</b> it — the logic block for its root
+        ///     service, the component's own type for a component service — because a position map is a
+        ///     property of one type's inheritance chain and says nothing about another's. Reading every
+        ///     member out of the block's map left a component's members unknown, so they came out in
+        ///     binder-insertion order instead of declaration order.
+        /// </summary>
+        private sealed class NaturalPositions
+        {
+            private readonly Dictionary<Type, Dictionary<(Type DeclaringType, string Name), int>> _byOwningType = new();
+
+            /// <summary>
+            ///     Where <paramref name="property" /> sits in its owner's declaration order, or
+            ///     <see cref="int.MaxValue" /> when the owner does not declare it — which cannot happen for a
+            ///     property reflected off that owner, and is the safe answer if it ever does.
+            /// </summary>
+            public int Of(PropertyInfo property)
+            {
+                var owningType = property.ReflectedType ?? property.DeclaringType;
+                if (owningType is null || property.DeclaringType is not { } declaringType)
+                {
+                    return int.MaxValue;
+                }
+
+                if (!_byOwningType.TryGetValue(owningType, out var map))
+                {
+                    map = Build(owningType);
+                    _byOwningType[owningType] = map;
+                }
+
+                return map.TryGetValue((declaringType, property.Name), out var position) ? position : int.MaxValue;
+            }
+
+            /// <summary>
+            ///     Walks the inheritance chain base-to-derived and assigns each declared property a
+            ///     monotonically increasing index, so base-class properties sort before derived-class ones and
+            ///     declaration order within a class is preserved.
+            ///     Keyed by <c>(DeclaringType, Name)</c> rather than by <see cref="PropertyInfo" /> reference,
+            ///     because reflection paths from a base-class and from a derived-class entry point yield
+            ///     different instances for one logical member.
+            /// </summary>
+            private static Dictionary<(Type DeclaringType, string Name), int> Build(Type owningType)
+            {
+                var chain = new List<Type>();
+                var level = (Type?)owningType;
+                while (level != null && level != typeof(object))
+                {
+                    chain.Add(level);
+                    level = level.BaseType;
+                }
+
+                chain.Reverse(); // base-first now
+
+                var map = new Dictionary<(Type, string), int>();
+                var position = 0;
+                foreach (var declaringLevel in chain)
+                {
+                    foreach (var property in declaringLevel.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+                    {
+                        var key = (property.DeclaringType!, property.Name);
+                        if (!map.ContainsKey(key))
+                        {
+                            map[key] = position++;
+                        }
+                    }
+                }
+
+                return map;
+            }
         }
     }
 }

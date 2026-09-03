@@ -4,7 +4,7 @@ using Vion.Dale.Sdk.Core;
 namespace Vion.Examples.Presentation.LogicBlocks
 {
     /// <summary>
-    ///     Showcases conditional visibility (RFC 0017 — <c>[Presentation(VisibleWhen = "…")]</c>) well
+    ///     Showcases conditional visibility (<c>[Presentation(VisibleWhen = "…")]</c>) well
     ///     beyond the trivial bool case. One dependent field per predicate shape:
     ///     <list type="bullet">
     ///         <item>

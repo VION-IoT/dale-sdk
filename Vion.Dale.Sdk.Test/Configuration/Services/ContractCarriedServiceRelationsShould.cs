@@ -19,7 +19,7 @@ using Vion.Dale.Sdk.Utils;
 
 namespace Vion.Dale.Sdk.Test.Configuration.Services
 {
-    // ── RFC 0019 contract-carried service-relation fixtures ─────────────────────────────────────────
+    // ── Contract-carried service-relation fixtures ──────────────────────────────────────────────────
 
     /// <summary>A cascade: one universal block plays both parent and child, so both halves land on one class.</summary>
     [LogicBlockContract(BetweenInterface = "ICascadeParent", AndInterface = "ICascadeChild")]
@@ -235,7 +235,7 @@ namespace Vion.Dale.Sdk.Test.Configuration.Services
     }
 
     /// <summary>
-    ///     RFC 0019 — relations are declared once on the <c>[LogicBlockContract]</c> and derived per bound
+    ///     Relations are declared once on the <c>[LogicBlockContract]</c> and derived per bound
     ///     interface endpoint, on the service that owns that endpoint. These tests pin the derivation rules
     ///     and the emitted <c>inwardRelations</c> / <c>outwardRelations</c> shape.
     /// </summary>
@@ -249,8 +249,13 @@ namespace Vion.Dale.Sdk.Test.Configuration.Services
         // ── Direction + the dual-role class ───────────────────────────────────────────────────────
 
         [TestMethod]
-        public void DeriveBothHalvesOfOneRelationOnADualRoleClass()
+        [TestProperty("spec", "AC-INTRO-016.1")]
+        [TestProperty("spec", "AC-INTRO-016.2")]
+        public void DeriveBothHalvesOfOneRelationOnDualRoleClass()
         {
+            // Arrange
+
+            // Act
             var root = RootService(new CascadeBlock());
 
             // One declaration, one class implementing both contract sides → exactly one half per side, with
@@ -259,49 +264,73 @@ namespace Vion.Dale.Sdk.Test.Configuration.Services
             var outward = root.OutwardRelations.Single(r => r.RelationType == "LinkedParentManager");
             var inward = root.InwardRelations.Single(r => r.RelationType == "LinkedParentManager");
 
+            // Assert
             Assert.AreEqual("ICascadeChild", outward.InterfaceIdentifier, "OutwardsInterface names the subordinate side.");
             Assert.AreEqual("ICascadeParent", inward.InterfaceIdentifier, "The other contract interface is the aggregating side.");
         }
 
         [TestMethod]
-        public void EmitTheEndpointsLogicInterfaceTypeAndAnEmptyAnnotationBag()
+        [TestProperty("spec", "AC-INTRO-016.4")]
+        [TestProperty("spec", "AC-INTRO-016.7")]
+        public void EmitEndpointLogicInterfaceTypeAndEmptyAnnotationBag()
         {
+            // Arrange
+
+            // Act
             var outward = RootService(new CascadeBlock()).OutwardRelations.Single(r => r.RelationType == "LinkedParentManager");
 
+            // Assert
             Assert.AreEqual(typeof(ICascadeChild).FullName, outward.InterfaceTypeFullName);
-            Assert.IsEmpty(outward.Annotations, "Relation-level labels were dropped in RFC 0019 §4.5; the field stays for additive future use.");
+            Assert.IsEmpty(outward.Annotations, "Relation-level labels were dropped before the design shipped; the field stays for additive future use.");
         }
 
         [TestMethod]
-        public void DeriveOneHalfPerDeclarationWhenAContractCarriesSeveral()
+        [TestProperty("spec", "AC-INTRO-016.1")]
+        public void DeriveOneHalfPerDeclarationWhenContractCarriesSeveral()
         {
+            // Arrange
             // CascadeBlock implements IMultiSource only. LinkedAlpha names it as the outwards side;
             // LinkedBeta names the other side, so the same endpoint is the inwards half of that relation.
+
+            // Act
             var root = RootService(new CascadeBlock());
 
+            // Assert
             Assert.AreEqual("IMultiSource", root.OutwardRelations.Single(r => r.RelationType == "LinkedAlpha").InterfaceIdentifier);
             Assert.AreEqual("IMultiSource", root.InwardRelations.Single(r => r.RelationType == "LinkedBeta").InterfaceIdentifier);
         }
 
         [TestMethod]
-        public void CarryAClassLevelIdentifierOverrideIntoTheHalf()
+        [TestProperty("spec", "AC-INTRO-014.1")]
+        public void CarryClassLevelIdentifierOverrideIntoHalf()
         {
+            // Arrange
+
+            // Act
             var root = RootService(new ConsumerManagerBlock());
 
             // The half is registered by the same code path that minted the endpoint identifier, so an
             // override can no longer make the two diverge.
+
+            // Assert
             Assert.AreEqual("Fleet", root.InwardRelations.Single(r => r.RelationType == "LinkedConsumer").InterfaceIdentifier);
         }
 
         // ── Component endpoints ───────────────────────────────────────────────────────────────────
 
         [TestMethod]
-        public void AttachComponentHalvesToTheComponentServiceWithItsWiringIdentifier()
+        [TestProperty("spec", "AC-INTRO-016.1")]
+        public void AttachComponentHalvesToComponentServiceWithItsWiringIdentifier()
         {
+            // Arrange
+
+            // Act
             var services = ServicesOf(new MultiPointBlock());
 
             // Each component property is its own service and carries exactly its own endpoint's half — the
             // shape that previously could not be expressed at all (relation identifier vs wiring identifier).
+
+            // Assert
             Assert.AreEqual("ChargePoint1_IConsumer", OnlyOutward(services, "ChargePoint1").InterfaceIdentifier);
             Assert.AreEqual("ChargePoint2_IConsumer", OnlyOutward(services, "ChargePoint2").InterfaceIdentifier);
 
@@ -309,22 +338,33 @@ namespace Vion.Dale.Sdk.Test.Configuration.Services
         }
 
         [TestMethod]
-        public void CarryAPropertyLevelIdentifierOverrideIntoTheHalf()
+        [TestProperty("spec", "AC-INTRO-014.1")]
+        public void CarryPropertyLevelIdentifierOverrideIntoHalf()
         {
+            // Arrange
+
+            // Act
             var services = ServicesOf(new MultiPointBlock());
 
+            // Assert
             Assert.AreEqual("PrimaryConsumer", OnlyOutward(services, "Renamed").InterfaceIdentifier);
         }
 
         [TestMethod]
-        public void EmitNoHalfForANonServiceBearingComponent()
+        [TestProperty("spec", "AC-INTRO-016.3")]
+        public void EmitNoHalfForNonServiceBearingComponent()
         {
+            // Arrange
             var block = new MultiPointBlock();
+
+            // Act
             var services = ServicesOf(block);
 
             // No service surface → no node in the cloud graph → nothing correct to anchor the edge to. A
             // root-service fallback would collapse the two ChargePoint edges and can crash the activation
-            // projection on PK-identical rows (RFC 0019 §4.2). DALE045 warns at the property instead.
+            // projection on PK-identical rows. DALE045 warns at the property instead.
+
+            // Assert
             Assert.IsFalse(services.ContainsKey("Bare"), "A service-less component produces no service at all.");
 
             var root = services[nameof(MultiPointBlock)];
@@ -337,8 +377,12 @@ namespace Vion.Dale.Sdk.Test.Configuration.Services
         // ── Emitted shape (golden pin) ────────────────────────────────────────────────────────────
 
         [TestMethod]
-        public void PinTheEmittedRelationShapePerService()
+        [TestProperty("spec", "AC-INTRO-016.1")]
+        public void PinEmittedRelationShapePerService()
         {
+            // Arrange
+
+            // Act
             var services = ServicesOf(new MultiPointBlock());
 
             var expected = new[]
@@ -349,12 +393,17 @@ namespace Vion.Dale.Sdk.Test.Configuration.Services
                                "Renamed: out LinkedConsumer|PrimaryConsumer|" + typeof(IConsumer).FullName + "|{}",
                            };
 
+            // Assert
             CollectionAssert.AreEqual(expected, services.OrderBy(s => s.Key, StringComparer.Ordinal).Select(s => Describe(s.Key, s.Value)).ToArray());
         }
 
         [TestMethod]
-        public void PinTheEmittedRelationShapeForADualRoleClass()
+        [TestProperty("spec", "AC-INTRO-016.2")]
+        public void PinEmittedRelationShapeForDualRoleClass()
         {
+            // Arrange
+
+            // Act
             var services = ServicesOf(new CascadeBlock());
 
             var expected = new[]
@@ -364,16 +413,23 @@ namespace Vion.Dale.Sdk.Test.Configuration.Services
                                "out LinkedParentManager|ICascadeChild|" + typeof(ICascadeChild).FullName + "|{}",
                            };
 
+            // Assert
             CollectionAssert.AreEqual(expected, services.OrderBy(s => s.Key, StringComparer.Ordinal).Select(s => Describe(s.Key, s.Value)).ToArray());
         }
 
         // ── Config-time gating interplay ────────────────────────────────────────────────────────
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-016.6")]
         public void EmitGatedComponentHalvesInDefinitionModeAndOmitThemWhenGatedOutLive()
         {
-            // Definition mode binds the full set, so the definition JSON always carries both halves.
+            // Arrange
+
+            // Act
+            // Definition mode binds the full set, so the definition document always carries both halves.
             var definition = ServicesOf(new GatedConsumerBlock());
+
+            // Assert
             Assert.AreEqual("Point1_IConsumer", OnlyOutward(definition, "Point1").InterfaceIdentifier);
             Assert.AreEqual("Point2_IConsumer", OnlyOutward(definition, "Point2").InterfaceIdentifier);
 
@@ -392,20 +448,30 @@ namespace Vion.Dale.Sdk.Test.Configuration.Services
         // ── Bind-time validation (§4.6) ───────────────────────────────────────────────────────────
 
         [TestMethod]
+        [TestProperty("spec", "AC-INTRO-016.5")]
         public void ThrowWhenOutwardsInterfaceNamesNeitherContractSide()
         {
+            // Arrange
             // The introspection rethrows what Configure threw rather than the reflection wrapper, so an
             // author sees the reason and not "Exception has been thrown by the target of an invocation."
+
+            // Act
             var exception = Assert.Throws<InvalidOperationException>(() => LogicBlockIntrospection.IntrospectLogicBlock(new InvalidOutwardsBlock(), _serviceProvider));
 
+            // Assert
             StringAssert.Contains(exception.Message, "OutwardsInterface");
         }
 
         [TestMethod]
-        public void ThrowWhenTheRelationCarrierIsNotALogicBlockContract()
+        [TestProperty("spec", "AC-INTRO-016.5")]
+        public void ThrowWhenRelationCarrierCarriesNoContractDeclaration()
         {
+            // Arrange
+
+            // Act
             var exception = Assert.Throws<InvalidOperationException>(() => LogicBlockIntrospection.IntrospectLogicBlock(new OrphanCarrierBlock(), _serviceProvider));
 
+            // Assert
             StringAssert.Contains(exception.Message, "[LogicBlockContract]");
         }
 
@@ -454,7 +520,12 @@ namespace Vion.Dale.Sdk.Test.Configuration.Services
             var serviceBinder = new ServiceBinder();
             var interfaceFactory = new RecordingInterfaceFactory();
 
-            DeclarativeInterfaceBinder.BindInterfacesFromAttributes(block, interfaceFactory, serviceBinder, BindingMode.Live, InclusionGate.BuildParameterContext(block));
+            DeclarativeInterfaceBinder.BindInterfacesFromAttributes(block,
+                                                                    interfaceFactory,
+                                                                    serviceBinder,
+                                                                    BindingMode.Live,
+                                                                    InclusionGate.BuildParameterContext(block),
+                                                                    new Dictionary<string, string>(StringComparer.Ordinal));
 
             return (interfaceFactory.Identifiers, serviceBinder.GetAllServiceRelations().ToDictionary(kvp => kvp.Key, kvp => kvp.Value, StringComparer.Ordinal));
         }

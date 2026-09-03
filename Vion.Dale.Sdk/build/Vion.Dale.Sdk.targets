@@ -43,8 +43,11 @@
              The exclude-development-only switch keeps logic blocks bound to a development-only contract
              (a provider face a simulator binds) out of the JSON that travels to the cloud: there is no
              production deployment of such a block, and the parser names each excluded one in this log.
-             The assembly itself is packed unchanged. -->
-        <Exec Command="$(VionDaleLogicBlockParserPath) &quot;$(PluginDllPath)&quot; &quot;$(VionDalePluginInfoOutputPath)&quot; --exclude-development-only"
+             The assembly itself is packed unchanged.
+             --package-id passes this project's PackageId, which is what dotnet pack writes into the nuspec
+             and what the cloud registers the library under. MSBuild defaults PackageId to AssemblyName, so a
+             project that sets neither emits exactly what it emitted before the option existed. -->
+        <Exec Command="$(VionDaleLogicBlockParserPath) &quot;$(PluginDllPath)&quot; &quot;$(VionDalePluginInfoOutputPath)&quot; --exclude-development-only --package-id &quot;$(PackageId)&quot;"
               WorkingDirectory="$(VionDalePublishDir)"
               ContinueOnError="false"
               ConsoleToMSBuild="true"

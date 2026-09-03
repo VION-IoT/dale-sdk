@@ -74,7 +74,8 @@ resolve the instance's gates to a shape nobody chose.
   SYSTEM SHALL apply none of that configuration's values.
 
 `AC-GATE-002.2` is an identifier-stability rule wearing a decoding hat: a parameter identifier is a
-translation key the cloud stores, so two spellings must not name one property.
+translation key the cloud stores ([`introspection.md`](introspection.md)), so two spellings must not
+name one property.
 
 `AC-GATE-002.4` is the encoding every producer of a configuration shares — the cloud payload, a
 development-host topology file, a test. A decoder that tolerated a numeric string for an integer, or

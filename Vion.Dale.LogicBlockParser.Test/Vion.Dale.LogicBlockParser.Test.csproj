@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>false</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPublishable>false</IsPublishable>
+        <IsPackable>false</IsPackable>
+        <IsTestProject>true</IsTestProject>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="coverlet.collector" Version="6.0.4">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1"/>
+        <PackageReference Include="MSTest" Version="4.0.2"/>
+    </ItemGroup>
+
+    <!-- The two fixture plugins are referenced, not published: a ProjectReference drops each plugin
+         assembly and the whole SDK dependency closure into this project's own output directory, which is
+         the single directory the parser's PluginLoadContext needs. ReferenceOutputAssembly stays true so
+         the copy happens; nothing here compiles against them.
+         Vion.Dale.LogicBlockParser is referenced so the parser is built before these tests run; the tests
+         shell out to its own output directory, because the executable's runtimeconfig.json is not part of
+         what a ProjectReference copies. -->
+    <ItemGroup>
+        <ProjectReference Include="..\Vion.Dale.LogicBlockParser\Vion.Dale.LogicBlockParser.csproj"/>
+        <ProjectReference Include="..\Vion.Dale.LogicBlockParser.Test.Plugin\Vion.Dale.LogicBlockParser.Test.Plugin.csproj"/>
+        <ProjectReference Include="..\Vion.Dale.LogicBlockParser.Test.UnregisteredPlugin\Vion.Dale.LogicBlockParser.Test.UnregisteredPlugin.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting"/>
+    </ItemGroup>
+
+</Project>
