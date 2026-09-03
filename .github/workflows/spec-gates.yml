@@ -1,6 +1,6 @@
 name: Spec Gates
 # The SDD gate suite (docs/spec-process.md § Gates): script self-tests, spec-lint,
-# spec-trace, test-style-lint, doc-comment-lint. Its own workflow — not a publish.yml
+# spec-trace, test-style-lint, doc-comment-lint, bom-lint. Its own workflow — not a publish.yml
 # job — because publish.yml ignores docs/** on both triggers and a docs-only PR (a spec
 # page, a change doc) must still be gated. Pure file scans, no dotnet build: cheap
 # enough to run on every PR.
@@ -53,3 +53,9 @@ jobs:
       - name: Doc-comment lint
         shell: pwsh
         run: ./scripts/doc-comment-lint.ps1
+
+      # No byte-order mark on the file kinds that never carry one here: a helper writing utf-8-sig
+      # stamped 46 files in one pass, visible to no gate and to every diff.
+      - name: BOM lint
+        shell: pwsh
+        run: ./scripts/bom-lint.ps1

@@ -251,7 +251,8 @@ findings before the PR merges.
 | What | Where | Fails when |
 | --- | --- | --- |
 | `scripts/spec-lint.ps1` | `spec-gates.yml` + on demand | malformed/escape-hatch ACs in `docs/specs/`; change-doc frontmatter or lifecycle broken (`archived` outside `archive/`, unknown status); `-Diff <ref>` warns on narrative added to the corpus (`-Strict` fails) |
-| `scripts/spec-trace.ps1` | `spec-gates.yml` + on demand | any id on a `trace: enforced` page (or an `in-flight` delta) with no quoted-literal test reference; a marked page parsing zero ids |
+| `scripts/spec-trace.ps1` | `spec-gates.yml` + on demand | any id on a `trace: enforced` page (or an `in-flight` delta) with no quoted-literal test reference; a marked page parsing zero ids; an id-sequence hole (a leaf missing below its umbrella's highest) that no archived change doc names |
+| `scripts/bom-lint.ps1` | `spec-gates.yml` + on demand | a `.md`, `.js`, `.mjs`, `.cjs`, `.json`, `.yml`, `.html`, `.css`, `.targets` or `.props` file carrying a UTF-8 byte-order mark — no file of these kinds has one here, and a helper writing `utf-8-sig` once stamped 46 |
 | `scripts/spec-change.ps1 archive` | on demand | any Spec-delta line not distilled into its target, or an `ADDED`/`MODIFIED` line whose EARS text the target's declaring bullet no longer carries (backticks, brackets, type arguments, wrapping, a `GAP` tail and a trailing parenthetical set aside) |
 | `scripts/doc-comment-lint.ps1` | `spec-gates.yml` + on demand | a C# doc-comment block carrying more than one `<summary>` — one declaration took two doc comments, the one above the insertion anchor is bare ([`sdk-surface-conventions.md`](sdk-surface-conventions.md) § 2) |
 | `scripts/test-style-lint.ps1` | `spec-gates.yml` + on demand | a test citing a spec id carries an article in its name or no Triple-A markers (`testing-conventions.md` §12/§13); projects a pass cites from without owning are exempt in the script, with a reason, until their pass |
