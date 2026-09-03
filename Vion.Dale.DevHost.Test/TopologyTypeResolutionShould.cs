@@ -27,8 +27,10 @@ namespace Vion.Dale.DevHost.Test
         ///     only the first, finds the assembly absent, and therefore probes its file.
         /// </summary>
         [TestMethod]
-        public void ResolveAType_WhoseAssemblyLoadsBetweenSnapshots()
+        [TestProperty("spec", "AC-SCEN-013.4")]
+        public void ResolveTypeWhoseAssemblyLoadsBetweenSnapshots()
         {
+            // Arrange / Act
             var declaringAssembly = typeof(CounterBlock).Assembly;
             var snapshotWithoutIt = AppDomain.CurrentDomain.GetAssemblies().Where(a => a != declaringAssembly).ToArray();
             var snapshotWithIt = snapshotWithoutIt.Append(declaringAssembly).ToArray();
@@ -38,6 +40,7 @@ namespace Vion.Dale.DevHost.Test
             // is with it — so no test ordering inside this process can decide what the loader sees.
             var resolved = DevTopologyLoader.ResolveType(typeof(CounterBlock).FullName!, () => consulted++ == 0 ? snapshotWithoutIt : snapshotWithIt);
 
+            // Assert
             Assert.AreSame(typeof(CounterBlock), resolved, "A type whose assembly loads between the two snapshots must still resolve — that is the VION-69 race.");
             Assert.AreEqual(1, consulted, "Exactly one snapshot may be consulted per resolution; a second one is the race coming back.");
         }
@@ -50,13 +53,16 @@ namespace Vion.Dale.DevHost.Test
         ///     to catch a fix that breaks the probe.
         /// </summary>
         [TestMethod]
-        public void ResolveAType_FromTheProbe_WhenItsAssemblyIsAbsentFromTheSnapshot()
+        [TestProperty("spec", "AC-SCEN-013.4")]
+        public void ResolveTypeFromProbeWhenAssemblyAbsentFromSnapshot()
         {
+            // Arrange / Act
             var declaringAssembly = typeof(CounterBlock).Assembly;
             var snapshotWithoutIt = AppDomain.CurrentDomain.GetAssemblies().Where(a => a != declaringAssembly).ToArray();
 
             var resolved = DevTopologyLoader.ResolveType(typeof(CounterBlock).FullName!, () => snapshotWithoutIt);
 
+            // Assert
             Assert.AreSame(typeof(CounterBlock), resolved, "An assembly the snapshot does not list must resolve through the base-directory probe.");
         }
     }
