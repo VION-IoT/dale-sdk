@@ -48,15 +48,23 @@ same shape the others use rather than editing references in place.
 carry it in three projects, `PingPong` in four, `Energy`, `Presentation` and `RichTypes` in two, and
 `libraries/Vion.Diagnostics` and `templates/vion-iot-library` in none.
 
-## 3. A mode that cannot work is rejected, not endured
+## 3. A mode that cannot work is rejected, or made host-adaptive — never endured
 
 There is one virtual clock with two mutually exclusive drivers — manual stepping and the scenario
 runner — and scenarios run either stepped or against the real clock. The manual path already enforces
 this: `DevHostController.StepConflict()` returns `409` when the host is not stepped, and again while a
 scenario is running, each with a machine-readable `reason`.
 
-Hold the runner to the same standard. **A step kind that cannot behave correctly in the active mode
-must be refused with a clear message.** Not silently mis-timed, not "works but not as you'd expect".
+Hold the runner to the same standard. **A step kind that cannot behave correctly in the active mode is
+either refused with a clear message or given an honest meaning in both modes.** Not silently
+mis-timed, not "works but not as you'd expect".
+
+**Today every one of the seven kinds takes the second route**, so the runner carries no clock-mode
+refusal at all: `advance` / `settle` / `waitUntil` are host-adaptive and say which mode they ran in,
+and the one kind that could not be made honest — `wait` — was removed instead. What each kind
+guarantees per mode is [`specs/scenarios.md`](specs/scenarios.md)'s (`AC-SCEN-011.*`). The rule above
+governs the *next* kind added: decide its behaviour in both modes, and if one of them cannot be right,
+refuse it at resolve time where the message can name the offending step.
 
 This rule was written after two sightings in one session:
 

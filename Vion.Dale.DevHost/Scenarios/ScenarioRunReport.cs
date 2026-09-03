@@ -132,7 +132,7 @@ namespace Vion.Dale.DevHost.Scenarios
     {
         public int Index { get; set; }
 
-        /// <summary>set / digitalInput / analogInput / waitUntil / wait.</summary>
+        /// <summary>Which of the seven closed shapes the step is — <see cref="ScenarioStep.Kind" />.</summary>
         public string Kind { get; set; } = string.Empty;
 
         public string? Label { get; set; }

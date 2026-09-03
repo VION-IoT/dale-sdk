@@ -195,9 +195,10 @@ namespace Vion.Dale.DevHost.Scenarios
     }
 
     /// <summary>
-    ///     One setup entry or step — exactly one of the closed shapes (<c>set</c>, <c>digitalInput</c> /
-    ///     <c>analogInput</c>, <c>waitUntil</c>, <c>expect</c>, <c>advance</c>, <c>settle</c>),
-    ///     each with optional <c>label</c> and <c>spec</c>.
+    ///     One setup entry or step — exactly one of the seven closed shapes (<c>set</c>,
+    ///     <c>serviceProviderSet</c>, <c>serviceProviderExpect</c>, <c>waitUntil</c>, <c>expect</c>,
+    ///     <c>advance</c>, <c>settle</c>), each with optional <c>label</c> and <c>spec</c>. Only <c>set</c>
+    ///     and <c>serviceProviderSet</c> are legal in <c>setup</c>.
     /// </summary>
     public sealed class ScenarioStep
     {
@@ -797,7 +798,7 @@ namespace Vion.Dale.DevHost.Scenarios
     ///     moves. The targeted set is
     ///     <see cref="Until" /> when given, else the scenario's <c>watch</c> list — a large watch set is for
     ///     observability and need not all settle (RFC 0008 §8.6). Non-convergence FAILS the step, naming the
-    ///     still-changing target. Requires a stepped host.
+    ///     still-changing target.
     /// </summary>
     public sealed class ScenarioSettle
     {
