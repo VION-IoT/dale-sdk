@@ -28,8 +28,11 @@ namespace Vion.Dale.DevHost.Test
         private const string GridType = "Vion.Dale.DevHost.SmokeHost.LogicBlocks.GridBlock";
 
         [TestMethod]
-        public async Task RefuseAPairingWithNoTypeIdenticalDirectionNamingBothDeclaredTypes()
+        [TestProperty("spec", "AC-SCEN-014.6")]
+        [TestProperty("spec", "AC-SCEN-014.5")]
+        public async Task RefusePairingWithNoTypeIdenticalDirectionNamingBothDeclaredTypes()
         {
+            // Act / Assert
             // A digital output paired to an unrelated inbound-only contract: nothing either side declares is the
             // same struct, so no direction can materialise. The refusal must name what was compared — the whole
             // point of the identity rule is that the diagnosis is "wrong type", not a field diff.
@@ -43,6 +46,7 @@ namespace Vion.Dale.DevHost.Test
             await using var host = DevHostBuilder.Create().WithDi<SmokeHost.DependencyInjection>().WithConfiguration(config).WithDeterministicStepping().Build();
             var e = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => host.StartAsync());
 
+            // Assert
             StringAssert.Contains(e.Message, "no type-identical direction");
             StringAssert.Contains(e.Message, "IoBlock.ActiveOutput");
             StringAssert.Contains(e.Message, "GridBlock.Demand");
@@ -51,8 +55,10 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task MaterialiseBothDirectionsOfAConsumerProviderPair()
+        [TestProperty("spec", "AC-SCEN-014.4")]
+        public async Task MaterialiseBothDirectionsOfConsumerProviderPair()
         {
+            // Arrange / Act
             // The canonical pair: a digital output and its provider face reuse the SAME wire structs, so the
             // command flows one way and the confirmation the other. Both directions are reported on the exported
             // configuration, which is what the resolver and the wiring view read.
@@ -62,6 +68,7 @@ namespace Vion.Dale.DevHost.Test
             await host.StartAsync();
 
             var pairings = host.Control.GetConfiguration().ContractPairings;
+            // Assert
             Assert.HasCount(2, pairings);
 
             var output = pairings.Single(p => p.A.ContractIdentifier == "ActiveOutput");
@@ -74,20 +81,25 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-SCEN-014.12")]
         [TestCategory("Smoke")]
-        public async Task CloseTheOutputConfirmationLoopThroughTheSimulator()
+        public async Task CloseOutputConfirmationLoopThroughSimulator()
         {
             // The primitive, end to end and in one place: the block commands its output, the command reaches the
             // provider face as SetReceived, the ideal module confirms, and OutputChanged lands back on the block
             // — all within stepped advancement, so this is deterministic rather than settle-timed.
+
+            // Arrange
             var config = PairedIoConfiguration();
 
             await using var host = DevHostBuilder.Create().WithDi<SmokeHost.DependencyInjection>().WithConfiguration(config).WithDeterministicStepping().Build();
             await host.StartAsync();
 
+            // Act
             await host.Control.SetPropertyAsync("IdealIo", "InputClosed", true);
             await host.Control.AdvanceAsync(TimeSpan.FromSeconds(3));
 
+            // Assert
             Assert.IsTrue(host.Control.GetProperty("IoBlock", "IsEnabled") as bool?, "the simulator's own logic drove the paired digital input");
             Assert.IsTrue(host.Control.GetProperty("IdealIo", "LastCommand") as bool?, "the block's output command reached the provider face");
             Assert.IsTrue(host.Control.GetProperty("IoBlock", "ConfirmedActive") as bool?, "and the confirmation came back through OutputChanged");
@@ -95,12 +107,15 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task WarnButNotFailWhenAScenarioDrivesAnInboundAPairingAlsoFeeds()
+        [TestProperty("spec", "AC-SCEN-007.10")]
+        public async Task WarnWithoutFailingWhenScenarioDrivesInboundPairingAlsoFeeds()
         {
             // RFC 0020 §4.6: legal (last write wins) and occasionally what an author wants, so the run proceeds —
             // but two writers on one inbound are invisible in the file, so the report says so. The scenario
             // asserts nothing about the VALUE deliberately: which writer lands last is exactly the thing the
             // warning is about, so a test that depended on it would be the flake it warns against.
+
+            // Arrange
             var dir = Path.Combine(Path.GetTempPath(), "dale-pairing-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(dir);
             File.WriteAllText(Path.Combine(dir, "seed.scenario.json"),
@@ -119,8 +134,10 @@ namespace Vion.Dale.DevHost.Test
             await using var host = DevHostBuilder.Create().WithDi<SmokeHost.DependencyInjection>().WithConfiguration(config).WithDeterministicStepping().Build();
             await host.StartAsync();
 
+            // Act
             var report = await ScenarioRunner.RunAsync("seed", host.Control, dir);
 
+            // Assert
             Assert.AreEqual(ScenarioRunStatus.Succeeded, report.Status, string.Join("; ", report.ValidationErrors));
             Assert.HasCount(1, report.ValidationWarnings);
             StringAssert.Contains(report.ValidationWarnings[0], "IoBlock.EnableInput");
@@ -129,43 +146,54 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public void RefuseAPairingNamingAContractTheBlockDoesNotBind()
+        [TestProperty("spec", "AC-SCEN-014.3")]
+        public void RefusePairingNamingContractItsBlockDoesNotBind()
         {
+            // Act / Assert
             var e = Assert.ThrowsExactly<InvalidDataException>(() => DevTopologyLoader.Build(Topology("""
                                                                                                       { "a": { "logicBlockName": "IoBlock", "contractIdentifier": "NoSuchContract" },
                                                                                                         "b": { "logicBlockName": "IdealIo", "contractIdentifier": "OutputChannel" } }
                                                                                                       """)));
 
+            // Assert
             StringAssert.Contains(e.Message, "has no contract 'NoSuchContract'");
             StringAssert.Contains(e.Message, "ActiveOutput", "the refusal lists what the block does bind");
         }
 
         [TestMethod]
-        public void RefuseAPairingNamingAnUndeclaredBlock()
+        [TestProperty("spec", "AC-SCEN-014.2")]
+        public void RefusePairingNamingUndeclaredBlock()
         {
+            // Act / Assert
             var e = Assert.ThrowsExactly<InvalidDataException>(() => Topology("""
                                                                               { "a": { "logicBlockName": "NoSuchBlock", "contractIdentifier": "ActiveOutput" },
                                                                                 "b": { "logicBlockName": "IdealIo", "contractIdentifier": "OutputChannel" } }
                                                                               """));
 
+            // Assert
             StringAssert.Contains(e.Message, "'NoSuchBlock' is not a declared instance");
         }
 
         [TestMethod]
-        public void RefuseAPairingWhoseEndpointsCoincide()
+        [TestProperty("spec", "AC-SCEN-014.2")]
+        public void RefusePairingWhoseEndpointsCoincide()
         {
+            // Act / Assert
             // Self-pairing is the host-synthesised confirmation this design deliberately dropped (§4.5).
             var e = Assert.ThrowsExactly<InvalidDataException>(() => Topology("""
                                                                               { "a": { "logicBlockName": "IoBlock", "contractIdentifier": "ActiveOutput" },
                                                                                 "b": { "logicBlockName": "IoBlock", "contractIdentifier": "ActiveOutput" } }
                                                                               """));
 
+            // Assert
             StringAssert.Contains(e.Message, "both endpoints are 'IoBlock.ActiveOutput'");
         }
 
         [TestMethod]
-        public void RefuseTheSamePairDeclaredTwice()
+        [TestProperty("spec", "AC-SCEN-014.3")]
+        public void RefuseSamePairDeclaredTwice()
         {
+            // Act / Assert
             const string Entry = """
                                  { "a": { "logicBlockName": "IoBlock", "contractIdentifier": "ActiveOutput" },
                                    "b": { "logicBlockName": "IdealIo", "contractIdentifier": "OutputChannel" } }
@@ -177,18 +205,23 @@ namespace Vion.Dale.DevHost.Test
                                                                                                                  "b": { "logicBlockName": "IoBlock", "contractIdentifier": "ActiveOutput" } }
                                                                                                               """)));
 
+            // Assert
             StringAssert.Contains(e.Message, "are already paired");
         }
 
         [TestMethod]
-        public void ResolveEachEndpointToItsOwnAutoCreatedEndpointAndSurviveASerializationRoundTrip()
+        [TestProperty("spec", "AC-SCEN-014.8")]
+        [TestProperty("spec", "AC-SCEN-014.1")]
+        public void ResolveEachEndpointToItsOwnAutoCreatedEndpointAndSurviveSerializationRoundTrip()
         {
+            // Arrange / Act
             var file = Topology("""
                                 { "a": { "logicBlockName": "IoBlock", "contractIdentifier": "ActiveOutput" },
                                   "b": { "logicBlockName": "IdealIo", "contractIdentifier": "OutputChannel" } }
                                 """);
 
             var pairing = DevTopologyLoader.Build(file).ContractPairings.Single();
+            // Assert
             Assert.AreEqual("IoBlock", pairing.A.LogicBlockName);
             Assert.AreEqual("ActiveOutput", pairing.A.ContractEndpointIdentifier, "the endpoint a forward addresses is the auto-created one");
             Assert.AreEqual("IdealIo", pairing.B.LogicBlockName);
@@ -202,22 +235,27 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public void OmitPairingsFromAnUnpairedTopologyFile()
+        [TestProperty("spec", "AC-SCEN-013.7")]
+        public void OmitPairingsFromUnpairedTopologyFile()
         {
+            // Arrange / Act
             // The default is preserved byte for byte: a topology with no pairings serializes exactly as before.
             var file = DevTopologyFile.Parse($$"""
                                                { "id": "plain", "logicBlockInstances": [ { "typeFullName": "{{IoBlockType}}", "name": "IoBlock" } ] }
                                                """);
 
+            // Assert
             Assert.IsNull(file.ContractPairings);
             StringAssert.DoesNotMatch(file.ToJson(), new System.Text.RegularExpressions.Regex("contractPairings"));
             Assert.IsEmpty(DevTopologyLoader.Build(file).ContractPairings);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-SCEN-014.7")]
         [TestCategory("Smoke")]
-        public async Task RefuseAMismatchedPairingAtSaveAndValidateNamingBothDeclaredTypes()
+        public async Task RefuseMismatchedPairingAtSaveAndValidateNamingBothDeclaredTypes()
         {
+            // Arrange / Act
             // The identity rule of §4.3 needs the handler each contract talks to, which only an introspected
             // block carries — so DevTopologyLoader.Build stays structural and a RUNNING host hands its
             // introspection to the topology store. The editor's validate and its save then refuse a
@@ -252,6 +290,7 @@ namespace Vion.Dale.DevHost.Test
 
                 var validate = await client.PostAsync("/api/topologies/validate", new StringContent(mismatched, Encoding.UTF8, "application/json"));
                 var validateBody = await validate.Content.ReadAsStringAsync();
+            // Assert
                 Assert.AreEqual(HttpStatusCode.UnprocessableEntity, validate.StatusCode, validateBody);
                 StringAssert.Contains(validateBody, "SetDigitalOutput", "The refusal must name what was compared, not just that the pairing is wrong.");
                 StringAssert.Contains(validateBody, "GridDemandReceived");
@@ -278,8 +317,10 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public void SaveAnUnpairedTopologyByteIdenticallyEvenAfterTheEditorTouchedItsPairings()
+        [TestProperty("spec", "AC-SCEN-013.7")]
+        public void SaveUnpairedTopologyByteIdenticallyEvenAfterEditorTouchedItsPairings()
         {
+            // Arrange / Act
             // The editor creates contractPairings on the first pair and drops the key with the last, but a draft
             // that reaches the server carrying an EMPTY array must still land as an unpaired file: an author who
             // added and then removed a pairing changed nothing, and the saved bytes have to say so.
@@ -293,6 +334,7 @@ namespace Vion.Dale.DevHost.Test
 
                 var touched = store.Save("plain", PlainTopologyJson(""", "contractPairings": []"""));
 
+            // Assert
                 Assert.AreEqual(withoutKey, File.ReadAllText(touched), "An empty pairing list must save exactly as no pairing list at all.");
                 StringAssert.DoesNotMatch(File.ReadAllText(touched), new System.Text.RegularExpressions.Regex("contractPairings"));
             }
@@ -303,8 +345,10 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public void KeepAPairedTopologysEntriesThroughAnUnrelatedEdit()
+        [TestProperty("spec", "AC-SCEN-014.1")]
+        public void KeepPairedTopologyEntriesThroughUnrelatedEdit()
         {
+            // Arrange / Act
             // The round-trip a paired bench depends on: the editor adds a block, saves, and the wires it never
             // touched are still there. (p3 fixed the DRAFT's silent deletion; this pins the server half.)
             var directory = Path.Combine(Path.GetTempPath(), "dale-pairing-" + Guid.NewGuid().ToString("N"));
@@ -321,6 +365,7 @@ namespace Vion.Dale.DevHost.Test
                 var edited = store.Save("bench", TopologyJson("bench", pairing, true));
 
                 var reparsed = DevTopologyFile.Parse(File.ReadAllText(edited));
+            // Assert
                 Assert.HasCount(4, reparsed.LogicBlockInstances!, "The unrelated edit added a fourth block.");
                 Assert.HasCount(1, reparsed.ContractPairings!, "An unrelated edit must not drop the pairing.");
                 Assert.AreEqual("OutputChannel", reparsed.ContractPairings![0].B!.ContractIdentifier);

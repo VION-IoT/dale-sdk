@@ -21,9 +21,11 @@ namespace Vion.Dale.DevHost.Test
     public class RecycleOnRunShould
     {
         [TestMethod]
+        [TestProperty("spec", "AC-SCEN-012.10")]
         [TestCategory("Smoke")]
-        public async Task ApplyOnADirtySteppedHost_RecyclesToACleanSlate_ThenRunsOnReapply()
+        public async Task RecycleToCleanSlateThenRunOnReapply()
         {
+            // Arrange / Act
             var dir = NewScenarioDir();
             File.WriteAllText(Path.Combine(dir, "recyclable.scenario.json"),
                               """
@@ -53,6 +55,7 @@ namespace Vion.Dale.DevHost.Test
                 runner = DevHostWebRunner.RunAsync(Factory, port, cts.Token);
                 using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(10) };
 
+            // Assert
                 Assert.IsTrue(await PollSteppedReadyAsync(client, TimeSpan.FromSeconds(30)), "Generation 1 (stepped, supervised) should come up.");
 
                 // Dirty the generation: advance the virtual clock so it is no longer at the clean baseline.

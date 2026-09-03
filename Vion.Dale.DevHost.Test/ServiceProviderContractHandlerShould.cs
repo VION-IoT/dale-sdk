@@ -32,8 +32,10 @@ namespace Vion.Dale.DevHost.Test
         private static readonly LogicBlockContractId Lb = new(new LogicBlockId("lb1"), "EnableInput");
 
         [TestMethod]
-        public void Forward_a_driven_single_field_input_to_the_consuming_block()
+        [TestProperty("spec", "AC-SCEN-008.2")]
+        public void ForwardDrivenSingleFieldInputToConsumingBlock()
         {
+            // Arrange / Act
             var handler = NewHandler(typeof(ScalarInputHandlerStub));
             var context = new RecordingActorContext();
             var consumer = new FakeActorReference();
@@ -42,6 +44,7 @@ namespace Vion.Dale.DevHost.Test
             handler.HandleMessageAsync(new MockSetServiceProviderInputMessage(Sp, Json("true")), context);
 
             var sent = context.Sent.Single();
+            // Assert
             Assert.AreSame(consumer, sent.Target);
             Assert.IsInstanceOfType<ContractMessage<ScalarChanged>>(sent.Message);
             var message = (ContractMessage<ScalarChanged>)sent.Message;
@@ -50,8 +53,10 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public void Forward_a_driven_multi_field_custom_contract_to_the_consuming_block()
+        [TestProperty("spec", "AC-SCEN-008.4")]
+        public void ForwardDrivenMultiFieldCustomContractToConsumingBlock()
         {
+            // Arrange / Act
             // The DF-27 unblock: a third-party value contract (PPC-shaped multi-field struct, enum-by-name)
             // is driven through the SAME generic handler with no per-contract code.
             var handler = NewHandler(typeof(DemandInputHandlerStub));
@@ -62,14 +67,17 @@ namespace Vion.Dale.DevHost.Test
             handler.HandleMessageAsync(new MockSetServiceProviderInputMessage(Sp, Json("""{ "valid": true, "scope": "PerPhase", "activePowerW": 1500 }""")), context);
 
             var demand = ((ContractMessage<DemandChanged>)context.Sent.Single().Message).Data;
+            // Assert
             Assert.IsTrue(demand.Valid);
             Assert.AreEqual(DemandScope.PerPhase, demand.Scope);
             Assert.AreEqual(1500d, demand.ActivePowerW);
         }
 
         [TestMethod]
-        public void Forward_a_driven_input_to_every_block_mapped_to_the_contract()
+        [TestProperty("spec", "AC-SCEN-014.13")]
+        public void ForwardDrivenInputToEveryBlockMappedToContract()
         {
+            // Arrange / Act
             var handler = NewHandler(typeof(ScalarInputHandlerStub));
             var context = new RecordingActorContext();
             var first = new FakeActorReference();
@@ -88,12 +96,15 @@ namespace Vion.Dale.DevHost.Test
                                        context);
             handler.HandleMessageAsync(new MockSetServiceProviderInputMessage(Sp, Json("true")), context);
 
+            // Assert
             CollectionAssert.AreEquivalent(new IActorReference[] { first, second }, context.Sent.Select(s => s.Target).ToList());
         }
 
         [TestMethod]
-        public void Capture_an_output_command_raising_the_generic_event_and_send_nothing_when_the_endpoint_is_unpaired()
+        [TestProperty("spec", "AC-SCEN-014.11")]
+        public void CaptureOutputCommandRaisingGenericEventAndSendNothingWhenEndpointUnpaired()
         {
+            // Arrange / Act
             // The DEFAULT, pinned (RFC 0020 §4.1): an outbound command a block Set raises the one generic
             // ServiceProviderContractChanged event (the SPA read-out + the serviceProviderExpect read source) and
             // goes nowhere else. The DevHost does NOT synthesize a typed output-confirmation back to the block —
@@ -110,6 +121,7 @@ namespace Vion.Dale.DevHost.Test
             Link(handler, context, consumer);
             handler.HandleMessageAsync(new ContractMessage<SetScalar>(Lb, new SetScalar(true)), context);
 
+            // Assert
             Assert.IsNotNull(raised, "An outbound command must raise the generic ServiceProviderContractChanged event.");
             Assert.AreEqual(Sp.ServiceProviderIdentifier, raised!.ServiceProviderIdentifier);
             Assert.AreEqual(Sp.ContractIdentifier, raised.ContractIdentifier);
@@ -119,8 +131,10 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public void Forward_a_captured_command_to_the_paired_peer_stand_in()
+        [TestProperty("spec", "AC-SCEN-014.11")]
+        public void ForwardCapturedCommandToPairedPeerStandIn()
         {
+            // Arrange / Act
             // The pairing primitive: with the endpoint paired to a provider face whose declared inbound is the
             // SAME wire struct, the captured value is re-driven onto the PEER stand-in as the ordinary drive
             // message — no new message type, no transformation, and nothing sent back to the writing block.
@@ -132,6 +146,7 @@ namespace Vion.Dale.DevHost.Test
             handler.HandleMessageAsync(new ContractMessage<SetScalar>(Lb, new SetScalar(true)), context);
 
             var sent = context.Sent.Single();
+            // Assert
             Assert.AreSame(context.LookupByName(nameof(ScalarProviderHandlerStub)), sent.Target, "The forward addresses the PEER stand-in, not the writing block.");
             var drive = (MockSetServiceProviderInputMessage)sent.Message;
             Assert.AreEqual(Peer, drive.Contract);
@@ -139,8 +154,10 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public void Record_a_paired_command_in_the_output_cache_before_forwarding_it()
+        [TestProperty("spec", "AC-SCEN-014.9")]
+        public void RecordPairedCommandInOutputCacheBeforeForwardingIt()
         {
+            // Arrange / Act
             // serviceProviderExpect must still read what a PAIRED output wrote — the cache write happens before
             // the forward, so pairing never costs an assertion.
             var cache = new Control.ServiceProviderOutputCache();
@@ -153,13 +170,16 @@ namespace Vion.Dale.DevHost.Test
             Link(handler, context, new FakeActorReference());
             handler.HandleMessageAsync(new ContractMessage<SetScalar>(Lb, new SetScalar(true)), context);
 
+            // Assert
             Assert.IsTrue(cache.TryGet(Sp, out var recorded));
             Assert.IsTrue(recorded.GetBoolean());
         }
 
         [TestMethod]
-        public void Never_consult_the_pairing_table_on_the_drive_path()
+        [TestProperty("spec", "AC-SCEN-014.10")]
+        public void NeverConsultPairingTableOnDrivePath()
         {
+            // Arrange / Act
             // RFC 0020 §4.7: only Capture forwards. A drive that also forwarded would let stand-ins originate
             // messages, and a closed loop would converge on stand-in recursion rather than on block cadence.
             var handler = NewHandler(typeof(ScalarProviderHandlerStub), handlerActorName: nameof(ScalarProviderHandlerStub), pairings: OutputPairedToItsProviderFace());
@@ -174,13 +194,16 @@ namespace Vion.Dale.DevHost.Test
             handler.HandleMessageAsync(new MockSetServiceProviderInputMessage(Peer, Json("true")), context);
 
             var sent = context.Sent.Single();
+            // Assert
             Assert.AreSame(consumer, sent.Target, "A drive reaches the mapped block and nothing else.");
             Assert.IsInstanceOfType<ContractMessage<SetScalar>>(sent.Message);
         }
 
         [TestMethod]
-        public void Ignore_a_drive_on_an_output_only_contract()
+        [TestProperty("spec", "AC-SCEN-014.13")]
+        public void IgnoreDriveOnOutputOnlyContract()
         {
+            // Arrange / Act
             // serviceProviderSet on an output is a validation error at the scenario layer; the handler must
             // never fabricate an inbound from an output-only codec.
             var handler = NewHandler(typeof(ScalarOutputHandlerStub));
@@ -190,6 +213,7 @@ namespace Vion.Dale.DevHost.Test
             Link(handler, context, consumer);
             handler.HandleMessageAsync(new MockSetServiceProviderInputMessage(Sp, Json("true")), context);
 
+            // Assert
             Assert.IsEmpty(context.Sent);
         }
 

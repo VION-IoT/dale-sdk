@@ -14,9 +14,13 @@ namespace Vion.Dale.DevHost.Test
         private static readonly LogicBlockContractId ContractId = new(new LogicBlockId("lb1"), "c1");
 
         [TestMethod]
-        public void Drive_an_input_from_a_scalar_value_into_the_exact_closed_message()
+        [TestProperty("spec", "AC-SCEN-008.3")]
+        [TestProperty("spec", "AC-SCEN-008.2")]
+        public void DriveInputFromScalarValueIntoExactClosedMessage()
         {
+            // Arrange / Act
             var codec = ScenarioWireCodec.ForHandler(typeof(ScalarInputHandlerStub))!;
+            // Assert
             Assert.IsTrue(codec.CanDrive);
             Assert.IsFalse(codec.CanAssert);
 
@@ -28,22 +32,28 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public void Drive_an_input_from_a_struct_value_including_an_enum()
+        [TestProperty("spec", "AC-SCEN-008.4")]
+        public void DriveInputFromStructValueIncludingEnum()
         {
+            // Arrange / Act
             var codec = ScenarioWireCodec.ForHandler(typeof(DemandInputHandlerStub))!;
 
             var message = codec.MakeInbound(ContractId, Json("""{ "valid": true, "scope": "PerPhase", "activePowerW": 1500 }"""));
 
             var demand = ((ContractMessage<DemandChanged>)message).Data;
+            // Assert
             Assert.IsTrue(demand.Valid);
             Assert.AreEqual(DemandScope.PerPhase, demand.Scope);
             Assert.AreEqual(1500d, demand.ActivePowerW);
         }
 
         [TestMethod]
-        public void Assert_an_output_command_back_to_its_scalar_value()
+        [TestProperty("spec", "AC-SCEN-008.3")]
+        public void AssertOutputCommandBackToItsScalarValue()
         {
+            // Arrange / Act
             var codec = ScenarioWireCodec.ForHandler(typeof(ScalarOutputHandlerStub))!;
+            // Assert
             Assert.IsTrue(codec.CanAssert);
             Assert.IsFalse(codec.CanDrive);
 
@@ -53,8 +63,11 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public void Yield_no_codec_for_an_undeclared_handler()
+        [TestProperty("spec", "AC-SCEN-008.1")]
+        public void YieldNoCodecForUndeclaredHandler()
         {
+            // Arrange / Act
+            // Assert
             Assert.IsNull(ScenarioWireCodec.ForHandler(typeof(UndecoratedHandlerStub)));
         }
 
