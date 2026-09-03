@@ -15,6 +15,11 @@ namespace Vion.Dale.DevHost.Test.Stepping
     ///     Inbound. That declaration, not the contract's multiplicity, is the gate, so an output confirmed by
     ///     its provider is drivable too; the drive is routed to the generic stand-in registered under the
     ///     contract's <c>ContractHandlerActorName</c>.
+    ///     <para>
+    ///         Cross-tier: <c>AC-SCEN-007.3</c> is proven here at the resolver, where the multiplicity is read
+    ///         explicitly so the re-keyed gate is exercised, and by the committed <c>output-confirmation</c>
+    ///         scenario, which drives a real provider confirmation end to end.
+    ///     </para>
     /// </summary>
     [TestClass]
     public class ServiceProviderSetStepShould

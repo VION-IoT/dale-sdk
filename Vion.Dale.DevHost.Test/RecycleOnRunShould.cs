@@ -16,6 +16,11 @@ namespace Vion.Dale.DevHost.Test
     ///     every run is reproducible. On a supervised host a dirty (already-advanced) stepped generation
     ///     recycles onto the scenario's topology before running — apply answers <c>{ recycling: true }</c> and
     ///     the caller re-applies on the fresh, clean generation, which runs in place. There is no <c>force</c>.
+    ///     <para>
+    ///         Cross-tier: <c>AC-SCEN-012.10</c> is proven here as the recycle round-trip over the API, and by
+    ///         the committed <c>minimal-subset</c> scenario, which declares a topology the host is not on and
+    ///         so drives the switch from a scenario's own side.
+    ///     </para>
     /// </summary>
     [TestClass]
     public class RecycleOnRunShould

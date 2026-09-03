@@ -4,7 +4,7 @@
   "topology": "default",
   "title": "Output confirmations — drive what the provider echoes back, matching and mismatched",
   "description": "The drive half of an output contract. After the IoBlock's [Timer(1)] has commanded its digital and analog outputs, serviceProviderSet drives the confirmation a service provider would send back on those same contracts — the DigitalOutputChanged / AnalogOutputChanged inbound — and the block's OutputChanged handlers surface it. First a truthful confirmation (the block sees no mismatch), then a deliberately WRONG one: the provider reports false on an output commanded true, which no real hardware would produce on demand, and the block's mismatch flag rises. Everything runs stepped, so the whole loop is deterministic.",
-  "specs": ["smoke", "hal", "confirmation"],
+  "specs": ["smoke", "hal", "confirmation", "AC-SCEN-007.3"],
   "watch": ["IoBlock.ConfirmedActive", "IoBlock.ConfirmedEcho", "IoBlock.ConfirmationMismatch"],
   "steps": [
     { "serviceProviderSet": { "logicBlock": "IoBlock", "contract": "EnableInput" }, "value": true, "label": "drive the digital input high" },

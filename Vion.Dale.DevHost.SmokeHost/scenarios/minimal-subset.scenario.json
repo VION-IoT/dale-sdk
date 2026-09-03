@@ -4,7 +4,7 @@
   "topology": "minimal",
   "title": "Minimal subset — exercises topology switch / recycle-on-run",
   "description": "Targets the 'minimal' topology (the Showcase block alone). Running it from a host on a different topology exercises recycle-on-run: the host recycles onto 'minimal' with a clean slate before the run. Keeps the assertions trivial — its job is to drive the topology switch, not to test the block.",
-  "specs": ["smoke", "topology"],
+  "specs": ["smoke", "topology", "AC-SCEN-012.10"],
   "watch": ["ShowcaseBlock.Cycles", "ShowcaseBlock.Setpoint"],
   "setup": [
     { "set": "ShowcaseBlock.Setpoint", "value": 12, "label": "stage a value" }

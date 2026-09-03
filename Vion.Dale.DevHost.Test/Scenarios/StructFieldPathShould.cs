@@ -328,7 +328,7 @@ namespace Vion.Dale.DevHost.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-005.5")]
-        public async Task AcceptTwoSegmentFormWhenExactlyOneServiceCarriesTheMember()
+        public async Task AcceptTwoSegmentFormWhenExactlyOneServiceCarriesMember()
         {
             // Arrange — Allocator has one service, so Counter is unambiguous; Collision has two, and only
             // one of them carries Limit.
@@ -378,7 +378,7 @@ namespace Vion.Dale.DevHost.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-006.6")]
-        public async Task YieldNullLeafWhenTheStructItselfIsNull()
+        public async Task YieldNullLeafWhenStructItselfNull()
         {
             // Arrange — the block leaves Reading null, so the field path reads through nothing.
             await using var host = BuildHost();

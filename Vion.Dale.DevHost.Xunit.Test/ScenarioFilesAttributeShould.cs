@@ -65,13 +65,14 @@ namespace Vion.Dale.DevHost.Xunit.Test
             // Arrange / Act
             var rows = await Discover();
 
-            // Assert — the scenario's own `specs` array, which is how a consumer filters a run by spec.
+            // Assert — the scenario's own `specs` array, which is how a consumer filters a run by spec. The
+            // SmokeHost's carry a criterion id beside their labels, so both filters keep working.
             var pairedLoop = rows.Single(r => (string)r.GetData()[0]! == "paired-loop");
             Assert.IsNotNull(pairedLoop.Traits);
-            CollectionAssert.AreEquivalent(new[] { "smoke", "pairing" }, pairedLoop.Traits!["spec"].ToList());
+            CollectionAssert.AreEquivalent(new[] { "smoke", "pairing", "AC-SCEN-014.12" }, pairedLoop.Traits!["spec"].ToList());
 
             var minimal = rows.Single(r => (string)r.GetData()[0]! == "minimal-subset");
-            CollectionAssert.AreEquivalent(new[] { "smoke", "topology" }, minimal.Traits!["spec"].ToList());
+            CollectionAssert.AreEquivalent(new[] { "smoke", "topology", "AC-SCEN-012.10" }, minimal.Traits!["spec"].ToList());
         }
 
         [TestMethod]

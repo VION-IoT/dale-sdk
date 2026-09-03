@@ -590,7 +590,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-012.7")]
-        public async Task SettleStartupTrafficBeforeTheFirstEventHop()
+        public async Task SettleStartupTrafficBeforeFirstEventHop()
         {
             // Arrange — the ticker publishes its initial state during startup, and the first hop must begin
             // from a settled system rather than racing that traffic.

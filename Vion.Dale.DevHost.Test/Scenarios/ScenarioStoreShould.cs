@@ -71,7 +71,7 @@ namespace Vion.Dale.DevHost.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-001.6")]
-        public void RefuseFileWhoseDeclaredIdIsNotItsName()
+        public void RefuseFileWhoseDeclaredIdDiffersFromItsName()
         {
             // Arrange
             var directory = NewDirectory();
@@ -84,7 +84,7 @@ namespace Vion.Dale.DevHost.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-009.15")]
-        public async Task CarryTheFilesContentHashOnTheRunReport()
+        public async Task CarryFileContentHashOnRunReport()
         {
             // Arrange — the same content under two ids hashes the same; a changed byte changes the hash.
             var directory = NewDirectory();
@@ -110,7 +110,7 @@ namespace Vion.Dale.DevHost.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-009.15")]
-        public void ReportNoHashForFileThatIsNotThere()
+        public void ReportNoHashForAbsentFile()
         {
             // Arrange
             var store = new ScenarioStore(NewDirectory());

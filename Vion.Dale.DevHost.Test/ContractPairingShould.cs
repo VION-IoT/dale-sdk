@@ -19,8 +19,14 @@ namespace Vion.Dale.DevHost.Test
     /// <summary>
     ///     Contract pairing (RFC 0020): two service-provider contract endpoints declared as ONE wire, so a
     ///     simulator block bound to a provider face closes the loop a real service provider would. The
-    ///     structural refusals land at topology load / <c>PairContracts</c>; the wire-type identity rule of
-    ///     §4.3 lands when the host loads, where the handler each contract talks to is known.
+    ///     structural refusals land at topology load / <c>PairContracts</c>; the wire-type identity rule
+    ///     lands when the host loads, where the handler each contract talks to is known.
+    ///     <para>
+    ///         Cross-tier: <c>AC-SCEN-014.12</c> is proven here as the forward reaching the peer stand-in on
+    ///         one host, and by the committed <c>paired-loop</c> scenario as the whole confirmation loop
+    ///         running stepped to a deterministic end. This tier owns the mechanism; the scenario owns the
+    ///         bench.
+    ///     </para>
     /// </summary>
     [TestClass]
     public class ContractPairingShould

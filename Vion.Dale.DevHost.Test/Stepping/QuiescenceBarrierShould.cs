@@ -24,7 +24,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
     {
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-012.5")]
-        public async Task ReturnOnceEveryMailboxIsEmptyAndNoHandlerIsInFlight()
+        public async Task ReturnOnceEveryMailboxDrainedAndNoHandlerRunning()
         {
             // Arrange
             var vitals = new RuntimeVitals(TimeProvider.System);
@@ -40,7 +40,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-012.6")]
-        public async Task KeepWaitingWhileHandlerIsInFlightEvenWithEveryMailboxEmpty()
+        public async Task KeepWaitingWhileHandlerRunsWithEveryMailboxDrained()
         {
             // Arrange — the blind spot mailbox depth alone has: a handler that has dequeued its message and
             // has not yet posted the next hop, so depth reads zero while the cascade is still live.
@@ -63,7 +63,7 @@ namespace Vion.Dale.DevHost.Test.Stepping
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-012.6")]
-        public async Task KeepWaitingWhileTrafficIsQueuedEvenWithNoHandlerInFlight()
+        public async Task KeepWaitingWhileTrafficQueuedWithNoHandlerRunning()
         {
             // Arrange — the other half: nothing executing, but a mailbox still holding a message.
             var vitals = new RuntimeVitals(TimeProvider.System);
