@@ -137,7 +137,7 @@
             "tolerance": { "required": ["equals"], "properties": { "equals": { "type": "number" } } }
           }
         },
-        "timeoutSeconds": { "type": "number", "exclusiveMinimum": 0, "maximum": 922337203685, "default": 20 }
+        "timeoutSeconds": { "type": "number", "exclusiveMinimum": 0, "maximum": 4294967, "default": 20 }
       }
     },
     "expectStep": {
@@ -186,7 +186,7 @@
           "additionalProperties": false,
           "required": ["seconds"],
           "properties": {
-            "seconds": { "type": "number", "exclusiveMinimum": 0, "maximum": 922337203685, "description": "Seconds of time to let elapse — virtual on a stepped host, real wall-clock on a real-clock host. Capped at what a run can spend." }
+            "seconds": { "type": "number", "exclusiveMinimum": 0, "maximum": 4294967, "description": "Seconds of time to let elapse — virtual on a stepped host, real wall-clock on a real-clock host. Capped at what a run can spend." }
           }
         }
       },
@@ -209,7 +209,7 @@
               "items": { "$ref": "#/$defs/namePath" },
               "description": "Explicit target paths that must stabilize for convergence; omit to settle over the whole watch list. A large watch set is for observability — scope settle to the specific values meant to settle so a volatile tile (free-running counter / clock-derived value / noisy sensor) does not burn the budget."
             },
-            "maxSeconds": { "type": "number", "exclusiveMinimum": 0, "maximum": 922337203685, "default": 60, "description": "Maximum seconds (virtual on a stepped host, real on a real-clock host) to spend waiting for convergence. Capped at what a run can spend." }
+            "maxSeconds": { "type": "number", "exclusiveMinimum": 0, "maximum": 4294967, "default": 60, "description": "Maximum seconds (virtual on a stepped host, real on a real-clock host) to spend waiting for convergence. Capped at what a run can spend." }
           }
         }
       },

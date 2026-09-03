@@ -4,6 +4,8 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
 using Vion.Dale.DevHost.Scenarios;
 
 namespace Vion.Dale.DevHost.Test
@@ -170,6 +172,20 @@ namespace Vion.Dale.DevHost.Test
                 Assert.AreEqual(0d, budget.GetProperty("exclusiveMinimum").GetDouble());
                 Assert.AreEqual(ScenarioFile.MaxDurationSeconds, budget.GetProperty("maximum").GetDouble());
             }
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-003.2")]
+        public void BoundEveryDurationByRealClockCeiling()
+        {
+            // Arrange / Act - the bound the three sites name, and the ceiling every budget actually meets:
+            // a real-clock advance is a Task.Delay, which refuses anything above Timer.MaxSupportedTimeout.
+            var bound = TimeSpan.FromSeconds(ScenarioFile.MaxDurationSeconds);
+
+            // Assert - accepted at the bound, refused one second past it. Before this, the bound was
+            // TimeSpan's own range, so a file every validator accepted threw from inside the step.
+            _ = Task.Delay(bound, CancellationToken.None);
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => Task.Delay(bound + TimeSpan.FromSeconds(1), CancellationToken.None));
         }
 
         [TestMethod]

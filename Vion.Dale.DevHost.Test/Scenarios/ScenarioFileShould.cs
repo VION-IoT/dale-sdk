@@ -267,20 +267,20 @@ namespace Vion.Dale.DevHost.Test
         [DataRow("""{ "settle": { "maxSeconds": 1e308 } }""", "settle.maxSeconds", DisplayName = "maxSeconds, finite but past the cap")]
         [DataRow("""{ "waitUntil": { "property": "A.B", "above": 1 }, "timeoutSeconds": 1e400 }""", "timeoutSeconds", DisplayName = "timeout, overflows to infinity")]
         [DataRow("""{ "waitUntil": { "property": "A.B", "above": 1 }, "timeoutSeconds": 1e308 }""", "timeoutSeconds", DisplayName = "timeout, finite but past the cap")]
-        public void RejectDurationLongerThanRunCanSpend(string step, string expectedField)
+        public void RejectDurationLongerThanRealClockCanWait(string step, string expectedField)
         {
             // Arrange / Act
             var refused = Assert.ThrowsExactly<ScenarioFormatException>(() => ScenarioFile.Parse($$"""{ "version": 1, "id": "x", "topology": "t", "steps": [{{step}}] }"""));
 
             // Assert
-            Assert.IsTrue(refused.Errors.Any(m => m.Contains(expectedField) && m.Contains("longer than a run can spend")), string.Join("; ", refused.Errors));
+            Assert.IsTrue(refused.Errors.Any(m => m.Contains(expectedField) && m.Contains("longer than a real clock can wait")), string.Join("; ", refused.Errors));
         }
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-003.2")]
-        [DataRow(1e10, DisplayName = "well inside the cap")]
-        [DataRow(922337203685d, DisplayName = "exactly at the cap")]
-        public void AcceptDurationRunCanSpend(double seconds)
+        [DataRow(1e6, DisplayName = "well inside the cap")]
+        [DataRow(4294967d, DisplayName = "exactly at the cap")]
+        public void AcceptDurationRealClockCanWait(double seconds)
         {
             // Arrange
             var json = $$"""{ "version": 1, "id": "x", "topology": "t", "steps": [{ "advance": { "seconds": {{seconds.ToString("R", CultureInfo.InvariantCulture)}} } }] }""";

@@ -733,25 +733,25 @@ namespace Vion.Dale.Cli.Test.Commands
         [DataRow("""{ "advance": { "seconds": 1e308 } }""", "advance.seconds", DisplayName = "advance, finite but past the cap")]
         [DataRow("""{ "settle": { "maxSeconds": 1e308 } }""", "settle.maxSeconds", DisplayName = "maxSeconds, past the cap")]
         [DataRow("""{ "waitUntil": { "property": "Counter.Counter", "above": 1 }, "timeoutSeconds": 1e308 }""", "timeoutSeconds", DisplayName = "timeout, past the cap")]
-        public void RefuseDurationLongerThanRunCanSpend(string step, string expectedField)
+        public void RefuseDurationLongerThanRealClockCanWait(string step, string expectedField)
         {
             // Arrange / Act
             var outcome = ScenarioFileChecks.Validate("long.scenario.json", $$"""{ "version": 1, "id": "long", "topology": "demo", "steps": [{{step}}] }""", Config);
 
             // Assert
-            Assert.IsTrue(outcome.Errors.Any(e => e.Contains(expectedField) && e.Contains("longer than a run can spend")), string.Join("; ", outcome.Errors));
+            Assert.IsTrue(outcome.Errors.Any(e => e.Contains(expectedField) && e.Contains("longer than a real clock can wait")), string.Join("; ", outcome.Errors));
         }
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-003.2")]
-        public void AcceptDurationRunCanSpend()
+        public void AcceptDurationRealClockCanWait()
         {
             // Arrange / Act
             var outcome = ScenarioFileChecks.Validate("ok-long.scenario.json",
                                                       """
                                                       {
                                                         "version": 1, "id": "ok-long", "topology": "demo",
-                                                        "steps": [{ "advance": { "seconds": 922337203685 } }]
+                                                        "steps": [{ "advance": { "seconds": 4294967 } }]
                                                       }
                                                       """,
                                                       Config);

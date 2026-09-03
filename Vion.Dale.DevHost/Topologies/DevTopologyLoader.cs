@@ -166,24 +166,34 @@ namespace Vion.Dale.DevHost.Topologies
             }
 
             // Explicit contract mappings override the auto-created defaults per (block, contract) —
-            // how a file expresses shared endpoints. Unmentioned contracts keep their mocks.
+            // how a file expresses shared endpoints. Unmentioned contracts keep their mocks. Every bad entry
+            // is collected before throwing, like the type, parameter, interface and pairing passes: an
+            // author fixing one mapping should not have to re-run the loader to be shown the next.
+            var contractErrors = new List<string>();
             foreach (var mapping in topology.ContractMappings ?? Array.Empty<TopologyContractMapping>())
             {
                 if (mapping.LogicBlockName is null || !handles.TryGetValue(mapping.LogicBlockName, out var handle))
                 {
-                    throw new InvalidDataException($"contractMappings: '{mapping.LogicBlockName}' is not a declared instance");
+                    contractErrors.Add($"contractMappings: '{mapping.LogicBlockName}' is not a declared instance");
+                    continue;
                 }
 
                 var block = configuration.LogicBlocks.Single(lb => lb.Id == handle.Id);
                 var existing = block.ContractMappings.FirstOrDefault(cm => cm.ContractIdentifier == mapping.ContractIdentifier);
                 if (existing is null)
                 {
-                    throw new InvalidDataException($"contractMappings: block '{mapping.LogicBlockName}' has no contract '{mapping.ContractIdentifier}'");
+                    contractErrors.Add($"contractMappings: block '{mapping.LogicBlockName}' has no contract '{mapping.ContractIdentifier}'");
+                    continue;
                 }
 
                 existing.ServiceProviderIdentifier = mapping.MappedServiceProviderIdentifier ?? existing.ServiceProviderIdentifier;
                 existing.ServiceIdentifier = mapping.MappedServiceIdentifier ?? existing.ServiceIdentifier;
                 existing.ContractEndpointIdentifier = mapping.MappedContractIdentifier ?? existing.ContractEndpointIdentifier;
+            }
+
+            if (contractErrors.Count > 0)
+            {
+                throw new InvalidDataException(string.Join("; ", contractErrors));
             }
 
             // Contract pairings resolve LAST, against the endpoints the two passes above settled — an

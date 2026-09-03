@@ -154,6 +154,61 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-SCEN-013.14")]
+        public void ReportEveryBadContractMappingTogether()
+        {
+            // Arrange - two contract mappings, both wrong in different ways. Every other collection in the
+            // loader collects; this one used to throw on the first entry, so the second was invisible.
+            var topology = DevTopologyFile.Parse($$"""
+                                                   {
+                                                     "id": "mapped",
+                                                     "logicBlockInstances": [
+                                                       { "typeFullName": "{{typeof(SmokeHost.LogicBlocks.IoBlock).FullName}}", "name": "Io" }
+                                                     ],
+                                                     "contractMappings": [
+                                                       { "logicBlockName": "NoSuchBlock", "contractIdentifier": "ActiveOutput" },
+                                                       { "logicBlockName": "Io", "contractIdentifier": "NoSuchContract" }
+                                                     ]
+                                                   }
+                                                   """);
+
+            // Act / Assert
+            var failure = Assert.ThrowsExactly<InvalidDataException>(() => DevTopologyLoader.Build(topology));
+
+            StringAssert.Contains(failure.Message, "NoSuchBlock");
+            StringAssert.Contains(failure.Message, "NoSuchContract");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-SCEN-013.14")]
+        public void ReportOnlyFirstFailingPhasesErrors()
+        {
+            // Arrange - one error per phase: an unloadable type, an unknown instantiation parameter, and a
+            // contract mapping naming no declared instance. Each later phase needs what the phase before it
+            // settled, so only the type error can be reported.
+            var topology = DevTopologyFile.Parse($$"""
+                                                   {
+                                                     "id": "layered",
+                                                     "logicBlockInstances": [
+                                                       { "typeFullName": "No.Such.BlockType", "name": "Ghost" },
+                                                       { "typeFullName": "{{typeof(SmokeHost.LogicBlocks.GatedStationBlock).FullName}}", "name": "Station",
+                                                         "instantiationParameters": { "Kount": 2 } }
+                                                     ],
+                                                     "contractMappings": [
+                                                       { "logicBlockName": "NoSuchBlock", "contractIdentifier": "ActiveOutput" }
+                                                     ]
+                                                   }
+                                                   """);
+
+            // Act / Assert
+            var failure = Assert.ThrowsExactly<InvalidDataException>(() => DevTopologyLoader.Build(topology));
+
+            StringAssert.Contains(failure.Message, "No.Such.BlockType");
+            Assert.DoesNotContain("Kount", failure.Message);
+            Assert.DoesNotContain("contractMappings", failure.Message);
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-SCEN-013.6")]
         [TestProperty("spec", "AC-GATE-012.2")]
         public void CarryInstantiationParametersFromTopologyFileThroughBuild()

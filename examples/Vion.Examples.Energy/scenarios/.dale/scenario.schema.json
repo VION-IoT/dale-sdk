@@ -449,7 +449,7 @@
         "timeoutSeconds": {
           "type": "number",
           "exclusiveMinimum": 0,
-          "maximum": 922337203685,
+          "maximum": 4294967,
           "default": 20
         }
       }
@@ -564,7 +564,7 @@
             "seconds": {
               "type": "number",
               "exclusiveMinimum": 0,
-              "maximum": 922337203685,
+              "maximum": 4294967,
               "description": "Seconds of time to let elapse — virtual on a stepped host, real wall-clock on a real-clock host. Capped at what a run can spend."
             }
           }
@@ -600,7 +600,7 @@
             "maxSeconds": {
               "type": "number",
               "exclusiveMinimum": 0,
-              "maximum": 922337203685,
+              "maximum": 4294967,
               "default": 60,
               "description": "Maximum seconds (virtual on a stepped host, real on a real-clock host) to spend waiting for convergence. Capped at what a run can spend."
             }

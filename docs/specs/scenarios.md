@@ -95,7 +95,7 @@ all three, because every one of them becomes a `TimeSpan` before it is spent.
 
 - `AC-SCEN-003.1` (Ubiquitous): THE SYSTEM SHALL reject a non-positive duration.
 - `AC-SCEN-003.2` (Ubiquitous): THE SYSTEM SHALL reject a duration that is not finite or is longer
-  than a run can spend, and SHALL name the identical bound at the runner, at the schema and at
+  than a real clock can wait, and SHALL name the identical bound at the runner, at the schema and at
   `dale scenario validate`.
 - `AC-SCEN-003.3` (Ubiquitous): THE SYSTEM SHALL require a duration to be a JSON number.
 - `AC-SCEN-003.4` (Ubiquitous): THE SYSTEM SHALL default an omitted `waitUntil` timeout to 20 seconds
@@ -106,7 +106,8 @@ all three, because every one of them becomes a `TimeSpan` before it is spent.
 
 There is no unit-suffix spelling: a duration is a number of seconds. `AC-SCEN-003.2` is why — the
 bound has to be one number three sites can name, and a refusal at parse is worth more than a
-`TimeSpan` overflow thrown from inside a step.
+framework argument exception thrown from inside a step. The bound is the real clock's, because that is
+the smaller of the two: a stepped host would jump any span, but the same file has to run on both.
 
 ## Comparators
 
@@ -309,8 +310,9 @@ mode it ran in, or is mode-independent.
   instant THE SYSTEM SHALL start the virtual clock at a fixed epoch.
 - `AC-SCEN-011.3` (Ubiquitous): THE SYSTEM SHALL refuse no step kind for the host's clock mode.
 - `AC-SCEN-011.4` (Ubiquitous): THE SYSTEM SHALL run an `advance` as an exact virtual jump on a
-  stepped host and as a wait of the same span of real time otherwise, and SHALL say in the step's
-  detail when it waited on the real clock.
+  stepped host and, otherwise, as a wait of the same span of real time — a span `AC-SCEN-003.2` has
+  already bounded to what a real clock can wait — and SHALL say in the step's detail when it waited on
+  the real clock.
 - `AC-SCEN-011.5` (Event-driven): WHEN a `waitUntil` condition already holds THE SYSTEM SHALL satisfy
   the step immediately, in either clock mode.
 - `AC-SCEN-011.6` (State-driven): WHILE the host is stepped THE SYSTEM SHALL advance a `waitUntil` one
@@ -406,6 +408,13 @@ mappings optional.
   an equivalent wiring.
 - `AC-SCEN-013.13` (Ubiquitous): THE SYSTEM SHALL serve the generic scenario schema and the generic
   topology schema from the host.
+- `AC-SCEN-013.14` (Ubiquitous): THE SYSTEM SHALL check a topology in the phases instance types,
+  instantiation parameters, interface mappings, contract mappings, contract pairings — reporting every
+  error of the first failing phase and none of a later one — and SHALL collect within every phase.
+
+`AC-SCEN-013.14` is why `AC-SCEN-001.5`'s "at once" stops at the phase boundary: each phase's checks
+need what the phase before it settled, so an author who fixes a type name is shown a new class of
+error rather than a shorter list of the same one.
 
 An instantiation parameter's own decoding rule and the gates it resolves are
 [`config-gating.md`](config-gating.md)'s (`AC-GATE-001.*`, `AC-GATE-012.*`); `AC-SCEN-013.6` and

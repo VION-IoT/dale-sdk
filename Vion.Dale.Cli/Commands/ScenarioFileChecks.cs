@@ -29,7 +29,7 @@ namespace Vion.Dale.Cli.Commands
         // The DevHost's ScenarioFile.MaxDurationSeconds, restated because this validator deliberately does not
         // reference Vion.Dale.DevHost — it judges an exported configuration, never a loaded host. The
         // definition-site agreement test compares the two numbers.
-        private const double MaxDurationSeconds = 922337203685;
+        private const double MaxDurationSeconds = 4294967;
 
         /// <summary>
         ///     The closed step vocabulary, in the schema's declaration order. One of the four sites that must
@@ -583,7 +583,7 @@ namespace Vion.Dale.Cli.Commands
         {
             if (!double.IsFinite(seconds) || seconds > MaxDurationSeconds)
             {
-                errors.Add($"{where}: {field} is longer than a run can spend (at most {MaxDurationSeconds.ToString("R", CultureInfo.InvariantCulture)} s)");
+                errors.Add($"{where}: {field} is longer than a real clock can wait (at most {MaxDurationSeconds.ToString("R", CultureInfo.InvariantCulture)} s)");
             }
         }
 

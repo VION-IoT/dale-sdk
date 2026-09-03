@@ -29,11 +29,14 @@ namespace Vion.Dale.DevHost.Scenarios
         /// <summary>
         ///     The largest duration, in seconds, any of the file's budgets may name — <c>advance.seconds</c>,
         ///     <c>settle.maxSeconds</c>, <c>timeoutSeconds</c>. A whole number so the JSON schema's
-        ///     <c>maximum</c>, <c>dale scenario validate</c> and this validator all name the identical bound,
-        ///     and comfortably under <see cref="TimeSpan.MaxValue" />, which every one of the three budgets is
-        ///     converted to before it is spent.
+        ///     <c>maximum</c>, <c>dale scenario validate</c> and this validator all name the identical bound.
+        ///     The bound is what a REAL clock can wait, not what a <see cref="TimeSpan" /> can hold: every
+        ///     budget ends in a <c>Task.Delay</c> on a real-clock host, whose ceiling is
+        ///     <c>Timer.MaxSupportedTimeout</c> (0xFFFFFFFE ms, just under 4 294 967.3 s / 49.7 days). At
+        ///     <see cref="TimeSpan" />'s range instead, a file every validator accepted ran instantly on a
+        ///     stepped host and threw a framework argument exception on a real one.
         /// </summary>
-        public const double MaxDurationSeconds = 922337203685;
+        public const double MaxDurationSeconds = 4294967;
 
         internal static readonly JsonSerializerOptions SerializerOptions = new()
                                                                            {
@@ -461,7 +464,7 @@ namespace Vion.Dale.DevHost.Scenarios
 
             if (!double.IsFinite(value) || value > ScenarioFile.MaxDurationSeconds)
             {
-                yield return $"{field} is longer than a run can spend (at most {ScenarioFile.MaxDurationSeconds.ToString("R", CultureInfo.InvariantCulture)} s)";
+                yield return $"{field} is longer than a real clock can wait (at most {ScenarioFile.MaxDurationSeconds.ToString("R", CultureInfo.InvariantCulture)} s)";
             }
         }
     }
