@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Vion.Dale.DevHost.Control;
+using Vion.Dale.DevHost.Scenarios;
 using Vion.Dale.DevHost.Web.Api.Dtos;
 using Vion.Dale.DevHost.Web.Services;
 
@@ -50,8 +51,17 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
                                                       string contractIdentifier,
                                                       [FromBody] SetValueInput<JsonElement> input)
         {
-            await _control.DriveServiceProviderContractAsync(handlerName, serviceProviderIdentifier, serviceIdentifier, contractIdentifier, input.Value);
-            return Ok();
+            try
+            {
+                await _control.DriveServiceProviderContractAsync(handlerName, serviceProviderIdentifier, serviceIdentifier, contractIdentifier, input.Value);
+                return Ok();
+            }
+            catch (ServiceProviderDriveException ex)
+            {
+                // A drive that would reach no block — fail loudly with the same structured shape the write
+                // path uses, rather than the 200 that told the UI's HAL toggle the poke took.
+                return BadRequest(new { error = ex.Message, reason = ex.Reason, contract = ex.Contract });
+            }
         }
 
         [HttpPost("dale/property/{serviceIdentifier}/{propertyIdentifier}")]
@@ -88,6 +98,11 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
         [HttpGet("state/{logicBlockIdOrName}")]
         public ActionResult GetState(string logicBlockIdOrName)
         {
+            if (!KnowsLogicBlock(logicBlockIdOrName))
+            {
+                return NotFound(new { error = $"no logic block '{logicBlockIdOrName}' in the wired network", reason = "unknownLogicBlock" });
+            }
+
             return Ok(_control.GetAllProperties(logicBlockIdOrName));
         }
 
@@ -95,6 +110,16 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
         [HttpGet("state/{logicBlockIdOrName}/{propertyName}")]
         public ActionResult GetState(string logicBlockIdOrName, string propertyName)
         {
+            if (!KnowsLogicBlock(logicBlockIdOrName))
+            {
+                return NotFound(new { error = $"no logic block '{logicBlockIdOrName}' in the wired network", reason = "unknownLogicBlock" });
+            }
+
+            if (!KnowsMember(logicBlockIdOrName, propertyName))
+            {
+                return NotFound(new { error = $"logic block '{logicBlockIdOrName}' carries no member '{propertyName}'", reason = "unknownMember" });
+            }
+
             return Ok(new { logicBlockIdOrName, propertyName, value = _control.GetProperty(logicBlockIdOrName, propertyName) });
         }
 
@@ -154,9 +179,12 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
         [HttpPost("control/advance")]
         public async Task<ActionResult> Advance([FromQuery] double seconds)
         {
-            if (seconds <= 0)
+            // The same bound a scenario's durations carry (AC-SCEN-003.2) — a manual advance is the same clock.
+            // `seconds <= 0` alone lets a non-number through: NaN fails every comparison, so it reached
+            // TimeSpan.FromSeconds and escaped as a 500 rather than a refusal naming the bound.
+            if (!(seconds > 0) || seconds > ScenarioFile.MaxDurationSeconds)
             {
-                return BadRequest(new { error = "seconds must be a positive number" });
+                return BadRequest(new { error = $"seconds must be a number greater than 0 and at most {ScenarioFile.MaxDurationSeconds} (what a real clock can wait)", reason = "badDuration" });
             }
 
             if (StepConflict() is { } conflict)
@@ -231,6 +259,40 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
                                                     timestamp = m.Timestamp,
                                                 });
             return Ok(messages);
+        }
+
+        // Whether the wired network carries this block, by the same name-or-id addressing the read itself uses.
+        // The in-process members keep their documented "null / empty for unknown" contract; the refusal lives
+        // here, where a caller has a status code to act on.
+        private bool KnowsLogicBlock(string logicBlockIdOrName)
+        {
+            return _control.ListLogicBlocks().Any(b => b.Name == logicBlockIdOrName || b.Id == logicBlockIdOrName);
+        }
+
+        // Whether the block carries this member, in either addressing form: a bare member name (the flat
+        // per-block map the state route serves) or the dotted "service.member" path that reaches a nested
+        // component's member. The dotted form is resolved against the configuration, because a shadowed
+        // nested member is deliberately absent from the flat map's keys.
+        private bool KnowsMember(string logicBlockIdOrName, string propertyName)
+        {
+            if (_control.GetAllProperties(logicBlockIdOrName).ContainsKey(propertyName))
+            {
+                return true;
+            }
+
+            var separatorIndex = propertyName.IndexOf('.');
+            if (separatorIndex <= 0 || separatorIndex >= propertyName.Length - 1)
+            {
+                return false;
+            }
+
+            var serviceIdentifier = propertyName[..separatorIndex];
+            var member = propertyName[(separatorIndex + 1)..];
+            var logicBlock = _control.GetConfiguration().LogicBlocks.FirstOrDefault(b => b.Name == logicBlockIdOrName || b.Id == logicBlockIdOrName);
+            var service = logicBlock?.Services.FirstOrDefault(s => s.Identifier == serviceIdentifier);
+
+            return service is not null &&
+                   (service.ServiceProperties.Any(sp => sp.Identifier == member) || service.ServiceMeasuringPoints.Any(mp => mp.Identifier == member));
         }
 
         // The shared guard for manual stepping: only meaningful on a stepped host, and never while a scenario

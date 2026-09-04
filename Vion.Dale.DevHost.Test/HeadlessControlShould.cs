@@ -369,6 +369,71 @@ namespace Vion.Dale.DevHost.Test
             StringAssert.Contains((string)observed, "1200", "The replayed value must be the one that was driven.");
         }
 
+        [TestMethod]
+        public async Task RefuseADriveNamingAHandlerTheHostDidNotCreate()
+        {
+            await using var host = BuildSteppedIoHost();
+            await host.StartAsync();
+
+            var io = host.Control.GetConfiguration().LogicBlocks.Single(b => b.Name == "io");
+            var enable = io.ContractMappings.Single(m => m.ContractIdentifier == "EnableInput");
+
+            var refusal = await Assert.ThrowsExactlyAsync<ServiceProviderDriveException>(() =>
+                                                                                            host.Control
+                                                                                                .DriveServiceProviderContractAsync("NoSuchHandler",
+                                                                                                    enable.MappedServiceProviderIdentifier,
+                                                                                                    enable.MappedServiceIdentifier,
+                                                                                                    enable.MappedContractIdentifier,
+                                                                                                    JsonSerializer.SerializeToElement(true)));
+
+            Assert.AreEqual(ServiceProviderDriveException.ReasonUnknownHandler, refusal.Reason);
+            StringAssert.Contains(refusal.Message, "NoSuchHandler");
+        }
+
+        [TestMethod]
+        public async Task RefuseADriveNamingAContractTheHostDoesNotCarry()
+        {
+            await using var host = BuildSteppedIoHost();
+            await host.StartAsync();
+
+            var io = host.Control.GetConfiguration().LogicBlocks.Single(b => b.Name == "io");
+            var enable = io.ContractMappings.Single(m => m.ContractIdentifier == "EnableInput");
+            var handler = io.Contracts.Single(c => c.Identifier == "EnableInput").Annotations[ServiceProviderContractAnnotations.ContractHandlerActorName].ToString()!;
+
+            var refusal = await Assert.ThrowsExactlyAsync<ServiceProviderDriveException>(() =>
+                                                                                            host.Control
+                                                                                                .DriveServiceProviderContractAsync(handler,
+                                                                                                    enable.MappedServiceProviderIdentifier,
+                                                                                                    enable.MappedServiceIdentifier,
+                                                                                                    "NoSuchContract",
+                                                                                                    JsonSerializer.SerializeToElement(true)));
+
+            Assert.AreEqual(ServiceProviderDriveException.ReasonUnknownContract, refusal.Reason);
+            StringAssert.Contains(refusal.Message, "NoSuchContract");
+        }
+
+        [TestMethod]
+        public async Task RefuseAWaitWhoseTimeoutIsNegative()
+        {
+            await using var host = BuildHost();
+            await host.StartAsync();
+
+            var refusal = await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(() => host.Control.WaitForAsync(_ => "x", TimeSpan.FromSeconds(-1)));
+
+            Assert.AreEqual("timeout", refusal.ParamName);
+        }
+
+        [TestMethod]
+        public async Task ObserveNothingForAWaitWhoseTimeoutIsZero()
+        {
+            await using var host = BuildHost();
+            await host.StartAsync();
+
+            var observed = await host.Control.WaitForAsync(_ => "x", TimeSpan.Zero);
+
+            Assert.IsNull(observed);
+        }
+
         private static DevConfiguration Config()
         {
             return DevConfigurationBuilder.Create().AddLogicBlock<CounterBlock>("counter").Build();

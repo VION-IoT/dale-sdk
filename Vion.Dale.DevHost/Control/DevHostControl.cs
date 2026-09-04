@@ -353,9 +353,41 @@ namespace Vion.Dale.DevHost.Control
 
         public Task DriveServiceProviderContractAsync(string handlerName, string serviceProviderId, string serviceId, string contractId, JsonElement value)
         {
+            // Reject a drive that would reach nothing UP FRONT, the way the write path rejects an unwritable
+            // member. LookupByName mints an actor reference for any name at all, so an unresolvable address
+            // sends into dead letters and the caller — the SPA's HAL toggle, an agent's POST — is told the poke
+            // took. Resolving here is the only place both facts are in hand: the stand-ins this generation
+            // actually created, and the endpoints the wired configuration carries.
+            var endpoint = $"{serviceProviderId}/{serviceId}/{contractId}";
+
+            if (!_standIns.Names.Contains(handlerName, StringComparer.Ordinal))
+            {
+                throw new ServiceProviderDriveException(ServiceProviderDriveException.ReasonUnknownHandler,
+                                                        endpoint,
+                                                        $"No service-provider stand-in named '{handlerName}' on this host. " +
+                                                        $"Known stand-ins: {(_standIns.Names.Count == 0 ? "none — the host has not been started" : string.Join(", ", _standIns.Names))}.");
+            }
+
+            if (!CarriesContractEndpoint(serviceProviderId, serviceId, contractId))
+            {
+                throw new ServiceProviderDriveException(ServiceProviderDriveException.ReasonUnknownContract,
+                                                        endpoint,
+                                                        $"The wired network carries no service-provider contract endpoint '{endpoint}'.");
+            }
+
             var handler = _actorSystem.LookupByName(handlerName);
             _actorSystem.SendTo(handler, new MockSetServiceProviderInputMessage(new ServiceProviderContractId(serviceProviderId, serviceId, contractId), value));
             return Task.CompletedTask;
+        }
+
+        // Whether the wired configuration carries this endpoint triple. Every endpoint the builder and the
+        // topology loader auto-create comes with the block mapping that reaches it, so an endpoint that exists
+        // is an endpoint something is linked to — there is no third "exists but nothing maps it" state to
+        // report.
+        private bool CarriesContractEndpoint(string serviceProviderId, string serviceId, string contractId)
+        {
+            return _configuration.ServiceProviders.Any(sp => sp.Id == serviceProviderId &&
+                                                             sp.Services.Any(svc => svc.Identifier == serviceId && svc.Contracts.Any(c => c.Identifier == contractId)));
         }
 
         public ServiceProviderOutputRead ReadServiceProviderOutput(string serviceProviderId, string serviceId, string contractId, IReadOnlyList<string>? fieldPath = null)
@@ -422,6 +454,14 @@ namespace Vion.Dale.DevHost.Control
             if (selector is null)
             {
                 throw new ArgumentNullException(nameof(selector));
+            }
+
+            // A zero timeout is legal and means "observe nothing" (the token below is already cancelled). Any
+            // other negative span is not: CancellationTokenSource would throw naming its own `delay` parameter,
+            // a name this surface does not have. Timeout.InfiniteTimeSpan keeps its framework meaning.
+            if (timeout < TimeSpan.Zero && timeout != Timeout.InfiniteTimeSpan)
+            {
+                throw new ArgumentOutOfRangeException(nameof(timeout), timeout, "A wait timeout must not be negative; use TimeSpan.Zero to observe nothing or Timeout.InfiniteTimeSpan to wait indefinitely.");
             }
 
             var tcs = new TaskCompletionSource<T?>(TaskCreationOptions.RunContinuationsAsynchronously);

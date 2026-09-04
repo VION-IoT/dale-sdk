@@ -171,6 +171,17 @@ namespace Vion.Dale.DevHost.Web.Services
                                     OnPrepareResponse = NoStaleSpaCache,
                                 });
 
+            // The API's own catch-all, registered BEFORE the SPA's so the more specific pattern wins: without
+            // it, `{*path:nonfile}` matches /api/anything (no file extension, so the constraint does not
+            // exclude it) and a mistyped route answers 200 text/html. A caller that checks the status code
+            // then reports the host healthy, and one that parses JSON gets a parse error naming a `<`.
+            _app.MapFallback("/api/{**rest}",
+                             (HttpContext context) => Results.NotFound(new
+                                                                       {
+                                                                           error = $"no such route: {context.Request.Method} {context.Request.Path}",
+                                                                           reason = "unknownRoute",
+                                                                       }));
+
             _app.MapFallbackToFile("index.html",
                                    new StaticFileOptions
                                    {

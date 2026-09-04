@@ -143,6 +143,7 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
                     // No supervisor to recycle and the topology is wrong — a setup error the caller must fix.
                     return Conflict(new
                                     {
+                                        reason = "topologyMismatch",
                                         error =
                                             $"host is on topology '{hostTopology}', scenario '{id}' expects '{scenario.Topology}', and this host has no supervisor to recycle — build it on '{scenario.Topology}'.",
                                         scenarioTopology = scenario.Topology,

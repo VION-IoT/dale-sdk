@@ -131,6 +131,7 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
                 return Conflict(new
                                 {
                                     error = "host is not supervised — topology switching needs DevHostWebRunner.RunAsync with a topology-aware host factory",
+                                    reason = "notSupervised",
                                 });
             }
 

@@ -147,7 +147,9 @@ namespace Vion.Dale.DevHost.Test
             // the right one (recycle-on-run needs DevHostWebRunner.RunAsync with a topology factory). Apply must
             // refuse loudly at the call (409) — never run against the wrong graph. There is no ?force= override.
             var response = await client.PostAsync("/api/scenarios/wrong/apply", null);
-            Assert.AreEqual(HttpStatusCode.Conflict, response.StatusCode, await response.Content.ReadAsStringAsync());
+            var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+            Assert.AreEqual(HttpStatusCode.Conflict, response.StatusCode, body.GetRawText());
+            Assert.AreEqual("topologyMismatch", body.GetProperty("reason").GetString(), "the conflict must carry a machine-readable reason, like every other conflict");
         }
 
         [TestMethod]

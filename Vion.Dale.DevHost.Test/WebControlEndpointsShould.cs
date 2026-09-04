@@ -540,6 +540,101 @@ namespace Vion.Dale.DevHost.Test
             Assert.AreEqual(3.3, currentLevel.GetProperty("value").GetDouble(), 0.001, "The LevelInput drive must reach the block (CurrentLevel=3.3).");
         }
 
+        [TestMethod]
+        public async Task RefuseADriveThatWouldReachNothing()
+        {
+            var port = FreePort();
+            var config = DevConfigurationBuilder.Create().WithTopologyName("io").AddLogicBlock<SmokeHost.LogicBlocks.IoBlock>("io").Build();
+            await using var host = DevHostBuilder.Create().WithDi<SmokeHost.DependencyInjection>().WithConfiguration(config).WithWebUi(port, true).Build();
+            await host.StartAsync();
+            using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
+            var enable = await Mapping(client, "EnableInput");
+            var handler = await HandlerName(client, "EnableInput");
+
+            var unknownHandler = await client.PostAsJsonAsync($"/api/contracts/drive/NoSuchHandler/{enable.Sp}/{enable.Svc}/{enable.Contract}", new { value = true });
+            var unknownContract = await client.PostAsJsonAsync($"/api/contracts/drive/{handler}/{enable.Sp}/{enable.Svc}/NoSuchContract", new { value = true });
+
+            Assert.AreEqual(HttpStatusCode.BadRequest, unknownHandler.StatusCode);
+            Assert.AreEqual("unknownHandler", JsonDocument.Parse(await unknownHandler.Content.ReadAsStringAsync()).RootElement.GetProperty("reason").GetString());
+            Assert.AreEqual(HttpStatusCode.BadRequest, unknownContract.StatusCode);
+            Assert.AreEqual("unknownContract", JsonDocument.Parse(await unknownContract.Content.ReadAsStringAsync()).RootElement.GetProperty("reason").GetString());
+        }
+
+        [DataTestMethod]
+        [DataRow("/api/state/NoSuchBlock", DisplayName = "an unknown block")]
+        [DataRow("/api/state/NoSuchBlock/Counter", DisplayName = "a member of an unknown block")]
+        [DataRow("/api/state/counter/NoSuchMember", DisplayName = "an unknown member of a known block")]
+        [DataRow("/api/state/counter/NoSuchService.Counter", DisplayName = "an unknown service of a known block")]
+        public async Task AnswerNotFoundForAStateReadTheHostCannotResolve(string route)
+        {
+            var port = FreePort();
+            await using var host = BuildWebHost(port);
+            await host.StartAsync();
+            using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
+
+            var response = await client.GetAsync(route);
+
+            Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode);
+        }
+
+        [TestMethod]
+        public async Task AnswerNotFoundForAnApiRouteItDoesNotServe()
+        {
+            var port = FreePort();
+            await using var host = BuildWebHost(port);
+            await host.StartAsync();
+            using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
+
+            var response = await client.GetAsync("/api/control/statuss");
+
+            Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode);
+            Assert.AreNotEqual("text/html", response.Content.Headers.ContentType?.MediaType);
+        }
+
+        [DataTestMethod]
+        [DataRow("NaN")]
+        [DataRow("Infinity")]
+        [DataRow("-Infinity")]
+        [DataRow("1e308")]
+        [DataRow("4294968")]
+        [DataRow("0")]
+        [DataRow("-1")]
+        public async Task RefuseAManualAdvanceThatIsNotADurationAClockCanWait(string seconds)
+        {
+            var port = FreePort();
+            await using var host = BuildSteppedWebHost(port);
+            await host.StartAsync();
+            using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
+
+            var response = await client.PostAsync($"/api/control/advance?seconds={seconds}", null);
+
+            Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+
+        [TestMethod]
+        public async Task CarryAMachineReadableReasonOnTheTopologySwitchConflict()
+        {
+            var directory = Path.Combine(Path.GetTempPath(), "dale-topologies-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
+            File.WriteAllText(Path.Combine(directory, "other.topology.json"),
+                              """{ "id": "other", "logicBlockInstances": [ { "name": "counter", "typeFullName": "Vion.Dale.DevHost.Test.CounterBlock" } ] }""");
+            var port = FreePort();
+            var config = DevConfigurationBuilder.Create()
+                                                .WithTopologyName("counter-topology")
+                                                .WithTopologies(directory)
+                                                .AddLogicBlock<CounterBlock>("counter")
+                                                .Build();
+            await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithWebUi(port).Build();
+            await host.StartAsync();
+            using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
+
+            var response = await client.PostAsync("/api/topologies/other/switch", null);
+            var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+
+            Assert.AreEqual(HttpStatusCode.Conflict, response.StatusCode, body.GetRawText());
+            Assert.AreEqual("notSupervised", body.GetProperty("reason").GetString());
+        }
+
         // The service id of the (single) block's nested interface-bound component (identifier == the binding
         // member name), read from /api/configuration — the addressing the set route uses.
         private static async Task<string> NestedServiceId(HttpClient client, string serviceIdentifier)
@@ -619,6 +714,13 @@ namespace Vion.Dale.DevHost.Test
             var config = DevConfigurationBuilder.Create().WithTopologyName("counter-topology").AddLogicBlock<CounterBlock>("counter").Build();
 
             return DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithWebUi(port).Build();
+        }
+
+        private static IDevHost BuildSteppedWebHost(int port)
+        {
+            var config = DevConfigurationBuilder.Create().WithTopologyName("counter-topology").AddLogicBlock<CounterBlock>("counter").Build();
+
+            return DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithWebUi(port, true).Build();
         }
 
         // Decorator that counts explicit StopAsync calls separately from DisposeAsync, so a test can pin
