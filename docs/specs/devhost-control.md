@@ -340,14 +340,16 @@ stuck host surfaces as a named failure instead of a hang.
 
 - `AC-CTRL-013.1` (Ubiquitous): THE SYSTEM SHALL give a caller one place to set the write
   acknowledgement window, the start acknowledgement backstop, the stop-sequence backstop and the
-  quiescence ceiling, each defaulting to the value the host uses when the caller sets none.
+  quiescence ceiling, and SHALL bound each of those four waits by the value set there.
 - `AC-CTRL-013.2` (Ubiquitous): THE SYSTEM SHALL refuse a budget that is not a positive span.
-- `AC-CTRL-013.3` (Ubiquitous): THE SYSTEM SHALL measure a scenario run's hollow-acknowledgement
-  detection against the window the host was built with rather than a value of the runner's own.
+- `AC-CTRL-013.3` (Ubiquitous): THE SYSTEM SHALL take a scenario run's hollow-acknowledgement
+  detection from the host's refusal of an unacknowledged write rather than from a measurement of the
+  runner's own.
 
-`AC-CTRL-013.3` is what made `AC-SCEN-009.10` provable: while the two numbers were independent
-constants, a run's detection either fired on every write or on none for any host built with another
-window, and no test could reach the failure without waiting out five real seconds per case.
+`AC-CTRL-013.3` is what made `AC-SCEN-009.10` provable. The run and the host each held a number, and
+a host built with any other window either fired the detection on every write or on none; no test
+could reach the failure without waiting out five real seconds per case. There is one number now, and
+the runner reads the refusal it produces instead of racing it with a stopwatch.
 
 ## The HTTP host
 
@@ -407,8 +409,9 @@ never has to match a message. The scenario and topology stores' own refusals do 
   unknown contract, and carry the addressed endpoint.
 - `AC-CTRL-016.4` (Ubiquitous): THE SYSTEM SHALL refuse manual stepping when the host is not stepped
   and when a scenario run is driving the clock, naming which.
-- `AC-CTRL-016.5` (Ubiquitous): THE SYSTEM SHALL refuse a reset, a clock-mode switch and a topology
-  switch on an unsupervised host, naming that as the reason.
+- `AC-CTRL-016.5` (Ubiquitous): THE SYSTEM SHALL refuse a reset and a clock-mode switch on an
+  unsupervised host, and a topology switch on any host whose supervisor does not rebuild from the
+  requested topology, naming that as the reason.
 
 `AC-CTRL-016.4`'s two refusals exist because one virtual clock has two drivers and letting both run
 would race them on the shared schedule. The token is what lets a client disable the right control for

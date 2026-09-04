@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -31,21 +32,23 @@ namespace Vion.Dale.DevHost.Test
             var port = FreePort();
             await using var host = BuildWebHost(port);
             var originalOut = Console.Out;
-            var captured = new StringWriter();
+            var captured = new ConsoleCapture();
             using var shutdown = new CancellationTokenSource();
             Environment.SetEnvironmentVariable(DevHostWebRunner.NoBrowserEnvVar, "1");
             Console.SetOut(captured);
 
             // Act — the unsupervised overload, the one whose line used to carry no generation at all.
+            Task? runner = null;
             try
             {
-                var runner = DevHostWebRunner.RunAsync(host, port, shutdown.Token);
+                runner = DevHostWebRunner.RunAsync(host, port, shutdown.Token);
                 await WaitForReceiptAsync(captured, "\"ready\"", port);
                 await shutdown.CancelAsync();
                 await runner;
             }
             finally
             {
+                await StopRunnerAsync(shutdown, runner);
                 Console.SetOut(originalOut);
                 Environment.SetEnvironmentVariable(DevHostWebRunner.NoBrowserEnvVar, null);
             }
@@ -64,7 +67,7 @@ namespace Vion.Dale.DevHost.Test
             // Arrange — the factory throws for the switched-to id, the way a deleted topology file does.
             var port = FreePort();
             var originalOut = Console.Out;
-            var captured = new StringWriter();
+            var captured = new ConsoleCapture();
             using var shutdown = new CancellationTokenSource();
             IDevHost? running = null;
 
@@ -82,9 +85,10 @@ namespace Vion.Dale.DevHost.Test
             Console.SetOut(captured);
 
             // Act
+            Task? runner = null;
             try
             {
-                var runner = DevHostWebRunner.RunAsync(Factory, port, shutdown.Token);
+                runner = DevHostWebRunner.RunAsync(Factory, port, shutdown.Token);
                 await WaitForReceiptAsync(captured, "\"ready\"", port);
                 running!.Control.TryRequestTopologySwitch("gone");
                 await WaitForLineAsync(captured, "cannot start");
@@ -94,6 +98,7 @@ namespace Vion.Dale.DevHost.Test
             }
             finally
             {
+                await StopRunnerAsync(shutdown, runner);
                 Console.SetOut(originalOut);
                 Environment.SetEnvironmentVariable(DevHostWebRunner.NoBrowserEnvVar, null);
             }
@@ -112,7 +117,7 @@ namespace Vion.Dale.DevHost.Test
             // an agent waiting on the readiness line needs to learn that from stdout, not from its own timeout.
             var port = FreePort();
             var originalOut = Console.Out;
-            var captured = new StringWriter();
+            var captured = new ConsoleCapture();
             Environment.SetEnvironmentVariable(DevHostWebRunner.NoBrowserEnvVar, "1");
             Console.SetOut(captured);
 
@@ -190,22 +195,24 @@ namespace Vion.Dale.DevHost.Test
             // Arrange
             var port = FreePort();
             var originalOut = Console.Out;
-            var captured = new StringWriter();
+            var captured = new ConsoleCapture();
             using var shutdown = new CancellationTokenSource();
             IDevHost? running = null;
             Environment.SetEnvironmentVariable(DevHostWebRunner.NoBrowserEnvVar, "1");
             Console.SetOut(captured);
 
             // Act — Ctrl+C during a generation must stop that host and return, not build another.
+            Task? runner = null;
             try
             {
-                var runner = DevHostWebRunner.RunAsync(_ => running = BuildWebHost(port), port, shutdown.Token);
+                runner = DevHostWebRunner.RunAsync(_ => running = BuildWebHost(port), port, shutdown.Token);
                 await WaitForReceiptAsync(captured, "\"ready\"", port);
                 await shutdown.CancelAsync();
                 await runner;
             }
             finally
             {
+                await StopRunnerAsync(shutdown, runner);
                 Console.SetOut(originalOut);
                 Environment.SetEnvironmentVariable(DevHostWebRunner.NoBrowserEnvVar, null);
             }
@@ -263,21 +270,23 @@ namespace Vion.Dale.DevHost.Test
             var configuration = DevConfigurationBuilder.Create().WithTopologyName("counter-topology").WithScenarios(directory).AddLogicBlock<CounterBlock>("counter").Build();
             await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(configuration).WithWebUi(port).Build();
             var originalOut = Console.Out;
-            var captured = new StringWriter();
+            var captured = new ConsoleCapture();
             using var shutdown = new CancellationTokenSource();
             Environment.SetEnvironmentVariable(DevHostWebRunner.NoBrowserEnvVar, "1");
             Console.SetOut(captured);
 
             // Act
+            Task? runner = null;
             try
             {
-                var runner = DevHostWebRunner.RunAsync(host, port, shutdown.Token);
+                runner = DevHostWebRunner.RunAsync(host, port, shutdown.Token);
                 await WaitForReceiptAsync(captured, "\"ready\"", port);
                 await shutdown.CancelAsync();
                 await runner;
             }
             finally
             {
+                await StopRunnerAsync(shutdown, runner);
                 Console.SetOut(originalOut);
                 Environment.SetEnvironmentVariable(DevHostWebRunner.NoBrowserEnvVar, null);
             }
@@ -292,12 +301,8 @@ namespace Vion.Dale.DevHost.Test
                               "the deep links come before the readiness line, so an agent can read them and then wait");
         }
 
-        // Console.SetOut is process-wide, so a host another suite is still tearing down writes into this
-        // test's capture too — and its readiness receipt has the same shape as this one's. Every receipt
-        // carries the port it belongs to, so that is what the lines are filtered on rather than the token
-        // alone. Without it this suite passes alone and fails intermittently in the full run.
         [TestMethod]
-        [TestProperty("spec", "AC-CTRL-005.3")]
+        [TestProperty("spec", "AC-CTRL-016.5")]
         [TestProperty("spec", "AC-CTRL-017.1")]
         public async Task RefuseTopologySwitchWhenSupervisorRebuildsOneGraph()
         {
@@ -314,9 +319,10 @@ namespace Vion.Dale.DevHost.Test
             using var shutdown = new CancellationTokenSource();
             Environment.SetEnvironmentVariable(DevHostWebRunner.NoBrowserEnvVar, "1");
 
+            Task? runner = null;
             try
             {
-                var runner = DevHostWebRunner.RunAsync(() => BuildWebHost(port, directory), port, shutdown.Token);
+                runner = DevHostWebRunner.RunAsync(() => BuildWebHost(port, directory), port, shutdown.Token);
 
                 using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
                 await WaitUntilServingAsync(client);
@@ -336,6 +342,7 @@ namespace Vion.Dale.DevHost.Test
             }
             finally
             {
+                await StopRunnerAsync(shutdown, runner);
                 Environment.SetEnvironmentVariable(DevHostWebRunner.NoBrowserEnvVar, null);
                 Directory.Delete(directory, true);
             }
@@ -369,12 +376,42 @@ namespace Vion.Dale.DevHost.Test
             Assert.Fail("the supervised host never started serving");
         }
 
-        private static string ReceiptLine(StringWriter captured, string token, int port)
+        /// <summary>
+        ///     Cancels the runner loop and waits for it to return. It belongs in a <c>finally</c>: a runner
+        ///     left looping by a failed assertion keeps writing its receipts into whatever
+        ///     <c>Console.Out</c> the next test installs, and those receipts have the same shape as that
+        ///     test's own.
+        /// </summary>
+        private static async Task StopRunnerAsync(CancellationTokenSource shutdown, Task? runner)
+        {
+            await shutdown.CancelAsync();
+            if (runner is null)
+            {
+                return;
+            }
+
+            try
+            {
+                await runner;
+            }
+            catch (Exception)
+            {
+                // Reached only when the try block already failed, and that failure is the one worth
+                // reporting. On the happy path the Act awaits this same task, so a fault of the runner's
+                // own is thrown there rather than swallowed here.
+            }
+        }
+
+        // Console.SetOut is process-wide, so a host another suite is still tearing down writes into this
+        // test's capture too — and its readiness receipt has the same shape as this one's. Every receipt
+        // carries the port it belongs to, so that is what the lines are filtered on rather than the token
+        // alone. Without it this suite passes alone and fails intermittently in the full run.
+        private static string ReceiptLine(ConsoleCapture captured, string token, int port)
         {
             return ReceiptLines(captured, token, port).Last();
         }
 
-        private static IEnumerable<string> ReceiptLines(StringWriter captured, string token, int port)
+        private static IEnumerable<string> ReceiptLines(ConsoleCapture captured, string token, int port)
         {
             return captured.ToString()
                            .Split('\n')
@@ -382,7 +419,7 @@ namespace Vion.Dale.DevHost.Test
                            .Where(l => l.StartsWith('{') && l.Contains(token, StringComparison.Ordinal) && l.Contains($"\"port\":{port}", StringComparison.Ordinal));
         }
 
-        private static async Task WaitForReceiptAsync(StringWriter captured, string token, int port)
+        private static async Task WaitForReceiptAsync(ConsoleCapture captured, string token, int port)
         {
             for (var attempt = 0; attempt < 200; attempt++)
             {
@@ -399,7 +436,7 @@ namespace Vion.Dale.DevHost.Test
 
         // A console LINE rather than a receipt: the fallback message is prose and carries no port, so the
         // topology id it names is what makes it this test's.
-        private static async Task WaitForLineAsync(StringWriter captured, string token)
+        private static async Task WaitForLineAsync(ConsoleCapture captured, string token)
         {
             for (var attempt = 0; attempt < 200; attempt++)
             {
@@ -435,6 +472,55 @@ namespace Vion.Dale.DevHost.Test
             configuration.TopologiesPath = topologiesDirectory ?? configuration.TopologiesPath;
 
             return DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(configuration).WithWebUi(port).Build();
+        }
+
+        /// <summary>
+        ///     A console capture that survives being read while it is being written. The host under test
+        ///     writes its receipts from its own threads while the waits above poll the buffer, and
+        ///     <see cref="StringWriter" /> hands both straight to one unsynchronized
+        ///     <see cref="StringBuilder" /> — a read that lands mid-append throws out of
+        ///     <c>StringBuilder.ToString()</c>.
+        /// </summary>
+        private sealed class ConsoleCapture : TextWriter
+        {
+            private readonly StringBuilder _text = new();
+
+            public override Encoding Encoding
+            {
+                get => Encoding.UTF8;
+            }
+
+            public override void Write(char value)
+            {
+                lock (_text)
+                {
+                    _text.Append(value);
+                }
+            }
+
+            public override void Write(string? value)
+            {
+                lock (_text)
+                {
+                    _text.Append(value);
+                }
+            }
+
+            public override void WriteLine(string? value)
+            {
+                lock (_text)
+                {
+                    _text.AppendLine(value);
+                }
+            }
+
+            public override string ToString()
+            {
+                lock (_text)
+                {
+                    return _text.ToString();
+                }
+            }
         }
     }
 }

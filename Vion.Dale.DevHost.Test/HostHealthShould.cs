@@ -71,6 +71,7 @@ namespace Vion.Dale.DevHost.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-CTRL-002.4")]
+        [TestProperty("spec", "AC-CTRL-013.1")]
         public async Task FailStartNoBlockAcknowledgesWithinRealTimeBudget()
         {
             // Arrange — a stepped host and a block whose Starting() throws, so its acknowledgement never comes.

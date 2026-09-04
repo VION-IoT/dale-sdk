@@ -71,14 +71,28 @@ namespace Vion.Dale.DevHost.Test
         [TestMethod]
         [TestProperty("spec", "AC-CTRL-007.6")]
         [TestProperty("spec", "AC-CTRL-007.7")]
-        public void NameDirectoryInStartingDirectoryWhenSearchFindsNone()
+        [DataRow(false, DisplayName = "a clone, whose .git is a directory")]
+        [DataRow(true, DisplayName = "a worktree, whose .git is a file")]
+        public void NameDirectoryInStartingDirectoryWhenSearchFindsNone(bool markerIsFile)
         {
-            // scenarios/ ABOVE the repo root must not be picked up — the walk stops at .git.
+            // scenarios/ ABOVE the repo root must not be picked up — the walk stops at the repository
+            // marker. `git worktree add` writes .git as a FILE naming the real repository, so a walk that
+            // only recognises a directory climbs straight past the root it exists to stop at.
             // Arrange
             var outside = NewTempTree();
             Directory.CreateDirectory(Path.Combine(outside, "scenarios"));
             var repo = Path.Combine(outside, "repo");
-            Directory.CreateDirectory(Path.Combine(repo, ".git"));
+            Directory.CreateDirectory(repo);
+            var marker = Path.Combine(repo, ".git");
+            if (markerIsFile)
+            {
+                File.WriteAllText(marker, "gitdir: ../.git/worktrees/repo");
+            }
+            else
+            {
+                Directory.CreateDirectory(marker);
+            }
+
             var binDir = Path.Combine(repo, "bin");
             Directory.CreateDirectory(binDir);
 

@@ -208,6 +208,7 @@ namespace Vion.Dale.DevHost.Test
         [TestMethod]
         [TestProperty("spec", "AC-CTRL-004.3")]
         [TestProperty("spec", "AC-CTRL-004.4")]
+        [TestProperty("spec", "AC-CTRL-013.1")]
         public async Task BoundStopSequenceAndDowngradeItsFailuresToWarnings()
         {
             // Arrange — a block whose stop hook blocks for far longer than the sequence budget. Every wait in

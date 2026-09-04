@@ -244,6 +244,57 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CTRL-005.8")]
+        [TestProperty("spec", "AC-CTRL-015.7")]
+        public async Task RecycleIntoRequestedClockModeWhenSupervisorRebuildsOneGraph()
+        {
+            // Arrange — the supervised overload whose factory takes no topology id. It cannot re-topologise,
+            // but the recycle loop reads RequestedClockMode topology-agnostically, so a clock-mode request
+            // turns only on a supervisor being attached. Generation 1 is real, so observing a stepped host is
+            // unambiguous.
+            var port = FreePort();
+            var generations = 0;
+
+            IDevHost Factory()
+            {
+                generations++;
+                var config = DevConfigurationBuilder.Create().WithTopologyName("clock-topo").AddLogicBlock<CounterBlock>("counter").Build();
+                return DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithWebUi(port).Build();
+            }
+
+            Environment.SetEnvironmentVariable(DevHostWebRunner.SteppedEnvVar, "0");
+            Environment.SetEnvironmentVariable(DevHostWebRunner.NoBrowserEnvVar, "1");
+            using var cts = new CancellationTokenSource();
+            Task runner;
+            try
+            {
+                runner = DevHostWebRunner.RunAsync(Factory, port, cts.Token);
+                using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(10) };
+                Assert.IsTrue(await PollCanResetAsync(client, TimeSpan.FromSeconds(30)), "generation 1 comes up supervised");
+
+                // Act
+                var response = await client.PostAsync("/api/control/clock-mode?stepped=true", null);
+                var body = await response.Content.ReadAsStringAsync();
+
+                // Assert
+                Assert.AreEqual(HttpStatusCode.Accepted, response.StatusCode, body);
+                var accepted = JsonDocument.Parse(body).RootElement;
+                Assert.IsTrue(accepted.GetProperty("recycling").GetBoolean(), body);
+                Assert.IsTrue(accepted.GetProperty("stepped").GetBoolean(), body);
+                Assert.IsTrue(await PollSteppedAsync(client, true, TimeSpan.FromSeconds(30)), "generation 2 comes up stepped");
+                Assert.AreEqual(2, generations, "one generation per recycle");
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable(DevHostWebRunner.SteppedEnvVar, null);
+                Environment.SetEnvironmentVariable(DevHostWebRunner.NoBrowserEnvVar, null);
+            }
+
+            cts.Cancel();
+            await runner;
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-CTRL-005.1")]
         [TestProperty("spec", "AC-CTRL-005.3")]
         [TestProperty("spec", "AC-CTRL-005.4")]

@@ -256,7 +256,7 @@ namespace Vion.Dale.DevHost.Test
             var configuration = DevConfigurationBuilder.Create().WithTopologyName("counter-topology").AddLogicBlock<CounterBlock>("counter").Build();
             await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(configuration).Build();
             await host.StartAsync();
-            var registry = new ScenarioRunRegistry(new DevHostBudgets());
+            var registry = new ScenarioRunRegistry();
             await registry.ApplyAsync(scenario, host.Control, false);
             Assert.IsTrue(registry.HasActiveRun, "the run must be under way before it is cancelled");
 
@@ -278,9 +278,10 @@ namespace Vion.Dale.DevHost.Test
         [TestProperty("spec", "AC-CTRL-013.3")]
         public async Task DetectHollowAcknowledgementOnWindowHostWasBuiltWith()
         {
-            // Arrange — the run is started over the route, so the runner is handed no window of its own and the
-            // registry derives one from the host. On the default window this run would still be waiting when the
-            // deadline below expires, which is what makes that expiry the assertion.
+            // Arrange — the run is started over the route, so the runner is handed no window at all: the
+            // host's own 200 ms is what bounds the write, and the refusal it answers with is the whole signal.
+            // That is why the verdict below is the assertion and not the deadline — a runner that ignores the
+            // refusal finishes just as fast and reports the step as succeeded.
             var dir = NewScenarioDir();
             File.WriteAllText(Path.Combine(dir, "rejected.scenario.json"),
                               """{ "version": 1, "id": "rejected", "topology": "rejecting", "steps": [ { "set": "rejector.Rejected", "value": 7 } ] }""");

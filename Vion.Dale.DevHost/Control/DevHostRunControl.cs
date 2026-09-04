@@ -207,16 +207,17 @@ namespace Vion.Dale.DevHost.Control
         }
 
         /// <summary>
-        ///     Request a recycle into a different clock mode — rides the same reset signal; the
-        ///     supervisor (<c>DevHostWebRunner.RunAsync(Func&lt;string?, IDevHost&gt;, …)</c>) reads
-        ///     <see cref="RequestedClockMode" /> and rebuilds the next generation stepped or real. Returns false
-        ///     when no supervisor is attached.
+        ///     Request a recycle into a different clock mode — rides the same reset signal; the supervisor
+        ///     reads <see cref="RequestedClockMode" /> and rebuilds the next generation stepped or real.
+        ///     Returns false when no supervisor is attached. A supervisor that always builds the same graph
+        ///     still honours this: the recycle loop reads the requested mode whichever factory shape it was
+        ///     given, so the mode turns on the supervisor existing and not on it being topology-aware.
         /// </summary>
         public bool TryRequestClockMode(bool stepped)
         {
             lock (_gate)
             {
-                if (_resetHandler is null || !_honoursTopologySwitch)
+                if (_resetHandler is null)
                 {
                     return false;
                 }

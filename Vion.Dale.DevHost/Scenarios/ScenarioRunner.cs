@@ -25,14 +25,6 @@ namespace Vion.Dale.DevHost.Scenarios
         ///     registry uses this to expose live progress. The same mutable report instance is passed each time.
         /// </summary>
         public Action<ScenarioRunReport>? OnProgress { get; init; }
-
-        /// <summary>
-        ///     The window the host gives a service-property write to be acknowledged
-        ///     (<c>DevHostBudgets.WriteAcknowledgement</c>). A <c>set</c> whose acknowledgement consumes it was
-        ///     never applied; the runner needs the same number the host is using, or its detection either fires
-        ///     on every write or on none. Defaults to the host's own default.
-        /// </summary>
-        public TimeSpan WriteAcknowledgementWindow { get; init; } = new DevHostBudgets().WriteAcknowledgement;
     }
 
     /// <summary>
@@ -43,13 +35,6 @@ namespace Vion.Dale.DevHost.Scenarios
     /// </summary>
     public static class ScenarioRunner
     {
-        // How much of the host's write-acknowledgement window a set may consume before the runner treats the
-        // acknowledgement as hollow. Applied writes — including no-op sets — ack promptly; one that consumed
-        // almost the whole window means the block never replied: an actor-side rejection that was swallowed
-        // (the hollow-ack gotcha) or a lost message. The fraction leaves room for the await's own overhead so
-        // a healthy write on a loaded box is never mistaken for a rejected one.
-        private const double AckCeilingFraction = 0.98;
-
         private const double DefaultWaitUntilTimeoutSeconds = 20;
 
         // Default virtual-time budget for a settle step when maxSeconds is not specified.
@@ -266,10 +251,6 @@ namespace Vion.Dale.DevHost.Scenarios
                                                Action<ScenarioRunReport> progress,
                                                CancellationToken cancellationToken)
         {
-            // How long a set may take before its acknowledgement reads as hollow — derived from the window the
-            // host actually gives a write, never a constant of the runner's own (docs/specs/devhost-control.md).
-            var ackCeilingMs = options.WriteAcknowledgementWindow.TotalMilliseconds * AckCeilingFraction;
-
             var configuration = control.GetConfiguration();
             report.HostTopology = configuration.TopologyName;
 
@@ -377,8 +358,7 @@ namespace Vion.Dale.DevHost.Scenarios
                                         progress,
                                         report,
                                         cancellationToken,
-                                        null,
-                                        ackCeilingMs)
+                                        null)
                          .ConfigureAwait(false))
                 {
                     report.Status = ScenarioRunStatus.Failed;
@@ -399,8 +379,7 @@ namespace Vion.Dale.DevHost.Scenarios
                                             progress,
                                             report,
                                             cancellationToken,
-                                            watchPaths,
-                                            ackCeilingMs)
+                                            watchPaths)
                              .ConfigureAwait(false);
 
                 // Sample after the step whether it passed or failed — the watched values at the moment of a
@@ -425,8 +404,7 @@ namespace Vion.Dale.DevHost.Scenarios
                                                      Action<ScenarioRunReport> progress,
                                                      ScenarioRunReport report,
                                                      CancellationToken cancellationToken,
-                                                     IReadOnlyList<string>? watchPaths,
-                                                     double ackCeilingMs)
+                                                     IReadOnlyList<string>? watchPaths)
         {
             cancellationToken.ThrowIfCancellationRequested();
             result.Status = ScenarioStepStatus.Running;
@@ -440,6 +418,8 @@ namespace Vion.Dale.DevHost.Scenarios
                 switch (step.Kind)
                 {
                     case "set":
+                    {
+                        var unacknowledged = false;
                         try
                         {
                             await control.SetPropertyAsync(resolved.Property!.Block, resolved.Property.ServiceIdentifier, resolved.Property.PropertyName, step.Value)
@@ -447,18 +427,21 @@ namespace Vion.Dale.DevHost.Scenarios
                         }
                         catch (ServicePropertyWriteException silence) when (silence.Reason == ServicePropertyWriteException.ReasonUnacknowledged)
                         {
-                            // The host refuses a write whose window elapsed. That is the same silence the
-                            // detection below reads, and the detection says more about it — whether a block
-                            // exception was logged — so consume the refusal and let it speak.
+                            // The host refuses a write no block acknowledged within the window it was built
+                            // with. That refusal is the signal, and the only one: a duration the runner
+                            // measured itself would be a second number to keep in step with the host's, and a
+                            // caller who shortened the host's window got a refused write reported as a
+                            // succeeded step.
+                            unacknowledged = true;
                         }
 
-                        if (stopwatch.Elapsed.TotalMilliseconds >= ackCeilingMs)
+                        if (unacknowledged)
                         {
-                            // The block never acknowledged the write — applied writes, no-ops included,
-                            // ack promptly on their round-trip response. A swallowed exception on the
-                            // SET-VALUE message is the observable cause — surface it as the RFC's
-                            // "rejected write" failure. The middleware logs the message type, so
-                            // requiring it in the match keeps unrelated block exceptions out.
+                            // A swallowed exception on the SET-VALUE message is the observable cause of a
+                            // write nobody applied — surface it as the rejected-write failure. The middleware
+                            // logs the message type, so requiring it in the match keeps unrelated block
+                            // exceptions out. Without one the step stands: silence alone does not say the
+                            // block refused (AC-SCEN-009.10).
                             var rejection = control.RecentLogs()
                                                    .LastOrDefault(l => l.Timestamp >= startedAt && l.Message.Contains("[EXCEPTION CAUGHT]", StringComparison.Ordinal) &&
                                                                        l.Message.Contains("SetServicePropertyValue", StringComparison.Ordinal));
@@ -478,6 +461,7 @@ namespace Vion.Dale.DevHost.Scenarios
                         }
 
                         break;
+                    }
 
                     case "serviceProviderSet":
                         await control.DriveServiceProviderContractAsync(resolved.Contract!.HandlerName!,

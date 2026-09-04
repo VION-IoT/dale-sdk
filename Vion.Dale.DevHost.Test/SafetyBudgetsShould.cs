@@ -43,7 +43,7 @@ namespace Vion.Dale.DevHost.Test
                                               """);
 
             // Act
-            var report = await ScenarioRunner.RunAsync(scenario, host.Control, new ScenarioRunOptions { WriteAcknowledgementWindow = window });
+            var report = await ScenarioRunner.RunAsync(scenario, host.Control);
 
             // Assert — the step fails because a block exception was logged for this write, not merely because
             // the window elapsed. The middleware's line names the message it was handling, which is what the
@@ -56,6 +56,7 @@ namespace Vion.Dale.DevHost.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-012.6")]
+        [TestProperty("spec", "AC-CTRL-013.1")]
         public async Task KeepWaitingForQuiescenceThenFailNamingPredicate()
         {
             // Arrange — a handler that occupies the actor for longer than the budget, so the exact predicate
@@ -101,25 +102,6 @@ namespace Vion.Dale.DevHost.Test
             Assert.AreEqual(ServicePropertyWriteException.ReasonUnacknowledged, refusal.Reason);
             Assert.AreEqual("Rejected", refusal.Property);
             StringAssert.Contains(refusal.Message, "0.2s");
-        }
-
-        [TestMethod]
-        [TestProperty("spec", "AC-CTRL-013.1")]
-        [DataRow("WriteAcknowledgement", 5.0)]
-        [DataRow("StartAcknowledgement", 30.0)]
-        [DataRow("StopSequence", 60.0)]
-        [DataRow("Quiescence", 10.0)]
-        public void CarryDefaultForEveryBudgetCallerNamedNoValueFor(string budget, double seconds)
-        {
-            // Arrange — the record the builder starts from and every fall-back site constructs when the caller
-            // sets none. Reading each budget by name also pins the name a caller sets it under.
-            var defaults = new DevHostBudgets();
-
-            // Act
-            var value = typeof(DevHostBudgets).GetProperty(budget)?.GetValue(defaults);
-
-            // Assert
-            Assert.AreEqual(TimeSpan.FromSeconds(seconds), value, $"{budget} is what the host uses when the caller names no value");
         }
     }
 }

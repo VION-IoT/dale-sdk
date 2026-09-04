@@ -16,10 +16,6 @@ namespace Vion.Dale.DevHost.Web.Services
     /// </summary>
     public sealed class ScenarioRunRegistry
     {
-        // The host's own write-acknowledgement window, so the runner's hollow-ack detection is measured
-        // against the number the control surface is actually using rather than a constant of its own.
-        private readonly DevHostBudgets _budgets;
-
         private readonly object _gate = new();
 
         private readonly Dictionary<string, ScenarioRunReport> _latest = new(StringComparer.Ordinal);
@@ -56,11 +52,6 @@ namespace Vion.Dale.DevHost.Web.Services
                     return _latest.Count > 0;
                 }
             }
-        }
-
-        public ScenarioRunRegistry(DevHostBudgets budgets)
-        {
-            _budgets = budgets;
         }
 
         /// <summary>The latest run report for a scenario id, or null when it never ran this host generation.</summary>
@@ -108,7 +99,6 @@ namespace Vion.Dale.DevHost.Web.Services
                               RunId = runId,
                               FileHash = fileHash,
                               OnProgress = report => Publish(scenario.Id!, report),
-                              WriteAcknowledgementWindow = _budgets.WriteAcknowledgement,
                           };
 
             lock (_gate)
