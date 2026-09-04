@@ -237,7 +237,13 @@ the branch diff (`/vion-code-review branch` with the change doc as the spec). Bo
 criterion's text against the test that cites it, and both start from the REPORT's self-check
 preamble (`spec-pass` skill, Phase B step 10); both also read the doc's Reviewer's questions for an
 `OUTCOME` left pending and its prose for a retired name a rename pass replaced (a `(→ …)` marker
-after a current name) — two shapes a pass's own self-check does not see. Findings go back as one
+after a current name) — two shapes a pass's own self-check does not see. Before the classification,
+the coordinator's second opinion on the ⚠ rows opens the readers' repositories where they are on
+the machine (the private runtime, the gateways, the first consumer) rather than trusting a `Why`
+cell's reader — five reader claims fell that way in one pass, three changing a row's class. A REPORT
+may arrive as a cross-session message rather than as the session's last transcript text; the
+coordinator saves it from the message and says so, because the transcript's last text may be a
+one-word answer. Findings go back as one
 numbered amendment per round: the amend file `C:\_gh\architecture\.claude\briefs\amend-<slug>-N.md` is the artifact,
 written first; the cross-session message that points at it is only a notification, and it reaches
 the session only when **both** sessions run in bypass mode. The sender checks its own mode before

@@ -112,7 +112,11 @@ edits, no fixes, no Jira writes in this phase** — reading and one document onl
    names) — one pass claimed two fields covered that no criterion stated. The self-check also asks
    the reverse question per anchor instance: *which observable behaviours have neither a row nor a
    criterion?* Counting rows against criteria never asks it, and two behaviours reached a page that
-   way (a lifecycle entry point, and the one silent success the pass had left).
+   way (a lifecycle entry point, and the one silent success the pass had left). Ask it of the
+   doc's own Reviewer's questions as well: a question that describes an observable and recommends
+   its disposition is an observable someone noticed and nobody tabled — one pass's question 7
+   described a refusal on a false premise, recommended `fix`, numbered it after an unrelated row,
+   and no row carried it until the classification asked.
 10. Commit the change doc (status stays `proposed`), push the branch, and STOP with exactly this
     report shape: row/GAP/⚠/unmapped counts · the ⚠ rows verbatim · the unmapped-test list · the
     line *"Classify: reply with row numbers to override, or 'accept recs' to take all
@@ -193,9 +197,11 @@ finding the operator actively schedules. Do not proceed to Phase B without the c
    **Size guard:** if a fix turns out non-local or design-bearing while you implement it, STOP and
    report — it becomes a `park` row or its own change doc, never a silent absorption. **A fix closes
    one path and opens its sibling for the sweep:** before the REPORT, re-run the state-interaction
-   sweep over every fixed path's neighbours — the restart beside the double start, the duplicate
-   reference beside the duplicate answer, the second map beside the first; three of one pass's four
-   critic misses sat exactly there, on paths the extraction had swept before the fixes existed.
+   **and edge-value** sweeps over every fixed path's neighbours — the restart beside the double
+   start, the duplicate reference beside the duplicate answer, the second map beside the first;
+   three of one pass's four critic misses sat exactly there, on paths the extraction had swept
+   before the fixes existed, and another pass's one miss was the offset three freshly guarded slices
+   read from, never checked against the topic's prefix — an edge value beside the edges just fixed.
    **Hedges are STOPs:** a brief that says *appears to … — verify* has named an assumption; when it fails,
    record the deviation in the change doc and ask, never improvise a different design in its place
    (one pass improvised "resolve by evaluating" when the promised AST was not there; evaluation
@@ -315,6 +321,18 @@ notification, and the coordinator reads delivery off your transcript (`docs/spec
 § Checks and amendments) — the classification relay of Phase A arrives that way; an amendment
 arrives as a brief.
 
+The coordinator's second opinion on the ⚠ rows, taken before the classification, reads the
+**readers** and not only the call sites: where a `Why` cell names a reader whose repository is on
+the machine — the private runtime, the gateways, the first consumer — the subagent opens it,
+because a reader named from memory is a hypothesis about someone else's code. One pass's second
+opinion found five reader claims wrong and three of them changed a row's class: a runtime with no
+arm at all for the message type the row said it dispatched, a marker the row called unread that
+the runtime's scan reads, and a helper the row would route a discovery through that the runtime
+rejects in its own comments. The test for a `propose` row is unchanged — a silent wrong outcome
+made visible; no consumer depending on today; small and area-local — but its second clause is now
+answered by reading, and a wire change whose every reader was read and found not to read the
+field is a `fix` with a relay note, not a `park`.
+
 An amendment's premise is a hypothesis until the tree confirms it: a check reading a branch at one
 commit gets the shape right and the constants wrong (an "empty schedule" that was the framework's
 60 s periodic event; a "CRLF file" that was LF). Verify the mechanism at the call site before
@@ -361,4 +379,6 @@ skipped ("the mutation list **and the test map**" — the map stayed stale for a
 | "I'll work the amendment myself, I know this code" | The session that wrote Phase B retires at its REPORT; a fresh one works the amendment. Four passes paid a round each for the alternative. |
 | "Every row maps to a criterion, so the page is complete" | Ask the reverse per anchor: which observables have neither a row nor a criterion. Two reached a page that way. |
 | "The OUTCOME lines can wait for the operator" | A placeholder above the append is a number nothing re-reads. Fill it at the classification or name it in the REPORT; seven survived every reader once. |
-| "I fixed the path the row named" | Its sibling path is where the next miss sits. Re-run the state-interaction sweep over every fix's neighbours before the REPORT. |
+| "I fixed the path the row named" | Its sibling path is where the next miss sits. Re-run the state-interaction and edge-value sweeps over every fix's neighbours before the REPORT. |
+| "The question already names the row" | A reviewer's question that describes an observable is a row until the table carries it. Ask the reverse question of the doc's own questions; one pass's question 7 had no row. |
+| "The reader is the runtime, which I cannot open" | Where the reader's repository is on the machine, the second opinion opens it. Five reader claims fell that way in one pass, three flipping a row's class. |
