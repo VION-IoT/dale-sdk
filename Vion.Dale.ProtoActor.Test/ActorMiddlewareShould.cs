@@ -95,9 +95,9 @@ namespace Vion.Dale.ProtoActor.Test
         [TestProperty("spec", "AC-LIFE-014.4")]
         public async Task ReturnInFlightToNothingWhenHandlerReturns()
         {
-            // Arrange — one actor and one message per host, so the assertion is not read while other
-            // traffic is still in flight. Proto delivers an actor's start before any message sent to it,
-            // so awaiting the observer's report of that message means every bracket has closed.
+            // Arrange — one actor and one message per host, so the assertion is not read while another
+            // actor's traffic is still in flight. The observer's report is not the point at which the
+            // bracket has closed (see WaitForQuietAsync), so both waits are needed and both are signals.
             var monitor = new CountingActivityMonitor();
             var observer = new RecordingObserver();
             await using var host = new ObservedHost(observer, monitor: monitor);
@@ -106,6 +106,7 @@ namespace Vion.Dale.ProtoActor.Test
             // Act
             host.System.SendTo(actor, new StopLogicBlockRequest());
             await WaitForHandledAsync(observer);
+            await WaitForQuietAsync(monitor);
 
             // Assert
             Assert.AreEqual(0L, monitor.InFlight, "In-flight returns to what it was, which is what makes the quiescence barrier exact.");
@@ -125,6 +126,7 @@ namespace Vion.Dale.ProtoActor.Test
             // Act
             host.System.SendTo(actor, new StopLogicBlockRequest());
             await WaitForHandledAsync(observer);
+            await WaitForQuietAsync(monitor);
 
             // Assert
             Assert.AreEqual(0L, monitor.InFlight, "The exit runs on the swallowed-exception path too; a bracket left open there would stall every later quiescence wait.");
@@ -153,6 +155,21 @@ namespace Vion.Dale.ProtoActor.Test
             while (!observer.HandledMessages.Any(entry => entry.Message is StopLogicBlockRequest))
             {
                 await observer.Handled.WaitAsync(Generous);
+            }
+        }
+
+        /// <summary>
+        ///     Waits until no handler is in flight. The observer's report is <em>not</em> that point: the
+        ///     pipeline notifies the observer from inside the handler's own try and leaves the bracket in the
+        ///     finally after it, so the bracket is still open when the observer's signal arrives. Waiting on
+        ///     the monitor's own exit is the synchronisation point; a handler that is in flight is one whose
+        ///     exit is still to come, so the loop always terminates.
+        /// </summary>
+        private static async Task WaitForQuietAsync(CountingActivityMonitor monitor)
+        {
+            while (monitor.InFlight != 0)
+            {
+                await monitor.Exited.WaitAsync(Generous);
             }
         }
 

@@ -47,14 +47,16 @@ namespace Vion.Dale.ProtoActor.Test
         [TestProperty("spec", "AC-LIFE-014.5")]
         public async Task CarryHeadersOfMessageBeingHandledOntoMessageItSends()
         {
-            // Arrange
+            // Arrange — three hops. Only the first supplies a header; the second forwards without one, so
+            // the header the sink reads can only have been inherited from the message being handled.
             await using var host = new PipelineHost();
             var recorder = new HeaderRecordingReceiver();
             var sink = host.System.CreateRootActorFor(() => recorder, "context_header_sink");
             var forwarder = host.System.CreateRootActorFor(() => new ForwardingReceiver(sink), "context_header_forwarder");
+            var originator = host.System.CreateRootActorFor(() => new HeaderOriginatingReceiver(forwarder), "context_header_originator");
 
-            // Act — the header rides in on the first hop and must be on the second.
-            host.System.SendTo(forwarder, new StartLogicBlockRequest());
+            // Act
+            host.System.SendTo(originator, new StartLogicBlockRequest());
             await recorder.Arrived.WaitAsync(Generous);
 
             // Assert
@@ -169,6 +171,28 @@ namespace Vion.Dale.ProtoActor.Test
             }
         }
 
+        /// <summary>The one hop that supplies a header of its own.</summary>
+        private sealed class HeaderOriginatingReceiver : IActorReceiver
+        {
+            private readonly IActorReference _next;
+
+            public HeaderOriginatingReceiver(IActorReference next)
+            {
+                _next = next;
+            }
+
+            public Task HandleMessageAsync(object message, IActorContext actorContext)
+            {
+                if (message is StartLogicBlockRequest)
+                {
+                    actorContext.SendTo(_next, new StartLogicBlockRequest(), new Dictionary<string, string> { ["correlation"] = "abc" });
+                }
+
+                return Task.CompletedTask;
+            }
+        }
+
+        /// <summary>Forwards with no headers of its own, so only what it inherits can reach the sink.</summary>
         private sealed class ForwardingReceiver : IActorReceiver
         {
             private readonly IActorReference _sink;
@@ -182,8 +206,7 @@ namespace Vion.Dale.ProtoActor.Test
             {
                 if (message is StartLogicBlockRequest)
                 {
-                    // The first hop sets the header explicitly; the second must inherit it.
-                    actorContext.SendTo(_sink, new StopLogicBlockRequest(), new Dictionary<string, string> { ["correlation"] = "abc" });
+                    actorContext.SendTo(_sink, new StopLogicBlockRequest());
                 }
 
                 return Task.CompletedTask;

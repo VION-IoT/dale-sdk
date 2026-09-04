@@ -173,7 +173,7 @@ namespace Vion.Dale.ProtoActor.Test
                                                                                 await host.System
                                                                                           .SendAndWaitForAcknowledgementAsync<StopLogicBlockRequest, StopLogicBlockResponse>([
                                                                                                   answering, silent,
-                                                                                                                                                                             ],
+                                                                                              ],
                                                                                               new StopLogicBlockRequest(),
                                                                                               Short));
             StringAssert.Contains(timeout.Message, "1 actor(s)", "The count tells an operator whether one block is stuck or all of them.");
@@ -191,7 +191,7 @@ namespace Vion.Dale.ProtoActor.Test
             await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(async () =>
                                                                              await host.System.SendAndWaitForAcknowledgementAsync<StopLogicBlockRequest, StopLogicBlockResponse>([
                                                                                      silent,
-                                                                                                                                                                                 ],
+                                                                                 ],
                                                                                  new StopLogicBlockRequest(),
                                                                                  TimeSpan.FromSeconds(-1)),
                                                                          "A negative timeout arms no clock, so it must be refused rather than waited on forever.");
@@ -237,14 +237,14 @@ namespace Vion.Dale.ProtoActor.Test
             var silent = host.System.CreateRootActorFromDi<SilentReceiver>("repeat_silent");
 
             // Act / Assert
-            var timeout =
-                await Assert.ThrowsExactlyAsync<TimeoutException>(async () =>
-                                                                      await host.System.SendAndWaitForAcknowledgementAsync<StopLogicBlockRequest, StopLogicBlockResponse>([
-                                                                              doubleAnswering, silent,
-                                                                                                                                                                          ],
-                                                                          new StopLogicBlockRequest(),
-                                                                          Short),
-                                                                  "One actor answering twice must not stand in for an actor that never answered.");
+            var timeout = await Assert.ThrowsExactlyAsync<TimeoutException>(async () =>
+                                                                                await host.System
+                                                                                          .SendAndWaitForAcknowledgementAsync<StopLogicBlockRequest, StopLogicBlockResponse>([
+                                                                                                  doubleAnswering, silent,
+                                                                                              ],
+                                                                                              new StopLogicBlockRequest(),
+                                                                                              Short),
+                                                                            "One actor answering twice must not stand in for an actor that never answered.");
             StringAssert.Contains(timeout.Message, "1 actor(s)", "Exactly the silent actor is still outstanding when the wait expires.");
         }
 

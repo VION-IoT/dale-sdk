@@ -236,12 +236,12 @@ namespace Vion.Dale.Sdk.Test.Core
                       {
                           [new InterfaceId("block-1",
                                            InterfaceBearingBlock
-                                               .InterfaceIdentifier)] =
-                              new()
-                              {
-                                  [new InterfaceId("peer", "Peer")] =
-                                      new LifecycleHarness.NamedReference("peer"),
-                              },
+                                               .InterfaceIdentifier)] = new()
+                                                                        {
+                                                                            [new InterfaceId("peer", "Peer")] =
+                                                                                new LifecycleHarness.
+                                                                                    NamedReference("peer"),
+                                                                        },
                       };
 
             // Act
