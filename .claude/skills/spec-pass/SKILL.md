@@ -93,8 +93,14 @@ edits, no fixes, no Jira writes in this phase** — reading and one document onl
      the consumer that suffers it by `file:line`, or it is a guess wearing evidence's clothes. A
      `park` rec that rests on a member's *history* — added last, newer than its siblings — has no
      evidence column: recency is not a reason to treat a member differently (an operator overruled
-     one such park; the fix was four lines and retired two special cases).
-   - A `fix`/`park` rec is flagged `⚠` and gets a two-line failure sketch under the table.
+     one such park; the fix was four lines and retired two special cases). Where the brief
+     pre-classifies a class of rows as *propose-and-wait* — a wire shape, a public member's
+     semantics — a fifth value **`propose`** carries the recommendation on the row: implemented as a
+     `fix` if the operator accepts it, written to the ledger as a `park` if not, so that neither
+     `fix` (fixed on the session's judgment) nor `park` (not fixed at all) misstates the row (one
+     pass minted it for 21 rows; it was the right reading of its brief).
+   - A `fix`/`park`/`propose` rec is flagged `⚠` and gets a two-line failure sketch under the table;
+     a `propose` sketch ends with the recommendation.
 8. **Map every existing test in scope** to a row; tests mapping to no row go in an
    *unmapped tests* list (Phase B merge/delete candidates).
 9. **Self-check** against the anchor inventory and the PublicApi manifest's entries for the
@@ -103,7 +109,10 @@ edits, no fixes, no Jira writes in this phase** — reading and one document onl
    criterion*: in Phase B this self-check is re-read so that every classified `intended`/`fix`
    row maps to a criterion id or to a checkpoint that says why not, and every hole in the id
    sequence has a checkpoint naming the id (`spec-trace` refuses a hole no archived change doc
-   names) — one pass claimed two fields covered that no criterion stated.
+   names) — one pass claimed two fields covered that no criterion stated. The self-check also asks
+   the reverse question per anchor instance: *which observable behaviours have neither a row nor a
+   criterion?* Counting rows against criteria never asks it, and two behaviours reached a page that
+   way (a lifecycle entry point, and the one silent success the pass had left).
 10. Commit the change doc (status stays `proposed`), push the branch, and STOP with exactly this
     report shape: row/GAP/⚠/unmapped counts · the ⚠ rows verbatim · the unmapped-test list · the
     line *"Classify: reply with row numbers to override, or 'accept recs' to take all
@@ -133,7 +142,11 @@ finding the operator actively schedules. Do not proceed to Phase B without the c
    delta line are one text:** reword one, reword the other in the same commit (a `MODIFIED` line
    for a criterion already delta'd as `ADDED`) — `spec-change.ps1 archive` refuses a delta whose
    text the page no longer carries, and one pass reworded a criterion on the page with no delta
-   line at all, so page and delta disagreed until review.
+   line at all, so page and delta disagreed until review. An id hole that opens before the page is
+   published — a leaf dropped for want of a reachable mutation, in the pass's own PR — is closed by
+   renumbering the leaves below it and their citations in one pass over the page and the tests;
+   after publication a hole is named in the change doc and never renumbered, because a consumer
+   may cite the id.
 2. **Write the mutation with the test, before the AC counts.** For every AC: the test, the one
    mutation of the code under it that reddens *that test and no other claim*, run and observed. An
    AC no mutation can redden is not a requirement — reword it to what *is* observable, merge it
@@ -244,7 +257,10 @@ finding the operator actively schedules. Do not proceed to Phase B without the c
    `scripts/sweep-residue-lint.ps1`, `scripts/run-script-tests.ps1`,
    `/cleanup` once — and a run under CI's shape where a fixture asserts a build-time literal
    (`dotnet test <project> -p:Version=0.0.0-ci.1`: CI passes `Version` as a global property, and a
-   project's own `<Version>` loses to it). Stryker.NET is
+   project's own `<Version>` loses to it). A suite that gained a real-clock interaction — a runner
+   loop, a captured console, a background host — runs **five times in a row**, every result line
+   pasted; a pasted run count is still not a proof against load (one passed three runs and failed
+   the reviewer's first), so the race is fixed, never outrun. Stryker.NET is
    **optional**: run it only where the test project references a single mutatable project (it
    cannot run otherwise — MTP runner in preview, multi-reference crash), read survivors by hand,
    never a gate or a score.
@@ -271,14 +287,18 @@ finding the operator actively schedules. Do not proceed to Phase B without the c
 
 Two fresh-context Opus subagents (`docs/spec-process.md` § Dispatching): a completeness critic and
 an adversarial review of the branch diff, both reading every cited criterion's text against its
-test. Findings return as numbered amendments to the live session. After two rounds in which the
-same defect classes recur — stale gate numbers, spec not carried, evidence asserted rather than
-pasted — the next round is dispatched to a **fresh** session with a precise brief instead of a
-further amendment: context depth degrades exactly the disciplines the amendments ask for. An
-amendment reaches you only when both sessions run in bypass mode; the amend file is the artifact
-and the message a notification, and the coordinator reads delivery off your transcript
-(`docs/spec-process.md` § Checks and amendments) — if an amendment file appears as your resume
-prompt instead of a message, that is the same round arriving by the other door.
+test. Findings return as one numbered amendment, and **the amendment is worked by a fresh session**:
+the session that wrote Phase B retires at its REPORT, and the amend file is the fresh session's
+brief (the fix-up shape — item, artifact, proof — with the same self-check preamble). Four passes
+in a row showed the Phase B session producing amendment items done wrongly, with checkpoints that
+did not read true — context depth degrades exactly the disciplines an amendment asks for — and each
+needed a further fresh round; retiring at the REPORT costs one session's ramp-up and saves that
+round. The coordinator closes the round with targeted reads of every item at its call site, and a
+further Opus check runs only when a targeted read finds a blocker. A message reaches you only
+when both sessions run in bypass mode; the amend file is the artifact and the message a
+notification, and the coordinator reads delivery off your transcript (`docs/spec-process.md`
+§ Checks and amendments) — the classification relay of Phase A arrives that way; an amendment
+arrives as a brief.
 
 An amendment's premise is a hypothesis until the tree confirms it: a check reading a branch at one
 commit gets the shape right and the constants wrong (an "empty schedule" that was the framework's
@@ -323,3 +343,5 @@ skipped ("the mutation list **and the test map**" — the map stayed stale for a
 | "The sweep is done; a tidy-up regex will polish the rest" | A sweep deletes matched spans and nothing else. Two tidy-ups reset a tree. Run `sweep-residue-lint`, then read every touched sentence. |
 | "I set the input's value from the script and read `valid`" | A scripted write reaches the DOM, not the model. Click the control; read the model back. |
 | "The amendment says the schedule is empty" | A check's finding is a hypothesis. Verify the mechanism at the call site, annotate a refuted premise, test the real behaviour. |
+| "I'll work the amendment myself, I know this code" | The session that wrote Phase B retires at its REPORT; a fresh one works the amendment. Four passes paid a round each for the alternative. |
+| "Every row maps to a criterion, so the page is complete" | Ask the reverse per anchor: which observables have neither a row nor a criterion. Two reached a page that way. |

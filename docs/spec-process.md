@@ -149,7 +149,9 @@ repo is never half-migrated. One pass, in order:
    recommendation: *intended* → spec · *fix* → a small, area-local defect, fixed in the pass with
    its test proven red on the pre-fix code · *park* → too big for the pass: one line in
    `docs/specs/_findings.md`, the migration's finding ledger, triaged in bulk at the retro ·
-   *out-of-spec* → explicitly dropped. Jira is not a pass output; only a finding the operator
+   *out-of-spec* → explicitly dropped · *propose* → a wire shape or a public member's semantics the brief
+   pre-classified as propose-and-wait: the recommendation on the row, fixed if the operator accepts
+   it, parked if not. Jira is not a pass output; only a finding the operator
    actively schedules becomes an item.
 3. **Rewrite** — the area's whole test suite is brought to the settled style
    ([`testing-conventions.md`](testing-conventions.md)); Tier A tests cite their AC ids; every AC
@@ -201,7 +203,10 @@ retires with the migration:
    descriptor list: two passes running, the brief's counts were the thing that was wrong. The test
    scope is stated the same way — the test project's folders, with the suites another page owns
    named by their citations — never a list of files: the brief that listed suites missed three in
-   the area's own project.
+   the area's own project. **Before the launch line, a fresh-context Opus `Explore` subagent checks
+   the brief against the code** — every file, folder, count, ownership claim and omission, reported
+   as corrections — and the brief is rewritten before dispatch: four minutes and one subagent; the
+   CTRL brief carried 13 wrong claims and 9 omissions until it ran.
 2. Emit the launch line in a single `bash` fence (the fence is the copy button):
 
    ```
@@ -236,12 +241,14 @@ sending, then verifies within a minute in the recipient's transcript — a
 `<cross-session-message from-name=…>` entry is delivery, a `Held peer message` entry is not. Held,
 or nothing after two minutes: the operator pastes the file into the tab, or — tab closed, never
 while it is open — resumes with `-AmendFile … -PermissionMode bypassPermissions`. The INTRO pass
-lost ten hours to a relay that was held and expired unseen. After two rounds in which the same
-defect classes recur — stale gate
-numbers, spec not carried, evidence asserted rather than pasted — the next round goes to a
-**fresh** session with a precise brief instead of a further amendment: context depth degrades
-exactly the disciplines the amendments ask for, and the pass that ran its fix-up that way caught
-its own composed numbers mid-amendment. Each amendment item names one artifact and the proof it
+lost ten hours to a relay that was held and expired unseen. **The amendment is worked by a fresh
+session**: the pass session retires at its Phase B REPORT and the amend file is the new session's
+brief (the fix-up shape). Four passes in a row showed the session that wrote Phase B producing
+amendment items done wrongly, with checkpoints that did not read true — context depth degrades
+exactly the disciplines an amendment asks for — and each needed a further fresh round; retiring at
+the REPORT costs one session's ramp-up and saves it. The coordinator closes the round with
+targeted reads at the call sites, and dispatches a further Opus check only when a read finds a
+blocker. Each amendment item names one artifact and the proof it
 owes — a two-clause item gets its numbered half done — and states its premise as a hypothesis: a
 check reading a branch at one commit gets the shape right and the constants wrong, so the session
 verifies the mechanism at the call site before implementing (two of one amendment's twenty-five
