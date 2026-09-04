@@ -75,6 +75,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <summary>
         ///     Gets or sets the maximum number of requests that can be queued. Default is 256.
         /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when set below one request.</exception>
         /// <exception cref="InvalidOperationException">
         ///     Thrown when set to a different value after the queue has been created.
         /// </exception>

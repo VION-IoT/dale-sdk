@@ -127,6 +127,18 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-009.3")]
+        [DataRow(0, DisplayName = "Zero")]
+        [DataRow(-1, DisplayName = "Negative")]
+        public void ThrowExceptionWhenQueueCapacityNotPositive(int capacity)
+        {
+            // Arrange
+
+            // Act & Assert
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => _sut.QueueCapacity = capacity);
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-MODB-009.2")]
         public void RefuseQueueCapacityChangeAfterInitialization()
         {

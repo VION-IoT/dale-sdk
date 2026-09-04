@@ -299,7 +299,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server.LogicBlock
             // Act
             _sut.Sync(_ =>
                       {
-                          _sut.Sync(_ => { });
+                          _sut.Sync(inner => _sut.Sync(_ => Assert.IsNotNull(inner)));
                           Assert.ThrowsExactly<InvalidOperationException>(() => _sut.IsEnabled = false);
                       });
 

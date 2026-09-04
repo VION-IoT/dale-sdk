@@ -111,6 +111,13 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
 
             set
             {
+                // A capacity below one is refused here rather than by the channel the queue is built from,
+                // which would report it from the enable that created the queue instead of from this setter.
+                if (value < 1)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(value), value, $"{nameof(QueueCapacity)} must be at least one request.");
+                }
+
                 EnsureQueueNotCreated(nameof(QueueCapacity), field, value);
                 field = value;
             }
