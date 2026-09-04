@@ -311,18 +311,15 @@ namespace Vion.Dale.DevHost.Test
                                 """);
 
             var port = FreePort();
-            var originalOut = Console.Out;
-            var captured = new StringWriter();
             using var shutdown = new CancellationTokenSource();
             Environment.SetEnvironmentVariable(DevHostWebRunner.NoBrowserEnvVar, "1");
-            Console.SetOut(captured);
 
             try
             {
                 var runner = DevHostWebRunner.RunAsync(() => BuildWebHost(port, directory), port, shutdown.Token);
-                await WaitForReceiptAsync(captured, "\"ready\"", port);
 
                 using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
+                await WaitUntilServingAsync(client);
 
                 // Act
                 var refusal = await client.PostAsync("/api/topologies/other/switch", null);
@@ -339,10 +336,37 @@ namespace Vion.Dale.DevHost.Test
             }
             finally
             {
-                Console.SetOut(originalOut);
                 Environment.SetEnvironmentVariable(DevHostWebRunner.NoBrowserEnvVar, null);
                 Directory.Delete(directory, true);
             }
+        }
+
+        /// <summary>
+        ///     Polls the host's own status route until the generation is serving. The readiness receipt would
+        ///     say the same thing, but reading it means redirecting process-wide <c>Console.Out</c>, and a
+        ///     sibling suite writing to the captured buffer at the same moment corrupts it.
+        /// </summary>
+        private static async Task WaitUntilServingAsync(HttpClient client)
+        {
+            var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
+            while (DateTimeOffset.UtcNow < deadline)
+            {
+                try
+                {
+                    if ((await client.GetAsync("/api/control/status")).IsSuccessStatusCode)
+                    {
+                        return;
+                    }
+                }
+                catch (HttpRequestException)
+                {
+                    // Not bound yet.
+                }
+
+                await Task.Delay(100);
+            }
+
+            Assert.Fail("the supervised host never started serving");
         }
 
         private static string ReceiptLine(StringWriter captured, string token, int port)

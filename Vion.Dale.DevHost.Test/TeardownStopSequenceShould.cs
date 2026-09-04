@@ -246,6 +246,26 @@ namespace Vion.Dale.DevHost.Test
             Assert.ThrowsExactly<ObjectDisposedException>(() => _ = host.Control);
         }
 
+        [TestMethod]
+        [TestProperty("spec", "AC-CTRL-002.7")]
+        public async Task RunStartedHostUntilCancellationThenStopIt()
+        {
+            // Arrange — the process entry point: run the host, and end it by cancelling. The stop deliberately
+            // runs on the already-cancelled token, which is why cancelling must not surface as a throw.
+            var recorder = new TeardownRecorder();
+            await using var host = BuildHost(recorder, false);
+            using var lifetime = new CancellationTokenSource();
+
+            // Act
+            var run = host.RunAsync(lifetime.Token);
+            await WaitUntilBlockPublishedAsync(host);
+            await lifetime.CancelAsync();
+            await run.WaitAsync(TimeSpan.FromSeconds(30));
+
+            // Assert — the call returned normally, and it took the host down on its way out.
+            CollectionAssert.Contains(recorder.Entries.ToList(), TeardownRecorder.Stopping, "Recorded: " + string.Join(", ", recorder.Entries));
+        }
+
         private static async Task<bool> PollSteppedReadyAsync(HttpClient client, TimeSpan timeout)
         {
             var deadline = DateTime.UtcNow + timeout;
@@ -282,26 +302,6 @@ namespace Vion.Dale.DevHost.Test
         private static int IndexOfMessage(IReadOnlyList<string> entries, string messageTypeName)
         {
             return entries.ToList().FindIndex(entry => entry.StartsWith(messageTypeName + "@", StringComparison.Ordinal));
-        }
-
-        [TestMethod]
-        [TestProperty("spec", "AC-CTRL-002.7")]
-        public async Task RunStartedHostUntilCancellationThenStopIt()
-        {
-            // Arrange — the process entry point: run the host, and end it by cancelling. The stop deliberately
-            // runs on the already-cancelled token, which is why cancelling must not surface as a throw.
-            var recorder = new TeardownRecorder();
-            await using var host = BuildHost(recorder, false);
-            using var lifetime = new CancellationTokenSource();
-
-            // Act
-            var run = host.RunAsync(lifetime.Token);
-            await WaitUntilBlockPublishedAsync(host);
-            await lifetime.CancelAsync();
-            await run.WaitAsync(TimeSpan.FromSeconds(30));
-
-            // Assert — the call returned normally, and it took the host down on its way out.
-            CollectionAssert.Contains(recorder.Entries.ToList(), TeardownRecorder.Stopping, "Recorded: " + string.Join(", ", recorder.Entries));
         }
 
         /// <summary>
