@@ -74,5 +74,32 @@ public class MyBlock
 }";
             await AnalyzerTestBase.VerifyAnalyzerAsync<ContractPropertyAnalyzer>(source);
         }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-004.2")]
+        public async Task StaySilentOnInterfaceContractPropertyWithoutSetter()
+        {
+            // Arrange / Act / Assert
+            var source = ContractTypeSetup + @"
+public interface IHolder
+{
+    ITestContractType Input { get; }
+}";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<ContractPropertyAnalyzer>(source);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-004.2")]
+        public async Task ReportAbstractContractPropertyWithoutSetter()
+        {
+            // Arrange / Act / Assert
+            var source = ContractTypeSetup + @"
+public abstract class HolderBase
+{
+    public abstract ITestContractType {|#0:Input|} { get; }
+}";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE001_ContractPropertyMustHaveSetter).WithLocation(0).WithArguments("Input");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<ContractPropertyAnalyzer>(source, expected);
+        }
     }
 }

@@ -19,6 +19,8 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class LiteralGroupKeyAnalyzer : DiagnosticAnalyzer
     {
+        private const string PropertyGroupTypeName = "PropertyGroup";
+
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
         {
             get => ImmutableArray.Create(DaleDiagnostics.DALE026_LiteralGroupKey);
@@ -35,27 +37,77 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                                                    });
         }
 
+        /// <summary>
+        ///     Every string constant of every static class named <c>PropertyGroup</c> the compilation can
+        ///     see, in its own assembly and in its references. The references half is what makes this rule
+        ///     agree with a consumer's build: the platform's own
+        ///     <c>Vion.Dale.Sdk.Core.PropertyGroup</c> is a source declaration only inside the SDK, and
+        ///     metadata for everyone else, so a source-only lookup warned every consumer about the keys the
+        ///     platform ships. Built once per compilation, and skipped for any assembly whose type-name set
+        ///     does not carry the name at all.
+        /// </summary>
         private static HashSet<string> CollectPropertyGroupConstants(Compilation compilation)
         {
             var allowed = new HashSet<string>();
 
-            foreach (var symbol in compilation.GetSymbolsWithName("PropertyGroup", SymbolFilter.Type))
+            foreach (var assembly in CandidateAssemblies(compilation))
             {
-                if (symbol is not INamedTypeSymbol type || !type.IsStatic)
+                foreach (var type in PropertyGroupTypes(assembly.GlobalNamespace))
                 {
-                    continue;
-                }
-
-                foreach (var member in type.GetMembers())
-                {
-                    if (member is IFieldSymbol { IsConst: true, Type.SpecialType: SpecialType.System_String } field && field.ConstantValue is string s)
+                    foreach (var member in type.GetMembers())
                     {
-                        allowed.Add(s);
+                        if (member is IFieldSymbol { IsConst: true, Type.SpecialType: SpecialType.System_String } field && field.ConstantValue is string s)
+                        {
+                            allowed.Add(s);
+                        }
                     }
                 }
             }
 
             return allowed;
+        }
+
+        private static IEnumerable<IAssemblySymbol> CandidateAssemblies(Compilation compilation)
+        {
+            // TypeNames is a flat set the compiler already has, so an assembly that declares no
+            // PropertyGroup at all costs one lookup instead of a namespace walk. Every framework and
+            // unrelated-package reference falls out here.
+            if (compilation.Assembly.TypeNames.Contains(PropertyGroupTypeName))
+            {
+                yield return compilation.Assembly;
+            }
+
+            foreach (var reference in compilation.References)
+            {
+                if (compilation.GetAssemblyOrModuleSymbol(reference) is IAssemblySymbol referenced && referenced.TypeNames.Contains(PropertyGroupTypeName))
+                {
+                    yield return referenced;
+                }
+            }
+        }
+
+        /// <summary>
+        ///     The static classes named exactly <c>PropertyGroup</c> under <paramref name="ns" />, in any
+        ///     namespace. The name is matched exactly, not as a suffix: an integrator declares
+        ///     <c>Acme.PropertyGroup</c>, and a class named <c>EcoPropertyGroup</c> is not read.
+        /// </summary>
+        private static IEnumerable<INamedTypeSymbol> PropertyGroupTypes(INamespaceSymbol ns)
+        {
+            foreach (var type in ns.GetTypeMembers(PropertyGroupTypeName))
+            {
+                if (type.IsStatic)
+                {
+                    yield return type;
+                }
+            }
+
+            foreach (var child in ns.GetNamespaceMembers())
+            {
+                foreach (var type in PropertyGroupTypes(child))
+                {
+                    yield return type;
+                }
+            }
         }
 
         private static void AnalyzeAttribute(SyntaxNodeAnalysisContext context, HashSet<string> allowed)

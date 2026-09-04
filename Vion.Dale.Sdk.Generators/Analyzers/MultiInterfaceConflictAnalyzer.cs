@@ -90,7 +90,11 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
 
                 // Suppress if the class declares its own ServiceProperty / ServiceMeasuringPoint
                 // attribute on the implementing property — the override resolves the conflict.
-                var classProp = type.GetMembers(kvp.Key).OfType<IPropertySymbol>().FirstOrDefault();
+                // The resolving attribute may sit on a base declaration the type inherits, so this reads
+                // the same walk the binders use rather than the type's own members. EnumerateProperties
+                // yields the most-derived declaration of a name first, so a `new` shadow resolves to the
+                // declaration the cascade rule actually reads.
+                var classProp = AnalyzerHelper.EnumerateProperties(type).FirstOrDefault(p => p.Name == kvp.Key);
                 if (classProp != null && HasExplicitOverride(classProp))
                 {
                     continue;

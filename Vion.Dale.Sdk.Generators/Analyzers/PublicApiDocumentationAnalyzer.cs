@@ -52,7 +52,10 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             // Scan all named types defined in source (not from referenced assemblies)
             foreach (var type in GetAllTypes(compilation.GlobalNamespace))
             {
-                if (type.DeclaredAccessibility != Accessibility.Public)
+                // Effective, not declared: a public type nested in an internal one reports
+                // DeclaredAccessibility == Public while nothing outside the assembly can name it, so
+                // asking it for a mark would be a warning with no action behind it.
+                if (!IsEffectivelyPublic(type))
                 {
                     continue;
                 }
@@ -64,12 +67,20 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                 }
 
                 var ns = type.ContainingNamespace?.ToDisplayString() ?? "";
-                var matchedNamespace = publicApiNamespaces.FirstOrDefault(pn => ns == pn || ns.StartsWith(pn + "."));
-                var inPublicApiNamespace = matchedNamespace != null;
 
-                if (inPublicApiNamespace)
+                // Credit EVERY declaration this type's namespace matches. One declaration can subsume
+                // another ("Api" and "Api.Sub"), and the set is unordered, so crediting only the first
+                // match reported an arbitrary one of them as stale while it had types all along.
+                var inPublicApiNamespace = false;
+                foreach (var configured in publicApiNamespaces)
                 {
-                    namespacesWithTypes.Add(matchedNamespace!);
+                    if (ns != configured && !ns.StartsWith(configured + ".", System.StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    inPublicApiNamespace = true;
+                    namespacesWithTypes.Add(configured);
                 }
 
                 var hasPublicApi = AnalyzerHelper.HasAttribute(type, PublicApiAttributeName);
@@ -106,11 +117,21 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             }
         }
 
+        /// <summary>
+        ///     Every named type declared under <paramref name="ns" />, nested types included. A public type
+        ///     nested in a public type is public API — it reaches the manifest and the docs site — so both
+        ///     rules judge it exactly as they judge a top-level one.
+        /// </summary>
         private static IEnumerable<INamedTypeSymbol> GetAllTypes(INamespaceSymbol ns)
         {
             foreach (var type in ns.GetTypeMembers())
             {
                 yield return type;
+
+                foreach (var nested in GetNestedTypes(type))
+                {
+                    yield return nested;
+                }
             }
 
             foreach (var child in ns.GetNamespaceMembers())
@@ -120,6 +141,36 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                     yield return type;
                 }
             }
+        }
+
+        private static IEnumerable<INamedTypeSymbol> GetNestedTypes(INamedTypeSymbol type)
+        {
+            foreach (var nested in type.GetTypeMembers())
+            {
+                yield return nested;
+
+                foreach (var deeper in GetNestedTypes(nested))
+                {
+                    yield return deeper;
+                }
+            }
+        }
+
+        /// <summary>
+        ///     Whether <paramref name="type" /> is reachable from outside the assembly: public itself and
+        ///     public all the way out through its containing types.
+        /// </summary>
+        private static bool IsEffectivelyPublic(INamedTypeSymbol type)
+        {
+            for (var current = type; current is not null; current = current.ContainingType)
+            {
+                if (current.DeclaredAccessibility != Accessibility.Public)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
     }
 }

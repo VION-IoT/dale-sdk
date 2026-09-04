@@ -71,5 +71,52 @@ public class MyBlock : IOne, ITwo
 }";
             await AnalyzerTestBase.VerifyAnalyzerAsync<MultiInterfaceConflictAnalyzer>(source);
         }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-006.3")]
+        public async Task StaySilentWhenResolvingAttributeSitsOnBaseClass()
+        {
+            // Arrange / Act / Assert
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public interface IOne { [ServiceProperty(Unit = ""kW"")] double Power { get; set; } }
+public interface ITwo { [ServiceProperty(Unit = ""W"")] double Power { get; set; } }
+
+public class PowerBase
+{
+    [ServiceProperty(Unit = ""kW"")]
+    public double Power { get; set; }
+}
+
+public class MyBlock : PowerBase, IOne, ITwo { }";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<MultiInterfaceConflictAnalyzer>(source);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-006.3")]
+        public async Task ResolveShadowedPropertyToMostDerivedDeclaration()
+        {
+            // Arrange / Act / Assert
+            // The base declares the name without a resolving attribute; the derived `new` declaration
+            // carries it, and the most-derived declaration is the one the cascade rule reads.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public interface IOne { [ServiceProperty(Unit = ""kW"")] double Power { get; set; } }
+public interface ITwo { [ServiceProperty(Unit = ""W"")] double Power { get; set; } }
+
+public class PowerBase
+{
+    public double Power { get; set; }
+}
+
+public class MyBlock : PowerBase, IOne, ITwo
+{
+    [ServiceProperty(Unit = ""kW"")]
+    public new double Power { get; set; }
+}";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<MultiInterfaceConflictAnalyzer>(source);
+        }
     }
 }

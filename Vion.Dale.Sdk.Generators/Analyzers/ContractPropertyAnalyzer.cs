@@ -35,6 +35,16 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                 return;
             }
 
+            // On an interface the message's remedy ({ get; private set; }) is a compile error, and no
+            // binder reads an interface declaration — the concrete implementation is what carries the
+            // setter obligation, and this analyzer keeps firing there. MeasuringPointAnalyzer and
+            // ImmutableArrayInitializationAnalyzer guard the same way for the same reason. An abstract
+            // declaration keeps firing: an override cannot add an accessor its base does not declare.
+            if (property.ContainingType.TypeKind == TypeKind.Interface)
+            {
+                return;
+            }
+
             // Must have at least a private setter
             if (property.SetMethod != null)
             {
