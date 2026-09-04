@@ -18,8 +18,13 @@ namespace Vion.Dale.Sdk.Modbus.Core.Diagnostics
     ///         <c>State</c> moves only on outcomes that reached the wire: <c>Success</c> and <c>DeviceError</c> set
     ///         <c>Online</c>; <c>Timeout</c>, <c>TransportError</c> and <c>ProtocolError</c> set <c>Faulted</c>. Locally
     ///         decided outcomes — <c>Expired</c>, <c>Dropped</c>, <c>BackedOff</c>, <c>Invalid</c>, <c>Cancelled</c> —
-    ///         leave it alone: a full queue or a bad unit id is not evidence about the device. They are still counted,
-    ///         and still set <c>LastFailureAt</c> / <c>LastFailureOutcome</c>.
+    ///         leave it alone: a full queue or a bad unit id is not evidence about the device.
+    ///     </para>
+    ///     <para>
+    ///         Every outcome sets <c>LastFailureAt</c> / <c>LastFailureOutcome</c>, but only eight of the ten carry a
+    ///         lifetime counter: the five that reached the wire, plus <c>BackedOffCount</c>, <c>ExpiredCount</c> and
+    ///         <c>DroppedCount</c>. <c>Invalid</c> and <c>Cancelled</c> have none — read them off
+    ///         <c>LastFailureOutcome</c>, or count them in the block from the receipt.
     ///     </para>
     ///     <para>
     ///         <c>State</c> does not decay with time. A client that is polled once an hour and answered an hour ago is

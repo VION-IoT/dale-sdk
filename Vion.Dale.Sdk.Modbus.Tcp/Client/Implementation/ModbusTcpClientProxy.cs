@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -122,7 +123,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         public async Task WriteMultipleCoilsAsync(int unitIdentifier, ushort startingAddress, bool[] values, CancellationToken cancellationToken)
         {
             const ModbusFunctionCode functionCode = ModbusFunctionCode.WriteMultipleCoils;
-            LogExecutedWriteOperation(functionCode, unitIdentifier, startingAddress);
+            LogExecutingWriteOperation(functionCode, unitIdentifier, startingAddress);
             try
             {
                 await _modbusTcpClient.WriteMultipleCoilsAsync(unitIdentifier, startingAddress, values, cancellationToken).ConfigureAwait(false);
@@ -194,7 +195,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
             try
             {
                 await _modbusTcpClient.WriteMultipleRegistersAsync(unitIdentifier, startingAddress, values, cancellationToken).ConfigureAwait(false);
-                LogExecutingWriteOperation(functionCode, unitIdentifier, startingAddress);
+                LogExecutedWriteOperation(functionCode, unitIdentifier, startingAddress);
             }
             catch (Exception exception)
             {
@@ -272,8 +273,15 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         ///     duration.
         /// </summary>
         /// <param name="seconds">The connection timeout limit in seconds that was exceeded.</param>
-        public ConnectionTimeoutException(double seconds) : base($"The connection could not be established within {seconds} seconds.")
+        public ConnectionTimeoutException(double seconds) : base(TimedOutMessage(seconds))
         {
+        }
+
+        private static string TimedOutMessage(double seconds)
+        {
+            // Invariant, like the area's three other message builders: a gateway's culture is not the reader's, and
+            // a fractional timeout renders with a comma on half of them.
+            return string.Format(CultureInfo.InvariantCulture, "The connection could not be established within {0:0.###} seconds.", seconds);
         }
     }
 }

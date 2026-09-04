@@ -24,9 +24,9 @@ namespace Vion.Dale.Sdk.Modbus.Core.Client
     ///     <para>
     ///         <see cref="Link" /> is the same information accumulated per client: the current verdict on the device, the
     ///         last contact, and counts and latencies per outcome. It is a snapshot struct, readable at any time and
-    ///         publishable as a single <c>[ServiceProperty]</c>. Local outcomes — a full or backed-up queue, a bad unit
-    ///         id — are counted there but never move <c>Link.State</c>, so a congested client is distinguishable from a
-    ///         broken device.
+    ///         publishable as a single <c>[ServiceProperty]</c>. A locally decided outcome — a full or backed-up queue,
+    ///         a bad unit id — never moves <c>Link.State</c>, so a congested client is distinguishable from a broken
+    ///         device. Which of them carry a lifetime counter is stated on <see cref="ModbusLinkSummary" />.
     ///     </para>
     ///     <para>
     ///         <see cref="MaxQueuedAge" /> bounds how stale a request may be when its turn finally comes. Past that age

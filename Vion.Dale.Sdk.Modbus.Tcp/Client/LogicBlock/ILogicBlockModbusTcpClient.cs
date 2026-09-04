@@ -213,6 +213,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         ///         This method is idempotent - calling it when already disconnected has no effect.
         ///     </para>
         ///     <para>
+        ///         Like every read and write, it is gated by <c>IsEnabled</c>: on a disabled client the call is a
+        ///         no-op and <em>neither</em> callback is invoked, so do not wait on one to know it has run.
+        ///     </para>
+        ///     <para>
         ///         It is a control operation, not a device transaction: it carries no receipt, does not contribute to
         ///         <c>Link</c>, and is never expired by <c>MaxQueuedAge</c>.
         ///     </para>

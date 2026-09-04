@@ -13,7 +13,9 @@ namespace Vion.Dale.Sdk.Modbus.Core.Diagnostics
     ///     </para>
     ///     <para>
     ///         This split is what lets a block distinguish a backed-up local queue from a broken device or network:
-    ///         only the link verdicts move <see cref="ModbusLinkSummary.State" />.
+    ///         only the link verdicts move <see cref="ModbusLinkSummary.State" />. Every outcome is reported on the
+    ///         receipt and as <see cref="ModbusLinkSummary.LastFailureOutcome" />; <see cref="Invalid" /> and
+    ///         <see cref="Cancelled" /> are the two the summary keeps no lifetime counter for.
     ///     </para>
     /// </remarks>
     [PublicApi]

@@ -8,9 +8,16 @@ description: Smoke-test the Modbus client surface end to end against a real clie
 The Modbus TCP example is a genuine client/server pair — `ModbusTcpSimServer` binds `127.0.0.1:15020`
 (loopback only, deliberately: a wildcard bind would answer on every `127.0.0.x`, so a "wrong" address
 would still reach it) and `ModbusTcpDebugClient` talks to it over a real socket. That makes it the only
-place in this repo where the SDK's link policy can be exercised for real: a refused connect, a peer
-that goes away, a backoff that actually elapses. The TestKit's fake client proxy answers from a
-register store and can prove none of it.
+place in this repo where the SDK's link policy can be exercised against a real socket: a connect
+a real peer refuses, a peer that goes away, a round trip that takes real time.
+
+What the TestKit's fake client proxy **can** prove is the policy itself — it substitutes the proxy,
+so the wrapper's real backoff runs above it, and
+`Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test/ModbusLinkPolicyShould.cs` drives the whole state machine
+through `FakeModbusTcpClientProxy.EnqueueConnectFailure` on a `FakeTimeProvider` in milliseconds.
+Reach for that first. What it cannot prove is the socket underneath: which errno a refused or
+unroutable address produces, a half-open connection, the reuse-address bind, and a `RoundTrip` that
+is not zero. That is what this skill is for.
 
 Run this after changing `Vion.Dale.Sdk.Modbus.Core` / `.Tcp` / `.Rtu`, after changing
 `examples/Vion.Examples.ModbusTcp` or `examples/Vion.Examples.ModbusRtu`, and after a release bump
