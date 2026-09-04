@@ -297,7 +297,11 @@ finding the operator actively schedules. Do not proceed to Phase B without the c
        file and a future-tense plan survived two rounds that way);
     6. every `OUTCOME` line under the doc's Reviewer's questions carries its outcome — a
        `(pending classification)` that survived Phase B is a placeholder above the append that nothing
-       re-read (seven survived a pass, its archive, two checks and a fresh round).
+       re-read (seven survived a pass, its archive, two checks and a fresh round);
+    7. the change doc carries a `## Relay notes for the PR body` section naming every
+       consumer-visible change the pass landed, written as each landed — the PR body quotes that
+       section verbatim and nothing else; one pass reached its close-out with the notes in two
+       REPORTs and none in the doc, and the coordinator had to compose them.
 
     Then: commands run + results · the test → mutation list · GAP list · premise tests left
     uncited, with reasons · park rows written to the ledger · friction one-liners (journal
@@ -332,6 +336,17 @@ rejects in its own comments. The test for a `propose` row is unchanged — a sil
 made visible; no consumer depending on today; small and area-local — but its second clause is now
 answered by reading, and a wire change whose every reader was read and found not to read the
 field is a `fix` with a relay note, not a `park`.
+
+The brief that dispatches a pass is built the same way: an inventory subagent's counts are
+hypotheses until a second fresh-context subagent reads them against the code — one inventory said
+thirty-nine analyzers, three hundred and eighty-eight tests and the severities transposed, and the
+check corrected eighteen claims before the brief went out. The two checks after the REPORT run
+**after** the session's own sibling sweep and never instead of it: the sweep finds the neighbour
+the fixer thinks of, and one pass's five critic misses all sat on neighbours the sweep had visited
+and not seen. And a REPORT's numbers are read against the head they were taken at — a carried count
+does not announce itself as stale, it announces itself as an interesting difference, and one round
+went into explaining a CI-versus-plain gap of three tests that was three tests added in the last
+commit.
 
 An amendment's premise is a hypothesis until the tree confirms it: a check reading a branch at one
 commit gets the shape right and the constants wrong (an "empty schedule" that was the framework's
@@ -382,3 +397,6 @@ skipped ("the mutation list **and the test map**" — the map stayed stale for a
 | "I fixed the path the row named" | Its sibling path is where the next miss sits. Re-run the state-interaction and edge-value sweeps over every fix's neighbours before the REPORT. |
 | "The question already names the row" | A reviewer's question that describes an observable is a row until the table carries it. Ask the reverse question of the doc's own questions; one pass's question 7 had no row. |
 | "The reader is the runtime, which I cannot open" | Where the reader's repository is on the machine, the second opinion opens it. Five reader claims fell that way in one pass, three flipping a row's class. |
+| "The relay notes are in my REPORT" | The PR body quotes the change doc's `## Relay notes for the PR body`, not the REPORT. Write the section as each change lands; one pass reached close-out with none in the doc. |
+| "The inventory says thirty-nine" | An inventory's count is a hypothesis; a second reader counts again before the brief dispatches. Eighteen claims fell that way once. |
+| "Every local run passed" | One machine is one culture and one OS. A number a diagnostic renders is formatted invariantly and a test that pins it expects the invariant text; CI found the one test of 455 every local run had passed. |

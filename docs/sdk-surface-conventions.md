@@ -125,6 +125,11 @@ Adding one:
 - **A rule that needs the whole compilation** registers a compilation-end action and tags its
   descriptor `WellKnownDiagnosticTags.CompilationEnd` (as `DALE045` does for duplicate-`RelationType`
   detection). Without the tag the diagnostic is dropped in IDE live analysis.
+- **A numeric argument a message carries is rendered in the invariant culture** before it reaches
+  `Diagnostic.Create` — Roslyn formats a raw `double` in the current culture, so an infinite
+  `[Timer]` interval read `∞` on one machine and `Infinity` on the Linux runner, and a test that had
+  passed every local run failed CI. `CrossFillConflictAnalyzer` and `TimerMethodAnalyzer` are the
+  precedents; a test that pins a rendered number expects the invariant text.
 - **A value type reaching a service member usually needs exempting in more than one analyzer.** The
   supported-type gate is not a single rule: `DALE003` (unsupported service-property type), `DALE016`
   (struct must be a flat readonly record) and `DALE008` (array must be `ImmutableArray<T>`) each judge
