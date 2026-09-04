@@ -2353,8 +2353,8 @@ const PropertyPicker = {
 
 // ── ContractPicker (Task 9): a {logicBlock, contract} picker over the host's service-provider contracts.
 // Props: modelValue (an object with logicBlock + contract). Emits update:modelValue with the chosen pair.
-// A single <select> over contractRefs(); the option value encodes the pair as "logicBlock contract"
-// (a delimiter that can't occur in an identifier), decoded on change.
+// A Combobox over contractRefs(); each option's value IS the {logicBlock, contract} ref object, so the
+// pair travels whole and nothing is encoded into a string or decoded back out of one.
 const ContractPicker = {
     components: { Combobox },
     props: {

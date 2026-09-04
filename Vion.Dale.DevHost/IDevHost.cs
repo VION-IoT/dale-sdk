@@ -8,8 +8,10 @@ namespace Vion.Dale.DevHost
     public interface IDevHost : IAsyncDisposable
     {
         /// <summary>
-        ///     Headless, scriptable control surface for the running network (CI / tests / agents).
-        ///     Available after <see cref="StartAsync" />. See RFC 0003.
+        ///     Headless, scriptable control surface for the network (CI / tests / agents). Resolvable as soon
+        ///     as the host is built: reading the configuration introspects on demand, which is what the
+        ///     boot-dump-exit export path depends on. Everything that observes a RUNNING network — values, the
+        ///     event stream, the message tap — is empty until <see cref="StartAsync" />.
         /// </summary>
         IDevHostControl Control { get; }
 

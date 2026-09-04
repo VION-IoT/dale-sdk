@@ -360,7 +360,8 @@ the opt-in: `[Persistent(Exclude = true)]` asks for exactly what a parameter alr
   binding and contract binding.
 - `AC-GATE-012.4` (Ubiquitous): THE SYSTEM SHALL overlay an instance's chosen parameter values on each
   parameter's reported default when resolving that live view.
-- `AC-GATE-012.5` (Conditional): WHERE an `[IncludedWhen]` predicate cannot be resolved while resolving that live view THE SYSTEM SHALL leave the member visible. GAP: no committed fixture declares a gate the live view cannot resolve; CTRL's pass owns the host's fail-open surface.
+- `AC-GATE-012.5` (Conditional): WHERE an `[IncludedWhen]` predicate cannot be resolved while resolving
+  that live view THE SYSTEM SHALL leave the member visible.
 - `AC-GATE-012.6` (Ubiquitous): THE SYSTEM SHALL project each catalog block's
   `[InstantiationParameter]` set with its editor schema and default, and each gated interface and
   contract binding's predicate.

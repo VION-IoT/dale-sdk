@@ -103,7 +103,7 @@ namespace Vion.Dale.DevHost.Test
                                                   { "label": "exact", "waitUntil": { "property": "Counter.Counter", "equals": 21 }, "timeoutSeconds": 5 }
                                                 ],
                                                 "watch": [ "Counter.CounterDoubled" ],
-                                                "judge": [ { "text": "Counter felt responsive", "spec": "AC-TEST-1" } ]
+                                                "judge": [ { "text": "Counter felt responsive", "spec": "operator-check-1" } ]
                                               }
                                               """);
 
@@ -121,7 +121,7 @@ namespace Vion.Dale.DevHost.Test
             Assert.AreEqual("> 40 · 10 s timeout", report.Steps[1].Argument);
             Assert.AreEqual("2", report.Setup[0].Argument);
             Assert.AreEqual("requiresHuman", report.Judge[0].Status);
-            Assert.AreEqual("AC-TEST-1", report.Judge[0].Spec);
+            Assert.AreEqual("operator-check-1", report.Judge[0].Spec);
             Assert.AreEqual(21, host.Control.GetProperty("Counter", "Counter"));
         }
 

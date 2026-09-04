@@ -88,6 +88,24 @@ namespace Vion.Dale.DevHost.Test
             Assert.DoesNotContain("instantiationParameters", json);
         }
 
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-012.5")]
+        public async Task KeepMemberVisibleWhenItsGateCannotBeResolved()
+        {
+            // Arrange — a contract binding gated on an optional parameter no value has been chosen for. The
+            // gate resolves syntactically, so every compile-time and bind-time check passes; evaluating it is
+            // what fails, because the predicate profile treats a null reference as a hard error.
+            var configuration = DevConfigurationBuilder.Create().AddLogicBlock<UnresolvableGateBlock>("gated").Build();
+            await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(configuration).Build();
+
+            // Act
+            var block = host.Control.GetConfiguration().LogicBlocks.Single(b => b.Name == "gated");
+
+            // Assert — the development host stays fail-open; the running block is the strict gate.
+            Assert.IsTrue(block.Contracts.Any(c => c.Identifier == "Demand"), "a member whose gate cannot be resolved stays visible");
+            Assert.IsTrue(block.Contracts.Any(c => c.Identifier == "Ungated"), "an ungated member is unaffected");
+        }
+
         private static async Task<HashSet<string>> ResolveStationServices(int pointCount)
         {
             var config = DevConfigurationBuilder.Create().WithTopologyName("gated").AddLogicBlock<SmokeHost.LogicBlocks.GatedStationBlock>("Station").Build();

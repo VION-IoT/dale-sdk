@@ -30,7 +30,7 @@ namespace Vion.Dale.DevHost.Test
                                                            { "label": "doubled", "waitUntil": { "property": "counter.CounterDoubled", "above": 13 }, "timeoutSeconds": 10 }
                                                          ],
                                                          "watch": [ "counter.Counter" ],
-                                                         "judge": [ { "text": "felt right", "spec": "AC-TEST-9" } ]
+                                                         "judge": [ { "text": "felt right", "spec": "operator-check-9" } ]
                                                        }
                                                        """;
 

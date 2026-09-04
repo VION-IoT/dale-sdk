@@ -464,6 +464,26 @@ namespace Vion.Dale.DevHost.Test
             return dir;
         }
 
+        [TestMethod]
+        [TestProperty("spec", "AC-GATE-010.6")]
+        [TestProperty("spec", "AC-INTRO-007.3")]
+        public void PublishOnlyBoundsTheParameterSchemaCanCarry()
+        {
+            // Arrange / Act
+            var definition = LogicBlockDefinition.FromType(typeof(BoundedParameterBlock), null);
+            var parameters = definition.InstantiationParameters.ToDictionary(p => p.Identifier, p => p.Schema);
+
+            // Assert — the declaration's own defaults are the two infinities, so "finite" is the same test as
+            // "declared"; a NaN is neither, and a finite bound the schema's integer cannot carry saturates
+            // into a limit the author never wrote.
+            Assert.IsNull(parameters["NotANumber"]!["minimum"], "a bound that is not a number has no representation in the schema");
+            Assert.AreEqual(10L, parameters["NotANumber"]!["maximum"]!.GetValue<long>(), "the other bound of the same member is unaffected");
+            Assert.IsNull(parameters["OutOfRange"]!["maximum"], "a finite bound outside the integer range would saturate, so it is omitted");
+            Assert.AreEqual(0L, parameters["OutOfRange"]!["minimum"]!.GetValue<long>());
+            Assert.AreEqual(1L, parameters["Carryable"]!["minimum"]!.GetValue<long>());
+            Assert.AreEqual(12L, parameters["Carryable"]!["maximum"]!.GetValue<long>());
+        }
+
         private static int FreePort()
         {
             var listener = new TcpListener(IPAddress.Loopback, 0);

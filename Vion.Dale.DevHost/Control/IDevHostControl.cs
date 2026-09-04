@@ -7,9 +7,9 @@ using System.Threading.Tasks;
 namespace Vion.Dale.DevHost.Control
 {
     /// <summary>
-    ///     Headless, scriptable control surface for a running DevHost network — the in-process complement to
-    ///     the web UI, for CI / integration tests / agents. Reachable via <see cref="IDevHost.Control" /> after
-    ///     <see cref="IDevHost.StartAsync" />. See RFC 0003.
+    ///     Headless, scriptable control surface for a DevHost network — the in-process complement to the web
+    ///     UI, for CI / integration tests / agents. Reachable via <see cref="IDevHost.Control" /> as soon as the
+    ///     host is built; what it can observe is what the host has started.
     ///     <para>
     ///         Covers topology, reading/writing state (service properties and measuring points), driving inputs,
     ///         observing the state-change stream, the inter-block message tap, and the log stream.

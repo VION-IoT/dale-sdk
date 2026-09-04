@@ -146,12 +146,12 @@ namespace Vion.Dale.DevHost.Topologies
                 schema["type"] = "integer";
                 if (serviceProperty is not null)
                 {
-                    if (!double.IsInfinity(serviceProperty.Minimum))
+                    if (CanCarry(serviceProperty.Minimum))
                     {
                         schema["minimum"] = (long)serviceProperty.Minimum;
                     }
 
-                    if (!double.IsInfinity(serviceProperty.Maximum))
+                    if (CanCarry(serviceProperty.Maximum))
                     {
                         schema["maximum"] = (long)serviceProperty.Maximum;
                     }
@@ -164,6 +164,17 @@ namespace Vion.Dale.DevHost.Topologies
             }
 
             return schema;
+        }
+
+        // Whether a declared bound can be carried in the editor schema's integer at all. The declaration's own
+        // defaults are the two infinities, so "finite" is the same test as "declared" — and it closes the value
+        // that is neither: a NaN passes an infinity test and converts to 0, a limit an author never wrote and a
+        // plausible enough one to be believed. A finite bound outside the integer range saturates to its
+        // extreme, which is the same lie with a bigger number. Both are left out; the running block enforces
+        // nothing here either way (AC-GATE-010.6).
+        private static bool CanCarry(double bound)
+        {
+            return double.IsFinite(bound) && bound >= long.MinValue && bound <= long.MaxValue;
         }
 
         // The wire scalar for a parameter value: enum by member name, integer as a number, bool/string as-is —
