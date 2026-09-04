@@ -115,18 +115,12 @@ namespace Vion.Dale.DevHost
         ///     <c>settle</c> steps drive virtual time exactly instead of waiting on the wall clock. The clock
         ///     starts at <paramref name="startUtc" /> (default a fixed epoch, so a run is reproducible). It is
         ///     registered ahead of <see cref="Build" />'s <c>TryAddSingleton(TimeProvider.System)</c>, so this
-        ///     explicit clock wins.
+        ///     explicit clock wins. The ceiling the stepper waits under is a safety budget like the others —
+        ///     <see cref="WithSafetyBudgets" /> is where it is set.
         /// </summary>
-        public DevHostBuilder WithDeterministicStepping(DateTimeOffset? startUtc = null, TimeSpan? quiescenceBudget = null)
+        public DevHostBuilder WithDeterministicStepping(DateTimeOffset? startUtc = null)
         {
             _services.AddSingleton<TimeProvider>(new FakeTimeProvider(startUtc ?? DeterministicEpoch));
-
-            if (quiescenceBudget is { } budget)
-            {
-                _budgets = _budgets with { Quiescence = budget };
-                _budgets.Validate();
-            }
-
             return this;
         }
 
@@ -143,9 +137,6 @@ namespace Vion.Dale.DevHost
             }
 
             budgets.Validate();
-
-            // Deterministic stepping may already have set the quiescence budget; an explicit record wins,
-            // whichever order the two calls came in, because it names every field.
             _budgets = budgets;
             return this;
         }

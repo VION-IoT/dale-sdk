@@ -4,9 +4,8 @@ namespace Vion.Dale.DevHost
 {
     /// <summary>
     ///     The development host's real-time safety budgets — the backstops that bound a wait no clock mode can
-    ///     complete. Each defaults to the value the host has always used; a caller overrides one with
-    ///     <see cref="DevHostBuilder.WithSafetyBudgets" /> (or, for <see cref="Quiescence" />,
-    ///     <see cref="DevHostBuilder.WithDeterministicStepping" />).
+    ///     complete. Each defaults to the value the host has always used; <see cref="DevHostBuilder.WithSafetyBudgets" />
+    ///     is the one place a caller overrides any of them.
     ///     <para>
     ///         They are budgets, not tolerances: the normal path completes in milliseconds and never approaches
     ///         one. They exist so a genuinely stuck host surfaces as a named failure instead of a hang — and so
@@ -16,8 +15,8 @@ namespace Vion.Dale.DevHost
     public sealed record DevHostBudgets
     {
         /// <summary>
-        ///     How long a service-property write waits for the block's own acknowledgement before completing
-        ///     regardless. A write that consumes it was never applied — the swallowed-exception hollow ack.
+        ///     How long a service-property write waits for the block's own acknowledgement before it is refused.
+        ///     A write that consumes it was never applied — the swallowed-exception hollow ack.
         /// </summary>
         public TimeSpan WriteAcknowledgement { get; init; } = TimeSpan.FromSeconds(5);
 

@@ -98,7 +98,10 @@ are where that failure is readable.
 
 `AC-CTRL-003.1` is deliberately every handler exception and not a list of message types: the three
 ways a block fails to come up — a throw from its configuration, from its binding and from its start
-hook — arrive on three different messages, and a fourth would arrive on a fourth.
+hook — arrive on three different messages, and a fourth would arrive on a fourth. Read the list
+accordingly: a non-empty one on a long-lived host means some handler has thrown since this generation
+started, not that a block failed to come up. A reader that wants only the boot reads it right after the
+start returns.
 
 ## Stopping and disposing
 
@@ -358,8 +361,6 @@ window, and no test could reach the failure without waiting out five real second
   embedded in the assembly, with revalidation forced on every file.
 - `AC-CTRL-014.5` (Ubiquitous): THE SYSTEM SHALL emit a duration as an ISO-8601 duration and an enum
   as its member name on both the request-response and the push wire.
-- `AC-CTRL-014.6` (Ubiquitous): THE SYSTEM SHALL subscribe the event broadcaster before the first
-  block publishes.
 
 `AC-CTRL-014.2` is the local-tool posture: the server binds loopback, but a hostile page in the
 developer's own browser can still fire cross-origin requests at it, and cross-origin resource sharing

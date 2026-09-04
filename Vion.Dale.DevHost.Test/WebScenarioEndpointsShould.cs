@@ -206,7 +206,6 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-CTRL-014.1")]
         [TestProperty("spec", "AC-CTRL-014.2")]
         public async Task RefuseCrossOriginMutationsButNeverLocalOnes()
         {
@@ -273,6 +272,37 @@ namespace Vion.Dale.DevHost.Test
 
             Assert.IsFalse(registry.HasActiveRun);
             Assert.AreEqual(ScenarioRunStatus.Canceled, registry.Latest("endless")!.Status);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CTRL-013.3")]
+        public async Task DetectHollowAcknowledgementOnWindowHostWasBuiltWith()
+        {
+            // Arrange — the run is started over the route, so the runner is handed no window of its own and the
+            // registry derives one from the host. On the default window this run would still be waiting when the
+            // deadline below expires, which is what makes that expiry the assertion.
+            var dir = NewScenarioDir();
+            File.WriteAllText(Path.Combine(dir, "rejected.scenario.json"),
+                              """{ "version": 1, "id": "rejected", "topology": "rejecting", "steps": [ { "set": "rejector.Rejected", "value": 7 } ] }""");
+
+            var port = FreePort();
+            var config = DevConfigurationBuilder.Create().WithTopologyName("rejecting").WithScenarios(dir).AddLogicBlock<RejectingWriteBlock>("rejector").Build();
+            await using var host = DevHostBuilder.Create()
+                                                 .WithDi<TestDependencyInjection>()
+                                                 .WithConfiguration(config)
+                                                 .WithSafetyBudgets(new DevHostBudgets { WriteAcknowledgement = TimeSpan.FromMilliseconds(200) })
+                                                 .WithWebUi(port)
+                                                 .Build();
+            await host.StartAsync();
+            using var client = NewClient(port);
+
+            // Act
+            Assert.AreEqual(HttpStatusCode.Accepted, (await client.PostAsync("/api/scenarios/rejected/apply", null)).StatusCode);
+            var report = await PollRunUntilDoneAsync(client, "rejected", TimeSpan.FromSeconds(20)).WaitAsync(TimeSpan.FromSeconds(2));
+
+            // Assert
+            Assert.AreEqual("failed", report.GetProperty("status").GetString(), report.GetRawText());
+            StringAssert.Contains(report.GetProperty("steps")[0].GetProperty("detail").GetString()!, "write appears rejected");
         }
 
         private static async Task<JsonElement> PollRunUntilDoneAsync(HttpClient client, string id, TimeSpan timeout)

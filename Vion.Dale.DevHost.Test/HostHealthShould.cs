@@ -120,7 +120,7 @@ namespace Vion.Dale.DevHost.Test
             // wait it would fail to bound.
             Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => builder.WithSafetyBudgets(new DevHostBudgets { Quiescence = TimeSpan.Zero }));
             Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => builder.WithSafetyBudgets(new DevHostBudgets { WriteAcknowledgement = TimeSpan.FromSeconds(-1) }));
-            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => builder.WithDeterministicStepping(null, TimeSpan.Zero));
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => builder.WithSafetyBudgets(new DevHostBudgets { StopSequence = TimeSpan.FromMilliseconds(-1) }));
         }
 
         [TestMethod]

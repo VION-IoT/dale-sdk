@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text.Json;
 using System.Threading;
@@ -231,6 +232,24 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CTRL-014.1")]
+        public async Task BindConfiguredPortOnLoopbackOnly()
+        {
+            // Arrange
+            var port = FreePort();
+            await using var host = BuildWebHost(port);
+
+            // Act — the operating system's own listener table, so a wildcard bind cannot hide behind a request
+            // that happened to originate on this machine.
+            await host.StartAsync();
+            var listeners = IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners().Where(endpoint => endpoint.Port == port).ToList();
+
+            // Assert
+            Assert.IsNotEmpty(listeners, "the host must be listening on the port it was configured with");
+            Assert.IsTrue(listeners.TrueForAll(endpoint => IPAddress.IsLoopback(endpoint.Address)), "listening on: " + string.Join(", ", listeners));
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-CTRL-009.7")]
         [TestProperty("spec", "AC-CTRL-016.2")]
         public async Task RefuseWriteOverHttpNobodyAcknowledged()
@@ -404,7 +423,6 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-CTRL-014.6")]
         [TestProperty("spec", "AC-CTRL-018.1")]
         [TestProperty("spec", "AC-CTRL-018.2")]
         public async Task PrimeConnectingClientWithCurrentState()
@@ -653,11 +671,11 @@ namespace Vion.Dale.DevHost.Test
             var enable = await Mapping(client, "EnableInput");
             var handler = await HandlerName(client, "EnableInput");
 
+            // Act
             var unknownHandler = await client.PostAsJsonAsync($"/api/contracts/drive/NoSuchHandler/{enable.Sp}/{enable.Svc}/{enable.Contract}", new { value = true });
-
-            // Act / Assert
             var unknownContract = await client.PostAsJsonAsync($"/api/contracts/drive/{handler}/{enable.Sp}/{enable.Svc}/NoSuchContract", new { value = true });
 
+            // Assert
             Assert.AreEqual(HttpStatusCode.BadRequest, unknownHandler.StatusCode);
             Assert.AreEqual("unknownHandler", JsonDocument.Parse(await unknownHandler.Content.ReadAsStringAsync()).RootElement.GetProperty("reason").GetString());
             Assert.AreEqual(HttpStatusCode.BadRequest, unknownContract.StatusCode);
@@ -740,10 +758,11 @@ namespace Vion.Dale.DevHost.Test
             await host.StartAsync();
             using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
 
+            // Act
             var response = await client.PostAsync("/api/topologies/other/switch", null);
             var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
 
-            // Act / Assert
+            // Assert
             Assert.AreEqual(HttpStatusCode.Conflict, response.StatusCode, body.GetRawText());
             Assert.AreEqual("notSupervised", body.GetProperty("reason").GetString());
         }
@@ -760,9 +779,10 @@ namespace Vion.Dale.DevHost.Test
             await host.StartAsync();
             using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
 
+            // Act
             var status = JsonDocument.Parse(await client.GetStringAsync("/api/control/status")).RootElement;
 
-            // Act / Assert
+            // Assert
             var failures = status.GetProperty("blockFailures").EnumerateArray().ToList();
             Assert.IsNotEmpty(failures, "the status route is where an agent learns the host started over a block that did not");
             Assert.AreEqual("bad", failures[0].GetProperty("logicBlock").GetString());

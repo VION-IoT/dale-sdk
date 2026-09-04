@@ -434,13 +434,14 @@ namespace Vion.Dale.DevHost.Test
             var io = host.Control.GetConfiguration().LogicBlocks.Single(b => b.Name == "io");
             var enable = io.ContractMappings.Single(m => m.ContractIdentifier == "EnableInput");
 
+            // Act
             var refusal = await Assert.ThrowsExactlyAsync<ServiceProviderDriveException>(() => host.Control.DriveServiceProviderContractAsync("NoSuchHandler",
                                                                                              enable.MappedServiceProviderIdentifier,
                                                                                              enable.MappedServiceIdentifier,
                                                                                              enable.MappedContractIdentifier,
                                                                                              JsonSerializer.SerializeToElement(true)));
 
-            // Act / Assert
+            // Assert
             Assert.AreEqual(ServiceProviderDriveException.ReasonUnknownHandler, refusal.Reason);
             StringAssert.Contains(refusal.Message, "NoSuchHandler");
         }
@@ -458,13 +459,14 @@ namespace Vion.Dale.DevHost.Test
             var enable = io.ContractMappings.Single(m => m.ContractIdentifier == "EnableInput");
             var handler = io.Contracts.Single(c => c.Identifier == "EnableInput").Annotations[ServiceProviderContractAnnotations.ContractHandlerActorName].ToString()!;
 
+            // Act
             var refusal = await Assert.ThrowsExactlyAsync<ServiceProviderDriveException>(() => host.Control.DriveServiceProviderContractAsync(handler,
                                                                                              enable.MappedServiceProviderIdentifier,
                                                                                              enable.MappedServiceIdentifier,
                                                                                              "NoSuchContract",
                                                                                              JsonSerializer.SerializeToElement(true)));
 
-            // Act / Assert
+            // Assert
             Assert.AreEqual(ServiceProviderDriveException.ReasonUnknownContract, refusal.Reason);
             StringAssert.Contains(refusal.Message, "NoSuchContract");
         }
@@ -477,9 +479,10 @@ namespace Vion.Dale.DevHost.Test
             await using var host = BuildHost();
             await host.StartAsync();
 
+            // Act
             var refusal = await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(() => host.Control.WaitForAsync(_ => "x", TimeSpan.FromSeconds(-1)));
 
-            // Act / Assert
+            // Assert
             Assert.AreEqual("timeout", refusal.ParamName);
         }
 

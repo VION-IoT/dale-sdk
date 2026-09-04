@@ -21,7 +21,6 @@ namespace Vion.Dale.DevHost.Test
     {
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-009.10")]
-        [TestProperty("spec", "AC-CTRL-013.3")]
         public async Task RecordRejectedWriteWhoseAcknowledgementConsumedItsWindow()
         {
             // Arrange — a block that throws from its setter, and a window short enough to reach.
@@ -65,7 +64,8 @@ namespace Vion.Dale.DevHost.Test
             await using var host = DevHostBuilder.Create()
                                                  .WithDi<TestDependencyInjection>()
                                                  .WithConfiguration(configuration)
-                                                 .WithDeterministicStepping(null, TimeSpan.FromMilliseconds(400))
+                                                 .WithDeterministicStepping()
+                                                 .WithSafetyBudgets(new DevHostBudgets { Quiescence = TimeSpan.FromMilliseconds(400) })
                                                  .Build();
             await host.StartAsync();
 

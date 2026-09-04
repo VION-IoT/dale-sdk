@@ -425,8 +425,8 @@ namespace Vion.Dale.DevHost.Scenarios
                                                      Action<ScenarioRunReport> progress,
                                                      ScenarioRunReport report,
                                                      CancellationToken cancellationToken,
-                                                     IReadOnlyList<string>? watchPaths = null,
-                                                     double ackCeilingMs = 0)
+                                                     IReadOnlyList<string>? watchPaths,
+                                                     double ackCeilingMs)
         {
             cancellationToken.ThrowIfCancellationRequested();
             result.Status = ScenarioStepStatus.Running;

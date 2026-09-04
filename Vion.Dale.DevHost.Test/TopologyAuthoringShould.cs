@@ -80,11 +80,13 @@ namespace Vion.Dale.DevHost.Test
         public async Task ServeBlockDefinitionsFromCatalog()
         {
             // The catalog endpoint exposes every block the WithDi<> plugins register — including SourceBlock —
-            // each with the per-interface matching metadata a topology-authoring client reads.
+            // each with the per-interface matching metadata a topology-authoring client reads. The plugins are
+            // added AFTER the web interface on purpose: that is the ordering a catalog captured at WithWebUi
+            // time would miss, and the one every consumer is free to write.
             // Arrange
             var port = FreePort();
             var config = DevConfigurationBuilder.Create().WithTopologyName("matching").AddLogicBlock<SourceBlock>("source").AddLogicBlock<SinkBlock>("sink").Build();
-            await using var host = DevHostBuilder.Create().WithDi<CrossBlockDependencyInjection>().WithConfiguration(config).WithWebUi(port).Build();
+            await using var host = DevHostBuilder.Create().WithConfiguration(config).WithWebUi(port).WithDi<CrossBlockDependencyInjection>().Build();
             await host.StartAsync();
 
             using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
