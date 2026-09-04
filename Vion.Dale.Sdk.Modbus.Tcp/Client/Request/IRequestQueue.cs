@@ -20,6 +20,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
         ///     Gets or sets how long a request may wait in the queue before it is discarded instead of executed, or
         ///     <c>null</c> to execute every request however long it waited.
         /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when set to zero or a negative duration.</exception>
         /// <remarks>
         ///     Read at dequeue and passed to the request, so a change applies to requests already waiting. Control
         ///     operations are exempt.

@@ -71,6 +71,30 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [DataRow(0, DisplayName = "Zero")]
+        [DataRow(-1, DisplayName = "Negative")]
+        public void ThrowExceptionWhenMaxQueuedAgeIsNotPositive(int seconds)
+        {
+            // Arrange
+
+            // Act & Assert
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => _sut.MaxQueuedAge = TimeSpan.FromSeconds(seconds));
+        }
+
+        [TestMethod]
+        public void KeepNoLimitWhenMaxQueuedAgeIsCleared()
+        {
+            // Arrange
+            _sut.MaxQueuedAge = TimeSpan.FromSeconds(5);
+
+            // Act
+            _sut.MaxQueuedAge = null;
+
+            // Assert
+            Assert.IsNull(_sut.MaxQueuedAge);
+        }
+
+        [TestMethod]
         public void ThrowExceptionWhenAlreadyInitialized()
         {
             // Arrange

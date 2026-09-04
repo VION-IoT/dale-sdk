@@ -62,6 +62,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Client
         /// <summary>
         ///     Gets or sets the wire timeout used by operations that do not pass their own.
         /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when set to zero or a negative duration.</exception>
         /// <remarks>
         ///     It measures the network exchange with the device only — from dispatch to the complete response — not the
         ///     wait before dispatch, parameter validation or data conversion. Changing it does not affect operations

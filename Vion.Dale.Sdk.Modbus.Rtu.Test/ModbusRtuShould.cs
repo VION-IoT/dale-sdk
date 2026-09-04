@@ -178,6 +178,36 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [DataRow(0, DisplayName = "Zero")]
+        [DataRow(-1, DisplayName = "Negative")]
+        public void ThrowExceptionWhenDefaultOperationTimeoutIsNotPositive(int seconds)
+        {
+            // Arrange
+
+            // Act & Assert
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => _sut.DefaultOperationTimeout = TimeSpan.FromSeconds(seconds));
+        }
+
+        [TestMethod]
+        [DataRow(TargetMethod.ReadDiscreteInputs, ModbusProtocolLimits.MaxBitsPerRead)]
+        [DataRow(TargetMethod.ReadCoils, ModbusProtocolLimits.MaxBitsPerRead)]
+        [DataRow(TargetMethod.WriteSingleCoil, ModbusProtocolLimits.MaxBitsPerWrite)]
+        [DataRow(TargetMethod.WriteMultipleCoils, ModbusProtocolLimits.MaxBitsPerWrite)]
+        [DataRow(TargetMethod.ReadInputRegistersAsFloat, ModbusProtocolLimits.MaxRegistersPerRead)]
+        [DataRow(TargetMethod.ReadHoldingRegistersAsInt, ModbusProtocolLimits.MaxRegistersPerRead)]
+        [DataRow(TargetMethod.WriteMultipleHoldingRegistersAsDouble, ModbusProtocolLimits.MaxRegistersPerWrite)]
+        public void ValidateQuantityAgainstTheFunctionCodesProtocolLimit(TargetMethod targetMethod, int expectedLimit)
+        {
+            // Arrange
+
+            // Act
+            InvokeMethod(targetMethod);
+
+            // Assert
+            _validatorMock.Verify(validator => validator.ValidateQuantity(It.IsAny<uint>(), expectedLimit), Times.Once);
+        }
+
+        [TestMethod]
         [DataRow(TargetMethod.ReadDiscreteInputs)]
         [DataRow(TargetMethod.ReadCoils)]
         [DataRow(TargetMethod.WriteSingleCoil)]

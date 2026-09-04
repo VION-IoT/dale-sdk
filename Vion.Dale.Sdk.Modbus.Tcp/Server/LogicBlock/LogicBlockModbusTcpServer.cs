@@ -11,6 +11,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
     {
         private const int MaxPort = 65535;
 
+        // Port 0 binds an ephemeral port the block is never told, so IsListening reads true on an endpoint no
+        // master can be pointed at. It is also what an unset configuration field binds to.
+        private const int MinPort = 1;
+
         private readonly IModbusDataConverter _dataConverter;
 
         private readonly ILogger<LogicBlockModbusTcpServer> _logger;
@@ -83,9 +87,9 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
             set
             {
                 EnsureDisabled(nameof(Port));
-                if (value is < 0 or > MaxPort)
+                if (value is < MinPort or > MaxPort)
                 {
-                    throw new FormatException($"Port {value} is outside the valid range (0-{MaxPort}).");
+                    throw new FormatException($"Port {value} is outside the valid range ({MinPort}-{MaxPort}).");
                 }
 
                 field = value;

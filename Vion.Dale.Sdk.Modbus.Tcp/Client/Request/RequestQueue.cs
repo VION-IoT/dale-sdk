@@ -51,7 +51,17 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
                 return ticks < 0 ? null : TimeSpan.FromTicks(ticks);
             }
 
-            set => Interlocked.Exchange(ref _maxQueuedAgeTicks, value?.Ticks ?? -1);
+            set
+            {
+                // -1 ticks is this field's "no limit" sentinel, so a negative TimeSpan would read back as null
+                // and silently mean the opposite of what was asked.
+                if (value is { } age && age <= TimeSpan.Zero)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(value), age, $"{nameof(MaxQueuedAge)} must be greater than zero, or null to disable the check.");
+                }
+
+                Interlocked.Exchange(ref _maxQueuedAgeTicks, value?.Ticks ?? -1);
+            }
         }
 
         /// <inheritdoc />

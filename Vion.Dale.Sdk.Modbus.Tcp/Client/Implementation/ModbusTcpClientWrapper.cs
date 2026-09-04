@@ -350,6 +350,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         {
             return ExecuteReadOperationAsync(unitIdentifier,
                                              quantity,
+                                             ModbusProtocolLimits.MaxBitsPerRead,
                                              operationTimeout,
                                              (unitId, _, token) => _clientProxy.ReadDiscreteInputsAsync(unitId, startingAddress, quantity, token),
                                              responseBuffer => _dataConverter.ConvertBitsToBools(responseBuffer, quantity),
@@ -365,6 +366,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         {
             return ExecuteReadOperationAsync(unitIdentifier,
                                              quantity,
+                                             ModbusProtocolLimits.MaxBitsPerRead,
                                              operationTimeout,
                                              (unitId, _, token) => _clientProxy.ReadCoilsAsync(unitId, startingAddress, quantity, token),
                                              responseBuffer => _dataConverter.ConvertBitsToBools(responseBuffer, quantity),
@@ -375,6 +377,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         public Task WriteSingleCoilAsync(int unitIdentifier, ushort registerAddress, bool value, TimeSpan operationTimeout, CancellationToken cancellationToken)
         {
             return ExecuteWriteOperationAsync(unitIdentifier,
+                                              1,
+                                              ModbusProtocolLimits.MaxBitsPerWrite,
                                               operationTimeout,
                                               (unitId, token) => _clientProxy.WriteSingleCoilAsync(unitId, registerAddress, value, token),
                                               cancellationToken);
@@ -384,6 +388,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         public Task WriteMultipleCoilsAsync(int unitIdentifier, ushort startingAddress, bool[] values, TimeSpan operationTimeout, CancellationToken cancellationToken)
         {
             return ExecuteWriteOperationAsync(unitIdentifier,
+                                              (uint)values.Length,
+                                              ModbusProtocolLimits.MaxBitsPerWrite,
                                               operationTimeout,
                                               (unitId, token) => _clientProxy.WriteMultipleCoilsAsync(unitId, startingAddress, values, token),
                                               cancellationToken);
@@ -398,6 +404,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         {
             return ExecuteReadOperationAsync(unitIdentifier,
                                              quantity,
+                                             ModbusProtocolLimits.MaxRegistersPerRead,
                                              operationTimeout,
                                              (unitId, _, token) => _clientProxy.ReadInputRegistersAsync((byte)unitId, startingAddress, quantity, token),
                                              responseBuffer => responseBuffer.ToArray(),
@@ -562,6 +569,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         {
             var registerBytes = await ExecuteReadOperationAsync(unitIdentifier,
                                                                 quantity,
+                                                                ModbusProtocolLimits.MaxRegistersPerRead,
                                                                 operationTimeout,
                                                                 (unitId, _, token) => _clientProxy.ReadInputRegistersAsync((byte)unitId, startingAddress, quantity, token),
                                                                 responseBuffer => responseBuffer.ToArray(),
@@ -584,6 +592,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         {
             return ExecuteReadOperationAsync(unitIdentifier,
                                              quantity,
+                                             ModbusProtocolLimits.MaxRegistersPerRead,
                                              operationTimeout,
                                              (unitId, _, token) => _clientProxy.ReadHoldingRegistersAsync((byte)unitId, startingAddress, quantity, token),
                                              responseBuffer => responseBuffer.ToArray(),
@@ -748,6 +757,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         {
             var registerBytes = await ExecuteReadOperationAsync(unitIdentifier,
                                                                 quantity,
+                                                                ModbusProtocolLimits.MaxRegistersPerRead,
                                                                 operationTimeout,
                                                                 (unitId, _, token) => _clientProxy.ReadHoldingRegistersAsync((byte)unitId, startingAddress, quantity, token),
                                                                 responseBuffer => responseBuffer.ToArray(),
@@ -769,6 +779,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
             _dataConverter.SwapBytes(registerBytes, byteOrder);
 
             return ExecuteWriteOperationAsync(unitIdentifier,
+                                              1,
+                                              ModbusProtocolLimits.MaxRegistersPerWrite,
                                               operationTimeout,
                                               (unitId, token) => _clientProxy.WriteSingleRegisterAsync((byte)unitId, registerAddress, registerBytes, token),
                                               cancellationToken);
@@ -786,6 +798,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
             _dataConverter.SwapBytes(registerBytes, byteOrder);
 
             return ExecuteWriteOperationAsync(unitIdentifier,
+                                              1,
+                                              ModbusProtocolLimits.MaxRegistersPerWrite,
                                               operationTimeout,
                                               (unitId, token) => _clientProxy.WriteSingleRegisterAsync((byte)unitId, registerAddress, registerBytes, token),
                                               cancellationToken);
@@ -795,6 +809,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         public Task WriteMultipleHoldingRegistersRawAsync(int unitIdentifier, ushort startingAddress, byte[] values, TimeSpan operationTimeout, CancellationToken cancellationToken)
         {
             return ExecuteWriteOperationAsync(unitIdentifier,
+                                              (uint)(values.Length / 2),
+                                              ModbusProtocolLimits.MaxRegistersPerWrite,
                                               operationTimeout,
                                               (unitId, token) => _clientProxy.WriteMultipleRegistersAsync((byte)unitId, startingAddress, values, token),
                                               cancellationToken);
@@ -951,6 +967,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
             var registerBytes = _dataConverter.ConvertStringToBytes(value, textEncoding);
 
             return ExecuteWriteOperationAsync(unitIdentifier,
+                                              (uint)(registerBytes.Length / 2),
+                                              ModbusProtocolLimits.MaxRegistersPerWrite,
                                               operationTimeout,
                                               (unitId, token) => _clientProxy.WriteMultipleRegistersAsync((byte)unitId, startingAddress, registerBytes, token),
                                               cancellationToken);
@@ -968,6 +986,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
             _dataConverter.SwapBytes(registerBytes, byteOrder);
 
             return ExecuteWriteOperationAsync(unitIdentifier,
+                                              (uint)(registerBytes.Length / 2),
+                                              ModbusProtocolLimits.MaxRegistersPerWrite,
                                               operationTimeout,
                                               (unitId, token) => _clientProxy.WriteMultipleRegistersAsync((byte)unitId, startingAddress, registerBytes, token),
                                               cancellationToken);
@@ -987,6 +1007,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
             _dataConverter.SwapWords(registerBytes, wordOrder);
 
             return ExecuteWriteOperationAsync(unitIdentifier,
+                                              (uint)(registerBytes.Length / 2),
+                                              ModbusProtocolLimits.MaxRegistersPerWrite,
                                               operationTimeout,
                                               (unitId, token) => _clientProxy.WriteMultipleRegistersAsync((byte)unitId, startingAddress, registerBytes, token),
                                               cancellationToken);
@@ -1006,6 +1028,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
             _dataConverter.SwapWords(registerBytes, wordOrder);
 
             return ExecuteWriteOperationAsync(unitIdentifier,
+                                              (uint)(registerBytes.Length / 2),
+                                              ModbusProtocolLimits.MaxRegistersPerWrite,
                                               operationTimeout,
                                               (unitId, token) => _clientProxy.WriteMultipleRegistersAsync((byte)unitId, startingAddress, registerBytes, token),
                                               cancellationToken);
@@ -1024,6 +1048,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         {
             return ExecuteReadOperationAsync(unitIdentifier,
                                              quantity,
+                                             ModbusProtocolLimits.MaxRegistersPerRead,
                                              operationTimeout,
                                              operation,
                                              responseBuffer =>
@@ -1050,6 +1075,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
 
             return ExecuteReadOperationAsync(unitIdentifier,
                                              quantity,
+                                             ModbusProtocolLimits.MaxRegistersPerRead,
                                              operationTimeout,
                                              operation,
                                              responseBuffer =>
@@ -1077,6 +1103,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
 
             return ExecuteReadOperationAsync(unitIdentifier,
                                              quantity,
+                                             ModbusProtocolLimits.MaxRegistersPerRead,
                                              operationTimeout,
                                              operation,
                                              responseBuffer =>
@@ -1092,12 +1119,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
 
         private async Task<T[]> ExecuteReadOperationAsync<T>(int unitIdentifier,
                                                              ushort quantity,
+                                                             int protocolLimit,
                                                              TimeSpan operationTimeout,
                                                              Func<int, ushort, CancellationToken, Task<Memory<byte>>> operation,
                                                              Func<Memory<byte>, T[]> processResponse,
                                                              CancellationToken cancellationToken)
         {
             _validator.ValidateUnitIdentifier(unitIdentifier);
+            _validator.ValidateQuantity(quantity, protocolLimit);
 
             CancellationTokenSource? timeoutCts = null;
             CancellationTokenSource? linkedCts = null;
@@ -1132,11 +1161,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
         }
 
         private async Task ExecuteWriteOperationAsync(int unitIdentifier,
+                                                      uint quantity,
+                                                      int protocolLimit,
                                                       TimeSpan operationTimeout,
                                                       Func<int, CancellationToken, Task> operation,
                                                       CancellationToken cancellationToken)
         {
             _validator.ValidateUnitIdentifier(unitIdentifier);
+            _validator.ValidateQuantity(quantity, protocolLimit);
 
             CancellationTokenSource? timeoutCts = null;
             CancellationTokenSource? linkedCts = null;

@@ -17,6 +17,21 @@ namespace Vion.Dale.Sdk.Modbus.Core.Validation
         void ValidateUnitIdentifier(int unitIdentifier);
 
         /// <summary>
+        ///     Validates that a request's quantity is within the Modbus protocol's limit for its function code.
+        /// </summary>
+        /// <param name="quantity">The number of registers or bits the request would carry.</param>
+        /// <param name="protocolLimit">The limit for the function code, from <see cref="ModbusProtocolLimits" />.</param>
+        /// <exception cref="InvalidCountException">
+        ///     Thrown when <paramref name="quantity" /> exceeds <paramref name="protocolLimit" />.
+        /// </exception>
+        /// <remarks>
+        ///     Checked before the request reaches the wire: no standard function code can answer more, so a device
+        ///     asked for more answers with an exception code, drops the frame, or truncates — none of which tells
+        ///     the caller the request was the problem.
+        /// </remarks>
+        void ValidateQuantity(uint quantity, int protocolLimit);
+
+        /// <summary>
         ///     Validates that a response has the correct byte alignment for the requested data type.
         /// </summary>
         /// <param name="byteCount">The number of bytes received in the response.</param>

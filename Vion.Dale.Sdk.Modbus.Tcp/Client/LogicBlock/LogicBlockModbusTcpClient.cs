@@ -14,6 +14,9 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
     /// <inheritdoc />
     public partial class LogicBlockModbusTcpClient : ILogicBlockModbusTcpClient
     {
+        // IPEndPoint.MinPort is 0, which is the "let the OS choose" sentinel rather than an addressable port.
+        private const int MinPort = 1;
+
         private static readonly TimeSpan DefaultMaxQueuedAge = TimeSpan.FromSeconds(30);
 
         private readonly IModbusTcpClientWrapper _clientWrapper;
@@ -106,7 +109,11 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         {
             get;
 
-            set => field = _requestQueueInitialized ? field : value;
+            set
+            {
+                EnsureQueueNotCreated(nameof(QueueCapacity), field, value);
+                field = value;
+            }
         } = 256;
 
         /// <inheritdoc />
@@ -114,7 +121,11 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         {
             get;
 
-            set => field = _requestQueueInitialized ? field : value;
+            set
+            {
+                EnsureQueueNotCreated(nameof(QueueOverflowPolicy), field, value);
+                field = value;
+            }
         } = QueueOverflowPolicy.DropOldest;
 
         /// <inheritdoc />
@@ -150,9 +161,11 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
 
             set
             {
-                if (value is < IPEndPoint.MinPort or > IPEndPoint.MaxPort)
+                // Port 0 asks the OS for an ephemeral port, which a client can never reach a device on: every
+                // connect fails and two of them arm a backoff. It is what an unset configuration field binds to.
+                if (value is < MinPort or > IPEndPoint.MaxPort)
                 {
-                    throw new FormatException($"Port {value} is out of valid range ({IPEndPoint.MinPort}-{IPEndPoint.MaxPort}).");
+                    throw new FormatException($"Port {value} is out of valid range ({MinPort}-{IPEndPoint.MaxPort}).");
                 }
 
                 _clientWrapper.Port = value;
@@ -185,7 +198,15 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         {
             get => _clientWrapper.ConnectionTimeout;
 
-            set => _clientWrapper.ConnectionTimeout = value;
+            set
+            {
+                if (value <= TimeSpan.Zero)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(value), value, $"{nameof(ConnectionTimeout)} must be greater than zero.");
+                }
+
+                _clientWrapper.ConnectionTimeout = value;
+            }
         }
 
         /// <inheritdoc />
@@ -258,7 +279,20 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         #region ModbusDataAccess
 
         /// <inheritdoc />
-        public TimeSpan DefaultOperationTimeout { get; set; } = TimeSpan.FromSeconds(1);
+        public TimeSpan DefaultOperationTimeout
+        {
+            get;
+
+            set
+            {
+                if (value <= TimeSpan.Zero)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(value), value, $"{nameof(DefaultOperationTimeout)} must be greater than zero.");
+                }
+
+                field = value;
+            }
+        } = TimeSpan.FromSeconds(1);
 
         #region DiscreteInputs
 
@@ -1303,6 +1337,23 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
 
         [LoggerMessage(Level = LogLevel.Debug, Message = "{Operation} operation skipped because client is disabled")]
         partial void LogOperationSkipped(string operation);
+
+        /// <summary>
+        ///     Refuses a change to a queue setting the queue was already built from. Re-setting the value in force
+        ///     stays a no-op, so a consumer that re-applies its whole configuration is not punished for an unrelated
+        ///     edit — the same rule the address and port setters follow.
+        /// </summary>
+        private void EnsureQueueNotCreated<T>(string propertyName, T current, T value)
+        {
+            if (!_requestQueueInitialized || Equals(current, value))
+            {
+                return;
+            }
+
+            throw new
+                InvalidOperationException($"{propertyName} can only be changed before the client is first enabled — the request queue is built from it. "
+                                          + "Set it while the client is disabled for the first time.");
+        }
 
         #endregion
 

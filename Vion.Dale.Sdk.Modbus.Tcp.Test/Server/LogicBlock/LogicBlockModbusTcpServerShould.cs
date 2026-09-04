@@ -119,6 +119,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server.LogicBlock
         public void RejectInvalidPort()
         {
             Assert.ThrowsExactly<FormatException>(() => _sut.Port = -1);
+            Assert.ThrowsExactly<FormatException>(() => _sut.Port = 0);
             Assert.ThrowsExactly<FormatException>(() => _sut.Port = 65536);
         }
 

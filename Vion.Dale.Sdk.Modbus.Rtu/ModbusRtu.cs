@@ -141,7 +141,20 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
         #region ModbusDataAccess
 
         /// <inheritdoc />
-        public TimeSpan DefaultOperationTimeout { get; set; } = TimeSpan.FromSeconds(5);
+        public TimeSpan DefaultOperationTimeout
+        {
+            get;
+
+            set
+            {
+                if (value <= TimeSpan.Zero)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(value), value, $"{nameof(DefaultOperationTimeout)} must be greater than zero.");
+                }
+
+                field = value;
+            }
+        } = TimeSpan.FromSeconds(5);
 
         #region DiscreteInputs
 
@@ -1007,10 +1020,11 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
             ExecuteReadRequest(functionCode,
                                unitIdentifier,
                                startingAddress,
-                               () => _requestFactory.CreateReadRequest(functionCode,
+                               () => quantity,
+                               validatedQuantity => _requestFactory.CreateReadRequest(functionCode,
                                                                        unitIdentifier,
                                                                        startingAddress,
-                                                                       quantity,
+                                                                       validatedQuantity,
                                                                        operationTimeout ?? DefaultOperationTimeout,
                                                                        MaxQueuedAge,
                                                                        processResponse,
@@ -1035,10 +1049,11 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
             ExecuteReadRequest(functionCode,
                                unitIdentifier,
                                startingAddress,
-                               () => _requestFactory.CreateReadRequest(functionCode,
+                               () => quantity,
+                               validatedQuantity => _requestFactory.CreateReadRequest(functionCode,
                                                                        unitIdentifier,
                                                                        startingAddress,
-                                                                       quantity,
+                                                                       validatedQuantity,
                                                                        operationTimeout ?? DefaultOperationTimeout,
                                                                        MaxQueuedAge,
                                                                        processResponse,
@@ -1064,10 +1079,11 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
             ExecuteReadRequest(functionCode,
                                unitIdentifier,
                                startingAddress,
-                               () => _requestFactory.CreateReadRequest(functionCode,
+                               () => _dataConverter.ConvertCountToQuantity(count, bytesPerCount),
+                               validatedQuantity => _requestFactory.CreateReadRequest(functionCode,
                                                                        unitIdentifier,
                                                                        startingAddress,
-                                                                       _dataConverter.ConvertCountToQuantity(count, bytesPerCount),
+                                                                       validatedQuantity,
                                                                        operationTimeout ?? DefaultOperationTimeout,
                                                                        MaxQueuedAge,
                                                                        processResponse,
@@ -1082,7 +1098,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
         private void ExecuteReadRequest(ModbusFunctionCode functionCode,
                                         int unitIdentifier,
                                         ushort startingAddress,
-                                        Func<ReadModbusRtuRequest> createReadRequest,
+                                        Func<ushort> resolveQuantity,
+                                        Func<ushort, ReadModbusRtuRequest> createReadRequest,
                                         IActorDispatcher dispatcher,
                                         Action<Exception, ModbusReceipt>? errorCallback)
         {
@@ -1096,7 +1113,9 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
             try
             {
                 _validator.ValidateUnitIdentifier(unitIdentifier);
-                var readRequest = createReadRequest();
+                var quantity = resolveQuantity();
+                _validator.ValidateQuantity(quantity, ReadLimitFor(functionCode));
+                var readRequest = createReadRequest(quantity);
                 LogSendingReadRequest(LogicBlockContractId, functionCode, unitIdentifier, startingAddress, readRequest.CorrelationId);
                 SendToContractHandler(new ContractMessage<ReadModbusRtuRequest>(LogicBlockContractId, readRequest));
             }
@@ -1131,6 +1150,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
             {
                 _validator.ValidateUnitIdentifier(unitIdentifier);
                 var data = formatData();
+                _validator.ValidateQuantity(WriteQuantityOf(functionCode, data), WriteLimitFor(functionCode));
                 var writeRequest = _requestFactory.CreateWriteRequest(functionCode,
                                                                       unitIdentifier,
                                                                       address,
@@ -1153,6 +1173,34 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
                             dispatcher,
                             errorCallback);
             }
+        }
+
+        /// <summary>
+        ///     The protocol limit for a read function code: coils and discrete inputs are counted in bits, holding
+        ///     and input registers in registers.
+        /// </summary>
+        private static int ReadLimitFor(ModbusFunctionCode functionCode)
+        {
+            return functionCode is ModbusFunctionCode.ReadCoils or ModbusFunctionCode.ReadDiscreteInputs ?
+                       ModbusProtocolLimits.MaxBitsPerRead :
+                       ModbusProtocolLimits.MaxRegistersPerRead;
+        }
+
+        /// <summary>The protocol limit for a write function code, in the units that code counts in.</summary>
+        private static int WriteLimitFor(ModbusFunctionCode functionCode)
+        {
+            return functionCode is ModbusFunctionCode.WriteSingleCoil or ModbusFunctionCode.WriteMultipleCoils ?
+                       ModbusProtocolLimits.MaxBitsPerWrite :
+                       ModbusProtocolLimits.MaxRegistersPerWrite;
+        }
+
+        /// <summary>
+        ///     How many bits or registers a formatted write payload carries. A coil travels this hop as one byte
+        ///     and is packed by the HAL; a register is two bytes.
+        /// </summary>
+        private static uint WriteQuantityOf(ModbusFunctionCode functionCode, byte[] data)
+        {
+            return functionCode is ModbusFunctionCode.WriteSingleCoil or ModbusFunctionCode.WriteMultipleCoils ? (uint)data.Length : (uint)(data.Length / 2);
         }
 
         /// <summary>

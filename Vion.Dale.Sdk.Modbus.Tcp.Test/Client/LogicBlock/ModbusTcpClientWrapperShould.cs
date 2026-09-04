@@ -373,6 +373,43 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [DataRow(TargetMethod.ReadDiscreteInputsAsync, ModbusProtocolLimits.MaxBitsPerRead)]
+        [DataRow(TargetMethod.ReadCoilsAsync, ModbusProtocolLimits.MaxBitsPerRead)]
+        [DataRow(TargetMethod.WriteSingleCoilAsync, ModbusProtocolLimits.MaxBitsPerWrite)]
+        [DataRow(TargetMethod.WriteMultipleCoilsAsync, ModbusProtocolLimits.MaxBitsPerWrite)]
+        [DataRow(TargetMethod.ReadInputRegistersAsFloatAsync, ModbusProtocolLimits.MaxRegistersPerRead)]
+        [DataRow(TargetMethod.ReadHoldingRegistersAsIntAsync, ModbusProtocolLimits.MaxRegistersPerRead)]
+        [DataRow(TargetMethod.WriteMultipleHoldingRegistersAsDoubleAsync, ModbusProtocolLimits.MaxRegistersPerWrite)]
+        public async Task ValidateQuantityAgainstTheFunctionCodesProtocolLimit(TargetMethod targetMethod, int expectedLimit)
+        {
+            // Arrange
+
+            // Act
+            await InvokeMethodAsync(targetMethod);
+
+            // Assert
+            _validatorMock.Verify(validator => validator.ValidateQuantity(It.IsAny<uint>(), expectedLimit), Times.Once);
+        }
+
+        [TestMethod]
+        [DataRow(TargetMethod.ReadDiscreteInputsAsync)]
+        [DataRow(TargetMethod.ReadCoilsAsync)]
+        [DataRow(TargetMethod.WriteSingleCoilAsync)]
+        [DataRow(TargetMethod.WriteMultipleCoilsAsync)]
+        [DataRow(TargetMethod.ReadInputRegistersAsFloatAsync)]
+        [DataRow(TargetMethod.ReadHoldingRegistersAsIntAsync)]
+        [DataRow(TargetMethod.WriteMultipleHoldingRegistersAsDoubleAsync)]
+        public async Task ThrowExceptionWithoutContactingTheDeviceWhenQuantityExceedsTheProtocolLimit(TargetMethod targetMethod)
+        {
+            // Arrange
+            _validatorMock.Setup(validator => validator.ValidateQuantity(It.IsAny<uint>(), It.IsAny<int>())).Callback(() => throw new InvalidCountException(126, "too many"));
+
+            // Act / Assert
+            await Assert.ThrowsAsync<InvalidCountException>(() => InvokeMethodAsync(targetMethod));
+            _clientProxyMock.VerifyNoOtherCalls();
+        }
+
+        [TestMethod]
         [DataRow(TargetMethod.ReadDiscreteInputsAsync)]
         [DataRow(TargetMethod.ReadCoilsAsync)]
         [DataRow(TargetMethod.WriteSingleCoilAsync)]

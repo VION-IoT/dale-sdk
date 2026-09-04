@@ -124,33 +124,47 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void PreventQueueCapacityChangeAfterInitialization()
+        public void RefuseAQueueCapacityChangeAfterInitialization()
         {
             // Arrange
             const int initialCapacity = 5;
             _sut.QueueCapacity = initialCapacity;
             _sut.IsEnabled = true;
 
-            // Act
-            _sut.QueueCapacity = 2;
-
-            // Assert
+            // Act & Assert
+            Assert.ThrowsExactly<InvalidOperationException>(() => _sut.QueueCapacity = 2);
             Assert.AreEqual(initialCapacity, _sut.QueueCapacity);
         }
 
         [TestMethod]
-        public void PreventQueueOverflowPolicyChangeAfterInitialization()
+        public void RefuseAQueueOverflowPolicyChangeAfterInitialization()
         {
             // Arrange
             const QueueOverflowPolicy initialOverflowPolicy = QueueOverflowPolicy.DropNewest;
             _sut.QueueOverflowPolicy = initialOverflowPolicy;
             _sut.IsEnabled = true;
 
+            // Act & Assert
+            Assert.ThrowsExactly<InvalidOperationException>(() => _sut.QueueOverflowPolicy = QueueOverflowPolicy.RejectNew);
+            Assert.AreEqual(initialOverflowPolicy, _sut.QueueOverflowPolicy);
+        }
+
+        [TestMethod]
+        public void AcceptTheQueueCapacityAlreadyInForceAfterInitialization()
+        {
+            // Arrange
+            const int initialCapacity = 5;
+            _sut.QueueCapacity = initialCapacity;
+            _sut.QueueOverflowPolicy = QueueOverflowPolicy.DropNewest;
+            _sut.IsEnabled = true;
+
             // Act
-            _sut.QueueOverflowPolicy = QueueOverflowPolicy.RejectNew;
+            _sut.QueueCapacity = initialCapacity;
+            _sut.QueueOverflowPolicy = QueueOverflowPolicy.DropNewest;
 
             // Assert
-            Assert.AreEqual(initialOverflowPolicy, _sut.QueueOverflowPolicy);
+            Assert.AreEqual(initialCapacity, _sut.QueueCapacity);
+            Assert.AreEqual(QueueOverflowPolicy.DropNewest, _sut.QueueOverflowPolicy);
         }
 
         [TestMethod]
@@ -169,6 +183,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
 
         [TestMethod]
         [DataRow(-1, DisplayName = "Less than minimum allowed port number")]
+        [DataRow(0, DisplayName = "The unconfigured-port sentinel")]
         [DataRow(65536, DisplayName = "Larger than maximum allowed port number")]
         public void ThrowExceptionWhenPortIsInvalid(int port)
         {
@@ -176,6 +191,28 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
 
             // Act & Assert
             Assert.Throws<FormatException>(() => _sut.Port = port);
+        }
+
+        [TestMethod]
+        [DataRow(0, DisplayName = "Zero")]
+        [DataRow(-1, DisplayName = "Negative")]
+        public void ThrowExceptionWhenConnectionTimeoutIsNotPositive(int seconds)
+        {
+            // Arrange
+
+            // Act & Assert
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => _sut.ConnectionTimeout = TimeSpan.FromSeconds(seconds));
+        }
+
+        [TestMethod]
+        [DataRow(0, DisplayName = "Zero")]
+        [DataRow(-1, DisplayName = "Negative")]
+        public void ThrowExceptionWhenDefaultOperationTimeoutIsNotPositive(int seconds)
+        {
+            // Arrange
+
+            // Act & Assert
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => _sut.DefaultOperationTimeout = TimeSpan.FromSeconds(seconds));
         }
 
         [TestMethod]
