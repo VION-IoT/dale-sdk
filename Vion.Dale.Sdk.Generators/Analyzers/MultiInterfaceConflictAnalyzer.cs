@@ -49,9 +49,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             {
                 foreach (var member in iface.GetMembers().OfType<IPropertySymbol>())
                 {
-                    var spOrMp = AnalyzerHelper.GetAttribute(member, AnalyzerHelper.ServicePropertyAttribute) ??
-                                 AnalyzerHelper.GetAttribute(member, AnalyzerHelper.ServiceMeasuringPointAttribute);
-                    if (spOrMp == null)
+                    if (!AnalyzerHelper.IsServiceElement(member))
                     {
                         continue;
                     }
@@ -107,20 +105,22 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             }
         }
 
+        /// <summary>
+        ///     The unit a declaration carries, from whichever emission attribute states it. A member may
+        ///     declare both, so reading only the first found reported a dual-annotated declaration whose
+        ///     measuring point held the differing unit as carrying no unit at all — and the conflict never
+        ///     registered.
+        /// </summary>
         private static string? GetUnit(IPropertySymbol property)
         {
-            var attr = AnalyzerHelper.GetAttribute(property, AnalyzerHelper.ServicePropertyAttribute) ??
-                       AnalyzerHelper.GetAttribute(property, AnalyzerHelper.ServiceMeasuringPointAttribute);
-            if (attr == null)
+            foreach (var attr in EmissionAttributeHelper.GetEmissionAttributes(property))
             {
-                return null;
-            }
-
-            foreach (var kvp in attr.NamedArguments)
-            {
-                if (kvp.Key == "Unit" && kvp.Value.Value is string s && !string.IsNullOrEmpty(s))
+                foreach (var kvp in attr.NamedArguments)
                 {
-                    return s;
+                    if (kvp.Key == "Unit" && kvp.Value.Value is string s && !string.IsNullOrEmpty(s))
+                    {
+                        return s;
+                    }
                 }
             }
 

@@ -7,10 +7,9 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace Vion.Dale.Sdk.Generators.Analyzers
 {
     /// <summary>
-    ///     DALE033 — <c>StringFormat</c> on <c>[ServiceProperty]</c> / <c>[ServiceMeasuringPoint]</c> is
-    ///     consumed only for <c>string</c> / <c>string?</c> members, and its value must not be a reserved
-    ///     type-kind format (<c>date-time</c> / <c>duration</c> / <c>uuid</c>) — those have dedicated CLR
-    ///     types. Open vocabulary otherwise: any other value is allowed (verbatim fallback in consumers).
+    ///     DALE033 — <c>StringFormat</c> is honored only on <c>string</c> / <c>string?</c> members, and its
+    ///     value must not be a reserved type-kind format. Judges all three sites that carry the knob:
+    ///     <c>[ServiceProperty]</c>, <c>[ServiceMeasuringPoint]</c> and <c>[StructField]</c>.
     /// </summary>
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class StringFormatOnNonStringAnalyzer : DiagnosticAnalyzer
@@ -27,20 +26,43 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
             context.EnableConcurrentExecution();
             context.RegisterSymbolAction(AnalyzeProperty, SymbolKind.Property);
+
+            // A struct field carries the same knob (StructFieldAttribute.StringFormat), TypeRefBuilder
+            // emits it into the schema, and nothing judged it. A positional record struct's members are
+            // its primary-constructor parameters, which is why this is a parameter action.
+            context.RegisterSymbolAction(AnalyzeStructField, SymbolKind.Parameter);
         }
 
         private static void AnalyzeProperty(SymbolAnalysisContext context)
         {
             var property = (IPropertySymbol)context.Symbol;
 
-            var attr = AnalyzerHelper.GetAttribute(property, AnalyzerHelper.ServicePropertyAttribute) ??
-                       AnalyzerHelper.GetAttribute(property, AnalyzerHelper.ServiceMeasuringPointAttribute);
-            if (attr is null)
+            // Every emission attribute the member declares, not whichever is found first: the two carry
+            // independent policies for independent streams, so a dual-annotated member whose measuring
+            // point held the misplaced hint was judged by nothing.
+            foreach (var attribute in EmissionAttributeHelper.GetEmissionAttributes(property))
+            {
+                Judge(context, attribute, property.Type, property.Name, EmissionAttributeHelper.LocationOf(attribute, property));
+            }
+        }
+
+        private static void AnalyzeStructField(SymbolAnalysisContext context)
+        {
+            var parameter = (IParameterSymbol)context.Symbol;
+
+            var structField = AnalyzerHelper.GetAttribute(parameter, AnalyzerHelper.StructFieldAttribute);
+            if (structField is null)
             {
                 return;
             }
 
-            var format = AnalyzerHelper.GetNamedArgument<string>(attr, "StringFormat");
+            var location = structField.ApplicationSyntaxReference?.GetSyntax(context.CancellationToken).GetLocation() ?? parameter.Locations.FirstOrDefault();
+            Judge(context, structField, parameter.Type, parameter.Name, location);
+        }
+
+        private static void Judge(SymbolAnalysisContext context, AttributeData attribute, ITypeSymbol memberType, string memberName, Location? location)
+        {
+            var format = AnalyzerHelper.GetNamedArgument<string>(attribute, "StringFormat");
             if (string.IsNullOrEmpty(format))
             {
                 return;
@@ -48,13 +70,10 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
 
             // Misplaced when the member isn't a string, or when a string member uses a value reserved
             // for a CLR type-kind (date-time/duration/uuid). Everything else is open vocabulary.
-            var misplaced = property.Type.SpecialType != SpecialType.System_String || ReservedTypeKindFormats.Contains(format!);
+            var misplaced = memberType.SpecialType != SpecialType.System_String || ReservedTypeKindFormats.Contains(format!);
             if (misplaced)
             {
-                context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE033_StringFormatOnNonString,
-                                                           property.Locations.FirstOrDefault(),
-                                                           property.Name,
-                                                           property.Type.ToDisplayString()));
+                context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE033_StringFormatOnNonString, location, memberName, memberType.ToDisplayString()));
             }
         }
     }

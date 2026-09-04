@@ -381,5 +381,56 @@ public class MyBlock : LogicBlockBase
         {
             await VerifyWithReferenceNoStubsAsync<VisibleWhenPredicateAnalyzer>(source, reference);
         }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-013.2")]
+        public async Task ReportUnresolvedPredicateOnAbstractBlock()
+        {
+            // Arrange / Act / Assert
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public abstract class BlockBase : LogicBlockBase
+{
+    [ServiceProperty]
+    [Presentation(VisibleWhen = {|#0:""NoSuchProperty""|})]
+    public int Gated { get; set; }
+}";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE041_VisibleWhenUnresolved)
+                                           .WithLocation(0)
+                                           .WithArguments("Gated",
+                                                          "NoSuchProperty",
+                                                          "service 'BlockBase' has no service property 'NoSuchProperty' (a bare reference must be a property on the same service)");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<VisibleWhenPredicateAnalyzer>(source, expected);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-013.2")]
+        public async Task ReportPredicateNamingPropertyOnlySubclassesDeclare()
+        {
+            // Arrange / Act / Assert
+            // The predicate must resolve where it is written; a property a subclass adds is not on the
+            // abstract block's own service.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public abstract class BlockBase : LogicBlockBase
+{
+    [ServiceProperty]
+    [Presentation(VisibleWhen = {|#0:""Detailed""|})]
+    public int Gated { get; set; }
+}
+
+public sealed class MyBlock : BlockBase
+{
+    [ServiceProperty] public bool Detailed { get; set; }
+}";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE041_VisibleWhenUnresolved)
+                                           .WithLocation(0)
+                                           .WithArguments("Gated",
+                                                          "Detailed",
+                                                          "service 'BlockBase' has no service property 'Detailed' (a bare reference must be a property on the same service)");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<VisibleWhenPredicateAnalyzer>(source, expected);
+        }
     }
 }

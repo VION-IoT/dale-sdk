@@ -118,5 +118,24 @@ public class MyBlock : PowerBase, IOne, ITwo
 }";
             await AnalyzerTestBase.VerifyAnalyzerAsync<MultiInterfaceConflictAnalyzer>(source);
         }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-006.4")]
+        public async Task ReportConflictWhenDifferingUnitSitsOnMeasuringPointOfDualAnnotatedDeclaration()
+        {
+            // Arrange / Act / Assert
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public interface IOne { [ServiceProperty][ServiceMeasuringPoint(Unit = ""W"")] double Power { get; set; } }
+public interface ITwo { [ServiceProperty(Unit = ""kW"")] double Power { get; set; } }
+
+public class MyBlock : IOne, ITwo
+{
+    public double {|#0:Power|} { get; set; }
+}";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE020_MultiInterfaceConflict).WithLocation(0).WithArguments("MyBlock", "Power", "\"W\", \"kW\"");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<MultiInterfaceConflictAnalyzer>(source, expected);
+        }
     }
 }

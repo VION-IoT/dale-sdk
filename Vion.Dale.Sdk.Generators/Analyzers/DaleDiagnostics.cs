@@ -46,12 +46,14 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                                                                                                  true);
 
         /// <summary>
-        ///     Timer interval must be greater than zero.
-        ///     Runtime: TimerAttribute constructor throws ArgumentException.
+        ///     Timer interval must be a finite, positive number of seconds a clock can wait.
+        ///     Runtime: TimerAttribute's constructor throws ArgumentException for zero and below, and
+        ///     DeclarativeTimerBinder throws InvalidOperationException for not-a-number, either infinity,
+        ///     and a value longer than a clock can wait.
         /// </summary>
         public static readonly DiagnosticDescriptor DALE005_TimerIntervalMustBePositive = new("DALE005",
-                                                                                              "Timer interval must be greater than zero",
-                                                                                              "Method '{0}' has [Timer({1})] but the interval must be greater than zero",
+                                                                                              "Timer interval must be a finite positive number of seconds",
+                                                                                              "Method '{0}' has [Timer({1})] but the interval must be greater than zero and at most 4294967 seconds, and a real number",
                                                                                               Category,
                                                                                               DiagnosticSeverity.Error,
                                                                                               true);

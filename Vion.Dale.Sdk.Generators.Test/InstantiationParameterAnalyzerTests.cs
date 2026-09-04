@@ -211,5 +211,31 @@ public class MyBlock : LogicBlockBase
 }}";
             await AnalyzerTestBase.VerifyAnalyzerAsync<InstantiationParameterAnalyzer>(source, Diag().WithLocation(0));
         }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-014.2")]
+        [DataRow("internal", DisplayName = "internal")]
+        [DataRow("protected", DisplayName = "protected")]
+        [DataRow("private", DisplayName = "private")]
+        public async Task WarnOnInstantiationParameterThatIsNotPublic(string accessibility)
+        {
+            // Arrange / Act / Assert
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public class MyBlock : LogicBlockBase
+{
+    [{|#0:InstantiationParameter|}]
+    [ServiceProperty]
+    " + accessibility + @" bool Hidden { get; set; }
+}";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE044_InstantiationParameterDiscipline)
+                                           .WithLocation(0)
+                                           .WithSeverity(DiagnosticSeverity.Warning)
+                                           .WithArguments("Hidden",
+                                                          "[InstantiationParameter] must be a public property — the binders read a block's parameters from its public " +
+                                                          "instance properties, so a non-public one is configured by nothing and no [IncludedWhen] gate can resolve to it.");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<InstantiationParameterAnalyzer>(source, expected);
+        }
     }
 }

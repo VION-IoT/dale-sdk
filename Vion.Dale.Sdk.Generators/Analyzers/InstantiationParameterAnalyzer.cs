@@ -70,6 +70,19 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                 return;
             }
 
+            // A non-public parameter is configured by nothing — the binders walk public instance
+            // properties — and IncludedWhenPredicateAnalyzer builds its parameter map from the same walk,
+            // so a gate naming one reports as unresolvable with nothing saying why. Reported as a warning
+            // rather than an error: the declaration is inert today, so nothing that compiles now breaks.
+            if (property.DeclaredAccessibility != Accessibility.Public)
+            {
+                ReportWarning(context,
+                              location,
+                              property.Name,
+                              "[InstantiationParameter] must be a public property — the binders read a block's parameters from its public " +
+                              "instance properties, so a non-public one is configured by nothing and no [IncludedWhen] gate can resolve to it.");
+            }
+
             var serviceProperty = AnalyzerHelper.GetAttribute(property, AnalyzerHelper.ServicePropertyAttribute);
             if (serviceProperty is null)
             {
@@ -210,6 +223,22 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         private static void Report(SymbolAnalysisContext context, Location location, string name, string message)
         {
             context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE044_InstantiationParameterDiscipline, location, name, message));
+        }
+
+        /// <summary>
+        ///     The advisory half of DALE044, through the <c>effectiveSeverity</c> overload — one descriptor,
+        ///     two severities, as DALE045 does. Configuring or suppressing the id in <c>.editorconfig</c>
+        ///     moves both together.
+        /// </summary>
+        private static void ReportWarning(SymbolAnalysisContext context, Location location, string name, string message)
+        {
+            context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE044_InstantiationParameterDiscipline,
+                                                       location,
+                                                       DiagnosticSeverity.Warning,
+                                                       null,
+                                                       null,
+                                                       name,
+                                                       message));
         }
     }
 }
