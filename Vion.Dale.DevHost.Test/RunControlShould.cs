@@ -18,6 +18,10 @@ namespace Vion.Dale.DevHost.Test
         [ServiceProperty(Title = "Ticks")]
         public int Ticks { get; private set; }
 
+        /// <summary>A writable knob a scenario can leave behind, so a later run can tell a clean slate from leftovers.</summary>
+        [ServiceProperty(Title = "Label")]
+        public string Label { get; set; } = string.Empty;
+
         public TickerBlock(ILogger logger) : base(logger)
         {
         }
@@ -245,6 +249,46 @@ namespace Vion.Dale.DevHost.Test
 
             cts.Cancel();
             await runner;
+        }
+
+        [TestMethod]
+        public async Task RefuseSecondSupervisorOnOneHostGeneration()
+        {
+            // Arrange
+            var configuration = DevConfigurationBuilder.Create().AddLogicBlock<CounterBlock>("counter").Build();
+            await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(configuration).Build();
+            await host.StartAsync();
+            using var first = host.Control.OnResetRequested(() => { });
+
+            // Act — replacing the attached handler made the host answer a recycle with success while nothing
+            // recycled; composing two would invent semantics for which supervisor owns the rebuild.
+            var refusal = Assert.ThrowsExactly<InvalidOperationException>(() => host.Control.OnResetRequested(() => { }));
+
+            // Assert
+            StringAssert.Contains(refusal.Message, "already attached");
+            Assert.IsTrue(host.Control.CanReset, "the first supervisor must still be the one attached");
+        }
+
+        [TestMethod]
+        public async Task DetachOnlyTheHandlerItsOwnTokenWasIssuedFor()
+        {
+            // Arrange — the shape a consumer's integration harness makes: attach, detach, and let the runner
+            // attach afterwards.
+            var configuration = DevConfigurationBuilder.Create().AddLogicBlock<CounterBlock>("counter").Build();
+            await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(configuration).Build();
+            await host.StartAsync();
+            var stale = host.Control.OnResetRequested(() => { });
+            stale.Dispose();
+            var recycled = 0;
+            using var supervisor = host.Control.OnResetRequested(() => recycled++);
+
+            // Act — disposing the stale token a second time must not unsupervise the host under the supervisor.
+            stale.Dispose();
+
+            // Assert
+            Assert.IsTrue(host.Control.CanReset, "a stale token must not clear a later supervisor's handler");
+            Assert.IsTrue(host.Control.TryRequestReset());
+            Assert.AreEqual(1, recycled);
         }
 
         private static async Task<bool> PollCanResetAsync(HttpClient client, TimeSpan timeout)

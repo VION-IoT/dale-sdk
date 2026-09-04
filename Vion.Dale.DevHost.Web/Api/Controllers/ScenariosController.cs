@@ -120,12 +120,13 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
 
             // Recycle-on-run: bring the host to the scenario's topology + a clean slate before running, so the
             // result is reproducible. "Dirty" (needs a clean slate) is a stepped generation whose clock has
-            // advanced or that has already run a scenario — the same generation re-run would otherwise build on
-            // leftover state. A topology mismatch always needs a recycle (you cannot run a scenario against the
-            // wrong graph).
+            // advanced or that has already run ANY scenario — a second scenario on the same generation would
+            // otherwise build on whatever the first one wrote, which is the leftover state the clean slate
+            // exists to exclude. A topology mismatch always needs a recycle (you cannot run a scenario against
+            // the wrong graph).
             var hostTopology = _control.GetConfiguration().TopologyName;
             var topologyMatches = string.Equals(scenario.Topology, hostTopology, StringComparison.Ordinal);
-            var dirty = _control.HasAdvancedFromBaseline || (_control.IsStepped && _registry.Latest(id) is not null);
+            var dirty = _control.HasAdvancedFromBaseline || (_control.IsStepped && _registry.HasRunThisGeneration);
 
             if (!topologyMatches || dirty)
             {

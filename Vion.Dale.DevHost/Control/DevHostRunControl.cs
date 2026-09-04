@@ -129,17 +129,34 @@ namespace Vion.Dale.DevHost.Control
         }
 
         /// <summary>
-        ///     Attach the supervisor's reset handler. Returns a token that detaches it — the supervisor
-        ///     re-attaches per host generation.
+        ///     Attach the supervisor's reset handler. Returns a token that detaches that handler — the
+        ///     supervisor re-attaches per host generation, and each generation's run control is its own.
+        ///     <para>
+        ///         One handler at a time: a second attach is refused rather than silently replacing the first.
+        ///         Replacing it made the host answer a recycle request with success while nothing recycled, and
+        ///         composing two would invent semantics for which supervisor owns the rebuild.
+        ///     </para>
         /// </summary>
+        /// <exception cref="InvalidOperationException">A reset handler is already attached.</exception>
         public IDisposable OnResetRequested(Action handler)
         {
+            if (handler is null)
+            {
+                throw new ArgumentNullException(nameof(handler));
+            }
+
             lock (_gate)
             {
+                if (_resetHandler is not null)
+                {
+                    throw new
+                        InvalidOperationException("A reset handler is already attached to this host generation. One supervisor owns the rebuild; dispose the first subscription before attaching another.");
+                }
+
                 _resetHandler = handler;
             }
 
-            return new DetachToken(this);
+            return new DetachToken(this, handler);
         }
 
         /// <summary>
@@ -207,18 +224,29 @@ namespace Vion.Dale.DevHost.Control
 
         private sealed class DetachToken : IDisposable
         {
+            private readonly Action _handler;
+
             private readonly DevHostRunControl _owner;
 
-            public DetachToken(DevHostRunControl owner)
+            public DetachToken(DevHostRunControl owner, Action handler)
             {
                 _owner = owner;
+                _handler = handler;
             }
 
+            /// <summary>
+            ///     Detaches the handler THIS token was issued for, and nothing else. Clearing whatever handler
+            ///     was current let a stale token silently unsupervise a host a later subscriber owns — the host
+            ///     then reports itself unresettable with no supervisor change to explain it.
+            /// </summary>
             public void Dispose()
             {
                 lock (_owner._gate)
                 {
-                    _owner._resetHandler = null;
+                    if (ReferenceEquals(_owner._resetHandler, _handler))
+                    {
+                        _owner._resetHandler = null;
+                    }
                 }
             }
         }

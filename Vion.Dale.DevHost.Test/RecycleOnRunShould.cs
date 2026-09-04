@@ -96,6 +96,74 @@ namespace Vion.Dale.DevHost.Test
             await runner;
         }
 
+        [TestMethod]
+        [TestCategory("Smoke")]
+        public async Task RecycleBetweenTwoScenariosOnOneSteppedGeneration()
+        {
+            // Arrange — two scenarios on one topology, neither of which advances the clock, so the ONLY thing
+            // that can make the second one's generation dirty is that the first one ran in it. A bench that
+            // runs several scenarios in a row is exactly this shape.
+            var dir = NewScenarioDir();
+            File.WriteAllText(Path.Combine(dir, "first.scenario.json"),
+                              """
+                              { "version": 1, "id": "first", "topology": "recycle-topo",
+                                "steps": [ { "set": "Ticker.Label", "value": "written-by-first" } ] }
+                              """);
+            File.WriteAllText(Path.Combine(dir, "second.scenario.json"),
+                              """
+                              { "version": 1, "id": "second", "topology": "recycle-topo",
+                                "steps": [ { "expect": { "property": "Ticker.Label", "equals": "" } } ] }
+                              """);
+
+            var port = FreePort();
+
+            IDevHost Factory(string? requestedTopology)
+            {
+                var config = DevConfigurationBuilder.Create().WithTopologyName("recycle-topo").WithScenarios(dir).AddLogicBlock<TickerBlock>("Ticker").Build();
+                return DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithDeterministicStepping().WithWebUi(port).Build();
+            }
+
+            Environment.SetEnvironmentVariable(DevHostWebRunner.NoBrowserEnvVar, "1");
+            using var cts = new CancellationTokenSource();
+            Task runner;
+            try
+            {
+                runner = DevHostWebRunner.RunAsync(Factory, port, cts.Token);
+                using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(10) };
+                Assert.IsTrue(await PollSteppedReadyAsync(client, TimeSpan.FromSeconds(30)), "Generation 1 (stepped, supervised) should come up.");
+
+                // Act — the first scenario runs in place on the clean generation and writes a value.
+                var first = await client.PostAsync("/api/scenarios/first/apply", null);
+                Assert.AreEqual(HttpStatusCode.Accepted, first.StatusCode);
+                Assert.IsTrue(JsonDocument.Parse(await first.Content.ReadAsStringAsync()).RootElement.TryGetProperty("runId", out _),
+                              "the first scenario runs in place on a clean generation");
+                var firstReport = await PollRunUntilDoneAsync(client, "first", TimeSpan.FromSeconds(30));
+                Assert.AreEqual("succeeded", firstReport.GetProperty("status").GetString(), firstReport.GetRawText());
+
+                var second = await client.PostAsync("/api/scenarios/second/apply", null);
+
+                // Assert — the second scenario gets a clean slate, not the first one's leftovers.
+                var secondBody = JsonDocument.Parse(await second.Content.ReadAsStringAsync()).RootElement;
+                Assert.AreEqual(HttpStatusCode.Accepted, second.StatusCode);
+                Assert.IsTrue(secondBody.TryGetProperty("recycling", out var recycling) && recycling.GetBoolean(),
+                              $"a generation another scenario has already driven is not a clean slate. Got: {secondBody.GetRawText()}");
+
+                // The caller's own round trip: re-apply until the fresh generation answers with a run id. The
+                // virtual clock cannot be the readiness signal here — neither scenario advances it, so the
+                // outgoing generation is at the epoch too.
+                Assert.IsTrue(await PollUntilRunStartsAsync(client, "second", TimeSpan.FromSeconds(30)), "the caller must reach a generation that runs the scenario in place");
+                var secondReport = await PollRunUntilDoneAsync(client, "second", TimeSpan.FromSeconds(30));
+                Assert.AreEqual("succeeded", secondReport.GetProperty("status").GetString(), secondReport.GetRawText());
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable(DevHostWebRunner.NoBrowserEnvVar, null);
+            }
+
+            await cts.CancelAsync();
+            await runner;
+        }
+
         private static async Task<bool> PollSteppedReadyAsync(HttpClient client, TimeSpan timeout)
         {
             var deadline = DateTime.UtcNow + timeout;
@@ -136,6 +204,33 @@ namespace Vion.Dale.DevHost.Test
                                                           0,
                                                           0,
                                                           TimeSpan.Zero))
+                    {
+                        return true;
+                    }
+                }
+                catch
+                {
+                    // Host recycling — keep polling.
+                }
+
+                await Task.Delay(250);
+            }
+
+            return false;
+        }
+
+        // Re-apply until the host answers with a run id rather than another recycle — the round trip
+        // devhost-conventions § 8 obliges every client of this API to perform.
+        private static async Task<bool> PollUntilRunStartsAsync(HttpClient client, string id, TimeSpan timeout)
+        {
+            var deadline = DateTime.UtcNow + timeout;
+            while (DateTime.UtcNow < deadline)
+            {
+                try
+                {
+                    var response = await client.PostAsync($"/api/scenarios/{id}/apply", null);
+                    if (response.StatusCode == HttpStatusCode.Accepted &&
+                        JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement.TryGetProperty("runId", out _))
                     {
                         return true;
                     }

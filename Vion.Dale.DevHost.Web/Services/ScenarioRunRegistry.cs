@@ -46,6 +46,23 @@ namespace Vion.Dale.DevHost.Web.Services
             }
         }
 
+        /// <summary>
+        ///     True once any scenario has run in this host generation. A generation a scenario has already
+        ///     driven is no longer a clean slate for the NEXT scenario either: every value the first run wrote
+        ///     is still in place. Asking only whether THIS scenario had run let a bench that runs two scenarios
+        ///     in a row give the second one the first one's leftovers.
+        /// </summary>
+        public bool HasRunThisGeneration
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _latest.Count > 0;
+                }
+            }
+        }
+
         /// <summary>The latest run report for a scenario id, or null when it never ran this host generation.</summary>
         public ScenarioRunReport? Latest(string scenarioId)
         {
