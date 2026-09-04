@@ -14,7 +14,9 @@
         <ImplicitUsings>false</ImplicitUsings>
         <Nullable>enable</Nullable>
         <IsPackable>false</IsPackable>
-        <!--RS2008: release tracking not needed — analyzer is internal (not shipped as a NuGet package)-->
+        <!--RS2008: no AnalyzerReleases.Shipped.md/Unshipped.md exists. The rules DO ship — the assembly is
+            packed into Vion.Dale.Sdk as analyzers/dotnet/cs and reaches every consumer — so whether to adopt
+            release tracking is an open surface decision, not a settled "this is internal".-->
         <!--CS8669: nullable annotations in Scriban's source-embedded files that lack #nullable directives-->
         <NoWarn>$(NoWarn);RS2008;CS8669</NoWarn>
     </PropertyGroup>

@@ -8,8 +8,10 @@ namespace Vion.Dale.Sdk.Generators.Test
     public class CrossFillConflictAnalyzerTests
     {
         [TestMethod]
-        public async Task NoConflict_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-006.5")]
+        public async Task StaySilentWhenCrossFilledFieldsAgree()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -23,8 +25,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task SingleAttributeOnly_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-006.5")]
+        public async Task StaySilentWhenOnlyOneAttributeSetsField()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -36,8 +40,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task ConflictingTitle_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-006.5")]
+        public async Task ReportConflictingTitle()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -54,8 +60,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task ConflictingUnit_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-006.5")]
+        public async Task ReportConflictingUnit()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -70,8 +78,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task MatchingTitle_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-006.5")]
+        public async Task StaySilentOnMatchingTitle()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 

@@ -8,8 +8,10 @@ namespace Vion.Dale.Sdk.Generators.Test
     public class PersistentPropertyAnalyzerTests
     {
         [TestMethod]
-        public async Task PersistentWithSetter_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-008.2")]
+        public async Task StaySilentOnPersistentWithSetter()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -21,8 +23,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task PersistentWithPrivateSetter_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-008.2")]
+        public async Task StaySilentOnPersistentWithPrivateSetter()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -34,8 +38,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task PersistentGetOnly_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-008.2")]
+        public async Task ReportPersistentWithoutSetter()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -48,8 +54,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task PersistentExcludeTrue_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-008.2")]
+        public async Task StaySilentOnExcludedPersistent()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -61,8 +69,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task NoPersistentAttribute_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-008.2")]
+        public async Task StaySilentWithoutPersistentAttribute()
         {
+            // Arrange / Act / Assert
             var source = @"
 public class MyBlock
 {

@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
@@ -9,7 +9,8 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
     ///     DALE040 — <c>[StructField(WriteOnly = true)]</c> restricted to <c>string</c> / <c>string?</c> in
     ///     v1, the per-member analogue of DALE022. <c>[StructField]</c> binds to the record-struct
     ///     primary-constructor parameter (where <c>TypeRefBuilder</c> reads it), so the check runs on
-    ///     parameters, not properties.
+    ///     parameters, not properties — and only on the parameters that reader reaches
+    ///     (<c>AnalyzerHelper.IsStructFieldParameter</c>).
     /// </summary>
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class WriteOnlyStructFieldTypeRestrictionAnalyzer : DiagnosticAnalyzer
@@ -29,6 +30,10 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         private static void AnalyzeParameter(SymbolAnalysisContext context)
         {
             var parameter = (IParameterSymbol)context.Symbol;
+            if (!AnalyzerHelper.IsStructFieldParameter(parameter))
+            {
+                return;
+            }
 
             var structField = AnalyzerHelper.GetAttribute(parameter, AnalyzerHelper.StructFieldAttribute);
             if (structField is null)

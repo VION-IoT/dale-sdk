@@ -38,7 +38,12 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         private static void AnalyzeBlock(SymbolAnalysisContext context)
         {
             var block = (INamedTypeSymbol)context.Symbol;
-            if (block.TypeKind != TypeKind.Class || block.IsAbstract || !InheritsFromLogicBlockBase(block))
+
+            // An abstract block is judged too: a library ships base blocks whose concrete subclasses live
+            // in a consumer's assembly, and skipping them left every predicate in that library unvalidated
+            // in its own build. A predicate must resolve where it is written, so one naming a property only
+            // a subclass declares is reported at the abstract declaration.
+            if (block.TypeKind != TypeKind.Class || !InheritsFromLogicBlockBase(block))
             {
                 return;
             }

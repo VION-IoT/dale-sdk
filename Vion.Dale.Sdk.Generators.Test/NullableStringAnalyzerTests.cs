@@ -10,8 +10,10 @@ namespace Vion.Dale.Sdk.Generators.Test
         // --- Nullable-disabled context: should trigger DALE017 ---
 
         [TestMethod]
-        public async Task NullableDisabled_StringProperty_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.5")]
+        public async Task ReportStringInNullableDisabledContext()
         {
+            // Arrange / Act / Assert
             var source = @"
 #nullable disable
 using Vion.Dale.Sdk.Core;
@@ -25,8 +27,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task NullableDisabled_MeasuringPoint_StringProperty_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.5")]
+        public async Task ReportMeasuringPointStringInNullableDisabledContext()
         {
+            // Arrange / Act / Assert
             var source = @"
 #nullable disable
 using Vion.Dale.Sdk.Core;
@@ -42,8 +46,10 @@ public class MyBlock
         // --- Nullable-disabled context but string? annotation: should NOT trigger ---
 
         [TestMethod]
-        public async Task NullableDisabled_NullableStringAnnotation_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.5")]
+        public async Task StaySilentOnAnnotatedNullableString()
         {
+            // Arrange / Act / Assert
             // Even with #nullable disable, using string? sets the annotation — no DALE017.
             var source = @"
 #nullable disable
@@ -59,8 +65,10 @@ public class MyBlock
         // --- Nullable-enabled context: should NOT trigger DALE017 ---
 
         [TestMethod]
-        public async Task NullableEnabled_NonNullString_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.5")]
+        public async Task StaySilentOnStringInNullableEnabledContext()
         {
+            // Arrange / Act / Assert
             var source = @"
 #nullable enable
 using Vion.Dale.Sdk.Core;
@@ -73,8 +81,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task NullableEnabled_NullableString_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.5")]
+        public async Task StaySilentOnNullableStringInNullableEnabledContext()
         {
+            // Arrange / Act / Assert
             var source = @"
 #nullable enable
 using Vion.Dale.Sdk.Core;
@@ -89,8 +99,10 @@ public class MyBlock
         // --- Non-string types: should NOT trigger DALE017 ---
 
         [TestMethod]
-        public async Task NullableDisabled_IntProperty_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.5")]
+        public async Task StaySilentOnNonStringInNullableDisabledContext()
         {
+            // Arrange / Act / Assert
             var source = @"
 #nullable disable
 using Vion.Dale.Sdk.Core;
@@ -105,8 +117,10 @@ public class MyBlock
         // --- No attribute: should NOT trigger DALE017 ---
 
         [TestMethod]
-        public async Task NoAttribute_StringProperty_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.5")]
+        public async Task StaySilentOnStringWithoutServiceAttribute()
         {
+            // Arrange / Act / Assert
             var source = @"
 #nullable disable
 

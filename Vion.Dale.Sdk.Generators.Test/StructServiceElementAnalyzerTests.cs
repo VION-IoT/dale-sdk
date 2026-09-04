@@ -10,8 +10,10 @@ namespace Vion.Dale.Sdk.Generators.Test
         // Guid is a struct but a recognized built-in (maps to schema format:uuid) — not a user struct
         // that must be a flat record struct. Regression guard for the DALE016 Guid exemption.
         [TestMethod]
-        public async Task Guid_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.4")]
+        public async Task StaySilentOnGuid()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System;
 using Vion.Dale.Sdk.Core;
@@ -26,8 +28,10 @@ public class MyBlock
         // --- Types that should trigger DALE016 ---
 
         [TestMethod]
-        public async Task RegularStruct_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.4")]
+        public async Task ReportPlainStruct()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -44,8 +48,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task MutableRecordStruct_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.4")]
+        public async Task ReportMutableRecordStruct()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -62,8 +68,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task ReadonlyRecordStructWithNonFlatField_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.4")]
+        public async Task ReportRecordStructWithNonFlatField()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -79,8 +87,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task MeasuringPoint_RegularStruct_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.4")]
+        public async Task ReportPlainStructOnMeasuringPoint()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -97,8 +107,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task NullableRegularStruct_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.4")]
+        public async Task ReportNullablePlainStruct()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -115,8 +127,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task ImmutableArrayOfRegularStruct_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.4")]
+        public async Task ReportImmutableArrayOfPlainStruct()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System.Collections.Immutable;
 using Vion.Dale.Sdk.Core;
@@ -136,8 +150,10 @@ public class MyBlock
         // --- Types that should NOT trigger DALE016 ---
 
         [TestMethod]
-        public async Task ValidFlatReadonlyRecordStruct_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.4")]
+        public async Task StaySilentOnFlatReadonlyRecordStruct()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -151,8 +167,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task NullableValidReadonlyRecordStruct_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.4")]
+        public async Task StaySilentOnNullableFlatRecordStruct()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -166,8 +184,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task ImmutableArrayOfValidReadonlyRecordStruct_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.4")]
+        public async Task StaySilentOnImmutableArrayOfFlatRecordStruct()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System.Collections.Immutable;
 using Vion.Dale.Sdk.Core;
@@ -182,8 +202,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task PrimitiveProp_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.4")]
+        public async Task StaySilentOnPrimitiveProperty()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -196,8 +218,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task SystemValueTypes_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.4")]
+        public async Task StaySilentOnSystemValueTypes()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System;
 using Vion.Dale.Sdk.Core;
@@ -211,8 +235,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task EnumProp_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.4")]
+        public async Task StaySilentOnEnumProperty()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -226,8 +252,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task PropertyWithoutAttribute_RegularStruct_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.4")]
+        public async Task StaySilentOnStructWithoutServiceAttribute()
         {
+            // Arrange / Act / Assert
             var source = @"
 public struct Coordinates { public double Lat; public double Lon; }
 

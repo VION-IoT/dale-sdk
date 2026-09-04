@@ -8,8 +8,10 @@ namespace Vion.Dale.Sdk.Generators.Test
     public class StatusIndicatorRequiresEnumAnalyzerTests
     {
         [TestMethod]
-        public async Task StatusIndicatorOnEnum_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-009.4")]
+        public async Task StaySilentOnStatusIndicatorOverEnum()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -23,8 +25,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task StatusIndicatorOnNullableEnum_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-009.4")]
+        public async Task StaySilentOnStatusIndicatorOverNullableEnum()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -38,8 +42,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task StatusIndicatorOnNonEnum_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-009.4")]
+        public async Task ReportStatusIndicatorOnNonEnum()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -52,8 +58,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task StatusIndicatorFalse_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-009.4")]
+        public async Task StaySilentWhenStatusIndicatorUnset()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 

@@ -8,8 +8,10 @@ namespace Vion.Dale.Sdk.Generators.Test
     public class MeasuringPointAnalyzerTests
     {
         [TestMethod]
-        public async Task MeasuringPointWithPrivateSetter_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-008.1")]
+        public async Task StaySilentOnPrivateSetter()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -21,8 +23,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task MeasuringPointGetOnly_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-008.1")]
+        public async Task StaySilentOnGetOnlyMeasuringPoint()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -34,8 +38,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task MeasuringPointWithPublicSetter_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-008.1")]
+        public async Task ReportPublicSetterOnMeasuringPoint()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -48,8 +54,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task MeasuringPointAndServicePropertyWithPublicSetter_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-008.1")]
+        public async Task StaySilentOnDualAnnotatedPublicSetter()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -63,8 +71,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task MeasuringPointWithInternalSetter_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-008.1")]
+        public async Task StaySilentOnInternalSetter()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -76,8 +86,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task InterfaceMeasuringPointWithSetter_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-008.1")]
+        public async Task StaySilentOnInterfaceDeclaration()
         {
+            // Arrange / Act / Assert
             // On an interface the suggested { get; private set; } remedy is a compile error, and the
             // private-setter-for-INPC-weaving rationale is an implementation concern. The check belongs
             // on the concrete implementation, so no diagnostic on the interface declaration.

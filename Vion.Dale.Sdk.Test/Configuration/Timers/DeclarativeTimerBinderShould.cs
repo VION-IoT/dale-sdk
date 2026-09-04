@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -224,10 +224,14 @@ namespace Vion.Dale.Sdk.Test.Configuration.Timers
             {
             }
 
+            // Deliberately the not-a-number interval DALE005 reports; the binder is the door left when it
+            // is suppressed.
+#pragma warning disable DALE005
             [Timer(double.NaN)]
             private void Tick()
             {
             }
+#pragma warning restore DALE005
         }
 
         public sealed class InfiniteIntervalBlock : LogicBlockBase
@@ -240,10 +244,14 @@ namespace Vion.Dale.Sdk.Test.Configuration.Timers
             {
             }
 
+            // Deliberately the infinite interval DALE005 reports; the binder is the door left when it
+            // is suppressed.
+#pragma warning disable DALE005
             [Timer(double.PositiveInfinity)]
             private void Tick()
             {
             }
+#pragma warning restore DALE005
         }
 
         public sealed class OverlongIntervalBlock : LogicBlockBase
@@ -256,10 +264,14 @@ namespace Vion.Dale.Sdk.Test.Configuration.Timers
             {
             }
 
+            // Deliberately the longer-than-a-clock-can-wait interval DALE005 reports; the binder is the door left when it
+            // is suppressed.
+#pragma warning disable DALE005
             [Timer(4294968)]
             private void Tick()
             {
             }
+#pragma warning restore DALE005
         }
 
         public sealed class SubTickIntervalBlock : LogicBlockBase
@@ -273,11 +285,14 @@ namespace Vion.Dale.Sdk.Test.Configuration.Timers
             }
 
             // Positive, so the attribute's own guard lets it past — and shorter than one clock tick, so it
-            // converts to no delay at all and would arm a chain that never yields.
+            // converts to no delay at all and would arm a chain that never yields. Deliberately the
+            // sub-tick interval DALE005 reports; the binder is the door left when it is suppressed.
+#pragma warning disable DALE005
             [Timer(1e-9)]
             private void Tick()
             {
             }
+#pragma warning restore DALE005
         }
 
         public sealed class EmptyIdentifierBlock : LogicBlockBase

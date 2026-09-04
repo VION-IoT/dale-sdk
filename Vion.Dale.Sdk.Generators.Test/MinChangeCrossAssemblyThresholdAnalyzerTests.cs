@@ -24,6 +24,7 @@ namespace Vion.Dale.Sdk.Generators.Test
         [TestProperty("spec", "AC-EMIT-012.1")]
         public async Task MinChangeWithThresholdInReferencedAssembly_NoDiagnostic()
         {
+            // Arrange / Act / Assert
             var sdkRef = await CompileSdkStubAsync();
             var commonRef = await CompileLibraryAsync("Common",
                                                       @"
@@ -60,6 +61,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.1")]
         public async Task MinChangeWithoutThresholdAnywhere_ReportsDiagnostic()
         {
+            // Arrange / Act / Assert
             // Negative control: same layout, but the referenced library declares no threshold for the type.
             var sdkRef = await CompileSdkStubAsync();
             var commonRef = await CompileLibraryAsync("Common",

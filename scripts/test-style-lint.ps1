@@ -21,7 +21,11 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$RepoRoot
+    [string]$RepoRoot,
+
+    # Projects an area pass CITES from without owning. Overridable so the self-test can exercise the
+    # mechanism when the built-in list is empty, which is the state it is designed to reach.
+    [hashtable]$Exempt
 )
 $ErrorActionPreference = 'Stop'
 if (-not $RepoRoot) {
@@ -50,9 +54,10 @@ $testRoots = @(Get-ChildItem -LiteralPath $RepoRoot -Recurse -Directory -Filter 
 # Projects an area pass CITES from without owning — a cross-area anchor (the pilot's D3 shape:
 # an analyzer registry is one area's, the ids it proves are another's). Each entry names the pass
 # that retires it; the list only shrinks. A repo-root-relative directory prefix, forward slashes.
-$exempt = @{
-    'Vion.Dale.Sdk.Generators.Test/' = 'the ANLZ area owns this project; EMIT and later passes cite its tests without rewriting them (their D3). Retired by the ANLZ pass.'
-}
+#
+# Empty since the ANLZ pass retired the last entry: every cited test in the repository is now gated.
+$exempt = if ($PSBoundParameters.ContainsKey('Exempt')) { $Exempt } else { @{
+} }
 
 $problems = [System.Collections.Generic.List[string]]::new()
 $checked = 0

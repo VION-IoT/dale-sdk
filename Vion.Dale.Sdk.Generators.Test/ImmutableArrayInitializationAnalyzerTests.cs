@@ -10,8 +10,10 @@ namespace Vion.Dale.Sdk.Generators.Test
         // --- Missing initializer: should trigger DALE018 ---
 
         [TestMethod]
-        public async Task ImmutableArrayWithoutInitializer_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.6")]
+        public async Task ReportImmutableArrayWithoutInitializer()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System.Collections.Immutable;
 using Vion.Dale.Sdk.Core;
@@ -25,8 +27,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task MeasuringPoint_ImmutableArrayWithoutInitializer_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.6")]
+        public async Task ReportMeasuringPointImmutableArrayWithoutInitializer()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System.Collections.Immutable;
 using Vion.Dale.Sdk.Core;
@@ -42,8 +46,10 @@ public class MyBlock
         // --- With initializer: should NOT trigger DALE018 ---
 
         [TestMethod]
-        public async Task ImmutableArrayWithEmptyInitializer_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.6")]
+        public async Task StaySilentOnEmptyInitializer()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System.Collections.Immutable;
 using Vion.Dale.Sdk.Core;
@@ -56,8 +62,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task ImmutableArrayWithCreateInitializer_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.6")]
+        public async Task StaySilentOnCreateInitializer()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System.Collections.Immutable;
 using Vion.Dale.Sdk.Core;
@@ -72,8 +80,10 @@ public class MyBlock
         // --- Explicit accessors: opaque getter, can't carry a property initializer → should NOT trigger DALE018 ---
 
         [TestMethod]
-        public async Task ImmutableArrayWithExplicitGetterAndInitializedBackingField_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.6")]
+        public async Task StaySilentOnExplicitGetterOverInitializedField()
         {
+            // Arrange / Act / Assert
             // DALE018 targets auto-implemented properties, whose compiler backing field defaults to a throwing
             // default ImmutableArray. A property with an explicit getter returning an initialized backing field
             // can never return default — and explicit accessors can't carry a property-level initializer anyway,
@@ -97,8 +107,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task ImmutableArrayExpressionBodiedProperty_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.6")]
+        public async Task StaySilentOnExpressionBodiedProperty()
         {
+            // Arrange / Act / Assert
             // An expression-bodied (computed) getter is opaque — the developer owns what it returns.
             var source = @"
 using System.Collections.Immutable;
@@ -114,8 +126,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task ImmutableArrayWithBlockBodiedGetter_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.6")]
+        public async Task StaySilentOnBlockBodiedGetter()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System.Collections.Immutable;
 using Vion.Dale.Sdk.Core;
@@ -137,8 +151,10 @@ public class MyBlock
         // --- Non-ImmutableArray types: should NOT trigger DALE018 ---
 
         [TestMethod]
-        public async Task IntProperty_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.6")]
+        public async Task StaySilentOnScalarProperty()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -152,8 +168,10 @@ public class MyBlock
         // --- No attribute: should NOT trigger DALE018 ---
 
         [TestMethod]
-        public async Task ImmutableArrayWithoutAttribute_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.6")]
+        public async Task StaySilentOnImmutableArrayWithoutServiceAttribute()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System.Collections.Immutable;
 
@@ -167,8 +185,10 @@ public class MyBlock
         // --- Interface / abstract members: can't carry an initializer; obligation is on the impl ---
 
         [TestMethod]
-        public async Task InterfaceMember_ImmutableArrayWithoutInitializer_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.6")]
+        public async Task StaySilentOnInterfaceMember()
         {
+            // Arrange / Act / Assert
             // An interface property can't have an initializer (compile error), so DALE018 here would be
             // unactionable. The check belongs on the implementing block.
             var source = @"
@@ -183,8 +203,10 @@ public interface IMyService
         }
 
         [TestMethod]
-        public async Task AbstractProperty_ImmutableArrayWithoutInitializer_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.6")]
+        public async Task StaySilentOnAbstractProperty()
         {
+            // Arrange / Act / Assert
             // An abstract auto-property can't have an initializer either; the concrete override initialises.
             var source = @"
 using System.Collections.Immutable;

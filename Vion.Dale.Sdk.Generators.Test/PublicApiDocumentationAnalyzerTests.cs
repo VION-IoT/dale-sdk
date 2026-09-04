@@ -1,4 +1,4 @@
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Vion.Dale.Sdk.Generators.Analyzers;
 using Vion.Dale.Sdk.Generators.Test.Helpers;
 
@@ -8,8 +8,10 @@ namespace Vion.Dale.Sdk.Generators.Test
     public class PublicApiDocumentationAnalyzerTests
     {
         [TestMethod]
-        public async Task DALE013_PublicApiWithoutSummary_ReportsWarning()
+        [TestProperty("spec", "AC-ANLZ-012.1")]
+        public async Task ReportPublicApiTypeWithoutSummary()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -24,8 +26,10 @@ namespace TestNs
         }
 
         [TestMethod]
-        public async Task DALE013_PublicApiWithSummary_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-012.1")]
+        public async Task StaySilentOnDocumentedPublicApiType()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -40,8 +44,10 @@ namespace TestNs
         }
 
         [TestMethod]
-        public async Task DALE014_PublicTypeInApiNamespace_WithoutAttribute_ReportsWarning()
+        [TestProperty("spec", "AC-ANLZ-012.2")]
+        public async Task ReportUnmarkedPublicTypeInApiNamespace()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -57,8 +63,10 @@ namespace TestNs
         }
 
         [TestMethod]
-        public async Task DALE014_TypeWithInternalApi_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-012.2")]
+        public async Task StaySilentOnInternalApiMarkedType()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -74,8 +82,10 @@ namespace TestNs
         }
 
         [TestMethod]
-        public async Task DALE014_TypeWithPublicApi_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-012.2")]
+        public async Task StaySilentOnPublicApiMarkedType()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -92,8 +102,10 @@ namespace TestNs
         }
 
         [TestMethod]
-        public async Task DALE014_TypeInNonConfiguredNamespace_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-012.2")]
+        public async Task StaySilentOnTypeOutsideConfiguredNamespaces()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -115,8 +127,10 @@ namespace SomeOther.Namespace
         }
 
         [TestMethod]
-        public async Task DALE015_StaleNamespace_ReportsWarning()
+        [TestProperty("spec", "AC-ANLZ-012.3")]
+        public async Task ReportNamespaceMatchingNoPublicType()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -127,8 +141,10 @@ using Vion.Dale.Sdk.Core;
         }
 
         [TestMethod]
-        public async Task DALE015_NamespaceWithTypes_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-012.3")]
+        public async Task StaySilentOnNamespaceMatchingPublicTypes()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -141,6 +157,123 @@ namespace MyNs
     public class MyType { }
 }
 ";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<PublicApiDocumentationAnalyzer>(source);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-012.4")]
+        public async Task ReportNestedPublicApiTypeWithoutSummary()
+        {
+            // Arrange / Act / Assert
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+namespace Api
+{
+    /// <summary>Documented outer.</summary>
+    [PublicApi]
+    public class Outer
+    {
+        [PublicApi]
+        public class {|#0:Inner|} { }
+    }
+}";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE013_PublicApiMissingDocs).WithLocation(0).WithArguments("Inner");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<PublicApiDocumentationAnalyzer>(source, expected);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-012.4")]
+        public async Task ReportUnmarkedNestedPublicTypeInApiNamespace()
+        {
+            // Arrange / Act / Assert
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+[assembly: PublicApiNamespace(""Api"")]
+
+namespace Api
+{
+    /// <summary>Documented outer.</summary>
+    [PublicApi]
+    public class Outer
+    {
+        public class {|#0:Inner|} { }
+    }
+}";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE014_UnmarkedPublicType).WithLocation(0).WithArguments("Inner", "Api");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<PublicApiDocumentationAnalyzer>(source, expected);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-012.5")]
+        public async Task StaySilentOnPublicTypeNestedInNonPublicOuter()
+        {
+            // Arrange / Act / Assert
+            // Nothing outside the assembly can name it, so demanding a mark would be a warning with
+            // no action behind it.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+[assembly: PublicApiNamespace(""Api"")]
+
+namespace Api
+{
+    /// <summary>Documented, and the reason the namespace is not stale.</summary>
+    [PublicApi]
+    public class Marked { }
+
+    internal class Outer
+    {
+        public class Inner { }
+    }
+}";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<PublicApiDocumentationAnalyzer>(source);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-012.5")]
+        public async Task ReportUndocumentedPublicApiMarkOnTypeNoneCanName()
+        {
+            // Arrange / Act / Assert
+            // The effective-accessibility rule scopes who is ASKED for a mark. A [PublicApi] mark the
+            // author wrote is the claim itself, and the docs site reads its summary, so an undocumented
+            // one is still worth saying — and no mark is demanded of the same declaration.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+[assembly: PublicApiNamespace(""Api"")]
+
+namespace Api
+{
+    /// <summary>Documented, and the reason the namespace is not stale.</summary>
+    [PublicApi]
+    public class Marked { }
+
+    [PublicApi]
+    internal class {|#0:Hidden|} { }
+}";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE013_PublicApiMissingDocs).WithLocation(0).WithArguments("Hidden");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<PublicApiDocumentationAnalyzer>(source, expected);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-012.6")]
+        public async Task CreditEveryMatchingNamespacePrefix()
+        {
+            // Arrange / Act / Assert
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+[assembly: PublicApiNamespace(""Api"")]
+[assembly: PublicApiNamespace(""Api.Sub"")]
+
+namespace Api.Sub
+{
+    /// <summary>Documented.</summary>
+    [PublicApi]
+    public class OnlyType { }
+}";
             await AnalyzerTestBase.VerifyAnalyzerAsync<PublicApiDocumentationAnalyzer>(source);
         }
     }

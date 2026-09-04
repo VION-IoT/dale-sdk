@@ -11,6 +11,7 @@ namespace Vion.Dale.Sdk.Generators.Test
         [TestProperty("spec", "AC-EMIT-012.7")]
         public async Task DefaultMinInterval_NoDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -25,6 +26,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.3")]
         public async Task ValidMinInterval_NoDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -39,6 +41,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.3")]
         public async Task ZeroSentinel_NoDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -53,6 +56,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.3")]
         public async Task ZeroMsSentinel_NoDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -67,6 +71,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.4")]
         public async Task ExactlyOneMs_NoDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -81,6 +86,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.3")]
         public async Task Unparseable_ReportsError()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -96,6 +102,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.3")]
         public async Task BadUnit_ReportsError()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -111,6 +118,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.3")]
         public async Task Negative_ReportsError()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -126,6 +134,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.4")]
         public async Task BelowFloorMicroseconds_ReportsWarning()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -141,6 +150,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.4")]
         public async Task BelowFloorFractionalMs_ReportsWarning()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -156,6 +166,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.7")]
         public async Task MeasuringPointBadInterval_ReportsError()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -171,6 +182,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.7")]
         public async Task DualAnnotatedMeasuringPointBadInterval_ReportsError()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -188,6 +200,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.3")]
         public async Task TooLargeToRepresent_ReportsError()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -203,6 +216,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.7")]
         public async Task DualAnnotatedServicePropertyBadInterval_ReportsError()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -216,10 +230,15 @@ public class MyBlock
             await AnalyzerTestBase.VerifyAnalyzerAsync<MinIntervalInvalidAnalyzer>(source, expected);
         }
 
+        // Over-determined: AC-EMIT-012.7 states that each stream's knobs are validated, AC-ANLZ-002.5 that
+        // the report lands on the attribute that declares them. Both are what the two expected locations
+        // below assert, and neither is provable without the other.
         [TestMethod]
         [TestProperty("spec", "AC-EMIT-012.7")]
+        [TestProperty("spec-also", "AC-ANLZ-002.5")]
         public async Task DualAnnotatedBothIntervalsBad_ReportsOnEachAttribute()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 

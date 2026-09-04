@@ -16,6 +16,10 @@ function Invoke-Lint {
     pwsh -NoProfile -File $lint -RepoRoot $tmp | Out-Null
     return $LASTEXITCODE
 }
+function Invoke-LintExempting($prefix) {
+    pwsh -NoProfile -Command "& '$lint' -RepoRoot '$tmp' -Exempt @{ '$prefix' = 'self-test' }" | Out-Null
+    return $LASTEXITCODE
+}
 
 try {
     # Case 1: a cited, conforming test (MSTest) + an uncited legacy test with articles and no markers -> 0
@@ -132,8 +136,11 @@ public class PairShould
 
     Remove-Item (Join-Path $tmp 'Fake.Sdk.Test/PairShould.cs')
 
-    # Case 6: a cited test in an exempt project (the analyzer registry, another area's) is skipped -> 0
-    New-File 'Vion.Dale.Sdk.Generators.Test/SomeAnalyzerTests.cs' @'
+    # Case 6: a cited, non-conforming test in an exempt project is skipped -> 0, and the SAME file
+    # fails once the exemption is gone -> 1. The built-in list is empty (the ANLZ pass retired its last
+    # entry), so the exemption is seeded here rather than borrowed from a live one — otherwise this
+    # case would pass for the wrong reason the moment the list emptied, which is what it just did.
+    New-File 'Other.Area.Test/SomeAnalyzerTests.cs' @'
 public class SomeAnalyzerTests
 {
     [TestMethod]
@@ -144,7 +151,8 @@ public class SomeAnalyzerTests
     }
 }
 '@ | Out-Null
-    if ((Invoke-Lint) -ne 0) { throw "Case 6 (exempt project) expected 0" }
+    if ((Invoke-LintExempting 'Other.Area.Test/') -ne 0) { throw "Case 6 (exempt project) expected 0" }
+    if ((Invoke-Lint) -ne 1) { throw "Case 6 (the same file, unexempted) expected 1" }
 
     Write-Host 'test-style-lint.tests: PASS'
     exit 0

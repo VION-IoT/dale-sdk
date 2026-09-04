@@ -17,8 +17,10 @@ namespace Vion.Dale.Sdk.Generators.Test
         // ── Shapes that must stay silent ──
 
         [TestMethod]
-        public async Task ASingleFieldScalarWireStruct_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-017.1")]
+        public async Task StaySilentOnSingleFieldScalarWireStruct()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Abstractions;
 
@@ -32,8 +34,10 @@ public class DigitalInputHandler { }";
         // The SmokeHost's richest shape: multi-field, an enum, a NULLABLE nested struct and a timestamp.
         // The codec descends nested readonly record structs, so this must not be judged by the flat-struct rule.
         [TestMethod]
-        public async Task AMultiFieldStructWithEnumNestedNullableAndTimestamp_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-017.1")]
+        public async Task StaySilentOnRepresentableCompositeWireStruct()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System;
 using Vion.Dale.Sdk.Abstractions;
@@ -48,8 +52,10 @@ public class GridSetpointHandler { }";
         }
 
         [TestMethod]
-        public async Task BothDirectionsDeclared_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-017.1")]
+        public async Task StaySilentWhenBothDirectionsAreRepresentable()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Abstractions;
 
@@ -63,8 +69,10 @@ public class DigitalOutputProviderHandler { }";
 
         // A payload-free struct round-trips as an empty object; there is nothing unrepresentable about it.
         [TestMethod]
-        public async Task AFieldlessWireStruct_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-017.1")]
+        public async Task StaySilentOnFieldlessWireStruct()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Abstractions;
 
@@ -76,8 +84,10 @@ public class TogglingHandler { }";
         }
 
         [TestMethod]
-        public async Task AHandlerWithoutTheAttribute_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-017.1")]
+        public async Task StaySilentOnHandlerWithoutWireAttribute()
         {
+            // Arrange / Act / Assert
             var source = @"
 public class Callback { }
 
@@ -91,8 +101,10 @@ public class ModbusRtuHandler { }";
 
         // The rule's reason to exist: a request/response wire struct holding a pending-operation callback.
         [TestMethod]
-        public async Task ADelegateBearingWireStruct_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-017.1")]
+        public async Task ReportDelegateMemberInWireStruct()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System;
 using Vion.Dale.Sdk.Abstractions;
@@ -105,8 +117,10 @@ public class ModbusRtuHandler { }";
         }
 
         [TestMethod]
-        public async Task ADelegateInsideANestedWireStruct_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-017.1")]
+        public async Task ReportDelegateMemberNestedInWireStruct()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System;
 using Vion.Dale.Sdk.Abstractions;
@@ -120,8 +134,10 @@ public class ModbusRtuHandler { }";
         }
 
         [TestMethod]
-        public async Task AClassWireType_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-017.1")]
+        public async Task ReportClassWireType()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Abstractions;
 
@@ -133,8 +149,10 @@ public class DemandHandler { }";
         }
 
         [TestMethod]
-        public async Task AReferenceTypedWireMember_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-017.1")]
+        public async Task ReportReferenceTypedWireMember()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Abstractions;
 
@@ -148,8 +166,10 @@ public class FrameHandler { }";
 
         // Both directions are judged, and each reports on its own — the outbound half is not a blind spot.
         [TestMethod]
-        public async Task BothDirectionsUnrepresentable_ReportsTwice()
+        [TestProperty("spec", "AC-ANLZ-017.1")]
+        public async Task ReportEachUnrepresentableDirection()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System;
 using Vion.Dale.Sdk.Abstractions;
@@ -167,8 +187,10 @@ public class BothHandler { }";
         // A wire type the compilation cannot resolve is already a compile error; DALE046 must stay quiet
         // rather than pile a second, misleading message onto it.
         [TestMethod]
-        public async Task AnUnresolvedWireType_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-017.2")]
+        public async Task StaySilentOnUnresolvedWireType()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Abstractions;
 

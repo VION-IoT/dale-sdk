@@ -14,12 +14,20 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class ContractMessageAnalyzer : DiagnosticAnalyzer
     {
+        private static readonly string[] MessageAttributeNames =
+        {
+            AnalyzerHelper.CommandAttribute,
+            AnalyzerHelper.StateUpdateAttribute,
+            AnalyzerHelper.RequestResponseAttribute,
+        };
+
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
         {
             get =>
                 ImmutableArray.Create(DaleDiagnostics.DALE009_ContractInterfaceNamePrefix,
                                       DaleDiagnostics.DALE010_MessageFromToMismatch,
-                                      DaleDiagnostics.DALE011_ResponseTypeMustBeNestedStruct);
+                                      DaleDiagnostics.DALE011_ResponseTypeMustBeNestedStruct,
+                                      DaleDiagnostics.DALE047_MessageStructNotNestedInContract);
         }
 
         public override void Initialize(AnalysisContext context)
@@ -36,6 +44,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             var contractAttr = AnalyzerHelper.GetAttribute(type, AnalyzerHelper.LogicBlockContractAttribute);
             if (contractAttr == null)
             {
+                ReportIfStrayMessageStruct(context, type);
                 return;
             }
 
@@ -66,6 +75,40 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             foreach (var nestedType in type.GetTypeMembers())
             {
                 AnalyzeMessageType(context, nestedType, type.Name, betweenInterface, andInterface);
+            }
+        }
+
+        /// <summary>
+        ///     DALE047 — a message struct the generator will never reach. The three message attributes allow
+        ///     any struct target, and <see cref="AnalyzeType" /> only ever walks the structs nested inside a
+        ///     <c>[LogicBlockContract]</c> class, so a struct declared beside the contract — or inside any
+        ///     other type — compiles and produces nothing.
+        /// </summary>
+        private static void ReportIfStrayMessageStruct(SymbolAnalysisContext context, INamedTypeSymbol type)
+        {
+            if (type.TypeKind != TypeKind.Struct)
+            {
+                return;
+            }
+
+            foreach (var attributeName in MessageAttributeNames)
+            {
+                if (AnalyzerHelper.GetAttribute(type, attributeName) is null)
+                {
+                    continue;
+                }
+
+                // The container decides: nested inside a contract class is the one legal home.
+                if (type.ContainingType is { } container && AnalyzerHelper.GetAttribute(container, AnalyzerHelper.LogicBlockContractAttribute) is not null)
+                {
+                    return;
+                }
+
+                context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE047_MessageStructNotNestedInContract,
+                                                           type.Locations.FirstOrDefault(),
+                                                           type.Name,
+                                                           attributeName.Substring(attributeName.LastIndexOf('.') + 1).Replace("Attribute", "")));
+                return;
             }
         }
 

@@ -8,8 +8,10 @@ namespace Vion.Dale.Sdk.Generators.Test
     public class FormatSentinelTypeMismatchAnalyzerTests
     {
         [TestMethod]
-        public async Task RelativeOnDateTime_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-009.5")]
+        public async Task StaySilentOnRelativeSentinelOverDateTime()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System;
 using Vion.Dale.Sdk.Core;
@@ -22,8 +24,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task HumanizeOnTimeSpan_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-009.5")]
+        public async Task StaySilentOnHumanizeSentinelOverTimeSpan()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System;
 using Vion.Dale.Sdk.Core;
@@ -36,8 +40,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task ExplicitTokenOnEither_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-009.5")]
+        public async Task StaySilentOnExplicitFormatToken()
         {
+            // Arrange / Act / Assert
             // ""LLLL"" / ""HH:mm:ss"" are not sentinels — DALE028 ignores them.
             var source = @"
 using System;
@@ -52,8 +58,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task RelativeOnTimeSpan_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-009.5")]
+        public async Task ReportRelativeSentinelOnTimeSpan()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System;
 using Vion.Dale.Sdk.Core;
@@ -69,8 +77,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task HumanizeOnDateTime_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-009.5")]
+        public async Task ReportHumanizeSentinelOnDateTime()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System;
 using Vion.Dale.Sdk.Core;

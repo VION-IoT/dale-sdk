@@ -40,18 +40,20 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         /// </summary>
         public static readonly DiagnosticDescriptor DALE003_UnsupportedServicePropertyType = new("DALE003",
                                                                                                  "Unsupported service property type",
-                                                                                                 "Property '{0}' has [{1}] but type '{2}' is not supported. Supported: bool, string, byte, short, ushort, int, uint, long, float, double, DateTime, TimeSpan, any enum, any flat readonly record struct, ImmutableArray<T> where T is one of the above, or T? for value types and string.",
+                                                                                                 "Property '{0}' has [{1}] but type '{2}' is not supported. Supported: bool, string, byte, short, ushort, int, uint, long, float, double, DateTime, TimeSpan, Guid, any enum, any flat readonly record struct, ImmutableArray<T> where T is one of the above, or T? for value types and string.",
                                                                                                  Category,
                                                                                                  DiagnosticSeverity.Error,
                                                                                                  true);
 
         /// <summary>
-        ///     Timer interval must be greater than zero.
-        ///     Runtime: TimerAttribute constructor throws ArgumentException.
+        ///     Timer interval must be a finite, positive number of seconds a clock can wait.
+        ///     Runtime: TimerAttribute's constructor throws ArgumentException for zero and below, and
+        ///     DeclarativeTimerBinder throws InvalidOperationException for not-a-number, either infinity,
+        ///     and a value longer than a clock can wait.
         /// </summary>
         public static readonly DiagnosticDescriptor DALE005_TimerIntervalMustBePositive = new("DALE005",
-                                                                                              "Timer interval must be greater than zero",
-                                                                                              "Method '{0}' has [Timer({1})] but the interval must be greater than zero",
+                                                                                              "Timer interval must be one a timer can be scheduled at",
+                                                                                              "Method '{0}' has [Timer({1})] but the interval must be a finite number of at least one clock tick (100 ns) and at most 4294967 seconds",
                                                                                               Category,
                                                                                               DiagnosticSeverity.Error,
                                                                                               true);
@@ -146,7 +148,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         /// </summary>
         public static readonly DiagnosticDescriptor DALE016_StructMustBeFlatReadonlyRecord = new("DALE016",
                                                                                                  "Struct used as service element must be readonly record struct with flat fields",
-                                                                                                 "Property '{0}' has [{1}] but its struct type '{2}' is not a readonly record struct with flat fields. Define it as 'public readonly record struct {2}(...)' with primitive, enum, string, or nullable-of-those parameters only.",
+                                                                                                 "Property '{0}' has [{1}] but its struct type '{2}' is not a readonly record struct with flat fields. Define it as 'public readonly record struct {2}(...)' with primitive, enum, string, TimeSpan, Guid, or nullable-of-those parameters only.",
                                                                                                  Category,
                                                                                                  DiagnosticSeverity.Error,
                                                                                                  true);
@@ -600,5 +602,32 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                                                                                                    Category,
                                                                                                    DiagnosticSeverity.Error,
                                                                                                    true);
+
+        // --- Contract declarations no reader reaches ---
+
+        /// <summary>
+        ///     A <c>[Command]</c>, <c>[StateUpdate]</c> or <c>[RequestResponse]</c> struct declared beside
+        ///     its contract class rather than nested inside it. The attributes allow any struct target, and
+        ///     the generator reads only the structs nested in a <c>[LogicBlockContract]</c> class, so such a
+        ///     declaration compiles, generates nothing and is diagnosed by nothing.
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE047_MessageStructNotNestedInContract = new("DALE047",
+                                                                                                   "Message struct is not nested in a contract class",
+                                                                                                   "Struct '{0}' has [{1}] but is not nested in a [LogicBlockContract] class, so no sender, message type or handler is generated for it. Move it inside the contract class.",
+                                                                                                   Category,
+                                                                                                   DiagnosticSeverity.Warning,
+                                                                                                   true);
+
+        /// <summary>
+        ///     A <c>[ServiceProviderContractType]</c> token that is empty or whitespace. The token is the
+        ///     stable cloud-facing identifier of the contract type; the attribute assigns it with no
+        ///     validation, so a blank one reaches the introspection document and every reader downstream.
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE048_ContractTypeTokenMustNotBeBlank = new("DALE048",
+                                                                                                  "ServiceProviderContractType token must not be blank",
+                                                                                                  "Interface '{0}' declares a blank [ServiceProviderContractType] token. The token is the stable cloud-facing identifier of this contract type — give it a non-empty name.",
+                                                                                                  Category,
+                                                                                                  DiagnosticSeverity.Error,
+                                                                                                  true);
     }
 }
