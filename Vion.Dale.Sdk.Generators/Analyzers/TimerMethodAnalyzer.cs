@@ -75,6 +75,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             if (timerAttr.ConstructorArguments.Length > 0)
             {
                 var intervalArg = timerAttr.ConstructorArguments[0];
+
                 // The whole refusal set the timer binder applies at configuration
                 // (DeclarativeTimerBinder.ResolveInterval), stated as one positive condition so that NaN —
                 // which is false against every comparison, so `<= 0` let it through — is refused with the

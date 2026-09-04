@@ -18,11 +18,10 @@ namespace Vion.Dale.Sdk.Generators.Test
     [TestClass]
     public class DaleDiagnosticsRegistryTests
     {
-        private static readonly ImmutableArray<DiagnosticDescriptor> Descriptors =
-            typeof(DaleDiagnostics).GetFields(BindingFlags.Public | BindingFlags.Static)
-                                   .Where(f => f.FieldType == typeof(DiagnosticDescriptor))
-                                   .Select(f => (DiagnosticDescriptor)f.GetValue(null)!)
-                                   .ToImmutableArray();
+        private static readonly ImmutableArray<DiagnosticDescriptor> Descriptors = typeof(DaleDiagnostics).GetFields(BindingFlags.Public | BindingFlags.Static)
+                                                                                                          .Where(f => f.FieldType == typeof(DiagnosticDescriptor))
+                                                                                                          .Select(f => (DiagnosticDescriptor)f.GetValue(null)!)
+                                                                                                          .ToImmutableArray();
 
         /// <summary>The analyzers that report from a whole-compilation action, which is what the tag is for.</summary>
         private static readonly DiagnosticAnalyzer[] WholeCompilationAnalyzers = [new PublicApiDocumentationAnalyzer(), new ServiceRelationAnalyzer()];
@@ -76,7 +75,8 @@ namespace Vion.Dale.Sdk.Generators.Test
             // Assert
             Assert.IsEmpty(reportedFromWholeCompilation.Except(tagged).OrderBy(id => id, StringComparer.Ordinal),
                            "an untagged whole-compilation diagnostic is dropped from IDE live analysis, so an author sees it only on a full build.");
-            Assert.IsEmpty(tagged.Except(reportedFromWholeCompilation).OrderBy(id => id, StringComparer.Ordinal), "the tag on a per-symbol diagnostic claims an analysis it does not do.");
+            Assert.IsEmpty(tagged.Except(reportedFromWholeCompilation).OrderBy(id => id, StringComparer.Ordinal),
+                           "the tag on a per-symbol diagnostic claims an analysis it does not do.");
         }
 
         [TestMethod]
@@ -133,8 +133,7 @@ namespace Vion.Dale.Sdk.Generators.Test
             var reused = Descriptors.Select(d => d.Id).Where(retired.Contains).ToList();
 
             // Assert
-            Assert.IsEmpty(reused,
-                           "a consumer's .editorconfig entry or #pragma naming a retired id must never start configuring a different rule: " + string.Join(", ", reused));
+            Assert.IsEmpty(reused, "a consumer's .editorconfig entry or #pragma naming a retired id must never start configuring a different rule: " + string.Join(", ", reused));
         }
     }
 }

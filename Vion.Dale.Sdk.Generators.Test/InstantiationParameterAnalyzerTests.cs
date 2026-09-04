@@ -210,24 +210,6 @@ public class LeafBlock : BaseBlock
             await AnalyzerTestBase.VerifyAnalyzerAsync<InstantiationParameterAnalyzer>(source, Diag().WithLocation(0));
         }
 
-        // ── Helpers ──
-
-        private static DiagnosticResult Diag()
-        {
-            return new DiagnosticResult(DaleDiagnostics.DALE044_InstantiationParameterDiscipline.Id, DiagnosticSeverity.Error);
-        }
-
-        private static async Task ExpectDiscipline(string parameterMember)
-        {
-            var source = $@"
-using Vion.Dale.Sdk.Core;
-public class MyBlock : LogicBlockBase
-{{
-    {parameterMember}
-}}";
-            await AnalyzerTestBase.VerifyAnalyzerAsync<InstantiationParameterAnalyzer>(source, Diag().WithLocation(0));
-        }
-
         [TestMethod]
         [TestProperty("spec", "AC-ANLZ-014.2")]
         [DataRow("internal", DisplayName = "internal")]
@@ -252,6 +234,24 @@ public class MyBlock : LogicBlockBase
                                                           "[InstantiationParameter] must be a public property — the binders read a block's parameters from its public " +
                                                           "instance properties, so a non-public one is configured by nothing and no [IncludedWhen] gate can resolve to it.");
             await AnalyzerTestBase.VerifyAnalyzerAsync<InstantiationParameterAnalyzer>(source, expected);
+        }
+
+        // ── Helpers ──
+
+        private static DiagnosticResult Diag()
+        {
+            return new DiagnosticResult(DaleDiagnostics.DALE044_InstantiationParameterDiscipline.Id, DiagnosticSeverity.Error);
+        }
+
+        private static async Task ExpectDiscipline(string parameterMember)
+        {
+            var source = $@"
+using Vion.Dale.Sdk.Core;
+public class MyBlock : LogicBlockBase
+{{
+    {parameterMember}
+}}";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<InstantiationParameterAnalyzer>(source, Diag().WithLocation(0));
         }
     }
 }

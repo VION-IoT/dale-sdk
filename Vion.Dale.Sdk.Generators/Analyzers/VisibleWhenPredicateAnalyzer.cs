@@ -38,6 +38,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         private static void AnalyzeBlock(SymbolAnalysisContext context)
         {
             var block = (INamedTypeSymbol)context.Symbol;
+
             // An abstract block is judged too: a library ships base blocks whose concrete subclasses live
             // in a consumer's assembly, and skipping them left every predicate in that library unvalidated
             // in its own build. A predicate must resolve where it is written, so one naming a property only

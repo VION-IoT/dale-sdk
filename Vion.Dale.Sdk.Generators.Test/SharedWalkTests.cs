@@ -48,7 +48,9 @@ public class MyBlock
 {
     [ServiceProperty] public List<double> {|#0:Bands|} { get; set; } = new();
 }";
-            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE003_UnsupportedServicePropertyType).WithLocation(0).WithArguments("Bands", "ServiceProperty", "List<double>");
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE003_UnsupportedServicePropertyType)
+                                           .WithLocation(0)
+                                           .WithArguments("Bands", "ServiceProperty", "List<double>");
             await AnalyzerTestBase.VerifyAnalyzerAsync<ServiceElementTypeAnalyzer>(source, expected);
         }
 

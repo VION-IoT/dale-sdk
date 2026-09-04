@@ -162,7 +162,12 @@ alongside the Dale diagnostic). A test using a resolvable stub interface does no
 build and will pass either way. `ServiceRelationAnalyzer` /
 [`ServiceRelationAnalyzerTests`](../Vion.Dale.Sdk.Generators.Test/ServiceRelationAnalyzerTests.cs) is
 the worked example — see `RelationBearingInterfaces` for the two-way lookup and the two `CS0246` tests
-for the pin. The session that found this also tried flipping `ConfigureGeneratedCodeAnalysis` to
+for the pin. The other analyzers that resolve a contract interface are pinned in
+[`UnresolvedContractInterfacePinTests`](../Vion.Dale.Sdk.Generators.Test/UnresolvedContractInterfacePinTests.cs),
+and one of those pins records a live blind spot rather than a rule: the inclusion gate's own
+resolution is by symbol only (`AC-ANLZ-014.4`). Know what the proxy can and cannot say — a fixture
+where the interface is *absent* is harsher than a real build where it exists and is an error type
+only to the analyzer, so no fixture can exercise a remedy written as `typeof(TheInterface)`. The session that found this also tried flipping `ConfigureGeneratedCodeAnalysis` to
 `Analyze` and reported no change, so don't spend a round there.
 
 ## 6. Names are explicit and match the platform's vocabulary
@@ -256,9 +261,14 @@ Named rather than excused; the conventions above stand.
   `Emission`, `Gating`, `ModbusRtu`, `ModbusTcp` and `ToggleLight` carry it in three;
   `libraries/Vion.Diagnostics` and `templates/vion-iot-library` carry it in none. The working-tree
   build path is therefore not uniformly available (see [`devhost-conventions.md`](devhost-conventions.md) § 2).
-- **The analyzer pack does not run over every SDK project.** `Vion.Dale.Sdk`, `.DigitalIo`, `.AnalogIo`,
-  the SmokeHost and the examples reference `Vion.Dale.Sdk.Generators` as an `OutputItemType="Analyzer"`
-  project reference; `Vion.Dale.Sdk.Http`, `.Modbus.Core`, `.Modbus.Tcp` and `.Modbus.Rtu` do not, so
+- **The analyzer pack does not run over every SDK project.** Eight projects reference
+  `Vion.Dale.Sdk.Generators` as an `OutputItemType="Analyzer"` project reference unconditionally —
+  `Vion.Dale.Sdk`, `.DigitalIo`, `.AnalogIo`, `Vion.Dale.Sdk.Test`, `DevHost.Test`, `DevHost.SmokeHost`
+  and the two `LogicBlockParser.Test.*Plugin`s — and the nine examples do so only under
+  `-p:DaleLocalSource=true`, judging against the **published** analyzers otherwise.
+  `Vion.Dale.Sdk.Http`, `.Modbus.Core`, `.Modbus.Tcp` and `.Modbus.Rtu` reference it not at all, so
   DALE014 and its siblings never judge their declarations — the § 5 blind spot, one level out. Adding the
   reference is three lines and surfaces whatever those projects have accumulated; do it when next working
-  in one of them, not as a drive-by.
+  in one of them, not as a drive-by. `Vion.Dale.Sdk.Generators.Test` references the project as a plain
+  library, so the deliberately illegal fixtures in it are judged by nothing, which is why none needs a
+  suppression.

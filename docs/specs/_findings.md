@@ -32,7 +32,11 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   `dotnet pack` rather than in the editor. A collision check is a whole-type analysis across two
   attribute families and two declaration levels — `DALE043`/`DALE044`-sized work in the analyzer
   registry, which failed the pass's size guard. *(INTRO pass amendment 2, rows 68 and 69's
-  compile-time half — `ANLZ`.)*
+  compile-time half — `ANLZ`.)* **ANLZ pass row 173:** measured and parked again — the check is a
+  whole-type analysis over two attribute families and two declaration levels, and it would fire on
+  eight deliberate `INTRO` fixtures in `Vion.Dale.Sdk.Test/TestHelpers/IntrospectionBlocks.cs` (`:82`
+  and `:97` blank, six `Identifier = "Shared"` collisions), each needing a suppression. The first
+  consumer declares no `Identifier =` at all.
 
 ## `CTRL` — the development host's control surface and lifecycle (2026-09-04)
 
@@ -171,12 +175,6 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   (`Dale/Program.cs:115-118`, `LogicSystemConfigurationInitializer.cs:635-640`), so the shape to
   converge on is the runtime's degrading scan rather than the SDK's helper.
   *(BIND pass row 36 — `PLUG`, promoted by the operator.)*
-- **A message struct declared beside its contract class compiles, is read by nothing and emits
-  nothing.** `[Command]`, `[StateUpdate]` and `[RequestResponse]` declare `AttributeTargets.Struct`
-  with no nesting constraint, while the generator reads only the struct types nested in the contract
-  class (`Vion.Dale.Sdk.Generators/LogicClassGenerator.cs:188-196`). No `DALE` code covers the shape.
-  Narrowing the attribute targets is a source-breaking change to a published attribute; the diagnostic
-  belongs to the analyzer registry. *(BIND pass row 46 — `ANLZ`.)*
 - **The contract-message envelope takes any payload while the inter-block one takes a struct.**
   `Vion.Dale.Sdk/Messages/ActorMessages.cs:188` carries no struct constraint, unlike `:167-168`. The
   laxity is unreachable in practice — every sender constrains at its own entry, the private runtime has
@@ -204,12 +202,14 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   outside the four, which is the right answer to a cast typo — but it is unhandled inside the
   introspection walk, so one such declaration costs the artifact rather than the member.
   *(BIND pass row 168 — the retro.)*
-- **A contract-type token has no emptiness and no uniqueness guard.**
-  `Vion.Dale.Sdk/Configuration/Contract/ServiceProviderContractTypeAttribute.cs:28-31` assigns the
-  token with no validation, and no `DALE` code covers it, although the token is a cloud-facing stable
-  identifier (`identifier-stability.md`). A duplicate reaches the document as two contract types with
-  one name. Uniqueness is a whole-compilation analysis of `DALE043`'s size.
-  *(BIND pass row 173 — `ANLZ`.)*
+- **A contract-type token has no uniqueness guard.** `DALE048` now refuses an empty or whitespace
+  token (`AC-ANLZ-005.4`), but two interfaces in one compilation may still declare the same one, and it
+  reaches the document as two contract types with one name — the token being a cloud-facing stable
+  identifier (`identifier-stability.md`). Uniqueness is a whole-compilation analysis of `DALE043`'s
+  size, and it owes two things this ledger line has to carry: `WellKnownDiagnosticTags.CompilationEnd`
+  (`AC-ANLZ-001.4`), without which the IDE drops it, and a decision about
+  `ServiceRelationAnalyzer.cs:50-52`'s current-assembly boundary, which makes a duplicate against a
+  *referenced* library invisible either way. *(BIND pass row 173, ANLZ pass row 175 — `ANLZ`.)*
 - **A block's interface endpoints come from public properties only, and the walk cannot be widened
   without moving every consumer's artifact.** `DeclarativeInterfaceBinder.cs:86` walks public instance
   properties while the contract binder walks non-public ones too. This pass refuses the *declaration*
@@ -260,3 +260,84 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   entry was the contract factory's only use, and this pass moved that to the plural one so the factory
   can name every candidate. It stays because deleting a public method of a namespace outside the
   ratchet is a surface removal this pass was not asked to make. *(BIND pass, `DC-13` — the retro.)*
+
+## `ANLZ` — the DALE diagnostic registry and the analyzers that report it (2026-09-04)
+
+- **A preset attribute is judged by every rule but `DALE019`.** `AnalyzerHelper.cs:58`/`:66` compare
+  an attribute class's own full name for equality, so a class deriving from `ServicePropertyAttribute`
+  — the documented way to carry a unit, `[Kilowatts]` — is invisible to the other 43 rules while the
+  runtime honours it (`Vion.Dale.Sdk.Test/Core/AttributeInheritanceShould.cs`). `AC-ANLZ-002.2` states
+  the limitation and `SharedWalkTests` pins it. Widening the match to the base chain re-aims all 36
+  analyzers at once, and the readers are every consumer with preset attributes: the SDK's own
+  `examples/Vion.Examples.Presentation/Conventions/` ships sixteen, and the first consumer none.
+  *(ANLZ pass row 17 — `ANLZ`, the operator promotes.)*
+- **A relation-bearing component declared on a base block in a referenced assembly draws no warning.**
+  `ServiceRelationAnalyzer.cs:50-52` filters to the current assembly and `:192` reads the type's own
+  members, so a library that ships a base logic block gets `AC-ANLZ-021.4` in the base's build and a
+  consumer inheriting from it gets nothing. Widening means judging a referenced assembly's
+  declarations, which is `AC-ANLZ-002.3`'s stated boundary rather than a defect in this rule.
+  *(ANLZ pass row 66 — `ANLZ`.)*
+- **`[StructField]` on a target other than a constructor parameter is judged by nothing.** The
+  attribute allows more targets than the one walk that reads it
+  (`WriteOnlyStructFieldTypeRestrictionAnalyzer.cs:26`, `StringFormatOnNonStringAnalyzer.cs:32`), so a
+  misplaced declaration compiles and emits nothing. Narrowing `AttributeTargets` is a source-breaking
+  change to a published attribute — the same shape as the message-struct entry `DALE047` just closed,
+  and the same reason it became a diagnostic rather than a narrowing. *(ANLZ pass row 111 — `ANLZ`.)*
+- **A `MinInterval` at the tick-representation boundary configures a negative interval, unreported.**
+  `EmissionAttributeHelper.cs:267` and `Vion.Dale.Sdk/Emission/DurationParser.cs:120-121` carry the
+  identical `> long.MaxValue` comparison against a `double` that *equals* `long.MaxValue`, so the cast
+  wraps. `MinInterval = "922337203685477.6"` draws no diagnostic and makes the gate's elapsed test
+  unconditionally true. The analyzer mirrors the runtime exactly, so a one-sided fix would reject a
+  token the runtime accepts; both halves move together and the runtime's is `emission.md`'s.
+  *(ANLZ pass row 118 — `EMIT` + `ANLZ`.)*
+- **`DALE046` judges a struct type only on its first occurrence in a wire graph.**
+  `ScenarioWireTypeAnalyzer.cs:104-107` never releases its `visited` set, so a struct reached down two
+  branches is skipped the second time. No shape I could construct makes the outcome differ — a type
+  already judged representable is representable, and one already judged otherwise returned — so this
+  is recorded rather than fixed. *(ANLZ pass row 150 — `ANLZ`.)*
+- **A package packed without the analyzer assembly loses all forty-six diagnostics in silence.**
+  `Vion.Dale.Sdk.csproj:92` packs the DLL under `Condition="Exists(…)"`, so a build that did not
+  produce it yields a package that restores, compiles clean and judges nothing; the only signal is
+  previously-red code turning green. The assertion that a packed `Vion.Dale.Sdk` carries
+  `analyzers/dotnet/cs/Vion.Dale.Sdk.Generators.dll` belongs in the post-pack artifact gate
+  (`scripts/verify-packed-assembly-versions.ps1`, `.github/workflows/publish.yml:72-93`), which was
+  minted for this class of silent-bad-package failure. *(ANLZ pass row 152 — the release process,
+  [`../releasing.md`](../releasing.md); the operator promotes.)*
+- **Nothing requires a `#pragma warning disable DALE*` to say why.** Twenty-three of the thirty
+  suppressions in this repository carry no reason comment, and a suppression is a claim that the shape
+  is intended — the one kind of claim that ages worst. A lint would be a new gate script and a
+  twenty-three-site edit across five other areas' fixtures. *(ANLZ pass row 167 — the retro.)*
+- **The generator's `Contract`-substring predicate runs on every class in every compilation.**
+  `Vion.Dale.Sdk.Generators/LogicClassGenerator.cs:36-40` matches any class carrying an attribute whose
+  name *contains* `Contract`, and the semantic pass afterwards makes the output correct — so there is
+  no functional observable, only the incremental generator's cache key being wider than it needs.
+  Measuring the cost needs a build-time benchmark. *(BIND pass row 186, ANLZ pass row 176 — `ANLZ`.)*
+- **An inclusion gate on a property typed as a generated contract interface draws a false error.**
+  `IncludedWhenPredicateAnalyzer.cs:211` resolves `[LogicInterface]` through `AllInterfaces` — by
+  symbol only — and in a Metalama-hosted build a generated contract interface is an error type, so
+  `DALE043` reports a legitimately gated binding as ungateable. This is
+  [`../sdk-surface-conventions.md`](../sdk-surface-conventions.md) § 5's blind spot, live;
+  `AC-ANLZ-014.4` states it and
+  `UnresolvedContractInterfacePinTests.ReportGateOnPropertyWithUnresolvedInterface` pins the outcome.
+  The remedy an author would reach for, `[LogicBlockInterfaceBinding(typeof(…))]`, names the same
+  unresolved type. The fix is the by-name half of the two-way lookup `ServiceRelationAnalyzer.cs:236-293`
+  already carries, and the rule it would change is `AC-GATE-011.3`.
+  *(ANLZ pass row 185 — `GATE` + `ANLZ`.)*
+- **`AnalyzerReleases.Shipped.md` / `Unshipped.md` do not exist and `RS2008` is suppressed.**
+  `Vion.Dale.Sdk.Generators.csproj:19`. The rules ship to every consumer through
+  `Vion.Dale.Sdk.csproj:92`, so the suppression's comment was corrected to say that adopting release
+  tracking is an open decision rather than a settled "this is internal".
+  [`../sdk-surface-conventions.md`](../sdk-surface-conventions.md) § 4 covers next-free-id,
+  never-reuse, the two-severity precedent, the `CompilationEnd` tag and the supported-type gate, and
+  says nothing about release tracking. *(ANLZ pass, reviewer's question 6 — the retro.)*
+- **`LogicClassGeneratorERR` has no registry id.** The generator reports an `Error` a consumer cannot
+  configure or suppress through any `DALE` prefix (`DiagnosticsExtensions.cs`, `AC-ANLZ-019.1`). Its
+  four call sites all fire on a missing or broken embedded template — a build of the SDK itself going
+  wrong, not an authoring mistake — which is why this is a question about the surface rather than a
+  defect. *(ANLZ pass, reviewer's question 3 — the retro.)*
+- **A `[DataRow]` containing a `]` hides a test from `test-style-lint` and from any tool sharing its
+  regex.** `scripts/test-style-lint.ps1:38`'s attribute-block pattern is `\[[^\]\r\n]*\]`, so a row
+  such as `[DataRow("Mode in ['Eco', 'Fast']", …)]` breaks the run of attribute lines and the method
+  below it is neither checked nor counted. One test in `Vion.Dale.Sdk.Generators.Test` is in that
+  shape; its citation had to be added by hand. The gate under-reports rather than over-reports, which
+  is the worse direction for a ratchet. *(ANLZ pass — the retro.)*

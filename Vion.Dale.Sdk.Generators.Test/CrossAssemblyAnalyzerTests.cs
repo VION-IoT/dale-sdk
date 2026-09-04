@@ -165,7 +165,12 @@ public class Consumer { }";
 
         private static async Task<MetadataReference> CompileSdkStubAsync()
         {
-            var stubsPath = Path.Combine(Path.GetDirectoryName(typeof(CrossAssemblyAnalyzerTests).Assembly.Location)!, "..", "..", "..", "Helpers", "TestAttributeStubs.cs");
+            var stubsPath = Path.Combine(Path.GetDirectoryName(typeof(CrossAssemblyAnalyzerTests).Assembly.Location)!,
+                                         "..",
+                                         "..",
+                                         "..",
+                                         "Helpers",
+                                         "TestAttributeStubs.cs");
             return await CompileLibraryAsync("DaleSdkStub", File.ReadAllText(stubsPath));
         }
 

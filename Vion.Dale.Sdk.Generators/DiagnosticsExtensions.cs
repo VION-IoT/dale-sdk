@@ -19,11 +19,20 @@ namespace Vion.Dale.Sdk.Generators
     {
         private const string MessageFormat = "{0}";
 
-        private static readonly DiagnosticDescriptor InfoDescriptor =
-            new($"{nameof(LogicClassGenerator)}INF", "Source Generator Info", MessageFormat, "SourceGenerator", DiagnosticSeverity.Info, true);
+        private static readonly DiagnosticDescriptor InfoDescriptor = new($"{nameof(LogicClassGenerator)}INF",
+                                                                          "Source Generator Info",
+                                                                          MessageFormat,
+                                                                          "SourceGenerator",
+                                                                          DiagnosticSeverity.Info,
+                                                                          true);
 
         private static readonly DiagnosticDescriptor ErrorDescriptor =
-            new($"{nameof(LogicClassGenerator)}ERR", "Source Generator Error", MessageFormat, "SourceGenerator", DiagnosticSeverity.Error, true);
+            new($"{nameof(LogicClassGenerator)}ERR",
+                "Source Generator Error",
+                MessageFormat,
+                "SourceGenerator",
+                DiagnosticSeverity.Error,
+                true);
 
         public static void LogInfo(this SourceProductionContext context, string message)
         {

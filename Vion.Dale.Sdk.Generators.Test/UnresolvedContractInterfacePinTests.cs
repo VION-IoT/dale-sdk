@@ -42,7 +42,8 @@ public class MyBlock
 {
     public {|#0:IMissingContract|} Input { get; }
 }";
-            await AnalyzerTestBase.VerifyAnalyzerAsync<ContractPropertyAnalyzer>(source, DiagnosticResult.CompilerError("CS0246").WithLocation(0).WithArguments("IMissingContract"));
+            await AnalyzerTestBase.VerifyAnalyzerAsync<ContractPropertyAnalyzer>(source,
+                                                                                 DiagnosticResult.CompilerError("CS0246").WithLocation(0).WithArguments("IMissingContract"));
         }
 
         [TestMethod]
