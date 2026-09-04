@@ -236,22 +236,6 @@ namespace Vion.Dale.DevHost.Web
             }
         }
 
-        // A generation that failed on a topology the UI switched TO can fall back; a boot generation and a
-        // fallback that itself failed cannot, and end the process. The three exception types are the three ways
-        // a topology refuses: an unregistered block (introspection), a file that is gone, and one that no
-        // longer builds.
-        private static bool IsRecoverableTopologyFailure(Exception exception, string? topologyId, string? runningTopologyId, CancellationToken cancellationToken)
-        {
-            return exception is InvalidOperationException or InvalidDataException or FileNotFoundException && topologyId != runningTopologyId &&
-                   !cancellationToken.IsCancellationRequested;
-        }
-
-        private static void WriteTopologyFallback(string? topologyId, string? runningTopologyId, Exception exception)
-        {
-            Console.WriteLine($"Topology '{topologyId}' cannot start — staying on " + (runningTopologyId is null ? "the default topology" : $"'{runningTopologyId}'") +
-                              $".{Environment.NewLine}{exception.Message}");
-        }
-
         /// <summary>
         ///     Folder-driven supervised variant: discovers topologies from the
         ///     <c>topologies/</c> directory (resolved via <see cref="DevDataDirectory" />), generates and
@@ -330,6 +314,22 @@ namespace Vion.Dale.DevHost.Web
             var path = DefaultTopologyGenerator.WriteDefault(catalog, topologiesDir);
             Console.WriteLine($"No topology found — generated {path} (each block once, auto-connected). Edit it, commit it, or add it to .gitignore.");
             return "default";
+        }
+
+        // A generation that failed on a topology the UI switched TO can fall back; a boot generation and a
+        // fallback that itself failed cannot, and end the process. The three exception types are the three ways
+        // a topology refuses: an unregistered block (introspection), a file that is gone, and one that no
+        // longer builds.
+        private static bool IsRecoverableTopologyFailure(Exception exception, string? topologyId, string? runningTopologyId, CancellationToken cancellationToken)
+        {
+            return exception is InvalidOperationException or InvalidDataException or FileNotFoundException && topologyId != runningTopologyId &&
+                   !cancellationToken.IsCancellationRequested;
+        }
+
+        private static void WriteTopologyFallback(string? topologyId, string? runningTopologyId, Exception exception)
+        {
+            Console.WriteLine($"Topology '{topologyId}' cannot start — staying on " + (runningTopologyId is null ? "the default topology" : $"'{runningTopologyId}'") +
+                              $".{Environment.NewLine}{exception.Message}");
         }
 
         // One-shot export modes: write the wired configuration (the /api/configuration wire shape) and/or

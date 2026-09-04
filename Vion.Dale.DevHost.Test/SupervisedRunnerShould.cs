@@ -118,10 +118,9 @@ namespace Vion.Dale.DevHost.Test
             // Act
             try
             {
-                await Assert.ThrowsExactlyAsync<FileNotFoundException>(() =>
-                                                                           DevHostWebRunner.RunAsync(_ => throw new FileNotFoundException("no topology 'default'"),
-                                                                                                     port,
-                                                                                                     CancellationToken.None));
+                await Assert.ThrowsExactlyAsync<FileNotFoundException>(() => DevHostWebRunner.RunAsync(_ => throw new FileNotFoundException("no topology 'default'"),
+                                                                                                       port,
+                                                                                                       CancellationToken.None));
             }
             finally
             {
@@ -257,15 +256,10 @@ namespace Vion.Dale.DevHost.Test
             // Arrange — one scenario that parses and one that does not; the operator needs both named.
             var directory = Path.Combine(Path.GetTempPath(), "dale-links-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(directory);
-            File.WriteAllText(Path.Combine(directory, "good.scenario.json"),
-                              """{ "version": 1, "id": "good", "title": "Good", "topology": "counter-topology", "steps": [] }""");
+            File.WriteAllText(Path.Combine(directory, "good.scenario.json"), """{ "version": 1, "id": "good", "title": "Good", "topology": "counter-topology", "steps": [] }""");
             File.WriteAllText(Path.Combine(directory, "broken.scenario.json"), """{ "version": 7 }""");
             var port = FreePort();
-            var configuration = DevConfigurationBuilder.Create()
-                                                       .WithTopologyName("counter-topology")
-                                                       .WithScenarios(directory)
-                                                       .AddLogicBlock<CounterBlock>("counter")
-                                                       .Build();
+            var configuration = DevConfigurationBuilder.Create().WithTopologyName("counter-topology").WithScenarios(directory).AddLogicBlock<CounterBlock>("counter").Build();
             await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(configuration).WithWebUi(port).Build();
             var originalOut = Console.Out;
             var captured = new StringWriter();

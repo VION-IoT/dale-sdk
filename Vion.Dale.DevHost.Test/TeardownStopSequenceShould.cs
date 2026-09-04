@@ -45,6 +45,7 @@ namespace Vion.Dale.DevHost.Test
             var recorder = new TeardownRecorder();
 
             await using var host = BuildHost(recorder, stepped);
+
             // Act / Assert
             await host.StartAsync();
 
@@ -82,6 +83,7 @@ namespace Vion.Dale.DevHost.Test
             var terminated = entries.ToList().IndexOf(TeardownRecorder.ScopeDisposed);
 
             var recorded = "Recorded: " + string.Join(", ", entries);
+
             // Act / Assert
             Assert.IsGreaterThanOrEqualTo(0, stopRequest, "The block must receive StopLogicBlockRequest during teardown. " + recorded);
             Assert.IsGreaterThanOrEqualTo(0, snapshotRequest, "The block must receive GetPersistentDataSnapshotRequest during teardown. " + recorded);
@@ -157,7 +159,7 @@ namespace Vion.Dale.DevHost.Test
 
             IDevHost Factory(string? requestedTopology)
             {
-            // Act / Assert
+                // Act / Assert
                 return BuildHost(recorder, true, port);
             }
 
@@ -201,6 +203,47 @@ namespace Vion.Dale.DevHost.Test
                     await runner;
                 }
             }
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CTRL-004.3")]
+        [TestProperty("spec", "AC-CTRL-004.4")]
+        public async Task BoundStopSequenceAndDowngradeItsFailuresToWarnings()
+        {
+            // Arrange — a block whose stop hook blocks for far longer than the sequence budget. Every wait in
+            // the sequence is virtual, so on a stepped host only the real-time backstop can end this.
+            var configuration = DevConfigurationBuilder.Create().AddLogicBlock<SlowStoppingBlock>("slow").Build();
+            var host = DevHostBuilder.Create()
+                                     .WithDi<TestDependencyInjection>()
+                                     .WithConfiguration(configuration)
+                                     .WithDeterministicStepping()
+                                     .WithSafetyBudgets(new DevHostBudgets { StopSequence = TimeSpan.FromMilliseconds(300) })
+                                     .Build();
+            await host.StartAsync();
+
+            // Act — teardown must return, and must not surface the failure it rode over.
+            var elapsed = Stopwatch.StartNew();
+            await host.DisposeAsync();
+            elapsed.Stop();
+
+            // Assert
+            Assert.IsLessThan(TimeSpan.FromSeconds(20), elapsed.Elapsed, "the stop sequence must be bounded by its own real-time budget");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CTRL-004.7")]
+        public async Task DisposeServiceProviderItOwns()
+        {
+            // Arrange
+            var configuration = DevConfigurationBuilder.Create().AddLogicBlock<CounterBlock>("counter").Build();
+            var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(configuration).Build();
+            await host.StartAsync();
+
+            // Act
+            await host.DisposeAsync();
+
+            // Assert — the provider the host built is gone with it, so nothing can be resolved from it after.
+            Assert.ThrowsExactly<ObjectDisposedException>(() => _ = host.Control);
         }
 
         private static async Task<bool> PollSteppedReadyAsync(HttpClient client, TimeSpan timeout)
@@ -270,47 +313,6 @@ namespace Vion.Dale.DevHost.Test
             }
 
             return builder.Build();
-        }
-
-        [TestMethod]
-        [TestProperty("spec", "AC-CTRL-004.3")]
-        [TestProperty("spec", "AC-CTRL-004.4")]
-        public async Task BoundStopSequenceAndDowngradeItsFailuresToWarnings()
-        {
-            // Arrange — a block whose stop hook blocks for far longer than the sequence budget. Every wait in
-            // the sequence is virtual, so on a stepped host only the real-time backstop can end this.
-            var configuration = DevConfigurationBuilder.Create().AddLogicBlock<SlowStoppingBlock>("slow").Build();
-            var host = DevHostBuilder.Create()
-                                     .WithDi<TestDependencyInjection>()
-                                     .WithConfiguration(configuration)
-                                     .WithDeterministicStepping()
-                                     .WithSafetyBudgets(new DevHostBudgets { StopSequence = TimeSpan.FromMilliseconds(300) })
-                                     .Build();
-            await host.StartAsync();
-
-            // Act — teardown must return, and must not surface the failure it rode over.
-            var elapsed = Stopwatch.StartNew();
-            await host.DisposeAsync();
-            elapsed.Stop();
-
-            // Assert
-            Assert.IsLessThan(TimeSpan.FromSeconds(20), elapsed.Elapsed, "the stop sequence must be bounded by its own real-time budget");
-        }
-
-        [TestMethod]
-        [TestProperty("spec", "AC-CTRL-004.7")]
-        public async Task DisposeServiceProviderItOwns()
-        {
-            // Arrange
-            var configuration = DevConfigurationBuilder.Create().AddLogicBlock<CounterBlock>("counter").Build();
-            var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(configuration).Build();
-            await host.StartAsync();
-
-            // Act
-            await host.DisposeAsync();
-
-            // Assert — the provider the host built is gone with it, so nothing can be resolved from it after.
-            Assert.ThrowsExactly<ObjectDisposedException>(() => _ = host.Control);
         }
     }
 }

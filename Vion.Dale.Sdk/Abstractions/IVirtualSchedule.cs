@@ -9,7 +9,7 @@ namespace Vion.Dale.Sdk.Abstractions
     ///     through), plus the two internal ack/stop <c>Task.Delay(timeout, clock)</c> waits, register their
     ///     virtual due-time here and unregister it when they fire. When none is registered (the default,
     ///     including the production runtime), nothing extra happens. Used by DevHost's NEXT-EVENT stepping
-    /// so the engine can advance the fake clock to each next scheduled event rather than by a
+    ///     so the engine can advance the fake clock to each next scheduled event rather than by a
     ///     caller-supplied fixed interval.
     ///     <para>
     ///         <c>FakeTimeProvider</c> does not expose its next-due

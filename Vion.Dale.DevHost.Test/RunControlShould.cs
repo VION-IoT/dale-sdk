@@ -58,6 +58,7 @@ namespace Vion.Dale.DevHost.Test
 
             // Let it tick at least once so the timer chain is alive.
             var ticking = await PollAsync(() => TickCount(host) >= 1, TimeSpan.FromSeconds(10));
+
             // Act / Assert
             Assert.IsTrue(ticking, "The ticker should tick before the pause.");
 
@@ -106,6 +107,7 @@ namespace Vion.Dale.DevHost.Test
             await host.StartAsync();
 
             host.Control.Pause();
+
             // Act / Assert
             await host.Control.SetPropertyAsync("counter", "Counter", 77);
             Assert.AreEqual(77, host.Control.GetProperty("counter", "Counter"), "Property writes must apply while paused.");
@@ -200,7 +202,7 @@ namespace Vion.Dale.DevHost.Test
 
                 // Generation 1 is stepped; after the clock-mode switch the env var is set to "0" and
                 // DevHostBuilderExtensions.WithWebUi reads it — so generation 2 is real.
-            // Act / Assert
+                // Act / Assert
                 var builder = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithWebUi(port);
                 return builder.Build();
             }
@@ -256,7 +258,8 @@ namespace Vion.Dale.DevHost.Test
             {
                 generations++;
                 var config = DevConfigurationBuilder.Create().WithTopologyName($"gen-{generations}").AddLogicBlock<CounterBlock>("counter").Build();
-            // Act / Assert
+
+                // Act / Assert
                 return DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithWebUi(port).Build();
             }
 

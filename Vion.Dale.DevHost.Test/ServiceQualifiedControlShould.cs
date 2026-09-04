@@ -21,6 +21,7 @@ namespace Vion.Dale.DevHost.Test
             await host.StartAsync();
 
             await host.Control.SetPropertyAsync("dual", "PointA", "Limit", 3.5);
+
             // Act / Assert
             await host.Control.SetPropertyAsync("dual", "PointB", "Limit", 7.5);
 
@@ -40,6 +41,7 @@ namespace Vion.Dale.DevHost.Test
             // Arrange
             var config = DevConfigurationBuilder.Create().AddLogicBlock<DualPointBlock>("dual").Build();
             await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).Build();
+
             // Act / Assert
             await host.StartAsync();
 
@@ -87,6 +89,7 @@ namespace Vion.Dale.DevHost.Test
             await host.StartAsync();
 
             await host.Control.SetPropertyAsync("collide", "PointA", "SharedPower", 11.0);
+
             // Act / Assert
             await host.Control.SetPropertyAsync("collide", "PointB", "SharedPower", 22.0);
 

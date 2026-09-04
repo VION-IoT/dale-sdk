@@ -231,8 +231,7 @@ namespace Vion.Dale.DevHost.Test
                 try
                 {
                     var response = await client.PostAsync($"/api/scenarios/{id}/apply", null);
-                    if (response.StatusCode == HttpStatusCode.Accepted &&
-                        JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement.TryGetProperty("runId", out _))
+                    if (response.StatusCode == HttpStatusCode.Accepted && JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement.TryGetProperty("runId", out _))
                     {
                         return true;
                     }

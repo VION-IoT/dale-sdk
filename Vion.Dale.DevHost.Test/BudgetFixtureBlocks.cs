@@ -61,10 +61,6 @@ namespace Vion.Dale.DevHost.Test
         {
         }
 
-        protected override void Ready()
-        {
-        }
-
         [Timer(1)]
         public void OnTick()
         {
@@ -72,6 +68,10 @@ namespace Vion.Dale.DevHost.Test
             // this is what "executing" has to look like for the barrier to keep waiting.
             Thread.Sleep(TimeSpan.FromSeconds(3));
             Ticks++;
+        }
+
+        protected override void Ready()
+        {
         }
     }
 

@@ -27,13 +27,13 @@ namespace Vion.Dale.DevHost.Web.Services
     {
         private readonly DevBlockCatalog _blockCatalog;
 
+        private readonly DevHostBudgets _budgets;
+
         private readonly WebHostConfiguration _config;
 
         private readonly IDevHostControl _control;
 
         private readonly DevConfiguration _devConfiguration;
-
-        private readonly DevHostBudgets _budgets;
 
         private readonly DevHostEvents _devHostEvents;
 
@@ -209,6 +209,18 @@ namespace Vion.Dale.DevHost.Web.Services
             return StartServerAsync(cancellationToken);
         }
 
+        public async Task StopAsync(CancellationToken cancellationToken)
+        {
+            if (_app != null)
+            {
+                // A scenario run must not keep driving a host that is being torn down (reset recycles
+                // the whole generation underneath it).
+                _app.Services.GetRequiredService<ScenarioRunRegistry>().Shutdown();
+                await _app.StopAsync(cancellationToken);
+                await _app.DisposeAsync();
+            }
+        }
+
         // Kestrel reports a port already in use as an IOException, which the supervised runner's catch does not
         // see - so a second `dale dev` in one checkout took the process down on a framework stack trace naming
         // neither the port nor the host already on it. Translate it to the type the start path already speaks.
@@ -223,18 +235,6 @@ namespace Vion.Dale.DevHost.Web.Services
                 throw new InvalidOperationException($"The development host could not bind port {_config.Port}: {exception.Message} " +
                                                     "Another host is probably already serving it - stop it, or start this one on a different port.",
                                                     exception);
-            }
-        }
-
-        public async Task StopAsync(CancellationToken cancellationToken)
-        {
-            if (_app != null)
-            {
-                // A scenario run must not keep driving a host that is being torn down (reset recycles
-                // the whole generation underneath it).
-                _app.Services.GetRequiredService<ScenarioRunRegistry>().Shutdown();
-                await _app.StopAsync(cancellationToken);
-                await _app.DisposeAsync();
             }
         }
 

@@ -56,9 +56,9 @@ namespace Vion.Dale.DevHost.Test
             await using var host = DevHostBuilder.Create()
                                                  .WithDi<TestDependencyInjection>()
                                                  .WithConfiguration(configuration)
-                                                 .ConfigureServices(services => services.AddSingleton<IHostedService>(sp =>
-                                                                                                                          new ServiceIdProbe(sp.GetRequiredService<IDevHostControl>(),
-                                                                                                                              observed)))
+                                                 .ConfigureServices(services =>
+                                                                        services.AddSingleton<IHostedService>(sp => new ServiceIdProbe(sp.GetRequiredService<IDevHostControl>(),
+                                                                                                                  observed)))
                                                  .Build();
 
             // Act

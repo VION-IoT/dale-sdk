@@ -165,6 +165,7 @@ namespace Vion.Dale.DevHost.Test
             // refuse loudly at the call (409) — never run against the wrong graph. There is no ?force= override.
             var response = await client.PostAsync("/api/scenarios/wrong/apply", null);
             var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+
             // Act / Assert
             Assert.AreEqual(HttpStatusCode.Conflict, response.StatusCode, body.GetRawText());
             Assert.AreEqual("topologyMismatch", body.GetProperty("reason").GetString(), "the conflict must carry a machine-readable reason, like every other conflict");
@@ -192,7 +193,7 @@ namespace Vion.Dale.DevHost.Test
             var invalid = await client.PutAsync("/api/scenarios/fresh", Json("""{ "version": 1, "id": "fresh" }"""));
             Assert.AreEqual(HttpStatusCode.UnprocessableEntity, invalid.StatusCode);
 
-            Environment.SetEnvironmentVariable(Scenarios.ScenarioStore.ReadOnlyEnvVar, "1");
+            Environment.SetEnvironmentVariable(ScenarioStore.ReadOnlyEnvVar, "1");
             try
             {
                 var readOnly = await client.PutAsync("/api/scenarios/fresh", Json("""{ "version": 1, "id": "fresh", "topology": "t" }"""));
@@ -200,7 +201,7 @@ namespace Vion.Dale.DevHost.Test
             }
             finally
             {
-                Environment.SetEnvironmentVariable(Scenarios.ScenarioStore.ReadOnlyEnvVar, null);
+                Environment.SetEnvironmentVariable(ScenarioStore.ReadOnlyEnvVar, null);
             }
         }
 
@@ -219,7 +220,8 @@ namespace Vion.Dale.DevHost.Test
             using (var evil = new HttpRequestMessage(HttpMethod.Post, "/api/control/pause"))
             {
                 evil.Headers.Add("Origin", "https://evil.example");
-            // Act / Assert
+
+                // Act / Assert
                 Assert.AreEqual(HttpStatusCode.Forbidden, (await client.SendAsync(evil)).StatusCode);
             }
 

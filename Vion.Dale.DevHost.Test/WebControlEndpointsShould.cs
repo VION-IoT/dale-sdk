@@ -95,6 +95,7 @@ namespace Vion.Dale.DevHost.Test
             using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
 
             var before = await VirtualTime(client);
+
             // Act / Assert
             var resp = await client.PostAsync("/api/control/step", null);
             Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
@@ -116,6 +117,7 @@ namespace Vion.Dale.DevHost.Test
             using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
 
             var before = await VirtualTime(client);
+
             // Act / Assert
             var resp = await client.PostAsync("/api/control/advance?seconds=3", null);
             Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
@@ -163,6 +165,7 @@ namespace Vion.Dale.DevHost.Test
             // The serviceId carrying Counter — CounterBlock has a single service, so serviceIds[0] holds it.
             var blocksJson = await client.GetStringAsync("/api/logicblocks");
             using var blocksDoc = JsonDocument.Parse(blocksJson);
+
             // Act / Assert
             var serviceId = blocksDoc.RootElement[0].GetProperty("serviceIds")[0].GetString();
             Assert.IsFalse(string.IsNullOrEmpty(serviceId), "The counter block should expose a service id.");
@@ -306,6 +309,7 @@ namespace Vion.Dale.DevHost.Test
 
             // Drive PointA to a distinctive value via its own (nested) service id.
             var pointAServiceId = await NestedServiceId(client, "PointA");
+
             // Act / Assert
             var setResponse = await client.PostAsJsonAsync($"/api/dale/property/{pointAServiceId}/SharedPower", new { value = 11.0 });
             Assert.AreEqual(HttpStatusCode.OK, setResponse.StatusCode);
@@ -399,7 +403,8 @@ namespace Vion.Dale.DevHost.Test
                 await connection.StartAsync();
 
                 var completed = await Task.WhenAny(primed.Task, Task.Delay(TimeSpan.FromSeconds(15)));
-            // Act / Assert
+
+                // Act / Assert
                 Assert.AreEqual(primed.Task, completed, "A connected SignalR client should be primed with state on connect.");
                 Assert.AreEqual("Counter", await primed.Task);
             }
@@ -444,7 +449,7 @@ namespace Vion.Dale.DevHost.Test
                                       "/THIRD-PARTY-NOTICES.txt",
                                   })
             {
-            // Act / Assert
+                // Act / Assert
                 var response = await client.GetAsync(asset);
                 Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, $"Vendored asset {asset} must be served from the embedded wwwroot.");
             }
@@ -474,7 +479,7 @@ namespace Vion.Dale.DevHost.Test
 
             foreach (var asset in new[] { "/components.js", "/", "/some-client-route" })
             {
-            // Act / Assert
+                // Act / Assert
                 var response = await client.GetAsync(asset);
                 Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, $"{asset} must be served (static asset or SPA fallback).");
                 Assert.IsNotNull(response.Headers.CacheControl,
@@ -615,6 +620,7 @@ namespace Vion.Dale.DevHost.Test
             var handler = await HandlerName(client, "EnableInput");
 
             var unknownHandler = await client.PostAsJsonAsync($"/api/contracts/drive/NoSuchHandler/{enable.Sp}/{enable.Svc}/{enable.Contract}", new { value = true });
+
             // Act / Assert
             var unknownContract = await client.PostAsJsonAsync($"/api/contracts/drive/{handler}/{enable.Sp}/{enable.Svc}/NoSuchContract", new { value = true });
 
@@ -695,11 +701,7 @@ namespace Vion.Dale.DevHost.Test
             File.WriteAllText(Path.Combine(directory, "other.topology.json"),
                               """{ "id": "other", "logicBlockInstances": [ { "name": "counter", "typeFullName": "Vion.Dale.DevHost.Test.CounterBlock" } ] }""");
             var port = FreePort();
-            var config = DevConfigurationBuilder.Create()
-                                                .WithTopologyName("counter-topology")
-                                                .WithTopologies(directory)
-                                                .AddLogicBlock<CounterBlock>("counter")
-                                                .Build();
+            var config = DevConfigurationBuilder.Create().WithTopologyName("counter-topology").WithTopologies(directory).AddLogicBlock<CounterBlock>("counter").Build();
             await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithWebUi(port).Build();
             await host.StartAsync();
             using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };

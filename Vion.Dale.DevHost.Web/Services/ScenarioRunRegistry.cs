@@ -26,11 +26,6 @@ namespace Vion.Dale.DevHost.Web.Services
 
         private ActiveRun? _active;
 
-        public ScenarioRunRegistry(DevHostBudgets budgets)
-        {
-            _budgets = budgets;
-        }
-
         /// <summary>
         ///     True while a scenario run is in flight. Manual stepping (the stepped-host enabler) must not drive the
         ///     clock while a run does — the two would race on the shared virtual schedule.
@@ -61,6 +56,11 @@ namespace Vion.Dale.DevHost.Web.Services
                     return _latest.Count > 0;
                 }
             }
+        }
+
+        public ScenarioRunRegistry(DevHostBudgets budgets)
+        {
+            _budgets = budgets;
         }
 
         /// <summary>The latest run report for a scenario id, or null when it never ran this host generation.</summary>

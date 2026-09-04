@@ -141,7 +141,10 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
 
         // --- Run control (pause / resume / reset) ---
 
-        /// <summary>Run-control state: paused? supervisor attached (reset possible)? stepped? + the virtual clock and the block failures the host recorded.</summary>
+        /// <summary>
+        ///     Run-control state: paused? supervisor attached (reset possible)? stepped? + the virtual clock and the block
+        ///     failures the host recorded.
+        /// </summary>
         [HttpGet("control/status")]
         public ActionResult GetControlStatus()
         {
@@ -196,7 +199,11 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
             // TimeSpan.FromSeconds and escaped as a 500 rather than a refusal naming the bound.
             if (!(seconds > 0) || seconds > ScenarioFile.MaxDurationSeconds)
             {
-                return BadRequest(new { error = $"seconds must be a number greater than 0 and at most {ScenarioFile.MaxDurationSeconds} (what a real clock can wait)", reason = "badDuration" });
+                return BadRequest(new
+                                  {
+                                      error = $"seconds must be a number greater than 0 and at most {ScenarioFile.MaxDurationSeconds} (what a real clock can wait)",
+                                      reason = "badDuration",
+                                  });
             }
 
             if (StepConflict() is { } conflict)
@@ -303,8 +310,7 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
             var logicBlock = _control.GetConfiguration().LogicBlocks.FirstOrDefault(b => b.Name == logicBlockIdOrName || b.Id == logicBlockIdOrName);
             var service = logicBlock?.Services.FirstOrDefault(s => s.Identifier == serviceIdentifier);
 
-            return service is not null &&
-                   (service.ServiceProperties.Any(sp => sp.Identifier == member) || service.ServiceMeasuringPoints.Any(mp => mp.Identifier == member));
+            return service is not null && (service.ServiceProperties.Any(sp => sp.Identifier == member) || service.ServiceMeasuringPoints.Any(mp => mp.Identifier == member));
         }
 
         // The shared guard for manual stepping: only meaningful on a stepped host, and never while a scenario

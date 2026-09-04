@@ -33,6 +33,7 @@ namespace Vion.Dale.DevHost.Test
             var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => host.StartAsync());
 
             var id = config.LogicBlocks[0].Id;
+
             // Act / Assert
             StringAssert.Contains(exception.Message, typeof(UnregisteredBlock).FullName!, "the message must name the offending type");
             StringAssert.Contains(exception.Message, id, "the message must name the topology id so the block is findable in the topology file");
@@ -127,7 +128,8 @@ namespace Vion.Dale.DevHost.Test
             {
                 var config = DevTopologyLoader.Load(requestedTopology ?? "good", dir);
                 config.TopologiesPath = dir;
-            // Act / Assert
+
+                // Act / Assert
                 return DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithWebUi(port).Build();
             }
 

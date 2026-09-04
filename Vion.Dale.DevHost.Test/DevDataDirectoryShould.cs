@@ -27,6 +27,7 @@ namespace Vion.Dale.DevHost.Test
             // Arrange
             var root = NewTempTree();
             Directory.CreateDirectory(Path.Combine(root, "scenarios"));
+
             // Act / Assert
             Assert.AreEqual(Path.Combine(root, "scenarios"), DevDataDirectory.Resolve("scenarios", null, root));
         }

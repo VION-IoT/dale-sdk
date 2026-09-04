@@ -32,7 +32,8 @@ namespace Vion.Dale.DevHost.Test
                 Directory.CreateDirectory(dir);
 
                 var catalog = new[] { typeof(CounterBlock) };
-            // Act / Assert
+
+                // Act / Assert
                 var id = DevHostWebRunner.ResolveBootTopologyId(catalog, dir);
 
                 Assert.AreEqual("default", id);
@@ -68,7 +69,8 @@ namespace Vion.Dale.DevHost.Test
                 File.WriteAllText(defaultPath, sentinelContent);
 
                 var catalog = new[] { typeof(SourceBlock), typeof(SinkBlock) };
-            // Act / Assert
+
+                // Act / Assert
                 var id = DevHostWebRunner.ResolveBootTopologyId(catalog, dir);
 
                 Assert.AreEqual("default", id);
@@ -110,7 +112,8 @@ namespace Vion.Dale.DevHost.Test
                                   """);
 
                 var catalog = new[] { typeof(CounterBlock) };
-            // Act / Assert
+
+                // Act / Assert
                 var id = DevHostWebRunner.ResolveBootTopologyId(catalog, dir);
 
                 Assert.AreEqual("aaa", id, "first topology alphabetically should be selected when no 'default' exists");
@@ -142,7 +145,8 @@ namespace Vion.Dale.DevHost.Test
 
                 // Step 1: enumerate the catalog (must not consume/corrupt the builder).
                 var catalog = builder.GetBlockCatalog();
-            // Act / Assert
+
+                // Act / Assert
                 Assert.IsGreaterThanOrEqualTo(2, catalog.Count, "CrossBlockDependencyInjection registers at least SourceBlock + SinkBlock");
 
                 // Step 2: write a topology for the builder to load (avoids dependency on auto-gen paths).
@@ -209,7 +213,8 @@ namespace Vion.Dale.DevHost.Test
                                     """);
 
                 var catalog = DevHostBuilder.Create().WithDi<CrossBlockDependencyInjection>().GetBlockCatalog();
-            // Act / Assert
+
+                // Act / Assert
                 var bootId = DevHostWebRunner.ResolveBootTopologyId(catalog, topologiesDir);
                 Assert.AreEqual("default", bootId);
 

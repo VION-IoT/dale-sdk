@@ -115,7 +115,7 @@ namespace Vion.Dale.DevHost
         // class's constructor stays as it is for a consumer constructing it directly.
         private DevHostBudgets Budgets
         {
-            get => _serviceProvider.GetService<DevHostBudgets>() as DevHostBudgets ?? new DevHostBudgets();
+            get => _serviceProvider.GetService<DevHostBudgets>() ?? new DevHostBudgets();
         }
 
         public DevLogicSystemInitializer(IActorSystem actorSystem, IServiceProvider serviceProvider, ILogger<DevLogicSystemInitializer> logger)
@@ -178,9 +178,10 @@ namespace Vion.Dale.DevHost
 
             var logicBlockActors = configuration.LogicBlocks.Select(lb => _actorSystem.LookupByName(LogicBlockUtils.CreateLogicBlockName(lb.Name, lb.Id))).ToList();
 
-            var acknowledged = _actorSystem.SendAndWaitForAcknowledgementAsync<StartLogicBlockRequest, StartLogicBlockResponse>(logicBlockActors,
-                                                                                                                                new StartLogicBlockRequest(),
-                                                                                                                                StartAcknowledgementTimeout);
+            var acknowledged =
+                _actorSystem.SendAndWaitForAcknowledgementAsync<StartLogicBlockRequest, StartLogicBlockResponse>(logicBlockActors,
+                                                                                                                 new StartLogicBlockRequest(),
+                                                                                                                 StartAcknowledgementTimeout);
 
             // The wait above is VIRTUAL - ActorSystem routes its timeout through the injected TimeProvider -
             // so on a stepped host, where nothing advances the fake clock during boot, a block that never

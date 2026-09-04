@@ -28,12 +28,12 @@ namespace Vion.Dale.DevHost.Control
 
         private readonly IActorSystem _actorSystem;
 
-        private readonly DevHostBudgets _budgets;
-
         // The virtual clock at construction — the per-generation clean baseline. On a stepped host the clock
         // only moves via explicit advance/step, so VirtualTimeUtc > this means the generation has been dirtied
         // (a prior run or manual stepping) and is no longer reproducible from a clean slate.
         private readonly DateTimeOffset _baselineUtc;
+
+        private readonly DevHostBudgets _budgets;
 
         private readonly DevConfiguration _configuration;
 
@@ -384,16 +384,6 @@ namespace Vion.Dale.DevHost.Control
             return Task.CompletedTask;
         }
 
-        // Whether the wired configuration carries this endpoint triple. Every endpoint the builder and the
-        // topology loader auto-create comes with the block mapping that reaches it, so an endpoint that exists
-        // is an endpoint something is linked to — there is no third "exists but nothing maps it" state to
-        // report.
-        private bool CarriesContractEndpoint(string serviceProviderId, string serviceId, string contractId)
-        {
-            return _configuration.ServiceProviders.Any(sp => sp.Id == serviceProviderId &&
-                                                             sp.Services.Any(svc => svc.Identifier == serviceId && svc.Contracts.Any(c => c.Identifier == contractId)));
-        }
-
         public ServiceProviderOutputRead ReadServiceProviderOutput(string serviceProviderId, string serviceId, string contractId, IReadOnlyList<string>? fieldPath = null)
         {
             if (!_outputCache.TryGet(new ServiceProviderContractId(serviceProviderId, serviceId, contractId), out var command))
@@ -465,7 +455,9 @@ namespace Vion.Dale.DevHost.Control
             // a name this surface does not have. Timeout.InfiniteTimeSpan keeps its framework meaning.
             if (timeout < TimeSpan.Zero && timeout != Timeout.InfiniteTimeSpan)
             {
-                throw new ArgumentOutOfRangeException(nameof(timeout), timeout, "A wait timeout must not be negative; use TimeSpan.Zero to observe nothing or Timeout.InfiniteTimeSpan to wait indefinitely.");
+                throw new ArgumentOutOfRangeException(nameof(timeout),
+                                                      timeout,
+                                                      "A wait timeout must not be negative; use TimeSpan.Zero to observe nothing or Timeout.InfiniteTimeSpan to wait indefinitely.");
             }
 
             var tcs = new TaskCompletionSource<T?>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -537,10 +529,9 @@ namespace Vion.Dale.DevHost.Control
             {
                 var filtered = ResolveLogicBlock(logicBlockIdOrName);
 
-                return filtered is null ? Array.Empty<BlockFailure>() :
-                           _messageTap.Failures(LogicBlockUtils.CreateLogicBlockName(filtered.Name, filtered.Id))
-                                      .Select(f => f with { LogicBlock = filtered.Name })
-                                      .ToList();
+                return filtered is null ? Array.Empty<BlockFailure>() : _messageTap.Failures(LogicBlockUtils.CreateLogicBlockName(filtered.Name, filtered.Id))
+                                                                                   .Select(f => f with { LogicBlock = filtered.Name })
+                                                                                   .ToList();
             }
 
             // Report the block by the name the operator wired it under, not by its actor id — the same
@@ -555,6 +546,16 @@ namespace Vion.Dale.DevHost.Control
             _events.ServicePropertyWriteAcknowledged -= OnWriteAcknowledged;
             _events.ServiceMeasuringPointChanged -= OnMeasuringPoint;
             _events.ServiceProviderContractChanged -= OnServiceProviderContract;
+        }
+
+        // Whether the wired configuration carries this endpoint triple. Every endpoint the builder and the
+        // topology loader auto-create comes with the block mapping that reaches it, so an endpoint that exists
+        // is an endpoint something is linked to — there is no third "exists but nothing maps it" state to
+        // report.
+        private bool CarriesContractEndpoint(string serviceProviderId, string serviceId, string contractId)
+        {
+            return _configuration.ServiceProviders.Any(sp => sp.Id == serviceProviderId &&
+                                                             sp.Services.Any(svc => svc.Identifier == serviceId && svc.Contracts.Any(c => c.Identifier == contractId)));
         }
 
         // Walk a captured command's JSON to the addressed field, or return null when a segment is missing. The

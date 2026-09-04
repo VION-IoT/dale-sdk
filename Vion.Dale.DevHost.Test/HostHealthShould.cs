@@ -54,10 +54,7 @@ namespace Vion.Dale.DevHost.Test
         public async Task ReportOnlyNamedBlocksFailures()
         {
             // Arrange — one broken block beside a healthy one.
-            var configuration = DevConfigurationBuilder.Create()
-                                                       .AddLogicBlock<FailingConfigureBlock>("bad")
-                                                       .AddLogicBlock<CounterBlock>("counter")
-                                                       .Build();
+            var configuration = DevConfigurationBuilder.Create().AddLogicBlock<FailingConfigureBlock>("bad").AddLogicBlock<CounterBlock>("counter").Build();
             await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(configuration).Build();
             await host.StartAsync();
 

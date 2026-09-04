@@ -19,7 +19,8 @@ namespace Vion.Dale.DevHost.Test
 {
     /// <summary>
     ///     The server half of topology authoring: it exposes the interface-matching metadata the editor
-    ///     uses to compute wiring, and the editor's own logic is the SPA's (Tier C). The introspection result already carries each
+    ///     uses to compute wiring, and the editor's own logic is the SPA's (Tier C). The introspection result already carries
+    ///     each
     ///     logic interface's <c>InterfaceTypeFullNames</c> + <c>MatchingInterfaceTypeFullNames</c> back-reference;
     ///     these tests pin that the DevHost's <c>/api/configuration</c> projection does not drop them.
     /// </summary>
@@ -472,13 +473,6 @@ namespace Vion.Dale.DevHost.Test
             Assert.AreEqual("Count >= 2", demand.IncludedWhen, "the gated contract binding must carry its [IncludedWhen] predicate.");
         }
 
-        private static string NewTopologyDir()
-        {
-            var dir = Path.Combine(Path.GetTempPath(), "dale-topologies-" + Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(dir);
-            return dir;
-        }
-
         [TestMethod]
         [TestProperty("spec", "AC-CTRL-020.3")]
         [TestProperty("spec", "AC-GATE-010.6")]
@@ -486,7 +480,7 @@ namespace Vion.Dale.DevHost.Test
         public void PublishOnlyBoundsParameterSchemaCanCarry()
         {
             // Arrange / Act
-            var definition = LogicBlockDefinition.FromType(typeof(BoundedParameterBlock), null);
+            var definition = LogicBlockDefinition.FromType(typeof(BoundedParameterBlock));
             var parameters = definition.InstantiationParameters.ToDictionary(p => p.Identifier, p => p.Schema);
 
             // Assert — the declaration's own defaults are the two infinities, so "finite" is the same test as
@@ -498,6 +492,13 @@ namespace Vion.Dale.DevHost.Test
             Assert.AreEqual(0L, parameters["OutOfRange"]!["minimum"]!.GetValue<long>());
             Assert.AreEqual(1L, parameters["Carryable"]!["minimum"]!.GetValue<long>());
             Assert.AreEqual(12L, parameters["Carryable"]!["maximum"]!.GetValue<long>());
+        }
+
+        private static string NewTopologyDir()
+        {
+            var dir = Path.Combine(Path.GetTempPath(), "dale-topologies-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(dir);
+            return dir;
         }
 
         private static int FreePort()

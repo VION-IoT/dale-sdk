@@ -49,6 +49,7 @@ namespace Vion.Dale.DevHost.Test
             await host.Control.SetPropertyAsync("counter", "Counter", 42);
 
             var observed = await observe;
+
             // Act / Assert
             Assert.IsNotNull(observed, "The Counter=42 change should have been observed.");
             Assert.AreEqual(42, Convert.ToInt32(observed));
@@ -222,6 +223,7 @@ namespace Vion.Dale.DevHost.Test
             // machine-readable reason + the offending property (subclass of InvalidOperationException).
             var readOnly =
                 await Assert.ThrowsExactlyAsync<ServicePropertyWriteException>(() => host.Control.SetServicePropertyValueAsync(serviceId, "CounterDoubled", JsonValue.Create(7)));
+
             // Act / Assert
             Assert.AreEqual(ServicePropertyWriteException.ReasonReadOnly, readOnly.Reason);
             Assert.AreEqual("CounterDoubled", readOnly.Property);
@@ -337,7 +339,7 @@ namespace Vion.Dale.DevHost.Test
             // contract's ContractHandlerActorName annotation — so the drive carries no hardcoded HAL handler name.
             string HandlerFor(string contractId)
             {
-            // Act / Assert
+                // Act / Assert
                 return io.Contracts.Single(c => c.Identifier == contractId).Annotations[ServiceProviderContractAnnotations.ContractHandlerActorName].ToString()!;
             }
 
@@ -390,6 +392,7 @@ namespace Vion.Dale.DevHost.Test
             var grid = host.Control.GetConfiguration().LogicBlocks.Single(b => b.Name == "grid");
             var demand = grid.ContractMappings.Single(m => m.ContractIdentifier == "Demand");
             var handler = grid.Contracts.Single(c => c.Identifier == "Demand").Annotations[ServiceProviderContractAnnotations.ContractHandlerActorName].ToString()!;
+
             // Act / Assert
             Assert.AreNotEqual("DigitalInputHandler", handler, "The fixture must be a NON-HAL contract for this test to mean anything.");
 
@@ -431,13 +434,11 @@ namespace Vion.Dale.DevHost.Test
             var io = host.Control.GetConfiguration().LogicBlocks.Single(b => b.Name == "io");
             var enable = io.ContractMappings.Single(m => m.ContractIdentifier == "EnableInput");
 
-            var refusal = await Assert.ThrowsExactlyAsync<ServiceProviderDriveException>(() =>
-                                                                                            host.Control
-                                                                                                .DriveServiceProviderContractAsync("NoSuchHandler",
-                                                                                                    enable.MappedServiceProviderIdentifier,
-                                                                                                    enable.MappedServiceIdentifier,
-                                                                                                    enable.MappedContractIdentifier,
-                                                                                                    JsonSerializer.SerializeToElement(true)));
+            var refusal = await Assert.ThrowsExactlyAsync<ServiceProviderDriveException>(() => host.Control.DriveServiceProviderContractAsync("NoSuchHandler",
+                                                                                             enable.MappedServiceProviderIdentifier,
+                                                                                             enable.MappedServiceIdentifier,
+                                                                                             enable.MappedContractIdentifier,
+                                                                                             JsonSerializer.SerializeToElement(true)));
 
             // Act / Assert
             Assert.AreEqual(ServiceProviderDriveException.ReasonUnknownHandler, refusal.Reason);
@@ -457,13 +458,11 @@ namespace Vion.Dale.DevHost.Test
             var enable = io.ContractMappings.Single(m => m.ContractIdentifier == "EnableInput");
             var handler = io.Contracts.Single(c => c.Identifier == "EnableInput").Annotations[ServiceProviderContractAnnotations.ContractHandlerActorName].ToString()!;
 
-            var refusal = await Assert.ThrowsExactlyAsync<ServiceProviderDriveException>(() =>
-                                                                                            host.Control
-                                                                                                .DriveServiceProviderContractAsync(handler,
-                                                                                                    enable.MappedServiceProviderIdentifier,
-                                                                                                    enable.MappedServiceIdentifier,
-                                                                                                    "NoSuchContract",
-                                                                                                    JsonSerializer.SerializeToElement(true)));
+            var refusal = await Assert.ThrowsExactlyAsync<ServiceProviderDriveException>(() => host.Control.DriveServiceProviderContractAsync(handler,
+                                                                                             enable.MappedServiceProviderIdentifier,
+                                                                                             enable.MappedServiceIdentifier,
+                                                                                             "NoSuchContract",
+                                                                                             JsonSerializer.SerializeToElement(true)));
 
             // Act / Assert
             Assert.AreEqual(ServiceProviderDriveException.ReasonUnknownContract, refusal.Reason);
