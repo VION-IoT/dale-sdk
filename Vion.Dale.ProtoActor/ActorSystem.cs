@@ -225,7 +225,7 @@ namespace Vion.Dale.ProtoActor
             // Resolve the actor receiver (e.g. a logic block) from a per-actor DI scope rather than the root
             // container, so its IDisposable dependencies (a per-block Modbus/HTTP client) are tracked by the
             // scope and reclaimed when the actor stops — instead of being pinned on the root container until
-            // process exit, which strands one socket per same-version redeploy (RFC 0018 / DF-46). The Actor<T>
+            // process exit, which strands one socket per same-version redeploy (docs/specs/modbus.md). The Actor<T>
             // owns the scope and disposes it on its terminal Stopped; dispose eagerly here if construction fails
             // before the actor takes ownership.
             var scope = _serviceProvider.CreateScope();

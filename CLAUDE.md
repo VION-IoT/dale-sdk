@@ -34,8 +34,8 @@ structure. Do not invent new patterns; name the precedent you followed.
 
 **Design docs are change docs in [`docs/changes/`](docs/changes/)** per
 [`docs/spec-process.md`](docs/spec-process.md); the current-truth spec corpus is
-[`docs/specs/`](docs/specs/). `docs/rfcs/` is **frozen history** being absorbed by area passes — five
-files remain, covering the test kits, the Modbus bindings and the release pipeline — do not cite it
+[`docs/specs/`](docs/specs/). `docs/rfcs/` is **frozen history** being absorbed by area passes — three
+files remain, covering the test kits and the release pipeline — do not cite it
 in new work and do not add to it. `docs/superpowers/` is **gitignored** (`.gitignore:300`)
 per architecture decision 0011, so anything a planning skill writes there cannot be committed —
 `git check-ignore` is the tell; redirect anything meant to last to `docs/changes/`. Cross-repo specs

@@ -18,7 +18,7 @@ namespace Vion.Dale.ProtoActor
 
         // The per-actor DI scope the receiver was resolved from, owned by this actor and disposed on its
         // terminal Stopped, so the receiver's IDisposable dependencies (a per-block Modbus/HTTP client) are
-        // reclaimed when the actor stops instead of being pinned on the root container (RFC 0018 / DF-46).
+        // reclaimed when the actor stops instead of being pinned on the root container (docs/specs/block-lifecycle.md).
         // Null for actors created from a caller-supplied instance without a scope.
         private readonly IServiceScope? _scope;
 

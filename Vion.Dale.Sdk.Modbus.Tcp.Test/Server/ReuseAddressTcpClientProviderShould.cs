@@ -6,7 +6,7 @@ using Vion.Dale.Sdk.Modbus.Tcp.Server.Implementation;
 namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
 {
     /// <summary>
-    ///     The address-reuse listener provider the server binds through (RFC 0018 / DF-46, Part B). The
+    ///     The address-reuse listener provider the server binds through (docs/specs/modbus.md). The
     ///     end-to-end serve/restart behaviour is covered by <see cref="ModbusTcpServerIntegrationShould" />
     ///     (every test there enables the server, which binds through this provider); this pins the provider in
     ///     isolation — it binds the endpoint and accepts a connection.
