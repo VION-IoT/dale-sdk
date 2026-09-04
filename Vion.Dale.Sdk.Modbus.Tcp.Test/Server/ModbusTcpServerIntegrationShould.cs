@@ -57,61 +57,71 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-014.1")]
         public void ServeAnyUnitIdentifier()
         {
+            // Arrange
             _sut.IsEnabled = true;
             Connect();
 
+            // Act
             _client.WriteSingleRegister(7, 1, new byte[] { 0x00, 0x2A });
             var viaUnit255 = _client.ReadHoldingRegisters(0xFF, 1, 1);
 
+            // Assert
             Assert.AreEqual((ushort)42, _sut.Sync(snapshot => snapshot.HoldingRegisters.ReadAsUShort(1)));
             CollectionAssert.AreEqual(new byte[] { 0x00, 0x2A }, viaUnit255.ToArray());
         }
 
         [TestMethod]
-        public void PublishInputRegistersToTheWire()
+        [TestProperty("spec", "AC-MODB-019.1")]
+        public void PublishInputRegistersToWire()
         {
+            // Arrange
             _sut.IsEnabled = true;
             Connect();
-
             _sut.Sync(snapshot =>
                       {
                           snapshot.InputRegisters.WriteAsInt(0, -123456, wordOrder: WordOrder32.LswToMsw);
                           snapshot.InputRegisters.WriteAsUShort(2, 0xBEEF);
                       });
 
+            // Act
             var wireBytes = _client.ReadInputRegisters(1, 0, 3).ToArray();
 
+            // Assert
             // -123456 = 0xFFFE1DC0; LswToMsw: register 0 = LSW 0x1DC0, register 1 = MSW 0xFFFE — each big-endian on the wire.
             CollectionAssert.AreEqual(new byte[] { 0x1D, 0xC0, 0xFF, 0xFE, 0xBE, 0xEF }, wireBytes);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-012.2")]
         public void RejectOutOfExtentAccessWithIllegalDataAddress()
         {
+            // Arrange
             _sut.IsEnabled = true;
             Connect();
-
             _client.WriteSingleRegister(1, 9, new byte[] { 0x00, 0x01 }); // last served address — accepted
 
+            // Act
             var write = Assert.ThrowsExactly<ModbusException>(() => _client.WriteSingleRegister(1, 10, new byte[] { 0x00, 0x01 }));
             var read = Assert.ThrowsExactly<ModbusException>(() => _client.ReadInputRegisters(1, 20, 1));
 
+            // Assert
             Assert.AreEqual(ModbusExceptionCode.IllegalDataAddress, write.ExceptionCode);
             Assert.AreEqual(ModbusExceptionCode.IllegalDataAddress, read.ExceptionCode);
         }
 
         [TestMethod]
-        public void RoundTripTheVgtShapedCycle()
+        [TestProperty("spec", "AC-MODB-019.1")]
+        public void RoundTripVgtShapedCycle()
         {
+            // Arrange
             _sut.IsEnabled = true;
             Connect();
-
             // The trading center writes a heartbeat and a 32-bit setpoint (low-word-first, Beckhoff layout).
             _client.WriteSingleRegister(1, 0, new byte[] { 0x00, 0x07 });
             _client.WriteMultipleRegisters(1, 1, new byte[] { 0x1D, 0xC0, 0xFF, 0xFE }); // -123456 LswToMsw
-
             // The block's tick: read commands, echo the heartbeat, publish readiness — one atomic Sync.
             var (heartbeat, setpoint) = _sut.Sync(snapshot =>
                                                   {
@@ -120,9 +130,11 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
                                                       snapshot.InputRegisters.WriteAsUShort(0, receivedHeartbeat);
                                                       snapshot.DiscreteInputs.Write(0, true);
 
+            // Act
                                                       return (receivedHeartbeat, receivedSetpoint);
                                                   });
 
+            // Assert
             Assert.AreEqual((ushort)7, heartbeat);
             Assert.AreEqual(-123456, setpoint);
             CollectionAssert.AreEqual(new byte[] { 0x00, 0x07 }, _client.ReadInputRegisters(1, 0, 1).ToArray());
@@ -130,40 +142,46 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-012.2")]
         public void ValidateBothRangesOfReadWriteMultipleRegisters()
         {
+            // Arrange
             // FC23 carries independent read and write ranges; FluentModbus invokes the RequestValidator once
             // per range (verified in the 5.3.2 source), so BOTH must pass the declared holding extent. This
             // test pins that wire behavior so a FluentModbus upgrade cannot silently drop one of the checks.
             _sut.IsEnabled = true;
             Connect();
-
             // Both ranges inside the extent (holding registers 0-9): succeeds, write lands, read echoes.
             var echoed = _client.ReadWriteMultipleRegisters(1, 2, 1, 2, new byte[] { 0xAB, 0xCD }).ToArray();
             CollectionAssert.AreEqual(new byte[] { 0xAB, 0xCD }, echoed);
 
+            // Act
             // Read range out of extent: rejected even though the write range is fine.
             var readOutOfRange = Assert.ThrowsExactly<ModbusException>(() => _client.ReadWriteMultipleRegisters(1, 10, 1, 0, new byte[] { 0x00, 0x01 }));
             Assert.AreEqual(ModbusExceptionCode.IllegalDataAddress, readOutOfRange.ExceptionCode);
 
+            // Assert
             // Write range out of extent: rejected even though the read range is fine.
             var writeOutOfRange = Assert.ThrowsExactly<ModbusException>(() => _client.ReadWriteMultipleRegisters(1, 0, 1, 10, new byte[] { 0x00, 0x01 }));
             Assert.AreEqual(ModbusExceptionCode.IllegalDataAddress, writeOutOfRange.ExceptionCode);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-013.2")]
         public void SurviveDisableEnableCycles()
         {
+            // Arrange
             _sut.Sync(snapshot => snapshot.HoldingRegisters.WriteAsUShort(5, 0xCAFE)); // seeded while disabled
-
             _sut.IsEnabled = true;
             Connect();
             CollectionAssert.AreEqual(new byte[] { 0xCA, 0xFE }, _client.ReadHoldingRegisters(1, 5, 1).ToArray());
             _client.Disconnect();
 
+            // Act
             _sut.IsEnabled = false;
             Assert.IsFalse(_sut.IsListening);
 
+            // Assert
             _sut.IsEnabled = true;
             Assert.IsTrue(_sut.IsListening);
             Connect();
@@ -171,23 +189,25 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-014.5")]
         public void TrackLastClientWriteAt()
         {
+            // Arrange
             _sut.IsEnabled = true;
             Connect();
             Assert.IsNull(_sut.LastClientWriteAt);
-
             var before = DateTimeOffset.UtcNow;
             _client.WriteSingleRegister(1, 0, new byte[] { 0x00, 0x01 });
-
             var first = WaitForLastClientWriteAt(null);
             Assert.IsNotNull(first);
             Assert.IsTrue(first >= before.AddSeconds(-1));
 
+            // Act
             // A master re-writing an UNCHANGED value must still count as alive (FC6 raises no change event
             // unless AlwaysRaiseChangedEvent is set — the comm-surveillance contract depends on it).
             _client.WriteSingleRegister(1, 0, new byte[] { 0x00, 0x01 });
 
+            // Assert
             var second = WaitForLastClientWriteAt(first);
             Assert.IsNotNull(second);
             Assert.IsTrue(second > first);

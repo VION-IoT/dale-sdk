@@ -29,7 +29,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
                                                       DateTimeKind.Utc);
 
         [TestMethod]
-        public void FailARequestArrivingDuringTheBackoffWithoutContactingTheDevice()
+        [TestProperty("spec", "AC-MODB-007.3")]
+        public void FailRequestArrivingDuringBackoffWithoutContactingDevice()
         {
             // Arrange — two failed connects arm the backoff; the first one on its own does not.
             var clock = new FakeTimeProvider(Anchor);
@@ -75,7 +76,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
         }
 
         [TestMethod]
-        public void AttemptExactlyOneConnectOnceTheBackoffHasElapsed()
+        [TestProperty("spec", "AC-MODB-007.4")]
+        public void AttemptExactlyOneConnectOnceBackoffHasElapsed()
         {
             // Arrange
             var clock = new FakeTimeProvider(Anchor);
@@ -104,7 +106,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
         }
 
         [TestMethod]
-        public void DoubleTheBackoffPerFurtherFailureUpToTheConfiguredMaximum()
+        [TestProperty("spec", "AC-MODB-007.2")]
+        public void DoubleBackoffPerFurtherFailureUpToConfiguredMaximum()
         {
             // Arrange — a tight cap so two doublings reach it.
             var clock = new FakeTimeProvider(Anchor);
@@ -137,7 +140,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
         }
 
         [TestMethod]
-        public void ConnectOnTheVeryNextRequestAfterTheIpAddressIsCorrected()
+        [TestProperty("spec", "AC-MODB-006.7")]
+        public void ConnectOnVeryNextRequestAfterIpAddressCorrected()
         {
             // Arrange
             var clock = new FakeTimeProvider(Anchor);
@@ -161,7 +165,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
         }
 
         [TestMethod]
-        public void KeepBackingOffWhenTheIpAddressIsSetToTheOneAlreadyInForce()
+        [TestProperty("spec", "AC-MODB-006.6")]
+        public void KeepBackingOffWhenIpAddressSetToOneAlreadyInForce()
         {
             // Arrange — the first consumer re-applies its whole configuration whenever one field is edited.
             var clock = new FakeTimeProvider(Anchor);
@@ -186,7 +191,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
         }
 
         [TestMethod]
-        public void ConnectOnTheVeryNextRequestAfterTheClientIsReEnabled()
+        [TestProperty("spec", "AC-MODB-007.6")]
+        public void ConnectOnVeryNextRequestAfterClientReEnabled()
         {
             // Arrange
             var clock = new FakeTimeProvider(Anchor);
@@ -210,7 +216,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
         }
 
         [TestMethod]
-        public void CloseTheSocketAfterATimeoutAndReconnectOnTheNextRequestWithoutBackingOff()
+        [TestProperty("spec", "AC-MODB-007.1")]
+        public void CloseSocketAfterTimeoutAndReconnectOnNextRequestWithoutBackingOff()
         {
             // Arrange — a peer that silently dropped: the connection is established, then a read times out.
             var clock = new FakeTimeProvider(Anchor);
@@ -248,7 +255,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
         }
 
         [TestMethod]
-        public void RunADisconnectWhileBackingOff()
+        [TestProperty("spec", "AC-MODB-009.6")]
+        public void RunDisconnectWhileBackingOff()
         {
             // Arrange — a control operation never connects, so the backoff has nothing to say about it.
             var clock = new FakeTimeProvider(Anchor);
@@ -272,7 +280,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
         }
 
         [TestMethod]
-        public void ReportBackingOffOnlyWhileTheWaitIsStillRunning()
+        [TestProperty("spec", "AC-MODB-017.3")]
+        public void ReportBackingOffOnlyWhileWaitStillRunning()
         {
             // Arrange
             var clock = new FakeTimeProvider(Anchor);
@@ -294,7 +303,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
         }
 
         [TestMethod]
-        public void RejectABackoffThatIsNotPositiveOrExceedsItsMaximum()
+        [TestProperty("spec", "AC-MODB-007.5")]
+        public void RejectBackoffThatNotPositiveOrExceedsItsMaximum()
         {
             // Arrange
             using var harness = CreateHarness(new FakeTimeProvider(Anchor));
@@ -309,7 +319,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
         }
 
         [TestMethod]
-        public void AcceptAConstantBackoffWhenBothKnobsAreTheSame()
+        [TestProperty("spec", "AC-MODB-007.5")]
+        public void AcceptConstantBackoffWhenBothKnobsAreSame()
         {
             // Arrange — the smallest constant wait a consumer can configure; there is no way to switch it off.
             var clock = new FakeTimeProvider(Anchor);

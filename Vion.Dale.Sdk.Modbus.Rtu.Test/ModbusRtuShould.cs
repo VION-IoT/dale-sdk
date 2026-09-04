@@ -178,9 +178,10 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-003.4")]
         [DataRow(0, DisplayName = "Zero")]
         [DataRow(-1, DisplayName = "Negative")]
-        public void ThrowExceptionWhenDefaultOperationTimeoutIsNotPositive(int seconds)
+        public void ThrowExceptionWhenDefaultOperationTimeoutNotPositive(int seconds)
         {
             // Arrange
 
@@ -189,6 +190,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-004.4")]
         [DataRow(TargetMethod.ReadDiscreteInputs, ModbusProtocolLimits.MaxBitsPerRead)]
         [DataRow(TargetMethod.ReadCoils, ModbusProtocolLimits.MaxBitsPerRead)]
         [DataRow(TargetMethod.WriteSingleCoil, ModbusProtocolLimits.MaxBitsPerWrite)]
@@ -196,7 +198,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         [DataRow(TargetMethod.ReadInputRegistersAsFloat, ModbusProtocolLimits.MaxRegistersPerRead)]
         [DataRow(TargetMethod.ReadHoldingRegistersAsInt, ModbusProtocolLimits.MaxRegistersPerRead)]
         [DataRow(TargetMethod.WriteMultipleHoldingRegistersAsDouble, ModbusProtocolLimits.MaxRegistersPerWrite)]
-        public void ValidateQuantityAgainstTheFunctionCodesProtocolLimit(TargetMethod targetMethod, int expectedLimit)
+        public void ValidateQuantityAgainstFunctionCodesProtocolLimit(TargetMethod targetMethod, int expectedLimit)
         {
             // Arrange
 
@@ -208,6 +210,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-002.2")]
         [DataRow(TargetMethod.ReadDiscreteInputs)]
         [DataRow(TargetMethod.ReadCoils)]
         [DataRow(TargetMethod.WriteSingleCoil)]
@@ -230,6 +233,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-004.1")]
         [DataRow(TargetMethod.ReadDiscreteInputs)]
         [DataRow(TargetMethod.ReadCoils)]
         [DataRow(TargetMethod.WriteSingleCoil)]
@@ -249,6 +253,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-004.1")]
         [DataRow(TargetMethod.ReadDiscreteInputs)]
         [DataRow(TargetMethod.ReadCoils)]
         [DataRow(TargetMethod.WriteSingleCoil)]
@@ -274,7 +279,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
-        public void RecordAValidationFailureAsInvalidInTheLinkSummary()
+        [TestProperty("spec", "AC-MODB-016.4")]
+        public void RecordValidationFailureAsInvalidInLinkSummary()
         {
             // Arrange
             _validatorMock.Setup(validator => validator.ValidateUnitIdentifier(It.IsAny<int>())).Throws(new InvalidUnitIdentifierException(1));
@@ -296,6 +302,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-015.1")]
         [DataRow(TargetMethod.ReadDiscreteInputs)]
         [DataRow(TargetMethod.ReadCoils)]
         [DataRow(TargetMethod.ReadInputRegistersAsFloat)]
@@ -315,6 +322,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-015.1")]
         [DataRow(TargetMethod.WriteSingleCoil)]
         [DataRow(TargetMethod.WriteMultipleCoils)]
         [DataRow(TargetMethod.WriteMultipleHoldingRegistersAsDouble)]
@@ -333,7 +341,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
-        public void DropMessageWhenLogicBlockIdIsEmpty()
+        [TestProperty("spec", "AC-BIND-013.1")]
+        public void DropMessageWhenLogicBlockIdEmpty()
         {
             // Arrange
             _sut.SetLogicBlockContractId(new LogicBlockContractId(new LogicBlockId(string.Empty), ContractIdentifier));
@@ -346,6 +355,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.3")]
         public void InvokeReadResponseCallback()
         {
             // Arrange
@@ -381,6 +391,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.3")]
         public void InvokeWriteResponseCallback()
         {
             // Arrange
@@ -403,6 +414,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public void ReadDiscreteInputs()
         {
             // Arrange
@@ -420,6 +432,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public void ReadCoils()
         {
             // Arrange
@@ -437,6 +450,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public void WriteSingleCoil()
         {
             // Arrange
@@ -451,6 +465,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public void WriteMultipleCoils()
         {
             // Arrange
@@ -465,6 +480,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public void ReadInputRegistersRaw()
         {
             // Arrange
@@ -479,8 +495,10 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public void ReadInputRegistersAsShort()
         {
+            // Act & Assert
             ReadRegistersAs(() => _sut.ReadInputRegistersAsShort(UnitIdentifier,
                                                                  StartingAddress,
                                                                  Quantity,
@@ -495,8 +513,10 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public void ReadInputRegistersAsUShort()
         {
+            // Act & Assert
             ReadRegistersAs(() => _sut.ReadInputRegistersAsUShort(UnitIdentifier,
                                                                   StartingAddress,
                                                                   Quantity,
@@ -511,8 +531,10 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public void ReadInputRegistersAsInt()
         {
+            // Act & Assert
             ReadRegistersAs(() => _sut.ReadInputRegistersAsInt(UnitIdentifier,
                                                                StartingAddress,
                                                                Count,
@@ -530,8 +552,10 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public void ReadInputRegistersAsUInt()
         {
+            // Act & Assert
             ReadRegistersAs(() => _sut.ReadInputRegistersAsUInt(UnitIdentifier,
                                                                 StartingAddress,
                                                                 Count,
@@ -549,8 +573,10 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public void ReadInputRegistersAsFloat()
         {
+            // Act & Assert
             ReadRegistersAs(() => _sut.ReadInputRegistersAsFloat(UnitIdentifier,
                                                                  StartingAddress,
                                                                  Count,
@@ -568,8 +594,10 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public void ReadInputRegistersAsLong()
         {
+            // Act & Assert
             ReadRegistersAs(() => _sut.ReadInputRegistersAsLong(UnitIdentifier,
                                                                 StartingAddress,
                                                                 Count,
@@ -587,8 +615,10 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public void ReadInputRegistersAsULong()
         {
+            // Act & Assert
             ReadRegistersAs(() => _sut.ReadInputRegistersAsULong(UnitIdentifier,
                                                                  StartingAddress,
                                                                  Count,
@@ -606,8 +636,10 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public void ReadInputRegistersAsDouble()
         {
+            // Act & Assert
             ReadRegistersAs(() => _sut.ReadInputRegistersAsDouble(UnitIdentifier,
                                                                   StartingAddress,
                                                                   Count,
@@ -625,6 +657,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(TextEncoding.Ascii)]
         [DataRow(TextEncoding.Utf8)]
         [DataRow(TextEncoding.Utf16Be)]
@@ -651,6 +684,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public void ReadHoldingRegistersRaw()
         {
             // Arrange
@@ -665,8 +699,10 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public void ReadHoldingRegistersAsShort()
         {
+            // Act & Assert
             ReadRegistersAs(() => _sut.ReadHoldingRegistersAsShort(UnitIdentifier,
                                                                    StartingAddress,
                                                                    Quantity,
@@ -681,8 +717,10 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public void ReadHoldingRegistersAsUShort()
         {
+            // Act & Assert
             ReadRegistersAs(() => _sut.ReadHoldingRegistersAsUShort(UnitIdentifier,
                                                                     StartingAddress,
                                                                     Quantity,
@@ -697,8 +735,10 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public void ReadHoldingRegistersAsInt()
         {
+            // Act & Assert
             ReadRegistersAs(() => _sut.ReadHoldingRegistersAsInt(UnitIdentifier,
                                                                  StartingAddress,
                                                                  Count,
@@ -716,8 +756,10 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public void ReadHoldingRegistersAsUInt()
         {
+            // Act & Assert
             ReadRegistersAs(() => _sut.ReadHoldingRegistersAsUInt(UnitIdentifier,
                                                                   StartingAddress,
                                                                   Count,
@@ -735,8 +777,10 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public void ReadHoldingRegistersAsFloat()
         {
+            // Act & Assert
             ReadRegistersAs(() => _sut.ReadHoldingRegistersAsFloat(UnitIdentifier,
                                                                    StartingAddress,
                                                                    Count,
@@ -754,8 +798,10 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public void ReadHoldingRegistersAsLong()
         {
+            // Act & Assert
             ReadRegistersAs(() => _sut.ReadHoldingRegistersAsLong(UnitIdentifier,
                                                                   StartingAddress,
                                                                   Count,
@@ -773,8 +819,10 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public void ReadHoldingRegistersAsULong()
         {
+            // Act & Assert
             ReadRegistersAs(() => _sut.ReadHoldingRegistersAsULong(UnitIdentifier,
                                                                    StartingAddress,
                                                                    Count,
@@ -792,8 +840,10 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public void ReadHoldingRegistersAsDouble()
         {
+            // Act & Assert
             ReadRegistersAs(() => _sut.ReadHoldingRegistersAsDouble(UnitIdentifier,
                                                                     StartingAddress,
                                                                     Count,
@@ -811,6 +861,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(TextEncoding.Ascii)]
         [DataRow(TextEncoding.Utf8)]
         [DataRow(TextEncoding.Utf16Be)]
@@ -837,6 +888,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public void WriteSingleHoldingRegisterAsShort()
         {
             // Arrange
@@ -852,6 +904,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public void WriteSingleHoldingRegisterAsUShort()
         {
             // Arrange
@@ -867,6 +920,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public void WriteMultipleHoldingRegistersRaw()
         {
             // Arrange
@@ -879,22 +933,28 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public void WriteMultipleHoldingRegistersAsShort()
         {
+            // Act & Assert
             WriteHoldingRegistersAs(values => _sut.WriteMultipleHoldingRegistersAsShort(UnitIdentifier, StartingAddress, values, _dispatcherMock.Object, byteOrder: ByteOrder),
                                     new short[] { 1, 2 });
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public void WriteMultipleHoldingRegistersAsUShort()
         {
+            // Act & Assert
             WriteHoldingRegistersAs(values => _sut.WriteMultipleHoldingRegistersAsUShort(UnitIdentifier, StartingAddress, values, _dispatcherMock.Object, byteOrder: ByteOrder),
                                     new ushort[] { 1, 2 });
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public void WriteMultipleHoldingRegistersAsInt()
         {
+            // Act & Assert
             WriteHoldingRegistersAs(values => _sut.WriteMultipleHoldingRegistersAsInt(UnitIdentifier,
                                                                                       StartingAddress,
                                                                                       values,
@@ -906,8 +966,10 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public void WriteMultipleHoldingRegistersAsUInt()
         {
+            // Act & Assert
             WriteHoldingRegistersAs(values => _sut.WriteMultipleHoldingRegistersAsUInt(UnitIdentifier,
                                                                                        StartingAddress,
                                                                                        values,
@@ -919,8 +981,10 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public void WriteMultipleHoldingRegistersAsFloat()
         {
+            // Act & Assert
             WriteHoldingRegistersAs(values => _sut.WriteMultipleHoldingRegistersAsFloat(UnitIdentifier,
                                                                                         StartingAddress,
                                                                                         values,
@@ -932,8 +996,10 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public void WriteMultipleHoldingRegistersAsLong()
         {
+            // Act & Assert
             WriteHoldingRegistersAs(values => _sut.WriteMultipleHoldingRegistersAsLong(UnitIdentifier,
                                                                                        StartingAddress,
                                                                                        values,
@@ -945,8 +1011,10 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public void WriteMultipleHoldingRegistersAsULong()
         {
+            // Act & Assert
             WriteHoldingRegistersAs(values => _sut.WriteMultipleHoldingRegistersAsULong(UnitIdentifier,
                                                                                         StartingAddress,
                                                                                         values,
@@ -958,8 +1026,10 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public void WriteMultipleHoldingRegistersAsDouble()
         {
+            // Act & Assert
             WriteHoldingRegistersAs(values => _sut.WriteMultipleHoldingRegistersAsDouble(UnitIdentifier,
                                                                                          StartingAddress,
                                                                                          values,
@@ -971,6 +1041,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(TextEncoding.Ascii)]
         [DataRow(TextEncoding.Utf8)]
         [DataRow(TextEncoding.Utf16Be)]

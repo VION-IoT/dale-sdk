@@ -11,12 +11,13 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Diagnostics
         private readonly ModbusLinkAccumulator _sut = new();
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-016.2")]
         [DataRow(ModbusOutcome.Success, ModbusLinkState.Online)]
         [DataRow(ModbusOutcome.DeviceError, ModbusLinkState.Online)]
         [DataRow(ModbusOutcome.Timeout, ModbusLinkState.Faulted)]
         [DataRow(ModbusOutcome.TransportError, ModbusLinkState.Faulted)]
         [DataRow(ModbusOutcome.ProtocolError, ModbusLinkState.Faulted)]
-        public void MoveTheLinkStateOnAnOutcomeThatReachedTheWire(ModbusOutcome outcome, ModbusLinkState expectedState)
+        public void MoveLinkStateOnOutcomeThatReachedWire(ModbusOutcome outcome, ModbusLinkState expectedState)
         {
             // Arrange
 
@@ -28,12 +29,13 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Diagnostics
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-016.2")]
         [DataRow(ModbusOutcome.BackedOff)]
         [DataRow(ModbusOutcome.Expired)]
         [DataRow(ModbusOutcome.Dropped)]
         [DataRow(ModbusOutcome.Invalid)]
         [DataRow(ModbusOutcome.Cancelled)]
-        public void LeaveTheLinkStateOnALocallyDecidedOutcome(ModbusOutcome outcome)
+        public void LeaveLinkStateOnLocallyDecidedOutcome(ModbusOutcome outcome)
         {
             // Arrange
             _sut.Record(Receipt(ModbusOutcome.Success));
@@ -46,12 +48,13 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Diagnostics
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-016.4")]
         [DataRow(ModbusOutcome.BackedOff)]
         [DataRow(ModbusOutcome.Expired)]
         [DataRow(ModbusOutcome.Dropped)]
         [DataRow(ModbusOutcome.Invalid)]
         [DataRow(ModbusOutcome.Cancelled)]
-        public void RecordALocallyDecidedOutcomeAsTheLastFailure(ModbusOutcome outcome)
+        public void RecordLocallyDecidedOutcomeAsLastFailure(ModbusOutcome outcome)
         {
             // Arrange
 
@@ -65,7 +68,8 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Diagnostics
         }
 
         [TestMethod]
-        public void CountOnlyTheOutcomesTheSummaryDeclaresACounterFor()
+        [TestProperty("spec", "AC-MODB-016.4")]
+        public void CountOnlyOutcomesSummaryDeclaresCounterFor()
         {
             // Arrange
             foreach (var outcome in Enum.GetValues<ModbusOutcome>())
@@ -93,12 +97,13 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Diagnostics
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-016.5")]
         [DataRow(ModbusOutcome.Success)]
         [DataRow(ModbusOutcome.Expired)]
         [DataRow(ModbusOutcome.Dropped)]
         [DataRow(ModbusOutcome.BackedOff)]
         [DataRow(ModbusOutcome.Cancelled)]
-        public void RecordTheQueuedWaitOfARequestThatWasQueued(ModbusOutcome outcome)
+        public void RecordQueuedWaitOfRequestThatWasQueued(ModbusOutcome outcome)
         {
             // Arrange
             var queuedWait = TimeSpan.FromSeconds(4);
@@ -113,7 +118,8 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Diagnostics
         }
 
         [TestMethod]
-        public void KeepTheQueuedWaitWhenARequestIsRefusedBeforeItIsQueued()
+        [TestProperty("spec", "AC-MODB-016.5")]
+        public void KeepQueuedWaitWhenRequestRefusedBeforeItQueued()
         {
             // Arrange
             var queuedWait = TimeSpan.FromSeconds(4);
@@ -129,7 +135,8 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Diagnostics
         }
 
         [TestMethod]
-        public void KeepTheRoundTripExtremesOfOutcomesThatReachedTheWire()
+        [TestProperty("spec", "AC-MODB-016.5")]
+        public void KeepRoundTripExtremesOfOutcomesThatReachedWire()
         {
             // Arrange
             var roundTrip = TimeSpan.FromMilliseconds(120);
@@ -146,7 +153,8 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Diagnostics
         }
 
         [TestMethod]
-        public void ReportTheCallersQueueDepthInTheSnapshot()
+        [TestProperty("spec", "AC-MODB-016.1")]
+        public void ReportCallersQueueDepthInSnapshot()
         {
             // Arrange
             const int queueDepth = 7;

@@ -15,16 +15,20 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
     public class ReuseAddressTcpClientProviderShould
     {
         [TestMethod]
-        public async Task BindTheEndpoint_AndAcceptAConnection()
+        [TestProperty("spec", "AC-MODB-014.4")]
+        public async Task BindEndpoint_AndAcceptConnection()
         {
+            // Arrange
             var port = GetFreePort();
             using var provider = new ReuseAddressTcpClientProvider(new IPEndPoint(IPAddress.Loopback, port));
 
+            // Act
             var acceptTask = provider.AcceptTcpClientAsync();
             using var client = new TcpClient();
             await client.ConnectAsync(IPAddress.Loopback, port);
             using var accepted = await acceptTask;
 
+            // Assert
             Assert.IsTrue(accepted.Connected, "The reuse-address provider must bind the endpoint and accept a connection.");
         }
 

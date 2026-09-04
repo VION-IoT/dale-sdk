@@ -18,6 +18,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-018.3")]
         public void CreateLogicBlockModbusTcpClientInstance()
         {
             // Arrange

@@ -90,6 +90,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-002.2")]
         public async Task DisconnectWhenConnected()
         {
             // Arrange
@@ -103,6 +104,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-002.2")]
         public async Task SkipDisconnectWhenNotConnected()
         {
             // Arrange
@@ -116,6 +118,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-006.5")]
         [DataRow(TargetMethod.ReadDiscreteInputsAsync)]
         [DataRow(TargetMethod.ReadCoilsAsync)]
         [DataRow(TargetMethod.WriteSingleCoilAsync)]
@@ -134,6 +137,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-006.7")]
         [DataRow(TargetMethod.ReadDiscreteInputsAsync)]
         [DataRow(TargetMethod.ReadCoilsAsync)]
         [DataRow(TargetMethod.WriteSingleCoilAsync)]
@@ -156,6 +160,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-006.7")]
         [DataRow(TargetMethod.ReadDiscreteInputsAsync)]
         [DataRow(TargetMethod.ReadCoilsAsync)]
         [DataRow(TargetMethod.WriteSingleCoilAsync)]
@@ -178,6 +183,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-006.1")]
         [DataRow(TargetMethod.ReadDiscreteInputsAsync)]
         [DataRow(TargetMethod.ReadCoilsAsync)]
         [DataRow(TargetMethod.WriteSingleCoilAsync)]
@@ -199,6 +205,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-006.6")]
         [DataRow(TargetMethod.ReadDiscreteInputsAsync)]
         [DataRow(TargetMethod.ReadCoilsAsync)]
         [DataRow(TargetMethod.WriteSingleCoilAsync)]
@@ -220,9 +227,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-006.6")]
         [DataRow(TargetMethod.ReadCoilsAsync)]
         [DataRow(TargetMethod.WriteSingleCoilAsync)]
-        public async Task NotReconnectWhenThePortAlreadyInForceIsSetAgain(TargetMethod targetMethod)
+        public async Task NotReconnectWhenPortAlreadyInForceSetAgain(TargetMethod targetMethod)
         {
             // Arrange — the first consumer re-applies port and timeouts whenever any field is edited, so re-setting
             // the value in force must not cost the connection.
@@ -242,9 +250,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-006.6")]
         [DataRow(TargetMethod.ReadCoilsAsync)]
         [DataRow(TargetMethod.WriteSingleCoilAsync)]
-        public async Task NotReconnectWhenTheIpAddressAlreadyInForceIsSetAgain(TargetMethod targetMethod)
+        public async Task NotReconnectWhenIpAddressAlreadyInForceSetAgain(TargetMethod targetMethod)
         {
             // Arrange
             _clientProxyMock.Setup(clientProxy => clientProxy.IsConnected).Returns(true);
@@ -260,9 +269,24 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-008.4")]
+        public async Task AttemptFailedOperationExactlyOnce()
+        {
+            // Arrange
+            _clientProxyMock.SetupGet(clientProxy => clientProxy.IsConnected).Returns(true);
+            _clientProxyMock.Setup(clientProxy => clientProxy.ReadCoilsAsync(UnitIdentifier, StartingAddress, Quantity, It.IsAny<CancellationToken>()))
+                            .ThrowsAsync(new ModbusException("the device refused"));
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ModbusException>(() => _sut.ReadCoilsAsync(UnitIdentifier, StartingAddress, Quantity, _operationTimeout, _cancellationToken));
+            _clientProxyMock.Verify(clientProxy => clientProxy.ReadCoilsAsync(UnitIdentifier, StartingAddress, Quantity, It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-008.1")]
         [DataRow(TargetMethod.ReadCoilsAsync)]
         [DataRow(TargetMethod.WriteSingleCoilAsync)]
-        public async Task CloseTheSocketWhenAnOperationFaultsOnTheWire(TargetMethod targetMethod)
+        public async Task CloseSocketWhenOperationFaultsOnWire(TargetMethod targetMethod)
         {
             // Arrange — a peer that answered before and now returns a frame the request cannot be matched to.
             _clientProxyMock.Setup(clientProxy => clientProxy.IsConnected).Returns(true);
@@ -274,9 +298,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-008.2")]
         [DataRow(TargetMethod.ReadCoilsAsync)]
         [DataRow(TargetMethod.WriteSingleCoilAsync)]
-        public async Task KeepTheSocketWhenAnOperationFailsForAReasonThatIsNotTheWire(TargetMethod targetMethod)
+        public async Task KeepSocketWhenOperationFailsForReasonThatNotWire(TargetMethod targetMethod)
         {
             // Arrange — disposal, not a fault: closing here would hide a socket that is still good.
             _clientProxyMock.Setup(clientProxy => clientProxy.IsConnected).Returns(true);
@@ -288,6 +313,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-006.1")]
         [DataRow(TargetMethod.ReadDiscreteInputsAsync)]
         [DataRow(TargetMethod.ReadCoilsAsync)]
         [DataRow(TargetMethod.WriteSingleCoilAsync)]
@@ -315,6 +341,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-006.1")]
         [DataRow(TargetMethod.ReadDiscreteInputsAsync)]
         [DataRow(TargetMethod.ReadCoilsAsync)]
         [DataRow(TargetMethod.WriteSingleCoilAsync)]
@@ -337,6 +364,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-004.1")]
         [DataRow(TargetMethod.ReadDiscreteInputsAsync)]
         [DataRow(TargetMethod.ReadCoilsAsync)]
         [DataRow(TargetMethod.WriteSingleCoilAsync)]
@@ -356,6 +384,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-004.1")]
         [DataRow(TargetMethod.ReadDiscreteInputsAsync)]
         [DataRow(TargetMethod.ReadCoilsAsync)]
         [DataRow(TargetMethod.WriteSingleCoilAsync)]
@@ -373,6 +402,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-004.4")]
         [DataRow(TargetMethod.ReadDiscreteInputsAsync, ModbusProtocolLimits.MaxBitsPerRead)]
         [DataRow(TargetMethod.ReadCoilsAsync, ModbusProtocolLimits.MaxBitsPerRead)]
         [DataRow(TargetMethod.WriteSingleCoilAsync, ModbusProtocolLimits.MaxBitsPerWrite)]
@@ -380,7 +410,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         [DataRow(TargetMethod.ReadInputRegistersAsFloatAsync, ModbusProtocolLimits.MaxRegistersPerRead)]
         [DataRow(TargetMethod.ReadHoldingRegistersAsIntAsync, ModbusProtocolLimits.MaxRegistersPerRead)]
         [DataRow(TargetMethod.WriteMultipleHoldingRegistersAsDoubleAsync, ModbusProtocolLimits.MaxRegistersPerWrite)]
-        public async Task ValidateQuantityAgainstTheFunctionCodesProtocolLimit(TargetMethod targetMethod, int expectedLimit)
+        public async Task ValidateQuantityAgainstFunctionCodesProtocolLimit(TargetMethod targetMethod, int expectedLimit)
         {
             // Arrange
 
@@ -392,6 +422,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-004.4")]
         [DataRow(TargetMethod.ReadDiscreteInputsAsync)]
         [DataRow(TargetMethod.ReadCoilsAsync)]
         [DataRow(TargetMethod.WriteSingleCoilAsync)]
@@ -399,7 +430,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         [DataRow(TargetMethod.ReadInputRegistersAsFloatAsync)]
         [DataRow(TargetMethod.ReadHoldingRegistersAsIntAsync)]
         [DataRow(TargetMethod.WriteMultipleHoldingRegistersAsDoubleAsync)]
-        public async Task ThrowExceptionWithoutContactingTheDeviceWhenQuantityExceedsTheProtocolLimit(TargetMethod targetMethod)
+        public async Task ThrowExceptionWithoutContactingDeviceWhenQuantityExceedsProtocolLimit(TargetMethod targetMethod)
         {
             // Arrange
             _validatorMock.Setup(validator => validator.ValidateQuantity(It.IsAny<uint>(), It.IsAny<int>())).Callback(() => throw new InvalidCountException(126, "too many"));
@@ -410,6 +441,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-003.1")]
         [DataRow(TargetMethod.ReadDiscreteInputsAsync)]
         [DataRow(TargetMethod.ReadCoilsAsync)]
         [DataRow(TargetMethod.WriteSingleCoilAsync)]
@@ -427,6 +459,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-008.2")]
         [DataRow(TargetMethod.ReadDiscreteInputsAsync)]
         [DataRow(TargetMethod.ReadCoilsAsync)]
         [DataRow(TargetMethod.WriteSingleCoilAsync)]
@@ -446,6 +479,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-008.2")]
         [DataRow(TargetMethod.ReadDiscreteInputsAsync)]
         [DataRow(TargetMethod.ReadCoilsAsync)]
         [DataRow(TargetMethod.WriteSingleCoilAsync)]
@@ -463,6 +497,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public async Task ReadDiscreteInputs()
         {
             // Arrange
@@ -481,6 +516,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public async Task ReadCoils()
         {
             // Arrange
@@ -499,6 +535,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public async Task WriteSingleCoil()
         {
             // Arrange
@@ -512,6 +549,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public async Task WriteMultipleCoils()
         {
             // Arrange
@@ -525,6 +563,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public async Task ReadInputRegistersRaw()
         {
             // Arrange
@@ -539,8 +578,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public async Task ReadInputRegistersAsShort()
         {
+            // Act & Assert
             await ReadRegistersCoreAsync(() => _sut.ReadInputRegistersAsShortAsync(UnitIdentifier,
                                                                                    StartingAddress,
                                                                                    Quantity,
@@ -553,8 +594,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public async Task ReadInputRegistersAsUShort()
         {
+            // Act & Assert
             await ReadRegistersCoreAsync(() => _sut.ReadInputRegistersAsUShortAsync(UnitIdentifier,
                                                                                     StartingAddress,
                                                                                     Quantity,
@@ -567,8 +610,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public async Task ReadInputRegistersAsInt()
         {
+            // Act & Assert
             await ReadRegistersCoreAsync(() => _sut.ReadInputRegistersAsIntAsync(UnitIdentifier,
                                                                                  StartingAddress,
                                                                                  Count,
@@ -587,8 +632,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public async Task ReadInputRegistersAsUInt()
         {
+            // Arrange
             await ReadRegistersCoreAsync(() => _sut.ReadInputRegistersAsUIntAsync(UnitIdentifier,
                                                                                   StartingAddress,
                                                                                   Count,
@@ -605,13 +652,16 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
                                              VerifySwapWords32Invoked();
                                          });
 
+            // Act & Assert
             // Assert
             VerifyConvertCountToQuantityInvoked(BytesPer32BitValue);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public async Task ReadInputRegistersAsFloat()
         {
+            // Act & Assert
             await ReadRegistersCoreAsync(() => _sut.ReadInputRegistersAsFloatAsync(UnitIdentifier,
                                                                                    StartingAddress,
                                                                                    Count,
@@ -630,8 +680,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public async Task ReadInputRegistersAsLong()
         {
+            // Act & Assert
             await ReadRegistersCoreAsync(() => _sut.ReadInputRegistersAsLongAsync(UnitIdentifier,
                                                                                   StartingAddress,
                                                                                   Count,
@@ -650,8 +702,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public async Task ReadInputRegistersAsULong()
         {
+            // Act & Assert
             await ReadRegistersCoreAsync(() => _sut.ReadInputRegistersAsULongAsync(UnitIdentifier,
                                                                                    StartingAddress,
                                                                                    Count,
@@ -670,8 +724,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public async Task ReadInputRegistersAsDouble()
         {
+            // Act & Assert
             await ReadRegistersCoreAsync(() => _sut.ReadInputRegistersAsDoubleAsync(UnitIdentifier,
                                                                                     StartingAddress,
                                                                                     Count,
@@ -690,6 +746,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(TextEncoding.Ascii)]
         [DataRow(TextEncoding.Utf8)]
         [DataRow(TextEncoding.Utf16Be)]
@@ -718,6 +775,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public async Task ReadHoldingRegistersRaw()
         {
             // Arrange
@@ -732,8 +790,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public async Task ReadHoldingRegistersAsShort()
         {
+            // Act & Assert
             await ReadRegistersCoreAsync(() => _sut.ReadHoldingRegistersAsShortAsync(UnitIdentifier,
                                                                                      StartingAddress,
                                                                                      Quantity,
@@ -746,8 +806,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public async Task ReadHoldingRegistersAsUShort()
         {
+            // Act & Assert
             await ReadRegistersCoreAsync(() => _sut.ReadHoldingRegistersAsUShortAsync(UnitIdentifier,
                                                                                       StartingAddress,
                                                                                       Quantity,
@@ -760,8 +822,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public async Task ReadHoldingRegistersAsInt()
         {
+            // Act & Assert
             await ReadRegistersCoreAsync(() => _sut.ReadHoldingRegistersAsIntAsync(UnitIdentifier,
                                                                                    StartingAddress,
                                                                                    Count,
@@ -780,8 +844,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public async Task ReadHoldingRegistersAsUInt()
         {
+            // Arrange
             await ReadRegistersCoreAsync(() => _sut.ReadHoldingRegistersAsUIntAsync(UnitIdentifier,
                                                                                     StartingAddress,
                                                                                     Count,
@@ -798,13 +864,16 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
                                              VerifySwapWords32Invoked();
                                          });
 
+            // Act & Assert
             // Assert
             VerifyConvertCountToQuantityInvoked(BytesPer32BitValue);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public async Task ReadHoldingRegistersAsFloat()
         {
+            // Act & Assert
             await ReadRegistersCoreAsync(() => _sut.ReadHoldingRegistersAsFloatAsync(UnitIdentifier,
                                                                                      StartingAddress,
                                                                                      Count,
@@ -823,8 +892,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public async Task ReadHoldingRegistersAsLong()
         {
+            // Act & Assert
             await ReadRegistersCoreAsync(() => _sut.ReadHoldingRegistersAsLongAsync(UnitIdentifier,
                                                                                     StartingAddress,
                                                                                     Count,
@@ -843,8 +914,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public async Task ReadHoldingRegistersAsULong()
         {
+            // Act & Assert
             await ReadRegistersCoreAsync(() => _sut.ReadHoldingRegistersAsULongAsync(UnitIdentifier,
                                                                                      StartingAddress,
                                                                                      Count,
@@ -863,8 +936,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public async Task ReadHoldingRegistersAsDouble()
         {
+            // Act & Assert
             await ReadRegistersCoreAsync(() => _sut.ReadHoldingRegistersAsDoubleAsync(UnitIdentifier,
                                                                                       StartingAddress,
                                                                                       Count,
@@ -883,6 +958,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(TextEncoding.Ascii)]
         [DataRow(TextEncoding.Utf8)]
         [DataRow(TextEncoding.Utf16Be)]
@@ -911,6 +987,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public async Task WriteSingleHoldingRegisterAsShort()
         {
             // Arrange
@@ -932,6 +1009,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public async Task WriteSingleHoldingRegisterAsUShort()
         {
             // Arrange
@@ -953,6 +1031,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public async Task WriteMultipleHoldingRegistersRaw()
         {
             // Arrange
@@ -965,8 +1044,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public async Task WriteMultipleHoldingRegistersAsShort()
         {
+            // Act & Assert
             await WriteHoldingRegistersCoreAsync(values => _sut.WriteMultipleHoldingRegistersAsShortAsync(UnitIdentifier,
                                                                                                           StartingAddress,
                                                                                                           values,
@@ -977,8 +1058,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public async Task WriteMultipleHoldingRegistersAsUShort()
         {
+            // Act & Assert
             await WriteHoldingRegistersCoreAsync(values => _sut.WriteMultipleHoldingRegistersAsUShortAsync(UnitIdentifier,
                                                                                                            StartingAddress,
                                                                                                            values,
@@ -989,8 +1072,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public async Task WriteMultipleHoldingRegistersAsInt()
         {
+            // Act & Assert
             await WriteHoldingRegistersCoreAsync(values => _sut.WriteMultipleHoldingRegistersAsIntAsync(UnitIdentifier,
                                                                                                         StartingAddress,
                                                                                                         values,
@@ -1003,8 +1088,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public async Task WriteMultipleHoldingRegistersAsUInt()
         {
+            // Act & Assert
             await WriteHoldingRegistersCoreAsync(values => _sut.WriteMultipleHoldingRegistersAsUIntAsync(UnitIdentifier,
                                                                                                          StartingAddress,
                                                                                                          values,
@@ -1017,8 +1104,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public async Task WriteMultipleHoldingRegistersAsFloat()
         {
+            // Act & Assert
             await WriteHoldingRegistersCoreAsync(values => _sut.WriteMultipleHoldingRegistersAsFloatAsync(UnitIdentifier,
                                                                                                           StartingAddress,
                                                                                                           values,
@@ -1031,8 +1120,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public async Task WriteMultipleHoldingRegistersAsLong()
         {
+            // Act & Assert
             await WriteHoldingRegistersCoreAsync(values => _sut.WriteMultipleHoldingRegistersAsLongAsync(UnitIdentifier,
                                                                                                          StartingAddress,
                                                                                                          values,
@@ -1045,8 +1136,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public async Task WriteMultipleHoldingRegistersAsULong()
         {
+            // Act & Assert
             await WriteHoldingRegistersCoreAsync(values => _sut.WriteMultipleHoldingRegistersAsULongAsync(UnitIdentifier,
                                                                                                           StartingAddress,
                                                                                                           values,
@@ -1059,8 +1152,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         public async Task WriteMultipleHoldingRegistersAsDouble()
         {
+            // Act & Assert
             await WriteHoldingRegistersCoreAsync(values => _sut.WriteMultipleHoldingRegistersAsDoubleAsync(UnitIdentifier,
                                                                                                            StartingAddress,
                                                                                                            values,
@@ -1073,6 +1168,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(TextEncoding.Ascii)]
         [DataRow(TextEncoding.Utf8)]
         [DataRow(TextEncoding.Utf16Be)]
@@ -1097,6 +1193,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-010.3")]
         public void DisposeClientProxy()
         {
             // Arrange
@@ -1109,6 +1206,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-010.3")]
         public void NotThrowWhenClientProxyThrowsOnDisposal()
         {
             // Arrange
@@ -1119,6 +1217,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-010.3")]
         public void NotDisposeClientProxyWhenAlreadyDisposed()
         {
             // Arrange

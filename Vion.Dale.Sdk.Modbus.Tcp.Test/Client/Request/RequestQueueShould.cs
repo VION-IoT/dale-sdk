@@ -71,9 +71,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-003.4")]
         [DataRow(0, DisplayName = "Zero")]
         [DataRow(-1, DisplayName = "Negative")]
-        public void ThrowExceptionWhenMaxQueuedAgeIsNotPositive(int seconds)
+        public void ThrowExceptionWhenMaxQueuedAgeNotPositive(int seconds)
         {
             // Arrange
 
@@ -82,7 +83,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
-        public void KeepNoLimitWhenMaxQueuedAgeIsCleared()
+        [TestProperty("spec", "AC-MODB-003.5")]
+        public void KeepNoLimitWhenMaxQueuedAgeCleared()
         {
             // Arrange
             _sut.MaxQueuedAge = TimeSpan.FromSeconds(5);
@@ -95,6 +97,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-002.4")]
         public void ThrowExceptionWhenAlreadyInitialized()
         {
             // Arrange
@@ -105,6 +108,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-009.4")]
         public void ThrowExceptionWhenOverflowPolicyUnsupported()
         {
             // Arrange
@@ -115,6 +119,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-002.4")]
         public void ThrowExceptionWhenEnqueuingArrayResultRequestBeforeInitialization()
         {
             // Arrange
@@ -125,6 +130,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-002.4")]
         public void ThrowExceptionWhenEnqueuingSingleResultRequestBeforeInitialization()
         {
             // Arrange
@@ -135,6 +141,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-002.4")]
         public void ThrowExceptionWhenEnqueuingVoidResultRequestBeforeInitialization()
         {
             // Arrange
@@ -145,6 +152,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-009.1")]
         public async Task ExecuteAllEnqueuedRequests()
         {
             // Arrange
@@ -166,6 +174,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-009.1")]
         public async Task ExecuteRequestsInFifoOrder()
         {
             // Arrange
@@ -187,6 +196,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-009.1")]
         public async Task ContinueProcessingQueuedRequestsAfterFailure()
         {
             // Arrange
@@ -208,6 +218,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-009.4")]
         public async Task DropOldestRequestWhenQueueFull()
         {
             // Arrange
@@ -230,6 +241,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-009.4")]
         public async Task DropNewestRequestWhenQueueFull()
         {
             // Arrange
@@ -252,6 +264,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-009.4")]
         public async Task RejectNewRequestWhenQueueFull()
         {
             // Arrange
@@ -275,6 +288,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-009.5")]
         public async Task ExcludeInFlightRequestFromQueuedCount()
         {
             // Arrange
@@ -295,6 +309,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-009.5")]
         public void ReportZeroQueuedCountWhenQueueEmpty()
         {
             // Arrange
@@ -308,6 +323,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-009.5")]
         public async Task DecrementQueuedCountAfterRequestsComplete()
         {
             // Arrange
@@ -327,6 +343,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-010.1")]
         public async Task CompleteEveryStillQueuedRequestWhenDisposed()
         {
             // Arrange
@@ -352,7 +369,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
-        public async Task CompleteNothingWhenDisposedWithAnEmptyQueue()
+        [TestProperty("spec", "AC-MODB-010.1")]
+        public async Task CompleteNothingWhenDisposedWithEmptyQueue()
         {
             // Arrange
             SetupArrayResultRequest();
@@ -367,7 +385,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
-        public async Task CompleteAQueuedRequestOnlyOnceAcrossRepeatedDisposal()
+        [TestProperty("spec", "AC-MODB-010.1")]
+        public async Task CompleteQueuedRequestOnlyOnceAcrossRepeatedDisposal()
         {
             // Arrange
             _inflightRequestCts = new CancellationTokenSource();
@@ -388,6 +407,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-010.2")]
         public void RejectNewRequestWhenQueueDisposed()
         {
             // Arrange
@@ -411,6 +431,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-010.3")]
         public void NotThrowIfDisposedMultipleTimes()
         {
             // Arrange

@@ -28,7 +28,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
                                                       DateTimeKind.Utc);
 
         [TestMethod]
-        public void DeliverAReceiptToTheReadCallbackStampedWhenTheResponseWasObserved()
+        [TestProperty("spec", "AC-MODB-001.4")]
+        public void DeliverReceiptToReadCallbackStampedWhenResponseWasObserved()
         {
             // Arrange
             var clock = new FakeTimeProvider(Anchor);
@@ -57,7 +58,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
         }
 
         [TestMethod]
-        public void ReportTheLinkAsFaultedAfterAConnectFailureAndOnlineAfterTheNextAnswer()
+        [TestProperty("spec", "AC-MODB-017.1")]
+        public void ReportLinkAsFaultedAfterConnectFailureAndOnlineAfterNextAnswer()
         {
             // Arrange
             var clock = new FakeTimeProvider(Anchor);
@@ -102,7 +104,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
         }
 
         [TestMethod]
-        public void ExpireHeldRequestsOlderThanMaxQueuedAgeWithoutContactingTheDevice()
+        [TestProperty("spec", "AC-MODB-003.6")]
+        public void ExpireHeldRequestsOlderThanMaxQueuedAgeWithoutContactingDevice()
         {
             // Arrange
             var clock = new FakeTimeProvider(Anchor);
@@ -136,7 +139,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
         }
 
         [TestMethod]
-        public void ExecuteRequestsThatAreStillFreshWhenTheQueueDrains()
+        [TestProperty("spec", "AC-MODB-003.6")]
+        public void ExecuteRequestsThatAreStillFreshWhenQueueDrains()
         {
             // Arrange
             var clock = new FakeTimeProvider(Anchor);
@@ -162,7 +166,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
         }
 
         [TestMethod]
-        public void ReportTheQueueDepthOnTheLinkSummary()
+        [TestProperty("spec", "AC-MODB-016.1")]
+        public void ReportQueueDepthOnLinkSummary()
         {
             // Arrange
             var clock = new FakeTimeProvider(Anchor);
@@ -183,7 +188,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
         }
 
         [TestMethod]
-        public void DeliverAReceiptToTheWriteCallback()
+        [TestProperty("spec", "AC-MODB-001.3")]
+        public void DeliverReceiptToWriteCallback()
         {
             // Arrange
             var clock = new FakeTimeProvider(Anchor);
@@ -204,7 +210,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
         }
 
         [TestMethod]
-        public void ClassifyADeviceExceptionCodeAsDeviceErrorAndKeepTheLinkOnline()
+        [TestProperty("spec", "AC-MODB-008.3")]
+        public void ClassifyDeviceExceptionCodeAsDeviceErrorAndKeepLinkOnline()
         {
             // Arrange
             var clock = new FakeTimeProvider(Anchor);
@@ -226,7 +233,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
         }
 
         [TestMethod]
-        public void ClassifyAFrameFaultWithoutADeviceCodeAsProtocolError()
+        [TestProperty("spec", "AC-MODB-008.3")]
+        public void ClassifyFrameFaultWithoutDeviceCodeAsProtocolError()
         {
             // Arrange
             var clock = new FakeTimeProvider(Anchor);
@@ -248,7 +256,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
         }
 
         [TestMethod]
-        public void RejectANonPositiveMaxQueuedAge()
+        [TestProperty("spec", "AC-MODB-003.4")]
+        public void RejectNonPositiveMaxQueuedAge()
         {
             // Arrange
             using var harness = CreateHarness(new FakeTimeProvider(Anchor));
@@ -260,7 +269,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
         }
 
         [TestMethod]
-        public void ExecuteEveryQueuedRequestWhenMaxQueuedAgeIsDisabled()
+        [TestProperty("spec", "AC-MODB-003.5")]
+        public void ExecuteEveryQueuedRequestWhenMaxQueuedAgeDisabled()
         {
             // Arrange
             var clock = new FakeTimeProvider(Anchor);
@@ -285,7 +295,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
         }
 
         [TestMethod]
-        public void ApplyAMaxQueuedAgeSetAfterTheRequestsWereAlreadyQueued()
+        [TestProperty("spec", "AC-MODB-003.7")]
+        public void ApplyMaxQueuedAgeSetAfterRequestsWereAlreadyQueued()
         {
             // Arrange
             var clock = new FakeTimeProvider(Anchor);
@@ -310,7 +321,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
         }
 
         [TestMethod]
-        public void RunADisconnectHoweverLongItWaited()
+        [TestProperty("spec", "AC-MODB-009.6")]
+        public void RunDisconnectHoweverLongItWaited()
         {
             // Arrange — a disconnect that has waited a long time is exactly the one still worth doing, so it is
             // exempt from the queued-age check and carries no receipt.

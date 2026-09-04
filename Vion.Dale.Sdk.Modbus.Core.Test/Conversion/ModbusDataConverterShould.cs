@@ -21,7 +21,8 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
-        public void ThrowExceptionWhenCountIsZero()
+        [TestProperty("spec", "AC-MODB-004.3")]
+        public void ThrowExceptionWhenCountZero()
         {
             // Arrange
             const uint count = 0;
@@ -32,6 +33,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-004.3")]
         [DataRow(2, DisplayName = "2 bytes per count (16-bit)")]
         [DataRow(4, DisplayName = "4 bytes per count (32-bit)")]
         [DataRow(8, DisplayName = "8 bytes per count (64-bit)")]
@@ -48,6 +50,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.7")]
         [DataRow(4, 2, 4, DisplayName = "4 count with 16-bit registers")]
         [DataRow(4, 4, 8, DisplayName = "4 count with 32-bit registers")]
         [DataRow(4, 8, 16, DisplayName = "4 count with 64-bit registers")]
@@ -63,7 +66,8 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
-        public void ThrowExceptionWhenByteOrderIsUnsupported()
+        [TestProperty("spec", "AC-MODB-004.5")]
+        public void ThrowExceptionWhenByteOrderUnsupported()
         {
             // Arrange
             const ByteOrder unsupportedByteOrder = (ByteOrder)999;
@@ -73,6 +77,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-005.1")]
         [DataRow(ByteOrder.LsbToMsb, true, DisplayName = "Little-endian byte order on little-endian system")]
         [DataRow(ByteOrder.MsbToLsb, false, DisplayName = "Big-endian byte order on big-endian system")]
         public void NotSwapBytesWhenByteOrderMatchesSystemEndianness(ByteOrder byteOrder, bool isLittleEndian)
@@ -90,6 +95,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-005.1")]
         [DataRow(ByteOrder.LsbToMsb, false, DisplayName = "Little-endian byte order on big-endian system")]
         [DataRow(ByteOrder.MsbToLsb, true, DisplayName = "Big-endian byte order on little-endian system")]
         public void SwapBytesWhenByteOrderDoesNotMatchSystemEndianness(ByteOrder byteOrder, bool isLittleEndian)
@@ -107,7 +113,8 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
-        public void ThrowExceptionWhen32BitWordOrderIsUnsupported()
+        [TestProperty("spec", "AC-MODB-004.5")]
+        public void ThrowExceptionWhen32BitWordOrderUnsupported()
         {
             // Arrange
             const WordOrder32 unsupportedWordOrder = (WordOrder32)999;
@@ -117,6 +124,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-005.1")]
         [DataRow(WordOrder32.LswToMsw, true, DisplayName = "Little-endian word order on little-endian system")]
         [DataRow(WordOrder32.MswToLsw, false, DisplayName = "Big-endian word order on big-endian system")]
         public void NotSwap32BitWordsWhenWordOrderMatchesSystemEndianness(WordOrder32 wordOrder, bool isLittleEndian)
@@ -134,6 +142,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-005.1")]
         [DataRow(WordOrder32.LswToMsw, false, DisplayName = "Little-endian word order on big-endian system")]
         [DataRow(WordOrder32.MswToLsw, true, DisplayName = "Big-endian word order on little-endian system")]
         public void Swap32BitWordsWhenWordOrderDoesNotMatchSystemEndianness(WordOrder32 wordOrder, bool isLittleEndian)
@@ -151,10 +160,11 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-004.5")]
         [DataRow(8, DisplayName = "One whole value")]
         [DataRow(1, DisplayName = "A partial value")]
         [DataRow(0, DisplayName = "An empty response")]
-        public void ThrowExceptionWhen64BitWordOrderIsUnsupported(int byteCount)
+        public void ThrowExceptionWhen64BitWordOrderUnsupported(int byteCount)
         {
             // Arrange
             const WordOrder64 unsupportedWordOrder = (WordOrder64)999;
@@ -164,7 +174,8 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
-        public void AcceptARaggedBufferAlikeAcrossTheThreeSwapsWhenNoSwapIsNeeded()
+        [TestProperty("spec", "AC-MODB-005.3")]
+        public void AcceptRaggedBufferAlikeAcrossThreeSwapsWhenNoSwapNeeded()
         {
             // Arrange
             _bitConverterProxy.SetupGet(bitConverter => bitConverter.IsLittleEndian).Returns(true);
@@ -177,6 +188,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-005.1")]
         [DataRow(WordOrder64.DCBA, true, DisplayName = "Little-endian word order on little-endian system")]
         [DataRow(WordOrder64.ABCD, false, DisplayName = "Big-endian word order on big-endian system")]
         public void NotSwap64BitWordsWhenWordOrderMatchesSystemEndianness(WordOrder64 wordOrder, bool isLittleEndian)
@@ -202,6 +214,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-005.1")]
         [DataRow(WordOrder64.DCBA, false, DisplayName = "Little-endian word order on big-endian system")]
         [DataRow(WordOrder64.ABCD, true, DisplayName = "Big-endian word order on little-endian system")]
         public void Swap64BitWordsWhenWordOrderDoesNotMatchSystemEndianness(WordOrder64 wordOrder, bool isLittleEndian)
@@ -227,7 +240,8 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
-        public void Swap64BitMidBigEndianWordsToLittleEndianWhenSystemIsLittleEndian()
+        [TestProperty("spec", "AC-MODB-005.2")]
+        public void Swap64BitMidBigEndianWordsToLittleEndianWhenSystemLittleEndian()
         {
             // Arrange
             _bitConverterProxy.SetupGet(bitConverter => bitConverter.IsLittleEndian).Returns(true);
@@ -250,7 +264,8 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
-        public void Swap64BitMidBigEndianWordsToBigEndianWhenSystemIsBigEndian()
+        [TestProperty("spec", "AC-MODB-005.2")]
+        public void Swap64BitMidBigEndianWordsToBigEndianWhenSystemBigEndian()
         {
             // Arrange
             _bitConverterProxy.SetupGet(bitConverter => bitConverter.IsLittleEndian).Returns(false);
@@ -273,7 +288,8 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
-        public void Swap64BitMidLittleEndianWordsToLittleEndianWhenSystemIsLittleEndian()
+        [TestProperty("spec", "AC-MODB-005.2")]
+        public void Swap64BitMidLittleEndianWordsToLittleEndianWhenSystemLittleEndian()
         {
             // Arrange
             _bitConverterProxy.SetupGet(bitConverter => bitConverter.IsLittleEndian).Returns(true);
@@ -296,7 +312,8 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
-        public void Swap64BitMidLittleEndianWordsToBigEndianWhenSystemIsBigEndian()
+        [TestProperty("spec", "AC-MODB-005.2")]
+        public void Swap64BitMidLittleEndianWordsToBigEndianWhenSystemBigEndian()
         {
             // Arrange
             _bitConverterProxy.SetupGet(bitConverter => bitConverter.IsLittleEndian).Returns(false);
@@ -319,9 +336,10 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-004.5")]
         [DataRow(nameof(ModbusDataConverter.ConvertBytesToString))]
         [DataRow(nameof(ModbusDataConverter.ConvertStringToBytes))]
-        public void ThrowExceptionWhenTextEncodingIsUnsupported(string methodName)
+        public void ThrowExceptionWhenTextEncodingUnsupported(string methodName)
         {
             // Arrange
             const TextEncoding unsupportedEncoding = (TextEncoding)999;
@@ -338,6 +356,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-005.7")]
         public void ConvertBytesToAsciiString()
         {
             // Arrange
@@ -352,6 +371,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-005.7")]
         public void ConvertBytesToUtf8String()
         {
             // Arrange
@@ -366,6 +386,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-005.7")]
         public void ConvertBytesToUtf16LeString()
         {
             // Arrange
@@ -380,6 +401,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-005.7")]
         public void ConvertBytesToUtf16BeString()
         {
             // Arrange
@@ -394,6 +416,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-005.7")]
         [DataRow(TextEncoding.Ascii)]
         [DataRow(TextEncoding.Utf8)]
         [DataRow(TextEncoding.Utf16Be)]
@@ -412,6 +435,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-005.7")]
         public void ConvertAsciiStringToBytes()
         {
             // Arrange
@@ -426,6 +450,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-005.7")]
         public void ConvertUtf8StringToBytes()
         {
             // Arrange
@@ -440,6 +465,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-005.7")]
         public void ConvertUtf16LeStringToBytes()
         {
             // Arrange
@@ -454,6 +480,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-005.7")]
         public void ConvertUtf16BeStringToBytes()
         {
             // Arrange
@@ -468,7 +495,8 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
-        public void ConvertAsciiStringToBytesWithNullByteWhenLengthIsOdd()
+        [TestProperty("spec", "AC-MODB-005.7")]
+        public void ConvertAsciiStringToBytesWithNullByteWhenLengthOdd()
         {
             // Arrange
             const string value = "Hello";
@@ -482,7 +510,8 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
-        public void ConvertUtf8StringToBytesWithNullByteWhenLengthIsOdd()
+        [TestProperty("spec", "AC-MODB-005.7")]
+        public void ConvertUtf8StringToBytesWithNullByteWhenLengthOdd()
         {
             // Arrange
             const string value = "Héll";
@@ -496,6 +525,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-005.5")]
         public void ThrowExceptionWhenQuantityExceedsAvailableBits()
         {
             // Arrange
@@ -507,6 +537,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-005.6")]
         public void ConvertBitsToBoolsWhenQuantityMatchesBits()
         {
             // Arrange
@@ -530,7 +561,8 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
-        public void ConvertBitsToBoolsTruncatingWhenQuantityIsLess()
+        [TestProperty("spec", "AC-MODB-005.6")]
+        public void ConvertBitsToBoolsTruncatingWhenQuantityLess()
         {
             // Arrange
             byte[] bytes =
@@ -553,6 +585,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-005.4")]
         public void CastShortToBytes()
         {
             // Arrange
@@ -564,6 +597,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-005.4")]
         public void CastEmptyShortToBytes()
         {
             // Arrange
@@ -575,6 +609,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-005.4")]
         public void CastIntToBytes()
         {
             // Arrange
@@ -586,6 +621,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-005.4")]
         public void CastEmptyIntToBytes()
         {
             // Arrange
@@ -597,6 +633,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-005.4")]
         public void CastLongToBytes()
         {
             // Arrange
@@ -609,6 +646,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-005.4")]
         public void CastEmptyLongToBytes()
         {
             // Arrange
@@ -620,6 +658,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-005.4")]
         public void CastBytesToShort()
         {
             // Arrange
@@ -631,6 +670,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-005.4")]
         public void CastEmptyBytesToShort()
         {
             // Arrange
@@ -642,6 +682,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-005.4")]
         public void CastBytesToInt()
         {
             // Arrange
@@ -653,6 +694,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-005.4")]
         public void CastEmptyBytesToInt()
         {
             // Arrange
@@ -664,6 +706,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-005.4")]
         public void CastBytesToLong()
         {
             // Arrange
@@ -676,6 +719,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-005.4")]
         public void CastEmptyBytesToLong()
         {
             // Arrange
@@ -687,6 +731,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-005.4")]
         public void GetBytesOfShort()
         {
             // Arrange
@@ -702,6 +747,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-005.4")]
         public void GetBytesOfUShort()
         {
             // Arrange

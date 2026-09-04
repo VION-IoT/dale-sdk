@@ -9,6 +9,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test
     public class ServiceCollectionExtensionsShould
     {
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-018.1")]
         public void RegisterModbusTcpRelatedServices()
         {
             // Arrange

@@ -11,7 +11,8 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Exceptions
     public class ModbusExceptionShould
     {
         [TestMethod]
-        public void ReportADeviceCodeWhenConstructedWithOne()
+        [TestProperty("spec", "AC-MODB-008.3")]
+        public void ReportDeviceCodeWhenConstructedWithOne()
         {
             // Arrange / Act
             var exception = new ModbusException(ModbusExceptionCode.IllegalDataAddress, "address out of range");
@@ -22,6 +23,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Exceptions
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-008.3")]
         public void ReportNoDeviceCodeWhenConstructedWithoutOne()
         {
             // Arrange / Act

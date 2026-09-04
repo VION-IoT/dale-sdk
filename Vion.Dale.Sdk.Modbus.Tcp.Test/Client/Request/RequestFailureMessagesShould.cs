@@ -14,7 +14,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
     public class RequestFailureMessagesShould
     {
         [TestMethod]
-        public void SayTheQueueWasFullAndNameItsCapacityAndPolicy()
+        [TestProperty("spec", "AC-MODB-009.4")]
+        public void SayQueueWasFullAndNameItsCapacityAndPolicy()
         {
             // Arrange / Act
             var exception = new RequestDroppedException("ReadHoldingRegistersRaw", 256, QueueOverflowPolicy.DropOldest);
@@ -28,7 +29,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
-        public void SayTheClientWasDisposed()
+        [TestProperty("spec", "AC-MODB-010.1")]
+        public void SayClientWasDisposed()
         {
             // Arrange / Act
             var exception = new RequestDroppedException("ReadHoldingRegistersRaw");
@@ -39,7 +41,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
-        public void SayHowLongAnExpiredRequestWaitedAndAgainstWhichLimit()
+        [TestProperty("spec", "AC-MODB-003.6")]
+        public void SayHowLongExpiredRequestWaitedAndAgainstWhichLimit()
         {
             // Arrange / Act
             var exception = new RequestExpiredException("ReadHoldingRegistersRaw", TimeSpan.FromMilliseconds(31_200), TimeSpan.FromSeconds(30));
@@ -52,7 +55,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
-        public void NameTheUnreachableEndpointAndWhenTheClientWillTryItAgain()
+        [TestProperty("spec", "AC-MODB-007.3")]
+        public void NameUnreachableEndpointAndWhenClientWillTryItAgain()
         {
             // Arrange / Act
             var nextAttemptAt = new DateTime(2026,

@@ -311,12 +311,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(ReadDiscreteInputs),
                                   dispatcher,
                                   cancellationToken => _clientWrapper.ReadDiscreteInputsAsync(unitIdentifier,
                                                                                               startingAddress,
                                                                                               quantity,
-                                                                                              operationTimeout ?? DefaultOperationTimeout,
+                                                                                              effectiveTimeout,
                                                                                               cancellationToken),
                                   successCallback,
                                   errorCallback);
@@ -341,10 +343,12 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(ReadCoils),
                                   dispatcher,
                                   cancellationToken =>
-                                      _clientWrapper.ReadCoilsAsync(unitIdentifier, startingAddress, quantity, operationTimeout ?? DefaultOperationTimeout, cancellationToken),
+                                      _clientWrapper.ReadCoilsAsync(unitIdentifier, startingAddress, quantity, effectiveTimeout, cancellationToken),
                                   successCallback,
                                   errorCallback);
         }
@@ -364,10 +368,12 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(WriteSingleCoil),
                                   dispatcher,
                                   cancellationToken =>
-                                      _clientWrapper.WriteSingleCoilAsync(unitIdentifier, registerAddress, value, operationTimeout ?? DefaultOperationTimeout, cancellationToken),
+                                      _clientWrapper.WriteSingleCoilAsync(unitIdentifier, registerAddress, value, effectiveTimeout, cancellationToken),
                                   successCallback,
                                   errorCallback);
         }
@@ -387,13 +393,15 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(WriteMultipleCoils),
                                   dispatcher,
                                   cancellationToken =>
                                       _clientWrapper.WriteMultipleCoilsAsync(unitIdentifier,
                                                                              startingAddress,
                                                                              values,
-                                                                             operationTimeout ?? DefaultOperationTimeout,
+                                                                             effectiveTimeout,
                                                                              cancellationToken),
                                   successCallback,
                                   errorCallback);
@@ -418,12 +426,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(ReadInputRegistersRaw),
                                   dispatcher,
                                   cancellationToken => _clientWrapper.ReadInputRegistersRawAsync(unitIdentifier,
                                                                                                  startingAddress,
                                                                                                  quantity,
-                                                                                                 operationTimeout ?? DefaultOperationTimeout,
+                                                                                                 effectiveTimeout,
                                                                                                  cancellationToken),
                                   successCallback,
                                   errorCallback);
@@ -445,13 +455,15 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(ReadInputRegistersAsShort),
                                   dispatcher,
                                   cancellationToken => _clientWrapper.ReadInputRegistersAsShortAsync(unitIdentifier,
                                                                                                      startingAddress,
                                                                                                      quantity,
                                                                                                      byteOrder,
-                                                                                                     operationTimeout ?? DefaultOperationTimeout,
+                                                                                                     effectiveTimeout,
                                                                                                      cancellationToken),
                                   successCallback,
                                   errorCallback);
@@ -473,13 +485,15 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(ReadInputRegistersAsUShort),
                                   dispatcher,
                                   cancellationToken => _clientWrapper.ReadInputRegistersAsUShortAsync(unitIdentifier,
                                                                                                       startingAddress,
                                                                                                       quantity,
                                                                                                       byteOrder,
-                                                                                                      operationTimeout ?? DefaultOperationTimeout,
+                                                                                                      effectiveTimeout,
                                                                                                       cancellationToken),
                                   successCallback,
                                   errorCallback);
@@ -502,6 +516,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(ReadInputRegistersAsInt),
                                   dispatcher,
                                   cancellationToken => _clientWrapper.ReadInputRegistersAsIntAsync(unitIdentifier,
@@ -509,7 +525,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                                                                    count,
                                                                                                    byteOrder,
                                                                                                    wordOrder,
-                                                                                                   operationTimeout ?? DefaultOperationTimeout,
+                                                                                                   effectiveTimeout,
                                                                                                    cancellationToken),
                                   successCallback,
                                   errorCallback);
@@ -532,6 +548,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(ReadInputRegistersAsUInt),
                                   dispatcher,
                                   cancellationToken => _clientWrapper.ReadInputRegistersAsUIntAsync(unitIdentifier,
@@ -539,7 +557,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                                                                     count,
                                                                                                     byteOrder,
                                                                                                     wordOrder,
-                                                                                                    operationTimeout ?? DefaultOperationTimeout,
+                                                                                                    effectiveTimeout,
                                                                                                     cancellationToken),
                                   successCallback,
                                   errorCallback);
@@ -562,6 +580,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(ReadInputRegistersAsFloat),
                                   dispatcher,
                                   cancellationToken => _clientWrapper.ReadInputRegistersAsFloatAsync(unitIdentifier,
@@ -569,7 +589,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                                                                      count,
                                                                                                      byteOrder,
                                                                                                      wordOrder,
-                                                                                                     operationTimeout ?? DefaultOperationTimeout,
+                                                                                                     effectiveTimeout,
                                                                                                      cancellationToken),
                                   successCallback,
                                   errorCallback);
@@ -592,6 +612,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(ReadInputRegistersAsLong),
                                   dispatcher,
                                   cancellationToken => _clientWrapper.ReadInputRegistersAsLongAsync(unitIdentifier,
@@ -599,7 +621,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                                                                     count,
                                                                                                     byteOrder,
                                                                                                     wordOrder,
-                                                                                                    operationTimeout ?? DefaultOperationTimeout,
+                                                                                                    effectiveTimeout,
                                                                                                     cancellationToken),
                                   successCallback,
                                   errorCallback);
@@ -622,6 +644,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(ReadInputRegistersAsULong),
                                   dispatcher,
                                   cancellationToken => _clientWrapper.ReadInputRegistersAsULongAsync(unitIdentifier,
@@ -629,7 +653,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                                                                      count,
                                                                                                      byteOrder,
                                                                                                      wordOrder,
-                                                                                                     operationTimeout ?? DefaultOperationTimeout,
+                                                                                                     effectiveTimeout,
                                                                                                      cancellationToken),
                                   successCallback,
                                   errorCallback);
@@ -652,6 +676,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(ReadInputRegistersAsDouble),
                                   dispatcher,
                                   cancellationToken => _clientWrapper.ReadInputRegistersAsDoubleAsync(unitIdentifier,
@@ -659,7 +685,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                                                                       count,
                                                                                                       byteOrder,
                                                                                                       wordOrder,
-                                                                                                      operationTimeout ?? DefaultOperationTimeout,
+                                                                                                      effectiveTimeout,
                                                                                                       cancellationToken),
                                   successCallback,
                                   errorCallback);
@@ -681,13 +707,15 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(ReadInputRegistersAsString),
                                   dispatcher,
                                   cancellationToken => _clientWrapper.ReadInputRegistersAsStringAsync(unitIdentifier,
                                                                                                       startingAddress,
                                                                                                       quantity,
                                                                                                       textEncoding,
-                                                                                                      operationTimeout ?? DefaultOperationTimeout,
+                                                                                                      effectiveTimeout,
                                                                                                       cancellationToken),
                                   successCallback,
                                   errorCallback);
@@ -712,12 +740,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(ReadHoldingRegistersRaw),
                                   dispatcher,
                                   cancellationToken => _clientWrapper.ReadHoldingRegistersRawAsync(unitIdentifier,
                                                                                                    startingAddress,
                                                                                                    quantity,
-                                                                                                   operationTimeout ?? DefaultOperationTimeout,
+                                                                                                   effectiveTimeout,
                                                                                                    cancellationToken),
                                   successCallback,
                                   errorCallback);
@@ -739,13 +769,15 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(ReadHoldingRegistersAsShort),
                                   dispatcher,
                                   cancellationToken => _clientWrapper.ReadHoldingRegistersAsShortAsync(unitIdentifier,
                                                                                                        startingAddress,
                                                                                                        quantity,
                                                                                                        byteOrder,
-                                                                                                       operationTimeout ?? DefaultOperationTimeout,
+                                                                                                       effectiveTimeout,
                                                                                                        cancellationToken),
                                   successCallback,
                                   errorCallback);
@@ -767,13 +799,15 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(ReadHoldingRegistersAsUShort),
                                   dispatcher,
                                   cancellationToken => _clientWrapper.ReadHoldingRegistersAsUShortAsync(unitIdentifier,
                                                                                                         startingAddress,
                                                                                                         quantity,
                                                                                                         byteOrder,
-                                                                                                        operationTimeout ?? DefaultOperationTimeout,
+                                                                                                        effectiveTimeout,
                                                                                                         cancellationToken),
                                   successCallback,
                                   errorCallback);
@@ -796,6 +830,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(ReadHoldingRegistersAsInt),
                                   dispatcher,
                                   cancellationToken => _clientWrapper.ReadHoldingRegistersAsIntAsync(unitIdentifier,
@@ -803,7 +839,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                                                                      count,
                                                                                                      byteOrder,
                                                                                                      wordOrder,
-                                                                                                     operationTimeout ?? DefaultOperationTimeout,
+                                                                                                     effectiveTimeout,
                                                                                                      cancellationToken),
                                   successCallback,
                                   errorCallback);
@@ -826,6 +862,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(ReadHoldingRegistersAsUInt),
                                   dispatcher,
                                   cancellationToken => _clientWrapper.ReadHoldingRegistersAsUIntAsync(unitIdentifier,
@@ -833,7 +871,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                                                                       count,
                                                                                                       byteOrder,
                                                                                                       wordOrder,
-                                                                                                      operationTimeout ?? DefaultOperationTimeout,
+                                                                                                      effectiveTimeout,
                                                                                                       cancellationToken),
                                   successCallback,
                                   errorCallback);
@@ -856,6 +894,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(ReadHoldingRegistersAsFloat),
                                   dispatcher,
                                   cancellationToken => _clientWrapper.ReadHoldingRegistersAsFloatAsync(unitIdentifier,
@@ -863,7 +903,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                                                                        count,
                                                                                                        byteOrder,
                                                                                                        wordOrder,
-                                                                                                       operationTimeout ?? DefaultOperationTimeout,
+                                                                                                       effectiveTimeout,
                                                                                                        cancellationToken),
                                   successCallback,
                                   errorCallback);
@@ -886,6 +926,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(ReadHoldingRegistersAsLong),
                                   dispatcher,
                                   cancellationToken => _clientWrapper.ReadHoldingRegistersAsLongAsync(unitIdentifier,
@@ -893,7 +935,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                                                                       count,
                                                                                                       byteOrder,
                                                                                                       wordOrder,
-                                                                                                      operationTimeout ?? DefaultOperationTimeout,
+                                                                                                      effectiveTimeout,
                                                                                                       cancellationToken),
                                   successCallback,
                                   errorCallback);
@@ -916,6 +958,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(ReadHoldingRegistersAsULong),
                                   dispatcher,
                                   cancellationToken => _clientWrapper.ReadHoldingRegistersAsULongAsync(unitIdentifier,
@@ -923,7 +967,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                                                                        count,
                                                                                                        byteOrder,
                                                                                                        wordOrder,
-                                                                                                       operationTimeout ?? DefaultOperationTimeout,
+                                                                                                       effectiveTimeout,
                                                                                                        cancellationToken),
                                   successCallback,
                                   errorCallback);
@@ -946,6 +990,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(ReadHoldingRegistersAsDouble),
                                   dispatcher,
                                   cancellationToken => _clientWrapper.ReadHoldingRegistersAsDoubleAsync(unitIdentifier,
@@ -953,7 +999,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                                                                         count,
                                                                                                         byteOrder,
                                                                                                         wordOrder,
-                                                                                                        operationTimeout ?? DefaultOperationTimeout,
+                                                                                                        effectiveTimeout,
                                                                                                         cancellationToken),
                                   successCallback,
                                   errorCallback);
@@ -975,13 +1021,15 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(ReadHoldingRegistersAsString),
                                   dispatcher,
                                   cancellationToken => _clientWrapper.ReadHoldingRegistersAsStringAsync(unitIdentifier,
                                                                                                         startingAddress,
                                                                                                         quantity,
                                                                                                         textEncoding,
-                                                                                                        operationTimeout ?? DefaultOperationTimeout,
+                                                                                                        effectiveTimeout,
                                                                                                         cancellationToken),
                                   successCallback,
                                   errorCallback);
@@ -1003,13 +1051,15 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(WriteSingleHoldingRegister),
                                   dispatcher,
                                   cancellationToken => _clientWrapper.WriteSingleHoldingRegisterAsync(unitIdentifier,
                                                                                                       registerAddress,
                                                                                                       value,
                                                                                                       byteOrder,
-                                                                                                      operationTimeout ?? DefaultOperationTimeout,
+                                                                                                      effectiveTimeout,
                                                                                                       cancellationToken),
                                   successCallback,
                                   errorCallback);
@@ -1031,13 +1081,15 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(WriteSingleHoldingRegister),
                                   dispatcher,
                                   cancellationToken => _clientWrapper.WriteSingleHoldingRegisterAsync(unitIdentifier,
                                                                                                       registerAddress,
                                                                                                       value,
                                                                                                       byteOrder,
-                                                                                                      operationTimeout ?? DefaultOperationTimeout,
+                                                                                                      effectiveTimeout,
                                                                                                       cancellationToken),
                                   successCallback,
                                   errorCallback);
@@ -1058,12 +1110,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(WriteMultipleHoldingRegistersRaw),
                                   dispatcher,
                                   cancellationToken => _clientWrapper.WriteMultipleHoldingRegistersRawAsync(unitIdentifier,
                                                                                                             startingAddress,
                                                                                                             values,
-                                                                                                            operationTimeout ?? DefaultOperationTimeout,
+                                                                                                            effectiveTimeout,
                                                                                                             cancellationToken),
                                   successCallback,
                                   errorCallback);
@@ -1085,13 +1139,15 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(WriteMultipleHoldingRegistersAsShort),
                                   dispatcher,
                                   cancellationToken => _clientWrapper.WriteMultipleHoldingRegistersAsShortAsync(unitIdentifier,
                                                                                                                 startingAddress,
                                                                                                                 values,
                                                                                                                 byteOrder,
-                                                                                                                operationTimeout ?? DefaultOperationTimeout,
+                                                                                                                effectiveTimeout,
                                                                                                                 cancellationToken),
                                   successCallback,
                                   errorCallback);
@@ -1113,13 +1169,15 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(WriteMultipleHoldingRegistersAsUShort),
                                   dispatcher,
                                   cancellationToken => _clientWrapper.WriteMultipleHoldingRegistersAsUShortAsync(unitIdentifier,
                                                                                                                  startingAddress,
                                                                                                                  values,
                                                                                                                  byteOrder,
-                                                                                                                 operationTimeout ?? DefaultOperationTimeout,
+                                                                                                                 effectiveTimeout,
                                                                                                                  cancellationToken),
                                   successCallback,
                                   errorCallback);
@@ -1142,6 +1200,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(WriteMultipleHoldingRegistersAsInt),
                                   dispatcher,
                                   cancellationToken => _clientWrapper.WriteMultipleHoldingRegistersAsIntAsync(unitIdentifier,
@@ -1149,7 +1209,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                                                                               values,
                                                                                                               byteOrder,
                                                                                                               wordOrder,
-                                                                                                              operationTimeout ?? DefaultOperationTimeout,
+                                                                                                              effectiveTimeout,
                                                                                                               cancellationToken),
                                   successCallback,
                                   errorCallback);
@@ -1172,6 +1232,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(WriteMultipleHoldingRegistersAsUInt),
                                   dispatcher,
                                   cancellationToken => _clientWrapper.WriteMultipleHoldingRegistersAsUIntAsync(unitIdentifier,
@@ -1179,7 +1241,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                                                                                values,
                                                                                                                byteOrder,
                                                                                                                wordOrder,
-                                                                                                               operationTimeout ?? DefaultOperationTimeout,
+                                                                                                               effectiveTimeout,
                                                                                                                cancellationToken),
                                   successCallback,
                                   errorCallback);
@@ -1202,6 +1264,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(WriteMultipleHoldingRegistersAsFloat),
                                   dispatcher,
                                   cancellationToken => _clientWrapper.WriteMultipleHoldingRegistersAsFloatAsync(unitIdentifier,
@@ -1209,7 +1273,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                                                                                 values,
                                                                                                                 byteOrder,
                                                                                                                 wordOrder,
-                                                                                                                operationTimeout ?? DefaultOperationTimeout,
+                                                                                                                effectiveTimeout,
                                                                                                                 cancellationToken),
                                   successCallback,
                                   errorCallback);
@@ -1232,6 +1296,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(WriteMultipleHoldingRegistersAsLong),
                                   dispatcher,
                                   cancellationToken => _clientWrapper.WriteMultipleHoldingRegistersAsLongAsync(unitIdentifier,
@@ -1239,7 +1305,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                                                                                values,
                                                                                                                byteOrder,
                                                                                                                wordOrder,
-                                                                                                               operationTimeout ?? DefaultOperationTimeout,
+                                                                                                               effectiveTimeout,
                                                                                                                cancellationToken),
                                   successCallback,
                                   errorCallback);
@@ -1262,6 +1328,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(WriteMultipleHoldingRegistersAsULong),
                                   dispatcher,
                                   cancellationToken => _clientWrapper.WriteMultipleHoldingRegistersAsULongAsync(unitIdentifier,
@@ -1269,7 +1337,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                                                                                 values,
                                                                                                                 byteOrder,
                                                                                                                 wordOrder,
-                                                                                                                operationTimeout ?? DefaultOperationTimeout,
+                                                                                                                effectiveTimeout,
                                                                                                                 cancellationToken),
                                   successCallback,
                                   errorCallback);
@@ -1292,6 +1360,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(WriteMultipleHoldingRegistersAsDouble),
                                   dispatcher,
                                   cancellationToken => _clientWrapper.WriteMultipleHoldingRegistersAsDoubleAsync(unitIdentifier,
@@ -1299,7 +1369,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                                                                                                                  values,
                                                                                                                  byteOrder,
                                                                                                                  wordOrder,
-                                                                                                                 operationTimeout ?? DefaultOperationTimeout,
+                                                                                                                 effectiveTimeout,
                                                                                                                  cancellationToken),
                                   successCallback,
                                   errorCallback);
@@ -1321,13 +1391,15 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+
             _requestQueue.Enqueue(nameof(WriteMultipleHoldingRegistersAsString),
                                   dispatcher,
                                   cancellationToken => _clientWrapper.WriteMultipleHoldingRegistersAsStringAsync(unitIdentifier,
                                                                                                                  startingAddress,
                                                                                                                  value,
                                                                                                                  textEncoding,
-                                                                                                                 operationTimeout ?? DefaultOperationTimeout,
+                                                                                                                 effectiveTimeout,
                                                                                                                  cancellationToken),
                                   successCallback,
                                   errorCallback);

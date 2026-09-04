@@ -28,16 +28,20 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server.LogicBlock
         }
 
         [TestMethod]
-        public void StartTheProxyWithParsedConfigurationWhenEnabled()
+        [TestProperty("spec", "AC-MODB-002.1")]
+        public void StartProxyWithParsedConfigurationWhenEnabled()
         {
+            // Arrange
             _sut.ListenAddress = "127.0.0.1";
             _sut.Port = 1502;
             _sut.HoldingRegisterCount = 10;
             _sut.InputRegisterCount = 20;
             _sut.DiscreteInputCount = 1;
 
+            // Act
             _sut.IsEnabled = true;
 
+            // Assert
             Assert.AreEqual(1, _proxy.StartCalls);
             Assert.AreEqual(IPAddress.Loopback, _proxy.LastListenAddress);
             Assert.AreEqual(1502, _proxy.LastPort);
@@ -46,47 +50,69 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server.LogicBlock
         }
 
         [TestMethod]
-        public void StopTheProxyWhenDisabled()
+        [TestProperty("spec", "AC-MODB-002.1")]
+        public void StopProxyWhenDisabled()
         {
+            // Arrange
             _sut.IsEnabled = true;
 
+            // Act
             _sut.IsEnabled = false;
 
+            // Assert
             Assert.AreEqual(1, _proxy.StopCalls);
             Assert.IsFalse(_sut.IsEnabled);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-002.1")]
         public void BeIdempotentOnRepeatedEnable()
         {
+            // Arrange
+
+            // Act
             _sut.IsEnabled = true;
             _sut.IsEnabled = true;
 
+            // Assert
             Assert.AreEqual(1, _proxy.StartCalls);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-002.1")]
         public void NotStopWhenAlreadyDisabled()
         {
+            // Arrange
+
+            // Act
             _sut.IsEnabled = false;
 
+            // Assert
             Assert.AreEqual(0, _proxy.StopCalls);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-011.3")]
         public void PropagateBindFailures()
         {
+            // Arrange
             _proxy.ThrowOnStart = new InvalidOperationException("address in use");
 
+            // Act & Assert
             Assert.ThrowsExactly<InvalidOperationException>(() => _sut.IsEnabled = true);
             Assert.IsFalse(_sut.IsEnabled);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-011.1")]
         public void RejectConfigurationChangesWhileEnabled()
         {
+            // Arrange
+
+            // Act
             _sut.IsEnabled = true;
 
+            // Assert
             Assert.ThrowsExactly<InvalidOperationException>(() => _sut.ListenAddress = "10.0.0.1");
             Assert.ThrowsExactly<InvalidOperationException>(() => _sut.Port = 503);
             Assert.ThrowsExactly<InvalidOperationException>(() => _sut.HoldingRegisterCount = 1);
@@ -96,62 +122,82 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-011.1")]
         public void AllowReconfigurationAfterDisabling()
         {
+            // Arrange
             _sut.IsEnabled = true;
             _sut.IsEnabled = false;
 
+            // Act
             _sut.Port = 1503;
             _sut.IsEnabled = true;
 
+            // Assert
             Assert.AreEqual(1503, _proxy.LastPort);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-006.4")]
         public void RejectInvalidListenAddress()
         {
+            // Act & Assert
             Assert.ThrowsExactly<FormatException>(() => _sut.ListenAddress = "not-an-ip");
             Assert.ThrowsExactly<FormatException>(() => _sut.ListenAddress = null);
             Assert.ThrowsExactly<FormatException>(() => _sut.ListenAddress = " ");
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-006.3")]
         public void RejectInvalidPort()
         {
+            // Act & Assert
             Assert.ThrowsExactly<FormatException>(() => _sut.Port = -1);
             Assert.ThrowsExactly<FormatException>(() => _sut.Port = 0);
             Assert.ThrowsExactly<FormatException>(() => _sut.Port = 65536);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-011.2")]
         public void DefaultToAnyAddressAndPort502()
         {
+            // Arrange
+
+            // Act
             _sut.IsEnabled = true;
 
+            // Assert
             Assert.AreEqual("0.0.0.0", _sut.ListenAddress);
             Assert.AreEqual(IPAddress.Any, _proxy.LastListenAddress);
             Assert.AreEqual(502, _proxy.LastPort);
         }
 
         [TestMethod]
-        public void ExecuteSyncUnderTheProxyLock()
+        [TestProperty("spec", "AC-MODB-013.1")]
+        public void ExecuteSyncUnderProxyLock()
         {
+            // Arrange
             var lockHeld = false;
 
+            // Act
             _sut.Sync(_ => lockHeld = Monitor.IsEntered(_proxy.Lock));
 
+            // Assert
             Assert.IsTrue(lockHeld);
             Assert.IsFalse(Monitor.IsEntered(_proxy.Lock));
         }
 
         [TestMethod]
-        public void ExposeAllFourAreasInTheSnapshot()
+        [TestProperty("spec", "AC-MODB-012.1")]
+        public void ExposeAllFourAreasInSnapshot()
         {
+            // Arrange
             _sut.HoldingRegisterCount = 10;
             _sut.InputRegisterCount = 10;
             _sut.CoilCount = 8;
             _sut.DiscreteInputCount = 8;
 
+            // Act
             _sut.Sync(snapshot =>
                       {
                           snapshot.HoldingRegisters.WriteAsUShort(0, 0x1234);
@@ -160,6 +206,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server.LogicBlock
                           snapshot.DiscreteInputs.Write(3, true);
                       });
 
+            // Assert
             CollectionAssert.AreEqual(new byte[] { 0x12, 0x34 }, new[] { _proxy.HoldingRegisters[0], _proxy.HoldingRegisters[1] });
             CollectionAssert.AreEqual(new byte[] { 0xBE, 0xEF }, new[] { _proxy.InputRegisters[2], _proxy.InputRegisters[3] });
             Assert.AreEqual(0b0000_0001, _proxy.Coils[0]);
@@ -167,122 +214,163 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server.LogicBlock
         }
 
         [TestMethod]
-        public void ReturnTheSyncCallbackResult()
+        [TestProperty("spec", "AC-MODB-013.1")]
+        public void ReturnSyncCallbackResult()
         {
+            // Arrange
             _sut.HoldingRegisterCount = 1;
             _proxy.HoldingRegisters[0] = 0x00;
             _proxy.HoldingRegisters[1] = 0x2A;
 
+            // Act
             var value = _sut.Sync(snapshot => snapshot.HoldingRegisters.ReadAsUShort(0));
 
+            // Assert
             Assert.AreEqual((ushort)42, value);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-013.2")]
         public void AllowSyncWhileDisabled()
         {
+            // Arrange
             _sut.HoldingRegisterCount = 1;
 
+            // Act
             _sut.Sync(snapshot => snapshot.HoldingRegisters.WriteAsUShort(0, 7));
 
+            // Assert
             Assert.IsFalse(_sut.IsEnabled);
             Assert.AreEqual(7, _proxy.HoldingRegisters[1]);
         }
 
         [TestMethod]
-        public void EnforceTheConfiguredExtentsInTheSnapshot()
+        [TestProperty("spec", "AC-MODB-012.3")]
+        public void EnforceConfiguredExtentsInSnapshot()
         {
+            // Arrange
+
+            // Act
             _sut.HoldingRegisterCount = 10;
 
+            // Assert
             Assert.ThrowsExactly<InvalidServerAddressException>(() => _sut.Sync(snapshot => snapshot.HoldingRegisters.ReadAsUShort(10)));
             Assert.ThrowsExactly<InvalidServerAddressException>(() => _sut.Sync(snapshot => snapshot.InputRegisters.ReadAsUShort(0)));
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-014.5")]
         public void PassDiagnosticsThrough()
         {
+            // Arrange
             _proxy.IsListening = true;
             _proxy.ConnectionCount = 3;
             var writeTime = DateTimeOffset.UtcNow;
             _proxy.LastClientWriteAt = writeTime;
 
+            // Act & Assert
             Assert.IsTrue(_sut.IsListening);
             Assert.AreEqual(3, _sut.ConnectionCount);
             Assert.AreEqual(writeTime, _sut.LastClientWriteAt);
         }
 
         [TestMethod]
-        public void DisposeTheProxy()
+        [TestProperty("spec", "AC-MODB-011.4")]
+        public void DisposeProxy()
         {
+            // Arrange
+
+            // Act
             _sut.Dispose();
 
+            // Assert
             Assert.AreEqual(1, _proxy.DisposeCalls);
         }
 
         [TestMethod]
-        public void KeepRejectingDisablingAfterANestedSyncCallbackReturns()
+        [TestProperty("spec", "AC-MODB-013.4")]
+        public void KeepRejectingDisablingAfterNestedSyncCallbackReturns()
         {
+            // Arrange
             // A nested Sync returning must not disarm the outer callback's guard: the server lock is re-entrant,
             // so the outer callback still holds it and stopping the listener there still deadlocks.
             _sut.IsEnabled = true;
 
+            // Act
             _sut.Sync(_ =>
                       {
                           _sut.Sync(_ => { });
                           Assert.ThrowsExactly<InvalidOperationException>(() => _sut.IsEnabled = false);
                       });
 
+            // Assert
             Assert.IsTrue(_sut.IsEnabled);
             Assert.AreEqual(0, _proxy.StopCalls);
         }
 
         [TestMethod]
-        public void KeepRejectingDisposalAfterANestedSyncCallbackReturns()
+        [TestProperty("spec", "AC-MODB-013.4")]
+        public void KeepRejectingDisposalAfterNestedSyncCallbackReturns()
         {
+            // Arrange
             _sut.IsEnabled = true;
 
+            // Act
             _sut.Sync(_ =>
                       {
                           _sut.Sync(_ => { });
                           Assert.ThrowsExactly<InvalidOperationException>(() => _sut.Dispose());
                       });
 
+            // Assert
             Assert.AreEqual(0, _proxy.DisposeCalls);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-011.4")]
         public void ReadAsDisabledOnceDisposed()
         {
+            // Arrange
             _sut.IsEnabled = true;
 
+            // Act
             _sut.Dispose();
 
+            // Assert
             Assert.IsFalse(_sut.IsEnabled);
             Assert.AreEqual(1, _proxy.DisposeCalls);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-011.4")]
         public void StaySilentWhenDisposedTwice()
         {
+            // Arrange
             _sut.IsEnabled = true;
 
+            // Act
             _sut.Dispose();
             _sut.Dispose();
 
+            // Assert
             Assert.IsFalse(_sut.IsEnabled);
         }
 
         [TestMethod]
-        public void RefuseASnapshotCapturedPastItsCallback()
+        [TestProperty("spec", "AC-MODB-013.5")]
+        public void RefuseSnapshotCapturedPastItsCallback()
         {
+            // Arrange
             // The snapshot's accessors write the live server buffer without the lock once the callback has
             // returned, which the interface warns against and nothing enforced.
             _sut.HoldingRegisterCount = 10;
             _sut.CoilCount = 10;
             IModbusServerSnapshot? captured = null;
 
+            // Act
             _sut.Sync(snapshot => captured = snapshot);
 
+            // Assert
             Assert.ThrowsExactly<InvalidOperationException>(() => captured!.HoldingRegisters.ReadAsUShort(0));
             Assert.ThrowsExactly<InvalidOperationException>(() => captured!.HoldingRegisters.WriteAsUShort(0, 1));
             Assert.ThrowsExactly<InvalidOperationException>(() => captured!.Coils.Read(0));
@@ -290,53 +378,75 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-013.1")]
         public void GiveEachSyncCallbackItsOwnLiveSnapshot()
         {
+            // Arrange
             _sut.HoldingRegisterCount = 10;
 
+            // Act
             _sut.Sync(snapshot => snapshot.HoldingRegisters.WriteAsUShort(0, 4242));
             var readBack = _sut.Sync(snapshot => snapshot.HoldingRegisters.ReadAsUShort(0));
 
+            // Assert
             Assert.AreEqual((ushort)4242, readBack);
         }
 
         [TestMethod]
-        public void RejectDisablingFromInsideASyncCallback()
+        [TestProperty("spec", "AC-MODB-013.3")]
+        public void RejectDisablingFromInsideSyncCallback()
         {
+            // Arrange
             // Stopping the listener joins request-handler threads that may be waiting for the server lock the
             // callback holds — allowing this would deadlock the actor thread permanently.
             _sut.IsEnabled = true;
 
+            // Act
             _sut.Sync(_ => Assert.ThrowsExactly<InvalidOperationException>(() => _sut.IsEnabled = false));
 
+            // Assert
             Assert.IsTrue(_sut.IsEnabled);
             Assert.AreEqual(0, _proxy.StopCalls);
         }
 
         [TestMethod]
-        public void RejectEnablingFromInsideASyncCallback()
+        [TestProperty("spec", "AC-MODB-013.3")]
+        public void RejectEnablingFromInsideSyncCallback()
         {
+            // Arrange
+
+            // Act
             _sut.Sync(_ => Assert.ThrowsExactly<InvalidOperationException>(() => _sut.IsEnabled = true));
 
+            // Assert
             Assert.AreEqual(0, _proxy.StartCalls);
         }
 
         [TestMethod]
-        public void RejectDisposingFromInsideASyncCallback()
+        [TestProperty("spec", "AC-MODB-013.3")]
+        public void RejectDisposingFromInsideSyncCallback()
         {
+            // Arrange
+
+            // Act
             _sut.Sync(_ => Assert.ThrowsExactly<InvalidOperationException>(() => _sut.Dispose()));
 
+            // Assert
             Assert.AreEqual(0, _proxy.DisposeCalls);
         }
 
         [TestMethod]
-        public void AllowDisablingAfterTheSyncCallbackReturns()
+        [TestProperty("spec", "AC-MODB-013.3")]
+        public void AllowDisablingAfterSyncCallbackReturns()
         {
+            // Arrange
             _sut.IsEnabled = true;
 
+            // Act
             _sut.Sync(_ => { });
             _sut.IsEnabled = false;
 
+            // Assert
             Assert.AreEqual(1, _proxy.StopCalls);
         }
 

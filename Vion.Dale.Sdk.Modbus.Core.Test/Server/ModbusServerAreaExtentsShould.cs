@@ -8,6 +8,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Server
         private static readonly ModbusServerAreaExtents Extents = new(10, 20, 7, 1);
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-012.5")]
         [DataRow(ModbusServerArea.HoldingRegisters, (ushort)0, 10u, true)]
         [DataRow(ModbusServerArea.HoldingRegisters, (ushort)9, 1u, true)]
         [DataRow(ModbusServerArea.HoldingRegisters, (ushort)9, 2u, false)]
@@ -17,27 +18,34 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Server
         [DataRow(ModbusServerArea.Coils, (ushort)7, 1u, false)]
         [DataRow(ModbusServerArea.DiscreteInputs, (ushort)0, 1u, true)]
         [DataRow(ModbusServerArea.DiscreteInputs, (ushort)1, 1u, false)]
-        public void DecideWhetherARangeIsCovered(ModbusServerArea area, ushort startingAddress, uint quantity, bool expected)
+        public void DecideWhetherRangeCovered(ModbusServerArea area, ushort startingAddress, uint quantity, bool expected)
         {
+            // Act & Assert
             Assert.AreEqual(expected, Extents.Covers(area, startingAddress, quantity));
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-012.1")]
         public void RejectZeroQuantity()
         {
+            // Act & Assert
             Assert.IsFalse(Extents.Covers(ModbusServerArea.HoldingRegisters, 0, 0));
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-012.1")]
         public void RejectRangesOnUnservedAreas()
         {
+            // Act & Assert
             var none = new ModbusServerAreaExtents(0, 0, 0, 0);
             Assert.IsFalse(none.Covers(ModbusServerArea.HoldingRegisters, 0, 1));
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-012.5")]
         public void CoverOffsetBasedMapsUpTo0X8000()
         {
+            // Act & Assert
             var stStyle = new ModbusServerAreaExtents(0x800A, 0, 0, 0);
             Assert.IsTrue(stStyle.Covers(ModbusServerArea.HoldingRegisters, 0x8000, 10));
             Assert.IsFalse(stStyle.Covers(ModbusServerArea.HoldingRegisters, 0x8000, 11));
