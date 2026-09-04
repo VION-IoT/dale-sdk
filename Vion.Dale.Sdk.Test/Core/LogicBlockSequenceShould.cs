@@ -43,7 +43,7 @@ namespace Vion.Dale.Sdk.Test.Core
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-LIFE-001.2")]
+        [TestProperty("spec", "AC-LIFE-003.3")]
         public void AnnounceBoundServicesToBothHandlers()
         {
             // Arrange
@@ -60,7 +60,7 @@ namespace Vion.Dale.Sdk.Test.Core
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-LIFE-001.3")]
+        [TestProperty("spec", "AC-LIFE-001.2")]
         public void KeepMessagesBlockSendsItselfOffPublishedVocabulary()
         {
             // Arrange — every public message type the SDK carries, read off the assembly rather than listed.
@@ -102,7 +102,7 @@ namespace Vion.Dale.Sdk.Test.Core
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-LIFE-001.4")]
+        [TestProperty("spec", "AC-LIFE-001.3")]
         [TestProperty("spec", "AC-GATE-008.3")]
         public void DropContractMessageForContractThatWasNotBound()
         {
@@ -255,6 +255,25 @@ namespace Vion.Dale.Sdk.Test.Core
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-LIFE-003.5")]
+        public void ApplyEveryLinkedInterfaceMapThatArrivedBeforeConfiguration()
+        {
+            // Arrange — two maps before the configuration, each naming one of the block's two endpoints.
+            var block = new TwoEndpointBlock();
+
+            // Act
+            _harness.Send(block, new SetLinkedInterfaces(LinkMap(TwoEndpointBlock.ClassEndpointIdentifier, "peer-on-class")));
+            _harness.Send(block, new SetLinkedInterfaces(LinkMap(TwoEndpointBlock.PropertyEndpointIdentifier, "peer-on-property")));
+            _harness.Send(block, LifecycleHarness.RuntimeActors());
+            _harness.Send(block, LifecycleHarness.Configuration());
+
+            // Assert
+            Assert.IsNotEmpty(block.GetLinkedLifecyclePeers(),
+                              "The map held first is still applied: a second map used to replace the whole held one, leaving the first map's interface unlinked for the instance's life.");
+            Assert.IsNotEmpty(block.Endpoint.GetLinkedLifecyclePeers(), "And so is the map held second.");
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-LIFE-004.1")]
         public void AcknowledgeRestoreInEveryBlockState()
         {
@@ -272,6 +291,29 @@ namespace Vion.Dale.Sdk.Test.Core
             Assert.IsNotEmpty(_harness.Responses.OfType<RestorePersistentDataResponse>(), "A configured block acknowledges its restore.");
             Assert.IsNotEmpty(secondHarness.Responses.OfType<RestorePersistentDataResponse>(),
                               "So does one whose configuration never ran — the runtime waits on this answer and a silent block hangs its own reclamation.");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-LIFE-004.1")]
+        [DataRow(false, DisplayName = "before the start")]
+        [DataRow(true, DisplayName = "after it")]
+        public void ApplyRestoreWheneverItArrives(bool afterTheStart)
+        {
+            // Arrange
+            var block = new ServiceBearingBlock();
+            _harness.Configure(block, ["Service"]);
+            if (afterTheStart)
+            {
+                _harness.Send(block, new StartLogicBlockRequest());
+            }
+
+            // Act
+            _harness.Send(block, new RestorePersistentDataRequest([PersistedEntry.Of("Service." + nameof(Meter.Power), "System.Double", 7.0)]));
+
+            // Assert
+            Assert.AreEqual(7.0,
+                            block.Service.Power,
+                            "The SDK applies a restore whenever it arrives; that it arrives before the start is the runtime's ordering, and nothing here refuses a later one.");
         }
 
         [TestMethod]
@@ -325,16 +367,25 @@ namespace Vion.Dale.Sdk.Test.Core
         public void StartByRunningHookThenPublishingThenArmingSaveThenAcknowledging()
         {
             // Arrange
-            var block = new ServiceBearingBlock();
+            var block = new HookOrderObservingBlock(() => _harness.Log.Count);
             _harness.Configure(block, ["Service"]);
+            var beforeTheStart = _harness.Log.Count;
 
             // Act
             _harness.Send(block, new StartLogicBlockRequest());
 
-            // Assert
-            Assert.IsNotEmpty(_harness.Published.OfType<ServicePropertyValueChanged>(), "Every bound member's value is published once the block is started.");
-            Assert.IsNotEmpty(_harness.ScheduledOfKind("PeriodicPersistentDataSaveMessage"), "The periodic save is armed by the start, not by the configuration.");
-            Assert.IsNotEmpty(_harness.Responses.OfType<StartLogicBlockResponse>(), "The start is acknowledged last.");
+            // Assert - one ordered log, so what is asserted is the order and not merely that each step happened.
+            var published = _harness.FirstIndexOf(nameof(ServicePropertyValueChanged));
+            var armed = _harness.FirstIndexOf("PeriodicPersistentDataSaveMessage");
+            var acknowledged = _harness.FirstIndexOf(nameof(StartLogicBlockResponse));
+            Assert.AreEqual(beforeTheStart,
+                            block.RecordedWhenStarting,
+                            "The start hook runs before the start sends anything, so a write made inside it is dropped like any other pre-start write.");
+            Assert.IsGreaterThanOrEqualTo(beforeTheStart,
+                                          published,
+                                          "Every bound member's value is published once the block is started, and that publish is what carries its starting state.");
+            Assert.IsGreaterThan(published, armed, "The periodic save is armed after the initial publish.");
+            Assert.IsGreaterThan(armed, acknowledged, "The acknowledgement is last, so a host that has been answered knows the block is publishing and saving.");
         }
 
         [TestMethod]
@@ -438,24 +489,26 @@ namespace Vion.Dale.Sdk.Test.Core
 
         [TestMethod]
         [TestProperty("spec", "AC-LIFE-010.1")]
-        [TestProperty("spec", "AC-LIFE-010.3")]
-        public void StopByRunningHookWhileStartedThenClearingThenAcknowledging()
+        [TestProperty("spec", "AC-LIFE-012.3")]
+        public void StopByRunningHookThenPublishingThenClearingThenAcknowledging()
         {
-            // Arrange
-            var block = new ServiceBearingBlock();
+            // Arrange - the hook writes a member, so the value the stop publishes has a position of its own.
+            var block = new HookOrderObservingBlock(() => _harness.Log.Count) { WriteOnStop = 42.0 };
             _harness.ConfigureAndStart(block, ["Service"]);
-            _harness.Context.Sent.Clear();
-            _harness.Context.Responses.Clear();
+            var beforeTheStop = _harness.Log.Count;
 
             // Act
             _harness.Send(block, new StopLogicBlockRequest());
 
-            // Assert
-            var published = _harness.Published.ToList();
-            var lastClear = published.FindLastIndex(message => message is ServicePropertyValueCleared);
-            Assert.AreEqual(1, block.StoppingCount, "The stop hook runs once.");
-            Assert.IsGreaterThanOrEqualTo(0, lastClear, "The retained publications are cleared.");
-            Assert.IsNotEmpty(_harness.Responses.OfType<StopLogicBlockResponse>(), "The stop is acknowledged.");
+            // Assert - one ordered log, so what is asserted is the order and not merely that each step happened.
+            var published = _harness.Log.ToList().FindIndex(beforeTheStop, message => message is ServicePropertyValueChanged);
+            var cleared = _harness.Log.ToList().FindIndex(beforeTheStop, message => message is ServicePropertyValueCleared);
+            var acknowledged = _harness.FirstIndexOf(nameof(StopLogicBlockResponse));
+            Assert.AreEqual(1, block.StoppingCount, "The stop hook runs once - it is the only hook at which a block can release what it acquired.");
+            Assert.AreEqual(beforeTheStop, block.RecordedWhenStopping, "The hook runs before the stop sends anything.");
+            Assert.IsGreaterThan(beforeTheStop, published, "Each gated member's exact current value is published after the hook, while the block is still started.");
+            Assert.IsGreaterThan(published, cleared, "The retained publications are cleared after that publish, or the final value would be cleared away again.");
+            Assert.IsGreaterThan(cleared, acknowledged, "The acknowledgement is last, so a host that has been answered knows the block is done publishing.");
         }
 
         [TestMethod]
@@ -605,20 +658,37 @@ namespace Vion.Dale.Sdk.Test.Core
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-LIFE-012.3")]
+        [TestProperty("spec", "AC-LIFE-010.3")]
         public void KeepBlockStartedForWholeOfStopHook()
         {
-            // Arrange
-            var block = new WritingOnStopBlock();
-            _harness.ConfigureAndStart(block, ["Service"]);
-            _harness.Context.Sent.Clear();
+            // Arrange — on the stepped host, where a change is published as it happens or not at all: on a
+            // real-clock host the throttle defers the hook's write and the stop's own drain carries it either way,
+            // so the drain would answer this test whether the block was still started or not.
+            var block = new HookOrderObservingBlock(() => _harness.Log.Count) { WriteOnStop = 99.0 };
+            _harness.ConfigureAndStart(block, ["Service"], LifecycleHarness.SteppedHost);
 
             // Act
             _harness.Send(block, new StopLogicBlockRequest());
 
             // Assert
-            Assert.IsNotEmpty(_harness.Published.OfType<ServicePropertyValueChanged>(),
-                              "The block is still started inside its stop hook, so the final value the hook writes is published rather than dropped.");
+            Assert.AreEqual(block.RecordedWhenStopping + 1,
+                            block.RecordedAfterStopWrite,
+                            "The value the hook wrote was published as it was written, which it can only be while the block is still started — " +
+                            "its bindings, its links and its members behave normally for the whole of the hook.");
+        }
+
+        /// <summary>One endpoint's link mapping, in the shape the runtime sends it.</summary>
+        private static Dictionary<InterfaceId, Dictionary<InterfaceId, Vion.Dale.Sdk.Abstractions.IActorReference>> LinkMap(string endpointIdentifier, string peerName)
+        {
+            return new Dictionary<InterfaceId, Dictionary<InterfaceId, Vion.Dale.Sdk.Abstractions.IActorReference>>
+                   {
+                       [new InterfaceId("block-1", endpointIdentifier)] = new()
+                                                                          {
+                                                                              [new InterfaceId(peerName, "Peer")] =
+                                                                                  new LifecycleHarness.
+                                                                                      NamedReference(peerName),
+                                                                          },
+                   };
         }
 
         /// <summary>A block whose stop hook writes a member, so the snapshot's ordering is observable.</summary>
@@ -678,6 +748,54 @@ namespace Vion.Dale.Sdk.Test.Core
             protected override void Starting()
             {
                 PowerSeenInStarting = Service.Power;
+            }
+        }
+
+        /// <summary>
+        ///     A block that notes how much the harness had already recorded when each hook ran, so a hook takes
+        ///     a position in the same ordered log the block's sends, schedules and answers take one in.
+        /// </summary>
+        private sealed class HookOrderObservingBlock : LogicBlockBase
+        {
+            private readonly Func<int> _recordedSoFar;
+
+            public Meter Service { get; } = new();
+
+            /// <summary>What the stop hook writes to <see cref="Meter.Power" />, or nothing when it writes nothing.</summary>
+            public double? WriteOnStop { get; init; }
+
+            public int RecordedWhenStarting { get; private set; } = -1;
+
+            public int RecordedWhenStopping { get; private set; } = -1;
+
+            public int RecordedAfterStopWrite { get; private set; } = -1;
+
+            public int StoppingCount { get; private set; }
+
+            public HookOrderObservingBlock(Func<int> recordedSoFar) : base(Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance)
+            {
+                _recordedSoFar = recordedSoFar;
+            }
+
+            protected override void Ready()
+            {
+            }
+
+            protected override void Starting()
+            {
+                RecordedWhenStarting = _recordedSoFar();
+            }
+
+            protected override void Stopping()
+            {
+                RecordedWhenStopping = _recordedSoFar();
+                StoppingCount++;
+                if (WriteOnStop is { } written)
+                {
+                    Service.Power = written;
+                }
+
+                RecordedAfterStopWrite = _recordedSoFar();
             }
         }
     }

@@ -37,20 +37,6 @@ namespace Vion.Dale.Sdk.Test.Diagnostics
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-LIFE-018.1")]
-        public void ReportNoIdentityForActorThatWasNeverRegistered()
-        {
-            // Arrange
-            var vitals = new RuntimeVitals(_clock);
-
-            // Act
-            vitals.OnHandled("x", new object(), TimeSpan.Zero, null);
-
-            // Assert
-            Assert.IsNull(vitals.Snapshot().Single().Identity, "An actor seen only through its messages has vitals and no dimensions, and the export tags it as such.");
-        }
-
-        [TestMethod]
         [TestProperty("spec", "AC-LIFE-018.2")]
         public void CountHandledMessageAndAccumulateItsDuration()
         {

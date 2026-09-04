@@ -4,6 +4,7 @@ using System.Linq;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Time.Testing;
 using Vion.Contracts.Events.CloudToMesh;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Core;
@@ -32,6 +33,17 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
                                                                                   .AddSingleton(typeof(ILogger<>), typeof(NullLogger<>))
                                                                                   .BuildServiceProvider();
 
+        /// <summary>
+        ///     The same host carrying a controllable clock, which is what turns the emission policy off
+        ///     (<c>AC-EMIT-001.*</c>). A value change is then published as it happens or not at all, with no
+        ///     throttle to defer it and no stop-time drain to carry it — which is what makes a claim about the
+        ///     started flag itself observable.
+        /// </summary>
+        public static readonly IServiceProvider SteppedHost = new ServiceCollection().AddSingleton<ILoggerFactory>(NullLoggerFactory.Instance)
+                                                                                     .AddSingleton(typeof(ILogger<>), typeof(NullLogger<>))
+                                                                                     .AddSingleton<TimeProvider>(new FakeTimeProvider())
+                                                                                     .BuildServiceProvider();
+
         public RecordingActorContext Context { get; } = new();
 
         /// <summary>What the block answered its requester, oldest first.</summary>
@@ -50,6 +62,16 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
         public IReadOnlyList<(object Message, TimeSpan Delay)> Scheduled
         {
             get => Context.Scheduled;
+        }
+
+        /// <summary>
+        ///     Everything the block sent, scheduled or answered, oldest first, in one sequence — which is what
+        ///     an ordering claim needs: the three lists above each hold their own kind, so a test reading them
+        ///     separately can see that every step happened and not that they happened in the stated order.
+        /// </summary>
+        public IReadOnlyList<object> Log
+        {
+            get => Context.Log;
         }
 
         /// <summary>A configuration message carrying <paramref name="serviceIdentifiers" /> as the block's services.</summary>
@@ -93,10 +115,19 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
             Send(logicBlock, new StartLogicBlockRequest());
         }
 
-        /// <summary>Hands back every message the block scheduled for itself whose type is <typeparamref name="T" />.</summary>
+        /// <summary>Hands back every message the block scheduled for itself whose type is named <paramref name="typeName" />.</summary>
         public IReadOnlyList<object> ScheduledOfKind(string typeName)
         {
             return Context.Scheduled.Where(entry => entry.Message.GetType().Name == typeName).Select(entry => entry.Message).ToList();
+        }
+
+        /// <summary>
+        ///     Where in <see cref="Log" /> the first message named <paramref name="typeName" /> sits, or -1 when
+        ///     the block produced none — so a test states an order as one comparison of two positions.
+        /// </summary>
+        public int FirstIndexOf(string typeName)
+        {
+            return Context.Log.FindIndex(message => message.GetType().Name == typeName);
         }
 
         /// <summary>An actor reference that carries the name it was looked up under, so a test can tell the handlers apart.</summary>
@@ -123,6 +154,9 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
 
             public List<(object Message, TimeSpan Delay)> Scheduled { get; } = [];
 
+            /// <summary>The three lists above interleaved, in the order the block produced them.</summary>
+            public List<object> Log { get; } = [];
+
             public IReadOnlyDictionary<string, string>? Headers
             {
                 get => null;
@@ -131,21 +165,25 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
             public void SendTo(IActorReference target, object message, Dictionary<string, string>? headers = null)
             {
                 Sent.Add(((target as NamedReference)?.Name ?? "unnamed", message));
+                Log.Add(message);
             }
 
             public void SendToSelf(object message)
             {
                 Scheduled.Add((message, TimeSpan.Zero));
+                Log.Add(message);
             }
 
             public void SendToSelfAfter(object message, TimeSpan delay)
             {
                 Scheduled.Add((message, delay));
+                Log.Add(message);
             }
 
             public void RespondToSender(object message)
             {
                 Responses.Add(message);
+                Log.Add(message);
             }
 
             public IActorReference LookupByName(string name)
@@ -314,6 +352,38 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
         public const string InterfaceIdentifier = "Hub";
 
         public InterfaceBearingBlock() : base(NullLogger.Instance)
+        {
+        }
+
+        protected override void Ready()
+        {
+        }
+    }
+
+    /// <summary>The endpoint a property carries, so one block can bind two interface endpoints at once.</summary>
+    public sealed class HubEndpoint : ILifecycleHub
+    {
+    }
+
+    /// <summary>
+    ///     A block binding two interface endpoints — one on the class, one on a property — so a linked-interface
+    ///     map can name one of them and a second map the other.
+    /// </summary>
+    [LogicBlockInterfaceBinding(typeof(ILifecycleHub), Identifier = ClassEndpointIdentifier)]
+    public sealed class TwoEndpointBlock : LogicBlockBase, ILifecycleHub
+    {
+        public const string ClassEndpointIdentifier = "Hub";
+
+        public const string PropertyEndpointIdentifier = "Peer";
+
+        // DALE045 warns that an endpoint carrying no service member emits no relation half. Deliberate here:
+        // the fixture is about which link mappings survive, not about what the endpoint publishes.
+#pragma warning disable DALE045
+        [LogicBlockInterfaceBinding(typeof(ILifecycleHub), Identifier = PropertyEndpointIdentifier)]
+        public HubEndpoint Endpoint { get; } = new();
+#pragma warning restore DALE045
+
+        public TwoEndpointBlock() : base(NullLogger.Instance)
         {
         }
 

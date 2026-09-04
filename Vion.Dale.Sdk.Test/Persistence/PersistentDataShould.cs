@@ -87,6 +87,24 @@ namespace Vion.Dale.Sdk.Test.Persistence
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-LIFE-008.2")]
+        public void CountOverriddenPersistentPropertyOnce()
+        {
+            // Arrange — the component's base marks the property persistent and its override opts it out.
+            var block = new OverridingComponentBlock();
+            _harness.ConfigureAndStart(block);
+
+            // Act
+            var keys = SnapshotKeys(block);
+
+            // Assert
+            CollectionAssert.DoesNotContain(keys,
+                                            "_direct." + nameof(OverridingComponentBlock.Inner) + "." + nameof(OverridingInner.Shared),
+                                            "A property and the property it overrides are one property, counted once at the declaration the walk reaches first — " +
+                                            "counting the base's as well would persist a member the derived block opted out of.");
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-LIFE-008.3")]
         public void PersistNothingForPropertyWithNoSetter()
         {
@@ -191,6 +209,28 @@ namespace Vion.Dale.Sdk.Test.Persistence
             Assert.HasCount(1,
                             _harness.Context.Scheduled.Where(entry => entry.Message.GetType().Name == "PeriodicPersistentDataSaveMessage"),
                             "And arms no further save — this is what retires the chain a stop leaves behind.");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-LIFE-008.7")]
+        public void ArmOneSaveChainAcrossStopAndRestartInsideSaveInterval()
+        {
+            // Arrange — the stop leaves its chain armed, and the restart falls inside the same minute.
+            var block = new PersistingBlock();
+            _harness.ConfigureAndStart(block, ["Service"]);
+            var inFlight = _harness.Context.Scheduled.Single(entry => entry.Message.GetType().Name == "PeriodicPersistentDataSaveMessage").Message;
+            _harness.Send(block, new StopLogicBlockRequest());
+            _harness.Send(block, new StartLogicBlockRequest());
+            var armedByTheRestart = _harness.ScheduledOfKind("PeriodicPersistentDataSaveMessage").Count - 1;
+
+            // Act — the chain the first start armed comes due, with the block started again.
+            _harness.Send(block, inFlight);
+
+            // Assert
+            Assert.AreEqual(0, armedByTheRestart, "The restart arms nothing while a chain is still in flight, or the block would run two chains for the rest of the process.");
+            Assert.HasCount(2,
+                            _harness.ScheduledOfKind("PeriodicPersistentDataSaveMessage"),
+                            "The save that arrived re-armed exactly one successor, so exactly one chain is armed — once a minute, not twice.");
         }
 
         [TestMethod]
@@ -349,6 +389,38 @@ namespace Vion.Dale.Sdk.Test.Persistence
 
         public sealed class DerivedPersistingBlock : BasePersistingBlock
         {
+        }
+
+        /// <summary>
+        ///     A component whose base marks a property persistent and whose derived half overrides it out. The
+        ///     shape lives on a component rather than on the block itself because Metalama's [Observable] aspect
+        ///     refuses a virtual or a new property on a logic block (LAMA5154 / LAMA5155), while the discovery
+        ///     walk this exercises is the same one for both.
+        /// </summary>
+        public class OverridableInnerBase
+        {
+            [Persistent]
+            public virtual int Shared { get; set; }
+        }
+
+        public sealed class OverridingInner : OverridableInnerBase
+        {
+            [Persistent(Exclude = true)]
+            public override int Shared { get; set; }
+        }
+
+        /// <summary>A block carrying that component, so the walk meets the overridden declaration.</summary>
+        public sealed class OverridingComponentBlock : LogicBlockBase
+        {
+            public OverridingInner Inner { get; } = new();
+
+            public OverridingComponentBlock() : base(NullLogger.Instance)
+            {
+            }
+
+            protected override void Ready()
+            {
+            }
         }
 
         /// <summary>A block one of whose members cannot be read when the snapshot is taken.</summary>

@@ -65,6 +65,28 @@ namespace Vion.Dale.ProtoActor.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-LIFE-014.7")]
+        public async Task CarryNeitherSenderNorHeadersOnMessageActorSendsItself()
+        {
+            // Arrange — the first hop supplies a header, so an empty one on the second can only mean the
+            // self-send dropped it rather than that there was nothing to drop.
+            await using var host = new PipelineHost();
+            var receiver = new SelfSendingReceiver();
+            var actor = host.System.CreateRootActorFor(() => receiver, "context_self_send_shape");
+            var originator = host.System.CreateRootActorFor(() => new HeaderOriginatingReceiver(actor), "context_self_send_originator");
+
+            // Act
+            host.System.SendTo(originator, new StartLogicBlockRequest());
+            await receiver.CameBack.WaitAsync(Generous);
+
+            // Assert
+            Assert.IsEmpty(receiver.HeadersOnSelfSend!,
+                           "A message an actor sends itself is a bare send, so a correlation header does not survive a dispatcher action, a timer tick or a periodic save.");
+            Assert.IsInstanceOfType<InvalidOperationException>(receiver.Failure, "And it carries no sender either, so a handler reached that way cannot answer.");
+            Assert.AreEqual("abc", receiver.HeadersOnArrival!["correlation"], "Pre-condition: the message the handler was handling did carry one.");
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-LIFE-014.6")]
         public async Task RefuseAnswerToMessageThatCarriesNoSender()
         {
@@ -225,6 +247,44 @@ namespace Vion.Dale.ProtoActor.Test
                 {
                     Headers = actorContext.Headers;
                     Arrived.Release();
+                }
+
+                return Task.CompletedTask;
+            }
+        }
+
+        /// <summary>Sends itself a message while handling one that carries a header, and reads both back.</summary>
+        private sealed class SelfSendingReceiver : IActorReceiver
+        {
+            public SemaphoreSlim CameBack { get; } = new(0);
+
+            public IReadOnlyDictionary<string, string>? HeadersOnArrival { get; private set; }
+
+            public IReadOnlyDictionary<string, string>? HeadersOnSelfSend { get; private set; }
+
+            public Exception? Failure { get; private set; }
+
+            public Task HandleMessageAsync(object message, IActorContext actorContext)
+            {
+                switch (message)
+                {
+                    case StartLogicBlockRequest:
+                        HeadersOnArrival = actorContext.Headers;
+                        actorContext.SendToSelf(new StopLogicBlockRequest());
+                        break;
+                    case StopLogicBlockRequest:
+                        HeadersOnSelfSend = actorContext.Headers;
+                        try
+                        {
+                            actorContext.RespondToSender(new StopLogicBlockResponse());
+                        }
+                        catch (Exception exception)
+                        {
+                            Failure = exception;
+                        }
+
+                        CameBack.Release();
+                        break;
                 }
 
                 return Task.CompletedTask;

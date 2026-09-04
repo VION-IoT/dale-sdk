@@ -48,18 +48,18 @@ every one this page's pass found was made into one of the four.
   the stop, the republish, the snapshot request, a contract message, an interface message, a set-value
   request, and the three the block sends itself — and SHALL ignore every other message without error
   and without acknowledgement.
-- `AC-LIFE-001.2` (Ubiquitous): THE SYSTEM SHALL only send, and never receive, a block's
-  service-binding announcement, its persistent-data snapshot notification, its four lifecycle
-  acknowledgements, its set-value answer and its four value-changed and value-cleared publications.
-- `AC-LIFE-001.3` (Ubiquitous): THE SYSTEM SHALL keep the three messages a block sends itself — a
+- `AC-LIFE-001.2` (Ubiquitous): THE SYSTEM SHALL keep the three messages a block sends itself — a
   timer tick, a scheduled action and a periodic save — off the published vocabulary, so no host can
   inject one.
-- `AC-LIFE-001.4` (Event-driven): WHEN a contract or interface message names an endpoint this instance
+- `AC-LIFE-001.3` (Event-driven): WHEN a contract or interface message names an endpoint this instance
   did not bind THE SYSTEM SHALL drop it with a warning naming the endpoint and keep the block running.
 
 `AC-LIFE-001.1` is a count because the arms are the surface: a host driving a block outside the
 runtime knows exactly what it can send, and a version of the SDK that does not know a message answers
-it with silence rather than with a fault. `AC-LIFE-001.4` is the same rule
+it with silence rather than with a fault. Its second half is also the direction rule: everything a
+block *sends* — the service-binding announcement, the snapshot notification, the four lifecycle
+acknowledgements, the set-value answer, the value-changed and value-cleared publications — is among
+the messages it ignores when one is sent to it. `AC-LIFE-001.3` is the same rule
 [`config-gating.md`](config-gating.md)'s `AC-GATE-008.3` states for a routed message, and the two
 directions are one rule.
 
@@ -121,8 +121,8 @@ it, not to the block that received it.
 
 ## Restoring persisted values
 
-- `AC-LIFE-004.1` (Ubiquitous): THE SYSTEM SHALL apply a restore before a block is started and SHALL
-  acknowledge it whether or not the block was ever configured.
+- `AC-LIFE-004.1` (Ubiquitous): THE SYSTEM SHALL apply a restore whenever it arrives, before or after
+  a block is started, and SHALL acknowledge it whether or not the block was ever configured.
 - `AC-LIFE-004.2` (Ubiquitous): THE SYSTEM SHALL apply each persisted entry independently, so an entry
   that cannot be applied leaves the others applied.
 - `AC-LIFE-004.3` (Ubiquitous): THE SYSTEM SHALL convert a persisted value a storage layer returned in
@@ -222,8 +222,9 @@ leave a restarted block silent forever, because timers are armed at configuratio
 - `AC-LIFE-008.1` (Ubiquitous): THE SYSTEM SHALL persist every writable service property of a
   configured block unless its author excluded it, every property its author marked persistent, and
   every persistent property one level inside a class-typed property.
-- `AC-LIFE-008.2` (Ubiquitous): THE SYSTEM SHALL discover those members anywhere in the block's base
-  chain at any accessibility, counting a property hidden or overridden further down once.
+- `AC-LIFE-008.2` (Ubiquitous): THE SYSTEM SHALL discover those members at any accessibility, anywhere
+  in the base chain of the block and of a class-typed property's own type, counting a property and the
+  property it hides or overrides once.
 - `AC-LIFE-008.3` (Event-driven): WHEN a property marked persistent has no setter THE SYSTEM SHALL
   persist nothing for it.
 - `AC-LIFE-008.4` (Ubiquitous): THE SYSTEM SHALL key a persisted service member by its service and
@@ -245,8 +246,10 @@ What a gate does to any of this is `config-gating.md`'s: an instantiation parame
 persisted key the instance no longer carries restores as nothing (`AC-GATE-003.4`). The analyzer's
 `DALE007` is the compile-time door on `AC-LIFE-008.3`.
 
-`AC-LIFE-008.7`'s second half is what retires the save chain a stop leaves armed — the chain arms its
-successor only from a save that ran.
+`AC-LIFE-008.7` is one chain, not one per start: a save arms its successor only from a save that ran,
+and a start arms one only when none is in flight. Between them a stop and a restart inside the same
+minute leave the block saving once a minute rather than twice — the shape a host's reset produces every
+time it recycles a generation.
 
 ## Writing to a block, and republishing
 
@@ -362,9 +365,17 @@ into its parts, which is why the construction can be a concatenation.
   before a handler runs and leave it afterwards, on the path where the handler returned and on the path
   where it threw alike.
 - `AC-LIFE-014.5` (Ubiquitous): THE SYSTEM SHALL carry the sending actor's own reference, and the
-  headers of the message it is handling, on every message it sends.
+  headers of the message it is handling, on every message it sends to another actor.
 - `AC-LIFE-014.6` (Event-driven): WHEN a handler answers a message that carries no sender THE SYSTEM
   SHALL refuse the answer, naming the member and the reason.
+- `AC-LIFE-014.7` (Ubiquitous): THE SYSTEM SHALL send a message an actor sends itself with neither a
+  sender nor headers, so a handler reached that way carries none of the correlation of the message
+  that scheduled it and cannot answer.
+
+`AC-LIFE-014.7` is what a block author reaches through every dispatcher action, every `[Timer]` tick
+and every periodic save, since each is a self-send: the trail a correlation header leaves ends at the
+hop that scheduled the work. Nothing in this repository reads a self-send's headers, so the shape is
+stated rather than changed; the finding ledger carries the header accessor that has no reader.
 
 `AC-LIFE-014.2` is why one bad block cannot take a network down, and the cost is that a block which
 failed to configure, to bind or to start leaves no trace on its own state. `AC-LIFE-014.1`'s second
@@ -404,22 +415,32 @@ the registration is a discovery entry rather than a lifetime, and the block is n
 - `AC-LIFE-016.4` (Event-driven): WHEN a wait is given a negative timeout THE SYSTEM SHALL refuse it
   naming the parameter, before any message is sent or any actor is watched, and SHALL treat a timeout
   of nothing as an expiry that has already happened.
-- `AC-LIFE-016.5` (Ubiquitous): THE SYSTEM SHALL count each actor's answer once and only for itself, so
-  a repeated answer, or one from an actor that was not asked, cannot complete a wait on an actor that
-  has not answered.
+- `AC-LIFE-016.5` (Ubiquitous): THE SYSTEM SHALL count each actor's answer once, so a repeated answer
+  cannot complete a wait on an actor that has not answered.
 - `AC-LIFE-016.6` (Ubiquitous): THE SYSTEM SHALL complete a termination wait when every actor of the
   set has terminated.
 - `AC-LIFE-016.7` (Ubiquitous): THE SYSTEM SHALL complete a termination wait for an actor that has
   already terminated and for a name nothing was ever spawned under.
+- `AC-LIFE-016.8` (Ubiquitous): THE SYSTEM SHALL count an actor a caller listed more than once in a
+  wait's input once, so neither wait is given a total its answers can never reach.
 Both waits arm their timeout through the registered clock and register it in the virtual schedule,
 which is what makes them virtual on a stepped host — `AC-SCEN-012.*` states that seam's semantics and
 this page adds nothing to it.
 
-`AC-LIFE-016.4` and `AC-LIFE-016.5` are guards over the two ways a wait used to lie. A negative timeout
-armed no clock at all and the caller's wait never returned — a hang, where a host's own real-time
-backstops (`AC-CTRL-002.4`, `AC-CTRL-004.3`) exist to bound a *slow* answer rather than a missing one.
-And a stray answer used to satisfy a silent actor's share, which is exactly the failure a lifecycle
-wait exists to catch.
+`AC-LIFE-016.4`, `AC-LIFE-016.5` and `AC-LIFE-016.8` are guards over the three ways a wait used to lie.
+A negative timeout armed no clock at all and the caller's wait never returned — a hang, where a host's
+own real-time backstops (`AC-CTRL-002.4`, `AC-CTRL-004.3`) exist to bound a *slow* answer rather than a
+missing one. A second answer from one actor used to satisfy a silent actor's share, which is exactly
+the failure a lifecycle wait exists to catch. And a reference a caller listed twice made the
+acknowledgement wait throw on a duplicate key before it had checked anything, while the termination
+wait counted to a total one termination notification per actor could never reach and then named an
+actor that had in fact terminated — the list a host builds by merging a registry scan with its
+configured set (`AC-CTRL-004.5`).
+
+Both waits also ignore an answer from an actor that was not asked. That guard has no reachable shape
+to redden it — the temporary actor that collects the answers is spawned anonymously and is on no
+published surface, and a handler cannot forward a request in a way that makes a third actor answer in
+its place — so it is a defence the code keeps and not a requirement this page states.
 
 `AC-LIFE-016.7` is what lets a host discover the blocks to stop from the registry rather than from its
 configuration (`AC-CTRL-004.5`) without risking a wait on a name that is already gone.
@@ -474,8 +495,9 @@ saturated".
 
 - `AC-LIFE-019.1` (Ubiquitous): THE SYSTEM SHALL publish the vitals as eight observable instruments on
   one named meter, each reading the core at the exporter's own tick rather than being pushed to.
-- `AC-LIFE-019.2` (Ubiquitous): THE SYSTEM SHALL publish the handled and error counts as cumulative
-  counters and the six remaining instruments as gauges, every duration in seconds.
+- `AC-LIFE-019.2` (Ubiquitous): THE SYSTEM SHALL publish the handled count, the error count and the
+  accumulated handler time as cumulative counters, and the current mailbox depth and the four windowed
+  maxima as gauges, every duration in seconds.
 - `AC-LIFE-019.3` (Ubiquitous): THE SYSTEM SHALL tag a logic block's measurements with its kind, its
   class, its instance name and its library, a runtime actor's with its kind and its role, and an actor
   whose identity was never recorded with its kind and its name.

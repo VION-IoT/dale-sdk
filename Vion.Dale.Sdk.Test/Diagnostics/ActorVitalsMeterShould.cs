@@ -78,7 +78,35 @@ namespace Vion.Dale.Sdk.Test.Diagnostics
 
         [TestMethod]
         [TestProperty("spec", "AC-LIFE-019.2")]
-        public void PublishMailboxDepthAndItsPeakAsCounts()
+        [DataRow("vion.actor.messages_handled", "ObservableCounter`1", "{message}", DisplayName = "the handled count")]
+        [DataRow("vion.actor.errors", "ObservableCounter`1", "{error}", DisplayName = "the error count")]
+        [DataRow("vion.actor.handler_duration", "ObservableCounter`1", "s", DisplayName = "cumulative handler time")]
+        [DataRow("vion.actor.handler_duration_max", "ObservableGauge`1", "s", DisplayName = "the handler-duration maximum")]
+        [DataRow("vion.actor.mailbox_depth", "ObservableGauge`1", "{message}", DisplayName = "mailbox depth")]
+        [DataRow("vion.actor.mailbox_depth_max", "ObservableGauge`1", "{message}", DisplayName = "the mailbox-depth maximum")]
+        [DataRow("vion.actor.timer_callback_duration_max", "ObservableGauge`1", "s", DisplayName = "the timer-callback maximum")]
+        [DataRow("vion.actor.timer_jitter_max", "ObservableGauge`1", "s", DisplayName = "the timer-jitter maximum")]
+        public void PublishEachInstrumentUnderDeclaredKindAndUnit(string instrumentName, string kind, string unit)
+        {
+            // Arrange
+            var vitals = new RuntimeVitals(_clock);
+            vitals.Register("logicblock_Heater_1", new ActorIdentity(ActorCategory.LogicBlock, "Heater", "Lib"));
+
+            // Act
+            using var meter = new ActorVitalsMeter(vitals);
+
+            // Assert — read off the instrument the listener was published, not off the value it carries.
+            var declared = Declared(instrumentName);
+            Assert.AreEqual(kind,
+                            declared.Kind,
+                            "A counter a backend accumulates and a gauge it samples are different series; declaring one as the other silently changes every dashboard that reads it.");
+            Assert.AreEqual(unit, declared.Unit, "Every duration is published in seconds, and the counts in their own unit annotation.");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-LIFE-018.3")]
+        [TestProperty("spec", "AC-LIFE-018.4")]
+        public void PublishMailboxDepthAsPostedLessTakenAndItsPeakOverWindow()
         {
             // Arrange
             var vitals = new RuntimeVitals(_clock);
@@ -92,8 +120,8 @@ namespace Vion.Dale.Sdk.Test.Diagnostics
             using var meter = new ActorVitalsMeter(vitals);
 
             // Assert
-            Assert.AreEqual(2L, Collect<long>("vion.actor.mailbox_depth").Single().Value, "Depth is instantaneous — the backlog right now.");
-            Assert.AreEqual(3L, Collect<long>("vion.actor.mailbox_depth_max").Single().Value, "The peak is over the recent window.");
+            Assert.AreEqual(2L, Collect<long>("vion.actor.mailbox_depth").Single().Value, "Depth is the messages posted less the messages taken off — the backlog right now.");
+            Assert.AreEqual(3L, Collect<long>("vion.actor.mailbox_depth_max").Single().Value, "The peak is the greatest that backlog reached over the recent window.");
         }
 
         [TestMethod]
@@ -164,6 +192,7 @@ namespace Vion.Dale.Sdk.Test.Diagnostics
 
             // Assert
             var tags = Collect<long>("vion.actor.messages_handled").Single().Tags;
+            Assert.IsNull(vitals.Snapshot().Single().Identity, "Pre-condition: an actor seen only through its traffic has vitals and no identity to name it by.");
             Assert.AreEqual("unknown", Tag(tags, "actor.kind"), "A series that vanishes is worse than one labelled unknown.");
             Assert.AreEqual("seen_only_in_traffic", Tag(tags, "actor.id"));
         }
@@ -181,6 +210,22 @@ namespace Vion.Dale.Sdk.Test.Diagnostics
                                            };
             listener.Start();
             return names;
+        }
+
+        private static (string Kind, string? Unit) Declared(string instrumentName)
+        {
+            Instrument? found = null;
+            using var listener = new MeterListener();
+            listener.InstrumentPublished = (instrument, _) =>
+                                           {
+                                               if (instrument.Meter.Name == ActorVitalsMeter.MeterName && instrument.Name == instrumentName)
+                                               {
+                                                   found = instrument;
+                                               }
+                                           };
+            listener.Start();
+            Assert.IsNotNull(found, "Pre-condition: the meter must publish an instrument of that name at all.");
+            return (found.GetType().Name, found.Unit);
         }
 
         private static List<(T Value, KeyValuePair<string, object?>[] Tags)> Collect<T>(string instrumentName)

@@ -102,7 +102,7 @@ namespace Vion.Dale.ProtoActor
             where TRequestMessage : struct
             where TAcknowledgementMessage : struct
         {
-            var actorMessages = actors.ToDictionary(actor => actor, _ => message);
+            var actorMessages = DistinctActors(actors).ToDictionary(actor => actor, _ => message);
             return SendAndWaitForAcknowledgementAsync<TRequestMessage, TAcknowledgementMessage>(actorMessages, timeout);
         }
 
@@ -297,7 +297,7 @@ namespace Vion.Dale.ProtoActor
         {
             RequirePositiveOrZeroTimeout(timeout);
 
-            var pidsToStop = actorsToStop.Select(actorReference => ((ActorReference)actorReference).Pid).ToList();
+            var pidsToStop = DistinctActors(actorsToStop).Select(actorReference => ((ActorReference)actorReference).Pid).ToList();
             if (pidsToStop.Count == 0)
             {
                 return Task.CompletedTask;
@@ -399,6 +399,19 @@ namespace Vion.Dale.ProtoActor
         public IActorReference LookupByName(string name)
         {
             return new ActorReference(PidUtils.FromName(name));
+        }
+
+        /// <summary>
+        ///     The distinct actors of a caller's list. Both waits count down once per actor — the
+        ///     acknowledgement wait keys its answers on the answering PID and the termination wait its
+        ///     notifications on the terminating one — so a reference a caller listed twice used to give the
+        ///     acknowledgement wait a duplicate dictionary key to throw on and the termination wait a total its
+        ///     notifications could never reach. A host that merges a registry scan with its configured list
+        ///     produces exactly that list.
+        /// </summary>
+        private static List<IActorReference> DistinctActors(IEnumerable<IActorReference> actors)
+        {
+            return actors.GroupBy(actorReference => ((ActorReference)actorReference).Pid).Select(group => group.First()).ToList();
         }
 
         // Both waits arm their timeout with Task.Delay inside a temporary actor spawned without the receiver

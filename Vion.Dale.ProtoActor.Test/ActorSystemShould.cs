@@ -26,7 +26,9 @@ namespace Vion.Dale.ProtoActor.Test
     ///         disposed. <c>testing-conventions.md</c> section 16 governs the waiting — a
     ///         <see cref="SemaphoreSlim" /> or the wait's own task, never a sleep. Where a timeout is the
     ///         subject, its <em>expiry</em> is the assertion, which is the shape load can only make more likely
-    ///         to hold.
+    ///         to hold. Where <em>completion</em> is the subject the wait is given <c>Generous</c>, more than
+    ///         ten times the longest any of these waits takes on this suite's own runs, so a green result is a
+    ///         wait that completed rather than a race that was won.
     ///     </para>
     /// </summary>
     [TestClass]
@@ -176,7 +178,9 @@ namespace Vion.Dale.ProtoActor.Test
                                                                                               ],
                                                                                               new StopLogicBlockRequest(),
                                                                                               Short));
-            StringAssert.Contains(timeout.Message, "1 actor(s)", "The count tells an operator whether one block is stuck or all of them.");
+            Assert.AreEqual("Timeout waiting for 1 actor(s) to acknowledge",
+                            timeout.Message,
+                            "The count tells an operator whether one block is stuck or all of them, and \"11 actor(s)\" contains \"1 actor(s)\".");
         }
 
         [TestMethod]
@@ -245,7 +249,44 @@ namespace Vion.Dale.ProtoActor.Test
                                                                                               new StopLogicBlockRequest(),
                                                                                               Short),
                                                                             "One actor answering twice must not stand in for an actor that never answered.");
-            StringAssert.Contains(timeout.Message, "1 actor(s)", "Exactly the silent actor is still outstanding when the wait expires.");
+            Assert.AreEqual("Timeout waiting for 1 actor(s) to acknowledge",
+                            timeout.Message,
+                            "Exactly the silent actor is still outstanding when the wait expires, and \"11 actor(s)\" contains \"1 actor(s)\".");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-LIFE-016.8")]
+        public async Task ReturnOneAcknowledgementForActorListedTwice()
+        {
+            // Arrange
+            await using var host = new PipelineHost();
+            var actor = host.System.CreateRootActorFromDi<AcknowledgingReceiver>("duplicate_ack");
+
+            // Act
+            var acknowledgements =
+                await host.System.SendAndWaitForAcknowledgementAsync<StopLogicBlockRequest, StopLogicBlockResponse>([actor, actor], new StopLogicBlockRequest(), Generous);
+
+            // Assert
+            Assert.HasCount(1,
+                            acknowledgements,
+                            "One actor listed twice is one actor " +
+                            "— the wait used to throw on the duplicate key before it had even checked the timeout, so the caller never saw a refusal it could act on.");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-LIFE-016.8")]
+        public async Task CompleteTerminationWaitForActorListedTwice()
+        {
+            // Arrange
+            await using var host = new PipelineHost();
+            var actor = host.System.CreateRootActorFromDi<SilentReceiver>("duplicate_stop");
+
+            // Act
+            await host.System.StopActorsAndWaitAsync([actor, actor], Generous);
+
+            // Assert
+            Assert.IsEmpty(host.System.FindByName(new Regex("^duplicate_stop$")),
+                           "One actor terminates once, so a list that counted it twice waited out its whole timeout and then named an actor that had in fact terminated.");
         }
 
         [TestMethod]

@@ -110,6 +110,11 @@ namespace Vion.Dale.Sdk.Core
 
         private bool _initializeDeferred;
 
+        // Whether a periodic-save message is in flight. Set when one is scheduled, cleared when one is
+        // consumed, so exactly one chain exists: a stop leaves its chain armed and the restart below must
+        // not arm a second one beside it, or the block saves twice a minute for the rest of the process.
+        private bool _periodicSaveArmed;
+
         private IActorReference _persistenceManagerActorRef = null!; // set during initialization
 
         // Tracks whether LinkRuntimeActors has been processed (i.e. _servicePropertyHandlerActorRef
@@ -173,7 +178,7 @@ namespace Vion.Dale.Sdk.Core
         public void InvokeSynchronizedAfter(Action action, TimeSpan delay)
         {
             RequireActorContext(nameof(InvokeSynchronizedAfter));
-            _actorContext.SendToSelfAfter(new InvokeActionMessage(action), BoundedDelay(delay));
+            _actorContext.SendToSelfAfter(new InvokeActionMessage(action), BoundedDelay(delay, nameof(InvokeSynchronizedAfter)));
         }
 
         public Task HandleMessageAsync(object message, IActorContext actorContext)
@@ -262,7 +267,15 @@ namespace Vion.Dale.Sdk.Core
                     // the hook contract says a block may read its link topology.
                     if (!_configured)
                     {
-                        _deferredLinkedInterfaces = m.LinkedInterfaceIds;
+                        // Merge per interface rather than replace the whole map, mirroring ApplyLinkedInterfaces
+                        // below: a second map naming another interface used to discard the first one's mappings
+                        // entirely, leaving that interface unlinked for the instance's life.
+                        _deferredLinkedInterfaces ??= new Dictionary<InterfaceId, Dictionary<InterfaceId, IActorReference>>();
+                        foreach (var (interfaceId, linkedInterfaces) in m.LinkedInterfaceIds)
+                        {
+                            _deferredLinkedInterfaces[interfaceId] = linkedInterfaces;
+                        }
+
                         _logger.LogDebug("SetLinkedInterfaces processed before InitializeLogicBlock; deferring the link mappings until the block is configured.");
                         break;
                     }
@@ -305,8 +318,12 @@ namespace Vion.Dale.Sdk.Core
                     // never throttled and subsequent changes are measured from start time.
                     _serviceBinder.PublishInitialStateUpdates(_logger);
 
-                    // Schedule periodic state saves
-                    ScheduleNextPeriodicStateSave(actorContext);
+                    // Schedule periodic state saves — unless a chain a previous start armed is still in
+                    // flight, which is what a stop inside the save interval leaves behind.
+                    if (!_periodicSaveArmed)
+                    {
+                        ScheduleNextPeriodicStateSave(actorContext);
+                    }
 
                     _actorContext.RespondToSender(new StartLogicBlockResponse());
                     break;
@@ -710,15 +727,17 @@ namespace Vion.Dale.Sdk.Core
         ///     something already due, which is what a zero delay means — the same treatment the emission
         ///     gate's flush gives a deadline in the past. A span longer than a real clock can wait is refused,
         ///     because arming it throws from inside the actor's handler, where the middleware swallows it and
-        ///     the action is lost with no trace: the bound is the one a scenario's durations already carry.
+        ///     the action is lost with no trace: the bound is the one a scenario's durations already carry. The
+        ///     refusal names the dispatcher member the same way <see cref="RequireActorContext" /> does — the
+        ///     parameter name alone tells a block author nothing about which of its own calls to edit.
         /// </summary>
-        private static TimeSpan BoundedDelay(TimeSpan delay)
+        private static TimeSpan BoundedDelay(TimeSpan delay, string member)
         {
             if (delay > MaxScheduledDelay)
             {
                 throw new ArgumentOutOfRangeException(nameof(delay),
                                                       delay,
-                                                      $"A delayed action cannot be scheduled further out than {MaxScheduledDelay.TotalSeconds} seconds, which is the longest a real clock can wait.");
+                                                      $"{member} cannot schedule an action further out than {MaxScheduledDelay.TotalSeconds} seconds, which is the longest a real clock can wait.");
             }
 
             return delay < TimeSpan.Zero ? TimeSpan.Zero : delay;
@@ -1413,6 +1432,10 @@ namespace Vion.Dale.Sdk.Core
 
         private void HandlePeriodicStateSave(IActorContext context)
         {
+            // The armed chain is this message; whether it re-arms below or ends here, it is no longer in
+            // flight, so a later start is free to arm one.
+            _periodicSaveArmed = false;
+
             if (!_started)
             {
                 _logger.LogInformation("Logic block '{Id}' is not started, skipping periodic state save.", Id);
@@ -1437,8 +1460,9 @@ namespace Vion.Dale.Sdk.Core
             ScheduleNextPeriodicStateSave(context);
         }
 
-        private static void ScheduleNextPeriodicStateSave(IActorContext context)
+        private void ScheduleNextPeriodicStateSave(IActorContext context)
         {
+            _periodicSaveArmed = true;
             context.SendToSelfAfter(new PeriodicPersistentDataSaveMessage(), PersistentDataSaveInterval);
         }
 

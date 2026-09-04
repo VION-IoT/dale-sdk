@@ -80,7 +80,9 @@ namespace Vion.Dale.Sdk.Test.Core
 
             // Act / Assert
             var refusal = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => block.ScheduleAfter(() => { }, TimeSpan.MaxValue));
-            StringAssert.Contains(refusal.Message, "longest a real clock can wait", "The refusal says what the bound is, because the block author has nothing else to go on.");
+            StringAssert.StartsWith(refusal.Message,
+                                    "InvokeSynchronizedAfter cannot schedule an action further out than 4294967 seconds, which is the longest a real clock can wait.",
+                                    "The refusal names the member and the bound: the parameter name alone tells a block author neither which call to edit nor what to edit it to.");
         }
 
         [TestMethod]
