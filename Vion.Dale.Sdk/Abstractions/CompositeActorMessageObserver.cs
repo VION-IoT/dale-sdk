@@ -5,7 +5,7 @@ namespace Vion.Dale.Sdk.Abstractions
 {
     /// <summary>
     ///     Fans an actor-message notification out to several <see cref="IActorMessageObserver" />s so the
-    ///     DevHost message tap and the vitals collector (RFC 0005) can coexist on the single
+    ///     DevHost message tap and the vitals collector can coexist on the single
     ///     middleware observer slot. A faulty observer is isolated — its exception never affects the other
     ///     observers or message delivery.
     /// </summary>

@@ -30,6 +30,17 @@ namespace Vion.Dale.Sdk.Diagnostics
 
         public RuntimeVitals(TimeProvider timeProvider, TimeSpan window)
         {
+            // A window of zero or less has already elapsed at every read, so all four windowed maxima report
+            // their type's default while the cumulative counts beside them keep rising — four of the eleven
+            // vitals silently blank, and nothing to tell an operator that the number is a reading rather than
+            // an idle actor.
+            if (window <= TimeSpan.Zero)
+            {
+                throw new ArgumentOutOfRangeException(nameof(window),
+                                                      window,
+                                                      "The vitals window must be longer than nothing; a window of zero reports every windowed maximum as zero.");
+            }
+
             _timeProvider = timeProvider;
             _window = window;
         }

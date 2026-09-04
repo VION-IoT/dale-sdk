@@ -19,7 +19,7 @@ namespace Vion.Dale.Sdk
             // deterministic stepping) before AddDaleSdk runs, without having it silently overwritten.
             serviceCollection.TryAddSingleton(TimeProvider.System);
 
-            // RFC 0005 vitals core: one singleton observed through three surfaces — the per-message observer,
+            // The vitals core: one singleton observed through three surfaces — the per-message observer,
             // the spawn-time collector, and the read-only diagnostics snapshot.
             serviceCollection.AddSingleton<RuntimeVitals>();
             serviceCollection.AddSingleton<IActorMessageObserver>(sp => sp.GetRequiredService<RuntimeVitals>());

@@ -59,7 +59,7 @@ namespace Vion.Dale.ProtoActor
                                                        SerializeHeaders(envelope.Header));
                                    }
 
-                                   // RFC 0005: time the handler and report the outcome (including the swallowed
+                                   // Time the handler and report the outcome (including the swallowed
                                    // exception) to the vitals collector via OnHandled, preserving the existing
                                    // log-and-swallow below.
                                    await ObservedHandler.RunAsync(observer, actorName, envelope.Message, clock, () => next(context, envelope));

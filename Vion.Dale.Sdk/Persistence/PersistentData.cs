@@ -188,7 +188,7 @@ namespace Vion.Dale.Sdk.Persistence
 
         private void DiscoverOptInProperties(Type type)
         {
-            var properties = type.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            var properties = GetDeclaredProperties(type);
 
             // Re-resolve [IncludedWhen] gates against this instance's parameter values (the same
             // context Configure used) to decide which class-typed component properties are included. Keying
@@ -263,7 +263,7 @@ namespace Vion.Dale.Sdk.Persistence
 
         private void DiscoverNestedProperties(Type type, string parentPropertyName)
         {
-            var properties = type.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            var properties = GetDeclaredProperties(type);
 
             foreach (var prop in properties)
             {
@@ -292,6 +292,34 @@ namespace Vion.Dale.Sdk.Persistence
                                                              Setter = setter,
                                                          };
             }
+        }
+
+        /// <summary>
+        ///     Every property the type carries, most-derived first — including a base class's <em>private</em>
+        ///     ones, which <see cref="Type.GetProperties(BindingFlags)" /> omits for no binding flags. A base
+        ///     class of blocks that keeps private state marked <c>[Persistent]</c> would otherwise lose it on
+        ///     every restart with no diagnostic anywhere. A property hidden or overridden further down is one
+        ///     property, so the walk keeps the declaration it reaches first.
+        /// </summary>
+        private static List<PropertyInfo> GetDeclaredProperties(Type type)
+        {
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            var properties = new List<PropertyInfo>();
+
+            for (var declaring = type; declaring != null && declaring != typeof(object); declaring = declaring.BaseType)
+            {
+                foreach (var property in declaring.GetProperties(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
+                {
+                    if (property.GetIndexParameters().Length > 0 || !names.Add(property.Name))
+                    {
+                        continue;
+                    }
+
+                    properties.Add(property);
+                }
+            }
+
+            return properties;
         }
 
         private Func<object, object?> CreateNestedGetter(string parentPropertyName, string propertyName)

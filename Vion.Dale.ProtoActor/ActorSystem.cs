@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -35,7 +36,7 @@ namespace Vion.Dale.ProtoActor
 
         private readonly ILogger<ActorSystem> _logger;
 
-        // Optional, opt-in message observers (the DevHost's tap and the vitals collector of RFC 0005),
+        // Optional, opt-in message observers (the DevHost's tap and the vitals collector),
         // combined into the single middleware slot. Null when none is registered, so a host that registers no
         // observer keeps the original behaviour.
         private readonly IActorMessageObserver? _messageObserver;
@@ -51,7 +52,7 @@ namespace Vion.Dale.ProtoActor
         // FakeTimeProvider under test. Defaults to the system clock when none is registered.
         private readonly TimeProvider _timeProvider;
 
-        // RFC 0005: the vitals core's spawn-time write surface. Null when the core isn't registered
+        // The vitals core's spawn-time write surface. Null when the core isn't registered
         // (a bare host, or the TestKit with vitals off), leaving spawn behaviour unchanged.
         private readonly IActorVitalsCollector? _vitalsCollector;
 
@@ -101,7 +102,7 @@ namespace Vion.Dale.ProtoActor
             where TRequestMessage : struct
             where TAcknowledgementMessage : struct
         {
-            var actorMessages = actors.ToDictionary(actor => actor, _ => message);
+            var actorMessages = DistinctActors(actors).ToDictionary(actor => actor, _ => message);
             return SendAndWaitForAcknowledgementAsync<TRequestMessage, TAcknowledgementMessage>(actorMessages, timeout);
         }
 
@@ -112,6 +113,8 @@ namespace Vion.Dale.ProtoActor
             where TRequestMessage : struct
             where TAcknowledgementMessage : struct
         {
+            RequirePositiveOrZeroTimeout(timeout);
+
             if (actorMessages.Count == 0)
             {
                 return new Dictionary<IActorReference, TAcknowledgementMessage>();
@@ -122,6 +125,12 @@ namespace Vion.Dale.ProtoActor
             var remainingCount = actorMessages.Count;
             var responses = new Dictionary<IActorReference, TAcknowledgementMessage>();
             var pidToActorMap = actorMessages.Keys.ToDictionary(actorRef => ((ActorReference)actorRef).Pid, actorRef => actorRef);
+
+            // Which actors have already answered. The count must fall once per ASKED actor: a duplicate
+            // acknowledgement, or one from an actor nobody asked, used to decrement it too, so a wait could
+            // complete while an actor that never answered was still silent — the failure the caller's timeout
+            // exists to catch, defeated by a stray message.
+            var answered = new HashSet<PID>();
 
             // This timeout wait is a delayed send too — register its virtual due-time so next-event stepping
             // can see it (else a stepped run could skip past its due-time). Per-call token; unregistered both
@@ -166,11 +175,16 @@ namespace Vion.Dale.ProtoActor
                                                                                        case TAcknowledgementMessage ack
                                                                                            : // handle acknowledgement messages, cleanup after last message
                                                                                        {
-                                                                                           // Map the sender PID back to the original actor reference
-                                                                                           if (pidToActorMap.TryGetValue(ctx.Sender!, out var actorRef))
+                                                                                           // Map the sender PID back to the original actor reference. An acknowledgement
+                                                                                           // from an actor that was not asked, or a second one from an actor that was,
+                                                                                           // is counted for nobody.
+                                                                                           if (ctx.Sender is null || !pidToActorMap.TryGetValue(ctx.Sender, out var actorRef) ||
+                                                                                               !answered.Add(ctx.Sender))
                                                                                            {
-                                                                                               responses[actorRef] = ack;
+                                                                                               break;
                                                                                            }
+
+                                                                                           responses[actorRef] = ack;
 
                                                                                            remainingCount--;
                                                                                            if (remainingCount == 0)
@@ -281,7 +295,9 @@ namespace Vion.Dale.ProtoActor
         /// <inheritdoc />
         public Task StopActorsAndWaitAsync(List<IActorReference> actorsToStop, TimeSpan timeout)
         {
-            var pidsToStop = actorsToStop.Select(actorReference => ((ActorReference)actorReference).Pid).ToList();
+            RequirePositiveOrZeroTimeout(timeout);
+
+            var pidsToStop = DistinctActors(actorsToStop).Select(actorReference => ((ActorReference)actorReference).Pid).ToList();
             if (pidsToStop.Count == 0)
             {
                 return Task.CompletedTask;
@@ -289,6 +305,10 @@ namespace Vion.Dale.ProtoActor
 
             var tcs = new TaskCompletionSource();
             var remainingCount = pidsToStop.Count;
+
+            // Same rule as the acknowledgement wait: the count falls once per WATCHED actor, so a second
+            // termination notification cannot complete the wait for one that is still running.
+            var terminated = new HashSet<PID>();
 
             // See the ack-wait note above: register the timeout in the virtual schedule and unregister it on
             // BOTH the timeout continuation and the normal-completion path (last Terminated), so a quick
@@ -329,8 +349,14 @@ namespace Vion.Dale.ProtoActor
 
                                                                                            break;
                                                                                        }
-                                                                                       case Terminated: // handle terminated message from watched actors, cleanup after last
+                                                                                       case Terminated terminatedMessage
+                                                                                           : // handle terminated message from watched actors, cleanup after last
                                                                                        {
+                                                                                           if (terminatedMessage.Who is null || !terminated.Add(terminatedMessage.Who))
+                                                                                           {
+                                                                                               break;
+                                                                                           }
+
                                                                                            remainingCount--;
                                                                                            if (remainingCount == 0)
                                                                                            {
@@ -375,6 +401,32 @@ namespace Vion.Dale.ProtoActor
             return new ActorReference(PidUtils.FromName(name));
         }
 
+        /// <summary>
+        ///     The distinct actors of a caller's list. Both waits count down once per actor — the
+        ///     acknowledgement wait keys its answers on the answering PID and the termination wait its
+        ///     notifications on the terminating one — so a reference a caller listed twice used to give the
+        ///     acknowledgement wait a duplicate dictionary key to throw on and the termination wait a total its
+        ///     notifications could never reach. A host that merges a registry scan with its configured list
+        ///     produces exactly that list.
+        /// </summary>
+        private static List<IActorReference> DistinctActors(IEnumerable<IActorReference> actors)
+        {
+            return actors.GroupBy(actorReference => ((ActorReference)actorReference).Pid).Select(group => group.First()).ToList();
+        }
+
+        // Both waits arm their timeout with Task.Delay inside a temporary actor spawned without the receiver
+        // middleware. A negative span makes Task.Delay throw there, Proto's default supervision restarts the
+        // actor, and the caller's await never completes — a hang rather than a refusal. Refuse it here, before
+        // anything is sent or watched. Zero stays legal: it is an immediate expiry, which is a caller saying
+        // "do not wait", and both waits already answer it with their own TimeoutException.
+        private static void RequirePositiveOrZeroTimeout(TimeSpan timeout, [CallerArgumentExpression(nameof(timeout))] string? parameterName = null)
+        {
+            if (timeout < TimeSpan.Zero)
+            {
+                throw new ArgumentOutOfRangeException(parameterName, timeout, "The timeout of an actor wait cannot be negative.");
+            }
+        }
+
         // On a stepped host, route the actor onto the shared serial dispatcher so its handlers never
         // run concurrently with another actor's. No-op on a real-clock host (keeps Proto's ThreadPoolDispatcher).
         private Props WithDeterministicDispatcher(Props props)
@@ -391,7 +443,7 @@ namespace Vion.Dale.ProtoActor
             return advance is { ReturnType: { } returnType } && returnType == typeof(void);
         }
 
-        // RFC 0005: register the actor's identity and attach mailbox-depth statistics when the vitals core
+        // Register the actor's identity and attach mailbox-depth statistics when the vitals core
         // is present. No-op otherwise, so spawn behaviour is unchanged for hosts without diagnostics.
         private Props WithVitals(Props props, Type receiverType, string name)
         {

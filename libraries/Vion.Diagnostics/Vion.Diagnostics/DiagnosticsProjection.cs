@@ -8,7 +8,7 @@ namespace Vion.Diagnostics
 {
     /// <summary>
     ///     Pure projection of the SDK vitals snapshot (<see cref="IRuntimeDiagnostics" />) into the
-    ///     diagnostics block's dashboard surface (RFC 0005 Sink 2). Stateless by design: the block holds
+    ///     diagnostics block's dashboard surface. Stateless by design: the block holds
     ///     the prior snapshot and passes it in, so per-second rates can be diffed without the projection
     ///     carrying state — which keeps it trivially testable.
     /// </summary>

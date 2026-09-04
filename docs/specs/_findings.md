@@ -76,3 +76,75 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   assemblies, so a member removed from `IDevHostControl` moves no snapshot and a consumer's build is the
   first thing that notices. Whether the DevHost belongs in that manifest is a corpus decision, not this
   area's. *(CTRL pass row 201 — the retro.)*
+
+## `LIFE` — the block's life inside its actor, and the pipeline that carries it (2026-09-04)
+
+- **Two published message types nothing in this repository sends or receives.**
+  `LinkLogicBlockInterfaceActors` and `SetRemoteFunctionInterfaceInstallationTopics`
+  (`Vion.Dale.Sdk/Messages/ActorMessages.cs:65-75`) have no handler and no construction site here — the
+  private runtime's remote-interface proxy handler is the only reader. The page carries them and
+  specifies neither, because no in-repo test can reach one. *(LIFE pass row 5 — `LIFE`.)*
+- **A contract handler's reference is minted whether or not the actor exists.** `LookupByName` builds a
+  reference from a name alone (`Vion.Dale.ProtoActor/ActorSystem.cs:373-376`,
+  `PidUtils.cs:7-10`), so a block whose handler class is absent from the host binds to nothing and every
+  message that contract sends becomes a dead letter with a warning and no error. The consumer is real:
+  the development host spawns one stand-in per discovered handler
+  (`Vion.Dale.DevHost/DevLogicSystemInitializer.cs:390`), so a contract whose handler it did not
+  discover is silently dead. A registry lookup at link time is a spawn-ordering contract shared with the
+  private runtime, which is past this pass. *(LIFE pass row 26 — `LIFE`.)*
+- **A `[Persistent]` property more than one level inside a block is silently not persisted.** Discovery
+  walks a class-typed property's own properties and no further
+  (`Vion.Dale.Sdk/Persistence/PersistentData.cs:264-295`), with no diagnostic at any door. Recursing
+  needs a cycle guard, a key grammar for arbitrary depth and a decision about collections — a change doc
+  of its own. *(LIFE pass row 89 — `LIFE`.)*
+- **A block's actor name is ambiguous when its name or identifier contains the separator.** The name is
+  a concatenation (`Vion.Dale.Sdk/Utils/LogicBlockUtils.cs:12`), so `logicblock_A_B_c_d` reads two ways.
+  Every reader in the repository matches the prefix rather than splitting, so there is no harm to name
+  today; the entry exists against the day one splits. *(LIFE pass row 137 — `LIFE`.)*
+- **The SDK ships an OpenTelemetry meter no host in this repository wires.** `ActorVitalsMeter` is
+  public and constructed only by its own tests; `AddDaleSdk` registers the vitals core and not the meter
+  (`Vion.Dale.Sdk/ServiceCollectionExtensions.cs:12-28`), so a host that adds the SDK gets the core and
+  no metrics until it builds the meter itself. Registering it there would start a meter in the
+  development host, the TestKit and every example. *(LIFE pass row 208 — `LIFE`.)*
+- **The two dependency-injection registrations are independent, and one in-repo host uses only one.**
+  `AddDaleSdk` and `AddProtoActorSystem` can each be called without the other
+  (`Vion.Dale.Sdk/ServiceCollectionExtensions.cs:12`,
+  `Vion.Dale.ProtoActor/Extensions/ServiceCollectionExtensions.cs:9`); the introspecting parser calls
+  only the first (`Vion.Dale.LogicBlockParser/Program.cs:117`) and never spawns an actor. Whether *an
+  actor system without the SDK's registrations* is a supported composition is a decision rather than a
+  defect — the pipeline documents what it takes from the container instead. *(LIFE pass row 216 —
+  the operator.)*
+- **`IActorContext.Headers` is published and nothing reads it.** The member is on the interface every
+  block handler is handed (`Vion.Dale.Sdk/Abstractions/IActorContext.cs:8`) and implemented over the
+  message's own headers (`Vion.Dale.ProtoActor/ActorContext.cs:37-40`); a repository-wide search finds
+  no reader in the SDK, the development host, the TestKit or the examples. Removing it is a surface
+  decision under `sdk-surface-conventions.md`, not a pass's. *(LIFE pass row 227 — `LIFE`.)*
+- **A bound service the configuration gives no identifier is dropped at six sites for the instance's
+  life.** The announcement omits it (`Vion.Dale.Sdk/Core/LogicBlockBase.cs:1180-1184`) and every value
+  change, clear, flush and drain drops it in turn, each with its own warning, while the block reports
+  itself healthy — `AC-LIFE-003.4` states it. Failing the configuration instead is the right shape, but
+  its reader is the cloud's service allocation: the runtime builds the lookup from the configuration
+  payload's service list, and whether a fielded configuration may lawfully omit a service the block
+  binds is a contracts question no read in this repository answers. *(LIFE pass row 30 — `LIFE`.)*
+- **A block whose configuration failed still starts, publishes and acknowledges.** The start arm has no
+  configuration check (`Vion.Dale.Sdk/Core/LogicBlockBase.cs:263-277`), so such a block runs its start
+  hook, publishes over whatever bindings the failed configuration registered, arms its periodic save and
+  acknowledges — and the host reports itself started with the block's members reading their defaults.
+  Refusing has three shapes and each has a reader: throwing makes the runtime's start time out and the
+  development host's boot fail, undoing the design that keeps the host up with the failure on its health
+  surface (`AC-CTRL-003.*`); acknowledging without starting mints an "acknowledged but inert" state the
+  page would have to state; and a failure acknowledgement is a wire change on `StartLogicBlockResponse`.
+  That is a decision, not a pass's. *(LIFE pass row 47 — `LIFE` + `CTRL`.)*
+- **The development host restores nothing, so the start hook's persisted-value promise is one it cannot
+  keep.** `AC-LIFE-012.2` says a member read in the start hook holds its restored value *on a host that
+  restores*; the development host's start sequence sends no restore
+  (`Vion.Dale.DevHost/DevLogicSystemInitializer.cs:175-205`), so a block author developing there reads a
+  default and gets the operator's value in the field. Whether the host should send an empty restore for
+  sequence parity — the way it sends the snapshot request it discards — is the host's decision.
+  *(LIFE pass row 124 — `CTRL`.)*
+- **`Vion.Dale.ProtoActor`, and three namespaces of `Vion.Dale.Sdk`, are outside the public-API
+  snapshot.** The manifest covers 12 assemblies and `Vion.Dale.ProtoActor` is not among them although it
+  is a shipped package a consumer's block depends on; `PublicApiConfig.cs` declares only `Core`,
+  `Emission` and `Utils` as public namespaces, so the 28 message types, the 7 diagnostics types and the
+  8 actor abstractions this page specifies move no snapshot when they change. The same shape as the two
+  development-host packages above. *(LIFE pass row 217 — the retro.)*
