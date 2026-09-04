@@ -7,7 +7,7 @@ namespace Vion.Dale.Sdk.Abstractions
     ///     actor system's service provider, the actor middleware notifies it for every received message;
     ///     when none is registered (the default, including the production runtime), the middleware does
     ///     nothing extra. Used by DevHost's headless control surface to tap inter-block traffic for tests
-    ///     and agents (RFC 0003) without coupling the runtime to that feature.
+    ///     and agents without coupling the runtime to that feature.
     /// </summary>
     public interface IActorMessageObserver
     {

@@ -396,7 +396,8 @@ namespace Vion.Dale.DevHost.Test
             var current = AppContext.BaseDirectory;
             for (var depth = 0; depth < 8 && current is not null; depth++)
             {
-                if (Directory.Exists(Path.Combine(current, ".git")))
+                var marker = Path.Combine(current, ".git");
+                if (Directory.Exists(marker) || File.Exists(marker))
                 {
                     return current;
                 }

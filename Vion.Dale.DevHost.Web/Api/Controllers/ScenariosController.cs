@@ -10,7 +10,7 @@ using Vion.Dale.DevHost.Web.Services;
 namespace Vion.Dale.DevHost.Web.Api.Controllers
 {
     /// <summary>
-    ///     The scenario surface (additive to RFC 0003's <c>/api</c>): discovery, file serving,
+    ///     The scenario surface, additive to the rest of <c>/api</c>: discovery, file serving,
     ///     run triggering, run status, and the Explorer's save-as-scenario. Scenario files are served and
     ///     stored byte-for-byte — the parsed model exists for validation and the runner, not as a wire shape.
     /// </summary>
@@ -120,31 +120,35 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
 
             // Recycle-on-run: bring the host to the scenario's topology + a clean slate before running, so the
             // result is reproducible. "Dirty" (needs a clean slate) is a stepped generation whose clock has
-            // advanced or that has already run a scenario — the same generation re-run would otherwise build on
-            // leftover state. A topology mismatch always needs a recycle (you cannot run a scenario against the
-            // wrong graph).
+            // advanced or that has already run ANY scenario — a second scenario on the same generation would
+            // otherwise build on whatever the first one wrote, which is the leftover state the clean slate
+            // exists to exclude. A topology mismatch always needs a recycle (you cannot run a scenario against
+            // the wrong graph).
             var hostTopology = _control.GetConfiguration().TopologyName;
             var topologyMatches = string.Equals(scenario.Topology, hostTopology, StringComparison.Ordinal);
-            var dirty = _control.HasAdvancedFromBaseline || (_control.IsStepped && _registry.Latest(id) is not null);
+            var dirty = _control.HasAdvancedFromBaseline || (_control.IsStepped && _registry.HasRunThisGeneration);
 
             if (!topologyMatches || dirty)
             {
-                if (_control.CanReset)
+                // Rides the recycle: the supervisor rebuilds the host with a fresh clock and blocks. The caller
+                // polls until the host is back, then re-applies against the now-clean generation (which runs in
+                // place). A matching topology needs only a plain reset — asking for a switch there would be
+                // refused by a supervisor that cannot re-topologise, and a clean slate is all this branch wants.
+                var recycled = topologyMatches ? _control.TryRequestReset() : _control.TryRequestTopologySwitch(scenario.Topology!);
+                if (recycled)
                 {
-                    // Rides the topology-switch recycle: the supervisor rebuilds the host onto this topology
-                    // with a fresh clock and blocks. The caller polls until the host is back, then re-applies
-                    // against the now-clean, matching generation (which runs in place).
-                    _control.TryRequestTopologySwitch(scenario.Topology!);
                     return Accepted(new { recycling = true, topology = scenario.Topology });
                 }
 
                 if (!topologyMatches)
                 {
-                    // No supervisor to recycle and the topology is wrong — a setup error the caller must fix.
+                    // Nothing here can rebuild the host onto that topology — no supervisor at all, or one that
+                    // builds every generation the same way — and the topology is wrong: a setup error to fix.
                     return Conflict(new
                                     {
+                                        reason = "topologyMismatch",
                                         error =
-                                            $"host is on topology '{hostTopology}', scenario '{id}' expects '{scenario.Topology}', and this host has no supervisor to recycle — build it on '{scenario.Topology}'.",
+                                            $"host is on topology '{hostTopology}', scenario '{id}' expects '{scenario.Topology}', and nothing here can rebuild it onto that topology — build it on '{scenario.Topology}'.",
                                         scenarioTopology = scenario.Topology,
                                         hostTopology,
                                     });

@@ -53,6 +53,14 @@ namespace Vion.Dale.DevHost.Test
             serviceCollection.AddTransient<TickerBlock>();
             serviceCollection.AddTransient<DualPointBlock>();
             serviceCollection.AddTransient<RootNestedCollisionBlock>();
+            serviceCollection.AddTransient<FailingStartBlock>();
+            serviceCollection.AddTransient<FailingConstructorBlock>();
+            serviceCollection.AddTransient<FailingConfigureBlock>();
+            serviceCollection.AddTransient<RejectingWriteBlock>();
+            serviceCollection.AddTransient<SlowHandlerBlock>();
+            serviceCollection.AddTransient<UnresolvableGateBlock>();
+            serviceCollection.AddTransient<BoundedParameterBlock>();
+            serviceCollection.AddTransient<SlowStoppingBlock>();
         }
     }
 }

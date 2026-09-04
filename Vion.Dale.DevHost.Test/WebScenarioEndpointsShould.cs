@@ -7,7 +7,9 @@ using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Vion.Dale.DevHost.Scenarios;
 using Vion.Dale.DevHost.Web;
+using Vion.Dale.DevHost.Web.Services;
 
 namespace Vion.Dale.DevHost.Test
 {
@@ -30,7 +32,7 @@ namespace Vion.Dale.DevHost.Test
                                                            { "label": "doubled", "waitUntil": { "property": "counter.CounterDoubled", "above": 13 }, "timeoutSeconds": 10 }
                                                          ],
                                                          "watch": [ "counter.Counter" ],
-                                                         "judge": [ { "text": "felt right", "spec": "AC-TEST-9" } ]
+                                                         "judge": [ { "text": "felt right", "spec": "operator-check-9" } ]
                                                        }
                                                        """;
 
@@ -44,8 +46,11 @@ namespace Vion.Dale.DevHost.Test
                                                       """;
 
         [TestMethod]
+        [TestProperty("spec", "AC-CTRL-017.1")]
+        [TestProperty("spec", "AC-CTRL-017.2")]
         public async Task ServeDiscoveryRawFilesAndSchema()
         {
+            // Arrange
             var dir = NewScenarioDir();
             File.WriteAllText(Path.Combine(dir, "smoke.scenario.json"), SmokeScenario);
             File.WriteAllText(Path.Combine(dir, "broken.scenario.json"), """{ "version": 7 }""");
@@ -55,6 +60,7 @@ namespace Vion.Dale.DevHost.Test
             await host.StartAsync();
             using var client = NewClient(port);
 
+            // Act / Assert
             var list = JsonDocument.Parse(await client.GetStringAsync("/api/scenarios")).RootElement;
             Assert.IsFalse(list.GetProperty("readOnly").GetBoolean());
             var entries = list.GetProperty("scenarios").EnumerateArray().ToList();
@@ -75,8 +81,12 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task ApplyARunAndServeItsLiveReport()
+        [TestProperty("spec", "AC-CTRL-017.4")]
+        [TestProperty("spec", "AC-CTRL-017.5")]
+        [TestProperty("spec", "AC-CTRL-017.6")]
+        public async Task ApplyRunAndServeItsLiveReport()
         {
+            // Arrange
             var dir = NewScenarioDir();
             File.WriteAllText(Path.Combine(dir, "smoke.scenario.json"), SmokeScenario);
 
@@ -85,6 +95,7 @@ namespace Vion.Dale.DevHost.Test
             await host.StartAsync();
             using var client = NewClient(port);
 
+            // Act / Assert
             Assert.AreEqual(HttpStatusCode.NotFound, (await client.GetAsync("/api/scenarios/smoke/run")).StatusCode);
 
             var apply = await client.PostAsync("/api/scenarios/smoke/apply", null);
@@ -103,8 +114,10 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task RefuseASecondRunWhileActive_AndRestartOnDemand()
+        [TestProperty("spec", "AC-CTRL-017.9")]
+        public async Task RefuseSecondRunWhileOneRunsThenRestartOnDemand()
         {
+            // Arrange
             var dir = NewScenarioDir();
             File.WriteAllText(Path.Combine(dir, "slow.scenario.json"), SlowScenario);
 
@@ -113,6 +126,7 @@ namespace Vion.Dale.DevHost.Test
             await host.StartAsync();
             using var client = NewClient(port);
 
+            // Act / Assert
             var first = await client.PostAsync("/api/scenarios/slow/apply", null);
             Assert.AreEqual(HttpStatusCode.Accepted, first.StatusCode);
             var firstRunId = JsonDocument.Parse(await first.Content.ReadAsStringAsync()).RootElement.GetProperty("runId").GetString();
@@ -132,8 +146,11 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task BlockTopologyMismatchOnAnUnsupervisedHost()
+        [TestProperty("spec", "AC-CTRL-016.1")]
+        [TestProperty("spec", "AC-CTRL-017.8")]
+        public async Task RefuseRunOnWrongTopologyNothingCanRecycle()
         {
+            // Arrange
             var dir = NewScenarioDir();
             File.WriteAllText(Path.Combine(dir, "wrong.scenario.json"),
                               """{ "version": 1, "id": "wrong", "topology": "some-other", "steps": [ { "set": "counter.Counter", "value": 3 } ] }""");
@@ -147,18 +164,25 @@ namespace Vion.Dale.DevHost.Test
             // the right one (recycle-on-run needs DevHostWebRunner.RunAsync with a topology factory). Apply must
             // refuse loudly at the call (409) — never run against the wrong graph. There is no ?force= override.
             var response = await client.PostAsync("/api/scenarios/wrong/apply", null);
-            Assert.AreEqual(HttpStatusCode.Conflict, response.StatusCode, await response.Content.ReadAsStringAsync());
+            var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+
+            // Act / Assert
+            Assert.AreEqual(HttpStatusCode.Conflict, response.StatusCode, body.GetRawText());
+            Assert.AreEqual("topologyMismatch", body.GetProperty("reason").GetString(), "the conflict must carry a machine-readable reason, like every other conflict");
         }
 
         [TestMethod]
-        public async Task SaveValidatedScenarios_ConfinedToTheDirectory()
+        [TestProperty("spec", "AC-CTRL-017.3")]
+        public async Task AnswerScenarioSaveWithFileWrittenOrErrors()
         {
+            // Arrange
             var dir = NewScenarioDir();
             var port = FreePort();
             await using var host = BuildWebHost(port, dir);
             await host.StartAsync();
             using var client = NewClient(port);
 
+            // Act / Assert
             var saved = await client.PutAsync("/api/scenarios/fresh", Json("""{ "version": 1, "id": "fresh", "topology": "counter-topology" }"""));
             Assert.AreEqual(HttpStatusCode.OK, saved.StatusCode, await saved.Content.ReadAsStringAsync());
             Assert.IsTrue(File.Exists(Path.Combine(dir, "fresh.scenario.json")));
@@ -169,7 +193,7 @@ namespace Vion.Dale.DevHost.Test
             var invalid = await client.PutAsync("/api/scenarios/fresh", Json("""{ "version": 1, "id": "fresh" }"""));
             Assert.AreEqual(HttpStatusCode.UnprocessableEntity, invalid.StatusCode);
 
-            Environment.SetEnvironmentVariable(Scenarios.ScenarioStore.ReadOnlyEnvVar, "1");
+            Environment.SetEnvironmentVariable(ScenarioStore.ReadOnlyEnvVar, "1");
             try
             {
                 var readOnly = await client.PutAsync("/api/scenarios/fresh", Json("""{ "version": 1, "id": "fresh", "topology": "t" }"""));
@@ -177,13 +201,15 @@ namespace Vion.Dale.DevHost.Test
             }
             finally
             {
-                Environment.SetEnvironmentVariable(Scenarios.ScenarioStore.ReadOnlyEnvVar, null);
+                Environment.SetEnvironmentVariable(ScenarioStore.ReadOnlyEnvVar, null);
             }
         }
 
         [TestMethod]
-        public async Task RejectCrossOriginMutations_ButNeverLocalOnes()
+        [TestProperty("spec", "AC-CTRL-014.2")]
+        public async Task RefuseCrossOriginMutationsButNeverLocalOnes()
         {
+            // Arrange
             var port = FreePort();
             await using var host = BuildWebHost(port, NewScenarioDir());
             await host.StartAsync();
@@ -193,6 +219,8 @@ namespace Vion.Dale.DevHost.Test
             using (var evil = new HttpRequestMessage(HttpMethod.Post, "/api/control/pause"))
             {
                 evil.Headers.Add("Origin", "https://evil.example");
+
+                // Act / Assert
                 Assert.AreEqual(HttpStatusCode.Forbidden, (await client.SendAsync(evil)).StatusCode);
             }
 
@@ -212,6 +240,70 @@ namespace Vion.Dale.DevHost.Test
 
             // Headless local tools (curl, agents) send no Origin at all.
             Assert.AreEqual(HttpStatusCode.OK, (await client.PostAsync("/api/control/resume", null)).StatusCode);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CTRL-004.8")]
+        public async Task CancelActiveRunOnDemand()
+        {
+            // Arrange — a run that will not finish on its own: a real-clock wait on a value nothing writes.
+            // The web host calls this on the way down (WebHostService.StopAsync), so a run never keeps
+            // driving a generation that is being recycled underneath it.
+            var scenario = ScenarioFile.Parse("""
+                                              { "version": 1, "id": "endless", "topology": "counter-topology",
+                                                "steps": [ { "waitUntil": { "property": "counter.Counter", "equals": 4242 }, "timeoutSeconds": 120 } ] }
+                                              """);
+            var configuration = DevConfigurationBuilder.Create().WithTopologyName("counter-topology").AddLogicBlock<CounterBlock>("counter").Build();
+            await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(configuration).Build();
+            await host.StartAsync();
+            var registry = new ScenarioRunRegistry();
+            await registry.ApplyAsync(scenario, host.Control, false);
+            Assert.IsTrue(registry.HasActiveRun, "the run must be under way before it is cancelled");
+
+            // Act
+            registry.Shutdown();
+
+            // Assert — the run ends as cancelled rather than riding out its own 120-second wait.
+            var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
+            while (registry.HasActiveRun && DateTimeOffset.UtcNow < deadline)
+            {
+                await Task.Delay(50);
+            }
+
+            Assert.IsFalse(registry.HasActiveRun);
+            Assert.AreEqual(ScenarioRunStatus.Canceled, registry.Latest("endless")!.Status);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CTRL-013.3")]
+        public async Task DetectHollowAcknowledgementOnWindowHostWasBuiltWith()
+        {
+            // Arrange — the run is started over the route, so the runner is handed no window at all: the
+            // host's own 200 ms is what bounds the write, and the refusal it answers with is the whole signal.
+            // That is why the verdict below is the assertion and not the deadline — a runner that ignores the
+            // refusal finishes just as fast and reports the step as succeeded.
+            var dir = NewScenarioDir();
+            File.WriteAllText(Path.Combine(dir, "rejected.scenario.json"),
+                              """{ "version": 1, "id": "rejected", "topology": "rejecting", "steps": [ { "set": "rejector.Rejected", "value": 7 } ] }""");
+
+            var port = FreePort();
+            var config = DevConfigurationBuilder.Create().WithTopologyName("rejecting").WithScenarios(dir).AddLogicBlock<RejectingWriteBlock>("rejector").Build();
+            await using var host = DevHostBuilder.Create()
+                                                 .WithDi<TestDependencyInjection>()
+                                                 .WithConfiguration(config)
+                                                 .WithSafetyBudgets(new DevHostBudgets { WriteAcknowledgement = TimeSpan.FromMilliseconds(200) })
+                                                 .WithWebUi(port)
+                                                 .Build();
+            await host.StartAsync();
+            using var client = NewClient(port);
+
+            // Act
+            Assert.AreEqual(HttpStatusCode.Accepted, (await client.PostAsync("/api/scenarios/rejected/apply", null)).StatusCode);
+            var report = await PollRunUntilDoneAsync(client, "rejected", TimeSpan.FromSeconds(20)).WaitAsync(TimeSpan.FromSeconds(2));
+
+            // Assert
+            Assert.AreEqual("failed", report.GetProperty("status").GetString(), report.GetRawText());
+            StringAssert.Contains(report.GetProperty("steps")[0].GetProperty("detail").GetString()!, "write appears rejected");
         }
 
         private static async Task<JsonElement> PollRunUntilDoneAsync(HttpClient client, string id, TimeSpan timeout)

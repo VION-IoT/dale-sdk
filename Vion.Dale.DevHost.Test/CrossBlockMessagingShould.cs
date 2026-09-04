@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 namespace Vion.Dale.DevHost.Test
 {
     /// <summary>
-    ///     The flagship scenario the headless surface exists for (RFC 0003): a real two-block wired network
+    ///     The flagship scenario the headless surface exists for: a real two-block wired network
     ///     where one block polls another. A single-SUT test can't catch a missing poll (it injects the
     ///     response by hand); this boots both blocks and asserts the cross-block message actually flowed —
     ///     observed both as the sink's state change AND via the message tap.
@@ -14,8 +14,10 @@ namespace Vion.Dale.DevHost.Test
     public class CrossBlockMessagingShould
     {
         [TestMethod]
-        public async Task DeliverPollFromSourceToSink_ObservableViaStateAndTap()
+        [TestProperty("spec", "AC-CTRL-008.9")]
+        public async Task DeliverInterBlockMessageObservableInStateAndTap()
         {
+            // Arrange
             var config = DevConfigurationBuilder.Create().AddLogicBlock<SourceBlock>("source").AddLogicBlock<SinkBlock>("sink").AutoConnect().Build();
 
             await using var host = DevHostBuilder.Create().WithDi<CrossBlockDependencyInjection>().WithConfiguration(config).Build();
@@ -25,6 +27,7 @@ namespace Vion.Dale.DevHost.Test
             // handles it. That interaction can complete during StartAsync (before a WaitForAsync waiter is even
             // registered), so we poll the cached value — WaitForAsync observes only *future* events and is the
             // right tool for ongoing/periodic changes (see the counter test), not a one-shot startup interaction.
+            // Act / Assert
             var polls = await PollUntilAsync(() => host.Control.GetProperty("sink", "ReceivedPolls"), v => v is not null && Convert.ToInt32(v) >= 1, TimeSpan.FromSeconds(15));
 
             Assert.IsNotNull(polls, "The sink should have received and handled the poll from the source.");

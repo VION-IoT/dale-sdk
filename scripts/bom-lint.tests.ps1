@@ -46,6 +46,22 @@ try {
     New-File 'docs/short.md' ([byte[]](0xEF, 0xBB)) | Out-Null
     if ((Invoke-Lint) -ne 0) { throw "Case 4 (short file) expected 0" }
 
+    # Case 5: a NUL byte anywhere in a checked file -> 1. One NUL makes git call the whole file
+    # binary, so grep and every reference sweep skip it - which is how a stale comment carrying
+    # one survived in wwwroot/components.js.
+    $nul = New-File 'web/wwwroot/withnul.js' ($text + [byte[]](0x00) + $text)
+    if ((Invoke-Lint) -ne 1) { throw "Case 5 (NUL byte in a .js) expected 1" }
+    Remove-Item $nul
+
+    # Case 6: the same NUL under a build output directory is skipped, like every other check -> 0
+    New-File 'web/obj/Debug/generated.json' ($text + [byte[]](0x00)) | Out-Null
+    if ((Invoke-Lint) -ne 0) { throw "Case 6 (NUL under obj/ skipped) expected 0" }
+
+    # Case 7: a file of an unchecked kind may carry a NUL - the rule is about the text kinds this
+    # repo writes, not about every file in the tree -> 0
+    New-File 'Sdk/Core/Blob.cs' ($text + [byte[]](0x00)) | Out-Null
+    if ((Invoke-Lint) -ne 0) { throw "Case 7 (NUL on an out-of-scope kind) expected 0" }
+
     Write-Host 'bom-lint.tests: PASS'
     exit 0
 }

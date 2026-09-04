@@ -1,4 +1,4 @@
-// wwwroot/wiring.js — pure, DOM-free, store-free. Client-side topology wiring logic (RFC 0013 Phase 2).
+// wwwroot/wiring.js — pure, DOM-free, store-free. Client-side topology wiring logic.
 // Mirrors the dashboard's frozen LinkMultiplicity contract (Vion.Dale.Sdk.Core.LinkMultiplicity).
 
 import { compilePredicate } from './predicates.js';

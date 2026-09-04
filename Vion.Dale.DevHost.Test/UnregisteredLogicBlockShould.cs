@@ -22,15 +22,19 @@ namespace Vion.Dale.DevHost.Test
     public class UnregisteredLogicBlockShould
     {
         [TestMethod]
+        [TestProperty("spec", "AC-CTRL-002.2")]
         [TestCategory("Smoke")]
-        public async Task FailTheHost_WhenWiredViaTheFluentBuilder()
+        public async Task FailStartForUnregisteredBlockWiredInCode()
         {
+            // Arrange
             var config = DevConfigurationBuilder.Create().WithTopologyName("unregistered").AddLogicBlock<UnregisteredBlock>("gadget").Build();
             await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).Build();
 
             var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => host.StartAsync());
 
             var id = config.LogicBlocks[0].Id;
+
+            // Act / Assert
             StringAssert.Contains(exception.Message, typeof(UnregisteredBlock).FullName!, "the message must name the offending type");
             StringAssert.Contains(exception.Message, id, "the message must name the topology id so the block is findable in the topology file");
             StringAssert.Contains(exception.Message, "'gadget'", "the message must name the instance");
@@ -41,10 +45,12 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task FailTheHost_WhenWiredViaATopologyFile()
+        [TestProperty("spec", "AC-CTRL-002.2")]
+        public async Task FailStartForUnregisteredBlockWiredInTopologyFile()
         {
             // The second entry path. It converges on the same GetService resolution, but a fix
             // that only guarded the fluent builder would leave this half of the bug alive.
+            // Arrange
             var file = DevTopologyFile.Parse($$"""
                                                {
                                                  "id": "unregistered",
@@ -58,14 +64,17 @@ namespace Vion.Dale.DevHost.Test
 
             var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => host.StartAsync());
 
+            // Act / Assert
             StringAssert.Contains(exception.Message, typeof(UnregisteredBlock).FullName!, "the message must name the offending type");
         }
 
         [TestMethod]
-        public async Task ReportEveryUnregisteredBlockAtOnce_NotJustTheFirst()
+        [TestProperty("spec", "AC-CTRL-002.2")]
+        public async Task ReportEveryUnregisteredBlockAtOnce()
         {
             // Collect-then-report, like the parser (Vion.Dale.LogicBlockParser/Program.cs): three bad blocks
             // give one message listing all three, so a topology is fixed in one pass rather than one run each.
+            // Arrange
             var config = DevConfigurationBuilder.Create()
                                                 .WithTopologyName("unregistered")
                                                 .AddLogicBlock<UnregisteredBlock>("first")
@@ -76,33 +85,39 @@ namespace Vion.Dale.DevHost.Test
 
             var exception = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => host.StartAsync());
 
+            // Act / Assert
             StringAssert.Contains(exception.Message, "'first'", "the first unregistered block must be listed");
             StringAssert.Contains(exception.Message, "'second'", "the second unregistered block must be listed too — not just the first");
             Assert.IsFalse(exception.Message.Contains(nameof(CounterBlock), StringComparison.Ordinal), "a registered block must not be listed");
         }
 
         [TestMethod]
-        public async Task FailTheSelfIntrospectingPath_RatherThanThrowingKeyNotFound()
+        [TestProperty("spec", "AC-CTRL-002.3")]
+        public async Task FailConfigurationReadForUnregisteredBlock()
         {
             // GetConfiguration before StartAsync self-introspects (HeadlessControlShould
             // .GetConfiguration_BeforeStart_SelfIntrospects). That path used to be where the skip surfaced as
             // KeyNotFoundException; it must now surface the same actionable failure as startup.
+            // Arrange
             var config = DevConfigurationBuilder.Create().WithTopologyName("unregistered").AddLogicBlock<UnregisteredBlock>("gadget").Build();
             await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).Build();
 
             var exception = Assert.ThrowsExactly<InvalidOperationException>(() => host.Control.GetConfiguration());
 
+            // Act / Assert
             StringAssert.Contains(exception.Message, typeof(UnregisteredBlock).FullName!, "the message must name the offending type");
         }
 
         [TestMethod]
-        public async Task NotKillTheSupervisor_WhenTheUiSwitchesOntoAnUnregisteredTopology()
+        [TestProperty("spec", "AC-CTRL-005.5")]
+        public async Task StayOnRunningTopologyWhenNextOneCannotStart()
         {
             // The failure above is right for BOOT, but a topology switch reaches the same resolution from a
             // RUNNING host: DevTopologyLoader only checks that a typeFullName is loadable, so save / validate
             // / switch all accept a topology naming an unregistered block, and the recycle then fails. Taking
             // the process down there would remove the UI the operator needs to pick another topology, so the
             // supervisor must report it and recycle back onto the topology that was running.
+            // Arrange
             var dir = NewTopologyDir();
             File.WriteAllText(Path.Combine(dir, "good.topology.json"), TopologyJson("good", typeof(CounterBlock), "counter"));
             File.WriteAllText(Path.Combine(dir, "broken.topology.json"), TopologyJson("broken", typeof(UnregisteredBlock), "gadget"));
@@ -113,6 +128,8 @@ namespace Vion.Dale.DevHost.Test
             {
                 var config = DevTopologyLoader.Load(requestedTopology ?? "good", dir);
                 config.TopologiesPath = dir;
+
+                // Act / Assert
                 return DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithWebUi(port).Build();
             }
 

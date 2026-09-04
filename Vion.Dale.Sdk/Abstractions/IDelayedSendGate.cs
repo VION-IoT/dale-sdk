@@ -10,7 +10,7 @@ namespace Vion.Dale.Sdk.Abstractions
     ///     instead of breaking permanently.
     ///     <para>
     ///         Production registers no gate → behaviour is unchanged (the same opt-in pattern as
-    ///         <see cref="IActorMessageObserver" />, RFC 0003's message tap).
+    ///         <see cref="IActorMessageObserver" />, the development host's message tap).
     ///     </para>
     /// </summary>
     public interface IDelayedSendGate

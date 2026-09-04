@@ -276,7 +276,9 @@ entries, refuses one for the empty list, and stands down entirely when the list 
 - `AC-SCEN-009.9` (Ubiquitous): THE SYSTEM SHALL record a wall-clock duration for every step and a
   virtual duration only on a stepped host, so that two runs of one scenario on one host agree on every
   deterministic field.
-- `AC-SCEN-009.10` (Event-driven): WHEN a `set` step's acknowledgement consumes its safety window THE SYSTEM SHALL record why in the step's detail, and SHALL fail the step only when a block exception was logged for that write. GAP: the window is a fixed, just-under-five real seconds with no injection seam, so no test reaches it without a five-second wait per case; the seam is in `_findings.md`.
+- `AC-SCEN-009.10` (Event-driven): WHEN a `set` step's acknowledgement consumes its safety window THE
+  SYSTEM SHALL record why in the step's detail, and SHALL fail the step only when a block exception was
+  logged for that write.
 - `AC-SCEN-009.11` (Ubiquitous): THE SYSTEM SHALL report a `serviceProviderSet` as fire-and-forget.
 - `AC-SCEN-009.12` (Event-driven): WHEN a `serviceProviderExpect` reads a contract the block never
   wrote, or a captured command with no scalar leaf at the addressed field, THE SYSTEM SHALL fail the
@@ -287,6 +289,10 @@ entries, refuses one for the empty list, and stands down entirely when the list 
   read the comparand's value at assert time and name its member in a failure.
 - `AC-SCEN-009.15` (Ubiquitous): THE SYSTEM SHALL carry the scenario file's content hash on the run
   report when the file can be read, and no hash when it cannot.
+
+`AC-SCEN-009.10`'s window is the host's write-acknowledgement budget, not a number of the runner's own
+([`devhost-control.md`](devhost-control.md)); the detail names the message the block was handling, and
+the block's own error is on the host's health surface.
 
 There is no `force`: running against the wrong graph silently produced misleading green runs.
 `AC-SCEN-009.8` has a consequence worth stating plainly — a consumer's test suite is green with
@@ -367,7 +373,8 @@ handlers, so message order is pinned as well.
 - `AC-SCEN-012.5` (Ubiquitous): THE SYSTEM SHALL treat the actor system as quiescent exactly when
   every mailbox is empty and no handler is in flight.
 - `AC-SCEN-012.6` (State-driven): WHILE the quiescence predicate does not hold THE SYSTEM SHALL keep
-  waiting rather than treat the system as settled.
+  waiting rather than treat the system as settled, and SHALL fail naming the predicate that never held
+  once its real-clock budget is spent.
 - `AC-SCEN-012.7` (Ubiquitous): THE SYSTEM SHALL settle start-up traffic once before the first event
   hop of an advance.
 - `AC-SCEN-012.8` (State-driven): WHILE the host is stepped THE SYSTEM SHALL deliver a message cascade
@@ -380,9 +387,8 @@ handlers, so message order is pinned as well.
 `AC-SCEN-012.5` is exact rather than a time window: mailbox depth alone reads zero between a dequeue
 and the handler's entry, and the in-flight count closes that window, so a single satisfying
 observation is true quiescence. `AC-SCEN-012.6` is the other half of that: never a heuristic
-stand-down. A generous real-clock safety budget bounds the wait so a genuinely stuck cascade surfaces
-as a thrown failure naming the predicate rather than as a hang — that budget is a backstop, not a
-tolerance, and no scenario is meant to reach it. `AC-SCEN-012.10` is what makes a run reproducible; the round-trip a
+stand-down. Its budget is a backstop, not a tolerance — no scenario is meant to reach it — and it is
+the host's, not this page's ([`devhost-control.md`](devhost-control.md)). `AC-SCEN-012.10` is what makes a run reproducible; the round-trip a
 caller performs to get there is the control API's contract
 ([`../devhost-conventions.md`](../devhost-conventions.md) § 8). It is proven in parts, deliberately:
 its clean-slate and single-active-run halves are unit-level, while the committed `minimal-subset`

@@ -35,12 +35,6 @@ namespace Vion.Dale.DevHost.Scenarios
     /// </summary>
     public static class ScenarioRunner
     {
-        // SetPropertyAsync acks on the write's own round-trip response, with a fixed 5 s safety timeout.
-        // Applied writes — including no-op sets — ack promptly; an ack that consumed the whole window
-        // means the block never replied: an actor-side rejection that was swallowed (the hollow-ack
-        // gotcha) or a lost message.
-        private const double AckCeilingMs = 4900;
-
         private const double DefaultWaitUntilTimeoutSeconds = 20;
 
         // Default virtual-time budget for a settle step when maxSeconds is not specified.
@@ -363,7 +357,8 @@ namespace Vion.Dale.DevHost.Scenarios
                                         control,
                                         progress,
                                         report,
-                                        cancellationToken)
+                                        cancellationToken,
+                                        null)
                          .ConfigureAwait(false))
                 {
                     report.Status = ScenarioRunStatus.Failed;
@@ -409,7 +404,7 @@ namespace Vion.Dale.DevHost.Scenarios
                                                      Action<ScenarioRunReport> progress,
                                                      ScenarioRunReport report,
                                                      CancellationToken cancellationToken,
-                                                     IReadOnlyList<string>? watchPaths = null)
+                                                     IReadOnlyList<string>? watchPaths)
         {
             cancellationToken.ThrowIfCancellationRequested();
             result.Status = ScenarioStepStatus.Running;
@@ -423,15 +418,30 @@ namespace Vion.Dale.DevHost.Scenarios
                 switch (step.Kind)
                 {
                     case "set":
-                        await control.SetPropertyAsync(resolved.Property!.Block, resolved.Property.ServiceIdentifier, resolved.Property.PropertyName, step.Value)
-                                     .ConfigureAwait(false);
-                        if (stopwatch.Elapsed.TotalMilliseconds >= AckCeilingMs)
+                    {
+                        var unacknowledged = false;
+                        try
                         {
-                            // The block never acknowledged the write — applied writes, no-ops included,
-                            // ack promptly on their round-trip response. A swallowed exception on the
-                            // SET-VALUE message is the observable cause — surface it as the RFC's
-                            // "rejected write" failure. The middleware logs the message type, so
-                            // requiring it in the match keeps unrelated block exceptions out.
+                            await control.SetPropertyAsync(resolved.Property!.Block, resolved.Property.ServiceIdentifier, resolved.Property.PropertyName, step.Value)
+                                         .ConfigureAwait(false);
+                        }
+                        catch (ServicePropertyWriteException silence) when (silence.Reason == ServicePropertyWriteException.ReasonUnacknowledged)
+                        {
+                            // The host refuses a write no block acknowledged within the window it was built
+                            // with. That refusal is the signal, and the only one: a duration the runner
+                            // measured itself would be a second number to keep in step with the host's, and a
+                            // caller who shortened the host's window got a refused write reported as a
+                            // succeeded step.
+                            unacknowledged = true;
+                        }
+
+                        if (unacknowledged)
+                        {
+                            // A swallowed exception on the SET-VALUE message is the observable cause of a
+                            // write nobody applied — surface it as the rejected-write failure. The middleware
+                            // logs the message type, so requiring it in the match keeps unrelated block
+                            // exceptions out. Without one the step stands: silence alone does not say the
+                            // block refused (AC-SCEN-009.10).
                             var rejection = control.RecentLogs()
                                                    .LastOrDefault(l => l.Timestamp >= startedAt && l.Message.Contains("[EXCEPTION CAUGHT]", StringComparison.Ordinal) &&
                                                                        l.Message.Contains("SetServicePropertyValue", StringComparison.Ordinal));
@@ -451,6 +461,7 @@ namespace Vion.Dale.DevHost.Scenarios
                         }
 
                         break;
+                    }
 
                     case "serviceProviderSet":
                         await control.DriveServiceProviderContractAsync(resolved.Contract!.HandlerName!,

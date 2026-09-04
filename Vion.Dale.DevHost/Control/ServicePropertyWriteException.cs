@@ -3,8 +3,9 @@ using System;
 namespace Vion.Dale.DevHost.Control
 {
     /// <summary>
-    ///     A service-property write the block cannot apply, rejected UP FRONT by the control surface (the trip
-    ///     wire against a silently-timed-out 200). Subclasses <see cref="InvalidOperationException" /> so existing
+    ///     A service-property write the block cannot apply — rejected up front by the control surface where the
+    ///     target says so, and after the acknowledgement window where only silence does (the trip wire against a
+    ///     silently-timed-out 200). Subclasses <see cref="InvalidOperationException" /> so existing
     ///     <c>catch (InvalidOperationException)</c> callers are unaffected, while carrying machine-readable
     ///     <see cref="Reason" /> + <see cref="Property" /> so the HTTP layer can return a structured, actionable
     ///     400 body (rather than a prose-only message a tool has to string-match).
@@ -20,7 +21,10 @@ namespace Vion.Dale.DevHost.Control
         /// <summary>The member exists but is read-only (a measuring point, or a property with no public setter).</summary>
         public const string ReasonReadOnly = "readOnly";
 
-        /// <summary>Stable reason code: <c>unknownService</c>, <c>unknownMember</c>, or <c>readOnly</c>.</summary>
+        /// <summary>The block never acknowledged the write within the host's acknowledgement window.</summary>
+        public const string ReasonUnacknowledged = "unacknowledged";
+
+        /// <summary>Stable reason code: <c>unknownService</c>, <c>unknownMember</c>, <c>readOnly</c>, or <c>unacknowledged</c>.</summary>
         public string Reason { get; }
 
         /// <summary>The offending member name, when the rejection is about a specific property (null for an unknown service).</summary>

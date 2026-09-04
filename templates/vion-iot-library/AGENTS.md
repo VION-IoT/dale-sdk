@@ -296,5 +296,5 @@ build a scenario on it, add `scenarios/<id>-<case>.scenario.json` with `"topolog
 author `setup` / `steps` / `watch` (see `scenarios/thermostat.scenario.json`). Validate offline
 with `dale scenario validate`, then run it with `dale scenario run <id>` under `dale dev --stepped`.
 A *"type … is not loadable"* error at DevHost boot means this project doesn't reference the block's
-library — add the `PackageReference` named in the export's compatibility note. See dale-sdk RFC 0015
+library — add the `PackageReference` named in the export's compatibility note. See the dale-sdk DevHost's topology import
 (topology exchange).

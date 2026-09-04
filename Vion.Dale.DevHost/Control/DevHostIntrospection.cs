@@ -30,7 +30,7 @@ namespace Vion.Dale.DevHost.Control
     }
 
     /// <summary>
-    ///     Core-side logic-block introspection for the headless control surface (RFC 0003). Owns the
+    ///     Core-side logic-block introspection for the headless control surface. Owns the
     ///     introspection results: assigns service identifiers, records the property → service-id map for
     ///     get/set, builds the full <see cref="ConfigurationOutput" /> the UI/agents read, and resolves a
     ///     property's schema + CLR type for decoding JSON set-values. Runs once, before the logic system

@@ -21,8 +21,10 @@ namespace Vion.Dale.DevHost.Test
         // ──────────────────────────────────────────────────────────────────────────────
 
         [TestMethod]
-        public void ResolveBootTopologyId_EmptyDir_WritesDefaultAndReturnsDefault()
+        [TestProperty("spec", "AC-CTRL-007.3")]
+        public void GenerateAndBootDefaultTopologyWhenNoneExists()
         {
+            // Arrange
             var dir = TempDir();
             try
             {
@@ -30,6 +32,8 @@ namespace Vion.Dale.DevHost.Test
                 Directory.CreateDirectory(dir);
 
                 var catalog = new[] { typeof(CounterBlock) };
+
+                // Act / Assert
                 var id = DevHostWebRunner.ResolveBootTopologyId(catalog, dir);
 
                 Assert.AreEqual("default", id);
@@ -44,8 +48,11 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public void ResolveBootTopologyId_DirWithDefault_ReturnsDefaultWithoutRegenerating()
+        [TestProperty("spec", "AC-CTRL-007.2")]
+        [TestProperty("spec", "AC-CTRL-007.3")]
+        public void BootCommittedDefaultTopologyWithoutRegeneratingIt()
         {
+            // Arrange
             var dir = TempDir();
             try
             {
@@ -62,6 +69,8 @@ namespace Vion.Dale.DevHost.Test
                 File.WriteAllText(defaultPath, sentinelContent);
 
                 var catalog = new[] { typeof(SourceBlock), typeof(SinkBlock) };
+
+                // Act / Assert
                 var id = DevHostWebRunner.ResolveBootTopologyId(catalog, dir);
 
                 Assert.AreEqual("default", id);
@@ -76,8 +85,10 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public void ResolveBootTopologyId_MultipleFilesNoDefault_ReturnsFirstAlphabetically()
+        [TestProperty("spec", "AC-CTRL-007.2")]
+        public void BootFirstTopologyInOrdinalOrderWithoutDefault()
         {
+            // Arrange
             var dir = TempDir();
             try
             {
@@ -101,6 +112,8 @@ namespace Vion.Dale.DevHost.Test
                                   """);
 
                 var catalog = new[] { typeof(CounterBlock) };
+
+                // Act / Assert
                 var id = DevHostWebRunner.ResolveBootTopologyId(catalog, dir);
 
                 Assert.AreEqual("aaa", id, "first topology alphabetically should be selected when no 'default' exists");
@@ -116,11 +129,13 @@ namespace Vion.Dale.DevHost.Test
         // ──────────────────────────────────────────────────────────────────────────────
 
         [TestMethod]
-        public async Task DevHostBuilder_GetBlockCatalog_ThenBuild_WorksOnSameInstance()
+        [TestProperty("spec", "AC-CTRL-001.4")]
+        public async Task LeaveBuilderUnchangedByCatalogEnumeration()
         {
             // Arrange: a builder whose catalog is inspected first (as RunFolderDrivenAsync does internally)
             // and then used to build a real host. This guards the "temp ServiceCollection" approach in
             // GetBlockCatalog() — it must NOT mutate the builder's real _services.
+            // Arrange
             var topologiesDir = TempDir();
             try
             {
@@ -130,6 +145,8 @@ namespace Vion.Dale.DevHost.Test
 
                 // Step 1: enumerate the catalog (must not consume/corrupt the builder).
                 var catalog = builder.GetBlockCatalog();
+
+                // Act / Assert
                 Assert.IsGreaterThanOrEqualTo(2, catalog.Count, "CrossBlockDependencyInjection registers at least SourceBlock + SinkBlock");
 
                 // Step 2: write a topology for the builder to load (avoids dependency on auto-gen paths).
@@ -168,9 +185,12 @@ namespace Vion.Dale.DevHost.Test
         // ──────────────────────────────────────────────────────────────────────────────
 
         [TestMethod]
-        public async Task FolderDriven_BootsWithCommittedTopologyAndBlocksArePresent()
+        [TestProperty("spec", "AC-CTRL-007.1")]
+        [TestProperty("spec", "AC-CTRL-007.4")]
+        public async Task BootCommittedTopologyFromRegistrationsAlone()
         {
             // Simulate what RunFolderDrivenAsync does internally: resolve + build + verify the host.
+            // Arrange
             var topologiesDir = TempDir();
             try
             {
@@ -193,6 +213,8 @@ namespace Vion.Dale.DevHost.Test
                                     """);
 
                 var catalog = DevHostBuilder.Create().WithDi<CrossBlockDependencyInjection>().GetBlockCatalog();
+
+                // Act / Assert
                 var bootId = DevHostWebRunner.ResolveBootTopologyId(catalog, topologiesDir);
                 Assert.AreEqual("default", bootId);
 

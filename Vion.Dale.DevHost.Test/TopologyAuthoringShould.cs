@@ -18,8 +18,9 @@ using Vion.Dale.Sdk.Core;
 namespace Vion.Dale.DevHost.Test
 {
     /// <summary>
-    ///     Phase 1 of the topology-authoring feature (RFC 0013): the server must expose the interface-matching
-    ///     metadata a later client phase uses to compute wiring. The introspection result already carries each
+    ///     The server half of topology authoring: it exposes the interface-matching metadata the editor
+    ///     uses to compute wiring, and the editor's own logic is the SPA's (Tier C). The introspection result already carries
+    ///     each
     ///     logic interface's <c>InterfaceTypeFullNames</c> + <c>MatchingInterfaceTypeFullNames</c> back-reference;
     ///     these tests pin that the DevHost's <c>/api/configuration</c> projection does not drop them.
     /// </summary>
@@ -27,12 +28,14 @@ namespace Vion.Dale.DevHost.Test
     public class TopologyAuthoringShould
     {
         [TestMethod]
+        [TestProperty("spec", "AC-CTRL-019.1")]
         [TestCategory("Smoke")]
-        public async Task Configuration_CarriesInterfaceMatchingTypeFullNames()
+        public async Task ExportInterfaceMappingsAndPairings()
         {
             // SourceBlock implements ISource, SinkBlock implements ISink — the PollLink contract makes ISource
             // and ISink each declare the other as its MatchingInterface, so introspection carries a non-empty
             // matchingInterfaceTypeFullNames on each block's interface entry.
+            // Arrange
             var port = FreePort();
             var config = DevConfigurationBuilder.Create().WithTopologyName("matching").AddLogicBlock<SourceBlock>("source").AddLogicBlock<SinkBlock>("sink").Build();
             await using var host = DevHostBuilder.Create().WithDi<CrossBlockDependencyInjection>().WithConfiguration(config).WithWebUi(port).Build();
@@ -40,6 +43,7 @@ namespace Vion.Dale.DevHost.Test
 
             using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
 
+            // Act / Assert
             var response = await client.GetAsync("/api/configuration");
             Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, "GET /api/configuration must succeed.");
 
@@ -70,18 +74,24 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CTRL-015.1")]
+        [TestProperty("spec", "AC-CTRL-020.1")]
         [TestCategory("Smoke")]
-        public async Task LogicBlockDefinitions_Endpoint_ExposesTheCatalogWithMatchingMetadata()
+        public async Task ServeBlockDefinitionsFromCatalog()
         {
             // The catalog endpoint exposes every block the WithDi<> plugins register — including SourceBlock —
-            // each with the per-interface matching metadata a topology-authoring client reads (RFC 0013 Phase 1).
+            // each with the per-interface matching metadata a topology-authoring client reads. The plugins are
+            // added AFTER the web interface on purpose: that is the ordering a catalog captured at WithWebUi
+            // time would miss, and the one every consumer is free to write.
+            // Arrange
             var port = FreePort();
             var config = DevConfigurationBuilder.Create().WithTopologyName("matching").AddLogicBlock<SourceBlock>("source").AddLogicBlock<SinkBlock>("sink").Build();
-            await using var host = DevHostBuilder.Create().WithDi<CrossBlockDependencyInjection>().WithConfiguration(config).WithWebUi(port).Build();
+            await using var host = DevHostBuilder.Create().WithConfiguration(config).WithWebUi(port).WithDi<CrossBlockDependencyInjection>().Build();
             await host.StartAsync();
 
             using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
 
+            // Act / Assert
             var response = await client.GetAsync("/api/logic-block-definitions");
             Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, "GET /api/logic-block-definitions must succeed.");
 
@@ -158,7 +168,7 @@ namespace Vion.Dale.DevHost.Test
         [TestMethod]
         public void TopologyStore_Save_RejectsIncompatibleMapping()
         {
-            // RFC 0013 decision 1: Save now runs the compatibility check (DevTopologyLoader.Build). The mapping
+            // Save runs the compatibility check (DevTopologyLoader.Build). The mapping
             // wires ISource -> ISource, which is NOT in DiscoverMatchingInterfaces (ISource matches ISink), so
             // Save must throw rather than persist an incompatible wiring.
             var dir = NewTopologyDir();
@@ -237,7 +247,7 @@ namespace Vion.Dale.DevHost.Test
         [TestMethod]
         public void Build_AcceptsOneSourceInterfaceMappedToManyTargets()
         {
-            // Regression (RFC 0013 Phase 1): ONE source interface that legitimately matches SEVERAL targets must
+            // Regression: ONE source interface that legitimately matches SEVERAL targets must
             // not be rejected. SourceBlock exposes a single ISource interface; DualPointBlock exposes TWO
             // property-bound ISink interfaces (PointA_ISink, PointB_ISink) — both reciprocal matches of ISource.
             // The original compat check used DiscoverMatchingInterfaces, which stops at the first target per source
@@ -265,9 +275,12 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CTRL-017.2")]
+        [TestProperty("spec", "AC-CTRL-017.3")]
         [TestCategory("Smoke")]
-        public async Task Topology_PutGetValidate_RoundTrips()
+        public async Task RoundTripTopologySaveReadAndValidate()
         {
+            // Arrange
             var dir = NewTopologyDir();
             var port = FreePort();
             var config = DevConfigurationBuilder.Create().WithTopologyName("rig").WithTopologies(dir).AddLogicBlock<SourceBlock>("source").AddLogicBlock<SinkBlock>("sink").Build();
@@ -290,6 +303,7 @@ namespace Vion.Dale.DevHost.Test
                          }
                          """;
 
+            // Act / Assert
             var saved = await client.PutAsync("/api/topologies/rig", new StringContent(body, Encoding.UTF8, "application/json"));
             Assert.AreEqual(HttpStatusCode.OK, saved.StatusCode, await saved.Content.ReadAsStringAsync());
 
@@ -309,9 +323,11 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CTRL-017.3")]
         [TestCategory("Smoke")]
-        public async Task Topology_Save_RejectsIdMismatch_AndReadOnlyGate()
+        public async Task AnswerTopologySaveWithForbiddenOrErrors()
         {
+            // Arrange
             var dir = NewTopologyDir();
             var port = FreePort();
             var config = DevConfigurationBuilder.Create().WithTopologyName("rig").WithTopologies(dir).AddLogicBlock<SourceBlock>("source").AddLogicBlock<SinkBlock>("sink").Build();
@@ -335,6 +351,7 @@ namespace Vion.Dale.DevHost.Test
 
             // The embedded id must equal the path id (Save enforces it; Parse does not) — a 'rig' body PUT to a
             // different path id is rejected, so a topology file's name and its declared id can never diverge.
+            // Act / Assert
             var mismatched = await client.PutAsync("/api/topologies/other", new StringContent(body, Encoding.UTF8, "application/json"));
             Assert.AreEqual(HttpStatusCode.UnprocessableEntity, mismatched.StatusCode, await mismatched.Content.ReadAsStringAsync());
 
@@ -371,10 +388,11 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CTRL-020.2")]
         [TestProperty("spec", "AC-GATE-012.11")]
         [DataRow(true, DisplayName = "an instance was available")]
         [DataRow(false, DisplayName = "no instance was available")]
-        public void LogicBlockDefinition_FromType_SaysWhetherEachDefaultWasRead(bool withInstance)
+        public void ReadParameterDefaultsFromOneInstancePerBlock(bool withInstance)
         {
             // Arrange
             var instance = withInstance ? new GatedCatalogFixture(NullLogger.Instance) : null;
@@ -455,6 +473,27 @@ namespace Vion.Dale.DevHost.Test
 
             var demand = definition.Contracts.Single(c => c.Identifier == "Demand");
             Assert.AreEqual("Count >= 2", demand.IncludedWhen, "the gated contract binding must carry its [IncludedWhen] predicate.");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CTRL-020.3")]
+        [TestProperty("spec", "AC-GATE-010.6")]
+        [TestProperty("spec", "AC-INTRO-007.3")]
+        public void PublishOnlyBoundsParameterSchemaCanCarry()
+        {
+            // Arrange / Act
+            var definition = LogicBlockDefinition.FromType(typeof(BoundedParameterBlock));
+            var parameters = definition.InstantiationParameters.ToDictionary(p => p.Identifier, p => p.Schema);
+
+            // Assert — the declaration's own defaults are the two infinities, so "finite" is the same test as
+            // "declared"; a NaN is neither, and a finite bound the schema's integer cannot carry saturates
+            // into a limit the author never wrote.
+            Assert.IsNull(parameters["NotANumber"]!["minimum"], "a bound that is not a number has no representation in the schema");
+            Assert.AreEqual(10L, parameters["NotANumber"]!["maximum"]!.GetValue<long>(), "the other bound of the same member is unaffected");
+            Assert.IsNull(parameters["OutOfRange"]!["maximum"], "a finite bound outside the integer range would saturate, so it is omitted");
+            Assert.AreEqual(0L, parameters["OutOfRange"]!["minimum"]!.GetValue<long>());
+            Assert.AreEqual(1L, parameters["Carryable"]!["minimum"]!.GetValue<long>());
+            Assert.AreEqual(12L, parameters["Carryable"]!["maximum"]!.GetValue<long>());
         }
 
         private static string NewTopologyDir()

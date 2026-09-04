@@ -721,7 +721,7 @@ export function groupItems(service) {
     return itemsByGroup;
 }
 
-// ── Scenario trace policy (RFC 0012) ────────────────────────────────────────────
+// ── Scenario trace policy ────────────────────────────────────────────
 // Pure helpers behind the trace viewer (form C). The trace is the run report's `watchTrace`
 // (a WatchSample[] sampled at step boundaries) joined to the scenario's `watch` paths. The wire
 // serializer camelCases the first path segment (e.g. RefGridMeter -> refGridMeter), so every join

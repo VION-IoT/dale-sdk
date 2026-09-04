@@ -9,7 +9,7 @@ using Vion.Dale.DevHost.Topologies;
 namespace Vion.Dale.DevHost.Web.Api.Controllers
 {
     /// <summary>
-    ///     The block catalog over HTTP (RFC 0013 Phase 1): every <c>LogicBlockBase</c> type the running DevHost
+    ///     The block catalog over HTTP: every <c>LogicBlockBase</c> type the running DevHost
     ///     references, each projected to its per-interface matching metadata + <c>[InstantiationParameter]</c>
     ///     definitions via <see cref="LogicBlockDefinition" />. The server exposes the introspection DATA; the
     ///     client phase does the wiring logic and the parameter editing.

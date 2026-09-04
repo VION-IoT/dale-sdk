@@ -14,14 +14,17 @@ namespace Vion.Dale.DevHost.Test
     public class DeterministicServiceIdsShould
     {
         [TestMethod]
-        public async Task DeriveEachIdFromTheBlockIdAndTheServiceIdentifier()
+        [TestProperty("spec", "AC-CTRL-019.3")]
+        public async Task DeriveServiceIdFromBlockAndServiceIdentifier()
         {
             // The assertion is the exact derived string, not "the ids in this process agree" — the weaker
             // form passes with random GUIDs too, so it proves nothing about the export.
+            // Arrange
             var config = DevConfigurationBuilder.Create().AddLogicBlock<RootNestedCollisionBlock>("collide", "lb_collide").Build();
             await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).Build();
             await host.StartAsync();
 
+            // Act / Assert
             var block = host.Control.GetConfiguration().LogicBlocks.Single(b => b.Id == "lb_collide");
 
             // The block's own (root) service is identified by the class name; each nested interface-bound
@@ -36,12 +39,14 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task KeepEveryServiceIdUniqueAcrossBlocksAndTheServiceProviderSpace()
+        [TestProperty("spec", "AC-CTRL-019.3")]
+        public async Task KeepEveryServiceIdUniqueAcrossOneHost()
         {
             // GUIDs made uniqueness free. Derived ids do not, and the ids still key the SPA's value map and
             // DevHostControl's write path — so a collision would silently cross two services' state. The
             // service-provider identifiers minted by DevConfigurationBuilder (svc_{blockId}, svc_shared_{n})
             // reach committed topology files, which is why the block-service space carries its own prefix.
+            // Arrange
             var config = DevConfigurationBuilder.Create()
                                                 .AddLogicBlock<RootNestedCollisionBlock>("first")
                                                 .AddLogicBlock<RootNestedCollisionBlock>("second")
@@ -56,6 +61,7 @@ namespace Vion.Dale.DevHost.Test
                                    .Concat(configuration.ServiceProviders.SelectMany(sp => sp.Services.Select(s => s.Identifier)))
                                    .ToList();
 
+            // Act / Assert
             CollectionAssert.AreEquivalent(ids.Distinct().ToList(), ids, $"duplicate service id: {string.Join(", ", ids)}");
         }
 
@@ -78,13 +84,16 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task MintTheSameIdsForASecondHostOnTheSameConfiguration()
+        [TestProperty("spec", "AC-CTRL-019.3")]
+        public async Task DeriveSameServiceIdsForSecondHostOnOneConfiguration()
         {
             // The export is taken from a fresh process each time, and a recycle rebuilds the host in place —
             // both must land on the same ids as the run before.
+            // Arrange
             var first = await ServiceIdsOfAFreshHostAsync();
             var second = await ServiceIdsOfAFreshHostAsync();
 
+            // Act / Assert
             CollectionAssert.AreEqual(first, second);
         }
 

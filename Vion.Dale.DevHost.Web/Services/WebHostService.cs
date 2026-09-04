@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
@@ -26,6 +27,8 @@ namespace Vion.Dale.DevHost.Web.Services
     {
         private readonly DevBlockCatalog _blockCatalog;
 
+        private readonly DevHostBudgets _budgets;
+
         private readonly WebHostConfiguration _config;
 
         private readonly IDevHostControl _control;
@@ -46,8 +49,10 @@ namespace Vion.Dale.DevHost.Web.Services
                               DevHostEvents devHostEvents,
                               IDevHostControl control,
                               DevBlockCatalog blockCatalog,
-                              DevHostIntrospection introspection)
+                              DevHostIntrospection introspection,
+                              DevHostBudgets budgets)
         {
+            _budgets = budgets;
             _config = config;
             _devConfiguration = devConfiguration;
             _devHostEvents = devHostEvents;
@@ -101,6 +106,7 @@ namespace Vion.Dale.DevHost.Web.Services
             builder.Services.AddCors(options => { options.AddDefaultPolicy(policy => { policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader(); }); });
 
             // Register DevHost services as singletons in the WebApplication
+            builder.Services.AddSingleton(_budgets);
             builder.Services.AddSingleton(_devConfiguration);
             builder.Services.AddSingleton(_devHostEvents);
             builder.Services.AddSingleton(_control);
@@ -171,6 +177,17 @@ namespace Vion.Dale.DevHost.Web.Services
                                     OnPrepareResponse = NoStaleSpaCache,
                                 });
 
+            // The API's own catch-all, registered BEFORE the SPA's so the more specific pattern wins: without
+            // it, `{*path:nonfile}` matches /api/anything (no file extension, so the constraint does not
+            // exclude it) and a mistyped route answers 200 text/html. A caller that checks the status code
+            // then reports the host healthy, and one that parses JSON gets a parse error naming a `<`.
+            _app.MapFallback("/api/{**rest}",
+                             (HttpContext context) => Results.NotFound(new
+                                                                       {
+                                                                           error = $"no such route: {context.Request.Method} {context.Request.Path}",
+                                                                           reason = "unknownRoute",
+                                                                       }));
+
             _app.MapFallbackToFile("index.html",
                                    new StaticFileOptions
                                    {
@@ -189,7 +206,7 @@ namespace Vion.Dale.DevHost.Web.Services
                                       $"  scenario {scenario.Id}: INVALID — {scenario.Error}");
             }
 
-            return _app.StartAsync(cancellationToken);
+            return StartServerAsync(cancellationToken);
         }
 
         public async Task StopAsync(CancellationToken cancellationToken)
@@ -201,6 +218,23 @@ namespace Vion.Dale.DevHost.Web.Services
                 _app.Services.GetRequiredService<ScenarioRunRegistry>().Shutdown();
                 await _app.StopAsync(cancellationToken);
                 await _app.DisposeAsync();
+            }
+        }
+
+        // Kestrel reports a port already in use as an IOException, which the supervised runner's catch does not
+        // see - so a second `dale dev` in one checkout took the process down on a framework stack trace naming
+        // neither the port nor the host already on it. Translate it to the type the start path already speaks.
+        private async Task StartServerAsync(CancellationToken cancellationToken)
+        {
+            try
+            {
+                await _app!.StartAsync(cancellationToken);
+            }
+            catch (IOException exception)
+            {
+                throw new InvalidOperationException($"The development host could not bind port {_config.Port}: {exception.Message} " +
+                                                    "Another host is probably already serving it - stop it, or start this one on a different port.",
+                                                    exception);
             }
         }
 

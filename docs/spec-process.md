@@ -26,7 +26,7 @@ instances (those live in git, the archived change docs, and the process journal)
 | Authoring contracts | instantiation & config-time gating | `GATE` | A |
 | Wire contracts | introspection JSON + identifier stability (golden files, packed-artifact rule) | `INTRO` | A |
 | Wire contracts | scenario & topology files + stepping semantics (scenario schema, committed scenarios) | `SCEN` | A |
-| Wire contracts | DevHost control API | `CTRL` | A |
+| Wire contracts | DevHost control API ([`specs/devhost-control.md`](specs/devhost-control.md)) | `CTRL` | A |
 | Wire contracts | plugin loading ABI (`[DaleSharedAssembly]`, ALC rules) | `PLUG` | A |
 | Wire contracts | CLI surface (help snapshot) | `CLI` | B |
 | Runtime semantics | block lifecycle (start/stop ordering, teardown delivery) | `LIFE` | A |
@@ -177,7 +177,7 @@ repo is never half-migrated. One pass, in order:
 
 The protocol is packaged as the `spec-pass` skill; each pass is one change doc + one band-sized
 PR. Order: plugin ABI (done — the pilot) → emission (done) → config gating (done) → introspection +
-identifiers (done) → scenario/stepping/pairing → remainder. `docs/rfcs/` is frozen meanwhile (do not
+identifiers (done) → scenario/stepping/pairing (done) → DevHost control (done) → remainder. `docs/rfcs/` is frozen meanwhile (do not
 cite it in new work) and disappears with the last pass.
 
 ## Dispatching a pass to a fresh session
@@ -267,7 +267,7 @@ scorecard from the checks' findings before the PR merges.
 | --- | --- | --- |
 | `scripts/spec-lint.ps1` | `spec-gates.yml` + on demand | malformed/escape-hatch ACs in `docs/specs/`; change-doc frontmatter or lifecycle broken (`archived` outside `archive/`, unknown status); `-Diff <ref>` warns on narrative added to the corpus (`-Strict` fails) |
 | `scripts/spec-trace.ps1` | `spec-gates.yml` + on demand | any id on a `trace: enforced` page (or an `in-flight` delta) with no quoted-literal test reference; a marked page parsing zero ids; an id-sequence hole (a leaf missing below its umbrella's highest) that no archived change doc names |
-| `scripts/bom-lint.ps1` | `spec-gates.yml` + on demand | a `.md`, `.js`, `.mjs`, `.cjs`, `.json`, `.yml`, `.html`, `.css`, `.targets` or `.props` file carrying a UTF-8 byte-order mark — no file of these kinds has one here, and a helper writing `utf-8-sig` once stamped 46 |
+| `scripts/bom-lint.ps1` | `spec-gates.yml` + on demand | a `.md`, `.js`, `.mjs`, `.cjs`, `.json`, `.yml`, `.html`, `.css`, `.targets` or `.props` file carrying a UTF-8 byte-order mark — no file of these kinds has one here, and a helper writing `utf-8-sig` once stamped 46 — **or a NUL byte**: one makes git call the whole file binary, so the line-ending policy never normalises it and every `grep` and reference sweep skips it (`wwwroot/components.js` carried one inside a comment, with 22 RFC citations behind it) |
 | `scripts/journal-lint.ps1` | `spec-gates.yml` + on demand | a line under `docs/process-journal.md`'s `## Entries` that is not one dated entry in the header's shape and vocabulary, two entries sharing a line (an append that did not end the previous one), or an entry dated below the one above it |
 | `scripts/sweep-residue-lint.ps1` | `spec-gates.yml` + on demand | prose — Markdown outside code, tables and headings; `//` and `///` comment text in C# and JavaScript — carrying what a scripted reference sweep leaves behind: an empty `()` on its own, two spaces inside a sentence, a Markdown line ending on `(`; frozen RFCs, the append-only logs, snapshots and vendored scripts are out of scope |
 | `scripts/spec-change.ps1 archive` | on demand | any Spec-delta line not distilled into its target, or an `ADDED`/`MODIFIED` line whose EARS text the target's declaring bullet no longer carries (backticks, brackets, type arguments, wrapping, a `GAP` tail and a trailing parenthetical set aside) |

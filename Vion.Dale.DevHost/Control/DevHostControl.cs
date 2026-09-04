@@ -33,6 +33,8 @@ namespace Vion.Dale.DevHost.Control
         // (a prior run or manual stepping) and is no longer reproducible from a clean slate.
         private readonly DateTimeOffset _baselineUtc;
 
+        private readonly DevHostBudgets _budgets;
+
         private readonly DevConfiguration _configuration;
 
         private readonly DevHostEvents _events;
@@ -92,8 +94,10 @@ namespace Vion.Dale.DevHost.Control
                               VirtualSchedule schedule,
                               TimeProvider timeProvider,
                               ServiceProviderOutputCache outputCache,
-                              ServiceProviderStandIns standIns)
+                              ServiceProviderStandIns standIns,
+                              DevHostBudgets budgets)
         {
+            _budgets = budgets;
             _configuration = configuration;
             _events = events;
             _outputCache = outputCache;
@@ -141,6 +145,12 @@ namespace Vion.Dale.DevHost.Control
         }
 
         /// <inheritdoc />
+        public bool CanSwitchTopology
+        {
+            get => _runControl.CanSwitchTopology;
+        }
+
+        /// <inheritdoc />
         public void Pause()
         {
             _runControl.Pause();
@@ -183,9 +193,9 @@ namespace Vion.Dale.DevHost.Control
         }
 
         /// <inheritdoc />
-        public IDisposable OnResetRequested(Action handler)
+        public IDisposable OnResetRequested(Action handler, bool honoursTopologySwitch = false)
         {
-            return _runControl.OnResetRequested(handler);
+            return _runControl.OnResetRequested(handler, honoursTopologySwitch);
         }
 
         /// <inheritdoc />
@@ -343,16 +353,46 @@ namespace Vion.Dale.DevHost.Control
             // safety net for writes the block never applied (unknown member, actor-side throw — the
             // swallowed-exception hollow ack ScenarioRunner's rejected-write detection looks for).
             var applied = WaitForAsync(e => e is ServicePropertyWriteAcknowledged ack && ack.ServiceId == serviceId && ack.Property == propertyName ? (object)ack : null,
-                                       TimeSpan.FromSeconds(5));
+                                       _budgets.WriteAcknowledgement);
 
             _actorSystem.SendTo(handler,
                                 new MockSetServicePropertyValue(logicBlockActor, new SetServicePropertyValueRequest(new ServiceIdentifier(serviceId), propertyName, typedValue!)));
 
-            await applied.ConfigureAwait(false);
+            if (await applied.ConfigureAwait(false) is null)
+            {
+                // The wait resolved with no value: the window is spent and no acknowledgement came. Refusing
+                // here is the difference between a caller learning the write never landed and a caller reading
+                // a 200 that means only "the window elapsed" — the shape that hid a swallowed setter throw.
+                throw new ServicePropertyWriteException(ServicePropertyWriteException.ReasonUnacknowledged,
+                                                        propertyName,
+                                                        $"Service property '{propertyName}' was not acknowledged within {_budgets.WriteAcknowledgement.TotalSeconds:0.###}s; the block may not have applied it.");
+            }
         }
 
         public Task DriveServiceProviderContractAsync(string handlerName, string serviceProviderId, string serviceId, string contractId, JsonElement value)
         {
+            // Reject a drive that would reach nothing UP FRONT, the way the write path rejects an unwritable
+            // member. LookupByName mints an actor reference for any name at all, so an unresolvable address
+            // sends into dead letters and the caller — the SPA's HAL toggle, an agent's POST — is told the poke
+            // took. Resolving here is the only place both facts are in hand: the stand-ins this generation
+            // actually created, and the endpoints the wired configuration carries.
+            var endpoint = $"{serviceProviderId}/{serviceId}/{contractId}";
+
+            if (!_standIns.Names.Contains(handlerName, StringComparer.Ordinal))
+            {
+                throw new ServiceProviderDriveException(ServiceProviderDriveException.ReasonUnknownHandler,
+                                                        endpoint,
+                                                        $"No service-provider stand-in named '{handlerName}' on this host. " +
+                                                        $"Known stand-ins: {(_standIns.Names.Count == 0 ? "none — the host has not been started" : string.Join(", ", _standIns.Names))}.");
+            }
+
+            if (!CarriesContractEndpoint(serviceProviderId, serviceId, contractId))
+            {
+                throw new ServiceProviderDriveException(ServiceProviderDriveException.ReasonUnknownContract,
+                                                        endpoint,
+                                                        $"The wired network carries no service-provider contract endpoint '{endpoint}'.");
+            }
+
             var handler = _actorSystem.LookupByName(handlerName);
             _actorSystem.SendTo(handler, new MockSetServiceProviderInputMessage(new ServiceProviderContractId(serviceProviderId, serviceId, contractId), value));
             return Task.CompletedTask;
@@ -424,6 +464,16 @@ namespace Vion.Dale.DevHost.Control
                 throw new ArgumentNullException(nameof(selector));
             }
 
+            // A zero timeout is legal and means "observe nothing" (the token below is already cancelled). Any
+            // other negative span is not: CancellationTokenSource would throw naming its own `delay` parameter,
+            // a name this surface does not have. Timeout.InfiniteTimeSpan keeps its framework meaning.
+            if (timeout < TimeSpan.Zero && timeout != Timeout.InfiniteTimeSpan)
+            {
+                throw new ArgumentOutOfRangeException(nameof(timeout),
+                                                      timeout,
+                                                      "A wait timeout must not be negative; use TimeSpan.Zero to observe nothing or Timeout.InfiniteTimeSpan to wait indefinitely.");
+            }
+
             var tcs = new TaskCompletionSource<T?>(TaskCreationOptions.RunContinuationsAsynchronously);
 
             bool Waiter(DevHostEvent e)
@@ -487,12 +537,39 @@ namespace Vion.Dale.DevHost.Control
             return _messageTap.Snapshot(LogicBlockUtils.CreateLogicBlockName(logicBlock.Name, logicBlock.Id));
         }
 
+        public IReadOnlyList<BlockFailure> RecordedFailures(string? logicBlockIdOrName = null)
+        {
+            if (logicBlockIdOrName is not null)
+            {
+                var filtered = ResolveLogicBlock(logicBlockIdOrName);
+
+                return filtered is null ? Array.Empty<BlockFailure>() : _messageTap.Failures(LogicBlockUtils.CreateLogicBlockName(filtered.Name, filtered.Id))
+                                                                                   .Select(f => f with { LogicBlock = filtered.Name })
+                                                                                   .ToList();
+            }
+
+            // Report the block by the name the operator wired it under, not by its actor id — the same
+            // fallback the event stream uses when a name cannot be resolved (an actor that is not a block, or
+            // a failure recorded before the configuration was populated).
+            return _messageTap.Failures().Select(f => f with { LogicBlock = LogicBlockNameForActor(f.LogicBlock) }).ToList();
+        }
+
         public void Dispose()
         {
             _events.ServicePropertyChanged -= OnServiceProperty;
             _events.ServicePropertyWriteAcknowledged -= OnWriteAcknowledged;
             _events.ServiceMeasuringPointChanged -= OnMeasuringPoint;
             _events.ServiceProviderContractChanged -= OnServiceProviderContract;
+        }
+
+        // Whether the wired configuration carries this endpoint triple. Every endpoint the builder and the
+        // topology loader auto-create comes with the block mapping that reaches it, so an endpoint that exists
+        // is an endpoint something is linked to — there is no third "exists but nothing maps it" state to
+        // report.
+        private bool CarriesContractEndpoint(string serviceProviderId, string serviceId, string contractId)
+        {
+            return _configuration.ServiceProviders.Any(sp => sp.Id == serviceProviderId &&
+                                                             sp.Services.Any(svc => svc.Identifier == serviceId && svc.Contracts.Any(c => c.Identifier == contractId)));
         }
 
         // Walk a captured command's JSON to the addressed field, or return null when a segment is missing. The
@@ -545,7 +622,7 @@ namespace Vion.Dale.DevHost.Control
         // rejected when stepping is actually requested — not at construction.
         private DeterministicStepper EnsureStepper()
         {
-            return _stepper ??= new DeterministicStepper(_timeProvider, new QuiescenceBarrier(_vitals, _activityMonitor), _schedule);
+            return _stepper ??= new DeterministicStepper(_timeProvider, new QuiescenceBarrier(_vitals, _activityMonitor), _schedule, _budgets.Quiescence);
         }
 
         // JSON → typed CLR for the HTTP set path (moved here when IDevHostStateProvider was collapsed into the
@@ -610,6 +687,13 @@ namespace Vion.Dale.DevHost.Control
         private DevLogicBlockConfig? ResolveLogicBlock(string logicBlockIdOrName)
         {
             return _configuration.LogicBlocks.FirstOrDefault(b => b.Name == logicBlockIdOrName) ?? _configuration.LogicBlocks.FirstOrDefault(b => b.Id == logicBlockIdOrName);
+        }
+
+        // actor name -> the block name it was wired under, or the actor name when it is not a block's actor.
+        private string LogicBlockNameForActor(string actorName)
+        {
+            var logicBlock = _configuration.LogicBlocks.FirstOrDefault(b => LogicBlockUtils.CreateLogicBlockName(b.Name, b.Id) == actorName);
+            return logicBlock?.Name ?? actorName;
         }
 
         private string LogicBlockNameFor(string serviceId)

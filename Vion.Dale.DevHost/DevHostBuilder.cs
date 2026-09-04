@@ -30,6 +30,8 @@ namespace Vion.Dale.DevHost
 
         private readonly ServiceCollection _services = new();
 
+        private DevHostBudgets _budgets = new();
+
         private DevConfiguration? _configuration;
 
         private ILogger<DevHostBuilder>? _logger;
@@ -113,11 +115,29 @@ namespace Vion.Dale.DevHost
         ///     <c>settle</c> steps drive virtual time exactly instead of waiting on the wall clock. The clock
         ///     starts at <paramref name="startUtc" /> (default a fixed epoch, so a run is reproducible). It is
         ///     registered ahead of <see cref="Build" />'s <c>TryAddSingleton(TimeProvider.System)</c>, so this
-        ///     explicit clock wins.
+        ///     explicit clock wins. The ceiling the stepper waits under is a safety budget like the others —
+        ///     <see cref="WithSafetyBudgets" /> is where it is set.
         /// </summary>
         public DevHostBuilder WithDeterministicStepping(DateTimeOffset? startUtc = null)
         {
             _services.AddSingleton<TimeProvider>(new FakeTimeProvider(startUtc ?? DeterministicEpoch));
+            return this;
+        }
+
+        /// <summary>
+        ///     Override the host's real-time safety budgets (see <see cref="DevHostBudgets" />). Every budget
+        ///     keeps its default unless the record names another value; a non-positive one is refused here
+        ///     rather than at the wait it would fail to bound.
+        /// </summary>
+        public DevHostBuilder WithSafetyBudgets(DevHostBudgets budgets)
+        {
+            if (budgets is null)
+            {
+                throw new ArgumentNullException(nameof(budgets));
+            }
+
+            budgets.Validate();
+            _budgets = budgets;
             return this;
         }
 
@@ -136,6 +156,10 @@ namespace Vion.Dale.DevHost
                                          builder.SetMinimumLevel(LogLevel.Debug);
                                      });
             }
+
+            // The real-time safety budgets every backstop in this host reads. Registered before the SDK's own
+            // registrations so a consumer's ConfigureServices override still wins.
+            _services.AddSingleton(_budgets);
 
             // Add Dale SDK services (required for LogicBlocks)
             _services.AddDaleSdk();
@@ -160,7 +184,7 @@ namespace Vion.Dale.DevHost
             // the link-map fan-out and by PublishAllStates — so neither has to name a contract.
             _services.AddSingleton<ServiceProviderStandIns>();
 
-            // Headless control surface (RFC 0003): a log sink + ILoggerProvider that captures the
+            // Headless control surface: a log sink + ILoggerProvider that captures the
             // DevHost's log output (additive — alongside the console provider, which is unchanged), and
             // the IDevHostControl facade for tests / agents. All additive; the web UI is unaffected.
             _services.AddSingleton<DevHostLogSink>();
@@ -168,7 +192,7 @@ namespace Vion.Dale.DevHost
             _services.AddSingleton<DevHostIntrospection>();
 
             // Message tap: the SAME instance is registered as both the concrete type and the opt-in
-            // IActorMessageObserver the ProtoActor middleware looks up (RFC 0003). Registering the observer
+            // IActorMessageObserver the ProtoActor middleware looks up. Registering the observer
             // here — only in DevHost — is what activates the tap; the production runtime registers none.
             _services.AddSingleton<MessageTap>();
             _services.AddSingleton<IActorMessageObserver>(sp => sp.GetRequiredService<MessageTap>());

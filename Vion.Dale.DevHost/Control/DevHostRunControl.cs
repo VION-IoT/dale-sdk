@@ -24,6 +24,8 @@ namespace Vion.Dale.DevHost.Control
 
         private readonly List<Action> _held = new();
 
+        private bool _honoursTopologySwitch;
+
         private bool _paused;
 
         private bool? _requestedClockMode;
@@ -52,6 +54,23 @@ namespace Vion.Dale.DevHost.Control
                 lock (_gate)
                 {
                     return _resetHandler is not null;
+                }
+            }
+        }
+
+        /// <summary>
+        ///     True when the attached supervisor rebuilds from the topology a switch names. A supervisor that
+        ///     builds every generation the same way (<c>DevHostWebRunner.RunAsync(Func&lt;IDevHost&gt;, …)</c>)
+        ///     can recycle but not re-topologise, and saying so is what keeps a client from being told a switch
+        ///     took while the host comes back on the topology it was already on.
+        /// </summary>
+        public bool CanSwitchTopology
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _resetHandler is not null && _honoursTopologySwitch;
                 }
             }
         }
@@ -129,17 +148,41 @@ namespace Vion.Dale.DevHost.Control
         }
 
         /// <summary>
-        ///     Attach the supervisor's reset handler. Returns a token that detaches it — the supervisor
-        ///     re-attaches per host generation.
+        ///     Attach the supervisor's reset handler. Returns a token that detaches that handler — the
+        ///     supervisor re-attaches per host generation, and each generation's run control is its own.
+        ///     <para>
+        ///         One handler at a time: a second attach is refused rather than silently replacing the first.
+        ///         Replacing it made the host answer a recycle request with success while nothing recycled, and
+        ///         composing two would invent semantics for which supervisor owns the rebuild.
+        ///     </para>
         /// </summary>
-        public IDisposable OnResetRequested(Action handler)
+        /// <param name="handler">Invoked when a recycle is requested.</param>
+        /// <param name="honoursTopologySwitch">
+        ///     True when this supervisor rebuilds from <see cref="RequestedTopology" />. Left false, the host
+        ///     reports itself unable to switch and refuses a switch request rather than answering it with a
+        ///     recycle onto the same topology.
+        /// </param>
+        /// <exception cref="InvalidOperationException">A reset handler is already attached.</exception>
+        public IDisposable OnResetRequested(Action handler, bool honoursTopologySwitch = false)
         {
-            lock (_gate)
+            if (handler is null)
             {
-                _resetHandler = handler;
+                throw new ArgumentNullException(nameof(handler));
             }
 
-            return new DetachToken(this);
+            lock (_gate)
+            {
+                if (_resetHandler is not null)
+                {
+                    throw new
+                        InvalidOperationException("A reset handler is already attached to this host generation. One supervisor owns the rebuild; dispose the first subscription before attaching another.");
+                }
+
+                _resetHandler = handler;
+                _honoursTopologySwitch = honoursTopologySwitch;
+            }
+
+            return new DetachToken(this, handler);
         }
 
         /// <summary>
@@ -164,10 +207,11 @@ namespace Vion.Dale.DevHost.Control
         }
 
         /// <summary>
-        ///     Request a recycle into a different clock mode (RFC 0012 §4) — rides the same reset signal; the
-        ///     supervisor (<c>DevHostWebRunner.RunAsync(Func&lt;string?, IDevHost&gt;, …)</c>) reads
-        ///     <see cref="RequestedClockMode" /> and rebuilds the next generation stepped or real. Returns false
-        ///     when no supervisor is attached.
+        ///     Request a recycle into a different clock mode — rides the same reset signal; the supervisor
+        ///     reads <see cref="RequestedClockMode" /> and rebuilds the next generation stepped or real.
+        ///     Returns false when no supervisor is attached. A supervisor that always builds the same graph
+        ///     still honours this: the recycle loop reads the requested mode whichever factory shape it was
+        ///     given, so the mode turns on the supervisor existing and not on it being topology-aware.
         /// </summary>
         public bool TryRequestClockMode(bool stepped)
         {
@@ -188,13 +232,14 @@ namespace Vion.Dale.DevHost.Control
         ///     Request a recycle into a different topology — rides the same reset signal;
         ///     a topology-aware supervisor (<c>DevHostWebRunner.RunAsync(Func&lt;string?, IDevHost&gt;, …)</c>)
         ///     reads <see cref="RequestedTopology" /> and builds the next generation from it. Returns false
-        ///     when no supervisor is attached.
+        ///     when no supervisor is attached, and when the attached one does not honour a topology switch —
+        ///     recycling it onto the topology it is already on would report a switch that never happened.
         /// </summary>
         public bool TryRequestTopologySwitch(string topologyId)
         {
             lock (_gate)
             {
-                if (_resetHandler is null)
+                if (_resetHandler is null || !_honoursTopologySwitch)
                 {
                     return false;
                 }
@@ -207,18 +252,30 @@ namespace Vion.Dale.DevHost.Control
 
         private sealed class DetachToken : IDisposable
         {
+            private readonly Action _handler;
+
             private readonly DevHostRunControl _owner;
 
-            public DetachToken(DevHostRunControl owner)
+            public DetachToken(DevHostRunControl owner, Action handler)
             {
                 _owner = owner;
+                _handler = handler;
             }
 
+            /// <summary>
+            ///     Detaches the handler THIS token was issued for, and nothing else. Clearing whatever handler
+            ///     was current let a stale token silently unsupervise a host a later subscriber owns — the host
+            ///     then reports itself unresettable with no supervisor change to explain it.
+            /// </summary>
             public void Dispose()
             {
                 lock (_owner._gate)
                 {
-                    _owner._resetHandler = null;
+                    if (ReferenceEquals(_owner._resetHandler, _handler))
+                    {
+                        _owner._resetHandler = null;
+                        _owner._honoursTopologySwitch = false;
+                    }
                 }
             }
         }

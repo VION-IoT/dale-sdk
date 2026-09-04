@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -35,13 +36,17 @@ namespace Vion.Dale.DevHost.Test
         // while a stepped host's per-wait timeouts are virtual and nothing advances the fake clock during
         // teardown — the mode the real-time backstop exists for (docs/testing-conventions.md § 5).
         [TestMethod]
+        [TestProperty("spec", "AC-CTRL-004.6")]
         [DataRow(false, DisplayName = "free-running clock")]
         [DataRow(true, DisplayName = "stepped clock")]
-        public async Task InvokeStoppingOnEveryBlock_WhenTheHostIsDisposed(bool stepped)
+        public async Task InvokeStopHookOnEveryBlockOnDisposal(bool stepped)
         {
+            // Arrange
             var recorder = new TeardownRecorder();
 
             await using var host = BuildHost(recorder, stepped);
+
+            // Act / Assert
             await host.StartAsync();
 
             CollectionAssert.DoesNotContain(recorder.Entries.ToList(), TeardownRecorder.Stopping, "Stopping() must not run while the host is up.");
@@ -55,10 +60,12 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CTRL-004.2")]
         [DataRow(false, DisplayName = "free-running clock")]
         [DataRow(true, DisplayName = "stepped clock")]
-        public async Task RunStopThenSnapshotThenTerminate_InThatOrder(bool stepped)
+        public async Task RunStopThenSnapshotThenTerminateInThatOrder(bool stepped)
         {
+            // Arrange
             var recorder = new TeardownRecorder();
 
             await using var host = BuildHost(recorder, stepped);
@@ -76,6 +83,8 @@ namespace Vion.Dale.DevHost.Test
             var terminated = entries.ToList().IndexOf(TeardownRecorder.ScopeDisposed);
 
             var recorded = "Recorded: " + string.Join(", ", entries);
+
+            // Act / Assert
             Assert.IsGreaterThanOrEqualTo(0, stopRequest, "The block must receive StopLogicBlockRequest during teardown. " + recorded);
             Assert.IsGreaterThanOrEqualTo(0, snapshotRequest, "The block must receive GetPersistentDataSnapshotRequest during teardown. " + recorded);
             Assert.IsGreaterThanOrEqualTo(0, terminated, "The block actor's DI scope must be disposed, i.e. the actor must be terminated. " + recorded);
@@ -86,14 +95,16 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CTRL-004.1")]
         [DataRow(false, DisplayName = "free-running clock")]
         [DataRow(true, DisplayName = "stepped clock")]
-        public async Task DeliverAServicePropertyWriteIssuedFromStopping(bool stepped)
+        public async Task DeliverServicePropertyWriteIssuedFromStopHook(bool stepped)
         {
             // The modest half of the third acceptance criterion: an operation enqueued by Stopping() reaches
             // its destination. A service-property write does, because the publish it raises is sent from the
             // same handler and the mock service handler actor outlives the block. A best-effort *contract*
             // write is the case that needs a grace period between Stopping() and teardown — VION-65.
+            // Arrange
             var recorder = new TeardownRecorder();
             var events = new ConcurrentQueue<DevHostEvent>();
 
@@ -108,39 +119,47 @@ namespace Vion.Dale.DevHost.Test
 
             var final = events.OfType<ServicePropertyChanged>().LastOrDefault(e => e.Property == nameof(StoppingBlock.Status));
 
+            // Act / Assert
             Assert.IsNotNull(final, "The Status write issued from Stopping() must be published. Events: " + string.Join(", ", events.Select(e => e.GetType().Name)));
             Assert.AreEqual(StoppingBlock.StoppedStatus, final.Value, "The final published Status must be the value Stopping() wrote.");
         }
 
         [TestMethod]
-        public async Task NotHangOrThrow_WhenTheHostWasNeverStarted()
+        [TestProperty("spec", "AC-CTRL-004.5")]
+        public async Task StopWithoutWaitingWhenHostWasNeverStarted()
         {
             // Teardown discovers the block actors from the process registry, so a host that never started has
             // nothing to stop and must fall straight through — not send into dead letters and ride out the
             // stop timeout. 122 `await using … Build()` sites in this project depend on teardown staying cheap.
+            // Arrange
             var recorder = new TeardownRecorder();
             var host = BuildHost(recorder, false);
 
             var dispose = host.DisposeAsync().AsTask();
 
+            // Act / Assert
             Assert.AreSame(dispose, await Task.WhenAny(dispose, Task.Delay(TimeSpan.FromSeconds(10))), "Disposing a never-started host must not wait on a stop acknowledgement.");
             await dispose;
             CollectionAssert.DoesNotContain(recorder.Entries.ToList(), TeardownRecorder.Stopping, "A host that never started has no started blocks to stop.");
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CTRL-004.2")]
+        [TestProperty("spec", "AC-CTRL-005.1")]
         [TestCategory("Smoke")]
-        public async Task RunTheStopSequenceOnHostRecycle_NotOnlyOnProcessExit()
+        public async Task RunStopSequenceOnHostRecycle()
         {
             // Acceptance criterion 2. The recycle path is the same seam — DevHostWebRunner's supervised loop
             // is `await using var host` per generation, so ending an iteration runs DisposeAsync → StopAsync —
             // but "follows from the shared seam" is an argument, not a demonstration. Drive a real reset
             // through the HTTP surface the UI's recycle button uses and watch generation 1 stop properly.
+            // Arrange
             var recorder = new TeardownRecorder();
             var port = FreePort();
 
             IDevHost Factory(string? requestedTopology)
             {
+                // Act / Assert
                 return BuildHost(recorder, true, port);
             }
 
@@ -186,6 +205,68 @@ namespace Vion.Dale.DevHost.Test
             }
         }
 
+        [TestMethod]
+        [TestProperty("spec", "AC-CTRL-004.3")]
+        [TestProperty("spec", "AC-CTRL-004.4")]
+        [TestProperty("spec", "AC-CTRL-013.1")]
+        public async Task BoundStopSequenceAndDowngradeItsFailuresToWarnings()
+        {
+            // Arrange — a block whose stop hook blocks for far longer than the sequence budget. Every wait in
+            // the sequence is virtual, so on a stepped host only the real-time backstop can end this.
+            var configuration = DevConfigurationBuilder.Create().AddLogicBlock<SlowStoppingBlock>("slow").Build();
+            var host = DevHostBuilder.Create()
+                                     .WithDi<TestDependencyInjection>()
+                                     .WithConfiguration(configuration)
+                                     .WithDeterministicStepping()
+                                     .WithSafetyBudgets(new DevHostBudgets { StopSequence = TimeSpan.FromMilliseconds(300) })
+                                     .Build();
+            await host.StartAsync();
+
+            // Act — teardown must return, and must not surface the failure it rode over.
+            var elapsed = Stopwatch.StartNew();
+            await host.DisposeAsync();
+            elapsed.Stop();
+
+            // Assert
+            Assert.IsLessThan(TimeSpan.FromSeconds(20), elapsed.Elapsed, "the stop sequence must be bounded by its own real-time budget");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CTRL-004.7")]
+        public async Task DisposeServiceProviderItOwns()
+        {
+            // Arrange
+            var configuration = DevConfigurationBuilder.Create().AddLogicBlock<CounterBlock>("counter").Build();
+            var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(configuration).Build();
+            await host.StartAsync();
+
+            // Act
+            await host.DisposeAsync();
+
+            // Assert — the provider the host built is gone with it, so nothing can be resolved from it after.
+            Assert.ThrowsExactly<ObjectDisposedException>(() => _ = host.Control);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CTRL-002.7")]
+        public async Task RunStartedHostUntilCancellationThenStopIt()
+        {
+            // Arrange — the process entry point: run the host, and end it by cancelling. The stop deliberately
+            // runs on the already-cancelled token, which is why cancelling must not surface as a throw.
+            var recorder = new TeardownRecorder();
+            await using var host = BuildHost(recorder, false);
+            using var lifetime = new CancellationTokenSource();
+
+            // Act
+            var run = host.RunAsync(lifetime.Token);
+            await WaitUntilBlockPublishedAsync(host);
+            await lifetime.CancelAsync();
+            await run.WaitAsync(TimeSpan.FromSeconds(30));
+
+            // Assert — the call returned normally, and it took the host down on its way out.
+            CollectionAssert.Contains(recorder.Entries.ToList(), TeardownRecorder.Stopping, "Recorded: " + string.Join(", ", recorder.Entries));
+        }
+
         private static async Task<bool> PollSteppedReadyAsync(HttpClient client, TimeSpan timeout)
         {
             var deadline = DateTime.UtcNow + timeout;
@@ -222,6 +303,19 @@ namespace Vion.Dale.DevHost.Test
         private static int IndexOfMessage(IReadOnlyList<string> entries, string messageTypeName)
         {
             return entries.ToList().FindIndex(entry => entry.StartsWith(messageTypeName + "@", StringComparison.Ordinal));
+        }
+
+        /// <summary>
+        ///     Waits until the block has published its initial state, which only a started actor does — the run
+        ///     task itself carries the start, so cancelling before that would cancel the start instead of the run.
+        /// </summary>
+        private static async Task WaitUntilBlockPublishedAsync(IDevHost host)
+        {
+            var deadline = Stopwatch.StartNew();
+            while (host.Control.GetProperty("stopper", "Status") is null && deadline.Elapsed < TimeSpan.FromSeconds(30))
+            {
+                await Task.Delay(10);
+            }
         }
 
         private static IDevHost BuildHost(TeardownRecorder recorder, bool stepped, int? webUiPort = null)

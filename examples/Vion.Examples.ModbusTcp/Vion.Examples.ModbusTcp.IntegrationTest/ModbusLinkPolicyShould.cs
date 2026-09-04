@@ -10,7 +10,7 @@ using Xunit;
 namespace Vion.Examples.ModbusTcp.IntegrationTest
 {
     /// <summary>
-    ///     Runs the example's committed scenarios headlessly (RFC 0003): the same files the DevHost
+    ///     Runs the example's committed scenarios headlessly: the same files the DevHost
     ///     Player and <c>scripts/smoke-modbus.ps1</c> run, through the same interpreter, with no web UI. The
     ///     blocks are a real Modbus TCP client and server talking over <c>127.0.0.1:15020</c>, so a run
     ///     exercises real sockets, a real refused connect and the real backoff timer.

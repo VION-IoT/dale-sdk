@@ -10,7 +10,7 @@ namespace Vion.Dale.DevHost.Topologies
 {
     /// <summary>
     ///     A catalog entry for a single logic-block type — the per-block matching metadata a topology-authoring
-    ///     client (RFC 0013 Phase 1) needs to compute wiring. Built purely by reflection over the <see cref="Type" />
+    ///     client needs to compute wiring. Built purely by reflection over the <see cref="Type" />
     ///     (no host build; an optional instance is used only to read <c>[InstantiationParameter]</c> defaults), so it
     ///     can describe every block the running DevHost references — even ones not in the wired configuration. The
     ///     field shapes mirror the introspection result's <c>InterfaceTypeFullNames</c> /
@@ -146,12 +146,12 @@ namespace Vion.Dale.DevHost.Topologies
                 schema["type"] = "integer";
                 if (serviceProperty is not null)
                 {
-                    if (!double.IsInfinity(serviceProperty.Minimum))
+                    if (CanCarry(serviceProperty.Minimum))
                     {
                         schema["minimum"] = (long)serviceProperty.Minimum;
                     }
 
-                    if (!double.IsInfinity(serviceProperty.Maximum))
+                    if (CanCarry(serviceProperty.Maximum))
                     {
                         schema["maximum"] = (long)serviceProperty.Maximum;
                     }
@@ -164,6 +164,17 @@ namespace Vion.Dale.DevHost.Topologies
             }
 
             return schema;
+        }
+
+        // Whether a declared bound can be carried in the editor schema's integer at all. The declaration's own
+        // defaults are the two infinities, so "finite" is the same test as "declared" — and it closes the value
+        // that is neither: a NaN passes an infinity test and converts to 0, a limit an author never wrote and a
+        // plausible enough one to be believed. A finite bound outside the integer range saturates to its
+        // extreme, which is the same lie with a bigger number. Both are left out; the running block enforces
+        // nothing here either way (AC-GATE-010.6).
+        private static bool CanCarry(double bound)
+        {
+            return double.IsFinite(bound) && bound >= long.MinValue && bound <= long.MaxValue;
         }
 
         // The wire scalar for a parameter value: enum by member name, integer as a number, bool/string as-is —

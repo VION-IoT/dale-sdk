@@ -35,7 +35,11 @@ namespace Vion.Dale.DevHost
                     return candidate;
                 }
 
-                if (Directory.Exists(Path.Combine(current, ".git")))
+                // A file as well as a directory: `git worktree add` writes .git as a FILE naming the real
+                // repository, and a walk that recognised only the directory climbed straight past a
+                // worktree's root into whatever scenarios/ its parent happens to hold.
+                var marker = Path.Combine(current, ".git");
+                if (Directory.Exists(marker) || File.Exists(marker))
                 {
                     break;
                 }

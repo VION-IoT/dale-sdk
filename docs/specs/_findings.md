@@ -8,28 +8,8 @@ key; an entry that is fixed is deleted with the PR that fixes it.
 Not for: a small area-local defect (the pass fixes it), a stated behavior that merely surprises (the spec
 page states it), or a missing test (that is a `GAP` marker on the page).
 
-## `GATE` — config-time structural gating (2026-09-02)
-
-- **A development host reports itself started over a block that failed to initialize.** The
-  configuration is sent to the actor and the send returns; the actor sends no acknowledgement, so an
-  initialization throw surfaces only as one `[EXCEPTION CAUGHT]` log line while the host reports
-  success and the operator sees a block whose properties all read null. The two ways a configuration
-  is wrong before it reaches the actor — an unresolvable identifier and an undecodable value — are
-  both refused at the topology loader now (`AC-GATE-012.8`); what remains is the general case, which
-  is the development host's start-and-health surface. *(GATE pass row 66, narrowed by amendment
-  4b — `CTRL`.)*
-
 ## `INTRO` — the introspection document and identifier stability (2026-09-02)
 
-- **The development host's parameter-editor schema carries a bound that is not a number.** The
-  catalog builds an `[InstantiationParameter]`'s editor schema straight off the paired
-  `[ServiceProperty]`'s bounds and tests them with `double.IsInfinity`
-  (`Vion.Dale.DevHost/Topologies/LogicBlockDefinition.cs:149`,`:154`), so a `NaN` bound passes the test
-  and is then cast to `long` — an undefined conversion that renders as a garbage limit. It is the same
-  one-sided shape `AC-INTRO-007.3` closed in the introspection producer, at a site this pass does not
-  own: the criterion is `AC-GATE-010.6`'s field and the test would live in the development host's
-  suite. One line to fix, and it needs the owning area's criterion. *(INTRO pass, sibling sweep of row
-  30 — `CTRL`.)*
 - **`dale list` cannot render a nested block's short name, and drops an endpoint whose identifier is
   empty.** The projection splits a block's identity on `.` (`Vion.Dale.Cli/Commands/ListCommand.cs:72`,
   `:153`), so a nested block lists as `Outer+NestedBlock` — and it filters an empty identifier out
@@ -53,11 +33,46 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   attribute families and two declaration levels — `DALE043`/`DALE044`-sized work in the analyzer
   registry, which failed the pass's size guard. *(INTRO pass amendment 2, rows 68 and 69's
   compile-time half — `ANLZ`.)*
-- **Two real-clock safety budgets have no injection seam, so neither can be tested without waiting them
-  out.** `ScenarioRunner.AckCeilingMs` (just under five seconds — 4900 ms — the hollow-ack guard behind
-  `AC-SCEN-009.10`) and `DeterministicStepper.QuiescenceTimeout` (10 s, the never-settles backstop behind
-  the prose under `AC-SCEN-012.6`) are both private constants. Making them constructor or option
-  parameters would retire one GAP and let the second criterion state its failure message rather than only
-  its patience. The change touches `DeterministicStepper`'s construction, which `CTRL` owns.
-  *(SCEN pass, rows 123 and 138 — `CTRL`.)*
 
+## `CTRL` — the development host's control surface and lifecycle (2026-09-04)
+
+- **A clock-mode switch rebuilds the next generation by writing the process environment.** The
+  supervisor sets `DALE_DEVHOST_STEPPED` so the rebuilt host's `WithWebUi` reads it
+  (`Vion.Dale.DevHost.Web/DevHostWebRunner.cs:195-198`,
+  `DevHostBuilderExtensions.cs:43`), because `Func<string?, IDevHost>` carries no mode parameter. It is
+  process-global: a second host built in the same process — every test that builds one — inherits a
+  mode its caller never asked for. A runner-held static would be the same global under another name,
+  and a factory that takes the mode is a surface change. *(CTRL pass row 40 — `CTRL`.)*
+- **The duration converter's read half answers 500 where every other bad body answers 400.**
+  `Iso8601TimeSpanConverter.Read` lets `TimeSpan.Parse`'s `FormatException` escape
+  (`Vion.Dale.DevHost.Web/Api/Serialization/Iso8601TimeSpanConverter.cs:107-123`), which the input
+  pipeline does not translate. Unreachable today — every write body binds as `object` or `JsonElement`
+  and is decoded by the control surface instead — and live the moment a typed duration reaches a
+  request body. *(CTRL pass row 141 — `CTRL`.)*
+- **A topology's validation errors are served by splitting a joined message.**
+  `TopologiesController.InvalidTopology` splits `InvalidDataException.Message` on `"; "`
+  (`Vion.Dale.DevHost.Web/Api/Controllers/TopologiesController.cs:140-148`), so an error containing that
+  separator is served as two fragments and the editor shows one with no subject. The fix is a
+  structured exception on the topology types, which are `SCEN`'s. *(CTRL pass row 168 — `SCEN`.)*
+- **A client that connects before the first generation's actors exist is never primed.** The web host
+  starts before the logic system initializes (`Vion.Dale.DevHost/DevHost.cs:66-71` then `:74-96`), so a
+  hub connection in that window replays to actors that do not exist and to an empty stand-in list, with
+  no error either side. The SPA covers itself with its own snapshot fetch (`wwwroot/store.js:492`); a
+  hand-written client relying on the replay alone sees nothing. Closing it means a readiness gate on the
+  hub. *(CTRL pass row 184 — `CTRL`.)*
+- **The scenario and topology routes refuse without a reason token.** Every conflict carries one and
+  every refusal the control surface raises carries one, but the file-serving and file-saving answers do
+  not: not-found for an unknown scenario or topology (`Vion.Dale.DevHost.Web/Api/Controllers/ScenariosController.cs:68`,
+  `:81`, `:103`, `TopologiesController.cs:66`, `:126`), the missing embedded schema
+  (`ScenariosController.cs:54`, `TopologiesController.cs:40`), the refused save
+  (`ScenariosController.cs:191`, `TopologiesController.cs:86`) and the structurally-invalid file and
+  id-mismatch answers (`ScenariosController.cs:112`, `:117`). `AC-CTRL-016.1` states the rule over the
+  refusals that do carry one; extending it over these adds a token family the Explorer's client would
+  key on, which is a wire decision rather than an amendment's. *(CTRL pass amendment 2, item 3 —
+  `CTRL`.)*
+- **Two shipped packages are outside the public-API snapshot.** `Vion.Dale.DevHost` and
+  `Vion.Dale.DevHost.Web` are `IsPackable` (`Vion.Dale.DevHost.csproj:9-10`,
+  `Vion.Dale.DevHost.Web.csproj:36-37`) and absent from `docs/snapshots/publicapi-manifest.json`'s 12
+  assemblies, so a member removed from `IDevHostControl` moves no snapshot and a consumer's build is the
+  first thing that notices. Whether the DevHost belongs in that manifest is a corpus decision, not this
+  area's. *(CTRL pass row 201 — the retro.)*
