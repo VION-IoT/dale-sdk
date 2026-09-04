@@ -52,8 +52,8 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         ///     and a value longer than a clock can wait.
         /// </summary>
         public static readonly DiagnosticDescriptor DALE005_TimerIntervalMustBePositive = new("DALE005",
-                                                                                              "Timer interval must be a finite positive number of seconds",
-                                                                                              "Method '{0}' has [Timer({1})] but the interval must be greater than zero and at most 4294967 seconds, and a real number",
+                                                                                              "Timer interval must be one a timer can be scheduled at",
+                                                                                              "Method '{0}' has [Timer({1})] but the interval must be a finite number of at least one clock tick (100 ns) and at most 4294967 seconds",
                                                                                               Category,
                                                                                               DiagnosticSeverity.Error,
                                                                                               true);

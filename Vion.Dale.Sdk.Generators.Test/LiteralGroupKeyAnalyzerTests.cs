@@ -1,4 +1,4 @@
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Vion.Dale.Sdk.Generators.Analyzers;
 using Vion.Dale.Sdk.Generators.Test.Helpers;
 
@@ -67,6 +67,34 @@ namespace Acme
     public static class PropertyGroup
     {
         public const string Powertrain = ""acme.powertrain"";
+    }
+}
+
+public class MyBlock
+{
+    [Presentation(Group = ""acme.powertrain"")] public int Counter { get; set; }
+}";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<LiteralGroupKeyAnalyzer>(source);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-010.5")]
+        public async Task StaySilentOnLiteralMatchingConstantInNestedPropertyGroup()
+        {
+            // Arrange / Act / Assert
+            // An integrator who declares PropertyGroup inside a holder type has declared the same
+            // vocabulary; only the name is exact, not where it sits.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+namespace Acme
+{
+    public static class Ui
+    {
+        public static class PropertyGroup
+        {
+            public const string Powertrain = ""acme.powertrain"";
+        }
     }
 }
 

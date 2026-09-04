@@ -1,4 +1,4 @@
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Vion.Dale.Sdk.Generators.Analyzers;
 using Vion.Dale.Sdk.Generators.Test.Helpers;
 
@@ -76,6 +76,29 @@ public readonly record struct Sample(
     [StructField(WriteOnly = true)] Mode {|#0:Selected|});";
             var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE040_WriteOnlyStructFieldTypeRestriction).WithLocation(0).WithArguments("Selected", "Mode");
             await AnalyzerTestBase.VerifyAnalyzerAsync<WriteOnlyStructFieldTypeRestrictionAnalyzer>(source, expected);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-011.4")]
+        public async Task StaySilentOnWriteOnlyStructFieldWhereNothingReadsIt()
+        {
+            // Arrange / Act / Assert
+            // Same scope as DALE033: the introspector reads [StructField] off a struct's constructor
+            // parameters and nowhere else, so a method or class-constructor parameter carries a knob no
+            // schema is built from.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public class Rig
+{
+    public void Configure([StructField(WriteOnly = true)] int secret) { }
+}
+
+public class Fixture
+{
+    public Fixture([StructField(WriteOnly = true)] int secret) { }
+}";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<WriteOnlyStructFieldTypeRestrictionAnalyzer>(source);
         }
     }
 }

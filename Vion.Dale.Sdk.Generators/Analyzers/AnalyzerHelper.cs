@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Vion.Dale.Sdk.Generators.Predicates;
@@ -270,6 +270,22 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                     }
                 }
             }
+        }
+
+        /// <summary>
+        ///     Whether a parameter is one the introspector reads <c>[StructField]</c> from: a parameter of a
+        ///     struct's instance constructor, which for a positional record struct is one of its fields.
+        ///     <c>TypeRefBuilder.BuildStructFieldAnnotations</c> and
+        ///     <c>StructFieldPresentationBuilder.Build</c> walk exactly that constructor, and nothing else
+        ///     reads the attribute. <c>StructFieldAttribute</c> is declared
+        ///     <c>AttributeTargets.Parameter</c>, which C# also permits on a method's or a class
+        ///     constructor's parameter — a declaration no schema is built from, so the rules that judge
+        ///     the knob stay silent there rather than reporting a misplacement with no effect behind it.
+        /// </summary>
+        internal static bool IsStructFieldParameter(IParameterSymbol parameter)
+        {
+            return parameter.ContainingSymbol is IMethodSymbol { MethodKind: MethodKind.Constructor, IsStatic: false } constructor &&
+                   constructor.ContainingType is { TypeKind: TypeKind.Struct };
         }
 
         internal static bool InheritsFromLogicBlockBase(INamedTypeSymbol type)

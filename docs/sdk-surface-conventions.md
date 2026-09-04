@@ -106,15 +106,17 @@ A rule a library author can violate in C# is enforced by a Dale analyzer, not by
 throw alone. That is the standing expectation here — *"The analyzer should be there to surface bad
 usage"*, *"it must be clear to users what formats are valid for which type, and the SDK analyzer
 validating it, right?"* — and it is why
-[`DaleDiagnostics.cs`](../Vion.Dale.Sdk.Generators/Analyzers/DaleDiagnostics.cs) has allocated
-`DALE001`–`DALE046`, of which **44 are live**.
+[`DaleDiagnostics.cs`](../Vion.Dale.Sdk.Generators/Analyzers/DaleDiagnostics.cs) allocates ids in
+sequence from `DALE001` and carries one live descriptor per id that has not been retired. The live
+set is grep-enumerable from that file (`public static readonly DiagnosticDescriptor`); this section
+states how to add one, not which exist.
 
 Adding one:
 
 - **Next free ID, one entry per ID**, following the house descriptor pattern. **IDs are never reused
   once retired** — the file says so, and it holds: `DALE006` (the deleted `[StatusIndicator]`) and
   `DALE029` (the fixed Metalama `field`-keyword bug) each leave a comment where the descriptor was.
-  That is why 46 IDs yield 44 descriptors.
+  That is why the allocated range is always two ids longer than the live set.
 - **One ID may carry rules at two severities.** `DALE045` is the precedent: one `Error` descriptor,
   and advisory findings emitted through the `Diagnostic.Create(descriptor, location,
   effectiveSeverity, …)` overload with `DiagnosticSeverity.Warning`. Prefer that over two descriptors

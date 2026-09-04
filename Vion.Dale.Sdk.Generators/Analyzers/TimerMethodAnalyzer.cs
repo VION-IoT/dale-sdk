@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
@@ -9,7 +9,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
     /// <summary>
     ///     Validates [Timer] attribute usage:
     ///     DALE002 — method must be void and parameterless
-    ///     DALE005 — interval must be greater than zero
+    ///     DALE005 — interval must be schedulable: finite, at least one clock tick, at most MaxIntervalSeconds
     ///     DALE012 — duplicate timer identifiers within the same class
     /// </summary>
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -21,6 +21,14 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         ///     throws at configuration for anything above it.
         /// </summary>
         private const double MaxIntervalSeconds = 4294967;
+
+        /// <summary>
+        ///     Ticks per second, the unit <c>DeclarativeTimerBinder.ResolveInterval</c>'s
+        ///     <see cref="System.TimeSpan" /> conversion truncates to. An interval that does not reach one
+        ///     of them converts to no delay at all, which the binder then refuses — the floor is stated
+        ///     as the binder's own arithmetic rather than as a literal so the two cannot drift apart.
+        /// </summary>
+        private const double TicksPerSecond = 10000000;
 
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
         {
@@ -71,7 +79,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                                                            string.Join(" and ", issues)));
             }
 
-            // DALE005: interval must be > 0
+            // DALE005: the interval must be one a timer can actually be scheduled at
             if (timerAttr.ConstructorArguments.Length > 0)
             {
                 var intervalArg = timerAttr.ConstructorArguments[0];
@@ -79,8 +87,11 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                 // The whole refusal set the timer binder applies at configuration
                 // (DeclarativeTimerBinder.ResolveInterval), stated as one positive condition so that NaN —
                 // which is false against every comparison, so `<= 0` let it through — is refused with the
-                // rest. Infinity and a value longer than a clock can wait are the same door.
-                if (intervalArg.Value is double intervalValue && !(intervalValue > 0 && intervalValue <= MaxIntervalSeconds))
+                // rest. Infinity, a value longer than a clock can wait, and a positive value that does not
+                // reach one clock tick are the same door: the last is the binder's TimeSpan conversion
+                // truncating to zero ticks, mirrored here as the multiplication the conversion performs
+                // rather than as a threshold literal that could round the other way.
+                if (intervalArg.Value is double intervalValue && !(intervalValue * TicksPerSecond >= 1 && intervalValue <= MaxIntervalSeconds))
                 {
                     context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE005_TimerIntervalMustBePositive, method.Locations.FirstOrDefault(), method.Name, intervalValue));
                 }

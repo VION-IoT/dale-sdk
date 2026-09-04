@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -87,18 +87,31 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         }
 
         /// <summary>
-        ///     The static classes named exactly <c>PropertyGroup</c> under <paramref name="ns" />, in any
-        ///     namespace. The name is matched exactly, not as a suffix: an integrator declares
-        ///     <c>Acme.PropertyGroup</c>, and a class named <c>EcoPropertyGroup</c> is not read.
+        ///     The static classes named exactly <c>PropertyGroup</c> under <paramref name="container" />,
+        ///     in any namespace and nested in a type or not. The name is matched exactly, not as a suffix:
+        ///     an integrator declares <c>Acme.PropertyGroup</c>, and a class named <c>EcoPropertyGroup</c>
+        ///     is not read. Type members are walked as well as namespace members because the
+        ///     <c>GetSymbolsWithName</c> lookup this replaced matched a nested declaration too, and an
+        ///     integrator who nests theirs writes the same vocabulary.
         /// </summary>
-        private static IEnumerable<INamedTypeSymbol> PropertyGroupTypes(INamespaceSymbol ns)
+        private static IEnumerable<INamedTypeSymbol> PropertyGroupTypes(INamespaceOrTypeSymbol container)
         {
-            foreach (var type in ns.GetTypeMembers(PropertyGroupTypeName))
+            foreach (var type in container.GetTypeMembers())
             {
-                if (type.IsStatic)
+                if (type.IsStatic && type.Name == PropertyGroupTypeName)
                 {
                     yield return type;
                 }
+
+                foreach (var nested in PropertyGroupTypes(type))
+                {
+                    yield return nested;
+                }
+            }
+
+            if (container is not INamespaceSymbol ns)
+            {
+                yield break;
             }
 
             foreach (var child in ns.GetNamespaceMembers())

@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -161,6 +161,38 @@ public class Consumer { }";
 
             // Assert
             Assert.IsEmpty(diagnostics, "a referenced assembly's declarations are its own build's business: " + string.Join("; ", diagnostics.Select(d => d.GetMessage())));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-013.4")]
+        public async Task StaySilentOnVisibleWhenPredicateDeclaredInReferencedAssembly()
+        {
+            // Arrange — a library base block carrying a predicate that names nothing. Its own build is
+            // where DALE041 is reported (AC-ANLZ-013.2's abstract-block rule); the consumer's build reads
+            // the same member out of metadata, so a report here would be the second squiggle for one
+            // declaration — in a file the consumer cannot edit.
+            var sdkReference = await CompileSdkStubAsync();
+            var library = await CompileLibraryAsync("BaseBlocks",
+                                                    @"
+using Vion.Dale.Sdk.Core;
+
+public abstract class BaseBlock : LogicBlockBase
+{
+    [ServiceProperty]
+    [Presentation(VisibleWhen = ""NoSuchProperty"")]
+    public bool Visible { get; set; }
+}",
+                                                    sdkReference);
+
+            var source = @"
+public class MyBlock : BaseBlock { }";
+
+            // Act
+            var diagnostics = await RunAsync(source, new VisibleWhenPredicateAnalyzer(), sdkReference, library);
+
+            // Assert
+            Assert.IsEmpty(diagnostics,
+                           "a predicate declared in metadata was judged when its own assembly was built: " + string.Join("; ", diagnostics.Select(d => d.GetMessage())));
         }
 
         private static async Task<MetadataReference> CompileSdkStubAsync()

@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 using Microsoft.CodeAnalysis;
@@ -74,13 +74,19 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
             // properties — and IncludedWhenPredicateAnalyzer builds its parameter map from the same walk,
             // so a gate naming one reports as unresolvable with nothing saying why. Reported as a warning
             // rather than an error: the declaration is inert today, so nothing that compiles now breaks.
+            // Returning is the point: every rule below reports the same id at the same span, and one
+            // .editorconfig entry moves all of them, so a private parameter of a refused type would draw
+            // one Warning and one Error at one squiggle. Accessibility is the first thing to fix; the rest
+            // are asked once the declaration is public.
             if (property.DeclaredAccessibility != Accessibility.Public)
             {
                 ReportWarning(context,
                               location,
                               property.Name,
-                              "[InstantiationParameter] must be a public property — the binders read a block's parameters from its public " +
-                              "instance properties, so a non-public one is configured by nothing and no [IncludedWhen] gate can resolve to it.");
+                              "[InstantiationParameter] must be a public property — this one is declared " + AccessibilityKeyword(property.DeclaredAccessibility) +
+                              ", and the binders read a block's parameters from its public instance properties, so a non-public one is " +
+                              "configured by nothing and no [IncludedWhen] gate can resolve to it.");
+                return;
             }
 
             var serviceProperty = AnalyzerHelper.GetAttribute(property, AnalyzerHelper.ServicePropertyAttribute);
@@ -213,6 +219,24 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         {
             return AnalyzerHelper.HasAttribute(property, AnalyzerHelper.InstantiationParameterAttribute) ||
                    AnalyzerHelper.HasAttribute(property, AnalyzerHelper.IncludedWhenAttribute);
+        }
+
+        /// <summary>
+        ///     The accessibility as the author wrote it. <see cref="Accessibility" />'s own names are the
+        ///     compiler's (<c>ProtectedOrInternal</c>), and a message that named those would tell an author
+        ///     about a keyword pair they never typed.
+        /// </summary>
+        private static string AccessibilityKeyword(Accessibility accessibility)
+        {
+            return accessibility switch
+            {
+                Accessibility.Private => "private",
+                Accessibility.ProtectedAndInternal => "private protected",
+                Accessibility.Protected => "protected",
+                Accessibility.Internal => "internal",
+                Accessibility.ProtectedOrInternal => "protected internal",
+                _ => accessibility.ToString(),
+            };
         }
 
         private static Location AttributeLocation(AttributeData attribute, ISymbol fallback)

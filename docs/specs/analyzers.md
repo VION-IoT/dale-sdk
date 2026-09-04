@@ -32,10 +32,11 @@ and still publishes, so there is no runtime refusal for a diagnostic to be the d
 
 ## The registry is a contract with the consumer
 
-Forty-six ids have been allocated, `DALE001`–`DALE046`, of which **44 are live** — `DALE006` and
-`DALE029` are retired and leave a comment where the descriptor was. This pass adds `DALE047` and
-`DALE048`. The set is grep-enumerable from `Vion.Dale.Sdk.Generators/Analyzers/DaleDiagnostics.cs`;
-this page states the rules the set obeys, never the roster.
+Ids are allocated in sequence from `DALE001` and never reused, so the allocated range runs ahead of
+the live set: `DALE006` and `DALE029` are retired and leave a comment where the descriptor was. The
+live set is grep-enumerable from `Vion.Dale.Sdk.Generators/Analyzers/DaleDiagnostics.cs` — one
+`public static readonly DiagnosticDescriptor` per id; this page states the rules the set obeys, never
+the roster.
 
 - `AC-ANLZ-001.1` (Ubiquitous): THE SYSTEM SHALL report every Dale authoring diagnostic under the
   single category `Vion.Dale.Usage`.
@@ -97,7 +98,8 @@ support and the build rejects — § 4 records that this has already happened on
 - `AC-ANLZ-003.1` (Ubiquitous): THE SYSTEM SHALL accept as a service-element type `bool`, `string`,
   `byte`, `short`, `ushort`, `int`, `uint`, `long`, `float`, `double`, `DateTime`, `TimeSpan`,
   `Guid`, any enum, any flat readonly record struct, `ImmutableArray<T>` of any of those, and the
-  nullable form of any value type among them.
+  nullable form of any value type among them — and SHALL report `DALE003` naming that accepted set for
+  any other type.
 - `AC-ANLZ-003.2` (Ubiquitous): WHEN one declaration violates more than one supported-type rule THE
   SYSTEM SHALL report each rule independently.
 - `AC-ANLZ-003.3` (Ubiquitous): THE SYSTEM SHALL name, in each supported-type diagnostic's message,
@@ -113,6 +115,10 @@ support and the build rejects — § 4 records that this has already happened on
   `ImmutableArray<T>` with no initializer THE SYSTEM SHALL report `DALE018`, and SHALL exempt an
   interface member, an abstract property and a property with an explicit getter — none of which can
   carry an initializer, or whose value the analyzer cannot read.
+- `AC-ANLZ-003.7` (Event-driven): WHEN a service element's type is an array or one of the general
+  collection shapes — `T[]`, `List<T>`, `IList<T>`, `ICollection<T>`, `IEnumerable<T>`,
+  `IReadOnlyList<T>`, `IReadOnlyCollection<T>` — THE SYSTEM SHALL report `DALE008` naming the member,
+  the attribute it is declared under and the type, and SHALL accept `ImmutableArray<T>`.
 
 `AC-ANLZ-003.3` is why the messages are worth a criterion of their own: the message is the only
 place an author is told the whole set, and both of them were short by a type the SDK ships.
@@ -170,9 +176,10 @@ symbol-only check no-op in a real build.
   `[ServiceProperty]` beside `[ServiceMeasuringPoint]`, which are distinct bases.
 - `AC-ANLZ-006.2` (Event-driven): WHEN a non-abstract class implements two interfaces declaring one
   property name with conflicting `Unit` values THE SYSTEM SHALL report `DALE020`.
-- `AC-ANLZ-006.3` (Event-driven): WHEN the implementing declaration carries its own
+- `AC-ANLZ-006.3` (Event-driven): WHEN a **public** implementing declaration carries its own
   `[ServiceProperty]` or `[ServiceMeasuringPoint]` THE SYSTEM SHALL report nothing, wherever in the
-  base chain that declaration sits.
+  base chain that declaration sits — and SHALL still report where the only such declaration is an
+  explicit interface implementation, which the service binder's own walk does not reach.
 - `AC-ANLZ-006.4` (Ubiquitous): THE SYSTEM SHALL read a declaration's `Unit` from whichever of its
   emission attributes states one.
 - `AC-ANLZ-006.5` (Event-driven): WHEN one property's `[ServiceProperty]` and
@@ -190,15 +197,21 @@ these are the compile-time doors onto them, and each is over-determined with the
 
 - `AC-ANLZ-007.1` (Event-driven): WHEN a `[Timer]` method is not `void` or takes parameters THE
   SYSTEM SHALL report `DALE002` naming both faults, whatever the method's accessibility.
-- `AC-ANLZ-007.2` (Event-driven): WHEN a `[Timer]`'s interval is not a finite number greater than
-  zero and no longer than a clock can wait THE SYSTEM SHALL report `DALE005`.
+- `AC-ANLZ-007.2` (Event-driven): WHEN a `[Timer]`'s interval is not a finite number of at least one
+  clock tick and no longer than a clock can wait THE SYSTEM SHALL report `DALE005`.
 - `AC-ANLZ-007.3` (Event-driven): WHEN two `[Timer]` methods a type carries, its base declarations
-  included, resolve to one identifier THE SYSTEM SHALL report `DALE012` — treating an `override` and
-  the virtual it overrides as one timer, and a `new` declaration as two.
+  included, resolve to one identifier THE SYSTEM SHALL report `DALE012` once per collision, at the
+  type that declares the second of the two — treating an `override` and the virtual it overrides as
+  one timer, and a `new` declaration as two.
 
 `AC-ANLZ-007.2` states the binder's whole refusal set as one positive condition on purpose: written
 as `<= 0`, the guard let not-a-number through, because every comparison against it is false. Infinity
-and an interval longer than a clock can wait were never asked about at all.
+and an interval longer than a clock can wait were never asked about at all, and neither was the
+floor — a positive interval too short to reach one clock tick, which the binder's conversion to a
+`TimeSpan` truncates to no delay at all. The floor is the one clause the compile-time door mirrors by
+arithmetic rather than by sharing a constant: it multiplies the ticks out the way that conversion
+does. Both doors stay open by design, and `AC-LIFE-007.2`'s is the one that still holds if a host's
+conversion ever rounds differently from the one this mirrors.
 
 `AC-ANLZ-007.3`'s base-chain clause is what makes the diagnostic worth having: the binder collects
 `[Timer]` methods across the whole chain, so a base and a derived declaration sharing an identifier
@@ -243,7 +256,7 @@ exists because the failure is invisible in the running system.
 - `AC-ANLZ-010.4` (Ubiquitous): THE SYSTEM SHALL collect group-key constants from the compilation's
   own assembly **and from its references**.
 - `AC-ANLZ-010.5` (Ubiquitous): THE SYSTEM SHALL collect them only from a static class named exactly
-  `PropertyGroup`, in any namespace.
+  `PropertyGroup`, in any namespace and nested in a type or not.
 
 `AC-ANLZ-010.4` is § 5's blind spot one level out, and it had been firing on every consumer since
 the rule shipped: the platform's own `PropertyGroup` is a source declaration inside the SDK and
@@ -260,9 +273,11 @@ integrator declares their own `PropertyGroup` class in their own namespace, and 
 - `AC-ANLZ-011.2` (Ubiquitous): THE SYSTEM SHALL judge the `StringFormat` of every emission attribute
   a member declares, reporting at the attribute that declares it.
 - `AC-ANLZ-011.3` (Ubiquitous): THE SYSTEM SHALL judge a `[StructField]`'s `StringFormat` by the same
-  rule.
-- `AC-ANLZ-011.4` (Event-driven): WHEN `WriteOnly` is set on a service property or a struct field
-  that is not `string` or `string?` THE SYSTEM SHALL report `DALE022` or `DALE040`.
+  rule, and SHALL judge a `[StructField]` only where the introspector reads it — on a parameter of a
+  struct's constructor.
+- `AC-ANLZ-011.4` (Event-driven): WHEN `WriteOnly` is set on a service property, or on a struct field
+  within that same scope, that is not `string` or `string?` THE SYSTEM SHALL report `DALE022` or
+  `DALE040`.
 - `AC-ANLZ-011.5` (Event-driven): WHEN `[ServiceProperty]` sets both `ReadOnly` and `WriteOnly` THE
   SYSTEM SHALL report `DALE030`.
 
@@ -280,8 +295,10 @@ found in one more place; `AC-ANLZ-011.3` is the target nothing reached — the k
   SYSTEM SHALL report `DALE015`.
 - `AC-ANLZ-012.4` (Ubiquitous): THE SYSTEM SHALL judge a nested public type by these rules exactly as
   it judges a top-level one, and only for types declared in source.
-- `AC-ANLZ-012.5` (Ubiquitous): THE SYSTEM SHALL judge a type by its **effective** accessibility, so
-  a public type nested in a non-public one is not asked for a mark.
+- `AC-ANLZ-012.5` (Ubiquitous): THE SYSTEM SHALL judge a type by its **effective** accessibility for
+  the mark rule alone, so a public type nested in a non-public one is not asked for a mark and does
+  not keep its namespace off the stale list — while a `[PublicApi]` the author wrote is asked for its
+  documentation whatever encloses it.
 - `AC-ANLZ-012.6` (Ubiquitous): THE SYSTEM SHALL credit every declared namespace a type's own
   namespace matches, not one of them.
 
@@ -307,8 +324,10 @@ be the compile-time door onto.
   — a reference outside bool, enum, an integer kind and string; a write-only reference; a relational
   operator on a non-integer; a non-homogeneous list; an unquoted enum member; or a bare reference
   that is not a bool — THE SYSTEM SHALL report `DALE042`.
-- `AC-ANLZ-013.4` (Ubiquitous): THE SYSTEM SHALL judge the visibility predicate of every service
-  element a block carries, its components' included, and of nothing else.
+- `AC-ANLZ-013.4` (Ubiquitous): THE SYSTEM SHALL resolve a visibility predicate against every service
+  element a block carries, its components' included, whether those are declared in source or read out
+  of a referenced assembly — and SHALL report only on a predicate declared in source, one read from
+  metadata having been judged when its own assembly was built.
 - `AC-ANLZ-013.5` (Ubiquitous): THE SYSTEM SHALL parse and type-check a visibility predicate and
   SHALL never evaluate it, so a predicate that parses and type-checks draws no diagnostic whatever it
   would evaluate to.
@@ -350,7 +369,7 @@ one id whose rules split across two severities.
   `RelationType` THE SYSTEM SHALL report `DALE045` as a warning on each.
 - `AC-ANLZ-021.4` (Event-driven): WHEN a logic block holds a public property whose type implements a
   relation-bearing contract interface but carries no service surface THE SYSTEM SHALL report
-  `DALE045` as a warning.
+  `DALE045` as a warning, once per property however many such interfaces that type implements.
 - `AC-ANLZ-021.5` (Ubiquitous): THE SYSTEM SHALL resolve a relation-bearing interface both by symbol
   and by the name written in a base list, so a contract interface that does not resolve is still
   matched.
@@ -422,9 +441,11 @@ the generator does not run.
   `.editorconfig` severity entry — carrying no tag that opts one out.
 
 A suppression is the author's declaration that the shape is intended, and this repository's own
-fixtures are the worked examples: thirty of them across fifteen files, each beside the rule it
-violates on purpose, and each carrying its reason where the fixture does not say it. A test project
-that suppresses a diagnostic is asserting that the runtime door behind it still works.
+fixtures are the worked examples — thirty-two `#pragma warning disable DALE…` sites across fourteen
+files as this page is written, each beside the rule it violates on purpose, and each carrying its
+reason where the fixture does not say it. The set is grep-enumerable rather than listed here, because
+it changes with every fixture. A test project that suppresses a diagnostic is asserting that the
+runtime door behind it still works.
 
 ## The test discipline
 

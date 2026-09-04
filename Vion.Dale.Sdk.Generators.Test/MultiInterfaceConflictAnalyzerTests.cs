@@ -1,4 +1,4 @@
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Vion.Dale.Sdk.Generators.Analyzers;
 using Vion.Dale.Sdk.Generators.Test.Helpers;
 
@@ -125,6 +125,32 @@ public class MyBlock : PowerBase, IOne, ITwo
     public new double Power { get; set; }
 }";
             await AnalyzerTestBase.VerifyAnalyzerAsync<MultiInterfaceConflictAnalyzer>(source);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-006.3")]
+        public async Task ReportConflictResolvedOnlyByExplicitImplementation()
+        {
+            // Arrange / Act / Assert
+            // The resolving declaration has to be one the service binder can read, and the binder walks
+            // GetProperties(Public | Instance) — an explicit implementation is private to reflection, so
+            // it resolves nothing and the conflict is still the author's to settle.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public interface IOne { [ServiceProperty(Unit = ""kW"")] double Power { get; set; } }
+public interface ITwo { [ServiceProperty(Unit = ""W"")] double Power { get; set; } }
+
+public class {|#0:MyBlock|} : IOne, ITwo
+{
+    [ServiceProperty(Unit = ""kW"")]
+    double IOne.Power { get; set; }
+
+    [ServiceProperty(Unit = ""kW"")]
+    double ITwo.Power { get; set; }
+}";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE020_MultiInterfaceConflict).WithLocation(0).WithArguments("MyBlock", "Power", "\"W\", \"kW\"");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<MultiInterfaceConflictAnalyzer>(source, expected);
         }
 
         [TestMethod]

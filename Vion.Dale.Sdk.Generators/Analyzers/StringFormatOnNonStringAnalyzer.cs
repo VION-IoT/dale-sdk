@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
@@ -29,7 +29,8 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
 
             // A struct field carries the same knob (StructFieldAttribute.StringFormat), TypeRefBuilder
             // emits it into the schema, and nothing judged it. A positional record struct's members are
-            // its primary-constructor parameters, which is why this is a parameter action.
+            // its primary-constructor parameters, which is why this is a parameter action — narrowed to
+            // the parameters the introspector actually reads (AnalyzerHelper.IsStructFieldParameter).
             context.RegisterSymbolAction(AnalyzeStructField, SymbolKind.Parameter);
         }
 
@@ -49,6 +50,10 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         private static void AnalyzeStructField(SymbolAnalysisContext context)
         {
             var parameter = (IParameterSymbol)context.Symbol;
+            if (!AnalyzerHelper.IsStructFieldParameter(parameter))
+            {
+                return;
+            }
 
             var structField = AnalyzerHelper.GetAttribute(parameter, AnalyzerHelper.StructFieldAttribute);
             if (structField is null)

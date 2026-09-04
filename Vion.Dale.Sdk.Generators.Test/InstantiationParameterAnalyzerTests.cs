@@ -1,4 +1,4 @@
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
@@ -212,10 +212,12 @@ public class LeafBlock : BaseBlock
 
         [TestMethod]
         [TestProperty("spec", "AC-ANLZ-014.2")]
-        [DataRow("internal", DisplayName = "internal")]
-        [DataRow("protected", DisplayName = "protected")]
-        [DataRow("private", DisplayName = "private")]
-        public async Task WarnOnNonPublicInstantiationParameter(string accessibility)
+        [DataRow("internal", "internal", DisplayName = "internal")]
+        [DataRow("protected", "protected", DisplayName = "protected")]
+        [DataRow("private", "private", DisplayName = "private")]
+        [DataRow("protected internal", "protected internal", DisplayName = "protected internal")]
+        [DataRow("private protected", "private protected", DisplayName = "private protected")]
+        public async Task WarnOnNonPublicInstantiationParameter(string modifiers, string reportedAccessibility)
         {
             // Arrange / Act / Assert
             var source = @"
@@ -225,14 +227,39 @@ public class MyBlock : LogicBlockBase
 {
     [{|#0:InstantiationParameter|}]
     [ServiceProperty]
-    " + accessibility + @" bool Hidden { get; set; }
+    " + modifiers + @" bool Hidden { get; set; }
 }";
             var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE044_InstantiationParameterDiscipline)
                                            .WithLocation(0)
                                            .WithSeverity(DiagnosticSeverity.Warning)
                                            .WithArguments("Hidden",
-                                                          "[InstantiationParameter] must be a public property — the binders read a block's parameters from its public " +
-                                                          "instance properties, so a non-public one is configured by nothing and no [IncludedWhen] gate can resolve to it.");
+                                                          "[InstantiationParameter] must be a public property — this one is declared " + reportedAccessibility +
+                                                          ", and the binders read a block's parameters from its public instance properties, so a non-public one is " +
+                                                          "configured by nothing and no [IncludedWhen] gate can resolve to it.");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<InstantiationParameterAnalyzer>(source, expected);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-014.2")]
+        public async Task ReportOnlyAccessibilityWarningForNonPublicParameterOfRefusedType()
+        {
+            // Arrange / Act / Assert
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public class MyBlock : LogicBlockBase
+{
+    [{|#0:InstantiationParameter|}]
+    [ServiceProperty]
+    private double Hidden { get; set; }
+}";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE044_InstantiationParameterDiscipline)
+                                           .WithLocation(0)
+                                           .WithSeverity(DiagnosticSeverity.Warning)
+                                           .WithArguments("Hidden",
+                                                          "[InstantiationParameter] must be a public property — this one is declared private" +
+                                                          ", and the binders read a block's parameters from its public instance properties, so a non-public one is " +
+                                                          "configured by nothing and no [IncludedWhen] gate can resolve to it.");
             await AnalyzerTestBase.VerifyAnalyzerAsync<InstantiationParameterAnalyzer>(source, expected);
         }
 

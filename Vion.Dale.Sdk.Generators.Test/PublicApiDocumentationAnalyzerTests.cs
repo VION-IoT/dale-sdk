@@ -1,4 +1,4 @@
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Vion.Dale.Sdk.Generators.Analyzers;
 using Vion.Dale.Sdk.Generators.Test.Helpers;
 
@@ -229,6 +229,32 @@ namespace Api
     }
 }";
             await AnalyzerTestBase.VerifyAnalyzerAsync<PublicApiDocumentationAnalyzer>(source);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-012.5")]
+        public async Task ReportUndocumentedPublicApiMarkOnTypeNoneCanName()
+        {
+            // Arrange / Act / Assert
+            // The effective-accessibility rule scopes who is ASKED for a mark. A [PublicApi] mark the
+            // author wrote is the claim itself, and the docs site reads its summary, so an undocumented
+            // one is still worth saying — and no mark is demanded of the same declaration.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+[assembly: PublicApiNamespace(""Api"")]
+
+namespace Api
+{
+    /// <summary>Documented, and the reason the namespace is not stale.</summary>
+    [PublicApi]
+    public class Marked { }
+
+    [PublicApi]
+    internal class {|#0:Hidden|} { }
+}";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE013_PublicApiMissingDocs).WithLocation(0).WithArguments("Hidden");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<PublicApiDocumentationAnalyzer>(source, expected);
         }
 
         [TestMethod]

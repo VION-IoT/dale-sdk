@@ -1,4 +1,4 @@
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Vion.Dale.Sdk.Generators.Analyzers;
 using Vion.Dale.Sdk.Generators.Test.Helpers;
 
@@ -145,6 +145,29 @@ public readonly record struct Link(
     [{|#0:StructField(StringFormat = ""uuid"")|}] string Address);";
             var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE033_StringFormatOnNonString).WithLocation(0).WithArguments("Address", "string");
             await AnalyzerTestBase.VerifyAnalyzerAsync<StringFormatOnNonStringAnalyzer>(source, expected);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-011.3")]
+        public async Task StaySilentOnStructFieldWrittenWhereNothingReadsIt()
+        {
+            // Arrange / Act / Assert
+            // AttributeTargets.Parameter lets [StructField] be written on any parameter, and the
+            // introspector reads it from exactly one place: a struct's constructor parameters. Judging a
+            // method parameter would report a misplacement that changes no emitted schema.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public class Rig
+{
+    public void Configure([StructField(StringFormat = ""uuid"")] int port) { }
+}
+
+public class Fixture
+{
+    public Fixture([StructField(StringFormat = ""uuid"")] int port) { }
+}";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<StringFormatOnNonStringAnalyzer>(source);
         }
     }
 }

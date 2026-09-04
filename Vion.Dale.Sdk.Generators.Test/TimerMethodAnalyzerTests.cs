@@ -1,4 +1,4 @@
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Vion.Dale.Sdk.Generators.Analyzers;
 using Vion.Dale.Sdk.Generators.Test.Helpers;
 
@@ -206,6 +206,61 @@ public class MyBlock
 }";
             var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE005_TimerIntervalMustBePositive).WithLocation(0).WithArguments("Tick", rendered);
             await AnalyzerTestBase.VerifyAnalyzerAsync<TimerMethodAnalyzer>(source, expected);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-007.2")]
+        public async Task ReportSubTickTimerInterval()
+        {
+            // Arrange / Act / Assert
+            // Positive and far inside the ceiling, so every other clause of the guard passes it — and
+            // shorter than the one clock tick the binder's TimeSpan conversion keeps, so it would arm a
+            // self-send chain that never yields.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public class MyBlock
+{
+    [Timer(1e-9)]
+    public void {|#0:Tick|}() { }
+}";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE005_TimerIntervalMustBePositive).WithLocation(0).WithArguments("Tick", "1E-09");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<TimerMethodAnalyzer>(source, expected);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-007.2")]
+        public async Task ReportTimerIntervalLongerThanClockCanWait()
+        {
+            // Arrange / Act / Assert
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public class MyBlock
+{
+    [Timer(4294968)]
+    public void {|#0:Tick|}() { }
+}";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE005_TimerIntervalMustBePositive).WithLocation(0).WithArguments("Tick", "4294968");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<TimerMethodAnalyzer>(source, expected);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-007.2")]
+        public async Task StaySilentOnIntervalOfExactlyOneClockTick()
+        {
+            // Arrange / Act / Assert
+            // 1e-7 s is one tick, which the binder's conversion keeps — the floor is inclusive, and this
+            // is the value that separates it from the sub-tick row above.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public class MyBlock
+{
+    [Timer(1e-7)]
+    public void Tick() { }
+}";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<TimerMethodAnalyzer>(source);
         }
 
         [TestMethod]
