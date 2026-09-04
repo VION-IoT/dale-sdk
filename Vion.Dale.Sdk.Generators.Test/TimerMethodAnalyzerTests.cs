@@ -192,7 +192,7 @@ public class MyBlock
         [TestMethod]
         [TestProperty("spec", "AC-ANLZ-007.2")]
         [DataRow("0.0 / 0.0", "NaN", DisplayName = "not a number")]
-        [DataRow("1.0 / 0.0", "\u221E", DisplayName = "positive infinity")]
+        [DataRow("1.0 / 0.0", "Infinity", DisplayName = "positive infinity")]
         public async Task ReportNonFiniteTimerInterval(string interval, string rendered)
         {
             // Arrange / Act / Assert

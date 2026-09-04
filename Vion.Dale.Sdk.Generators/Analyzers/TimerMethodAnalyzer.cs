@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
@@ -93,7 +94,13 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                 // rather than as a threshold literal that could round the other way.
                 if (intervalArg.Value is double intervalValue && !(intervalValue * TicksPerSecond >= 1 && intervalValue <= MaxIntervalSeconds))
                 {
-                    context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE005_TimerIntervalMustBePositive, method.Locations.FirstOrDefault(), method.Name, intervalValue));
+                    // The value is rendered here, in the invariant culture, rather than handed to the diagnostic
+                    // as a double: Roslyn formats a raw argument in the current culture, and infinity reads
+                    // "∞" on one machine and "Infinity" on another, which is one message on two runners.
+                    context.ReportDiagnostic(Diagnostic.Create(DaleDiagnostics.DALE005_TimerIntervalMustBePositive,
+                                                               method.Locations.FirstOrDefault(),
+                                                               method.Name,
+                                                               intervalValue.ToString(CultureInfo.InvariantCulture)));
                 }
             }
         }

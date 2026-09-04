@@ -121,7 +121,10 @@ support and the build rejects — § 4 records that this has already happened on
   the attribute it is declared under and the type, and SHALL accept `ImmutableArray<T>`.
 
 `AC-ANLZ-003.3` is why the messages are worth a criterion of their own: the message is the only
-place an author is told the whole set, and both of them were short by a type the SDK ships.
+place an author is told the whole set, and both of them were short by a type the SDK ships. A numeric
+argument a message carries is rendered in the invariant culture before it reaches the diagnostic — a
+`[Timer(1.0 / 0.0)]` reads `Infinity` on every runner rather than `∞` on one machine and
+`Infinity` on another — which is what lets a test pin the text and a consumer grep a build log for it.
 
 ## Contract properties
 
