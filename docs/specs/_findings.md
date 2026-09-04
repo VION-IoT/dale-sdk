@@ -277,10 +277,12 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   consumer inheriting from it gets nothing. Widening means judging a referenced assembly's
   declarations, which is `AC-ANLZ-002.3`'s stated boundary rather than a defect in this rule.
   *(ANLZ pass row 66 — `ANLZ`.)*
-- **`[StructField]` on a target other than a constructor parameter is judged by nothing.** The
+- **`[StructField]` on a target other than a struct's constructor parameter is judged by nothing.** The
   attribute allows more targets than the one walk that reads it
-  (`WriteOnlyStructFieldTypeRestrictionAnalyzer.cs:26`, `StringFormatOnNonStringAnalyzer.cs:32`), so a
-  misplaced declaration compiles and emits nothing. Narrowing `AttributeTargets` is a source-breaking
+  (`TypeRefBuilder.BuildStructFieldAnnotations`, and `StructFieldPresentationBuilder.Build` over the
+  same constructor), so a misplaced declaration compiles and emits nothing. The two rules that judge
+  the knob are scoped to that reader's parameters (`AnalyzerHelper.IsStructFieldParameter`), so they
+  do not report the misplacement either. Narrowing `AttributeTargets` is a source-breaking
   change to a published attribute — the same shape as the message-struct entry `DALE047` just closed,
   and the same reason it became a diagnostic rather than a narrowing. *(ANLZ pass row 111 — `ANLZ`.)*
 - **A `MinInterval` at the tick-representation boundary configures a negative interval, unreported.**
