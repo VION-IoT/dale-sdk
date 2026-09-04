@@ -40,7 +40,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         /// </summary>
         public static readonly DiagnosticDescriptor DALE003_UnsupportedServicePropertyType = new("DALE003",
                                                                                                  "Unsupported service property type",
-                                                                                                 "Property '{0}' has [{1}] but type '{2}' is not supported. Supported: bool, string, byte, short, ushort, int, uint, long, float, double, DateTime, TimeSpan, any enum, any flat readonly record struct, ImmutableArray<T> where T is one of the above, or T? for value types and string.",
+                                                                                                 "Property '{0}' has [{1}] but type '{2}' is not supported. Supported: bool, string, byte, short, ushort, int, uint, long, float, double, DateTime, TimeSpan, Guid, any enum, any flat readonly record struct, ImmutableArray<T> where T is one of the above, or T? for value types and string.",
                                                                                                  Category,
                                                                                                  DiagnosticSeverity.Error,
                                                                                                  true);
@@ -148,7 +148,7 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
         /// </summary>
         public static readonly DiagnosticDescriptor DALE016_StructMustBeFlatReadonlyRecord = new("DALE016",
                                                                                                  "Struct used as service element must be readonly record struct with flat fields",
-                                                                                                 "Property '{0}' has [{1}] but its struct type '{2}' is not a readonly record struct with flat fields. Define it as 'public readonly record struct {2}(...)' with primitive, enum, string, or nullable-of-those parameters only.",
+                                                                                                 "Property '{0}' has [{1}] but its struct type '{2}' is not a readonly record struct with flat fields. Define it as 'public readonly record struct {2}(...)' with primitive, enum, string, TimeSpan, Guid, or nullable-of-those parameters only.",
                                                                                                  Category,
                                                                                                  DiagnosticSeverity.Error,
                                                                                                  true);
