@@ -21,7 +21,8 @@ namespace Vion.Dale.Sdk.Modbus.Core.Validation
         {
             if (quantity > (uint)protocolLimit)
             {
-                throw new InvalidCountException(quantity, $"Quantity {quantity} exceeds the Modbus protocol limit of {protocolLimit} for a single request; the device was not contacted.");
+                throw new InvalidCountException(quantity,
+                                                $"Quantity {quantity} exceeds the Modbus protocol limit of {protocolLimit} for a single request; the device was not contacted.");
             }
         }
 

@@ -180,7 +180,13 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
             // Arrange
             _sut.IsEnabled = true;
             SetupArrayResultOperationCapture<bool>();
-            _sut.ReadCoils(UnitIdentifier, StartingAddress, Quantity, _dispatcherMock.Object, ArrayResultSuccessCallback<bool>(), _errorCallback, _operationTimeout);
+            _sut.ReadCoils(UnitIdentifier,
+                           StartingAddress,
+                           Quantity,
+                           _dispatcherMock.Object,
+                           ArrayResultSuccessCallback<bool>(),
+                           _errorCallback,
+                           _operationTimeout);
 
             // Act
             _sut.IsEnabled = false;
@@ -200,7 +206,12 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
             _sut.IsEnabled = true;
             _sut.DefaultOperationTimeout = timeoutAtAcceptance;
             SetupArrayResultOperationCapture<bool>();
-            _sut.ReadCoils(UnitIdentifier, StartingAddress, Quantity, _dispatcherMock.Object, ArrayResultSuccessCallback<bool>(), _errorCallback);
+            _sut.ReadCoils(UnitIdentifier,
+                           StartingAddress,
+                           Quantity,
+                           _dispatcherMock.Object,
+                           ArrayResultSuccessCallback<bool>(),
+                           _errorCallback);
 
             // Act
             _sut.DefaultOperationTimeout = TimeSpan.FromSeconds(9);

@@ -18,8 +18,6 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
 
         private Channel<IRequest>? _channel;
 
-        private Task? _consumer;
-
         private CancellationTokenSource? _cts;
 
         private bool _disposed;
@@ -28,19 +26,16 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
         // 32-bit gateway cannot observe a half-written TimeSpan? and silently apply a different policy.
         private long _maxQueuedAgeTicks = -1;
 
-        public RequestQueue(IRequestFactory requestFactory, ILogger<RequestQueue> logger)
-        {
-            _requestFactory = requestFactory;
-            _logger = logger;
-        }
-
         /// <summary>
         ///     The consumer loop, completed once it has stopped and drained. The suite awaits it to observe the
         ///     disposal drain, which runs there rather than on the disposing thread.
         /// </summary>
-        internal Task? ConsumerCompletion
+        internal Task? ConsumerCompletion { get; private set; }
+
+        public RequestQueue(IRequestFactory requestFactory, ILogger<RequestQueue> logger)
         {
-            get => _consumer;
+            _requestFactory = requestFactory;
+            _logger = logger;
         }
 
         /// <inheritdoc />
@@ -102,7 +97,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
             LogQueueCreated(capacity, overflowPolicy);
 
             _cts = new CancellationTokenSource();
-            _consumer = ConsumeAsync(_channel, _cts.Token);
+            ConsumerCompletion = ConsumeAsync(_channel, _cts.Token);
         }
 
         /// <inheritdoc />

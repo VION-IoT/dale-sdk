@@ -7,7 +7,13 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Diagnostics
     [TestClass]
     public class ModbusTcpConnectionAccumulatorShould
     {
-        private static readonly DateTime ObservedAt = new(2026, 9, 5, 8, 0, 0, DateTimeKind.Utc);
+        private static readonly DateTime ObservedAt = new(2026,
+                                                          9,
+                                                          5,
+                                                          8,
+                                                          0,
+                                                          0,
+                                                          DateTimeKind.Utc);
 
         private readonly ModbusTcpConnectionAccumulator _sut = new();
 

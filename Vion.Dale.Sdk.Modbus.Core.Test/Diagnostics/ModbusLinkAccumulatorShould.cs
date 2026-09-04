@@ -6,7 +6,13 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Diagnostics
     [TestClass]
     public class ModbusLinkAccumulatorShould
     {
-        private static readonly DateTime ObservedAt = new(2026, 9, 5, 8, 0, 0, DateTimeKind.Utc);
+        private static readonly DateTime ObservedAt = new(2026,
+                                                          9,
+                                                          5,
+                                                          8,
+                                                          0,
+                                                          0,
+                                                          DateTimeKind.Utc);
 
         private readonly ModbusLinkAccumulator _sut = new();
 
@@ -81,14 +87,8 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Diagnostics
             var summary = _sut.Snapshot(0);
 
             // Assert
-            var counted = summary.SuccessCount
-                          + summary.DeviceErrorCount
-                          + summary.TimeoutCount
-                          + summary.TransportErrorCount
-                          + summary.ProtocolErrorCount
-                          + summary.BackedOffCount
-                          + summary.ExpiredCount
-                          + summary.DroppedCount;
+            var counted = summary.SuccessCount + summary.DeviceErrorCount + summary.TimeoutCount + summary.TransportErrorCount + summary.ProtocolErrorCount +
+                          summary.BackedOffCount + summary.ExpiredCount + summary.DroppedCount;
             Assert.AreEqual(8L, counted);
 
             // Ten outcomes, eight counters: Invalid and Cancelled are recorded as the last failure and nowhere else.

@@ -25,9 +25,9 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
         // while the outer callback still holds the lock — and the guard exists for exactly that callback.
         private bool _isEnabled;
 
-        private int _syncCallbackDepth;
-
         private IPAddress _parsedListenAddress = IPAddress.Any;
+
+        private int _syncCallbackDepth;
 
         public LogicBlockModbusTcpServer(IModbusTcpServerProxy proxy, IModbusDataConverter dataConverter, ILogger<LogicBlockModbusTcpServer> logger)
         {
@@ -256,6 +256,18 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
             }
         }
 
+        [LoggerMessage(Level = LogLevel.Information, Message = "Modbus TCP server enabled on {ListenAddress}:{Port}")]
+        partial void LogEnabled(string listenAddress, int port);
+
+        [LoggerMessage(Level = LogLevel.Information, Message = "Modbus TCP server disabled")]
+        partial void LogDisabled();
+
+        [LoggerMessage(Level = LogLevel.Debug, Message = "Listen address set to {ListenAddress}")]
+        partial void LogListenAddressSet(string listenAddress);
+
+        [LoggerMessage(Level = LogLevel.Debug, Message = "Port set to {Port}")]
+        partial void LogPortSet(int port);
+
         /// <summary>
         ///     How long one <c>Sync</c> callback's snapshot stays usable. The accessors close over it and pass every
         ///     buffer they fetch through <see cref="Buffer" />, so the check sits on the one path all of them take.
@@ -280,17 +292,5 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
                 return buffer;
             }
         }
-
-        [LoggerMessage(Level = LogLevel.Information, Message = "Modbus TCP server enabled on {ListenAddress}:{Port}")]
-        partial void LogEnabled(string listenAddress, int port);
-
-        [LoggerMessage(Level = LogLevel.Information, Message = "Modbus TCP server disabled")]
-        partial void LogDisabled();
-
-        [LoggerMessage(Level = LogLevel.Debug, Message = "Listen address set to {ListenAddress}")]
-        partial void LogListenAddressSet(string listenAddress);
-
-        [LoggerMessage(Level = LogLevel.Debug, Message = "Port set to {Port}")]
-        partial void LogPortSet(int port);
     }
 }

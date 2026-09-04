@@ -518,10 +518,11 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
                                      _startedRequestNames.Add(requestName);
                                      executionStartedTcs.SetResult(true);
                                  })
-                        // A blocked request waits on the queue's own token as well as the test's, because that is
-                        // what a real DeviceRequest does: the queue cancels its token on disposal and the operation
-                        // it wraps stops there. Waiting only on the test's token would model a request that ignores
-                        // cancellation, which is the one shape the disposal drain must not be tuned against.
+
+                       // A blocked request waits on the queue's own token as well as the test's, because that is
+                       // what a real DeviceRequest does: the queue cancels its token on disposal and the operation
+                       // it wraps stops there. Waiting only on the test's token would model a request that ignores
+                       // cancellation, which is the one shape the disposal drain must not be tuned against.
                        .Returns(async (CancellationToken queueCancellationToken, TimeSpan? _) =>
                                 {
                                     if (shouldBlock)

@@ -1022,16 +1022,16 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
                                startingAddress,
                                () => quantity,
                                validatedQuantity => _requestFactory.CreateReadRequest(functionCode,
-                                                                       unitIdentifier,
-                                                                       startingAddress,
-                                                                       validatedQuantity,
-                                                                       operationTimeout ?? DefaultOperationTimeout,
-                                                                       MaxQueuedAge,
-                                                                       processResponse,
-                                                                       dispatcher,
-                                                                       successCallback,
-                                                                       errorCallback,
-                                                                       _linkAccumulator),
+                                                                                      unitIdentifier,
+                                                                                      startingAddress,
+                                                                                      validatedQuantity,
+                                                                                      operationTimeout ?? DefaultOperationTimeout,
+                                                                                      MaxQueuedAge,
+                                                                                      processResponse,
+                                                                                      dispatcher,
+                                                                                      successCallback,
+                                                                                      errorCallback,
+                                                                                      _linkAccumulator),
                                dispatcher,
                                errorCallback);
         }
@@ -1051,16 +1051,16 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
                                startingAddress,
                                () => quantity,
                                validatedQuantity => _requestFactory.CreateReadRequest(functionCode,
-                                                                       unitIdentifier,
-                                                                       startingAddress,
-                                                                       validatedQuantity,
-                                                                       operationTimeout ?? DefaultOperationTimeout,
-                                                                       MaxQueuedAge,
-                                                                       processResponse,
-                                                                       dispatcher,
-                                                                       successCallback,
-                                                                       errorCallback,
-                                                                       _linkAccumulator),
+                                                                                      unitIdentifier,
+                                                                                      startingAddress,
+                                                                                      validatedQuantity,
+                                                                                      operationTimeout ?? DefaultOperationTimeout,
+                                                                                      MaxQueuedAge,
+                                                                                      processResponse,
+                                                                                      dispatcher,
+                                                                                      successCallback,
+                                                                                      errorCallback,
+                                                                                      _linkAccumulator),
                                dispatcher,
                                errorCallback);
         }
@@ -1081,16 +1081,16 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
                                startingAddress,
                                () => _dataConverter.ConvertCountToQuantity(count, bytesPerCount),
                                validatedQuantity => _requestFactory.CreateReadRequest(functionCode,
-                                                                       unitIdentifier,
-                                                                       startingAddress,
-                                                                       validatedQuantity,
-                                                                       operationTimeout ?? DefaultOperationTimeout,
-                                                                       MaxQueuedAge,
-                                                                       processResponse,
-                                                                       dispatcher,
-                                                                       successCallback,
-                                                                       errorCallback,
-                                                                       _linkAccumulator),
+                                                                                      unitIdentifier,
+                                                                                      startingAddress,
+                                                                                      validatedQuantity,
+                                                                                      operationTimeout ?? DefaultOperationTimeout,
+                                                                                      MaxQueuedAge,
+                                                                                      processResponse,
+                                                                                      dispatcher,
+                                                                                      successCallback,
+                                                                                      errorCallback,
+                                                                                      _linkAccumulator),
                                dispatcher,
                                errorCallback);
         }
@@ -1181,16 +1181,14 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
         /// </summary>
         private static int ReadLimitFor(ModbusFunctionCode functionCode)
         {
-            return functionCode is ModbusFunctionCode.ReadCoils or ModbusFunctionCode.ReadDiscreteInputs ?
-                       ModbusProtocolLimits.MaxBitsPerRead :
+            return functionCode is ModbusFunctionCode.ReadCoils or ModbusFunctionCode.ReadDiscreteInputs ? ModbusProtocolLimits.MaxBitsPerRead :
                        ModbusProtocolLimits.MaxRegistersPerRead;
         }
 
         /// <summary>The protocol limit for a write function code, in the units that code counts in.</summary>
         private static int WriteLimitFor(ModbusFunctionCode functionCode)
         {
-            return functionCode is ModbusFunctionCode.WriteSingleCoil or ModbusFunctionCode.WriteMultipleCoils ?
-                       ModbusProtocolLimits.MaxBitsPerWrite :
+            return functionCode is ModbusFunctionCode.WriteSingleCoil or ModbusFunctionCode.WriteMultipleCoils ? ModbusProtocolLimits.MaxBitsPerWrite :
                        ModbusProtocolLimits.MaxRegistersPerWrite;
         }
 

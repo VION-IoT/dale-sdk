@@ -315,11 +315,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
 
             _requestQueue.Enqueue(nameof(ReadDiscreteInputs),
                                   dispatcher,
-                                  cancellationToken => _clientWrapper.ReadDiscreteInputsAsync(unitIdentifier,
-                                                                                              startingAddress,
-                                                                                              quantity,
-                                                                                              effectiveTimeout,
-                                                                                              cancellationToken),
+                                  cancellationToken => _clientWrapper.ReadDiscreteInputsAsync(unitIdentifier, startingAddress, quantity, effectiveTimeout, cancellationToken),
                                   successCallback,
                                   errorCallback);
         }
@@ -347,8 +343,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
 
             _requestQueue.Enqueue(nameof(ReadCoils),
                                   dispatcher,
-                                  cancellationToken =>
-                                      _clientWrapper.ReadCoilsAsync(unitIdentifier, startingAddress, quantity, effectiveTimeout, cancellationToken),
+                                  cancellationToken => _clientWrapper.ReadCoilsAsync(unitIdentifier, startingAddress, quantity, effectiveTimeout, cancellationToken),
                                   successCallback,
                                   errorCallback);
         }
@@ -372,8 +367,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
 
             _requestQueue.Enqueue(nameof(WriteSingleCoil),
                                   dispatcher,
-                                  cancellationToken =>
-                                      _clientWrapper.WriteSingleCoilAsync(unitIdentifier, registerAddress, value, effectiveTimeout, cancellationToken),
+                                  cancellationToken => _clientWrapper.WriteSingleCoilAsync(unitIdentifier, registerAddress, value, effectiveTimeout, cancellationToken),
                                   successCallback,
                                   errorCallback);
         }
@@ -397,12 +391,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
 
             _requestQueue.Enqueue(nameof(WriteMultipleCoils),
                                   dispatcher,
-                                  cancellationToken =>
-                                      _clientWrapper.WriteMultipleCoilsAsync(unitIdentifier,
-                                                                             startingAddress,
-                                                                             values,
-                                                                             effectiveTimeout,
-                                                                             cancellationToken),
+                                  cancellationToken => _clientWrapper.WriteMultipleCoilsAsync(unitIdentifier, startingAddress, values, effectiveTimeout, cancellationToken),
                                   successCallback,
                                   errorCallback);
         }
@@ -430,11 +419,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
 
             _requestQueue.Enqueue(nameof(ReadInputRegistersRaw),
                                   dispatcher,
-                                  cancellationToken => _clientWrapper.ReadInputRegistersRawAsync(unitIdentifier,
-                                                                                                 startingAddress,
-                                                                                                 quantity,
-                                                                                                 effectiveTimeout,
-                                                                                                 cancellationToken),
+                                  cancellationToken => _clientWrapper.ReadInputRegistersRawAsync(unitIdentifier, startingAddress, quantity, effectiveTimeout, cancellationToken),
                                   successCallback,
                                   errorCallback);
         }
@@ -744,11 +729,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
 
             _requestQueue.Enqueue(nameof(ReadHoldingRegistersRaw),
                                   dispatcher,
-                                  cancellationToken => _clientWrapper.ReadHoldingRegistersRawAsync(unitIdentifier,
-                                                                                                   startingAddress,
-                                                                                                   quantity,
-                                                                                                   effectiveTimeout,
-                                                                                                   cancellationToken),
+                                  cancellationToken => _clientWrapper.ReadHoldingRegistersRawAsync(unitIdentifier, startingAddress, quantity, effectiveTimeout, cancellationToken),
                                   successCallback,
                                   errorCallback);
         }
@@ -1422,9 +1403,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
                 return;
             }
 
-            throw new
-                InvalidOperationException($"{propertyName} can only be changed before the client is first enabled — the request queue is built from it. "
-                                          + "Set it while the client is disabled for the first time.");
+            throw new InvalidOperationException($"{propertyName} can only be changed before the client is first enabled — the request queue is built from it. " +
+                                                "Set it while the client is disabled for the first time.");
         }
 
         #endregion

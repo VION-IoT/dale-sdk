@@ -119,9 +119,11 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
             // Arrange
             _sut.IsEnabled = true;
             Connect();
+
             // The trading center writes a heartbeat and a 32-bit setpoint (low-word-first, Beckhoff layout).
             _client.WriteSingleRegister(1, 0, new byte[] { 0x00, 0x07 });
             _client.WriteMultipleRegisters(1, 1, new byte[] { 0x1D, 0xC0, 0xFF, 0xFE }); // -123456 LswToMsw
+
             // The block's tick: read commands, echo the heartbeat, publish readiness — one atomic Sync.
             var (heartbeat, setpoint) = _sut.Sync(snapshot =>
                                                   {
@@ -130,7 +132,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
                                                       snapshot.InputRegisters.WriteAsUShort(0, receivedHeartbeat);
                                                       snapshot.DiscreteInputs.Write(0, true);
 
-            // Act
+                                                      // Act
                                                       return (receivedHeartbeat, receivedSetpoint);
                                                   });
 
@@ -151,6 +153,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server
             // test pins that wire behavior so a FluentModbus upgrade cannot silently drop one of the checks.
             _sut.IsEnabled = true;
             Connect();
+
             // Both ranges inside the extent (holding registers 0-9): succeeds, write lands, read echoes.
             var echoed = _client.ReadWriteMultipleRegisters(1, 2, 1, 2, new byte[] { 0xAB, 0xCD }).ToArray();
             CollectionAssert.AreEqual(new byte[] { 0xAB, 0xCD }, echoed);
