@@ -163,8 +163,10 @@ page states it), or a missing test (that is a `GAP` marker on the page).
 - **The two discoveries of this area do not share a rule, and the contract side is the one out of
   step.** The interface factory scans every loaded assembly and takes the types that loaded from one it
   could not enumerate (`Vion.Dale.Sdk/Configuration/Interfaces/InterfaceFactory.cs:82-99`); the
-  contract factory filters by reference and refuses the whole configuration when an assembly cannot be
-  enumerated (`Vion.Dale.Sdk/Reflection/AssemblyExtensions.cs:56-59`, `:100-103`). The private runtime
+  contract factory considers only the assembly that declares the type it is looking for and the
+  assemblies referencing that one — for a consumer-declared contract, the consumer's package rather
+  than the SDK's — and refuses the whole configuration when one of them cannot be enumerated
+  (`Vion.Dale.Sdk/Reflection/AssemblyExtensions.cs:47`, `:56-59`, `:100-103`). The private runtime
   rejects the all-or-nothing helper twice in its own comments and degrades instead
   (`Dale/Program.cs:115-118`, `LogicSystemConfigurationInitializer.cs:635-640`), so the shape to
   converge on is the runtime's degrading scan rather than the SDK's helper.

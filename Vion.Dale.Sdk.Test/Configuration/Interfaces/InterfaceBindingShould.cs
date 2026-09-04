@@ -87,7 +87,6 @@ namespace Vion.Dale.Sdk.Test.Configuration.Interfaces
 
         [TestMethod]
         [TestProperty("spec", "AC-BIND-001.3")]
-        [TestProperty("spec", "AC-BIND-004.3")]
         public void RefuseInterfaceBindingOnNonPublicProperty()
         {
             // Arrange
@@ -126,6 +125,38 @@ namespace Vion.Dale.Sdk.Test.Configuration.Interfaces
 
             // Assert
             Assert.HasCount(1, block.BoundInterfaceIdentifiers());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-BIND-004.3")]
+        public void OfferNoEndpointFromNonPublicPropertyCarryingNoBinding()
+        {
+            // Arrange — a private helper whose type happens to implement a logic interface. It carries no
+            // binding attribute, so the refusal of AC-BIND-001.3 does not reach it and the public-only walk
+            // is the whole of what decides.
+            var block = new PrivateHelperBlock();
+
+            // Act
+            new LifecycleHarness().Configure(block, serviceProvider: BindHosts.Bare);
+
+            // Assert
+            Assert.IsEmpty(block.BoundInterfaceIdentifiers());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-BIND-004.3")]
+        public void BindEndpointFromPublicPropertyDeclaredOnBaseClass()
+        {
+            // Arrange — the walk that decides "public" and the walk that reads the attributes are two
+            // GetProperties calls with different flags, so an inherited public property has to be the same
+            // member to both of them.
+            var block = new DerivedEndpointBlock();
+
+            // Act
+            new LifecycleHarness().Configure(block, serviceProvider: BindHosts.Bare);
+
+            // Assert
+            CollectionAssert.AreEquivalent(new[] { BaseEndpointBlock.EndpointIdentifier }, block.BoundInterfaceIdentifiers().ToList());
         }
 
         [TestMethod]
@@ -222,6 +253,42 @@ namespace Vion.Dale.Sdk.Test.Configuration.Interfaces
             protected override void Ready()
             {
                 _ = Endpoint;
+            }
+        }
+
+        /// <summary>A block holding an interface-bearing component privately and declaring no binding on it.</summary>
+        private sealed class PrivateHelperBlock : LogicBlockBase
+        {
+            private BindSinkComponent Helper { get; } = new();
+
+            public PrivateHelperBlock() : base(NullLogger.Instance)
+            {
+            }
+
+            protected override void Ready()
+            {
+                _ = Helper;
+            }
+        }
+
+        /// <summary>A base declaring the public bound property, as a block family shares its components.</summary>
+        private abstract class BaseEndpointBlock : LogicBlockBase
+        {
+            public const string EndpointIdentifier = "Inherited";
+
+            [LogicBlockInterfaceBinding(typeof(IBindSink), Identifier = EndpointIdentifier)]
+            public BindSinkComponent Endpoint { get; } = new();
+
+            protected BaseEndpointBlock() : base(NullLogger.Instance)
+            {
+            }
+        }
+
+        /// <summary>The block a host instantiates, whose endpoint is declared one level up.</summary>
+        private sealed class DerivedEndpointBlock : BaseEndpointBlock
+        {
+            protected override void Ready()
+            {
             }
         }
 

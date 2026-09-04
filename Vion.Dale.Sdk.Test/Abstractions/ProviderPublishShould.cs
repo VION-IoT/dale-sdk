@@ -131,7 +131,7 @@ namespace Vion.Dale.Sdk.Test.Abstractions
         public void DeclareJsonContentTypeForJsonPublish()
         {
             // Arrange / Act
-            _sut.PublishProbeAsJson(7);
+            _sut.PublishProbeAsJson();
 
             // Assert
             Assert.AreEqual(MessageMimeTypes.Json, Published().ContentType);
@@ -141,11 +141,12 @@ namespace Vion.Dale.Sdk.Test.Abstractions
         [TestProperty("spec", "AC-BIND-011.4")]
         public void SerializeJsonPayloadWithSharedOptions()
         {
-            // Arrange / Act
-            _sut.PublishProbeAsJson(7);
+            // Arrange / Act — the payload's property is Pascal-cased and its second member is an enum, so
+            // the whole serialized form is asserted rather than a substring of it.
+            _sut.PublishProbeAsJson();
 
             // Assert
-            Assert.AreEqual("7", Encoding.UTF8.GetString(Published().Payload!));
+            Assert.AreEqual("""{"measuredValue":7,"quality":"Uncertain"}""", Encoding.UTF8.GetString(Published().Payload!));
         }
 
         private PublishMqttMessage Published()

@@ -143,8 +143,8 @@ namespace Vion.Dale.Sdk.Mqtt
             /// </summary>
             /// <returns>A <see cref="ServiceProviderContractId" /> containing the extracted identifiers.</returns>
             /// <exception cref="TopicSubstringNotFoundException">
-            ///     Thrown when the topic is shorter than the configured installation topic, so it carries none of
-            ///     the structure above.
+            ///     Thrown when the topic does not begin with the configured installation topic followed by a
+            ///     separator, so it carries none of the structure above.
             /// </exception>
             /// <exception cref="UnexpectedSegmentCountException">
             ///     Thrown when the topic does not carry at least three segments after the installation topic prefix.
@@ -155,15 +155,18 @@ namespace Vion.Dale.Sdk.Mqtt
                 // by wildcard but that carries fewer segments left the handler with an
                 // ArgumentOutOfRangeException naming neither the topic nor the parameter — a type nothing
                 // documents and no handler can act on.
+                // The segments are located by offset, so a length check alone accepted a long-enough topic
+                // under any other prefix and answered with an empty provider and both remaining segments
+                // shifted one place. A handler may be registered under a topic group whose prefix is empty or
+                // its own (Mqtt/ActorMessages.cs's three prefix meanings), so such topics do arrive.
                 var topic = message.Topic.AsSpan();
-                var installationTopic = MqttConfiguration.InstallationTopic;
-                var dynamicStart = installationTopic.Length + 1; // skip "{installationTopic}/"
-                if (topic.Length < dynamicStart)
+                var installationPrefix = MqttConfiguration.InstallationTopic + "/";
+                if (!topic.StartsWith(installationPrefix.AsSpan()))
                 {
-                    throw new TopicSubstringNotFoundException(message.Topic, installationTopic + "/");
+                    throw new TopicSubstringNotFoundException(message.Topic, installationPrefix);
                 }
 
-                var remaining = topic[dynamicStart..];
+                var remaining = topic[installationPrefix.Length..];
 
                 var firstSlash = remaining.IndexOf('/');
                 if (firstSlash < 0)

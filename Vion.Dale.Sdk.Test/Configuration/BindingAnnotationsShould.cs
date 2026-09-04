@@ -141,7 +141,7 @@ namespace Vion.Dale.Sdk.Test.Configuration
 
             // Assert
             var face = definition.Contracts.Single(contract => contract.Identifier == BindProviderFaceBlock.FaceIdentifier);
-            Assert.AreEqual(true, face.Annotations[ServiceProviderContractAnnotations.DevelopmentOnly]);
+            Assert.IsTrue((bool)face.Annotations[ServiceProviderContractAnnotations.DevelopmentOnly]);
             var ordinary = definition.Contracts.Single(contract => contract.Identifier == BindProviderFaceBlock.ProbeIdentifier);
             Assert.IsFalse(ordinary.Annotations.ContainsKey(ServiceProviderContractAnnotations.DevelopmentOnly));
         }

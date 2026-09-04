@@ -226,11 +226,12 @@ states where a host discovers those registrations from.
   of its interface the search reaches, whatever else implements it.
 - `AC-BIND-008.2` (Event-driven): WHEN no implementation of a contract is loaded THE SYSTEM SHALL
   refuse the configuration naming the contract and the binding that wanted it.
-- `AC-BIND-008.3` (Event-driven): WHEN an assembly that references the SDK cannot be enumerated THE SYSTEM SHALL refuse the configuration naming the assembly and the contract. GAP: an assembly whose types fail to load cannot be produced inside the test process.
+- `AC-BIND-008.3` (Event-driven): WHEN an assembly the search considers cannot be enumerated THE SYSTEM SHALL refuse the configuration naming the assembly and the contract. GAP: an assembly whose types fail to load cannot be produced inside the test process.
 
-The two discoveries of this page do not share a rule, and the divergence is real: this one filters
-the assemblies by reference and refuses what it cannot enumerate, while `AC-BIND-005.1`'s scans
-everything and degrades. Neither is stated as the other's mistake here.
+The two discoveries of this page do not share a rule, and the divergence is real: this one filters the
+assemblies by whether they reference the one that declares what it is looking for, and refuses what it
+cannot enumerate, while `AC-BIND-005.1`'s scans everything and degrades. Neither is stated as the
+other's mistake here.
 
 The same search answers a *scan* — "which concrete implementations are loaded" — with a list, and an
 empty list is an answer rather than a failure: the development host's handler discovery and this
@@ -239,9 +240,11 @@ repository's own exclusion suite both read it that way, and only the singular lo
 
 `AC-BIND-008.1`'s "first" is an enumeration order, not a choice: where two differently named types
 implement one contract, one of them is bound and the other is not, and which is not predictable from
-the source. The search itself considers only assemblies that reference the SDK, and where one type
-name occurs in several of them it takes the highest-versioned assembly's — the same identity question
-[`plugin-loading.md`](plugin-loading.md) settles for a plugin's types.
+the source. The search itself considers only the assembly that declares the contract's own interface
+and the assemblies that reference it — which for a contract a consumer declares is the consumer's
+package and not the SDK's — and where one type name occurs in several of them it takes the
+highest-versioned assembly's, the same identity question [`plugin-loading.md`](plugin-loading.md)
+settles for a plugin's types.
 
 ## What a contract guarantees its block
 
@@ -280,7 +283,8 @@ is absent from the host therefore binds, maps, sends, and reaches no one.
   declared action path under the three-level service-provider wildcard, register under the handler's
   own class name with its declared routing key, and answer the request.
 - `AC-BIND-010.4` (Event-driven): WHEN a declared action path does not begin with a topic separator
-  THE SYSTEM SHALL leave it out of the registration and report it, naming the handler and the path.
+  THE SYSTEM SHALL leave that path out of the registration, register the handler's other paths, and
+  answer the request.
 - `AC-BIND-010.5` (Event-driven): WHEN a contract link map arrives THE SYSTEM SHALL replace the
   handler's mappings whole and notify the subclass.
 - `AC-BIND-010.6` (Event-driven): WHEN a handler reads its actor context before it has received a
@@ -297,9 +301,11 @@ is absent from the host therefore binds, maps, sends, and reaches no one.
 has exactly three levels: they stand for the service provider, the service and the contract, which is
 what `AC-BIND-012.1` reads back off a received topic.
 
-`AC-BIND-010.4` reports rather than refuses because the acknowledgement of `AC-BIND-010.3` is
-something a runtime waits for on a short timeout: a throw would trade a topic that matches nothing
-for a host that does not start.
+`AC-BIND-010.4` skips rather than refuses because the acknowledgement of `AC-BIND-010.3` is something
+a runtime waits for on a short timeout: a throw would trade a topic that matches nothing for a host
+that does not start. Skipping in silence would be no better than subscribing to nothing, so the
+handler and the path are named in a log at error level — a trace and not a criterion, because a log
+call is not something a test may assert on (`../testing-conventions.md` § 15).
 
 `AC-BIND-010.7`'s second clause is the ordinary case, not the error one — a handler subscribed by
 wildcard receives frames for every endpoint of its kind on the installation, mapped or not.
@@ -325,9 +331,9 @@ type went out as none at all.
 - `AC-BIND-012.1` (Ubiquitous): THE SYSTEM SHALL read a service-provider contract's identity from the
   three topic segments after the installation topic, the last of which may run to the end of the
   topic.
-- `AC-BIND-012.2` (Event-driven): WHEN a topic is shorter than the installation topic, or carries
-  fewer than three segments after it, THE SYSTEM SHALL refuse to read an identity from it, naming the
-  topic.
+- `AC-BIND-012.2` (Event-driven): WHEN a topic does not begin with the installation topic and a
+  separator, or carries fewer than three segments past it, THE SYSTEM SHALL refuse to read an identity
+  from it, naming the topic.
 - `AC-BIND-012.3` (Ubiquitous): THE SYSTEM SHALL read a correlation identifier from sixteen raw bytes
   or from thirty-six UTF-8 characters, and SHALL report an empty identifier for any other correlation
   data and for none.
@@ -343,6 +349,12 @@ type went out as none at all.
 `AC-BIND-012.2` is the difference between a handler that logs a topic it cannot route and one whose
 message arm dies with an exception nothing documents. The parse runs in the sealed dispatch, before a
 subclass can catch anything, so its exception type is part of what the base promises.
+
+Its first clause is a check on the prefix rather than on the length, because the three segments are
+read at a fixed offset: a topic long enough but under another prefix used to answer with an empty
+provider and both remaining segments shifted one place. Such topics reach a handler — a topic group's
+prefix is the installation topic only when it is left unset (`AC-BIND-016.1`), and a hand-written
+handler actor may register its own or none.
 
 `AC-BIND-012.3`'s tolerance is deliberate: a frame with unreadable correlation data loses its
 identity, not the handler its life. `AC-BIND-012.4` is the same read for a handler that would rather
@@ -369,11 +381,14 @@ contracts package's, so a producer and a consumer cannot drift.
 - `AC-BIND-014.1` (Ubiquitous): THE SYSTEM SHALL offer one multiplicity vocabulary of four values,
   declarable per binding on the consumer side and per contract type on the provider side, and SHALL
   enforce none of them.
+- `AC-BIND-014.2` (Ubiquitous): THE SYSTEM SHALL take a declaration that names no multiplicity as the
+  unconstrained value, on both binding attributes and on the contract type.
 
 The enforcement is the cloud's, at activation
 ([`../../architecture/decisions/0021-contract-link-multiplicity.md`](../../architecture/decisions/0021-contract-link-multiplicity.md)).
-The default is the unconstrained value and is omitted from the annotations rather than emitted, which
-is what keeps an unannotated block unconstrained for a reader that adopts the vocabulary later.
+`AC-BIND-014.2`'s default is what keeps an unannotated block unconstrained for a reader that adopts
+the vocabulary later; `AC-BIND-013.2` is the other half of that, omitting the default from the
+annotations rather than emitting it.
 
 ## Development-only surface
 
@@ -382,6 +397,9 @@ is what keeps an unannotated block unconstrained for a reader that adopts the vo
   declarations other than the author's.
 - `AC-BIND-015.2` (Ubiquitous): THE SYSTEM SHALL let a development-only handler subscribe to no topic
   and claim an empty routing key.
+- `AC-BIND-015.3` (Ubiquitous): THE SYSTEM SHALL make the handler's own declaration the whole
+  discriminator, so a scan of an assembly's service-provider handlers that skips the declared
+  development surface is left with the handlers of that assembly's hardware contracts and no others.
 
 A provider face is the inverse of a consumer contract, bound by a simulator block so a bench has a
 behaving peer ([`../simulator-authoring.md`](../simulator-authoring.md)); it exists only where a
@@ -389,12 +407,16 @@ development host routes it
 ([`../../architecture/decisions/0139-service-provider-simulation-tiers.md`](../../architecture/decisions/0139-service-provider-simulation-tiers.md)).
 Three mechanisms keep it off a production host and they act on different things:
 [`introspection.md`](introspection.md)'s `AC-INTRO-002.6` and `002.9` keep a block that binds one out
-of the packed document, the handler marker of `AC-BIND-015.1` is what a production host's type scan
-filters on, and the production runtime refuses outright a configuration whose block binds a
-development-only contract type — that refusal is the runtime's, carried here and specified nowhere in
-this repository, and it is what makes the two-declaration convention load-bearing rather than
-advisory. Nothing in the SDK connects them, so an author who declares one and forgets the
-other gets no diagnostic; a suite in this repository is what holds the shipped pair in step.
+of the packed document, `AC-BIND-015.3` is what a production host's type scan filters on, and the
+production runtime refuses outright a configuration whose block binds a development-only contract
+type — that refusal is the runtime's, carried here and specified nowhere in this repository, and it is
+what makes the two-declaration convention load-bearing rather than advisory. Nothing in the SDK
+connects them, so an author who declares one and forgets the other gets no diagnostic; a suite in this
+repository is what holds the shipped pair in step.
+
+`AC-BIND-015.3` is a rule about the declaration and not about today's roster: the scan reads the
+handler type alone, because there is no link from a handler to the contract type it serves. That is
+also why it is the handler's own declaration a host filters on and never the contract's.
 
 `AC-BIND-015.2` is why the marker is load-bearing rather than cosmetic. A provider face has no
 transport, so it declares an empty routing key — which a client that matches handlers by prefix or

@@ -39,7 +39,7 @@ namespace Vion.Dale.Sdk.Test.Core
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-BIND-014.1")]
+        [TestProperty("spec", "AC-BIND-014.2")]
         [DynamicData(nameof(UnannotatedDeclarations))]
         public void LeaveUnannotatedDeclarationUnconstrained(LinkMultiplicity declared)
         {

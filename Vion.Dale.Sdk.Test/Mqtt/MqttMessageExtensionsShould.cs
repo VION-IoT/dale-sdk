@@ -65,6 +65,20 @@ namespace Vion.Dale.Sdk.Test.Mqtt
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-BIND-012.2")]
+        public void RefuseTopicOutsideInstallationTopic()
+        {
+            // Arrange — long enough to carry three segments, but under another prefix: what a handler
+            // registered with an empty or custom topic-group prefix receives.
+            var topic = "other/" + MqttConfiguration.InstallationTopic + "/sp/svc/c1";
+            var message = Received(topic);
+
+            // Act / Assert
+            var exception = Assert.Throws<TopicSubstringNotFoundException>(() => message.ExtractServiceProviderContractId());
+            StringAssert.Contains(exception.Message, topic);
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-BIND-012.3")]
         public void ReadCorrelationIdentifierFromBinaryAndTextForms()
         {

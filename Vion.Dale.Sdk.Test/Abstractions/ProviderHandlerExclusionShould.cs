@@ -39,7 +39,7 @@ namespace Vion.Dale.Sdk.Test.Abstractions
                                                                                     .BuildServiceProvider();
 
         [TestMethod]
-        [TestProperty("spec", "AC-BIND-015.1")]
+        [TestProperty("spec", "AC-BIND-015.3")]
         public void LeaveOnlyHardwareHandlersToProductionHostScan()
         {
             // Arrange — the scan a production host runs: the handler convention, minus the marked types.

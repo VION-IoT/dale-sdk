@@ -148,6 +148,17 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
         }
     }
 
+    /// <summary>How certain a <see cref="BindProbeReading" /> is — the enum member a JSON publish renders.</summary>
+    public enum BindProbeQuality
+    {
+        Certain,
+
+        Uncertain,
+    }
+
+    /// <summary>A JSON publish's payload: one Pascal-cased property and one enum member.</summary>
+    public readonly record struct BindProbeReading(int MeasuredValue, BindProbeQuality Quality);
+
     /// <summary>The handler a bind probe addresses, driven directly through its dispatch.</summary>
     public class BindProbeHandler : ServiceProviderHandlerBase
     {
@@ -179,9 +190,13 @@ namespace Vion.Dale.Sdk.Test.TestHelpers
                            retain);
         }
 
-        public Guid PublishProbeAsJson(int payload)
+        /// <summary>
+        ///     Publishes a payload whose property is Pascal-cased and whose second member is an enum, so the
+        ///     naming policy and the enum converter of the shared options are both readable in the bytes.
+        /// </summary>
+        public Guid PublishProbeAsJson()
         {
-            return PublishJson("probe/topic", payload, "ProbeSchema");
+            return PublishJson("probe/topic", new BindProbeReading(7, BindProbeQuality.Uncertain), "ProbeSchema");
         }
 
         public void ForwardProbe(ServiceProviderContractId contractId, int amount)
