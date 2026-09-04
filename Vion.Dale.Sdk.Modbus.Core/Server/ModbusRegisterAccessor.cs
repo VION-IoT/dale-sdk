@@ -213,7 +213,14 @@ namespace Vion.Dale.Sdk.Modbus.Core.Server
 
         private void ValidateRange(ushort startingAddress, uint quantity)
         {
-            if (quantity == 0 || startingAddress + (long)quantity > _registerExtent)
+            // An empty range is a payload the caller built, not an address outside the map; naming it an address
+            // fault sends the author to check extents that are fine.
+            if (quantity == 0)
+            {
+                throw new ArgumentException($"A {_area} access must cover at least one register.", nameof(quantity));
+            }
+
+            if (startingAddress + (long)quantity > _registerExtent)
             {
                 throw new InvalidServerAddressException(_area, startingAddress, quantity, _registerExtent);
             }

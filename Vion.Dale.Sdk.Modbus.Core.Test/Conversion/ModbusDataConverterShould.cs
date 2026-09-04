@@ -151,13 +151,29 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
-        public void ThrowExceptionWhen64BitWordOrderIsUnsupported()
+        [DataRow(8, DisplayName = "One whole value")]
+        [DataRow(1, DisplayName = "A partial value")]
+        [DataRow(0, DisplayName = "An empty response")]
+        public void ThrowExceptionWhen64BitWordOrderIsUnsupported(int byteCount)
         {
             // Arrange
             const WordOrder64 unsupportedWordOrder = (WordOrder64)999;
 
             // Act / Assert
-            Assert.Throws<UnsupportedWordOrder64Exception>(() => _sut.SwapWords(new byte[0x01], unsupportedWordOrder));
+            Assert.Throws<UnsupportedWordOrder64Exception>(() => _sut.SwapWords(new byte[byteCount], unsupportedWordOrder));
+        }
+
+        [TestMethod]
+        public void AcceptARaggedBufferAlikeAcrossTheThreeSwapsWhenNoSwapIsNeeded()
+        {
+            // Arrange
+            _bitConverterProxy.SetupGet(bitConverter => bitConverter.IsLittleEndian).Returns(true);
+            var ragged = new byte[3];
+
+            // Act & Assert
+            _sut.SwapBytes(ragged, ByteOrder.LsbToMsb);
+            _sut.SwapWords(ragged, WordOrder32.LswToMsw);
+            _sut.SwapWords(ragged, WordOrder64.DCBA);
         }
 
         [TestMethod]

@@ -149,6 +149,17 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Server
         }
 
         [TestMethod]
+        public void RejectAnEmptyReadOrWriteAsAnArgumentFault()
+        {
+            // An empty payload is not an address outside the extent, and saying so sends the author to check
+            // extents that are fine.
+            Assert.ThrowsExactly<ArgumentException>(() => _sut.ReadRaw(0, 0));
+            Assert.ThrowsExactly<ArgumentException>(() => _sut.ReadAsString(0, 0));
+            Assert.ThrowsExactly<ArgumentException>(() => _sut.WriteRaw(0, []));
+            Assert.ThrowsExactly<ArgumentException>(() => _sut.WriteAsString(0, string.Empty));
+        }
+
+        [TestMethod]
         public void RejectOddRawByteCounts()
         {
             Assert.ThrowsExactly<ArgumentException>(() => _sut.WriteRaw(0, new byte[3]));

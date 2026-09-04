@@ -21,7 +21,11 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
 
         private readonly IModbusTcpServerProxy _proxy;
 
-        private bool _inSyncCallback;
+        // A depth, not a flag: the server lock is re-entrant, so a nested Sync returning would clear a flag
+        // while the outer callback still holds the lock — and the guard exists for exactly that callback.
+        private bool _isEnabled;
+
+        private int _syncCallbackDepth;
 
         private IPAddress _parsedListenAddress = IPAddress.Any;
 
@@ -35,12 +39,12 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
         /// <inheritdoc />
         public bool IsEnabled
         {
-            get;
+            get => _isEnabled;
 
             set
             {
                 EnsureNotInSyncCallback(nameof(IsEnabled));
-                if (field == value)
+                if (_isEnabled == value)
                 {
                     return;
                 }
@@ -56,7 +60,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
                     LogDisabled();
                 }
 
-                field = value;
+                _isEnabled = value;
             }
         }
 
@@ -168,14 +172,16 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
         {
             lock (_proxy.Lock)
             {
-                _inSyncCallback = true;
+                _syncCallbackDepth++;
+                var lifetime = new SnapshotLifetime();
                 try
                 {
-                    access(CreateSnapshot());
+                    access(CreateSnapshot(lifetime));
                 }
                 finally
                 {
-                    _inSyncCallback = false;
+                    lifetime.End();
+                    _syncCallbackDepth--;
                 }
             }
         }
@@ -185,14 +191,16 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
         {
             lock (_proxy.Lock)
             {
-                _inSyncCallback = true;
+                _syncCallbackDepth++;
+                var lifetime = new SnapshotLifetime();
                 try
                 {
-                    return access(CreateSnapshot());
+                    return access(CreateSnapshot(lifetime));
                 }
                 finally
                 {
-                    _inSyncCallback = false;
+                    lifetime.End();
+                    _syncCallbackDepth--;
                 }
             }
         }
@@ -200,18 +208,31 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
         public void Dispose()
         {
             EnsureNotInSyncCallback(nameof(Dispose));
+
+            // A disposed server is not an enabled one: leaving the flag set reported a state pair the surface does
+            // not define, and a later IsEnabled = false ran Stop() on a disposed proxy. Set directly rather than
+            // through the setter — disposal is not a disable, and the proxy stops itself one line down.
+            _isEnabled = false;
             _proxy.Dispose();
         }
 
-        private IModbusServerSnapshot CreateSnapshot()
+        /// <summary>
+        ///     Builds the snapshot one callback sees. Every accessor reaches the live buffer through
+        ///     <paramref name="lifetime" />, so an accessor kept past the callback refuses instead of writing the
+        ///     server's buffers without the lock the callback held.
+        /// </summary>
+        private IModbusServerSnapshot CreateSnapshot(SnapshotLifetime lifetime)
         {
-            return new ModbusServerSnapshot(new ModbusRegisterAccessor(() => _proxy.GetHoldingRegisterBuffer(),
+            return new ModbusServerSnapshot(new ModbusRegisterAccessor(() => lifetime.Buffer(_proxy.GetHoldingRegisterBuffer()),
                                                                        HoldingRegisterCount,
                                                                        ModbusServerArea.HoldingRegisters,
                                                                        _dataConverter),
-                                            new ModbusRegisterAccessor(() => _proxy.GetInputRegisterBuffer(), InputRegisterCount, ModbusServerArea.InputRegisters, _dataConverter),
-                                            new ModbusBitAccessor(() => _proxy.GetCoilBuffer(), CoilCount, ModbusServerArea.Coils),
-                                            new ModbusBitAccessor(() => _proxy.GetDiscreteInputBuffer(), DiscreteInputCount, ModbusServerArea.DiscreteInputs));
+                                            new ModbusRegisterAccessor(() => lifetime.Buffer(_proxy.GetInputRegisterBuffer()),
+                                                                       InputRegisterCount,
+                                                                       ModbusServerArea.InputRegisters,
+                                                                       _dataConverter),
+                                            new ModbusBitAccessor(() => lifetime.Buffer(_proxy.GetCoilBuffer()), CoilCount, ModbusServerArea.Coils),
+                                            new ModbusBitAccessor(() => lifetime.Buffer(_proxy.GetDiscreteInputBuffer()), DiscreteInputCount, ModbusServerArea.DiscreteInputs));
         }
 
         private void EnsureDisabled(string propertyName)
@@ -228,10 +249,35 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
             // Stopping the listener joins the request-handler tasks, which may themselves be waiting for the
             // server lock the Sync callback holds — calling this from inside the callback would deadlock the
             // actor thread permanently. Fail fast instead; react to commands after the callback returns.
-            if (_inSyncCallback)
+            if (_syncCallbackDepth > 0)
             {
                 throw new
                     InvalidOperationException($"{memberName} must not be called from inside a Sync callback — the server lock is held there. React to client-written commands after the callback returns.");
+            }
+        }
+
+        /// <summary>
+        ///     How long one <c>Sync</c> callback's snapshot stays usable. The accessors close over it and pass every
+        ///     buffer they fetch through <see cref="Buffer" />, so the check sits on the one path all of them take.
+        /// </summary>
+        private sealed class SnapshotLifetime
+        {
+            private bool _ended;
+
+            public void End()
+            {
+                _ended = true;
+            }
+
+            public Span<byte> Buffer(Span<byte> buffer)
+            {
+                if (_ended)
+                {
+                    throw new
+                        InvalidOperationException("This server snapshot belongs to a Sync callback that has already returned. Its accessors reach the live server buffers, which are only guarded while the callback runs — take a fresh snapshot inside a new Sync call.");
+                }
+
+                return buffer;
             }
         }
 

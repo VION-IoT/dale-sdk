@@ -220,6 +220,87 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server.LogicBlock
         }
 
         [TestMethod]
+        public void KeepRejectingDisablingAfterANestedSyncCallbackReturns()
+        {
+            // A nested Sync returning must not disarm the outer callback's guard: the server lock is re-entrant,
+            // so the outer callback still holds it and stopping the listener there still deadlocks.
+            _sut.IsEnabled = true;
+
+            _sut.Sync(_ =>
+                      {
+                          _sut.Sync(_ => { });
+                          Assert.ThrowsExactly<InvalidOperationException>(() => _sut.IsEnabled = false);
+                      });
+
+            Assert.IsTrue(_sut.IsEnabled);
+            Assert.AreEqual(0, _proxy.StopCalls);
+        }
+
+        [TestMethod]
+        public void KeepRejectingDisposalAfterANestedSyncCallbackReturns()
+        {
+            _sut.IsEnabled = true;
+
+            _sut.Sync(_ =>
+                      {
+                          _sut.Sync(_ => { });
+                          Assert.ThrowsExactly<InvalidOperationException>(() => _sut.Dispose());
+                      });
+
+            Assert.AreEqual(0, _proxy.DisposeCalls);
+        }
+
+        [TestMethod]
+        public void ReadAsDisabledOnceDisposed()
+        {
+            _sut.IsEnabled = true;
+
+            _sut.Dispose();
+
+            Assert.IsFalse(_sut.IsEnabled);
+            Assert.AreEqual(1, _proxy.DisposeCalls);
+        }
+
+        [TestMethod]
+        public void StaySilentWhenDisposedTwice()
+        {
+            _sut.IsEnabled = true;
+
+            _sut.Dispose();
+            _sut.Dispose();
+
+            Assert.IsFalse(_sut.IsEnabled);
+        }
+
+        [TestMethod]
+        public void RefuseASnapshotCapturedPastItsCallback()
+        {
+            // The snapshot's accessors write the live server buffer without the lock once the callback has
+            // returned, which the interface warns against and nothing enforced.
+            _sut.HoldingRegisterCount = 10;
+            _sut.CoilCount = 10;
+            IModbusServerSnapshot? captured = null;
+
+            _sut.Sync(snapshot => captured = snapshot);
+
+            Assert.ThrowsExactly<InvalidOperationException>(() => captured!.HoldingRegisters.ReadAsUShort(0));
+            Assert.ThrowsExactly<InvalidOperationException>(() => captured!.HoldingRegisters.WriteAsUShort(0, 1));
+            Assert.ThrowsExactly<InvalidOperationException>(() => captured!.Coils.Read(0));
+            Assert.ThrowsExactly<InvalidOperationException>(() => captured!.Coils.Write(0, true));
+        }
+
+        [TestMethod]
+        public void GiveEachSyncCallbackItsOwnLiveSnapshot()
+        {
+            _sut.HoldingRegisterCount = 10;
+
+            _sut.Sync(snapshot => snapshot.HoldingRegisters.WriteAsUShort(0, 4242));
+            var readBack = _sut.Sync(snapshot => snapshot.HoldingRegisters.ReadAsUShort(0));
+
+            Assert.AreEqual((ushort)4242, readBack);
+        }
+
+        [TestMethod]
         public void RejectDisablingFromInsideASyncCallback()
         {
             // Stopping the listener joins request-handler threads that may be waiting for the server lock the
