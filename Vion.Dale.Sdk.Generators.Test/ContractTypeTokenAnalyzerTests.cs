@@ -43,7 +43,7 @@ public interface IGridMeasurement { }";
 
         [TestMethod]
         [TestProperty("spec", "AC-ANLZ-005.4")]
-        public async Task StaySilentOnInterfaceWithoutTheAttribute()
+        public async Task StaySilentOnInterfaceWithoutContractTypeAttribute()
         {
             // Arrange / Act / Assert
             var source = @"

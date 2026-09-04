@@ -8,8 +8,10 @@ namespace Vion.Dale.Sdk.Generators.Test
     public class PublicApiDocumentationAnalyzerTests
     {
         [TestMethod]
-        public async Task DALE013_PublicApiWithoutSummary_ReportsWarning()
+        [TestProperty("spec", "AC-ANLZ-012.1")]
+        public async Task ReportPublicApiTypeWithoutSummary()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -24,8 +26,10 @@ namespace TestNs
         }
 
         [TestMethod]
-        public async Task DALE013_PublicApiWithSummary_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-012.1")]
+        public async Task StaySilentOnDocumentedPublicApiType()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -40,8 +44,10 @@ namespace TestNs
         }
 
         [TestMethod]
-        public async Task DALE014_PublicTypeInApiNamespace_WithoutAttribute_ReportsWarning()
+        [TestProperty("spec", "AC-ANLZ-012.2")]
+        public async Task ReportUnmarkedPublicTypeInApiNamespace()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -57,8 +63,10 @@ namespace TestNs
         }
 
         [TestMethod]
-        public async Task DALE014_TypeWithInternalApi_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-012.2")]
+        public async Task StaySilentOnInternalApiMarkedType()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -74,8 +82,10 @@ namespace TestNs
         }
 
         [TestMethod]
-        public async Task DALE014_TypeWithPublicApi_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-012.2")]
+        public async Task StaySilentOnPublicApiMarkedType()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -92,8 +102,10 @@ namespace TestNs
         }
 
         [TestMethod]
-        public async Task DALE014_TypeInNonConfiguredNamespace_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-012.2")]
+        public async Task StaySilentOnTypeOutsideConfiguredNamespaces()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -115,8 +127,10 @@ namespace SomeOther.Namespace
         }
 
         [TestMethod]
-        public async Task DALE015_StaleNamespace_ReportsWarning()
+        [TestProperty("spec", "AC-ANLZ-012.3")]
+        public async Task ReportNamespaceMatchingNoPublicType()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -127,8 +141,10 @@ using Vion.Dale.Sdk.Core;
         }
 
         [TestMethod]
-        public async Task DALE015_NamespaceWithTypes_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-012.3")]
+        public async Task StaySilentOnNamespaceMatchingPublicTypes()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 

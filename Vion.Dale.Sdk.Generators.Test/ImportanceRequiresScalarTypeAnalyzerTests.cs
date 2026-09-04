@@ -10,8 +10,10 @@ namespace Vion.Dale.Sdk.Generators.Test
         // --- Composite types at Primary/Secondary → DALE032 ---
 
         [TestMethod]
-        public async Task ImportancePrimaryOnRecordStruct_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-009.6")]
+        public async Task ReportPrimaryImportanceOnRecordStruct()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -26,8 +28,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task ImportanceSecondaryOnImmutableArray_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-009.6")]
+        public async Task ReportSecondaryImportanceOnImmutableArray()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System.Collections.Immutable;
 using Vion.Dale.Sdk.Core;
@@ -43,8 +47,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task ImportancePrimaryOnNullableRecordStruct_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-009.6")]
+        public async Task ReportPrimaryImportanceOnNullableRecordStruct()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -67,8 +73,10 @@ public class MyBlock
         [DataRow("System.DateTime")]
         [DataRow("System.TimeSpan")]
         [TestMethod]
-        public async Task ImportancePrimaryOnScalar_NoDiagnostic(string typeName)
+        [TestProperty("spec", "AC-ANLZ-009.6")]
+        public async Task StaySilentOnPrimaryImportanceOverScalar(string typeName)
         {
+            // Arrange / Act / Assert
             var source = $@"
 using Vion.Dale.Sdk.Core;
 
@@ -80,8 +88,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task ImportancePrimaryOnEnum_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-009.6")]
+        public async Task StaySilentOnPrimaryImportanceOverEnum()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -99,8 +109,10 @@ public class MyBlock
         [DataRow("Importance.Normal")]
         [DataRow("Importance.Hidden")]
         [TestMethod]
-        public async Task NonTileImportanceOnRecordStruct_NoDiagnostic(string importance)
+        [TestProperty("spec", "AC-ANLZ-009.6")]
+        public async Task StaySilentOnNormalImportanceOverRecordStruct(string importance)
         {
+            // Arrange / Act / Assert
             var source = $@"
 using Vion.Dale.Sdk.Core;
 
@@ -114,8 +126,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task RecordStructWithoutPresentation_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-009.6")]
+        public async Task StaySilentOnRecordStructWithoutPresentation()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -129,8 +143,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task PresentationWithoutImportance_OnRecordStruct_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-009.6")]
+        public async Task StaySilentWhenImportanceUnset()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 

@@ -8,8 +8,10 @@ namespace Vion.Dale.Sdk.Generators.Test
     public class MultiInterfaceConflictAnalyzerTests
     {
         [TestMethod]
-        public async Task SingleInterface_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-006.2")]
+        public async Task StaySilentOnSingleInterface()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -23,8 +25,10 @@ public class MyBlock : IOne
         }
 
         [TestMethod]
-        public async Task TwoInterfacesAgreeOnUnit_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-006.2")]
+        public async Task StaySilentWhenInterfacesAgreeOnUnit()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -39,8 +43,10 @@ public class MyBlock : IOne, ITwo
         }
 
         [TestMethod]
-        public async Task TwoInterfacesConflictOnUnit_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-006.2")]
+        public async Task ReportConflictingUnitsAcrossInterfaces()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -56,8 +62,10 @@ public class MyBlock : IOne, ITwo
         }
 
         [TestMethod]
-        public async Task ConflictSuppressedByExplicitOverride_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-006.3")]
+        public async Task StaySilentWhenClassDeclaresResolvingAttribute()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 

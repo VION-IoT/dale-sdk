@@ -10,8 +10,10 @@ namespace Vion.Dale.Sdk.Generators.Test
         // --- DALE009: Contract interface names must start with 'I' ---
 
         [TestMethod]
-        public async Task ValidInterfaceNames_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-005.1")]
+        public async Task StaySilentOnConformingRoleNames()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -22,8 +24,10 @@ public static class EnergyContract { }
         }
 
         [TestMethod]
-        public async Task BetweenInterfaceMissingPrefix_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-005.1")]
+        public async Task ReportBetweenInterfaceWithoutPrefix()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -37,8 +41,10 @@ public static class {|#0:EnergyContract|} { }
         }
 
         [TestMethod]
-        public async Task AndInterfaceMissingPrefix_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-005.1")]
+        public async Task ReportAndInterfaceWithoutPrefix()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -54,8 +60,10 @@ public static class {|#0:EnergyContract|} { }
         // --- DALE010: Command/StateUpdate From/To must match ---
 
         [TestMethod]
-        public async Task ValidCommandFromTo_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-005.2")]
+        public async Task StaySilentOnCommandNamingBothRoles()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -70,8 +78,10 @@ public static class EnergyContract
         }
 
         [TestMethod]
-        public async Task CommandFromMismatch_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-005.2")]
+        public async Task ReportCommandFromNamingNeitherRole()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -89,8 +99,10 @@ public static class EnergyContract
         }
 
         [TestMethod]
-        public async Task CommandToMismatch_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-005.2")]
+        public async Task ReportCommandToNamingNeitherRole()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -108,8 +120,10 @@ public static class EnergyContract
         }
 
         [TestMethod]
-        public async Task StateUpdateValidFromTo_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-005.2")]
+        public async Task StaySilentOnStateUpdateNamingBothRoles()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -126,8 +140,10 @@ public static class EnergyContract
         // --- DALE011: ResponseType must be nested struct ---
 
         [TestMethod]
-        public async Task ValidRequestResponse_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-005.3")]
+        public async Task StaySilentOnNestedResponseStruct()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -144,8 +160,10 @@ public static class EnergyContract
         }
 
         [TestMethod]
-        public async Task ResponseTypeNotInSameContract_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-005.3")]
+        public async Task ReportResponseTypeOutsideContract()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -165,8 +183,10 @@ public static class EnergyContract
         }
 
         [TestMethod]
-        public async Task NoLogicBlockContractAttribute_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-005.1")]
+        public async Task StaySilentOnClassWithoutContractAttribute()
         {
+            // Arrange / Act / Assert
             var source = @"
 public static class NotAContract
 {
@@ -217,7 +237,7 @@ public class Link
 
         [TestMethod]
         [TestProperty("spec", "AC-ANLZ-005.5")]
-        public async Task ReportMessageStructNestedInATypeThatIsNotAContract()
+        public async Task ReportMessageStructNestedOutsideContractClass()
         {
             // Arrange / Act / Assert
             // Nesting alone is not the rule: the generator reads the structs of a [LogicBlockContract]

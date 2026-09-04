@@ -8,8 +8,10 @@ namespace Vion.Dale.Sdk.Generators.Test
     public class ReadOnlyAndWriteOnlyExclusivityAnalyzerTests
     {
         [TestMethod]
-        public async Task ReadOnlyAlone_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-011.5")]
+        public async Task StaySilentOnReadOnlyAlone()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -21,8 +23,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task WriteOnlyAlone_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-011.5")]
+        public async Task StaySilentOnWriteOnlyAlone()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -34,8 +38,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task NeitherFlag_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-011.5")]
+        public async Task StaySilentWhenNeitherFlagSet()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -47,8 +53,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task BothFlagsTrue_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-011.5")]
+        public async Task ReportBothFlagsSet()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 

@@ -11,6 +11,7 @@ namespace Vion.Dale.Sdk.Generators.Test
         [TestProperty("spec", "AC-EMIT-012.5")]
         public async Task ImmediateAlone_NoDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -25,6 +26,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.5")]
         public async Task ThrottleKnobsWithoutImmediate_NoDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -39,6 +41,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.5")]
         public async Task ImmediateWithDefaultMinIntervalEcho_NoDiagnostic()
         {
+            // Arrange / Act / Assert
             // Echoing the default "250ms" alongside Immediate is harmless redundancy, not a misconfig.
             var source = @"
 using Vion.Dale.Sdk.Core;
@@ -54,6 +57,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.5")]
         public async Task ImmediateWithNonDefaultMinInterval_ReportsDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -69,6 +73,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.5")]
         public async Task ImmediateWithMinChange_ReportsDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -84,6 +89,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.5")]
         public async Task ImmediateWithBothKnobs_ReportsDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -101,6 +107,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.5")]
         public async Task ImmediateFalseWithKnobs_NoDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -115,6 +122,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.5")]
         public async Task ImmediateWithZeroSentinelMinInterval_ReportsDiagnostic()
         {
+            // Arrange / Act / Assert
             // "0" is a non-default MinInterval — explicitly disabling a throttle that Immediate already
             // bypasses is contradictory, so it's surfaced.
             var source = @"
@@ -132,6 +140,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.7")]
         public async Task DualAnnotatedMeasuringPointImmediateWithMinChange_ReportsDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -149,6 +158,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.5")]
         public async Task ImmediateWithDefaultIntervalWrittenWithoutUnit_NoDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -163,6 +173,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.7")]
         public async Task DualAnnotatedServicePropertyImmediateWithMinChange_ReportsDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -180,6 +191,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.7")]
         public async Task DualAnnotatedBothImmediateWithMinChange_ReportsOnEachAttribute()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 

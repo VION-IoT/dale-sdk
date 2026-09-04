@@ -8,8 +8,10 @@ namespace Vion.Dale.Sdk.Generators.Test
     public class StringFormatOnNonStringAnalyzerTests
     {
         [TestMethod]
-        public async Task StringFormatOnString_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-011.1")]
+        public async Task StaySilentOnStringFormatOverString()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -21,8 +23,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task StringFormatUnset_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-011.1")]
+        public async Task StaySilentWhenStringFormatUnset()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -34,8 +38,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task StringFormatOnNonString_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-011.1")]
+        public async Task ReportStringFormatOnNonString()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -48,8 +54,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task ReservedFormatValueOnString_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-011.1")]
+        public async Task ReportReservedTypeKindFormatOnString()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 

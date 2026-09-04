@@ -40,14 +40,18 @@ public interface IConsumerManager { }
         // ── Positive cases (no diagnostic) ──
 
         [TestMethod]
-        public async Task AWellFormedContractDeclaration_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-021.1")]
+        public async Task StaySilentOnWellFormedContractDeclaration()
         {
+            // Arrange / Act / Assert
             await AnalyzerTestBase.VerifyAnalyzerAsync<ServiceRelationAnalyzer>(ConsumerContractSource);
         }
 
         [TestMethod]
-        public async Task SeveralDistinctRelationTypesOnOneContract_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-021.2")]
+        public async Task StaySilentOnDistinctRelationTypes()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 [LogicBlockContract(BetweenInterface = ""IMultiSource"", AndInterface = ""IMultiSink"")]
@@ -58,8 +62,10 @@ public static class MultiRelationContract { }";
         }
 
         [TestMethod]
-        public async Task AServiceBearingComponentEndpoint_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-021.4")]
+        public async Task StaySilentOnServiceBearingComponent()
         {
+            // Arrange / Act / Assert
             // A [ServiceProperty] is enough to give the component a node in the cloud graph.
             var source = ConsumerContractSource + @"
 public class ChargePoint : IConsumer
@@ -74,8 +80,10 @@ public class Station : LogicBlockBase
         }
 
         [TestMethod]
-        public async Task AServiceLessComponentOnANonRelationBearingContract_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-021.4")]
+        public async Task StaySilentOnServiceLessComponentOfNonRelationContract()
         {
+            // Arrange / Act / Assert
             // Same service-less shape, but the contract declares no relation — nothing is lost, nothing to warn about.
             var source = @"
 using System;
@@ -100,8 +108,10 @@ public class Station : LogicBlockBase
         }
 
         [TestMethod]
-        public async Task AServiceLessTypeThatIsNotAComponentOfALogicBlock_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-021.4")]
+        public async Task StaySilentOnServiceLessTypeOutsideLogicBlock()
         {
+            // Arrange / Act / Assert
             // Property-based interface binding only happens on the logic-block class, so a plain holder
             // carrying the same property is not an endpoint and must not warn.
             var source = ConsumerContractSource + @"
@@ -114,8 +124,10 @@ public class NotABlock
         }
 
         [TestMethod]
-        public async Task ARelationBearingInterfaceImplementedByTheBlockItself_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-021.4")]
+        public async Task StaySilentWhenBlockImplementsRelationInterface()
         {
+            // Arrange / Act / Assert
             // A class-implemented endpoint always belongs to the root service, which is never service-less.
             var source = ConsumerContractSource + @"
 public class Manager : LogicBlockBase, IConsumerManager
@@ -128,8 +140,10 @@ public class Manager : LogicBlockBase, IConsumerManager
         // ── Errors ──
 
         [TestMethod]
-        public async Task RelationOnANonContractClass_ReportsError()
+        [TestProperty("spec", "AC-ANLZ-021.1")]
+        public async Task ReportRelationOnNonContractClass()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 [{|#0:ServiceRelation(RelationType = ""Orphaned"", OutwardsInterface = ""IAnything"")|}]
@@ -138,8 +152,10 @@ public static class NotAContract { }";
         }
 
         [TestMethod]
-        public async Task OutwardsInterfaceNamingNeitherSide_ReportsError()
+        [TestProperty("spec", "AC-ANLZ-021.1")]
+        public async Task ReportOutwardsInterfaceNamingNeitherRole()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 [LogicBlockContract(BetweenInterface = ""IBadSource"", AndInterface = ""IBadSink"")]
@@ -149,8 +165,10 @@ public static class InvalidOutwardsContract { }";
         }
 
         [TestMethod]
-        public async Task DuplicateRelationTypeOnOneContract_ReportsErrorOnTheDuplicate()
+        [TestProperty("spec", "AC-ANLZ-021.2")]
+        public async Task ReportDuplicateRelationTypeOnDuplicate()
         {
+            // Arrange / Act / Assert
             // Only the second declaration is reported — the first is the legitimate one.
             var source = @"
 using Vion.Dale.Sdk.Core;
@@ -162,8 +180,10 @@ public static class DuplicateContract { }";
         }
 
         [TestMethod]
-        public async Task EmptyRelationType_ReportsError()
+        [TestProperty("spec", "AC-ANLZ-021.1")]
+        public async Task ReportEmptyRelationType()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 [LogicBlockContract(BetweenInterface = ""IEmptySource"", AndInterface = ""IEmptySink"")]
@@ -173,8 +193,10 @@ public static class EmptyRelationTypeContract { }";
         }
 
         [TestMethod]
-        public async Task WhitespaceOutwardsInterface_ReportsError()
+        [TestProperty("spec", "AC-ANLZ-021.1")]
+        public async Task ReportWhitespaceOutwardsInterface()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 [LogicBlockContract(BetweenInterface = ""IBlankSource"", AndInterface = ""IBlankSink"")]
@@ -186,8 +208,10 @@ public static class BlankOutwardsContract { }";
         // ── Warnings ──
 
         [TestMethod]
-        public async Task AServiceLessComponentOnARelationBearingContract_ReportsWarning()
+        [TestProperty("spec", "AC-ANLZ-021.4")]
+        public async Task WarnOnServiceLessComponentOfRelationContract()
         {
+            // Arrange / Act / Assert
             var source = ConsumerContractSource + @"
 public class BareConsumer : IConsumer { }
 public class Station : LogicBlockBase
@@ -198,8 +222,10 @@ public class Station : LogicBlockBase
         }
 
         [TestMethod]
-        public async Task TheSameRelationTypeOnTwoContracts_ReportsWarningOnBoth()
+        [TestProperty("spec", "AC-ANLZ-021.3")]
+        public async Task WarnOnRelationTypeSharedByTwoContracts()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 [LogicBlockContract(BetweenInterface = ""IV1Source"", AndInterface = ""IV1Sink"")]
@@ -213,8 +239,10 @@ public static class ContractV2 { }";
         }
 
         [TestMethod]
-        public async Task AServiceLessComponentNamingAnUnresolvedContractInterface_ReportsWarning()
+        [TestProperty("spec", "AC-ANLZ-021.5")]
+        public async Task WarnOnServiceLessComponentNamingUnresolvedInterface()
         {
+            // Arrange / Act / Assert
             // The shape that actually reaches the analyzer in a real build: a contract's interfaces are
             // emitted by LogicClassGenerator, whose output is NOT part of the compilation analyzers see here,
             // so 'IGenSink' does not resolve to a symbol at all. The endpoint must still be recognised — by
@@ -238,8 +266,10 @@ public class Station : LogicBlockBase
         }
 
         [TestMethod]
-        public async Task AServiceBearingComponentNamingAnUnresolvedContractInterface_NoWarning()
+        [TestProperty("spec", "AC-ANLZ-021.5")]
+        public async Task StaySilentOnServiceBearingComponentNamingUnresolvedInterface()
         {
+            // Arrange / Act / Assert
             // Same unresolved-interface shape, but the component is a service — the by-name path must not
             // over-report.
             var source = @"
@@ -263,8 +293,10 @@ public class Station : LogicBlockBase
         // ── Composed behaviour ──
 
         [TestMethod]
-        public async Task ABrokenDeclarationIsNotCountedForTheCrossContractCollision()
+        [TestProperty("spec", "AC-ANLZ-021.2")]
+        public async Task ExcludeBrokenDeclarationFromCrossContractCheck()
         {
+            // Arrange / Act / Assert
             // The duplicate on one contract is already an error; it must not also inflate the cross-contract
             // tally into a second, redundant warning about a contract that legitimately declares it once.
             var source = @"
@@ -277,8 +309,10 @@ public static class DuplicateContract { }";
         }
 
         [TestMethod]
-        public async Task AnErrorAndAWarningCoexistOnOneCompilation()
+        [TestProperty("spec", "AC-ANLZ-021.3")]
+        public async Task ReportErrorAndWarningOnOneCompilation()
         {
+            // Arrange / Act / Assert
             // A broken contract next to a legal-but-silent component endpoint: both fire, at their own
             // severities, and neither suppresses the other.
             var source = ConsumerContractSource + @"
@@ -295,8 +329,10 @@ public static class InvalidOutwardsContract { }";
         }
 
         [TestMethod]
-        public async Task AComponentImplementingBothSidesOfARelationBearingContract_ReportsOneWarning()
+        [TestProperty("spec", "AC-ANLZ-021.4")]
+        public async Task WarnOnceOnComponentImplementingBothRoles()
         {
+            // Arrange / Act / Assert
             // Two relation-bearing endpoints on the same service-less component still produce a single
             // finding — the fix is per property, not per interface.
             var source = ConsumerContractSource + @"

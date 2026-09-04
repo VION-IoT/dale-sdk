@@ -11,6 +11,7 @@ namespace Vion.Dale.Sdk.Generators.Test
         [TestProperty("spec", "AC-EMIT-012.6")]
         public async Task MinChangeWithDefaultInterval_NoDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -25,6 +26,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.6")]
         public async Task MinChangeWithRealInterval_NoDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -39,6 +41,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.6")]
         public async Task ZeroIntervalWithoutMinChange_NoDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -53,6 +56,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.6")]
         public async Task ZeroIntervalWithMinChange_ReportsInfo()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -68,6 +72,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.6")]
         public async Task ZeroMsIntervalWithMinChange_ReportsInfo()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -83,6 +88,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.6")]
         public async Task ZeroIntervalMinChangeButImmediate_NoDiagnostic()
         {
+            // Arrange / Act / Assert
             // Immediate bypasses the deadband too, so "deadband only" doesn't apply — leave it to DALE038.
             var source = @"
 using Vion.Dale.Sdk.Core;
@@ -98,6 +104,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.7")]
         public async Task DualAnnotatedMeasuringPointZeroIntervalWithMinChange_ReportsInfo()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -115,6 +122,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.7")]
         public async Task DualAnnotatedServicePropertyZeroIntervalWithMinChange_ReportsInfo()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -132,6 +140,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.7")]
         public async Task DualAnnotatedBothDeadbandOnly_ReportsOnEachAttribute()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 

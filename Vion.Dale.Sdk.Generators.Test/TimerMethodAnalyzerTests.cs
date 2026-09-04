@@ -10,8 +10,10 @@ namespace Vion.Dale.Sdk.Generators.Test
         // --- DALE002: Timer method must be void and parameterless ---
 
         [TestMethod]
-        public async Task VoidParameterlessTimer_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-007.1")]
+        public async Task StaySilentOnVoidParameterlessTimer()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -24,8 +26,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task TimerWithReturnType_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-007.1")]
+        public async Task ReportTimerWithReturnType()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -39,8 +43,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task TimerWithParameters_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-007.1")]
+        public async Task ReportTimerWithParameters()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -54,8 +60,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task TimerWithReturnTypeAndParameters_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-007.1")]
+        public async Task ReportTimerWithReturnTypeAndParameters()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -71,8 +79,10 @@ public class MyBlock
         // --- DALE005: Timer interval must be > 0 ---
 
         [TestMethod]
-        public async Task TimerWithPositiveInterval_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-007.2")]
+        public async Task StaySilentOnPositiveInterval()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -85,8 +95,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task TimerWithZeroInterval_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-007.2")]
+        public async Task ReportZeroInterval()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -100,8 +112,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task TimerWithNegativeInterval_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-007.2")]
+        public async Task ReportNegativeInterval()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -117,8 +131,10 @@ public class MyBlock
         // --- DALE012: Duplicate timer identifiers ---
 
         [TestMethod]
-        public async Task UniqueTimerIdentifiers_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-007.3")]
+        public async Task StaySilentOnDistinctIdentifiers()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -134,8 +150,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task DuplicateExplicitIdentifier_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-007.3")]
+        public async Task ReportDuplicateExplicitIdentifier()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -152,8 +170,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task ExplicitIdentifierMatchesOtherMethodName_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-007.3")]
+        public async Task ReportExplicitIdentifierMatchingMethodName()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -173,7 +193,7 @@ public class MyBlock
         [TestProperty("spec", "AC-ANLZ-007.2")]
         [DataRow("0.0 / 0.0", "NaN", DisplayName = "not a number")]
         [DataRow("1.0 / 0.0", "\u221E", DisplayName = "positive infinity")]
-        public async Task ReportTimerIntervalThatIsNotFinite(string interval, string rendered)
+        public async Task ReportNonFiniteTimerInterval(string interval, string rendered)
         {
             // Arrange / Act / Assert
             var source = @"

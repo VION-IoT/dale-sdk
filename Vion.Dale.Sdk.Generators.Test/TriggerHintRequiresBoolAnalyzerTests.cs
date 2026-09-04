@@ -8,8 +8,10 @@ namespace Vion.Dale.Sdk.Generators.Test
     public class TriggerHintRequiresBoolAnalyzerTests
     {
         [TestMethod]
-        public async Task TriggerOnWritableBool_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-009.3")]
+        public async Task StaySilentOnTriggerOverWritableBool()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -21,8 +23,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task TriggerOnNonBool_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-009.3")]
+        public async Task ReportTriggerOnNonBool()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -35,8 +39,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task TriggerOnReadOnlyBool_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-009.3")]
+        public async Task ReportTriggerOnReadOnlyBool()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -49,8 +55,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task NonTriggerHint_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-009.3")]
+        public async Task StaySilentOnOtherUiHint()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 

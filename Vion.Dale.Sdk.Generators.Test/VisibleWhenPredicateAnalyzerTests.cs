@@ -47,6 +47,7 @@ public class MyBlock : LogicBlockBase
         // ── Positive cases (no diagnostic) ──
 
         [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-013.5")]
         [DataRow("DirectMeasurement == false", DisplayName = "bare bool comparison")]
         [DataRow("DirectMeasurement", DisplayName = "bare bool ref")]
         [DataRow("!DirectMeasurement", DisplayName = "negated bare bool ref")]
@@ -59,15 +60,18 @@ public class MyBlock : LogicBlockBase
         [DataRow("!(DirectMeasurement || IsExternallyLocked)", DisplayName = "negated parenthesized disjunction")]
         [DataRow("ChargingPoint2.EnableCharging == true", DisplayName = "qualified sibling-service ref")]
         [DataRow("MyBlock.IsExternallyLocked == false", DisplayName = "qualified root-service ref by class name")]
-        public async Task ValidPredicate_NoDiagnostic(string predicate)
+        public async Task StaySilentOnResolvingPredicate(string predicate)
         {
+            // Arrange / Act / Assert
             var source = Block($"[ServiceProperty] [Presentation(VisibleWhen = \"{predicate}\")] public double PrimaryCurrentToWriteA {{ get; set; }}");
             await AnalyzerTestBase.VerifyAnalyzerAsync<VisibleWhenPredicateAnalyzer>(source);
         }
 
         [TestMethod]
-        public async Task VisibleWhenOnMeasuringPoint_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-013.4")]
+        public async Task JudgePredicateOnMeasuringPoint()
         {
+            // Arrange / Act / Assert
             // Measuring points can carry VisibleWhen, deliberately: the predicate rides both documents
             // of a member declaring both streams.
             var source = Block("[ServiceMeasuringPoint] [Presentation(VisibleWhen = \"DirectMeasurement == false\")] public int Power { get; private set; }");
@@ -75,15 +79,19 @@ public class MyBlock : LogicBlockBase
         }
 
         [TestMethod]
-        public async Task NoVisibleWhen_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-013.4")]
+        public async Task StaySilentWithoutPredicate()
         {
+            // Arrange / Act / Assert
             var source = Block("[ServiceProperty] [Presentation(Group = PropertyGroup.Configuration)] public double PrimaryCurrentToWriteA { get; set; }");
             await AnalyzerTestBase.VerifyAnalyzerAsync<VisibleWhenPredicateAnalyzer>(source);
         }
 
         [TestMethod]
-        public async Task PredicateOnComponentMember_ReferencingRoot_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-013.4")]
+        public async Task ResolveComponentPredicateAgainstItsHolder()
         {
+            // Arrange / Act / Assert
             // A predicate authored inside a component service, addressing the root by class name.
             var source = @"
 using Vion.Dale.Sdk.Core;
@@ -105,45 +113,59 @@ public class MyBlock : LogicBlockBase
         // ── Negative cases: DALE041 (parse / resolve) ──
 
         [TestMethod]
-        public async Task Arithmetic_ReportsDALE041()
+        [TestProperty("spec", "AC-ANLZ-013.1")]
+        public async Task ReportArithmeticInPredicate()
         {
+            // Arrange / Act / Assert
             await ExpectDiagnostic("NumChargingPoints * 2 == 4", DaleDiagnostics.DALE041_VisibleWhenUnresolved);
         }
 
         [TestMethod]
-        public async Task ThreeSegmentRef_ReportsDALE041()
+        [TestProperty("spec", "AC-ANLZ-013.1")]
+        public async Task ReportThreeSegmentReference()
         {
+            // Arrange / Act / Assert
             await ExpectDiagnostic("ChargingPoint2.Meter.Voltage == 1", DaleDiagnostics.DALE041_VisibleWhenUnresolved);
         }
 
         [TestMethod]
-        public async Task Int32OverflowLiteral_ReportsDALE041()
+        [TestProperty("spec", "AC-ANLZ-013.1")]
+        public async Task ReportOverflowingIntegerLiteral()
         {
+            // Arrange / Act / Assert
             await ExpectDiagnostic("NumChargingPoints == 9999999999", DaleDiagnostics.DALE041_VisibleWhenUnresolved);
         }
 
         [TestMethod]
-        public async Task LiteralOnLeftOfComparison_ReportsDALE041()
+        [TestProperty("spec", "AC-ANLZ-013.1")]
+        public async Task ReportLiteralOnLeftOfComparison()
         {
+            // Arrange / Act / Assert
             // `false`/`true` are literals, not references — `false == true` is rejected (matches the dashboard).
             await ExpectDiagnostic("false == true", DaleDiagnostics.DALE041_VisibleWhenUnresolved);
         }
 
         [TestMethod]
-        public async Task UnresolvedBareRef_ReportsDALE041()
+        [TestProperty("spec", "AC-ANLZ-013.1")]
+        public async Task ReportUnresolvedBareReference()
         {
+            // Arrange / Act / Assert
             await ExpectDiagnostic("Nonexistent == false", DaleDiagnostics.DALE041_VisibleWhenUnresolved);
         }
 
         [TestMethod]
-        public async Task UnknownQualifiedService_ReportsDALE041()
+        [TestProperty("spec", "AC-ANLZ-013.1")]
+        public async Task ReportUnknownQualifiedService()
         {
+            // Arrange / Act / Assert
             await ExpectDiagnostic("NoSuchService.Foo == 1", DaleDiagnostics.DALE041_VisibleWhenUnresolved);
         }
 
         [TestMethod]
-        public async Task MeasuringPointOnlyReference_ReportsDALE041()
+        [TestProperty("spec", "AC-ANLZ-013.1")]
+        public async Task ReportMeasuringPointOnlyReference()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -157,8 +179,10 @@ public class MyBlock : LogicBlockBase
         }
 
         [TestMethod]
-        public async Task ShadowedQualifiedRef_ReportsDALE041()
+        [TestProperty("spec", "AC-ANLZ-013.1")]
+        public async Task ReportShadowedQualifiedReference()
         {
+            // Arrange / Act / Assert
             // Comp has a property 'Point2' that collides with the sibling-service identifier 'Point2'.
             var source = @"
 using Vion.Dale.Sdk.Core;
@@ -180,8 +204,10 @@ public class MyBlock : LogicBlockBase
         }
 
         [TestMethod]
-        public async Task BareRefNamingSiblingService_ReportsDALE041()
+        [TestProperty("spec", "AC-ANLZ-013.1")]
+        public async Task ReportBareReferenceNamingSiblingService()
         {
+            // Arrange / Act / Assert
             // Comp has a bool property 'Point2' whose name also identifies the sibling component service
             // 'Point2'. A BARE ref 'Point2' is ambiguous even though the own service (Point1) has that
             // property — in the flat evaluation context the service object shadows the property.
@@ -206,51 +232,67 @@ public class MyBlock : LogicBlockBase
         // ── Negative cases: DALE042 (type discipline) ──
 
         [TestMethod]
-        public async Task UnquotedEnumMember_ReportsDALE042()
+        [TestProperty("spec", "AC-ANLZ-013.3")]
+        public async Task ReportUnquotedEnumMemberInPredicate()
         {
+            // Arrange / Act / Assert
             await ExpectDiagnostic("Mode == Eco", DaleDiagnostics.DALE042_VisibleWhenTypeMismatch);
         }
 
         [TestMethod]
-        public async Task WrongEnumMemberEquality_ReportsDALE042()
+        [TestProperty("spec", "AC-ANLZ-013.3")]
+        public async Task ReportUnknownEnumMemberInEquality()
         {
+            // Arrange / Act / Assert
             // A typo in an enum member must fail CLOSED — a clean build here would permanently hide the row.
             await ExpectDiagnostic("Mode == 'Ecoo'", DaleDiagnostics.DALE042_VisibleWhenTypeMismatch);
         }
 
         [TestMethod]
-        public async Task WrongEnumMemberInList_ReportsDALE042()
+        [TestProperty("spec", "AC-ANLZ-013.3")]
+        public async Task ReportUnknownEnumMemberInList()
         {
+            // Arrange / Act / Assert
             await ExpectDiagnostic("Mode in ['Eco', 'Fastt']", DaleDiagnostics.DALE042_VisibleWhenTypeMismatch);
         }
 
         [TestMethod]
-        public async Task NonHomogeneousInList_ReportsDALE042()
+        [TestProperty("spec", "AC-ANLZ-013.3")]
+        public async Task ReportNonHomogeneousList()
         {
+            // Arrange / Act / Assert
             await ExpectDiagnostic("NumChargingPoints in [1, 'two']", DaleDiagnostics.DALE042_VisibleWhenTypeMismatch);
         }
 
         [TestMethod]
-        public async Task BareNonBoolRef_ReportsDALE042()
+        [TestProperty("spec", "AC-ANLZ-013.3")]
+        public async Task ReportBareNonBoolReference()
         {
+            // Arrange / Act / Assert
             await ExpectDiagnostic("NumChargingPoints", DaleDiagnostics.DALE042_VisibleWhenTypeMismatch);
         }
 
         [TestMethod]
-        public async Task RelationalOnNonInteger_ReportsDALE042()
+        [TestProperty("spec", "AC-ANLZ-013.3")]
+        public async Task ReportRelationalOperatorOnNonInteger()
         {
+            // Arrange / Act / Assert
             await ExpectDiagnostic("DirectMeasurement > 1", DaleDiagnostics.DALE042_VisibleWhenTypeMismatch);
         }
 
         [TestMethod]
-        public async Task EqualityLiteralTypeMismatch_ReportsDALE042()
+        [TestProperty("spec", "AC-ANLZ-013.3")]
+        public async Task ReportLiteralTypeMismatchInEquality()
         {
+            // Arrange / Act / Assert
             await ExpectDiagnostic("NumChargingPoints == true", DaleDiagnostics.DALE042_VisibleWhenTypeMismatch);
         }
 
         [TestMethod]
-        public async Task DoubleReference_ReportsDALE042()
+        [TestProperty("spec", "AC-ANLZ-013.3")]
+        public async Task ReportDoubleTypedReference()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -264,8 +306,10 @@ public class MyBlock : LogicBlockBase
         }
 
         [TestMethod]
-        public async Task WriteOnlyReference_ReportsDALE042()
+        [TestProperty("spec", "AC-ANLZ-013.3")]
+        public async Task ReportWriteOnlyReference()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -281,8 +325,10 @@ public class MyBlock : LogicBlockBase
         // ── Cross-assembly (NuGet-referenced) component type ──
 
         [TestMethod]
-        public async Task QualifiedRefToComponentFromReferencedAssembly_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-013.4")]
+        public async Task ResolveQualifiedReferenceToComponentFromReferencedAssembly()
         {
+            // Arrange / Act / Assert
             // The component type (and its [ServiceProperty] members) live in metadata, not source —
             // GetMembers()/attribute reads must resolve them the same way.
             var libReference = await CompileLibraryAsync(GetAttributeStubs() + @"

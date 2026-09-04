@@ -42,15 +42,18 @@ public class MyBlock : LogicBlockBase
         [DataRow("Model in ['Moka', 'Ristretto']", DisplayName = "enum membership")]
         [DataRow("Count >= 2 && Model == 'Moka'", DisplayName = "compound count + enum")]
         [DataRow("!(Count == 1)", DisplayName = "negated parenthesized comparison")]
-        public async Task ValidGateOnAComponent_NoDiagnostic(string predicate)
+        public async Task StaySilentOnGateOverComponent(string predicate)
         {
+            // Arrange / Act / Assert
             var source = Block($"[IncludedWhen(\"{predicate}\")] public Point Point2 {{ get; }} = new();");
             await AnalyzerTestBase.VerifyAnalyzerAsync<IncludedWhenPredicateAnalyzer>(source);
         }
 
         [TestMethod]
-        public async Task ValidGateOnAContractBinding_NoDiagnostic()
+        [TestProperty("spec", "AC-GATE-011.7")]
+        public async Task StaySilentOnGateOverContractBinding()
         {
+            // Arrange / Act / Assert
             var source = Block("[ServiceProviderContractBinding] [IncludedWhen(\"Count >= 2\")] public IThing Output { get; private set; }") + "\npublic interface IThing { }";
 
             // A contract binding is gateable; declare a plain interface property with the binding attribute.
@@ -58,8 +61,10 @@ public class MyBlock : LogicBlockBase
         }
 
         [TestMethod]
-        public async Task GateAndParameterDeclaredOnABaseClass_ResolveOnTheLeaf_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-002.1")]
+        public async Task ResolveGateAndParameterDeclaredOnBaseClass()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 public class Point { [ServiceProperty] public bool Active { get; set; } }
@@ -78,36 +83,41 @@ public class LeafStation : BaseStation
 
         [TestMethod]
         [TestProperty("spec", "AC-GATE-011.5")]
-        public Task PredicateOutsideTheGrammar_ReportsDALE043()
+        public Task ReportPredicateOutsideGrammar()
         {
+            // Arrange / Act / Assert
             return ExpectGate("Count >>> 2", DaleDiagnostics.DALE043_IncludedWhenInvalid);
         }
 
         [TestMethod]
         [TestProperty("spec", "AC-GATE-011.5")]
-        public Task QualifiedReference_ReportsDALE043()
+        public Task ReportQualifiedReferenceInGate()
         {
+            // Arrange / Act / Assert
             return ExpectGate("MyBlock.Count >= 2", DaleDiagnostics.DALE043_IncludedWhenInvalid);
         }
 
         [TestMethod]
         [TestProperty("spec", "AC-GATE-011.5")]
-        public Task ReferenceToANonParameterProperty_ReportsDALE043()
+        public Task ReportReferenceToNonParameterProperty()
         {
+            // Arrange / Act / Assert
             return ExpectGate("Setting >= 2", DaleDiagnostics.DALE043_IncludedWhenInvalid);
         }
 
         [TestMethod]
         [TestProperty("spec", "AC-GATE-011.6")]
-        public Task TypeMismatchInPredicate_ReportsDALE044()
+        public Task ReportTypeMismatchInGatePredicate()
         {
+            // Arrange / Act / Assert
             return ExpectGate("Count == 'text'", DaleDiagnostics.DALE044_InstantiationParameterDiscipline);
         }
 
         [TestMethod]
         [TestProperty("spec", "AC-GATE-011.6")]
-        public Task UnquotedEnumMember_ReportsDALE044()
+        public Task ReportUnquotedEnumMemberInGate()
         {
+            // Arrange / Act / Assert
             return ExpectGate("Model == Moka", DaleDiagnostics.DALE044_InstantiationParameterDiscipline);
         }
 
@@ -115,8 +125,9 @@ public class LeafStation : BaseStation
 
         [TestMethod]
         [TestProperty("spec", "AC-GATE-011.3")]
-        public async Task GateOnAScalarServiceProperty_ReportsDALE043()
+        public async Task ReportGateOnScalarServiceProperty()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 public class MyBlock : LogicBlockBase
@@ -129,8 +140,9 @@ public class MyBlock : LogicBlockBase
 
         [TestMethod]
         [TestProperty("spec", "AC-GATE-011.3")]
-        public async Task GateOnAScalarMeasuringPoint_ReportsDALE043()
+        public async Task ReportGateOnScalarMeasuringPoint()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 public class MyBlock : LogicBlockBase
@@ -143,8 +155,9 @@ public class MyBlock : LogicBlockBase
 
         [TestMethod]
         [TestProperty("spec", "AC-GATE-011.2")]
-        public async Task GateOnATimerMethod_ReportsDALE043()
+        public async Task ReportGateOnTimerMethod()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 public class MyBlock : LogicBlockBase
@@ -157,8 +170,9 @@ public class MyBlock : LogicBlockBase
 
         [TestMethod]
         [TestProperty("spec", "AC-GATE-011.1")]
-        public async Task GateOnTheBlockClass_ReportsDALE043()
+        public async Task ReportGateOnBlockClass()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 [IncludedWhen({|#0:""Count >= 2""|})]
@@ -171,8 +185,9 @@ public class MyBlock : LogicBlockBase
 
         [TestMethod]
         [TestProperty("spec", "AC-GATE-011.4")]
-        public async Task RegatedOverride_ReportsDALE043()
+        public async Task ReportRegatedOverride()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 public class Point { [ServiceProperty] public bool Active { get; set; } }
@@ -190,8 +205,9 @@ public class LeafStation : BaseStation
 
         [TestMethod]
         [TestProperty("spec", "AC-GATE-011.4")]
-        public async Task RegatedNewShadow_ReportsDALE043()
+        public async Task ReportRegatedNewShadow()
         {
+            // Arrange / Act / Assert
             // A `new` shadow (not an override) that re-declares the gate — exercises the BaseType-chain walk.
             var source = @"
 using Vion.Dale.Sdk.Core;
@@ -210,7 +226,7 @@ public class LeafStation : BaseStation
 
         [TestMethod]
         [TestProperty("spec", "AC-GATE-011.10")]
-        public async Task GateOnAComponentMember_ReportsDALE043()
+        public async Task ReportGateOnComponentMember()
         {
             // Arrange
             // The binders read a gate only off the logic-block type's own properties, so one declared inside
@@ -238,7 +254,7 @@ public class MyBlock : LogicBlockBase
 
         [TestMethod]
         [TestProperty("spec", "AC-GATE-011.10")]
-        public async Task GateOnAComponentClass_ReportsDALE043()
+        public async Task ReportGateOnComponentClass()
         {
             // Arrange
             var source = @"

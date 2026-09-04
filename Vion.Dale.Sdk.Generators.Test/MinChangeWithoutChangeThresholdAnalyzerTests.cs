@@ -11,6 +11,7 @@ namespace Vion.Dale.Sdk.Generators.Test
         [TestProperty("spec", "AC-EMIT-012.1")]
         public async Task MinChangeOnDouble_NoDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -25,6 +26,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.1")]
         public async Task MinChangeOnTimeSpan_NoDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System;
 using Vion.Dale.Sdk.Core;
@@ -40,6 +42,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.1")]
         public async Task MinChangeUnset_NoDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -54,6 +57,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.1")]
         public async Task MinChangeOnBool_ReportsDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -69,6 +73,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.1")]
         public async Task MinChangeOnStringNoThreshold_ReportsDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -84,6 +89,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.1")]
         public async Task MinChangeOnCustomStructWithRegisteredThreshold_NoDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Emission;
@@ -106,6 +112,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.1")]
         public async Task MinChangeOnCustomStructWithoutThreshold_ReportsDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -123,6 +130,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.1")]
         public async Task MinChangeOnNullableDouble_NoDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -137,6 +145,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.7")]
         public async Task DualAnnotatedMeasuringPointMinChangeOnBool_ReportsDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -154,6 +163,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.7")]
         public async Task DualAnnotatedServicePropertyMinChangeOnBool_ReportsDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -171,6 +181,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.7")]
         public async Task DualAnnotatedBothMinChangesOnBool_ReportsOnEachAttribute()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 

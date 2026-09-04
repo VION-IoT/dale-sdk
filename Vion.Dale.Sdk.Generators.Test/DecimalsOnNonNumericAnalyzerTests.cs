@@ -8,8 +8,10 @@ namespace Vion.Dale.Sdk.Generators.Test
     public class DecimalsOnNonNumericAnalyzerTests
     {
         [TestMethod]
-        public async Task DecimalsOnDouble_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-009.2")]
+        public async Task StaySilentOnDecimalsOverNumericProperty()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -21,8 +23,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task DecimalsUnset_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-009.2")]
+        public async Task StaySilentWhenDecimalsUnset()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -34,8 +38,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task DecimalsOnString_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-009.2")]
+        public async Task ReportDecimalsOnNonNumericProperty()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 

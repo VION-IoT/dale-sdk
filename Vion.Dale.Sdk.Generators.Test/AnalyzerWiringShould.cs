@@ -30,7 +30,7 @@ namespace Vion.Dale.Sdk.Generators.Test
     ///         carries no <c>/p:Version</c>, CI runs the tests between the stamped build and the pack, and the
     ///         three <c>lib</c> assemblies of this probe's build graph shipped stamped <c>0.0.0.0</c> while
     ///         their nuspecs said <c>0.11.1</c> — every consumer of them died at startup.
-    ///         <see cref="LeaveTheBuildOutputsOfItsDependencyGraphUntouched" /> is the standing guard.
+    ///         <see cref="LeaveBuildOutputsOfDependencyGraphUntouched" /> is the standing guard.
     ///     </para>
     /// </summary>
     [TestClass]
@@ -57,8 +57,9 @@ namespace Vion.Dale.Sdk.Generators.Test
         [TestProperty("spec", "AC-INTRO-017.4")]
         [DataRow("Vion.Dale.Sdk.DigitalIo")]
         [DataRow("Vion.Dale.Sdk.AnalogIo")]
-        public void RunTheDaleAnalyzersOverTheIoProjects(string projectName)
+        public void RunDaleAnalyzersOverIoProjects(string projectName)
         {
+            // Arrange / Act / Assert
             var project = ProjectFile(projectName);
             Assert.IsTrue(File.Exists(project), $"Project not found: {project}");
 
@@ -69,10 +70,12 @@ namespace Vion.Dale.Sdk.Generators.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-018.4")]
         [DataRow("Vion.Dale.Sdk.DigitalIo")]
         [DataRow("Vion.Dale.Sdk.AnalogIo")]
-        public void KeepTheProbeOutOfAnOrdinaryBuild(string projectName)
+        public void KeepProbeOutOfOrdinaryBuild(string projectName)
         {
+            // Arrange / Act / Assert
             // The probe is only a gate as long as it is invisible the rest of the time — a build without the
             // property must not see it, or every build of the SDK would fail.
             var (exitCode, output) = Build(ProjectFile(projectName), false);
@@ -81,8 +84,10 @@ namespace Vion.Dale.Sdk.Generators.Test
         }
 
         [TestMethod]
-        public void LeaveTheBuildOutputsOfItsDependencyGraphUntouched()
+        [TestProperty("spec", "AC-ANLZ-018.4")]
+        public void LeaveBuildOutputsOfDependencyGraphUntouched()
         {
+            // Arrange / Act / Assert
             // The 0.11.1 regression, pinned. CI builds the solution stamped, runs the tests, then packs the
             // Release outputs it already built — so a test that shells an unstamped `dotnet build` of any
             // project in this graph replaces those outputs with 0.0.0.0 ones between the stamp and the pack.

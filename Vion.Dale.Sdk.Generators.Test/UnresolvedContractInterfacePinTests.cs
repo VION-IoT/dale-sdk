@@ -31,7 +31,7 @@ namespace Vion.Dale.Sdk.Generators.Test
     {
         [TestMethod]
         [TestProperty("spec", "AC-ANLZ-004.4")]
-        public async Task StaySilentWhenContractPropertyTypeIsUnresolved()
+        public async Task StaySilentOnUnresolvedContractPropertyType()
         {
             // Arrange / Act / Assert
             // DALE001 resolves the contract by SYMBOL, through [ServiceProviderContractType] on the
@@ -47,7 +47,7 @@ public class MyBlock
 
         [TestMethod]
         [TestProperty("spec", "AC-ANLZ-005.6")]
-        public async Task MatchContractRoleNamesByNameWhenTheInterfaceIsUnresolved()
+        public async Task MatchContractRoleNamesByNameAgainstUnresolvedInterface()
         {
             // Arrange / Act / Assert
             // DALE009 and DALE010 compare the attribute's STRINGS, never a symbol, so they hold when the
@@ -73,7 +73,7 @@ public class Endpoint : {|#1:IGenSource|} { }";
 
         [TestMethod]
         [TestProperty("spec", "AC-ANLZ-014.4")]
-        public async Task ReportGateOnPropertyWhoseInterfaceIsUnresolved()
+        public async Task ReportGateOnPropertyWithUnresolvedInterface()
         {
             // Arrange / Act / Assert
             // The gateable test resolves a generated interface by SYMBOL (its [LogicInterface] attribute

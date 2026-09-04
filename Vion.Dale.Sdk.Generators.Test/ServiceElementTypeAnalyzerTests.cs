@@ -8,8 +8,10 @@ namespace Vion.Dale.Sdk.Generators.Test
     public class ServiceElementTypeAnalyzerTests
     {
         [TestMethod]
-        public async Task SupportedTypes_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.1")]
+        public async Task AcceptEverySupportedScalarType()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System;
 using Vion.Dale.Sdk.Core;
@@ -30,8 +32,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task EnumType_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.1")]
+        public async Task AcceptEnumType()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -48,8 +52,10 @@ public class MyBlock
         // Guid is a supported service-element type (maps to format:uuid) as of the string-formats
         // change. DALE003's "unsupported type" coverage lives in the decimal / array / class tests below.
         [TestMethod]
-        public async Task Guid_ServiceProperty_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.1")]
+        public async Task AcceptGuidOnServiceProperty()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System;
 using Vion.Dale.Sdk.Core;
@@ -62,8 +68,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task Guid_ServiceMeasuringPoint_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.1")]
+        public async Task AcceptGuidOnMeasuringPoint()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System;
 using Vion.Dale.Sdk.Core;
@@ -76,8 +84,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task CustomClassType_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.1")]
+        public async Task RejectCustomClassType()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -92,8 +102,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task PropertyWithoutAttribute_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.1")]
+        public async Task StaySilentOnPropertyWithoutServiceAttribute()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System;
 using Vion.Dale.Sdk.Core;
@@ -108,8 +120,10 @@ public class MyBlock
         // --- Nullable types ---
 
         [TestMethod]
-        public async Task NullableString_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.1")]
+        public async Task AcceptNullableString()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -121,8 +135,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task NullableInt_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.1")]
+        public async Task AcceptNullableInt()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -136,8 +152,10 @@ public class MyBlock
         // --- Newly-supported unsigned primitives ---
 
         [TestMethod]
-        public async Task BytePrimitive_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.1")]
+        public async Task AcceptBytePrimitive()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -149,8 +167,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task UShortPrimitive_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.1")]
+        public async Task AcceptUnsignedShortPrimitive()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -162,8 +182,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task UIntPrimitive_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.1")]
+        public async Task AcceptUnsignedIntPrimitive()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -177,8 +199,10 @@ public class MyBlock
         // --- ImmutableArray<T> ---
 
         [TestMethod]
-        public async Task ImmutableArrayOfDouble_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.1")]
+        public async Task AcceptImmutableArrayOfDouble()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System.Collections.Immutable;
 using Vion.Dale.Sdk.Core;
@@ -191,8 +215,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task ImmutableArrayOfNullableInt_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.1")]
+        public async Task AcceptImmutableArrayOfNullableInt()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System.Collections.Immutable;
 using Vion.Dale.Sdk.Core;
@@ -207,8 +233,10 @@ public class MyBlock
         // --- Flat readonly record struct ---
 
         [TestMethod]
-        public async Task FlatReadonlyRecordStruct_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.1")]
+        public async Task AcceptFlatReadonlyRecordStruct()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -222,8 +250,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task NullableFlatReadonlyRecordStruct_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.1")]
+        public async Task AcceptNullableFlatReadonlyRecordStruct()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -237,8 +267,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task ImmutableArrayOfReadonlyRecordStruct_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.1")]
+        public async Task AcceptImmutableArrayOfRecordStruct()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System.Collections.Immutable;
 using Vion.Dale.Sdk.Core;
@@ -253,8 +285,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task ImmutableArrayOfNullableReadonlyRecordStruct_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.1")]
+        public async Task AcceptImmutableArrayOfNullableRecordStruct()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System.Collections.Immutable;
 using Vion.Dale.Sdk.Core;
@@ -271,8 +305,10 @@ public class MyBlock
         // --- Rejected types ---
 
         [TestMethod]
-        public async Task Decimal_WasAllowedNowRejected_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.1")]
+        public async Task RejectDecimal()
         {
+            // Arrange / Act / Assert
             // decimal was previously in the whitelist; it is removed per spec §5.1.
             var source = @"
 using Vion.Dale.Sdk.Core;
@@ -288,8 +324,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task ListOfDouble_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.1")]
+        public async Task RejectMutableList()
         {
+            // Arrange / Act / Assert
             // Must use ImmutableArray<T>, not List<T>.
             var source = @"
 using System.Collections.Generic;
@@ -306,8 +344,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task RawArray_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.1")]
+        public async Task RejectRawArray()
         {
+            // Arrange / Act / Assert
             // T[] is not supported; only ImmutableArray<T>.
             var source = @"
 using Vion.Dale.Sdk.Core;
@@ -321,8 +361,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task IEnumerableOfDouble_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.1")]
+        public async Task RejectEnumerableInterface()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System.Collections.Generic;
 using Vion.Dale.Sdk.Core;
@@ -338,8 +380,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task IReadOnlyListOfDouble_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.1")]
+        public async Task RejectReadOnlyListInterface()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System.Collections.Generic;
 using Vion.Dale.Sdk.Core;
@@ -355,8 +399,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task ValueTuple_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.1")]
+        public async Task RejectValueTuple()
         {
+            // Arrange / Act / Assert
             // (double Lat, double Lon) is a value-tuple, not a readonly record struct.
             var source = @"
 using Vion.Dale.Sdk.Core;
@@ -372,8 +418,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task NonReadonlyRecordStruct_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.1")]
+        public async Task RejectNonReadonlyRecordStruct()
         {
+            // Arrange / Act / Assert
             // record struct without readonly is not accepted.
             var source = @"
 using Vion.Dale.Sdk.Core;
@@ -391,8 +439,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task StructWithNestedStructField_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.1")]
+        public async Task RejectStructWithNestedStructField()
         {
+            // Arrange / Act / Assert
             // Nested structs are not allowed — struct fields must be primitive/enum/string/TimeSpan.
             var source = @"
 using Vion.Dale.Sdk.Core;
@@ -409,8 +459,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task StructWithDecimalField_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.1")]
+        public async Task RejectStructWithDecimalField()
         {
+            // Arrange / Act / Assert
             // decimal is not a supported primitive, even inside a struct.
             var source = @"
 using Vion.Dale.Sdk.Core;
@@ -426,8 +478,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task ULong_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.1")]
+        public async Task RejectUnsignedLong()
         {
+            // Arrange / Act / Assert
             // ulong is deferred — not in the supported set.
             var source = @"
 using Vion.Dale.Sdk.Core;
@@ -441,8 +495,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task SByte_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.1")]
+        public async Task RejectSignedByte()
         {
+            // Arrange / Act / Assert
             // sbyte is deferred — not in the supported set.
             var source = @"
 using Vion.Dale.Sdk.Core;

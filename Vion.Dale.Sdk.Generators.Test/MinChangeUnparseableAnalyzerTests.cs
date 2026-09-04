@@ -11,6 +11,7 @@ namespace Vion.Dale.Sdk.Generators.Test
         [TestProperty("spec", "AC-EMIT-012.2")]
         public async Task ValidDoubleMinChange_NoDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -25,6 +26,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.2")]
         public async Task ValidIntMinChange_NoDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -39,6 +41,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.2")]
         public async Task ValidTimeSpanMinChange_NoDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System;
 using Vion.Dale.Sdk.Core;
@@ -54,6 +57,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.2")]
         public async Task NonNumericDoubleMinChange_ReportsDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -71,6 +75,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.2")]
         public async Task DecimalPointOnIntMinChange_ReportsDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -88,6 +93,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.2")]
         public async Task BadUnitTimeSpanMinChange_ReportsDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System;
 using Vion.Dale.Sdk.Core;
@@ -106,6 +112,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.2")]
         public async Task UnparseableOnCustomType_NoDiagnostic()
         {
+            // Arrange / Act / Assert
             // Custom-threshold types have an opaque MinChange format; never parse-checked.
             var source = @"
 using Vion.Dale.Sdk.Core;
@@ -129,6 +136,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.2")]
         public async Task ValidMinChangeOnNullableDouble_NoDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -143,6 +151,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.2")]
         public async Task ValidDecimalMinChange_NoDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -157,6 +166,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.2")]
         public async Task NonNumericDecimalMinChange_ReportsDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -174,6 +184,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.2")]
         public async Task NegativeDoubleMinChange_ReportsDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -191,6 +202,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.2")]
         public async Task NegativeIntMinChange_ReportsDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -208,6 +220,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.2")]
         public async Task NegativeTimeSpanMinChange_ReportsDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System;
 using Vion.Dale.Sdk.Core;
@@ -226,6 +239,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.7")]
         public async Task DualAnnotatedMeasuringPointBadMinChange_ReportsDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -245,6 +259,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.7")]
         public async Task DualAnnotatedServicePropertyBadMinChange_ReportsDiagnostic()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -264,6 +279,7 @@ public class MyBlock
         [TestProperty("spec", "AC-EMIT-012.7")]
         public async Task DualAnnotatedBothMinChangesBad_ReportsOnEachAttribute()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 

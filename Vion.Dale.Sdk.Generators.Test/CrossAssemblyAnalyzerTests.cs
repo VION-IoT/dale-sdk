@@ -11,13 +11,18 @@ using Vion.Dale.Sdk.Generators.Analyzers;
 namespace Vion.Dale.Sdk.Generators.Test
 {
     /// <summary>
-    ///     DALE026 across assemblies. Every consumer sees <c>Vion.Dale.Sdk.Core.PropertyGroup</c> as
-    ///     metadata, never as source — and the ordinary analyzer harness injects the stub attribute file
-    ///     as a source document, so no test in this project can reproduce a consumer's compilation
-    ///     without emitting a real referenced assembly.
+    ///     The rules whose subject is the boundary between the compilation and its references. The
+    ///     ordinary harness injects the stub attribute file as a source document, so nothing in it can
+    ///     reproduce a consumer's compilation — where the SDK, and anything else, is metadata. These tests
+    ///     emit a real referenced assembly instead.
+    ///     <para>
+    ///         <c>DALE026</c> is why the file exists: <c>Vion.Dale.Sdk.Core.PropertyGroup</c> is a source
+    ///         declaration inside the SDK and metadata for every consumer, and a source-only lookup warned
+    ///         about the group keys the platform itself ships.
+    ///     </para>
     /// </summary>
     [TestClass]
-    public class LiteralGroupKeyCrossAssemblyTests
+    public class CrossAssemblyAnalyzerTests
     {
         [TestMethod]
         [TestProperty("spec", "AC-ANLZ-010.4")]
@@ -130,9 +135,37 @@ public class MyBlock
             Assert.HasCount(1, diagnostics);
         }
 
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-002.3")]
+        public async Task StaySilentOnPublicApiTypeDeclaredInReferencedAssembly()
+        {
+            // Arrange — an undocumented [PublicApi] type in a REFERENCED assembly, in a declared namespace.
+            var sdkReference = await CompileSdkStubAsync();
+            var library = await CompileLibraryAsync("Library",
+                                                    @"
+using Vion.Dale.Sdk.Core;
+
+[assembly: PublicApiNamespace(""Api"")]
+
+namespace Api
+{
+    [PublicApi] public class Undocumented { }
+}",
+                                                    sdkReference);
+
+            var source = @"
+public class Consumer { }";
+
+            // Act
+            var diagnostics = await RunAsync(source, new PublicApiDocumentationAnalyzer(), sdkReference, library);
+
+            // Assert
+            Assert.IsEmpty(diagnostics, "a referenced assembly's declarations are its own build's business: " + string.Join("; ", diagnostics.Select(d => d.GetMessage())));
+        }
+
         private static async Task<MetadataReference> CompileSdkStubAsync()
         {
-            var stubsPath = Path.Combine(Path.GetDirectoryName(typeof(LiteralGroupKeyCrossAssemblyTests).Assembly.Location)!, "..", "..", "..", "Helpers", "TestAttributeStubs.cs");
+            var stubsPath = Path.Combine(Path.GetDirectoryName(typeof(CrossAssemblyAnalyzerTests).Assembly.Location)!, "..", "..", "..", "Helpers", "TestAttributeStubs.cs");
             return await CompileLibraryAsync("DaleSdkStub", File.ReadAllText(stubsPath));
         }
 
@@ -155,7 +188,12 @@ public class MyBlock
             return MetadataReference.CreateFromImage(stream.ToArray());
         }
 
-        private static async Task<Diagnostic[]> RunAsync(string consumerSource, params MetadataReference[] references)
+        private static Task<Diagnostic[]> RunAsync(string consumerSource, params MetadataReference[] references)
+        {
+            return RunAsync(consumerSource, new LiteralGroupKeyAnalyzer(), references);
+        }
+
+        private static async Task<Diagnostic[]> RunAsync(string consumerSource, DiagnosticAnalyzer analyzer, params MetadataReference[] references)
         {
             var refs = await ReferenceAssemblies.Net.Net90.ResolveAsync(LanguageNames.CSharp, default);
             var compilation = CSharpCompilation.Create("Consumer",
@@ -166,9 +204,9 @@ public class MyBlock
             var compileErrors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
             Assert.IsEmpty(compileErrors, "consumer compilation has errors: " + string.Join("; ", compileErrors.Select(d => d.ToString())));
 
-            var withAnalyzers = compilation.WithAnalyzers(ImmutableArray.Create<DiagnosticAnalyzer>(new LiteralGroupKeyAnalyzer()));
+            var withAnalyzers = compilation.WithAnalyzers(ImmutableArray.Create(analyzer));
             var diagnostics = await withAnalyzers.GetAnalyzerDiagnosticsAsync(default);
-            return diagnostics.Where(d => d.Id == "DALE026").ToArray();
+            return diagnostics.ToArray();
         }
     }
 }

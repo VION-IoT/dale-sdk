@@ -10,8 +10,10 @@ namespace Vion.Dale.Sdk.Generators.Test
         // --- The trap: computed observable property reads a member of a struct observable property → DALE031 ---
 
         [TestMethod]
-        public async Task ExpressionBodied_ReadsStructMember_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-016.1")]
+        public async Task ReportExpressionBodiedReadOfStructMember()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -30,8 +32,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task BlockBodiedGetter_ReadsStructMember_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-016.1")]
+        public async Task ReportBlockBodiedReadOfStructMember()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -52,8 +56,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task SystemStructMemberRead_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-016.1")]
+        public async Task ReportReadOfSystemStructMember()
         {
+            // Arrange / Act / Assert
             // Even deeply-immutable System structs (DateTime/TimeSpan) drop member reads — verified against the
             // Metalama-weaved code: the `When` setter re-fires only "When", not a computed property reading
             // `When.Hour`. So this is a real trap, not a false positive — it must be flagged like any other struct.
@@ -76,8 +82,10 @@ public class MyBlock
         // --- Exempt: method calls on the struct property ARE tracked by the aspect ---
 
         [TestMethod]
-        public async Task MethodCallOnStructProperty_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-016.2")]
+        public async Task StaySilentOnMethodCall()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -98,8 +106,10 @@ public class MyBlock
         // --- Exempt: nameof(struct.member) is a compile-time constant, not a dependency ---
 
         [TestMethod]
-        public async Task NameofStructMember_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-016.2")]
+        public async Task StaySilentInsideNameof()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -117,8 +127,10 @@ public class MyBlock
         // --- Exempt: scalar observable dependencies are tracked ---
 
         [TestMethod]
-        public async Task ScalarObservableDependencies_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-016.2")]
+        public async Task StaySilentOnScalarDependencies()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -135,8 +147,10 @@ public class MyBlock
         // --- Exempt: reading the struct property as a whole (no member access) is tracked ---
 
         [TestMethod]
-        public async Task WholeStructRead_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-016.2")]
+        public async Task StaySilentOnWholeValueRead()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -154,8 +168,10 @@ public class MyBlock
         // --- Exempt: member read of a reference-type observable property is tracked by the aspect ---
 
         [TestMethod]
-        public async Task ReferenceTypeMemberRead_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-016.2")]
+        public async Task StaySilentOnReferenceTypedInstance()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -175,8 +191,10 @@ public class MyBlock
         //     every auto-property of the type, not only the [ServiceProperty] ones. ---
 
         [TestMethod]
-        public async Task NonObservableStructProperty_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-016.1")]
+        public async Task ReportReadOfUnmarkedStructProperty()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -197,8 +215,10 @@ public class MyBlock
         // --- Exempt: the computed property is not observable, so staleness doesn't matter ---
 
         [TestMethod]
-        public async Task NonObservableComputedProperty_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-016.2")]
+        public async Task StaySilentOnUnobservedComputedProperty()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -216,8 +236,10 @@ public class MyBlock
         // --- Exempt: auto-property has no getter body to derive from ---
 
         [TestMethod]
-        public async Task AutoProperty_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-016.2")]
+        public async Task StaySilentOnAutoProperty()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System.Collections.Immutable;
 using Vion.Dale.Sdk.Core;
@@ -235,8 +257,10 @@ public class MyBlock
         //     a dependency root, but drops the member read off its struct value. ---
 
         [TestMethod]
-        public async Task FieldRootStructMemberRead_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-016.1")]
+        public async Task ReportReadRootedInStructField()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -255,8 +279,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task NullableFieldRootStructMemberRead_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-016.1")]
+        public async Task ReportNullConditionalReadRootedInStructField()
         {
+            // Arrange / Act / Assert
             // The shape exactly as filed. `_stored?.X` is a ConditionalAccessExpression, not a
             // MemberAccessExpression, so it needs its own syntax path.
             var source = @"
@@ -279,8 +305,10 @@ public class MyBlock
         // --- Exempt: reading the whole field is tracked (probe Q5) ---
 
         [TestMethod]
-        public async Task WholeFieldRead_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-016.2")]
+        public async Task StaySilentOnWholeFieldRead()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -298,8 +326,10 @@ public class MyBlock
         // --- Exempt: a method call through a nullable field root is still a method call (probe Q6) ---
 
         [TestMethod]
-        public async Task MethodCallOnNullableStructField_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-016.2")]
+        public async Task StaySilentOnMethodCallOverNullableStructField()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -322,8 +352,10 @@ public class MyBlock
         //     pinned here so the rewrite cannot quietly lose them. ---
 
         [TestMethod]
-        public async Task ReferenceTypeFieldMemberRead_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-016.2")]
+        public async Task StaySilentOnReferenceTypedField()
         {
+            // Arrange / Act / Assert
             // The aspect tracks child objects, so a member read off a reference-typed field is fine.
             var source = @"
 using Vion.Dale.Sdk.Core;
@@ -340,8 +372,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task ReadOnlyStructFieldMemberRead_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-016.2")]
+        public async Task StaySilentOnReadOnlyStructField()
         {
+            // Arrange / Act / Assert
             // A readonly field cannot be reassigned after construction, so what it feeds can never go stale.
             // Not on the widening's required list — added because `private readonly TimeSpan _interval;` is a
             // common shape and warning about it would be pure noise. Its get-only-property twin is below; the
@@ -361,8 +395,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task StaticStructFieldMemberRead_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-016.2")]
+        public async Task StaySilentOnStaticStructField()
         {
+            // Arrange / Act / Assert
             // A static is outside the instance's dependency graph entirely — flagging it is noise.
             var source = @"
 using Vion.Dale.Sdk.Core;
@@ -379,8 +415,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task BaseClassStructFieldMemberRead_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-016.2")]
+        public async Task StaySilentOnBaseDeclaredStructField()
         {
+            // Arrange / Act / Assert
             // A field declared by a base type belongs to that type's dependency graph, and the base
             // may not even be woven — it can live in an assembly the aspect never touches.
             var source = @"
@@ -401,8 +439,10 @@ public class MyBlock : MyBase
         }
 
         [TestMethod]
-        public async Task LocalVariableStructMemberRead_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-016.2")]
+        public async Task StaySilentOnLocalVariable()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -426,8 +466,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task StructMemberReadThroughAnotherObject_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-016.2")]
+        public async Task StaySilentOnReadThroughAnotherObject()
         {
+            // Arrange / Act / Assert
             // Not this-relative: this type's aspect does not track another object's struct anyway.
             var source = @"
 using Vion.Dale.Sdk.Core;
@@ -446,9 +488,11 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task GetOnlyStructPropertyMemberRead_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-016.2")]
+        public async Task StaySilentOnGetOnlyStructProperty()
         {
-            // The immutable-root twin of ReadOnlyStructFieldMemberRead_NoDiagnostic: no setter means no
+            // Arrange / Act / Assert
+            // The immutable-root twin of StaySilentOnReadOnlyStructField: no setter means no
             // reassignment after construction, so nothing derived from it can go stale.
             var source = @"
 using Vion.Dale.Sdk.Core;
@@ -467,8 +511,10 @@ public class MyBlock
         // --- Pins on shapes that DO report, so the exemptions above cannot creep outwards ---
 
         [TestMethod]
-        public async Task BaseClassStructPropertyMemberRead_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-016.1")]
+        public async Task ReportReadRootedInBaseDeclaredStructProperty()
         {
+            // Arrange / Act / Assert
             // Deliberately NOT exempt, unlike the base-class FIELD above: Metalama weaves an inherited
             // property of a woven type and reports no LAMA5164 for it, so DALE031 is the only signal.
             var source = @"
@@ -490,8 +536,10 @@ public class MyBlock : MyBase
         }
 
         [TestMethod]
-        public async Task NullableScalarFieldHasValueRead_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-016.1")]
+        public async Task ReportHasValueReadOnNullableScalarField()
         {
+            // Arrange / Act / Assert
             // `Nullable<double>` is a struct like any other and `HasValue` is a member read off it, so this
             // fires — and it is a TRUE positive: assigning `_x` raises nothing for `Has`. Pinned because the
             // idiom is common enough that a future reader will assume it is an over-fire and "fix" it.
@@ -509,8 +557,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task StructPublicFieldRead_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-016.2")]
+        public async Task StaySilentOnStructPublicFieldRead()
         {
+            // Arrange / Act / Assert
             // A public FIELD of a struct is NOT the trap: the aspect tracks it (conservatively, via the
             // containing field) and reports LAMA5164 for it besides. Only struct PROPERTY reads are dropped
             // silently. Verified at runtime: assigning `_pair` raises "PairA".
@@ -527,8 +577,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task StructMemberReadBehindHelperMethod_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-016.2")]
+        public async Task StaySilentOnReadBehindHelperMethod()
         {
+            // Arrange / Act / Assert
             // A known MISS, pinned deliberately rather than left undiscovered: the getter delegates to a
             // same-type helper that does the struct-member read, which is a whole-program question this
             // syntax-local rule cannot answer. It is not silent, though — Metalama reports the shape itself

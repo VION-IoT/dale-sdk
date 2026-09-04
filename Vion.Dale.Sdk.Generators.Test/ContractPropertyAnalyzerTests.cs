@@ -17,8 +17,10 @@ public class ConcreteContract : ITestContractType { }
 ";
 
         [TestMethod]
-        public async Task ContractPropertyWithPrivateSetter_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-004.3")]
+        public async Task StaySilentOnPrivateSetter()
         {
+            // Arrange / Act / Assert
             var source = ContractTypeSetup + @"
 public class MyBlock
 {
@@ -28,8 +30,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task ContractPropertyWithPublicSetter_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-004.3")]
+        public async Task StaySilentOnPublicSetter()
         {
+            // Arrange / Act / Assert
             var source = ContractTypeSetup + @"
 public class MyBlock
 {
@@ -39,8 +43,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task ContractPropertyWithoutSetter_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-004.1")]
+        public async Task ReportContractPropertyWithoutSetter()
         {
+            // Arrange / Act / Assert
             var source = ContractTypeSetup + @"
 public class MyBlock
 {
@@ -51,8 +57,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task ConcreteContractTypeWithoutSetter_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-004.1")]
+        public async Task ReportConcreteContractTypeWithoutSetter()
         {
+            // Arrange / Act / Assert
             var source = ContractTypeSetup + @"
 public class MyBlock
 {
@@ -63,8 +71,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task NonContractProperty_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-004.1")]
+        public async Task StaySilentOnNonContractProperty()
         {
+            // Arrange / Act / Assert
             var source = @"
 public interface INotAContract { }
 

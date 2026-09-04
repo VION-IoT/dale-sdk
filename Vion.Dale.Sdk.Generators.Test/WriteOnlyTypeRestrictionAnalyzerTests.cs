@@ -8,8 +8,10 @@ namespace Vion.Dale.Sdk.Generators.Test
     public class WriteOnlyTypeRestrictionAnalyzerTests
     {
         [TestMethod]
-        public async Task WriteOnlyOnString_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-011.4")]
+        public async Task StaySilentOnWriteOnlyString()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -21,8 +23,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task WriteOnlyFalse_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-011.4")]
+        public async Task StaySilentWhenWriteOnlyFalse()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -34,8 +38,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task WriteOnlyOnInt_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-011.4")]
+        public async Task ReportWriteOnlyOnNonString()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 

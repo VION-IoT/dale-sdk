@@ -10,8 +10,10 @@ namespace Vion.Dale.Sdk.Generators.Test
         // --- Types that should trigger DALE008 ---
 
         [TestMethod]
-        public async Task IntArray_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.2")]
+        public async Task ReportRawArray()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -24,8 +26,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task ListOfDouble_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.2")]
+        public async Task ReportMutableList()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System.Collections.Generic;
 using Vion.Dale.Sdk.Core;
@@ -41,8 +45,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task IReadOnlyListOfInt_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.2")]
+        public async Task ReportReadOnlyListInterface()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System.Collections.Generic;
 using Vion.Dale.Sdk.Core;
@@ -58,8 +64,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task IEnumerableOfDouble_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.2")]
+        public async Task ReportEnumerableInterface()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System.Collections.Generic;
 using Vion.Dale.Sdk.Core;
@@ -78,8 +86,10 @@ public class MyBlock
         [DataRow("ICollection<int>", "ICollection<int>")]
         [DataRow("IReadOnlyCollection<int>", "IReadOnlyCollection<int>")]
         [TestMethod]
-        public async Task OtherMutableCollections_ReportsDiagnostic(string typeName, string expectedTypeName)
+        [TestProperty("spec", "AC-ANLZ-003.2")]
+        public async Task ReportOtherMutableCollections(string typeName, string expectedTypeName)
         {
+            // Arrange / Act / Assert
             var source = $@"
 using System.Collections.Generic;
 using Vion.Dale.Sdk.Core;
@@ -95,8 +105,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task MeasuringPoint_ListOfDouble_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.2")]
+        public async Task ReportMutableListOnMeasuringPoint()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System.Collections.Generic;
 using Vion.Dale.Sdk.Core;
@@ -114,8 +126,10 @@ public class MyBlock
         // --- Types that should NOT trigger DALE008 ---
 
         [TestMethod]
-        public async Task ImmutableArrayOfDouble_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.2")]
+        public async Task StaySilentOnImmutableArray()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System.Collections.Immutable;
 using Vion.Dale.Sdk.Core;
@@ -128,8 +142,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task PropertyWithoutAttribute_IntArray_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.2")]
+        public async Task StaySilentOnArrayWithoutServiceAttribute()
         {
+            // Arrange / Act / Assert
             var source = @"
 public class MyBlock
 {
@@ -139,8 +155,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task NonCollectionType_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.2")]
+        public async Task StaySilentOnNonCollectionType()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 

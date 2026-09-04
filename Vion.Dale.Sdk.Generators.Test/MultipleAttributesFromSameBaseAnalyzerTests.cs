@@ -8,8 +8,10 @@ namespace Vion.Dale.Sdk.Generators.Test
     public class MultipleAttributesFromSameBaseAnalyzerTests
     {
         [TestMethod]
-        public async Task SingleServiceProperty_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-006.1")]
+        public async Task StaySilentOnSingleServiceProperty()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -21,8 +23,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task ServicePropertyPlusMeasuringPoint_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-006.1")]
+        public async Task StaySilentOnServicePropertyBesideMeasuringPoint()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -36,8 +40,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task TwoSubclassesOfServiceProperty_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-006.1")]
+        public async Task ReportTwoAttributesFromOneBase()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 

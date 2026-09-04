@@ -32,8 +32,9 @@ namespace Vion.Dale.Sdk.Generators.Test
         ///     the comment can be revisited.
         /// </summary>
         [TestMethod]
-        public async Task RoslynMetadataReader_RecordStruct_IsRecordFalse_HasDeconstructMarker()
+        public async Task DetectRecordStructFromMetadataByDeconstructMarker()
         {
+            // Arrange / Act / Assert
             var libRef = await CompileLibraryAsync(@"
 namespace Lib
 {
@@ -75,8 +76,10 @@ public class C { public Coords P { get; set; } }
         ///     but with the struct living in metadata, not source.
         /// </summary>
         [TestMethod]
-        public async Task ValidFlatReadonlyRecordStruct_FromReferencedAssembly_StructAnalyzer_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.4")]
+        public async Task StaySilentOnFlatRecordStructFromReferencedAssembly()
         {
+            // Arrange / Act / Assert
             var libRef = await CompileLibraryAsync(@"
 namespace Lib
 {
@@ -101,8 +104,10 @@ public class MyBlock
         ///     the cross-assembly struct.
         /// </summary>
         [TestMethod]
-        public async Task ValidFlatReadonlyRecordStruct_FromReferencedAssembly_TypeAnalyzer_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-003.4")]
+        public async Task AcceptFlatRecordStructFromReferencedAssemblyAsSupportedType()
         {
+            // Arrange / Act / Assert
             var libRef = await CompileLibraryAsync(@"
 namespace Lib
 {

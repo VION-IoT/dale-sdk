@@ -8,8 +8,10 @@ namespace Vion.Dale.Sdk.Generators.Test
     public class FormatOnNonTemporalAnalyzerTests
     {
         [TestMethod]
-        public async Task FormatOnDateTime_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-009.5")]
+        public async Task StaySilentOnFormatOverDateTime()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System;
 using Vion.Dale.Sdk.Core;
@@ -22,8 +24,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task FormatOnTimeSpan_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-009.5")]
+        public async Task StaySilentOnFormatOverTimeSpan()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System;
 using Vion.Dale.Sdk.Core;
@@ -36,8 +40,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task FormatOnNullableDateTime_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-009.5")]
+        public async Task StaySilentOnFormatOverNullableDateTime()
         {
+            // Arrange / Act / Assert
             var source = @"
 using System;
 using Vion.Dale.Sdk.Core;
@@ -50,8 +56,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task FormatUnset_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-009.5")]
+        public async Task StaySilentWhenFormatUnset()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -63,8 +71,10 @@ public class MyBlock
         }
 
         [TestMethod]
-        public async Task FormatOnString_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-009.5")]
+        public async Task ReportFormatOnNonTemporalProperty()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 

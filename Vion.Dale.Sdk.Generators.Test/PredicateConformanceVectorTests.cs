@@ -21,16 +21,18 @@ namespace Vion.Dale.Sdk.Generators.Test
     public class PredicateConformanceVectorTests
     {
         [TestMethod]
-        public void VendoredVector_HasCases()
+        public void CarryCasesInVendoredVector()
         {
+            // Arrange / Act / Assert
             var vector = LoadVector();
             Assert.IsNotEmpty(vector.Parse, "expected parse cases in the vendored vector");
             Assert.IsNotEmpty(vector.Eval, "expected eval cases in the vendored vector");
         }
 
         [TestMethod]
-        public void ParseCases_MatchGrammar()
+        public void ParseEveryVendoredParseCase()
         {
+            // Arrange / Act / Assert
             var vector = LoadVector();
             var failures = new List<string>();
 
@@ -48,8 +50,9 @@ namespace Vion.Dale.Sdk.Generators.Test
         }
 
         [TestMethod]
-        public void EvalCases_AreAllInsideTheGrammar()
+        public void ParseEveryVendoredEvaluationCase()
         {
+            // Arrange / Act / Assert
             // The parser does not evaluate, but every eval predicate must at least parse — an eval case
             // outside the grammar would mean the vector and the dialect have drifted apart.
             var vector = LoadVector();
@@ -68,8 +71,9 @@ namespace Vion.Dale.Sdk.Generators.Test
         }
 
         [TestMethod]
-        public void StrictFailClosedCases_AreStillInsideTheGrammar()
+        public void ParseEveryVendoredFailClosedCase()
         {
+            // Arrange / Act / Assert
             // Brief A (2026-07-13) added strict-profile fail-closed eval cases carrying "error": true in place
             // of "expected". They fail at EVALUATION (missing/null/type-mismatched value), not at parse — so
             // the parse-only harness must still accept them. This pins that the reshaped vector deserializes

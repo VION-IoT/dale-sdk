@@ -8,8 +8,10 @@ namespace Vion.Dale.Sdk.Generators.Test
     public class WriteOnlyStructFieldTypeRestrictionAnalyzerTests
     {
         [TestMethod]
-        public async Task WriteOnlyOnStringField_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-011.4")]
+        public async Task StaySilentOnWriteOnlyStringField()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -20,8 +22,10 @@ public readonly record struct Credentials(
         }
 
         [TestMethod]
-        public async Task WriteOnlyOnNullableStringField_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-011.4")]
+        public async Task StaySilentOnWriteOnlyNullableStringField()
         {
+            // Arrange / Act / Assert
             // string? shares SpecialType.System_String — v1 allows string and string?.
             var source = @"
 using Vion.Dale.Sdk.Core;
@@ -32,8 +36,10 @@ public readonly record struct Credentials(
         }
 
         [TestMethod]
-        public async Task WriteOnlyUnset_NoDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-011.4")]
+        public async Task StaySilentWhenWriteOnlyUnset()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -43,8 +49,10 @@ public readonly record struct Sample(
         }
 
         [TestMethod]
-        public async Task WriteOnlyOnNonStringField_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-011.4")]
+        public async Task ReportWriteOnlyOnNonStringField()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
@@ -55,8 +63,10 @@ public readonly record struct Sample(
         }
 
         [TestMethod]
-        public async Task WriteOnlyOnEnumField_ReportsDiagnostic()
+        [TestProperty("spec", "AC-ANLZ-011.4")]
+        public async Task ReportWriteOnlyOnEnumField()
         {
+            // Arrange / Act / Assert
             var source = @"
 using Vion.Dale.Sdk.Core;
 
