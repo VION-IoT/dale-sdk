@@ -243,7 +243,9 @@ the machine (the private runtime, the gateways, the first consumer) rather than 
 cell's reader — five reader claims fell that way in one pass, three changing a row's class. A REPORT
 may arrive as a cross-session message rather than as the session's last transcript text; the
 coordinator saves it from the message and says so, because the transcript's last text may be a
-one-word answer. Findings go back as one
+one-word answer. Both checks also read the change doc for its `## Relay notes for the PR body`
+section, because the PR body quotes it verbatim and a pass whose notes live only in its REPORT has
+none to quote. Findings go back as one
 numbered amendment per round: the amend file `C:\_gh\architecture\.claude\briefs\amend-<slug>-N.md` is the artifact,
 written first; the cross-session message that points at it is only a notification, and it reaches
 the session only when **both** sessions run in bypass mode. The sender checks its own mode before

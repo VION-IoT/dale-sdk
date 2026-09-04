@@ -60,6 +60,10 @@ consumer's build looks like, and the difference has already shipped a dead analy
 - **Test rules in combination, not only in isolation.** The supported-type gate is spread across
   `DALE003`, `DALE016` and `DALE008`; each one's tests passed while a newly supported value type was
   still rejected by a sibling rule, and it shipped broken.
+- **A local run is one culture and one OS; CI's runner is another.** A diagnostic that renders a
+  number formats it in the invariant culture (`sdk-surface-conventions.md` § 4), and the test that
+  pins the message expects the invariant text — never the symbol the developer's machine happens to
+  render.
 
 ## 4. Introspection is verified from the packed artifact
 
