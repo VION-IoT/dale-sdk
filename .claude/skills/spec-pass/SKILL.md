@@ -152,7 +152,12 @@ finding the operator actively schedules. Do not proceed to Phase B without the c
    AC no mutation can redden is not a requirement — reword it to what *is* observable, merge it
    into the AC it converges on, or drop it; never mint it. An AC that two guards enforce is
    **over-determined**: say so on its line, mutate both, and keep it — the binary rule has no other
-   verdict for it. The PR body carries the `test → mutation` list, one line each (§11). Two rules
+   verdict for it. A mutation that *survives* is a hypothesis about the test as much as about the
+   mutation: when another mechanism produces the same observable — a stop's drain republished the
+   value the hook wrote, so a test about the started flag read green with the flag already down —
+   remove that mechanism from the fixture (a controllable clock turns the emission policy off)
+   rather than strengthen the mutation. The PR body carries the `test → mutation` list, one line
+   each (§11). Two rules
    about *claims* ride on this step: a test cites a criterion for what the criterion's **text**
    states, not for the behavior the test happens to prove (`spec-trace` checks that an id exists,
    not what it says; three tests in one pass cited criteria that said something else — read the
@@ -186,8 +191,12 @@ finding the operator actively schedules. Do not proceed to Phase B without the c
    minting the test, and know that a generated seam can exist on one half of a contract only (the
    sender side, not the sink side), so a fixture on the quiet half tests the guard and not the path.
    **Size guard:** if a fix turns out non-local or design-bearing while you implement it, STOP and
-   report — it becomes a `park` row or its own change doc, never a silent absorption. **Hedges are
-   STOPs:** a brief that says *appears to … — verify* has named an assumption; when it fails,
+   report — it becomes a `park` row or its own change doc, never a silent absorption. **A fix closes
+   one path and opens its sibling for the sweep:** before the REPORT, re-run the state-interaction
+   sweep over every fixed path's neighbours — the restart beside the double start, the duplicate
+   reference beside the duplicate answer, the second map beside the first; three of one pass's four
+   critic misses sat exactly there, on paths the extraction had swept before the fixes existed.
+   **Hedges are STOPs:** a brief that says *appears to … — verify* has named an assumption; when it fails,
    record the deviation in the change doc and ask, never improvise a different design in its place
    (one pass improvised "resolve by evaluating" when the promised AST was not there; evaluation
    short-circuits, so the check never reached the name it existed to find — resolution is a
@@ -196,7 +205,9 @@ finding the operator actively schedules. Do not proceed to Phase B without the c
    `trace: enforced`. Prose states rules, never rosters (a list of today's instances drifts;
    "grep-enumerable" does not). Rows the operator accepted without a test carry the `GAP: <reason
    or VION-nn>` marker on the declaring line — and if the reason is "no observable", the row is
-   `out-of-spec`, not `GAP`.
+   `out-of-spec`, not `GAP`. The marker binds only on the id's own line: keep a declaring bullet's
+   id and its `GAP` tail on one line, because `spec-trace` reads the marker from the line that
+   declares the id, and a wrapped bullet fails the gate with no hint why.
 5. **Rewrite the area's whole test suite** to `docs/testing-conventions.md` §9–17 — ids cited via
    the quoted-literal forms (§17), unmapped tests merged or deleted per their list, no assertion on
    log calls (§15). A `[DataRow]` merge is a rewrite of the assertion: re-derive the mutation after
@@ -208,10 +219,11 @@ finding the operator actively schedules. Do not proceed to Phase B without the c
    names in one pass that the session wrote after reading §12; the natural phrasing of an assertion
    carries an article). The round also invalidates every test name the change doc carries — the
    behavior table's Test column, the unmapped list, the mutation list: after it, resolve every
-   `Class.Method` token in the doc against a declaration with a script, paste its count, and rewrite
-   the stale cells from the declarations (a per-class declaration list before and after the round is
-   what works; matching bodies by similarity does not on a rewritten suite — 104 stale names survived
-   two rounds that way). §17's "no other string" includes an expectation array: read the ids off the
+   `Class.Method` token in the doc — and the shorthand `` `.Method` `` continuation form, whose class
+   is carried from the token before it — against a declaration with a script, paste both counts, and
+   rewrite the stale cells from the declarations (a per-class declaration list before and after the
+   round is what works; matching bodies by similarity does not on a rewritten suite — 104 stale names
+   survived two rounds that way, and four more survived a resolver that read only the full form). §17's "no other string" includes an expectation array: read the ids off the
    artifact under test, never write them as literals in a `CollectionAssert`. A project you cite from
    without owning (another area's registry) is on the
    script's exempt list with its reason until that area's pass; **one citation never exempts a
@@ -276,7 +288,10 @@ finding the operator actively schedules. Do not proceed to Phase B without the c
     4. every Tier 2 row is a pasted observation;
     5. every number and tense in the sections above the append was re-read — an amendment appends
        to the change doc and nothing else re-reads what stands above it (a `37` for a 33-method
-       file and a future-tense plan survived two rounds that way).
+       file and a future-tense plan survived two rounds that way);
+    6. every `OUTCOME` line under the doc's Reviewer's questions carries its outcome — a
+       `(pending classification)` that survived Phase B is a placeholder above the append that nothing
+       re-read (seven survived a pass, its archive, two checks and a fresh round).
 
     Then: commands run + results · the test → mutation list · GAP list · premise tests left
     uncited, with reasons · park rows written to the ledger · friction one-liners (journal
@@ -345,3 +360,5 @@ skipped ("the mutation list **and the test map**" — the map stayed stale for a
 | "The amendment says the schedule is empty" | A check's finding is a hypothesis. Verify the mechanism at the call site, annotate a refuted premise, test the real behaviour. |
 | "I'll work the amendment myself, I know this code" | The session that wrote Phase B retires at its REPORT; a fresh one works the amendment. Four passes paid a round each for the alternative. |
 | "Every row maps to a criterion, so the page is complete" | Ask the reverse per anchor: which observables have neither a row nor a criterion. Two reached a page that way. |
+| "The OUTCOME lines can wait for the operator" | A placeholder above the append is a number nothing re-reads. Fill it at the classification or name it in the REPORT; seven survived every reader once. |
+| "I fixed the path the row named" | Its sibling path is where the next miss sits. Re-run the state-interaction sweep over every fix's neighbours before the REPORT. |
