@@ -440,8 +440,18 @@ namespace Vion.Dale.DevHost.Scenarios
                 switch (step.Kind)
                 {
                     case "set":
-                        await control.SetPropertyAsync(resolved.Property!.Block, resolved.Property.ServiceIdentifier, resolved.Property.PropertyName, step.Value)
-                                     .ConfigureAwait(false);
+                        try
+                        {
+                            await control.SetPropertyAsync(resolved.Property!.Block, resolved.Property.ServiceIdentifier, resolved.Property.PropertyName, step.Value)
+                                         .ConfigureAwait(false);
+                        }
+                        catch (ServicePropertyWriteException silence) when (silence.Reason == ServicePropertyWriteException.ReasonUnacknowledged)
+                        {
+                            // The host refuses a write whose window elapsed. That is the same silence the
+                            // detection below reads, and the detection says more about it — whether a block
+                            // exception was logged — so consume the refusal and let it speak.
+                        }
+
                         if (stopwatch.Elapsed.TotalMilliseconds >= ackCeilingMs)
                         {
                             // The block never acknowledged the write — applied writes, no-ops included,

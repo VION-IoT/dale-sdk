@@ -104,7 +104,9 @@ namespace Vion.Dale.DevHost.Web
         /// <param name="cancellationToken">Cancelled to shut down (typically wired to Ctrl+C).</param>
         public static Task RunAsync(Func<IDevHost> hostFactory, int port = 5000, CancellationToken cancellationToken = default)
         {
-            return RunAsync(_ => hostFactory(), port, cancellationToken);
+            // This factory takes no topology id, so every generation is the same graph. The loop is told so:
+            // a switch request is refused rather than answered with a recycle onto the topology already running.
+            return RunSupervisedAsync(_ => hostFactory(), port, cancellationToken, false);
         }
 
         /// <summary>
@@ -113,7 +115,12 @@ namespace Vion.Dale.DevHost.Web
         ///     plain reset the previous selection is kept). A typical consumer composes
         ///     <c>DevTopologyLoader.Load(topologyId)</c> for non-null ids and its C# preset otherwise.
         /// </summary>
-        public static async Task RunAsync(Func<string?, IDevHost> hostFactory, int port = 5000, CancellationToken cancellationToken = default)
+        public static Task RunAsync(Func<string?, IDevHost> hostFactory, int port = 5000, CancellationToken cancellationToken = default)
+        {
+            return RunSupervisedAsync(hostFactory, port, cancellationToken, true);
+        }
+
+        private static async Task RunSupervisedAsync(Func<string?, IDevHost> hostFactory, int port, CancellationToken cancellationToken, bool honoursTopologySwitch)
         {
             var headless = Environment.GetEnvironmentVariable(NoBrowserEnvVar) == "1";
             var generation = 0;
@@ -155,7 +162,7 @@ namespace Vion.Dale.DevHost.Web
                 await using (host)
                 {
                     var resetRequested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-                    using var resetSubscription = host.Control.OnResetRequested(() => resetRequested.TrySetResult());
+                    using var resetSubscription = host.Control.OnResetRequested(() => resetRequested.TrySetResult(), honoursTopologySwitch);
 
                     try
                     {

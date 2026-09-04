@@ -130,23 +130,25 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
 
             if (!topologyMatches || dirty)
             {
-                if (_control.CanReset)
+                // Rides the recycle: the supervisor rebuilds the host with a fresh clock and blocks. The caller
+                // polls until the host is back, then re-applies against the now-clean generation (which runs in
+                // place). A matching topology needs only a plain reset — asking for a switch there would be
+                // refused by a supervisor that cannot re-topologise, and a clean slate is all this branch wants.
+                var recycled = topologyMatches ? _control.TryRequestReset() : _control.TryRequestTopologySwitch(scenario.Topology!);
+                if (recycled)
                 {
-                    // Rides the topology-switch recycle: the supervisor rebuilds the host onto this topology
-                    // with a fresh clock and blocks. The caller polls until the host is back, then re-applies
-                    // against the now-clean, matching generation (which runs in place).
-                    _control.TryRequestTopologySwitch(scenario.Topology!);
                     return Accepted(new { recycling = true, topology = scenario.Topology });
                 }
 
                 if (!topologyMatches)
                 {
-                    // No supervisor to recycle and the topology is wrong — a setup error the caller must fix.
+                    // Nothing here can rebuild the host onto that topology — no supervisor at all, or one that
+                    // builds every generation the same way — and the topology is wrong: a setup error to fix.
                     return Conflict(new
                                     {
                                         reason = "topologyMismatch",
                                         error =
-                                            $"host is on topology '{hostTopology}', scenario '{id}' expects '{scenario.Topology}', and this host has no supervisor to recycle — build it on '{scenario.Topology}'.",
+                                            $"host is on topology '{hostTopology}', scenario '{id}' expects '{scenario.Topology}', and nothing here can rebuild it onto that topology — build it on '{scenario.Topology}'.",
                                         scenarioTopology = scenario.Topology,
                                         hostTopology,
                                     });

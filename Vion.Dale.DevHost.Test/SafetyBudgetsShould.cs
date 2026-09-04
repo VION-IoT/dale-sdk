@@ -1,7 +1,7 @@
 using System;
-using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using Vion.Dale.DevHost.Control;
 using Vion.Dale.DevHost.Scenarios;
 
 namespace Vion.Dale.DevHost.Test
@@ -79,25 +79,47 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CTRL-009.7")]
         [TestProperty("spec", "AC-CTRL-013.1")]
-        public async Task GiveWriteWindowHostWasBuiltWith()
+        public async Task RefuseWriteOnWindowHostWasBuiltWith()
         {
-            // Arrange — the same rejecting block, but a window a healthy write cannot exhaust.
+            // Arrange — the block that never acknowledges, and a window an order of magnitude under the wait
+            // below, so the wait is what fails if the host reached for its default instead.
             var configuration = DevConfigurationBuilder.Create().WithTopologyName("rejecting").AddLogicBlock<RejectingWriteBlock>("rejector").Build();
             await using var host = DevHostBuilder.Create()
                                                  .WithDi<TestDependencyInjection>()
                                                  .WithConfiguration(configuration)
-                                                 .WithSafetyBudgets(new DevHostBudgets { WriteAcknowledgement = TimeSpan.FromMilliseconds(600) })
+                                                 .WithSafetyBudgets(new DevHostBudgets { WriteAcknowledgement = TimeSpan.FromMilliseconds(200) })
                                                  .Build();
             await host.StartAsync();
 
-            // Act — a write the block applies acknowledges promptly and never approaches the window.
-            var elapsed = Stopwatch.StartNew();
-            await host.Control.SetPropertyAsync("rejector", "Rejected", 0);
-            elapsed.Stop();
+            // Act
+            var refusal =
+                await Assert.ThrowsExactlyAsync<ServicePropertyWriteException>(() => host.Control.SetPropertyAsync("rejector", "Rejected", 7).WaitAsync(TimeSpan.FromSeconds(2)));
+
+            // Assert — the refusal names the window it waited out, and the member nobody applied.
+            Assert.AreEqual(ServicePropertyWriteException.ReasonUnacknowledged, refusal.Reason);
+            Assert.AreEqual("Rejected", refusal.Property);
+            StringAssert.Contains(refusal.Message, "0.2s");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CTRL-013.1")]
+        [DataRow("WriteAcknowledgement", 5.0)]
+        [DataRow("StartAcknowledgement", 30.0)]
+        [DataRow("StopSequence", 60.0)]
+        [DataRow("Quiescence", 10.0)]
+        public void CarryDefaultForEveryBudgetCallerNamedNoValueFor(string budget, double seconds)
+        {
+            // Arrange — the record the builder starts from and every fall-back site constructs when the caller
+            // sets none. Reading each budget by name also pins the name a caller sets it under.
+            var defaults = new DevHostBudgets();
+
+            // Act
+            var value = typeof(DevHostBudgets).GetProperty(budget)?.GetValue(defaults);
 
             // Assert
-            Assert.IsLessThan(TimeSpan.FromMilliseconds(600), elapsed.Elapsed, "an applied write acknowledges on its own round trip, nowhere near the window");
+            Assert.AreEqual(TimeSpan.FromSeconds(seconds), value, $"{budget} is what the host uses when the caller names no value");
         }
     }
 }

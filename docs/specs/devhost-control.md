@@ -73,6 +73,8 @@ boot-dump-exit export path rests on — it never starts the host it exports.
   SHALL refuse the second start.
 - `AC-CTRL-002.6` (Event-driven): WHEN the configured port is already bound THE SYSTEM SHALL fail the
   start with a message naming the port.
+- `AC-CTRL-002.7` (Ubiquitous): THE SYSTEM SHALL run a started host until its cancellation token fires,
+  then stop it and return without throwing.
 
 `AC-CTRL-002.4` is a real-time budget because the acknowledgement wait itself is virtual: on a stepped
 host nothing advances the clock during a boot, so a block that never answers would leave a due-time
@@ -270,11 +272,17 @@ not readable here either; what the host caches is what was published ([`emission
 - `AC-CTRL-009.6` (Ubiquitous): THE SYSTEM SHALL ask every stand-in the host created, and the property
   and measuring-point handlers, to re-publish both the last driven and the last written value of every
   contract they serve.
+- `AC-CTRL-009.7` (Event-driven): WHEN a block does not acknowledge a write within the acknowledgement
+  window THE SYSTEM SHALL refuse the write naming the window, and SHALL answer the route with a client
+  error carrying that reason.
 
 `AC-CTRL-009.1` and `AC-CTRL-009.4` are the same rule on the two write paths, and both exist because
 the alternative was observed: a rejection swallowed inside the actor, an acknowledgement that never
-came, and a caller told the poke took. `AC-CTRL-009.5` is what makes a drive deterministic under
-stepping — the barrier is the synchronisation, not an acknowledgement.
+came, and a caller told the poke took. `AC-CTRL-009.7` closes the third door into the same room: the
+two refusals above are what the control surface can see before it sends, and silence is what is left
+over. A run's hollow-acknowledgement detection reads that silence for itself and says more about it
+(`AC-SCEN-009.10`), so it consumes the refusal rather than reporting it. `AC-CTRL-009.5` is what makes
+a drive deterministic under stepping — the barrier is the synchronisation, not an acknowledgement.
 
 ## The observation stream
 
@@ -323,13 +331,13 @@ monitor; the predicate over them is `AC-SCEN-012.5`'s.
 
 ## Safety budgets
 
-Three real-time backstops bound waits that no clock mode can complete. They are budgets, not
+Four real-time backstops bound waits that no clock mode can complete. They are budgets, not
 tolerances: the normal path completes in milliseconds and never approaches one, and they exist so a
 stuck host surfaces as a named failure instead of a hang.
 
 - `AC-CTRL-013.1` (Ubiquitous): THE SYSTEM SHALL give a caller one place to set the write
-  acknowledgement window, the start acknowledgement backstop and the quiescence ceiling, each
-  defaulting to the value the host uses when the caller sets none.
+  acknowledgement window, the start acknowledgement backstop, the stop-sequence backstop and the
+  quiescence ceiling, each defaulting to the value the host uses when the caller sets none.
 - `AC-CTRL-013.2` (Ubiquitous): THE SYSTEM SHALL refuse a budget that is not a positive span.
 - `AC-CTRL-013.3` (Ubiquitous): THE SYSTEM SHALL measure a scenario run's hollow-acknowledgement
   detection against the window the host was built with rather than a value of the runner's own.
@@ -386,13 +394,14 @@ bound a scenario's durations carry (`AC-SCEN-003.2`), because a manual advance i
 
 ## Refusals and their tokens
 
-Every refusal a client can act on carries a machine-readable token beside its prose, so a tool never
-has to match a message.
+A refusal a client is expected to act on carries a machine-readable token beside its prose, so a tool
+never has to match a message. The scenario and topology stores' own refusals do not carry one yet
+([`_findings.md`](_findings.md)).
 
-- `AC-CTRL-016.1` (Ubiquitous): THE SYSTEM SHALL carry a stable reason token on every refusal it
-  answers with a client error or a conflict.
+- `AC-CTRL-016.1` (Ubiquitous): THE SYSTEM SHALL carry a stable reason token on every conflict it
+  answers with, and on every write, drive and manual advance the control surface itself refuses.
 - `AC-CTRL-016.2` (Ubiquitous): THE SYSTEM SHALL name a refused write's reason as unknown service,
-  unknown member or read-only, and carry the offending member.
+  unknown member, read-only or unacknowledged, and carry the offending member.
 - `AC-CTRL-016.3` (Ubiquitous): THE SYSTEM SHALL name a refused drive's reason as unknown handler or
   unknown contract, and carry the addressed endpoint.
 - `AC-CTRL-016.4` (Ubiquitous): THE SYSTEM SHALL refuse manual stepping when the host is not stepped
@@ -430,8 +439,8 @@ caller performs.
   stepped generation whose clock has advanced or in which any scenario has already run, THE SYSTEM
   SHALL recycle onto the scenario's topology and answer that a recycle is under way.
 - `AC-CTRL-017.8` (Event-driven): WHEN a scenario is applied to a host on the wrong topology that
-  nothing can recycle THE SYSTEM SHALL refuse the run naming both topologies, and SHALL run in place
-  when only the clock is dirty.
+  nothing can rebuild onto it THE SYSTEM SHALL refuse the run naming both topologies, and SHALL run in
+  place when only the clock is dirty.
 - `AC-CTRL-017.9` (Ubiquitous): THE SYSTEM SHALL refuse a second run while one is active, naming the
   active run and its scenario, and SHALL cancel the active run first when the caller asks for a
   restart.

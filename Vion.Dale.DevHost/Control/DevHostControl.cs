@@ -145,6 +145,12 @@ namespace Vion.Dale.DevHost.Control
         }
 
         /// <inheritdoc />
+        public bool CanSwitchTopology
+        {
+            get => _runControl.CanSwitchTopology;
+        }
+
+        /// <inheritdoc />
         public void Pause()
         {
             _runControl.Pause();
@@ -187,9 +193,9 @@ namespace Vion.Dale.DevHost.Control
         }
 
         /// <inheritdoc />
-        public IDisposable OnResetRequested(Action handler)
+        public IDisposable OnResetRequested(Action handler, bool honoursTopologySwitch = false)
         {
-            return _runControl.OnResetRequested(handler);
+            return _runControl.OnResetRequested(handler, honoursTopologySwitch);
         }
 
         /// <inheritdoc />
@@ -352,7 +358,15 @@ namespace Vion.Dale.DevHost.Control
             _actorSystem.SendTo(handler,
                                 new MockSetServicePropertyValue(logicBlockActor, new SetServicePropertyValueRequest(new ServiceIdentifier(serviceId), propertyName, typedValue!)));
 
-            await applied.ConfigureAwait(false);
+            if (await applied.ConfigureAwait(false) is null)
+            {
+                // The wait resolved with no value: the window is spent and no acknowledgement came. Refusing
+                // here is the difference between a caller learning the write never landed and a caller reading
+                // a 200 that means only "the window elapsed" — the shape that hid a swallowed setter throw.
+                throw new ServicePropertyWriteException(ServicePropertyWriteException.ReasonUnacknowledged,
+                                                        propertyName,
+                                                        $"Service property '{propertyName}' was not acknowledged within {_budgets.WriteAcknowledgement.TotalSeconds:0.###}s; the block may not have applied it.");
+            }
         }
 
         public Task DriveServiceProviderContractAsync(string handlerName, string serviceProviderId, string serviceId, string contractId, JsonElement value)

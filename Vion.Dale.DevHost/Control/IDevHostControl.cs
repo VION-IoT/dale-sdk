@@ -31,6 +31,13 @@ namespace Vion.Dale.DevHost.Control
         /// <summary>True when a supervisor capable of recycling the host is attached (see <see cref="TryRequestReset" />).</summary>
         bool CanReset { get; }
 
+        /// <summary>
+        ///     True when the attached supervisor rebuilds from the topology a switch names. A supervisor built
+        ///     from <c>Func&lt;IDevHost&gt;</c> recycles but always onto the same topology, so it can reset and
+        ///     not switch (see <see cref="TryRequestTopologySwitch" />).
+        /// </summary>
+        bool CanSwitchTopology { get; }
+
         /// <summary>The topology id the latest switch requested — read by the supervisor when the reset fires.</summary>
         string? RequestedTopology { get; }
 
@@ -235,14 +242,18 @@ namespace Vion.Dale.DevHost.Control
         /// </summary>
         bool TryRequestReset();
 
-        /// <summary>Supervisor hook: attach the reset handler. Dispose the token to detach.</summary>
-        IDisposable OnResetRequested(Action handler);
+        /// <summary>
+        ///     Supervisor hook: attach the reset handler. Dispose the token to detach. A supervisor that
+        ///     rebuilds from <see cref="RequestedTopology" /> says so with <paramref name="honoursTopologySwitch" />;
+        ///     one that does not leaves it false and the host refuses a switch instead of pretending to take it.
+        /// </summary>
+        IDisposable OnResetRequested(Action handler, bool honoursTopologySwitch = false);
 
         /// <summary>
         ///     Request a recycle into a different topology — rides the reset signal; a
         ///     topology-aware supervisor (<c>DevHostWebRunner.RunAsync(Func&lt;string?, IDevHost&gt;, …)</c>)
         ///     builds the next generation from the requested id. Returns false when no supervisor is
-        ///     attached.
+        ///     attached, and when the attached one does not honour a topology switch.
         /// </summary>
         bool TryRequestTopologySwitch(string topologyId);
 

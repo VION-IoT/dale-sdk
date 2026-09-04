@@ -284,6 +284,39 @@ namespace Vion.Dale.DevHost.Test
             return entries.ToList().FindIndex(entry => entry.StartsWith(messageTypeName + "@", StringComparison.Ordinal));
         }
 
+        [TestMethod]
+        [TestProperty("spec", "AC-CTRL-002.7")]
+        public async Task RunStartedHostUntilCancellationThenStopIt()
+        {
+            // Arrange — the process entry point: run the host, and end it by cancelling. The stop deliberately
+            // runs on the already-cancelled token, which is why cancelling must not surface as a throw.
+            var recorder = new TeardownRecorder();
+            await using var host = BuildHost(recorder, false);
+            using var lifetime = new CancellationTokenSource();
+
+            // Act
+            var run = host.RunAsync(lifetime.Token);
+            await WaitUntilBlockPublishedAsync(host);
+            await lifetime.CancelAsync();
+            await run.WaitAsync(TimeSpan.FromSeconds(30));
+
+            // Assert — the call returned normally, and it took the host down on its way out.
+            CollectionAssert.Contains(recorder.Entries.ToList(), TeardownRecorder.Stopping, "Recorded: " + string.Join(", ", recorder.Entries));
+        }
+
+        /// <summary>
+        ///     Waits until the block has published its initial state, which only a started actor does — the run
+        ///     task itself carries the start, so cancelling before that would cancel the start instead of the run.
+        /// </summary>
+        private static async Task WaitUntilBlockPublishedAsync(IDevHost host)
+        {
+            var deadline = Stopwatch.StartNew();
+            while (host.Control.GetProperty("stopper", "Status") is null && deadline.Elapsed < TimeSpan.FromSeconds(30))
+            {
+                await Task.Delay(10);
+            }
+        }
+
         private static IDevHost BuildHost(TeardownRecorder recorder, bool stepped, int? webUiPort = null)
         {
             var configuration = DevConfigurationBuilder.Create().WithTopologyName("stopper").AddLogicBlock<StoppingBlock>("stopper").Build();

@@ -24,6 +24,8 @@ namespace Vion.Dale.DevHost.Control
 
         private readonly List<Action> _held = new();
 
+        private bool _honoursTopologySwitch;
+
         private bool _paused;
 
         private bool? _requestedClockMode;
@@ -52,6 +54,23 @@ namespace Vion.Dale.DevHost.Control
                 lock (_gate)
                 {
                     return _resetHandler is not null;
+                }
+            }
+        }
+
+        /// <summary>
+        ///     True when the attached supervisor rebuilds from the topology a switch names. A supervisor that
+        ///     builds every generation the same way (<c>DevHostWebRunner.RunAsync(Func&lt;IDevHost&gt;, …)</c>)
+        ///     can recycle but not re-topologise, and saying so is what keeps a client from being told a switch
+        ///     took while the host comes back on the topology it was already on.
+        /// </summary>
+        public bool CanSwitchTopology
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return _resetHandler is not null && _honoursTopologySwitch;
                 }
             }
         }
@@ -137,8 +156,14 @@ namespace Vion.Dale.DevHost.Control
         ///         composing two would invent semantics for which supervisor owns the rebuild.
         ///     </para>
         /// </summary>
+        /// <param name="handler">Invoked when a recycle is requested.</param>
+        /// <param name="honoursTopologySwitch">
+        ///     True when this supervisor rebuilds from <see cref="RequestedTopology" />. Left false, the host
+        ///     reports itself unable to switch and refuses a switch request rather than answering it with a
+        ///     recycle onto the same topology.
+        /// </param>
         /// <exception cref="InvalidOperationException">A reset handler is already attached.</exception>
-        public IDisposable OnResetRequested(Action handler)
+        public IDisposable OnResetRequested(Action handler, bool honoursTopologySwitch = false)
         {
             if (handler is null)
             {
@@ -154,6 +179,7 @@ namespace Vion.Dale.DevHost.Control
                 }
 
                 _resetHandler = handler;
+                _honoursTopologySwitch = honoursTopologySwitch;
             }
 
             return new DetachToken(this, handler);
@@ -190,7 +216,7 @@ namespace Vion.Dale.DevHost.Control
         {
             lock (_gate)
             {
-                if (_resetHandler is null)
+                if (_resetHandler is null || !_honoursTopologySwitch)
                 {
                     return false;
                 }
@@ -205,13 +231,14 @@ namespace Vion.Dale.DevHost.Control
         ///     Request a recycle into a different topology — rides the same reset signal;
         ///     a topology-aware supervisor (<c>DevHostWebRunner.RunAsync(Func&lt;string?, IDevHost&gt;, …)</c>)
         ///     reads <see cref="RequestedTopology" /> and builds the next generation from it. Returns false
-        ///     when no supervisor is attached.
+        ///     when no supervisor is attached, and when the attached one does not honour a topology switch —
+        ///     recycling it onto the topology it is already on would report a switch that never happened.
         /// </summary>
         public bool TryRequestTopologySwitch(string topologyId)
         {
             lock (_gate)
             {
-                if (_resetHandler is null)
+                if (_resetHandler is null || !_honoursTopologySwitch)
                 {
                     return false;
                 }
@@ -246,6 +273,7 @@ namespace Vion.Dale.DevHost.Control
                     if (ReferenceEquals(_owner._resetHandler, _handler))
                     {
                         _owner._resetHandler = null;
+                        _owner._honoursTopologySwitch = false;
                     }
                 }
             }

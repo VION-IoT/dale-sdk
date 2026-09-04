@@ -51,7 +51,7 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
             return Ok(new
                       {
                           current = _control.GetConfiguration().TopologyName,
-                          canSwitch = _control.CanReset,
+                          canSwitch = _control.CanSwitchTopology,
                           readOnly = DevTopologyStore.IsReadOnly,
                           directory = _store.Directory,
                           topologies = _store.List(),

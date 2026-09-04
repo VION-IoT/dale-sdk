@@ -231,6 +231,40 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CTRL-009.7")]
+        [TestProperty("spec", "AC-CTRL-016.2")]
+        public async Task RefuseWriteOverHttpNobodyAcknowledged()
+        {
+            // The last silent shape on this route: a member that exists and takes a write, on a block that
+            // never replies. It answered 200 once the window was spent, which reads as "applied".
+            // Arrange
+            var port = FreePort();
+            var config = DevConfigurationBuilder.Create().WithTopologyName("rejecting").AddLogicBlock<RejectingWriteBlock>("rejector").Build();
+            await using var host = DevHostBuilder.Create()
+                                                 .WithDi<TestDependencyInjection>()
+                                                 .WithConfiguration(config)
+                                                 .WithSafetyBudgets(new DevHostBudgets { WriteAcknowledgement = TimeSpan.FromMilliseconds(200) })
+                                                 .WithWebUi(port)
+                                                 .Build();
+            await host.StartAsync();
+
+            using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
+
+            var blocksJson = await client.GetStringAsync("/api/logicblocks");
+            using var blocksDoc = JsonDocument.Parse(blocksJson);
+            var serviceId = blocksDoc.RootElement[0].GetProperty("serviceIds")[0].GetString();
+
+            // Act
+            var refused = await client.PostAsJsonAsync($"/api/dale/property/{serviceId}/Rejected", new { value = 7 });
+
+            // Assert
+            Assert.AreEqual(HttpStatusCode.BadRequest, refused.StatusCode);
+            var body = JsonDocument.Parse(await refused.Content.ReadAsStringAsync()).RootElement;
+            Assert.AreEqual("unacknowledged", body.GetProperty("reason").GetString());
+            Assert.AreEqual("Rejected", body.GetProperty("property").GetString());
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-CTRL-009.3")]
         public async Task DecodeWriteToNestedComponentsMember()
         {

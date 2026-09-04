@@ -60,6 +60,16 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   no error either side. The SPA covers itself with its own snapshot fetch (`wwwroot/store.js:492`); a
   hand-written client relying on the replay alone sees nothing. Closing it means a readiness gate on the
   hub. *(CTRL pass row 184 — `CTRL`.)*
+- **The scenario and topology routes refuse without a reason token.** Every conflict carries one and
+  every refusal the control surface raises carries one, but the file-serving and file-saving answers do
+  not: not-found for an unknown scenario or topology (`Vion.Dale.DevHost.Web/Api/Controllers/ScenariosController.cs:68`,
+  `:81`, `:103`, `TopologiesController.cs:66`, `:126`), the missing embedded schema
+  (`ScenariosController.cs:54`, `TopologiesController.cs:40`), the refused save
+  (`ScenariosController.cs:191`, `TopologiesController.cs:86`) and the structurally-invalid file and
+  id-mismatch answers (`ScenariosController.cs:112`, `:117`). `AC-CTRL-016.1` states the rule over the
+  refusals that do carry one; extending it over these adds a token family the Explorer's client would
+  key on, which is a wire decision rather than an amendment's. *(CTRL pass amendment 2, item 3 —
+  `CTRL`.)*
 - **Two shipped packages are outside the public-API snapshot.** `Vion.Dale.DevHost` and
   `Vion.Dale.DevHost.Web` are `IsPackable` (`Vion.Dale.DevHost.csproj:9-10`,
   `Vion.Dale.DevHost.Web.csproj:36-37`) and absent from `docs/snapshots/publicapi-manifest.json`'s 12

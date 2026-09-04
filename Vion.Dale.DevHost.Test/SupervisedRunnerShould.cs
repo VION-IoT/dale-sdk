@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Net.Sockets;
 using System.Text.Json;
 using System.Threading;
@@ -295,6 +296,55 @@ namespace Vion.Dale.DevHost.Test
         // test's capture too — and its readiness receipt has the same shape as this one's. Every receipt
         // carries the port it belongs to, so that is what the lines are filtered on rather than the token
         // alone. Without it this suite passes alone and fails intermittently in the full run.
+        [TestMethod]
+        [TestProperty("spec", "AC-CTRL-005.3")]
+        [TestProperty("spec", "AC-CTRL-017.1")]
+        public async Task RefuseTopologySwitchWhenSupervisorRebuildsOneGraph()
+        {
+            // Arrange — the supervised overload whose factory takes no topology id, so every generation is the
+            // same graph. It answered "switching" and came back on the topology it was already on.
+            var directory = Path.Combine(Path.GetTempPath(), "dale-topologies-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
+            File.WriteAllText(Path.Combine(directory, "other.topology.json"),
+                              $$"""
+                                { "id": "other", "logicBlockInstances": [ { "typeFullName": "{{typeof(CounterBlock).FullName}}", "name": "counter" } ] }
+                                """);
+
+            var port = FreePort();
+            var originalOut = Console.Out;
+            var captured = new StringWriter();
+            using var shutdown = new CancellationTokenSource();
+            Environment.SetEnvironmentVariable(DevHostWebRunner.NoBrowserEnvVar, "1");
+            Console.SetOut(captured);
+
+            try
+            {
+                var runner = DevHostWebRunner.RunAsync(() => BuildWebHost(port, directory), port, shutdown.Token);
+                await WaitForReceiptAsync(captured, "\"ready\"", port);
+
+                using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
+
+                // Act
+                var refusal = await client.PostAsync("/api/topologies/other/switch", null);
+                var listing = await client.GetStringAsync("/api/topologies");
+                var body = await refusal.Content.ReadAsStringAsync();
+
+                // Assert — refused with the family's token, and the listing says so before a client tries.
+                Assert.AreEqual(HttpStatusCode.Conflict, refusal.StatusCode, body);
+                Assert.AreEqual("notSupervised", JsonDocument.Parse(body).RootElement.GetProperty("reason").GetString());
+                StringAssert.Contains(listing, "\"canSwitch\":false");
+
+                await shutdown.CancelAsync();
+                await runner;
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+                Environment.SetEnvironmentVariable(DevHostWebRunner.NoBrowserEnvVar, null);
+                Directory.Delete(directory, true);
+            }
+        }
+
         private static string ReceiptLine(StringWriter captured, string token, int port)
         {
             return ReceiptLines(captured, token, port).Last();
@@ -349,9 +399,16 @@ namespace Vion.Dale.DevHost.Test
             return port;
         }
 
-        private static IDevHost BuildWebHost(int port)
+        private static IDevHost BuildWebHost(int port, string? topologiesDirectory = null)
         {
-            var configuration = DevConfigurationBuilder.Create().WithTopologyName("counter-topology").AddLogicBlock<CounterBlock>("counter").Build();
+            var builder = DevConfigurationBuilder.Create().WithTopologyName("counter-topology").AddLogicBlock<CounterBlock>("counter");
+            if (topologiesDirectory is not null)
+            {
+                builder = builder.WithTopologies(topologiesDirectory);
+            }
+
+            var configuration = builder.Build();
+            configuration.TopologiesPath = topologiesDirectory ?? configuration.TopologiesPath;
 
             return DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(configuration).WithWebUi(port).Build();
         }
