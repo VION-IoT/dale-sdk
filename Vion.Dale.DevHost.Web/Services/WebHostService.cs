@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
@@ -200,7 +201,24 @@ namespace Vion.Dale.DevHost.Web.Services
                                       $"  scenario {scenario.Id}: INVALID — {scenario.Error}");
             }
 
-            return _app.StartAsync(cancellationToken);
+            return StartServerAsync(cancellationToken);
+        }
+
+        // Kestrel reports a port already in use as an IOException, which the supervised runner's catch does not
+        // see - so a second `dale dev` in one checkout took the process down on a framework stack trace naming
+        // neither the port nor the host already on it. Translate it to the type the start path already speaks.
+        private async Task StartServerAsync(CancellationToken cancellationToken)
+        {
+            try
+            {
+                await _app!.StartAsync(cancellationToken);
+            }
+            catch (IOException exception)
+            {
+                throw new InvalidOperationException($"The development host could not bind port {_config.Port}: {exception.Message} " +
+                                                    "Another host is probably already serving it - stop it, or start this one on a different port.",
+                                                    exception);
+            }
         }
 
         public async Task StopAsync(CancellationToken cancellationToken)

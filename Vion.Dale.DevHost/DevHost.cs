@@ -25,6 +25,8 @@ namespace Vion.Dale.DevHost
 
         private bool _disposed;
 
+        private bool _started;
+
         public DevHost(IServiceProvider serviceProvider, List<Assembly> pluginAssemblies, DevConfiguration configuration, ILogger logger)
         {
             _serviceProvider = serviceProvider;
@@ -41,6 +43,15 @@ namespace Vion.Dale.DevHost
 
         public async Task StartAsync(CancellationToken cancellationToken = default)
         {
+            // A second start would add a second copy of every hosted service and rebind the port under the
+            // running server, leaving the first one alive behind the bind failure. One host, one start.
+            if (_started)
+            {
+                throw new InvalidOperationException("This development host is already started. Build a second host, or recycle this one through its supervisor.");
+            }
+
+            _started = true;
+
             _logger.LogInformation("Development host starting...");
             _logger.LogInformation("Loaded {Count} plugin assemblies:", _pluginAssemblies.Count);
 

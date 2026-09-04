@@ -168,6 +168,15 @@ namespace Vion.Dale.DevHost.Control
         /// </summary>
         IReadOnlyList<TappedMessage> RecordedMessages(string? logicBlockIdOrName = null);
 
+        /// <summary>
+        ///     Every handler exception a logic block's actor threw and the middleware caught, oldest first,
+        ///     optionally filtered to one block by name or id. The middleware swallows a throw so one bad block
+        ///     cannot take the network down — so a block that failed to configure, to bind or to start leaves no
+        ///     trace on its own state, and the host starts over it. This is where that failure is readable:
+        ///     after a start that returned, and after one that timed out waiting for an acknowledgement.
+        /// </summary>
+        IReadOnlyList<BlockFailure> RecordedFailures(string? logicBlockIdOrName = null);
+
         /// <summary>Subscribe to live log lines. Dispose the returned token to unsubscribe.</summary>
         IDisposable SubscribeLogs(Action<LogLine> sink);
 

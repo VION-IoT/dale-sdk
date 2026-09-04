@@ -30,6 +30,8 @@ namespace Vion.Dale.DevHost
 
         private readonly ServiceCollection _services = new();
 
+        private DevHostBudgets _budgets = new();
+
         private DevConfiguration? _configuration;
 
         private ILogger<DevHostBuilder>? _logger;
@@ -115,9 +117,36 @@ namespace Vion.Dale.DevHost
         ///     registered ahead of <see cref="Build" />'s <c>TryAddSingleton(TimeProvider.System)</c>, so this
         ///     explicit clock wins.
         /// </summary>
-        public DevHostBuilder WithDeterministicStepping(DateTimeOffset? startUtc = null)
+        public DevHostBuilder WithDeterministicStepping(DateTimeOffset? startUtc = null, TimeSpan? quiescenceBudget = null)
         {
             _services.AddSingleton<TimeProvider>(new FakeTimeProvider(startUtc ?? DeterministicEpoch));
+
+            if (quiescenceBudget is { } budget)
+            {
+                _budgets = _budgets with { Quiescence = budget };
+                _budgets.Validate();
+            }
+
+            return this;
+        }
+
+        /// <summary>
+        ///     Override the host's real-time safety budgets (see <see cref="DevHostBudgets" />). Every budget
+        ///     keeps its default unless the record names another value; a non-positive one is refused here
+        ///     rather than at the wait it would fail to bound.
+        /// </summary>
+        public DevHostBuilder WithSafetyBudgets(DevHostBudgets budgets)
+        {
+            if (budgets is null)
+            {
+                throw new ArgumentNullException(nameof(budgets));
+            }
+
+            budgets.Validate();
+
+            // Deterministic stepping may already have set the quiescence budget; an explicit record wins,
+            // whichever order the two calls came in, because it names every field.
+            _budgets = budgets;
             return this;
         }
 
@@ -136,6 +165,10 @@ namespace Vion.Dale.DevHost
                                          builder.SetMinimumLevel(LogLevel.Debug);
                                      });
             }
+
+            // The real-time safety budgets every backstop in this host reads. Registered before the SDK's own
+            // registrations so a consumer's ConfigureServices override still wins.
+            _services.AddSingleton(_budgets);
 
             // Add Dale SDK services (required for LogicBlocks)
             _services.AddDaleSdk();

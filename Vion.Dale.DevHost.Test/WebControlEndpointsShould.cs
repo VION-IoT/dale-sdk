@@ -560,7 +560,7 @@ namespace Vion.Dale.DevHost.Test
             Assert.AreEqual("unknownContract", JsonDocument.Parse(await unknownContract.Content.ReadAsStringAsync()).RootElement.GetProperty("reason").GetString());
         }
 
-        [DataTestMethod]
+        [TestMethod]
         [DataRow("/api/state/NoSuchBlock", DisplayName = "an unknown block")]
         [DataRow("/api/state/NoSuchBlock/Counter", DisplayName = "a member of an unknown block")]
         [DataRow("/api/state/counter/NoSuchMember", DisplayName = "an unknown member of a known block")]
@@ -591,7 +591,7 @@ namespace Vion.Dale.DevHost.Test
             Assert.AreNotEqual("text/html", response.Content.Headers.ContentType?.MediaType);
         }
 
-        [DataTestMethod]
+        [TestMethod]
         [DataRow("NaN")]
         [DataRow("Infinity")]
         [DataRow("-Infinity")]
@@ -633,6 +633,23 @@ namespace Vion.Dale.DevHost.Test
 
             Assert.AreEqual(HttpStatusCode.Conflict, response.StatusCode, body.GetRawText());
             Assert.AreEqual("notSupervised", body.GetProperty("reason").GetString());
+        }
+
+        [TestMethod]
+        public async Task PublishTheBlockFailuresOnTheControlStatusRoute()
+        {
+            var port = FreePort();
+            var config = DevConfigurationBuilder.Create().WithTopologyName("broken").AddLogicBlock<FailingConfigureBlock>("bad").Build();
+            await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithWebUi(port).Build();
+            await host.StartAsync();
+            using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
+
+            var status = JsonDocument.Parse(await client.GetStringAsync("/api/control/status")).RootElement;
+
+            var failures = status.GetProperty("blockFailures").EnumerateArray().ToList();
+            Assert.IsNotEmpty(failures, "the status route is where an agent learns the host started over a block that did not");
+            Assert.AreEqual("bad", failures[0].GetProperty("logicBlock").GetString());
+            StringAssert.Contains(failures[0].GetProperty("error").GetString()!, FailingConfigureBlock.FailureMessage);
         }
 
         // The service id of the (single) block's nested interface-bound component (identifier == the binding

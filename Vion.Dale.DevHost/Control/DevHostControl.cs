@@ -28,6 +28,8 @@ namespace Vion.Dale.DevHost.Control
 
         private readonly IActorSystem _actorSystem;
 
+        private readonly DevHostBudgets _budgets;
+
         // The virtual clock at construction — the per-generation clean baseline. On a stepped host the clock
         // only moves via explicit advance/step, so VirtualTimeUtc > this means the generation has been dirtied
         // (a prior run or manual stepping) and is no longer reproducible from a clean slate.
@@ -92,8 +94,10 @@ namespace Vion.Dale.DevHost.Control
                               VirtualSchedule schedule,
                               TimeProvider timeProvider,
                               ServiceProviderOutputCache outputCache,
-                              ServiceProviderStandIns standIns)
+                              ServiceProviderStandIns standIns,
+                              DevHostBudgets budgets)
         {
+            _budgets = budgets;
             _configuration = configuration;
             _events = events;
             _outputCache = outputCache;
@@ -343,7 +347,7 @@ namespace Vion.Dale.DevHost.Control
             // safety net for writes the block never applied (unknown member, actor-side throw — the
             // swallowed-exception hollow ack ScenarioRunner's rejected-write detection looks for).
             var applied = WaitForAsync(e => e is ServicePropertyWriteAcknowledged ack && ack.ServiceId == serviceId && ack.Property == propertyName ? (object)ack : null,
-                                       TimeSpan.FromSeconds(5));
+                                       _budgets.WriteAcknowledgement);
 
             _actorSystem.SendTo(handler,
                                 new MockSetServicePropertyValue(logicBlockActor, new SetServicePropertyValueRequest(new ServiceIdentifier(serviceId), propertyName, typedValue!)));
@@ -527,6 +531,24 @@ namespace Vion.Dale.DevHost.Control
             return _messageTap.Snapshot(LogicBlockUtils.CreateLogicBlockName(logicBlock.Name, logicBlock.Id));
         }
 
+        public IReadOnlyList<BlockFailure> RecordedFailures(string? logicBlockIdOrName = null)
+        {
+            if (logicBlockIdOrName is not null)
+            {
+                var filtered = ResolveLogicBlock(logicBlockIdOrName);
+
+                return filtered is null ? Array.Empty<BlockFailure>() :
+                           _messageTap.Failures(LogicBlockUtils.CreateLogicBlockName(filtered.Name, filtered.Id))
+                                      .Select(f => f with { LogicBlock = filtered.Name })
+                                      .ToList();
+            }
+
+            // Report the block by the name the operator wired it under, not by its actor id — the same
+            // fallback the event stream uses when a name cannot be resolved (an actor that is not a block, or
+            // a failure recorded before the configuration was populated).
+            return _messageTap.Failures().Select(f => f with { LogicBlock = LogicBlockNameForActor(f.LogicBlock) }).ToList();
+        }
+
         public void Dispose()
         {
             _events.ServicePropertyChanged -= OnServiceProperty;
@@ -585,7 +607,7 @@ namespace Vion.Dale.DevHost.Control
         // rejected when stepping is actually requested — not at construction.
         private DeterministicStepper EnsureStepper()
         {
-            return _stepper ??= new DeterministicStepper(_timeProvider, new QuiescenceBarrier(_vitals, _activityMonitor), _schedule);
+            return _stepper ??= new DeterministicStepper(_timeProvider, new QuiescenceBarrier(_vitals, _activityMonitor), _schedule, _budgets.Quiescence);
         }
 
         // JSON → typed CLR for the HTTP set path (moved here when IDevHostStateProvider was collapsed into the
@@ -650,6 +672,13 @@ namespace Vion.Dale.DevHost.Control
         private DevLogicBlockConfig? ResolveLogicBlock(string logicBlockIdOrName)
         {
             return _configuration.LogicBlocks.FirstOrDefault(b => b.Name == logicBlockIdOrName) ?? _configuration.LogicBlocks.FirstOrDefault(b => b.Id == logicBlockIdOrName);
+        }
+
+        // actor name -> the block name it was wired under, or the actor name when it is not a block's actor.
+        private string LogicBlockNameForActor(string actorName)
+        {
+            var logicBlock = _configuration.LogicBlocks.FirstOrDefault(b => LogicBlockUtils.CreateLogicBlockName(b.Name, b.Id) == actorName);
+            return logicBlock?.Name ?? actorName;
         }
 
         private string LogicBlockNameFor(string serviceId)

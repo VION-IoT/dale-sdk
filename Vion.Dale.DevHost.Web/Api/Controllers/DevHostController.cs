@@ -141,7 +141,7 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
 
         // --- Run control (pause / resume / reset) ---
 
-        /// <summary>Run-control state: paused? supervisor attached (reset possible)? stepped? + the virtual clock.</summary>
+        /// <summary>Run-control state: paused? supervisor attached (reset possible)? stepped? + the virtual clock and the block failures the host recorded.</summary>
         [HttpGet("control/status")]
         public ActionResult GetControlStatus()
         {
@@ -152,6 +152,18 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
                           stepped = _control.IsStepped,
                           virtualTimeUtc = _control.VirtualTimeUtc,
                           runActive = _runs.HasActiveRun,
+
+                          // Every handler exception a block threw and the middleware swallowed. Empty on a
+                          // healthy host; non-empty is the one signal that the host started over a block that
+                          // did not, whose members then read their defaults with no other trace.
+                          blockFailures = _control.RecordedFailures()
+                                                  .Select(f => new
+                                                               {
+                                                                   logicBlock = f.LogicBlock,
+                                                                   message = f.MessageType,
+                                                                   error = f.Error,
+                                                                   timestamp = f.Timestamp,
+                                                               }),
                       });
         }
 

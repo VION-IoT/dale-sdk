@@ -50,19 +50,20 @@ namespace Vion.Dale.DevHost.Control
     /// </summary>
     internal sealed class DeterministicStepper
     {
-        // Generous real-clock ceiling on a single quiescence wait. The barrier polls on the real clock; this
-        // bounds it so a genuinely stuck system surfaces as a thrown TimeoutException rather than hanging.
-        private static readonly TimeSpan QuiescenceTimeout = TimeSpan.FromSeconds(10);
-
         private readonly Action<TimeSpan> _advance;
 
         private readonly QuiescenceBarrier _barrier;
 
         private readonly TimeProvider _clock;
 
+        // Real-clock ceiling on a single quiescence wait. The barrier polls on the real clock; this bounds it
+        // so a genuinely stuck system surfaces as a thrown TimeoutException rather than hanging. Injected
+        // (DevHostBudgets.Quiescence) so a test can reach the failure without waiting out the default.
+        private readonly TimeSpan _quiescenceTimeout;
+
         private readonly IVirtualSchedule _schedule;
 
-        public DeterministicStepper(TimeProvider timeProvider, QuiescenceBarrier barrier, IVirtualSchedule schedule)
+        public DeterministicStepper(TimeProvider timeProvider, QuiescenceBarrier barrier, IVirtualSchedule schedule, TimeSpan quiescenceTimeout)
         {
             if (timeProvider is null)
             {
@@ -73,6 +74,7 @@ namespace Vion.Dale.DevHost.Control
             _clock = timeProvider;
             _barrier = barrier ?? throw new ArgumentNullException(nameof(barrier));
             _schedule = schedule ?? throw new ArgumentNullException(nameof(schedule));
+            _quiescenceTimeout = quiescenceTimeout;
         }
 
         /// <summary>
@@ -165,7 +167,7 @@ namespace Vion.Dale.DevHost.Control
         // external cancel still wins. A timeout throws TimeoutException — never a silent "assume settled".
         private async Task SettleAsync(CancellationToken cancellationToken)
         {
-            using var timeout = new CancellationTokenSource(QuiescenceTimeout);
+            using var timeout = new CancellationTokenSource(_quiescenceTimeout);
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeout.Token);
             try
             {
@@ -173,7 +175,7 @@ namespace Vion.Dale.DevHost.Control
             }
             catch (OperationCanceledException) when (timeout.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
             {
-                throw new TimeoutException($"Actor system did not reach quiescence within {QuiescenceTimeout.TotalSeconds:0}s — the exact " +
+                throw new TimeoutException($"Actor system did not reach quiescence within {_quiescenceTimeout.TotalSeconds:0.###}s — the exact " +
                                            "predicate (Σ MailboxDepth == 0 AND no user handler in flight) never held. The cascade is " +
                                            "either stuck or producing unbounded follow-up traffic.");
             }

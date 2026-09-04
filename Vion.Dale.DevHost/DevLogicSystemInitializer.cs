@@ -83,6 +83,10 @@ namespace Vion.Dale.DevHost
         // StopAsync also carries the real-time backstop.
         private static readonly TimeSpan StopAcknowledgementTimeout = TimeSpan.FromSeconds(15);
 
+        // The start acknowledgement's own budget. VIRTUAL like the three below, which is why StartAsync also
+        // carries the real-time backstop from DevHostBudgets.
+        private static readonly TimeSpan StartAcknowledgementTimeout = TimeSpan.FromSeconds(5);
+
         private static readonly TimeSpan SnapshotTimeout = TimeSpan.FromSeconds(5);
 
         private static readonly TimeSpan TerminateTimeout = TimeSpan.FromSeconds(5);
@@ -110,6 +114,13 @@ namespace Vion.Dale.DevHost
         private ServiceProviderStandIns StandIns
         {
             get => _serviceProvider.GetRequiredService<ServiceProviderStandIns>();
+        }
+
+        // The host's real-time safety budgets. Resolved rather than injected, like StandIns, so this public
+        // class's constructor stays as it is for a consumer constructing it directly.
+        private DevHostBudgets Budgets
+        {
+            get => _serviceProvider.GetService<DevHostBudgets>() as DevHostBudgets ?? new DevHostBudgets();
         }
 
         public DevLogicSystemInitializer(IActorSystem actorSystem, IServiceProvider serviceProvider, ILogger<DevLogicSystemInitializer> logger)
@@ -172,9 +183,27 @@ namespace Vion.Dale.DevHost
 
             var logicBlockActors = configuration.LogicBlocks.Select(lb => _actorSystem.LookupByName(LogicBlockUtils.CreateLogicBlockName(lb.Name, lb.Id))).ToList();
 
-            await _actorSystem.SendAndWaitForAcknowledgementAsync<StartLogicBlockRequest, StartLogicBlockResponse>(logicBlockActors,
-                                                                                                                   new StartLogicBlockRequest(),
-                                                                                                                   TimeSpan.FromSeconds(5));
+            var acknowledged = _actorSystem.SendAndWaitForAcknowledgementAsync<StartLogicBlockRequest, StartLogicBlockResponse>(logicBlockActors,
+                                                                                                                                new StartLogicBlockRequest(),
+                                                                                                                                StartAcknowledgementTimeout);
+
+            // The wait above is VIRTUAL - ActorSystem routes its timeout through the injected TimeProvider -
+            // so on a stepped host, where nothing advances the fake clock during boot, a block that never
+            // acknowledges (its Starting() threw and the middleware swallowed it) leaves a due-time that never
+            // arrives, and the start hangs with no output at all. WaitAsync is the system timer and the only
+            // thing here no clock mode can stall: the start path's counterpart of the teardown's Stopwatch
+            // backstop. The abandoned wait is observed so its own later timeout never resurfaces as an
+            // unobserved task exception on the finalizer.
+            try
+            {
+                await acknowledged.WaitAsync(Budgets.StartAcknowledgement);
+            }
+            catch (TimeoutException)
+            {
+                Observe(acknowledged);
+                throw new TimeoutException($"Not every logic block acknowledged start within {Budgets.StartAcknowledgement.TotalSeconds:0.###}s of real time. " +
+                                           "A block whose Starting() threw never acknowledges; the failures the host recorded name which one.");
+            }
 
             _logger.LogInformation("LogicBlocks started");
         }
