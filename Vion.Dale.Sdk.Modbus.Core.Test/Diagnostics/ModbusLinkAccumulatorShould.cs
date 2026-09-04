@@ -86,7 +86,10 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Diagnostics
                           + summary.ExpiredCount
                           + summary.DroppedCount;
             Assert.AreEqual(8L, counted);
-            Assert.AreEqual(Enum.GetValues<ModbusOutcome>().Length - 8, 2);
+
+            // Ten outcomes, eight counters: Invalid and Cancelled are recorded as the last failure and nowhere else.
+            Assert.HasCount(10, Enum.GetValues<ModbusOutcome>());
+            Assert.AreEqual(ModbusOutcome.Cancelled, _sut.Snapshot(0).LastFailureOutcome);
         }
 
         [TestMethod]
