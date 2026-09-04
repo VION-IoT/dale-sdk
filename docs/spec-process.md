@@ -82,7 +82,9 @@ A bare umbrella id (`AC-EMIT-001`) is covered by any of its `.M` leaves.
 declaring line, with the reason or Jira key: `` - `AC-PLUG-004.1` (Event-driven): WHEN … THE SYSTEM
 SHALL …. GAP: test pending (VION-nn) ``. `spec-trace` exempts them from the orphan check and
 reports the count instead — the in-repo backlog stays visible without reddening CI. Removing the
-marker is how a landed test re-arms the gate for that id.
+marker is how a landed test re-arms the gate for that id. The marker is read from the line that
+declares the id, so a declaring bullet keeps its id and its `GAP` tail on one line — a wrapped
+bullet with `GAP` on its second line fails the gate.
 
 An id proven by **both** a unit test and a scenario states which half each tier owns in the test
 class summary ("Cross-tier" clause); `spec-trace` warn-notes files missing it.
@@ -233,8 +235,10 @@ After a pass session's Phase B REPORT, and before any PR, the coordinator runs t
 table, and reports misses by the sweep that should have caught them) and an adversarial review of
 the branch diff (`/vion-code-review branch` with the change doc as the spec). Both read every cited
 criterion's text against the test that cites it, and both start from the REPORT's self-check
-preamble (`spec-pass` skill, Phase B step 10). Findings go back as one numbered amendment per
-round: the amend file `C:\_gh\architecture\.claude\briefs\amend-<slug>-N.md` is the artifact,
+preamble (`spec-pass` skill, Phase B step 10); both also read the doc's Reviewer's questions for an
+`OUTCOME` left pending and its prose for a retired name a rename pass replaced (a `(→ …)` marker
+after a current name) — two shapes a pass's own self-check does not see. Findings go back as one
+numbered amendment per round: the amend file `C:\_gh\architecture\.claude\briefs\amend-<slug>-N.md` is the artifact,
 written first; the cross-session message that points at it is only a notification, and it reaches
 the session only when **both** sessions run in bypass mode. The sender checks its own mode before
 sending, then verifies within a minute in the recipient's transcript — a
