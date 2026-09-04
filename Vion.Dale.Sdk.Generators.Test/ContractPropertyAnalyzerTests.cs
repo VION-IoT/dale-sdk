@@ -10,7 +10,7 @@ namespace Vion.Dale.Sdk.Generators.Test
         private const string ContractTypeSetup = @"
 using Vion.Dale.Sdk.Configuration.Contract;
 
-[ServiceProviderContractType]
+[ServiceProviderContractType(""TestContractType"")]
 public interface ITestContractType { }
 
 public class ConcreteContract : ITestContractType { }

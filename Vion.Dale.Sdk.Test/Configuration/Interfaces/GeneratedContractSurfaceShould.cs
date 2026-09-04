@@ -232,9 +232,14 @@ namespace Vion.Dale.Sdk.Test.Configuration.Interfaces
         }
     }
 
+    // Deliberately the shape DALE047 reports: this fixture exists to prove the generator contributes
+    // nothing for it, so the declaration has to survive the diagnostic that now names it.
+#pragma warning disable DALE047
+
     /// <summary>A message declared beside its contract rather than inside it, which contributes nothing.</summary>
     [Command(From = "IBindSource", To = "IBindSink")]
     public readonly record struct StrayNudge(int Amount);
+#pragma warning restore DALE047
 
     // DALE009 refuses these role names at compile time, which is the point: this fixture is the shape a
     // hand-built compilation can still reach, and the generator's own answer to it is what is asserted.

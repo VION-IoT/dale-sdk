@@ -602,5 +602,32 @@ namespace Vion.Dale.Sdk.Generators.Analyzers
                                                                                                    Category,
                                                                                                    DiagnosticSeverity.Error,
                                                                                                    true);
+
+        // --- Contract declarations no reader reaches ---
+
+        /// <summary>
+        ///     A <c>[Command]</c>, <c>[StateUpdate]</c> or <c>[RequestResponse]</c> struct declared beside
+        ///     its contract class rather than nested inside it. The attributes allow any struct target, and
+        ///     the generator reads only the structs nested in a <c>[LogicBlockContract]</c> class, so such a
+        ///     declaration compiles, generates nothing and is diagnosed by nothing.
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE047_MessageStructNotNestedInContract = new("DALE047",
+                                                                                                   "Message struct is not nested in a contract class",
+                                                                                                   "Struct '{0}' has [{1}] but is not nested in a [LogicBlockContract] class, so no sender, message type or handler is generated for it. Move it inside the contract class.",
+                                                                                                   Category,
+                                                                                                   DiagnosticSeverity.Warning,
+                                                                                                   true);
+
+        /// <summary>
+        ///     A <c>[ServiceProviderContractType]</c> token that is empty or whitespace. The token is the
+        ///     stable cloud-facing identifier of the contract type; the attribute assigns it with no
+        ///     validation, so a blank one reaches the introspection document and every reader downstream.
+        /// </summary>
+        public static readonly DiagnosticDescriptor DALE048_ContractTypeTokenMustNotBeBlank = new("DALE048",
+                                                                                                  "ServiceProviderContractType token must not be blank",
+                                                                                                  "Interface '{0}' declares a blank [ServiceProviderContractType] token. The token is the stable cloud-facing identifier of this contract type — give it a non-empty name.",
+                                                                                                  Category,
+                                                                                                  DiagnosticSeverity.Error,
+                                                                                                  true);
     }
 }
