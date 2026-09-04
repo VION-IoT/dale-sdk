@@ -603,8 +603,10 @@ namespace Vion.Dale.Sdk.Generators
             return interfaceType switch
             {
                 "IHandleCommand" => "_implementation.HandleCommand(m.Data);",
+
+                // A request always carries a response type — the analysis skips one whose ResponseType is
+                // absent — so there is no arm for a request that answers nothing.
                 "IHandleRequest" when hasResponse => "SendToFunction(m.FromId, _implementation.HandleRequest(m.Data));",
-                "IHandleRequest" => "_implementation.HandleRequest(m.Data);",
                 "IHandleResponse" => "_implementation.HandleResponse(m.FromId, m.Data);",
                 "IHandleStateUpdate" => "_implementation.HandleStateUpdate(m.FromId, m.Data);",
                 _ => "// Unknown interface type",

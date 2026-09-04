@@ -28,7 +28,7 @@ namespace Vion.Dale.Sdk.Configuration.Contract
     {
         private readonly IActorContext _actorContext;
 
-        private IActorReference _contractHandlerActorRef = null!;
+        private IActorReference? _contractHandlerActorRef;
 
         /// <summary>
         ///     The identity of this contract within its owning logic block. Set during initialization.
@@ -105,6 +105,10 @@ namespace Vion.Dale.Sdk.Configuration.Contract
         /// </summary>
         /// <typeparam name="T">The message type (must be a struct).</typeparam>
         /// <param name="message">The message to send.</param>
+        /// <exception cref="InvalidOperationException">
+        ///     Thrown when the contract is mapped but the runtime has not linked its handler yet, so there is
+        ///     no actor to send to.
+        /// </exception>
         protected void SendToContractHandler<T>(T message)
             where T : struct
         {
@@ -113,6 +117,14 @@ namespace Vion.Dale.Sdk.Configuration.Contract
                 // Contract has no mapping — silently drop the message.
                 // A warning is already logged at startup by LogicBlockBase.
                 return;
+            }
+
+            if (_contractHandlerActorRef is null)
+            {
+                // A mapped contract with no handler reference is a send with nowhere to go, and dropping it
+                // would look exactly like the documented no-mapping drop above while meaning the opposite.
+                throw new InvalidOperationException($"Contract '{Identifier}' sent to handler '{ContractHandlerActorName}' before the runtime linked it, so there is no actor to " +
+                                                    "send to. Send from Starting() or later, once the block has been linked.");
             }
 
             _actorContext.SendTo(_contractHandlerActorRef, message);

@@ -20,6 +20,12 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
         {
             var type = logicBlock.GetType();
 
+            // Before either walk: a binding attribute neither walk can reach is authored intent nothing
+            // reads. Both walks key on the [LogicInterface] marker and the property walk sees public
+            // properties only, so an attribute outside those two conditions is silently dropped along with
+            // its Identifier, DefaultName, Tags and Multiplicity.
+            RefuseUnreadableInterfaceBindings(type);
+
             // Both paths below mint into the block's one namespace: a class-level binding and a
             // property-level one can pin the same Identifier, and only the second would have survived into
             // the endpoint dictionary the introspection reads.
@@ -36,6 +42,61 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
                                         mode,
                                         parameterContext,
                                         mintedBy);
+        }
+
+        /// <summary>
+        ///     Refuses every <c>[LogicBlockInterfaceBinding]</c> the two walks below cannot reach, naming the
+        ///     member and what is wrong with it.
+        ///     <para>
+        ///         Three shapes reach nothing: a class-level binding for an interface the class does not
+        ///         implement, a property-level binding for an interface the property's type does not
+        ///         implement, and a binding on a non-public property — the property walk is public-only and
+        ///         the block's endpoints are its published wiring surface, so widening it would mint
+        ///         endpoints rather than refuse a mistake. In all three the attribute is dropped whole, the
+        ///         pinned identifier with it, and a topology authored against that identifier stops matching a
+        ///         block that reports itself healthy.
+        ///     </para>
+        /// </summary>
+        private static void RefuseUnreadableInterfaceBindings(Type type)
+        {
+            foreach (var attribute in type.GetCustomAttributes<LogicBlockInterfaceBindingAttribute>())
+            {
+                if (!GetImplementedLogicInterfaces(type).Contains(attribute.ForInterface))
+                {
+                    throw new
+                        InvalidOperationException($"Logic block '{type.FullName}' carries [LogicBlockInterfaceBinding(typeof({attribute.ForInterface.Name}))] but does not implement " +
+                                                  $"'{attribute.ForInterface.Name}', so the binding — its Identifier included — is read by nothing. Implement the interface, " +
+                                                  "move the attribute to the property whose type does, or name the interface the class implements.");
+                }
+            }
+
+            var boundProperties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+
+            foreach (var property in ReflectionHelper.GetProperties(type, true))
+            {
+                var attributes = property.GetCustomAttributes<LogicBlockInterfaceBindingAttribute>().ToList();
+                if (attributes.Count == 0)
+                {
+                    continue;
+                }
+
+                if (!boundProperties.Contains(property))
+                {
+                    throw new
+                        InvalidOperationException($"Property '{property.Name}' in '{type.FullName}' carries [LogicBlockInterfaceBinding] but is not public, and only public properties " +
+                                                  "bind interface endpoints. Make the property public, or remove the attribute.");
+                }
+
+                var implemented = GetImplementedLogicInterfaces(property.PropertyType);
+
+                foreach (var attribute in attributes.Where(candidate => !implemented.Contains(candidate.ForInterface)))
+                {
+                    throw new
+                        InvalidOperationException($"Property '{property.Name}' in '{type.FullName}' carries [LogicBlockInterfaceBinding(typeof({attribute.ForInterface.Name}))] but its type " +
+                                                  $"'{property.PropertyType.Name}' does not implement '{attribute.ForInterface.Name}', so the binding — its Identifier included — is " +
+                                                  "read by nothing. Name an interface the property's type implements, or remove the attribute.");
+                }
+            }
         }
 
         private static void BindClassBasedInterfaces(object logicBlock,
@@ -177,8 +238,16 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
             // factory would hand it to the generated RegisterInstance, whose ConditionalWeakTable refuses a
             // null key — so the endpoint is described directly instead, with the same identifier, metadata
             // and relation halves and no dispatch registration behind it.
-            var logicSendInterfaceInstance = implementation is null ? DescribeLogicSendInterface(interfaceFactory, logicSendInterfaceType, implementedLogicInterface, identifier) :
-                                                 CreateLogicSendInterface(interfaceFactory, logicSendInterfaceType, implementedLogicInterface, identifier, implementation);
+            var logicSendInterfaceInstance = Unwrapping(memberName,
+                                                        logicBlockType,
+                                                        identifier,
+                                                        () => implementation is null ?
+                                                                  DescribeLogicSendInterface(interfaceFactory, logicSendInterfaceType, implementedLogicInterface, identifier) :
+                                                                  CreateLogicSendInterface(interfaceFactory,
+                                                                                           logicSendInterfaceType,
+                                                                                           implementedLogicInterface,
+                                                                                           identifier,
+                                                                                           implementation));
             ApplyMetadata(logicSendInterfaceInstance, interfaceAttribute, includedWhen);
 
             RegisterServiceRelations(implementedLogicInterface, identifier, serviceBinder, owningServiceIdentifier);
@@ -290,95 +359,6 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
             logicSendInterface.WithIncludedWhen(includedWhen);
         }
 
-        /// <summary>
-        ///     Retrieves all properties that are function interfaces (with or without [Interface] attribute).
-        /// </summary>
-        private static List<PropertyInfo> GetInterfaceProperties(Type type)
-        {
-            return ReflectionHelper.GetProperties(type, true)
-                                   .Where(p => (p.GetCustomAttribute<LogicBlockInterfaceBindingAttribute>() != null || IsLogicSendInterfaceType(p.PropertyType)) && p.CanWrite)
-                                   .ToList();
-        }
-
-        /// <summary>
-        ///     Retrieves properties with [Interface] attribute that are invalid (no setter).
-        /// </summary>
-        private static List<PropertyInfo> GetInvalidInterfaceProperties(Type type)
-        {
-            return ReflectionHelper.GetProperties(type, true)
-                                   .Where(p => (p.GetCustomAttribute<LogicBlockInterfaceBindingAttribute>() != null || IsLogicSendInterfaceType(p.PropertyType)) && !p.CanWrite)
-                                   .ToList();
-        }
-
-        /// <summary>
-        ///     Determines if a type is a function interface by checking if it derives from ILogicSenderInterface.
-        /// </summary>
-        private static bool IsLogicSendInterfaceType(Type type)
-        {
-            return typeof(ILogicSenderInterface).IsAssignableFrom(type);
-        }
-
-        private static Type FindImplementationInterface(Type logicInterfaceType)
-        {
-            // Look for all interfaces in the same containing type (static class)
-            var containingType = logicInterfaceType.DeclaringType;
-            if (containingType == null)
-            {
-                throw new InvalidOperationException($"Interface {logicInterfaceType.Name} must be declared within a static class");
-            }
-
-            // Find all nested interfaces with LogicFunctionImplementationAttribute pointing to our interface
-            var nestedTypes = containingType.GetNestedTypes(BindingFlags.Public | BindingFlags.Static);
-
-            foreach (var nestedType in nestedTypes.Where(t => t.IsInterface))
-            {
-                var implementationAttr = nestedType.GetCustomAttribute<LogicFunctionImplementationAttribute>();
-                if (implementationAttr?.ImplementingFunctionInterface == logicInterfaceType)
-                {
-                    return nestedType;
-                }
-            }
-
-            throw new InvalidOperationException($"No implementation interface found for {logicInterfaceType.Name}. " +
-                                                $"Ensure there's an interface with [LogicFunctionImplementation(typeof({logicInterfaceType.Name}))] in the same static class.");
-        }
-
-        private static object GetImplementationInstance(object logicBlock, Type implementationType, string? implementationProperty)
-        {
-            if (string.IsNullOrEmpty(implementationProperty))
-            {
-                // Default: check if the logic block itself implements the interface
-                if (implementationType.IsInstanceOfType(logicBlock))
-                {
-                    return logicBlock;
-                }
-
-                throw new InvalidOperationException($"Logic block {logicBlock.GetType().Name} does not implement {implementationType.Name}. " +
-                                                    $"Either implement the interface directly or apply [LogicBlockInterfaceBinding] to a property whose value implements it.");
-            }
-
-            // Get implementation from specified property
-            var property = logicBlock.GetType().GetProperty(implementationProperty, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-            if (property == null)
-            {
-                throw new InvalidOperationException($"Implementation property '{implementationProperty}' not found on {logicBlock.GetType().Name}");
-            }
-
-            var implementation = property.GetValue(logicBlock);
-            if (implementation == null)
-            {
-                throw new InvalidOperationException($"Implementation property '{implementationProperty}' is null. " +
-                                                    $"Ensure it's initialized before calling BindInterfacesFromAttributes.");
-            }
-
-            if (!implementationType.IsInstanceOfType(implementation))
-            {
-                throw new InvalidOperationException($"Object in property '{implementationProperty}' does not implement {implementationType.Name}");
-            }
-
-            return implementation;
-        }
-
         // The definition-view path: build the sender instance and register it under its identifier without the
         // dispatch wiring an implementation would carry. Mirrors what the factory does, minus the extension
         // registration a null implementation cannot satisfy.
@@ -408,6 +388,33 @@ namespace Vion.Dale.Sdk.Configuration.Interfaces
 
             var genericCreateMethod = createMethod.MakeGenericMethod(logicSendInterfaceType, logicInterfaceType);
             return genericCreateMethod.Invoke(interfaceFactory, [identifier, implementation])!;
+        }
+
+        /// <summary>
+        ///     Runs an endpoint's construction and turns what the factory refuses into a refusal a consumer
+        ///     can act on.
+        ///     <para>
+        ///         Both factory entries are reached by <see cref="MethodBase.Invoke(object, object[])" />, so
+        ///         everything they throw arrives wrapped in a <see cref="TargetInvocationException" /> whose own
+        ///         message is "Exception has been thrown by the target of an invocation." — the text the block
+        ///         then records as its configuration failure and repeats on every later refusal. The factory's
+        ///         own messages name the sender interface at best and never the endpoint, which is the only
+        ///         thing an author can look up; this is the one site where the member, the block and the
+        ///         identifier are all in scope.
+        ///     </para>
+        /// </summary>
+        private static object Unwrapping(string memberName, Type logicBlockType, string identifier, Func<object> build)
+        {
+            try
+            {
+                return build();
+            }
+            catch (TargetInvocationException exception) when (exception.InnerException is not null)
+            {
+                throw new InvalidOperationException($"Interface binding '{identifier}' on '{memberName}' in logic block '{logicBlockType.FullName}' could not be built: " +
+                                                    exception.InnerException.Message,
+                                                    exception.InnerException);
+            }
         }
     }
 }

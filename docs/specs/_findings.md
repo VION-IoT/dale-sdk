@@ -148,3 +148,115 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   `Emission` and `Utils` as public namespaces, so the 28 message types, the 7 diagnostics types and the
   8 actor abstractions this page specifies move no snapshot when they change. The same shape as the two
   development-host packages above. *(LIFE pass row 217 — the retro.)*
+
+## `BIND` — contracts, endpoints and the provider face (2026-09-04)
+
+- **Two published code-generation attributes have no reader in any repository.**
+  `Vion.Dale.Sdk/CodeGeneration/LogicFunctionImplementationAttribute.cs` and
+  `LogicFunctionMatchingInterfaceAttribute.cs` are read by nothing — the second's only reader was a
+  private binder method this pass deleted, and the first was applied nowhere even before that. The
+  second is applied on **14** declarations in the SDK's own `Examples/FunctionInterfaces/V1/*`, the
+  pre-generator design. The reader count is verified zero across dale-sdk, the private runtime, both
+  HALs and the first consumer. Removing them is a public-surface removal that also rewrites shipped
+  example files, and it is entangled with the `Examples/` packaging question below.
+  *(BIND pass rows 33, 34 — the retro.)*
+- **The two discoveries of this area do not share a rule, and the contract side is the one out of
+  step.** The interface factory scans every loaded assembly and takes the types that loaded from one it
+  could not enumerate (`Vion.Dale.Sdk/Configuration/Interfaces/InterfaceFactory.cs:82-99`); the
+  contract factory considers only the assembly that declares the type it is looking for and the
+  assemblies referencing that one — for a consumer-declared contract, the consumer's package rather
+  than the SDK's — and refuses the whole configuration when one of them cannot be enumerated
+  (`Vion.Dale.Sdk/Reflection/AssemblyExtensions.cs:47`, `:56-59`, `:100-103`). The private runtime
+  rejects the all-or-nothing helper twice in its own comments and degrades instead
+  (`Dale/Program.cs:115-118`, `LogicSystemConfigurationInitializer.cs:635-640`), so the shape to
+  converge on is the runtime's degrading scan rather than the SDK's helper.
+  *(BIND pass row 36 — `PLUG`, promoted by the operator.)*
+- **A message struct declared beside its contract class compiles, is read by nothing and emits
+  nothing.** `[Command]`, `[StateUpdate]` and `[RequestResponse]` declare `AttributeTargets.Struct`
+  with no nesting constraint, while the generator reads only the struct types nested in the contract
+  class (`Vion.Dale.Sdk.Generators/LogicClassGenerator.cs:188-196`). No `DALE` code covers the shape.
+  Narrowing the attribute targets is a source-breaking change to a published attribute; the diagnostic
+  belongs to the analyzer registry. *(BIND pass row 46 — `ANLZ`.)*
+- **The contract-message envelope takes any payload while the inter-block one takes a struct.**
+  `Vion.Dale.Sdk/Messages/ActorMessages.cs:188` carries no struct constraint, unlike `:167-168`. The
+  laxity is unreachable in practice — every sender constrains at its own entry, the private runtime has
+  no contract dispatch at all, and the development host's codec builds the message from a declared wire
+  struct — so there is no wrong outcome behind it, only a published shape that says less than it
+  means. *(BIND pass row 62 — `BIND`.)*
+- **A contract mapped to a handler class the host never spawned sends into nothing.** The handler
+  reference is minted from a name whether or not an actor of that name exists (`AC-LIFE-017.1`), so a
+  contract binds, maps and sends, and every message reaches no one. This is the contract-side half of
+  the `LIFE` finding above; the fix is a registry lookup at link time, which is the runtime's
+  spawn-ordering contract. *(BIND pass row 83 — `LIFE`, beside its row 26.)*
+- **A second registration request registers again, while the client aborts the duplicate.**
+  `Vion.Dale.Sdk/Abstractions/ServiceProviderHandlerBase.cs`'s registration arm has no guard and the
+  answer is unconditional, while the runtime's client aborts a duplicate registration
+  (`Dale/Mqtt/MqttClient.cs:248-253`). The divergence is unreachable — the runtime sends the request
+  exactly once, at boot — so it is a shape that disagrees rather than a defect that fires.
+  *(BIND pass row 106 — `BIND`.)*
+- **`RegisterServiceProvider` is a member-less published record with no reader anywhere.**
+  `Vion.Dale.Sdk/Mqtt/ActorMessages.cs:150` is undocumented, constructed nowhere and handled nowhere —
+  zero occurrences in dale-sdk, the private runtime, both HALs and the first consumer. Deleting it is a
+  public-surface removal of the same class as the two code-generation attributes above.
+  *(BIND pass row 140 — the retro.)*
+- **A cast integer reaching the multiplicity token conversion fails a whole pack run.**
+  `Vion.Dale.Sdk/Core/LinkMultiplicityWire.cs:24` throws `ArgumentOutOfRangeException` for a value
+  outside the four, which is the right answer to a cast typo — but it is unhandled inside the
+  introspection walk, so one such declaration costs the artifact rather than the member.
+  *(BIND pass row 168 — the retro.)*
+- **A contract-type token has no emptiness and no uniqueness guard.**
+  `Vion.Dale.Sdk/Configuration/Contract/ServiceProviderContractTypeAttribute.cs:28-31` assigns the
+  token with no validation, and no `DALE` code covers it, although the token is a cloud-facing stable
+  identifier (`identifier-stability.md`). A duplicate reaches the document as two contract types with
+  one name. Uniqueness is a whole-compilation analysis of `DALE043`'s size.
+  *(BIND pass row 173 — `ANLZ`.)*
+- **A block's interface endpoints come from public properties only, and the walk cannot be widened
+  without moving every consumer's artifact.** `DeclarativeInterfaceBinder.cs:86` walks public instance
+  properties while the contract binder walks non-public ones too. This pass refuses the *declaration*
+  that lands outside the walk (`AC-BIND-001.3`) rather than widening it, because widening mints
+  endpoints into the introspection document every consumer uploads, whose reader is the cloud.
+  *(BIND pass row 21 — `INTRO`.)*
+- **The generator's candidate predicate matches any attribute whose name contains "Contract".**
+  `Vion.Dale.Sdk.Generators/LogicClassGenerator.cs:36-40` runs on every class in every compilation and
+  is confirmed semantically afterwards, so the output is correct — but the predicate is the incremental
+  generator's cache key, so its breadth is a build-time cost every consumer pays with no functional
+  observable. *(BIND pass row 186 — `ANLZ`.)*
+- **The TestKit maps a contract an inclusion gate would have excluded.**
+  `Vion.Dale.Sdk.TestKit/LogicBlockTestContextBuilder.cs:352-369` discovers contract identifiers from
+  marked, writable properties and reads no `[IncludedWhen]`, which is two of the binder's three
+  conditions — so a gated-out contract is mapped in a test and absent in a host.
+  *(BIND pass row 191 — `TKIT`.)*
+- **The TestKit discovers a contract's service registrations from the block's own properties, where a
+  host discovers them from the plugin.** `LogicBlockTestContextBuilder.cs:326-345` walks the block
+  under test for marked property types and runs every `IConfigureServices` in their assemblies, so a
+  block whose contract needs a dependency the block does not itself hold is untestable.
+  *(BIND pass row 193 — `TKIT`.)*
+- **Every namespace of this area but two is outside the public-API ratchet.**
+  `Vion.Dale.Sdk/PublicApiConfig.cs:6-8` declares only `Core`, `Emission` and `Utils`, so `DALE014`
+  never asks for a mark in `Configuration.Contract`, `Configuration.Interfaces`, `CodeGeneration`,
+  `Abstractions`, `Mqtt`, `Messages` or `Reflection`. The sharpest case is
+  `ServiceProviderContractTypeAttribute`, an attribute every consumer authors that is on no manifest
+  while its sibling `LogicBlockContractBase` in the same namespace is. Same shape as the `CTRL` and
+  `LIFE` findings above. *(BIND pass row 195 — the retro.)*
+- **Eight example contract files and one example logic block ship inside the SDK assembly.**
+  `Vion.Dale.Sdk/Examples/FunctionInterfaces/` holds four plus four under `V1/`, and
+  `Examples/LogicBlocks/ChargingStationMultiPointSimulation.cs` one block, all outside every
+  `[PublicApiNamespace]` and every `[PublicApi]` mark. The four under `V1/` are the pre-generator
+  design nothing reads. Whether any of them belongs in a shipped package is a packaging decision.
+  *(BIND pass row 196 — the retro.)*
+- **`RegistrationSecret` belongs to no roster area.** `Vion.Dale.Sdk/Mqtt/RegistrationSecret.cs:11-50`
+  is `[PublicApi]`, has no caller in this repository, and its one verified reader is the gateway's
+  registration handshake (`Dale/Mqtt/Handlers/RegistrationHandler.cs:27`). It lives under `Mqtt/`
+  because that is where the handshake's topics are, not because it is part of any contract this page
+  specifies. *(BIND pass row 197 — the retro.)*
+- **A handler that survives a reconfiguration with no contract mappings keeps a stale map.** The
+  runtime sends `LinkLogicBlockContractActors` only when there is at least one mapping
+  (`LogicSystemConfigurationInitializer.cs:626-645`), while handler actors are root actors that
+  outlive the logic-block actors a reconfiguration stops and recreates — so a handler whose mappings
+  went to zero keeps references to actors that no longer exist, and has no way to be told "none". No
+  SDK change can cure it: the message that would say so is one the runtime does not send.
+  *(BIND pass, second opinion's unrowed observable 5 — the runtime, promoted by the operator.)*
+- **`Vion.Dale.Sdk.Reflection.AssemblyExtensions.GetConcreteType` now has no caller.** The singular
+  entry was the contract factory's only use, and this pass moved that to the plural one so the factory
+  can name every candidate. It stays because deleting a public method of a namespace outside the
+  ratchet is a surface removal this pass was not asked to make. *(BIND pass, `DC-13` — the retro.)*

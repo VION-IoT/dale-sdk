@@ -41,7 +41,7 @@ namespace Vion.Dale.ProtoActor.Test
 
             // Act
             host.System.SendTo(host.System.LookupByName("notified"), new StopLogicBlockRequest());
-            await observer.Handled.WaitAsync(Generous);
+            await WaitForHandledAsync<StopLogicBlockRequest>(observer);
 
             // Assert
             Assert.IsTrue(observer.Received.Any(entry => entry.Message is StopLogicBlockRequest), "The observer sees the message before it is dispatched.");
@@ -61,10 +61,13 @@ namespace Vion.Dale.ProtoActor.Test
             var actor = host.System.CreateRootActorFromDi<ThrowingReceiver>("throwing");
 
             // Act
+            // Each wait names the message it is waiting for. The observer's semaphore counts handled
+            // messages without naming one, so a bare wait was satisfied by the actor's own start-up traffic
+            // and the assertion below read the queue one message early.
             host.System.SendTo(actor, new StopLogicBlockRequest());
-            await observer.Handled.WaitAsync(Generous);
+            await WaitForHandledAsync<StopLogicBlockRequest>(observer);
             host.System.SendTo(actor, new StartLogicBlockRequest());
-            await observer.Handled.WaitAsync(Generous);
+            await WaitForHandledAsync<StartLogicBlockRequest>(observer);
 
             // Assert
             Assert.HasCount(2,
@@ -105,7 +108,7 @@ namespace Vion.Dale.ProtoActor.Test
 
             // Act
             host.System.SendTo(actor, new StopLogicBlockRequest());
-            await WaitForHandledAsync(observer);
+            await WaitForHandledAsync<StopLogicBlockRequest>(observer);
             await WaitForQuietAsync(monitor);
 
             // Assert
@@ -125,7 +128,7 @@ namespace Vion.Dale.ProtoActor.Test
 
             // Act
             host.System.SendTo(actor, new StopLogicBlockRequest());
-            await WaitForHandledAsync(observer);
+            await WaitForHandledAsync<StopLogicBlockRequest>(observer);
             await WaitForQuietAsync(monitor);
 
             // Assert
@@ -149,10 +152,13 @@ namespace Vion.Dale.ProtoActor.Test
             Assert.IsNotEmpty(receiver.Received, "A monitor that throws on entry and on exit must not cost the message its delivery either.");
         }
 
-        /// <summary>Waits until the observer has reported the domain message this suite sends.</summary>
-        private static async Task WaitForHandledAsync(RecordingObserver observer)
+        /// <summary>
+        ///     Waits until the observer has reported the named domain message. The semaphore counts every
+        ///     handled message, so waiting on a release alone waits for whichever message arrived first.
+        /// </summary>
+        private static async Task WaitForHandledAsync<TMessage>(RecordingObserver observer)
         {
-            while (!observer.HandledMessages.Any(entry => entry.Message is StopLogicBlockRequest))
+            while (!observer.HandledMessages.Any(entry => entry.Message is TMessage))
             {
                 await observer.Handled.WaitAsync(Generous);
             }
