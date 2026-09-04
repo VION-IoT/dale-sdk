@@ -41,7 +41,22 @@ namespace Vion.Dale.Sdk.Abstractions
         ///     The current actor context. Set on each message dispatch.
         ///     Available for use in <see cref="InvokeSynchronizedAfter" /> callbacks.
         /// </summary>
-        protected IActorContext ActorContext { get; private set; } = null!;
+        /// <exception cref="InvalidOperationException">
+        ///     Thrown when read before the handler has received its first message, when there is no actor
+        ///     context yet.
+        /// </exception>
+        protected IActorContext ActorContext
+        {
+            // A handler that publishes or schedules from its constructor would otherwise get a bare
+            // null-reference naming neither the handler nor what to do about it — the shape
+            // LogicBlockBase.RequireActorContext already refuses on the block side.
+            get =>
+                field ?? throw new InvalidOperationException($"'{GetType().Name}' read its actor context before it received its first message, so there is no actor to " +
+                                                             "publish or schedule on. Do that from a message arm — the registration request, a linked contract map, an MQTT " +
+                                                             "message or a contract message — rather than from the constructor.");
+
+            private set;
+        }
 
         /// <summary>
         ///     Logger available to subclasses.
@@ -70,13 +85,25 @@ namespace Vion.Dale.Sdk.Abstractions
             {
                 case RegisterMqttHandlerRequest:
                     var (routingKey, actionPaths) = GetMqttRegistration();
-                    var topics = new string[actionPaths.Length];
-                    for (var i = 0; i < actionPaths.Length; i++)
+                    var topics = new List<string>(actionPaths.Length);
+                    foreach (var actionPath in actionPaths)
                     {
-                        topics[i] = $"{ServiceProviderTopicPrefix}{actionPaths[i]}";
+                        // Joined to the wildcard prefix without a separator, a path that does not start with
+                        // one yields a topic no broker will ever match, and the handler then waits for
+                        // messages that cannot arrive. Skipping it rather than throwing keeps the
+                        // acknowledgement below on time — a runtime waits for it on a short timeout.
+                        if (!actionPath.StartsWith("/", StringComparison.Ordinal))
+                        {
+                            Logger.LogError("Handler {HandlerName} declared the action path {ActionPath}, which does not start with '/'; it would subscribe to nothing and is skipped",
+                                            GetType().Name,
+                                            actionPath);
+                            continue;
+                        }
+
+                        topics.Add($"{ServiceProviderTopicPrefix}{actionPath}");
                     }
 
-                    this.RegisterWithMqttClient(routingKey, topics, actorContext, Logger);
+                    this.RegisterWithMqttClient(routingKey, topics.ToArray(), actorContext, Logger);
                     break;
                 case LinkLogicBlockContractActors m:
                     ContractLogicBlockActorReferences = m.ContractLogicBlockActorReferences;
@@ -169,9 +196,13 @@ namespace Vion.Dale.Sdk.Abstractions
         {
             var id = correlationId ?? Guid.NewGuid();
             var schema = new MqttUserProperty(MqttUserProperties.Schema.Name, schemaName);
+
+            // Positional arguments bypass the record's own default, so an omitted content type used to reach
+            // the broker as none at all — against this method's documentation, against the record, and
+            // against every handler that passes one explicitly.
             var mqttMessage = new PublishMqttMessage(topic,
                                                      payload,
-                                                     contentType,
+                                                     contentType ?? MessageMimeTypes.FlatBuffer,
                                                      id.ToByteArray(),
                                                      responseTopic,
                                                      [schema],

@@ -13,6 +13,9 @@ namespace Vion.Dale.Sdk.Mqtt
     /// </summary>
     public static class MqttMessageExtensions
     {
+        /// <summary>The service-provider, service and contract segments a contract identity is read from.</summary>
+        private const int ContractIdSegmentCount = 3;
+
         extension(MqttMessageReceived message)
         {
             /// <summary>
@@ -139,20 +142,44 @@ namespace Vion.Dale.Sdk.Mqtt
             ///     <c>{installationTopic}/{serviceProviderId}/{service}/{contract}/{action...}</c>.
             /// </summary>
             /// <returns>A <see cref="ServiceProviderContractId" /> containing the extracted identifiers.</returns>
-            /// <exception cref="InvalidOperationException">
-            ///     Thrown when the topic does not contain at least three segments after the installation topic prefix.
+            /// <exception cref="TopicSubstringNotFoundException">
+            ///     Thrown when the topic is shorter than the configured installation topic, so it carries none of
+            ///     the structure above.
+            /// </exception>
+            /// <exception cref="UnexpectedSegmentCountException">
+            ///     Thrown when the topic does not carry at least three segments after the installation topic prefix.
             /// </exception>
             public ServiceProviderContractId ExtractServiceProviderContractId()
             {
+                // Every slice below used to run on an unchecked IndexOf result, so a topic the broker matched
+                // by wildcard but that carries fewer segments left the handler with an
+                // ArgumentOutOfRangeException naming neither the topic nor the parameter — a type nothing
+                // documents and no handler can act on.
                 var topic = message.Topic.AsSpan();
-                var dynamicStart = MqttConfiguration.InstallationTopic.Length + 1; // skip "{installationTopic}/"
+                var installationTopic = MqttConfiguration.InstallationTopic;
+                var dynamicStart = installationTopic.Length + 1; // skip "{installationTopic}/"
+                if (topic.Length < dynamicStart)
+                {
+                    throw new TopicSubstringNotFoundException(message.Topic, installationTopic + "/");
+                }
+
                 var remaining = topic[dynamicStart..];
 
                 var firstSlash = remaining.IndexOf('/');
+                if (firstSlash < 0)
+                {
+                    throw new UnexpectedSegmentCountException(message.Topic, ContractIdSegmentCount, 1);
+                }
+
                 var spId = remaining[..firstSlash].ToString();
                 remaining = remaining[(firstSlash + 1)..];
 
                 var secondSlash = remaining.IndexOf('/');
+                if (secondSlash < 0)
+                {
+                    throw new UnexpectedSegmentCountException(message.Topic, ContractIdSegmentCount, 2);
+                }
+
                 var service = remaining[..secondSlash].ToString();
                 remaining = remaining[(secondSlash + 1)..];
 
@@ -259,50 +286,6 @@ namespace Vion.Dale.Sdk.Mqtt
                 if (segmentIndex != segmentCount)
                 {
                     throw new UnexpectedSegmentCountException(message.Topic, segmentCount, segmentIndex);
-                }
-
-                return segments;
-
-                static int CountDynamicSegments(ReadOnlySpan<char> dynamicSegmentParts)
-                {
-                    var count = 0;
-                    for (var i = 0; i < dynamicSegmentParts.Length; i++)
-                    {
-                        if (dynamicSegmentParts[i] == '/')
-                        {
-                            count++;
-                        }
-                    }
-
-                    return count;
-                }
-            }
-
-            private static string[] SplitSegments(ReadOnlySpan<char> segmentParts, int segmentCount, string topic)
-            {
-                var segments = new string[segmentCount];
-                var segmentIndex = 0;
-                var segmentStart = 0;
-                for (var i = 0; i <= segmentParts.Length; i++)
-                {
-                    if (i != segmentParts.Length && segmentParts[i] != '/')
-                    {
-                        continue;
-                    }
-
-                    if (segmentIndex == segments.Length)
-                    {
-                        var actualSegments = CountDynamicSegments(segmentParts) + 1;
-                        throw new UnexpectedSegmentCountException(topic, segmentCount, actualSegments);
-                    }
-
-                    segments[segmentIndex++] = segmentParts.Slice(segmentStart, i - segmentStart).ToString();
-                    segmentStart = i + 1;
-                }
-
-                if (segmentIndex != segmentCount)
-                {
-                    throw new UnexpectedSegmentCountException(topic, segmentCount, segmentIndex);
                 }
 
                 return segments;
