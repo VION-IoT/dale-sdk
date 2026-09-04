@@ -6,7 +6,7 @@ using System.Linq;
 namespace Vion.Dale.Sdk.Diagnostics
 {
     /// <summary>
-    ///     RFC 0005 Sink 1: exposes the vitals core as OpenTelemetry metrics under the
+    ///     Exposes the vitals core as OpenTelemetry metrics under the
     ///     <see cref="MeterName" /> meter. All instruments are <b>observable</b> — their callbacks read
     ///     <see cref="IRuntimeDiagnostics.Snapshot" /> at each export tick, so the core stays the single
     ///     readable source. Measurements are tagged per actor; the runtime (dale) shapes cardinality into

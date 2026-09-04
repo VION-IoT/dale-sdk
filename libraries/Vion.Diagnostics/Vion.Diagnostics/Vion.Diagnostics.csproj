@@ -14,7 +14,7 @@
         <Version>0.11.2</Version>
         <Authors>Vion-IoT</Authors>
         <Company>Vion-IoT</Company>
-        <Description>VION runtime diagnostics logic block (RFC 0005 Sink 2): a dashboard-native per-actor vitals table + runtime-health rollup, read from the SDK's IRuntimeDiagnostics.</Description>
+        <Description>VION runtime diagnostics logic block: a dashboard-native per-actor vitals table + runtime-health rollup, read from the SDK's IRuntimeDiagnostics.</Description>
         <IsPackable>false</IsPackable>
 
         <!-- debug information from the source generator -->

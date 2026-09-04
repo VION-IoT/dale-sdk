@@ -9,7 +9,7 @@ using Vion.Dale.Sdk.Diagnostics;
 namespace Vion.Diagnostics.LogicBlocks
 {
     /// <summary>
-    ///     RFC 0005 Sink 2 — the runtime-diagnostics block. On its <c>[Timer]</c> it snapshots the SDK
+    ///     The runtime-diagnostics block. On its <c>[Timer]</c> it snapshots the SDK
     ///     vitals core (<see cref="IRuntimeDiagnostics" />), projects it (<see cref="DiagnosticsProjection" />)
     ///     into a per-logic-block table + a runtime-health rollup + a status pill, and republishes on
     ///     Plane B. One array-valued property per gateway (one retained message) — no Mimir cardinality cost.
@@ -74,7 +74,7 @@ namespace Vion.Diagnostics.LogicBlocks
             _timeProvider = timeProvider;
         }
 
-        /// <summary>Samples + republishes once a minute (RFC 0005: Plane B cadence, not per-change).</summary>
+        /// <summary>Samples + republishes once a minute — the dashboard's cadence, not per-change.</summary>
         [Timer(60)]
         public void Collect()
         {

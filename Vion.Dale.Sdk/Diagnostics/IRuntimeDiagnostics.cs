@@ -4,7 +4,7 @@ namespace Vion.Dale.Sdk.Diagnostics
 {
     /// <summary>
     ///     The read surface of the vitals core: a point-in-time snapshot of every tracked actor's vitals.
-    ///     Injected into a diagnostics logic block (RFC 0005 Sink 2) and read by the OTel exporter (Sink 1).
+    ///     Injected into a diagnostics logic block and read by the OpenTelemetry exporter.
     /// </summary>
     public interface IRuntimeDiagnostics
     {

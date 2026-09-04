@@ -371,7 +371,8 @@ namespace Vion.Dale.Sdk.TestKit.Test
         public void PublishRemainingMembersWhenOneCannotBeRead()
         {
             // Arrange — Faulty's getter starts throwing inside Stopping(), which runs before the block
-            // publishes its final values.
+            // publishes its final values. The stop hook's failure is reported after the acknowledgement
+            // (AC-LIFE-010.5), so driving the message directly surfaces it here; the drain still ran.
             var block = LogicBlockTestHelper.Create<FaultyReadBlock>();
             var context = Forced(block);
             context.AdvanceTime(DefaultInterval);
@@ -380,7 +381,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
             context.ClearRecordedMessages();
 
             // Act
-            block.HandleMessageAsync(new StopLogicBlockRequest(), context).GetAwaiter().GetResult();
+            Assert.ThrowsExactly<InvalidOperationException>(() => block.HandleMessageAsync(new StopLogicBlockRequest(), context).GetAwaiter().GetResult());
 
             // Assert — Faulty is bound first, so its throw happens before Voltage is read.
             context.VerifyServicePropertyEmitted(lb => lb.Voltage, value => Assert.AreEqual(9.0, value), Times.Once());

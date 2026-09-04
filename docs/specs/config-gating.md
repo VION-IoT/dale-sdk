@@ -245,9 +245,9 @@ fatal to the receiving block.
   SYSTEM SHALL skip that mapping and keep the block running.
 - `AC-GATE-008.2` (Event-driven): WHEN a configuration links an interface this instance excluded THE
   SYSTEM SHALL skip that link and keep the block running.
-- `AC-GATE-008.3` (Event-driven): WHEN a message is routed to a property-based interface binding this
-  instance excluded THE SYSTEM SHALL deliver it nowhere and keep the block running, that binding never
-  having been bound.
+- `AC-GATE-008.3` (Event-driven): WHEN a message is routed to an interface or a contract this instance
+  excluded THE SYSTEM SHALL deliver it nowhere and keep the block running, that endpoint never having
+  been bound.
 
 The wire to an excluded endpoint is dead, not broken: nothing arrives, and the block that would have
 received it stays up. An editor is where such a mapping is meant to be caught, before it ships.

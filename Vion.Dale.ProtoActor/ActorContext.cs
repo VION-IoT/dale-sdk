@@ -98,7 +98,11 @@ namespace Vion.Dale.ProtoActor
 
         public void RespondToSender(object message)
         {
-            _context().SendWithHeaders(_context().Sender ?? throw new InvalidOperationException("context.Sender not be null wen calling RespondToSender()"), message);
+            _context()
+                .SendWithHeaders(_context().Sender ??
+                                 throw new InvalidOperationException("RespondToSender was called while handling a message that carries no sender, so there is nobody to answer. " +
+                                                                     "Only a request carries one; a fire-and-forget send does not."),
+                                 message);
         }
 
         public IActorReference LookupByName(string name)

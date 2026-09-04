@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Vion.Contracts.Codec;
@@ -24,9 +25,24 @@ namespace Vion.Dale.Sdk.Core
     /// <summary>
     ///     Base class for all logic blocks. Provides actor lifecycle, service binding, persistence, and timer support.
     /// </summary>
+    /// <remarks>
+    ///     A logic block is constructed for its actor and its dependencies are resolved from a scope of that
+    ///     actor's own, which is disposed when the actor terminates. The block itself is not: implementing
+    ///     <see cref="IDisposable" /> on a block gives it a method nothing calls, because disposing the block
+    ///     would have to run inside the same terminal step the runtime's stop grace period is measured
+    ///     against. <see cref="Stopping" /> is a block's only release hook.
+    /// </remarks>
     [PublicApi]
     public abstract class LogicBlockBase : IActorReceiver, IActorDispatcher
     {
+        /// <summary>
+        ///     The longest delay a scheduled action can be armed with — the bound a real clock can wait, the
+        ///     same one a scenario's durations carry (<c>AC-SCEN-003.2</c>), measured rather than recalled.
+        ///     Repeated here rather than shared because the SDK cannot reference the development host that
+        ///     declares it.
+        /// </summary>
+        private static readonly TimeSpan MaxScheduledDelay = TimeSpan.FromSeconds(4294967);
+
         private static readonly TimeSpan PersistentDataSaveInterval = TimeSpan.FromSeconds(60);
 
         // Key: ContractIdentifier, Value: ContractImplementation
@@ -59,7 +75,7 @@ namespace Vion.Dale.Sdk.Core
 
         private readonly Dictionary<string, (TimeSpan interval, Action callback)> _timerCallbacks = [];
 
-        // RFC 0005 watchdog: raw per-[Timer] callback duration + scheduler jitter, reported to the vitals
+        // Timer watchdog: raw per-[Timer] callback duration + scheduler jitter, reported to the vitals
         // core when one is registered. Absent in bare hosts and the TestKit, where measurement is skipped.
         private readonly Dictionary<string, long> _timerLastTickTimestamp = [];
 
@@ -74,6 +90,13 @@ namespace Vion.Dale.Sdk.Core
         // onto the members the first already bound. Set before Configure runs, so a configuration that
         // throws part-way still counts as spent — the instance is unusable either way.
         private bool _configured;
+
+        // A linked-interface map that arrived before the configuration. The binders had not run, so
+        // _interfaces was empty and applying it would have warned every mapping away for good, leaving the
+        // block running unlinked. Held here and applied at the configuration's tail, after Ready(), which is
+        // where the hook contract says the link topology becomes readable. Last one wins; null when none is
+        // pending.
+        private Dictionary<InterfaceId, Dictionary<InterfaceId, IActorReference>>? _deferredLinkedInterfaces;
 
         // emission policy. The per-property gate is active when the clock is NOT a
         // controllable (FakeTimeProvider-style) clock — i.e. production + free-run DevHost — OR
@@ -115,6 +138,11 @@ namespace Vion.Dale.Sdk.Core
 
         private bool _started;
 
+        // Set when a stop has run to completion, cleared by a start. The stop arm's guard keys on this and
+        // not on _started, because a block whose start hook threw never started and still has to be given its
+        // stop hook — that is the only place it can release what Ready() acquired.
+        private bool _stopped;
+
         private TimeProvider _timeProvider = TimeProvider.System;
 
         private string? _vitalsActorName;
@@ -138,12 +166,14 @@ namespace Vion.Dale.Sdk.Core
 
         public void InvokeSynchronized(Action action)
         {
+            RequireActorContext(nameof(InvokeSynchronized));
             _actorContext.SendToSelf(new InvokeActionMessage(action));
         }
 
         public void InvokeSynchronizedAfter(Action action, TimeSpan delay)
         {
-            _actorContext.SendToSelfAfter(new InvokeActionMessage(action), delay);
+            RequireActorContext(nameof(InvokeSynchronizedAfter));
+            _actorContext.SendToSelfAfter(new InvokeActionMessage(action), BoundedDelay(delay));
         }
 
         public Task HandleMessageAsync(object message, IActorContext actorContext)
@@ -198,7 +228,7 @@ namespace Vion.Dale.Sdk.Core
                     Id = m.LogicBlockId;
                     Name = m.LogicBlockName;
 
-                    // RFC 0005: resolve the vitals collector + clock for per-[Timer] watchdog signals.
+                    // Resolve the vitals collector + clock for the per-[Timer] watchdog signals.
                     // Optional — absent in bare hosts and the TestKit, where timer measurement is skipped.
                     _vitalsCollector = m.ServiceProvider.GetService(typeof(IActorVitalsCollector)) as IActorVitalsCollector;
                     _timeProvider = m.ServiceProvider.GetService(typeof(TimeProvider)) as TimeProvider ?? TimeProvider.System;
@@ -226,25 +256,18 @@ namespace Vion.Dale.Sdk.Core
                     break;
 
                 case SetLinkedInterfaces m: // initialization
-                    foreach (var (interfaceId, linkedInterfaces) in m.LinkedInterfaceIds)
+                    // Before the configuration message the declarative binders have not run, so _interfaces is
+                    // empty and every mapping below would be warned away and lost for the instance's life. Hold
+                    // the map instead and apply it at the configuration's tail, after Ready() — which is where
+                    // the hook contract says a block may read its link topology.
+                    if (!_configured)
                     {
-                        // A mapping may target an interface gated out by [IncludedWhen] on this block, so
-                        // it was never bound and is absent from _interfaces. Skip-and-warn instead of throwing a
-                        // KeyNotFoundException that would take the whole block down — mirror of the gated-out
-                        // contract-mapping guard above.
-                        if (!_interfaces.TryGetValue(interfaceId.InterfaceIdentifier, out var function))
-                        {
-                            _logger.LogWarning("Logic block '{LogicBlockId}' ({LogicBlockName}) received a link mapping for interface '{InterfaceIdentifier}', " +
-                                               "which is not a bound interface (gated out by [IncludedWhen] or otherwise absent). Skipping the mapping; the block stays up.",
-                                               Id,
-                                               Name,
-                                               interfaceId.InterfaceIdentifier);
-                            continue;
-                        }
-
-                        function.SetLinkedInterfaceIds(linkedInterfaces);
+                        _deferredLinkedInterfaces = m.LinkedInterfaceIds;
+                        _logger.LogDebug("SetLinkedInterfaces processed before InitializeLogicBlock; deferring the link mappings until the block is configured.");
+                        break;
                     }
 
+                    ApplyLinkedInterfaces(m.LinkedInterfaceIds);
                     break;
 
                 case RestorePersistentDataRequest m: // initialization, before starting
@@ -261,8 +284,20 @@ namespace Vion.Dale.Sdk.Core
                     break;
 
                 case StartLogicBlockRequest: // after initialization
+                    // A second start would run the hook again, republish every initial value and arm a second
+                    // periodic-save chain that only a stop retires — so a block started twice writes its snapshot
+                    // twice a minute for the rest of the process. Acknowledge it anyway: the runtime waits on this
+                    // acknowledgement and a silent block hangs its own boot.
+                    if (_started)
+                    {
+                        _logger.LogWarning("Logic block '{LogicBlockName}' ({LogicBlockId}) is already started; acknowledging the start and doing nothing else.", Name, Id);
+                        _actorContext.RespondToSender(new StartLogicBlockResponse());
+                        break;
+                    }
+
                     Starting();
                     _started = true;
+                    _stopped = false;
 
                     // the initial publish flows through Handle*ValueChanged with the gate
                     // active. The first Throttler.Offer for each member returns Emit (!HasEmitted),
@@ -277,6 +312,18 @@ namespace Vion.Dale.Sdk.Core
                     break;
 
                 case StopLogicBlockRequest: // stopping, before removal
+                    // A second stop would run the hook again — disposing a client the first run disposed —
+                    // with the started flag already down, so its writes would be dropped where the first
+                    // run's were drained. The guard is the stopped flag and not the started one: a block
+                    // whose start hook threw never started, and its stop hook is still the only place it can
+                    // release what Ready() acquired. Acknowledge either way (AC-GATE-003.5).
+                    if (_stopped)
+                    {
+                        _logger.LogWarning("Logic block '{LogicBlockName}' ({LogicBlockId}) has already stopped; acknowledging the stop and doing nothing else.", Name, Id);
+                        _actorContext.RespondToSender(new StopLogicBlockResponse());
+                        break;
+                    }
+
                     // Guard only the snapshot: if Configure() aborted during InitializeLogicBlock,
                     // PersistentData is never initialised and CreateSnapshot() would throw,
                     // skipping the stop ack and hanging shutdown until timeout. Stopping(),
@@ -287,12 +334,19 @@ namespace Vion.Dale.Sdk.Core
                         _persistentData.CreateSnapshot();
                     }
 
+                    // A stop hook cannot refuse a shutdown, so its failure is captured rather than thrown
+                    // here: the drain, the flag, the clear and the acknowledgement all still run. It is
+                    // rethrown once the acknowledgement is out, so the middleware sees it and the host's
+                    // health surface can name the block — a failure that reached only the log was readable
+                    // nowhere a caller could poll.
+                    ExceptionDispatchInfo? stopFailure = null;
                     try
                     {
                         Stopping();
                     }
                     catch (Exception ex)
                     {
+                        stopFailure = ExceptionDispatchInfo.Capture(ex);
                         _logger.LogError(ex, "Exception in Stopping() for logic block '{LogicBlockName}' ({LogicBlockId}); continuing shutdown.", Name, Id);
                     }
 
@@ -302,8 +356,10 @@ namespace Vion.Dale.Sdk.Core
                     DrainThrottlers();
 
                     _started = false;
+                    _stopped = true;
                     _serviceBinder.ClearRetainedMessages(_logger);
                     _actorContext.RespondToSender(new StopLogicBlockResponse());
+                    stopFailure?.Throw();
                     break;
 
                 case PublishServiceState: // after broker reconnect
@@ -330,7 +386,22 @@ namespace Vion.Dale.Sdk.Core
                     break;
 
                 case IContractMessage m: // delegate to contract
-                    GetContractById(m.LogicBlockContractId).HandleContractMessage(m);
+                    // A sender may route to a contract that was gated out by [IncludedWhen] on this block (a
+                    // topology contractMapping to a now-absent endpoint), so it is not in _contracts. Skip-and-warn
+                    // rather than fail the handler on a missing key — the same treatment the interface arm below
+                    // gives the same shape, and what keeps a deliberately dead wire from being reported as a block
+                    // that threw.
+                    if (!_contracts.TryGetValue(m.LogicBlockContractId.ContractIdentifier, out var targetContract))
+                    {
+                        _logger.LogWarning("Logic block '{LogicBlockId}' ({LogicBlockName}) received a message for contract '{ContractIdentifier}', " +
+                                           "which is not a bound contract (gated out by [IncludedWhen] or otherwise absent). Dropping the message; the block stays up.",
+                                           Id,
+                                           Name,
+                                           m.LogicBlockContractId.ContractIdentifier);
+                        break;
+                    }
+
+                    targetContract.HandleContractMessage(m);
                     break;
 
                 case IFunctionInterfaceMessage m: // delegate to logic interface
@@ -427,7 +498,9 @@ namespace Vion.Dale.Sdk.Core
         ///     <list type="bullet">
         ///         <item>
         ///             Configure external clients and protocol bindings from <see cref="ServicePropertyAttribute" />
-        ///             values — persisted values are applied by now.
+        ///             values — on a host that restores persisted values, they are applied by now. The production
+        ///             runtime restores before it starts a block; the development host restores nothing, so a
+        ///             property read here holds its declared default there.
         ///         </item>
         ///         <item>
         ///             Snapshot the static link topology via the generated <c>GetLinkedXxx()</c> helpers if the block needs
@@ -485,14 +558,21 @@ namespace Vion.Dale.Sdk.Core
         ///             do not rely on cross-block <c>this.SendStateUpdate(...)</c> calls from Stopping reaching peers.
         ///         </item>
         ///         <item>
-        ///             <b>Exceptions don't halt shutdown.</b> Any exception thrown from Stopping is logged at error level
-        ///             and swallowed — the block still stops, the runtime still acks. Stopping cannot be used to signal a
-        ///             refused shutdown.
+        ///             <b>Exceptions don't halt shutdown.</b> An exception thrown from Stopping is logged at error
+        ///             level and the shutdown finishes regardless — the snapshot is already taken, the final values
+        ///             are still drained, the retained state is still cleared and the runtime is still acked.
+        ///             Stopping cannot be used to signal a refused shutdown. The failure is reported once the
+        ///             acknowledgement is out, so it appears among the handler failures a host lists per block
+        ///             rather than only in the log.
         ///         </item>
         ///     </list>
         ///     <para>
-        ///         <b>Symmetry rule:</b> anything attached or scheduled in <see cref="Ready" /> / <see cref="Starting" />
-        ///         should typically be detached or cancelled here.
+        ///         <b>Symmetry rule:</b> anything attached in <see cref="Ready" /> / <see cref="Starting" /> should
+        ///         typically be detached here. An action already scheduled through
+        ///         <see cref="InvokeSynchronizedAfter" /> cannot be: there is no cancellation, and it still runs
+        ///         when it comes due, after the stop. A self-rescheduling cycle ends by not re-scheduling itself —
+        ///         so a block whose scheduled work must not run after a stop checks its own state at the top of
+        ///         the action.
         ///     </para>
         /// </remarks>
         /// <seealso cref="Ready" />
@@ -576,6 +656,72 @@ namespace Vion.Dale.Sdk.Core
         {
             SendBindLogicBlockServices();
             Ready();
+
+            // A linked-interface map that arrived before the configuration is applied here rather than when
+            // it landed: the binders had not run then, and Ready() promises the link topology is not readable
+            // inside it, so after the hook is the one moment both hold.
+            if (_deferredLinkedInterfaces is not null)
+            {
+                var deferred = _deferredLinkedInterfaces;
+                _deferredLinkedInterfaces = null;
+                ApplyLinkedInterfaces(deferred);
+            }
+        }
+
+        /// <summary>
+        ///     Points each bound interface at the actors it was linked to. A mapping may target an interface
+        ///     gated out by <c>[IncludedWhen]</c> on this block, so it was never bound and is absent — skip
+        ///     and warn rather than fail the handler on a missing key, which would take the whole block down.
+        /// </summary>
+        private void ApplyLinkedInterfaces(Dictionary<InterfaceId, Dictionary<InterfaceId, IActorReference>> linkedInterfaceIds)
+        {
+            foreach (var (interfaceId, linkedInterfaces) in linkedInterfaceIds)
+            {
+                if (!_interfaces.TryGetValue(interfaceId.InterfaceIdentifier, out var function))
+                {
+                    _logger.LogWarning("Logic block '{LogicBlockId}' ({LogicBlockName}) received a link mapping for interface '{InterfaceIdentifier}', " +
+                                       "which is not a bound interface (gated out by [IncludedWhen] or otherwise absent). Skipping the mapping; the block stays up.",
+                                       Id,
+                                       Name,
+                                       interfaceId.InterfaceIdentifier);
+                    continue;
+                }
+
+                function.SetLinkedInterfaceIds(linkedInterfaces);
+            }
+        }
+
+        /// <summary>
+        ///     Refuses a dispatcher call made before the block has received its first message, when there is
+        ///     no actor to schedule onto. Without it the caller gets a bare null-reference exception that the
+        ///     middleware swallows, naming neither the block nor what to do about it.
+        /// </summary>
+        private void RequireActorContext(string member)
+        {
+            if (_actorContext is null)
+            {
+                throw new InvalidOperationException($"{member} was called before the logic block received its first message, so there is no actor to schedule the action on. " +
+                                                    "Schedule from Ready() or Starting() instead of from the constructor.");
+            }
+        }
+
+        /// <summary>
+        ///     The delay a scheduled action is actually armed with. A negative span is the caller asking for
+        ///     something already due, which is what a zero delay means — the same treatment the emission
+        ///     gate's flush gives a deadline in the past. A span longer than a real clock can wait is refused,
+        ///     because arming it throws from inside the actor's handler, where the middleware swallows it and
+        ///     the action is lost with no trace: the bound is the one a scenario's durations already carry.
+        /// </summary>
+        private static TimeSpan BoundedDelay(TimeSpan delay)
+        {
+            if (delay > MaxScheduledDelay)
+            {
+                throw new ArgumentOutOfRangeException(nameof(delay),
+                                                      delay,
+                                                      $"A delayed action cannot be scheduled further out than {MaxScheduledDelay.TotalSeconds} seconds, which is the longest a real clock can wait.");
+            }
+
+            return delay < TimeSpan.Zero ? TimeSpan.Zero : delay;
         }
 
         /// <summary>
@@ -1213,7 +1359,7 @@ namespace Vion.Dale.Sdk.Core
                 return;
             }
 
-            // RFC 0005 watchdog: measure the callback duration and the scheduler jitter (actual minus
+            // Timer watchdog: measure the callback duration and the scheduler jitter (actual minus
             // requested inter-tick delay), reporting both to the vitals core. The callback's exception
             // still propagates (the finally only reports), so behaviour is otherwise unchanged.
             var jitter = ComputeTimerJitter(message.Identifier, interval);
@@ -1253,11 +1399,6 @@ namespace Vion.Dale.Sdk.Core
         private void AddContract(string identifier, LogicBlockContractBase logicBlockContract)
         {
             _contracts[identifier] = logicBlockContract;
-        }
-
-        private LogicBlockContractBase GetContractById(LogicBlockContractId logicBlockContractId)
-        {
-            return _contracts[logicBlockContractId.ContractIdentifier];
         }
 
         private (TimeSpan interval, Action callback) GetTimerCallback(string mIdentifier)

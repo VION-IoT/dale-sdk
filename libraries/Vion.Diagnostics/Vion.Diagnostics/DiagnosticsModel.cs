@@ -7,7 +7,7 @@ namespace Vion.Diagnostics
     /// <summary>
     ///     One row of the diagnostics table — a logic block's vitals. Exposed as an
     ///     <c>ImmutableArray&lt;LogicBlockVitals&gt;</c> service property and dashboard-rendered as a
-    ///     <c>&lt;StructArray&gt;</c> table (RFC 0005 Sink 2). <c>LastActivityUtc</c> is null when the block
+    ///     <c>&lt;StructArray&gt;</c> table. <c>LastActivityUtc</c> is null when the block
     ///     has never handled a message. <c>Restarts</c> is intentionally omitted — Proto lifecycle counters
     ///     are an edge-gateway-health concern, not surfaced here.
     /// </summary>
