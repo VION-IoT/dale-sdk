@@ -74,7 +74,8 @@ An AC is **covered** when its id appears as a quoted string literal in a test ar
 `spec-trace` scans every `*.Test` directory in the repo (the xunit projects live nested under
 `examples/`, `libraries/`, `templates/`) plus the SmokeHost. A mention in a comment or method name
 does not count — the gate matches quoted `"AC-…"` literals, so an id belongs in exactly the three
-forms above and never in any other string (an assert message carrying one would bind by accident).
+forms above and never in any other string (an assert message or an expectation array carrying one
+would bind by accident; read the ids off the artifact under test instead).
 A bare umbrella id (`AC-EMIT-001`) is covered by any of its `.M` leaves.
 
 **GAP rows** — a declared requirement whose test does not exist yet — carry the `GAP` marker on the
@@ -153,13 +154,20 @@ repo is never half-migrated. One pass, in order:
 3. **Rewrite** — the area's whole test suite is brought to the settled style
    ([`testing-conventions.md`](testing-conventions.md)); Tier A tests cite their AC ids; every AC
    has the one mutation that reddens its test, written with the test — an AC no mutation can
-   redden is reworded, merged or dropped, never minted.
+   redden is reworded, merged or dropped, never minted. The page states one criterion per **rule**,
+   with the fields, tokens or sites it ranges over as the test's `[DataRow]`s: extraction
+   over-produces rows on purpose, and the change doc's consolidation map (row → criterion) is what
+   proves no classified row was lost.
 4. **Land** — the spec page (with `trace: enforced`) enters `docs/specs/`; the trace gate covers it
    from now on; changes to the area require a change doc from now on.
 5. **Delete** — the RFCs the page absorbed are removed in the same PR, and the reference sweep
    runs: no living doc, skill, or code comment cites them (`grep -r "RFC 00"` clean outside
    `docs/process-journal.md`, `docs/retro/`, `docs/changes/archive/`, and `docs/rfcs/` itself while
-   it still exists). Append-only logs keep their citations.
+   it still exists). Append-only logs keep their citations. A scripted sweep deletes only the spans
+   it matched, proves each rewritten line is the original minus those spans, keeps the file's line
+   endings, and applies no whole-file tidy-up; `scripts/sweep-residue-lint.ps1` fails on the residue
+   shapes a sweep leaves (an orphaned `()`, a doubled space, a Markdown line ending on `(`), and
+   every touched sentence is re-read for the shapes no grep can see.
 6. **Style gate** — `scripts/test-style-lint.ps1` holds every cited test to §12/§13 of
    `testing-conventions.md`; projects a pass cites from without owning are exempt in the script,
    with a reason, until their own pass. Stryker.NET is optional and only runnable where a test
@@ -190,7 +198,10 @@ retires with the migration:
    `/vion-code-review branch` before the PR) + a read-only note per additional dir naming the
    SPECIFIC files to look things up in. For an area pass, scope and anchors are **folders,
    projects and descriptor ranges the session enumerates itself** — never a transcribed file or
-   descriptor list: two passes running, the brief's counts were the thing that was wrong.
+   descriptor list: two passes running, the brief's counts were the thing that was wrong. The test
+   scope is stated the same way — the test project's folders, with the suites another page owns
+   named by their citations — never a list of files: the brief that listed suites missed three in
+   the area's own project.
 2. Emit the launch line in a single `bash` fence (the fence is the copy button):
 
    ```
@@ -230,8 +241,12 @@ defect classes recur — stale gate
 numbers, spec not carried, evidence asserted rather than pasted — the next round goes to a
 **fresh** session with a precise brief instead of a further amendment: context depth degrades
 exactly the disciplines the amendments ask for, and the pass that ran its fix-up that way caught
-its own composed numbers mid-amendment. The coordinator fills the scorecard from the checks'
-findings before the PR merges.
+its own composed numbers mid-amendment. Each amendment item names one artifact and the proof it
+owes — a two-clause item gets its numbered half done — and states its premise as a hypothesis: a
+check reading a branch at one commit gets the shape right and the constants wrong, so the session
+verifies the mechanism at the call site before implementing (two of one amendment's twenty-five
+items were refuted from the tree, and both were still worth doing). The coordinator fills the
+scorecard from the checks' findings before the PR merges.
 
 ## Routing — where work enters
 
@@ -253,6 +268,8 @@ findings before the PR merges.
 | `scripts/spec-lint.ps1` | `spec-gates.yml` + on demand | malformed/escape-hatch ACs in `docs/specs/`; change-doc frontmatter or lifecycle broken (`archived` outside `archive/`, unknown status); `-Diff <ref>` warns on narrative added to the corpus (`-Strict` fails) |
 | `scripts/spec-trace.ps1` | `spec-gates.yml` + on demand | any id on a `trace: enforced` page (or an `in-flight` delta) with no quoted-literal test reference; a marked page parsing zero ids; an id-sequence hole (a leaf missing below its umbrella's highest) that no archived change doc names |
 | `scripts/bom-lint.ps1` | `spec-gates.yml` + on demand | a `.md`, `.js`, `.mjs`, `.cjs`, `.json`, `.yml`, `.html`, `.css`, `.targets` or `.props` file carrying a UTF-8 byte-order mark — no file of these kinds has one here, and a helper writing `utf-8-sig` once stamped 46 |
+| `scripts/journal-lint.ps1` | `spec-gates.yml` + on demand | a line under `docs/process-journal.md`'s `## Entries` that is not one dated entry in the header's shape and vocabulary, two entries sharing a line (an append that did not end the previous one), or an entry dated below the one above it |
+| `scripts/sweep-residue-lint.ps1` | `spec-gates.yml` + on demand | prose — Markdown outside code, tables and headings; `//` and `///` comment text in C# and JavaScript — carrying what a scripted reference sweep leaves behind: an empty `()` on its own, two spaces inside a sentence, a Markdown line ending on `(`; frozen RFCs, the append-only logs, snapshots and vendored scripts are out of scope |
 | `scripts/spec-change.ps1 archive` | on demand | any Spec-delta line not distilled into its target, or an `ADDED`/`MODIFIED` line whose EARS text the target's declaring bullet no longer carries (backticks, brackets, type arguments, wrapping, a `GAP` tail and a trailing parenthetical set aside) |
 | `scripts/doc-comment-lint.ps1` | `spec-gates.yml` + on demand | a C# doc-comment block carrying more than one `<summary>` — one declaration took two doc comments, the one above the insertion anchor is bare ([`sdk-surface-conventions.md`](sdk-surface-conventions.md) § 2) |
 | `scripts/test-style-lint.ps1` | `spec-gates.yml` + on demand | a test citing a spec id carries an article in its name or no Triple-A markers (`testing-conventions.md` §12/§13); projects a pass cites from without owning are exempt in the script, with a reason, until their pass |

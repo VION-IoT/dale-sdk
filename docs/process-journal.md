@@ -36,7 +36,9 @@ YYYY-MM-DD · <where> · <topic, PR #, or —> · <what happened, one line>
 - `agent` — agent behavior or process
 - `manual` — human grumble
 
-Append at the bottom, newest last. Naming the taxonomy check a correction maps to (`D1`…`D10`, see
+Append at the bottom, newest last — `scripts/journal-lint.ps1` (in `spec-gates.yml`) fails CI on a
+line below `## Entries` that is not one entry of this shape, on two entries sharing a line, and on
+an entry dated below the one above it. Naming the taxonomy check a correction maps to (`D1`…`D10`, see
 [`.claude/commands/vion-code-review.md`](../.claude/commands/vion-code-review.md) § 5) is worth the four
 characters — retro-1's open question is which of them actually fire.
 
@@ -205,3 +207,4 @@ it was felt.
 2026-09-03 · agent · SCEN pass a1 round 3 · Mapping 104 renamed tests by body similarity was worthless — a whole-suite rewrite leaves every short `[DataRow]` body looking like every other, and the best match was wrong more often than right. What worked was mechanical and boring: the class's declaration list at the Phase A commit against `HEAD`, side by side, plus the rewriting commit's own message for the splits and deletions. When a rename round is coming, the cheap insurance is a per-class before/after declaration list in the commit that does it.
 2026-09-03 · review · SCEN pass a1 · The coordinator's amendment called `docs/process-journal.md` CRLF and the pass session refuted it from the file (LF throughout). The coordinator's count came from a `$'\r'` pattern inside a `$(…)` in the tool shell, which mangles it into something that matches every line; a claim about bytes is proven with a byte-level dump (`cat -A`, `od -c`), never with a shell pattern the tool may rewrite. The same shell had already turned `\\` into `\` and broken two here-docs in the INTRO pass.
 2026-09-03 · agent · SCEN pass a1 · The completeness critic named the right hazard (a `settle` that converges having proved nothing) with the wrong mechanism (an empty stepper schedule): a live block always carries the framework's periodic event, so the observed detail is "1 hop / 60 virtual s", not "0 virtual s". The session tested the claim before stating it, and the first assertion it wrote — `Contains("0 virtual s")` — passed on the very string it was meant to exclude. A check's finding is a hypothesis until a test in the tree confirms the mechanism, and a substring assertion on a number is not an assertion.
+2026-09-03 · gate · skill v6 · While measuring the sweep-residue baseline, `grep` reported `Vion.Dale.DevHost.Web/wwwroot/components.js` as binary: a comment carries a raw NUL character (the option-value separator it once described, pasted as the byte instead of spelled `\0`). Git's text detection calls the file binary too, so the repo's LF policy never normalised it and every reference sweep's `grep` skipped it in silence. No gate looks for a control character in a text file; `bom-lint` reads three bytes. Handed to the CTRL pass, which owns the file, with the gate that would have caught it.

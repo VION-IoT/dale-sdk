@@ -119,7 +119,7 @@ namespace Vion.Dale.DevHost.Test
         public async Task DevHostBuilder_GetBlockCatalog_ThenBuild_WorksOnSameInstance()
         {
             // Arrange: a builder whose catalog is inspected first (as RunFolderDrivenAsync does internally)
-            // and then used to build a real host.  This guards the "temp ServiceCollection" approach in
+            // and then used to build a real host. This guards the "temp ServiceCollection" approach in
             // GetBlockCatalog() — it must NOT mutate the builder's real _services.
             var topologiesDir = TempDir();
             try
