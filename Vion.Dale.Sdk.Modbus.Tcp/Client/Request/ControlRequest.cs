@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Abstractions;
+using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
 
 namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
 {
@@ -52,7 +53,18 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
         /// <inheritdoc />
         public override void HandleRequestFailed(Exception exception)
         {
-            LogRequestFailed(Name, Id, exception);
+            // A control operation dropped on disposal is shutdown, not a fault; at Error every Modbus block's
+            // teardown would put a line through the gateway's log pipeline. Same arm as DeviceRequest's.
+            var outcome = ModbusOutcomeClassifier.Classify(exception);
+            if (outcome is ModbusOutcome.BackedOff or ModbusOutcome.Expired or ModbusOutcome.Dropped or ModbusOutcome.Cancelled)
+            {
+                LogRequestNotExecuted(Name, outcome, Id, exception);
+            }
+            else
+            {
+                LogRequestFailed(Name, Id, exception);
+            }
+
             if (_errorCallback == null)
             {
                 return;

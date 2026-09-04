@@ -39,6 +39,37 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        public void CompleteOnlyOnceWhenFailedRepeatedly()
+        {
+            // Arrange
+            var sut = CreateVoidResultRequest(SuccessfulOperation(), errorCallback: ErrorCallback());
+
+            // Act
+            sut.HandleRequestFailed(new RequestDroppedException(_requestName, 1, QueueOverflowPolicy.RejectNew));
+            sut.HandleRequestFailed(new RequestDroppedException(_requestName));
+
+            // Assert
+            _dispatcherMock.Verify(dispatcher => dispatcher.InvokeSynchronized(It.IsAny<Action>()), Times.Once);
+            Assert.AreEqual(1L, _accumulator.Snapshot(0).DroppedCount);
+            Assert.AreEqual(ModbusOutcome.Dropped, _accumulator.Snapshot(0).LastFailureOutcome);
+        }
+
+        [TestMethod]
+        public async Task CompleteOnlyOnceWhenFailedAfterItSucceeded()
+        {
+            // Arrange
+            var sut = CreateVoidResultRequest(SuccessfulOperation());
+            await sut.ExecuteAsync(CancellationToken.None, null);
+
+            // Act
+            sut.HandleRequestFailed(new RequestDroppedException(_requestName));
+
+            // Assert
+            Assert.AreEqual(1L, _accumulator.Snapshot(0).SuccessCount);
+            Assert.AreEqual(0L, _accumulator.Snapshot(0).DroppedCount);
+        }
+
+        [TestMethod]
         public async Task HaveRequestName()
         {
             // Arrange

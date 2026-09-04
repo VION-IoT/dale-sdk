@@ -107,8 +107,14 @@ namespace Vion.Dale.Sdk.Modbus.Core.Diagnostics
                     _maxRoundTrip = _maxRoundTrip is { } max && max >= receipt.RoundTrip ? max : receipt.RoundTrip;
                 }
 
-                _lastQueuedWait = receipt.QueuedWait;
-                _maxQueuedWait = _maxQueuedWait is { } maxWait && maxWait >= receipt.QueuedWait ? maxWait : receipt.QueuedWait;
+                // Every outcome but Invalid describes a request that was queued, so its wait is real even when it
+                // never reached the wire. An Invalid one was refused before it was queued and carries a zero wait,
+                // which would clear the gauge a block reads to see congestion.
+                if (receipt.Outcome != ModbusOutcome.Invalid)
+                {
+                    _lastQueuedWait = receipt.QueuedWait;
+                    _maxQueuedWait = _maxQueuedWait is { } maxWait && maxWait >= receipt.QueuedWait ? maxWait : receipt.QueuedWait;
+                }
             }
         }
 

@@ -18,7 +18,6 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
 
         private Channel<IRequest>? _channel;
 
-        // ReSharper disable once NotAccessedField.Local
         private Task? _consumer;
 
         private CancellationTokenSource? _cts;
@@ -33,6 +32,15 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
         {
             _requestFactory = requestFactory;
             _logger = logger;
+        }
+
+        /// <summary>
+        ///     The consumer loop, completed once it has stopped and drained. The suite awaits it to observe the
+        ///     disposal drain, which runs there rather than on the disposing thread.
+        /// </summary>
+        internal Task? ConsumerCompletion
+        {
+            get => _consumer;
         }
 
         /// <inheritdoc />
@@ -204,6 +212,15 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
             {
                 await foreach (var request in channel.Reader.ReadAllAsync(token).ConfigureAwait(false))
                 {
+                    // Completing the writer lets the reader hand over the backlog before it finishes, so a
+                    // disposal arrives here as items rather than as cancellation. They are dropped, not run: the
+                    // client behind them is being torn down.
+                    if (token.IsCancellationRequested)
+                    {
+                        DropOnDisposal(request);
+                        continue;
+                    }
+
                     await ProcessRequestAsync(request, token);
                 }
 
@@ -216,6 +233,11 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
             catch (Exception exception)
             {
                 LogUnexpectedConsumerError(exception);
+            }
+            finally
+            {
+                DrainRemainingRequests(channel);
+                _cts?.Dispose();
             }
         }
 
@@ -242,14 +264,48 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
             if (disposing)
             {
                 LogDisposing(nameof(RequestQueue));
+
+                // Closing the writer and cancelling is all a disposing block does: the consumer stops, completes
+                // every request still queued, and releases the token source. Waiting for it here would hold the
+                // block's teardown open for as long as the in-flight operation takes to notice.
                 _channel?.Writer.TryComplete();
                 _cts?.Cancel();
-                _cts?.Dispose();
                 LogDisposed(nameof(RequestQueue));
             }
 
             _disposed = true;
         }
+
+        /// <summary>
+        ///     Completes every request the consumer never got to, so a block's error callback hears that its request
+        ///     will not run instead of waiting for a completion that can never come.
+        /// </summary>
+        /// <remarks>
+        ///     Runs on the consumer, as the loop unwinds. The channel is built <c>SingleReader</c>, and this is that
+        ///     one reader — draining from <c>Dispose</c> instead would put a second reader on it, and would block a
+        ///     block's teardown for as long as the in-flight operation takes to observe its cancelled token. A request
+        ///     already dequeued is in flight and completes through its own execution, not here.
+        /// </remarks>
+        private void DrainRemainingRequests(Channel<IRequest> channel)
+        {
+            while (channel.Reader.TryRead(out var request))
+            {
+                DropOnDisposal(request);
+            }
+        }
+
+        /// <summary>
+        ///     The one arm every request still in the queue at disposal leaves by, whether the reader handed it over
+        ///     or the drain found it after the loop threw.
+        /// </summary>
+        private void DropOnDisposal(IRequest request)
+        {
+            LogRequestDroppedOnDisposal(request.Name, request.Id);
+            request.HandleRequestFailed(new RequestDroppedException(request.Name));
+        }
+
+        [LoggerMessage(Level = LogLevel.Debug, Message = "Request dropped because the client was disposed (RequestName={RequestName}, RequestId={RequestId})")]
+        private partial void LogRequestDroppedOnDisposal(string requestName, Guid requestId);
 
         [LoggerMessage(Level = LogLevel.Information, Message = "Request queue created with capacity {capacity} and overflow policy {overflowPolicy}")]
         private partial void LogQueueCreated(int capacity, QueueOverflowPolicy overflowPolicy);

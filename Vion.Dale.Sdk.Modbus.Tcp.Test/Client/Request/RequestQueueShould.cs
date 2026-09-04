@@ -327,6 +327,67 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        public async Task CompleteEveryStillQueuedRequestWhenDisposed()
+        {
+            // Arrange
+            _inflightRequestCts = new CancellationTokenSource();
+            var arrayStartedTcs = SetupArrayResultRequest(true, cancellationToken: _inflightRequestCts.Token);
+            SetupSingleRequestResult();
+            SetupVoidResultRequest();
+            _sut.Initialize(10, QueueOverflowPolicy.DropOldest, _accumulator);
+            _sut.Enqueue(ArrayRequestName, _dispatcherMock.Object, _arrayRequestOperation, _arraySuccessCallback, null);
+            await arrayStartedTcs.Task;
+            _sut.Enqueue(SingleRequestName, _dispatcherMock.Object, _singleRequestOperation, _singleSuccessCallback, null);
+            _sut.Enqueue(VoidRequestName, _dispatcherMock.Object, _voidRequestOperation, _voidSuccessCallback, null);
+
+            // Act
+            _sut.Dispose();
+            await _sut.ConsumerCompletion!;
+
+            // Assert
+            Assert.HasCount(2, _requestDroppedExceptions);
+            Assert.AreEqual(SingleRequestName, _requestDroppedExceptions[0].RequestName);
+            Assert.AreEqual(VoidRequestName, _requestDroppedExceptions[1].RequestName);
+            Assert.IsTrue(_requestDroppedExceptions.TrueForAll(dropped => dropped.Reason == RequestDropReason.ClientDisposed));
+        }
+
+        [TestMethod]
+        public async Task CompleteNothingWhenDisposedWithAnEmptyQueue()
+        {
+            // Arrange
+            SetupArrayResultRequest();
+            _sut.Initialize(10, QueueOverflowPolicy.DropOldest, _accumulator);
+
+            // Act
+            _sut.Dispose();
+            await _sut.ConsumerCompletion!;
+
+            // Assert
+            Assert.HasCount(0, _requestDroppedExceptions);
+        }
+
+        [TestMethod]
+        public async Task CompleteAQueuedRequestOnlyOnceAcrossRepeatedDisposal()
+        {
+            // Arrange
+            _inflightRequestCts = new CancellationTokenSource();
+            var arrayStartedTcs = SetupArrayResultRequest(true, cancellationToken: _inflightRequestCts.Token);
+            SetupVoidResultRequest();
+            _sut.Initialize(10, QueueOverflowPolicy.DropOldest, _accumulator);
+            _sut.Enqueue(ArrayRequestName, _dispatcherMock.Object, _arrayRequestOperation, _arraySuccessCallback, null);
+            await arrayStartedTcs.Task;
+            _sut.Enqueue(VoidRequestName, _dispatcherMock.Object, _voidRequestOperation, _voidSuccessCallback, null);
+
+            // Act
+            _sut.Dispose();
+            _sut.Dispose();
+            await _sut.ConsumerCompletion!;
+
+            // Assert
+            Assert.HasCount(1, _requestDroppedExceptions);
+        }
+
+        [TestMethod]
         public void RejectNewRequestWhenQueueDisposed()
         {
             // Arrange
@@ -436,11 +497,16 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
                                      _startedRequestNames.Add(requestName);
                                      executionStartedTcs.SetResult(true);
                                  })
-                       .Returns(async () =>
+                        // A blocked request waits on the queue's own token as well as the test's, because that is
+                        // what a real DeviceRequest does: the queue cancels its token on disposal and the operation
+                        // it wraps stops there. Waiting only on the test's token would model a request that ignores
+                        // cancellation, which is the one shape the disposal drain must not be tuned against.
+                       .Returns(async (CancellationToken queueCancellationToken, TimeSpan? _) =>
                                 {
                                     if (shouldBlock)
                                     {
-                                        await Task.Delay(-1, cancellationToken);
+                                        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, queueCancellationToken);
+                                        await Task.Delay(-1, linked.Token);
                                     }
 
                                     if (shouldThrow)
