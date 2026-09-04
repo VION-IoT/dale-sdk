@@ -10,7 +10,7 @@ namespace Vion.Dale.DevHost.Topologies
 {
     /// <summary>
     ///     A catalog entry for a single logic-block type — the per-block matching metadata a topology-authoring
-    ///     client (RFC 0013 Phase 1) needs to compute wiring. Built purely by reflection over the <see cref="Type" />
+    ///     client needs to compute wiring. Built purely by reflection over the <see cref="Type" />
     ///     (no host build; an optional instance is used only to read <c>[InstantiationParameter]</c> defaults), so it
     ///     can describe every block the running DevHost references — even ones not in the wired configuration. The
     ///     field shapes mirror the introspection result's <c>InterfaceTypeFullNames</c> /

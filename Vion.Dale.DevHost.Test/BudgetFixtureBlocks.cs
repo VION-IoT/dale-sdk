@@ -74,4 +74,29 @@ namespace Vion.Dale.DevHost.Test
             Ticks++;
         }
     }
+
+    /// <summary>
+    ///     A block whose stop hook blocks for far longer than a short stop-sequence budget. Every wait in the
+    ///     teardown sequence goes through the registered clock, so on a stepped host only the real-time
+    ///     backstop can end a teardown this block is part of.
+    /// </summary>
+    [LogicBlock(Name = "Slow stopping")]
+    public sealed class SlowStoppingBlock : LogicBlockBase
+    {
+        [ServiceProperty(Title = "Value")]
+        public int Value { get; set; }
+
+        public SlowStoppingBlock(ILogger logger) : base(logger)
+        {
+        }
+
+        protected override void Ready()
+        {
+        }
+
+        protected override void Stopping()
+        {
+            Thread.Sleep(TimeSpan.FromSeconds(30));
+        }
+    }
 }

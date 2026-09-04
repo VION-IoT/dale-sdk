@@ -11,8 +11,9 @@ namespace Vion.Dale.DevHost.Test
     ///     private constants: a write whose acknowledgement never comes, and a cascade that never settles.
     ///     <para>
     ///         Cross-tier: <c>AC-SCEN-009.10</c> and <c>AC-SCEN-012.6</c> are the scenario page's — what the
-    ///         runner records and what the stepper refuses to assume. This suite owns the seam that makes both
-    ///         reachable, and pins the scenario-side claims from it because nothing else can.
+    ///         runner records and what the stepper refuses to assume — while <c>AC-CTRL-013.*</c> is this page's
+    ///         seam that makes both reachable. Each id is proven here because nothing else can reach either
+    ///         failure without waiting out the production budget.
     ///     </para>
     /// </summary>
     [TestClass]
@@ -20,6 +21,7 @@ namespace Vion.Dale.DevHost.Test
     {
         [TestMethod]
         [TestProperty("spec", "AC-SCEN-009.10")]
+        [TestProperty("spec", "AC-CTRL-013.3")]
         public async Task RecordRejectedWriteWhoseAcknowledgementConsumedItsWindow()
         {
             // Arrange — a block that throws from its setter, and a window short enough to reach.
@@ -77,6 +79,7 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CTRL-013.1")]
         public async Task GiveWriteWindowHostWasBuiltWith()
         {
             // Arrange — the same rejecting block, but a window a healthy write cannot exhaust.

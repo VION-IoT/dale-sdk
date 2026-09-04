@@ -8,7 +8,7 @@ using Xunit;
 namespace Vion.Examples.PingPong.IntegrationTest
 {
     /// <summary>
-    ///     Headless integration test (RFC 0003): boots the real wired Ping ↔ Pong network with no web UI and
+    ///     Headless integration test: boots the real wired Ping ↔ Pong network with no web UI and
     ///     drives / observes it entirely through <see cref="IDevHostControl" /> — the agent / CI scenario.
     ///     <para>
     ///         This is the tier the single-block TestKit unit tests (PingShould / PongShould) can't cover: a

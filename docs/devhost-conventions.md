@@ -149,26 +149,18 @@ agreement for you:
 Miss one and the failure is asymmetric and quiet: a schema that autocompletes a step the runner
 rejects, or a UI that offers one the CLI's validation refuses.
 
-## 8. Applying a scenario recycles the host
+## 8. The host's control surface is specified
 
-`POST /api/scenarios/{id}/apply` is **recycle-on-run**: a scenario runs against the topology it
-declares, from a clean slate, so every run is reproducible.
+Everything this section used to state — recycle-on-run and its round trip, the one-active-run rule,
+the absence of `force`, and the write refusal that answers `400` with a reason rather than a silent
+`200` — is [`specs/devhost-control.md`](specs/devhost-control.md) now (`AC-CTRL-017.*`,
+`AC-CTRL-009.*`, `AC-CTRL-016.*`), as § 9's pairing rules became
+[`specs/scenarios.md`](specs/scenarios.md)'s.
 
-- When the host is on a different topology, **or** the stepped generation is *dirty* (its clock has
-  advanced from baseline, or it has already run a scenario), the host is recycled onto the scenario's
-  topology first and the response is `202 { recycling: true, topology }`. **The caller polls until the
-  host is back and re-applies.** A clean, matching host runs in place.
-- **One active run per host** — `409` while another is active, unless `?restart=true`, which cancels
-  the first.
-- **There is no `force`.** It was removed because running against the wrong topology or a dirty clock
-  silently produced misleading results.
-
-Every client of this API — the SPA, the smoke skill, anything an agent writes — must handle the
-recycle round-trip rather than assuming the first call took effect. A test that applies once and
-asserts is testing the recycle, not the scenario.
-
-Separately, on the drive path: a write to a **read-only or unknown** member returns `400` carrying
-`reason` and `property`, not a silent no-op.
+The consequence worth repeating here, because it is a *client* obligation and not a host guarantee:
+**every client of `POST /api/scenarios/{id}/apply` handles the recycle round trip** rather than
+assuming the first call took effect. A test that applies once and asserts is testing the recycle, not
+the scenario.
 
 ## 9. A contract pairing is a declared wire, and the host never transforms
 

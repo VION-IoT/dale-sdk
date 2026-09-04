@@ -338,7 +338,7 @@ namespace Vion.Dale.DevHost
 
         // The service-provider contracts declared on a block type's writable properties, by reflection over
         // the Type (no instantiation): each property whose PropertyType carries a [ServiceProviderContractType]
-        // yields (identifier, the provider-side contract-type token). The catalog DTO (RFC 0013) reuses this —
+        // yields (identifier, the provider-side contract-type token). The catalog DTO reuses this —
         // the token here is exactly what LogicBlockIntrospection records as ContractInfo.MatchingContractType.
         internal static List<(string Identifier, string ContractType, string? IncludedWhen)> GetContractProperties(Type type)
         {

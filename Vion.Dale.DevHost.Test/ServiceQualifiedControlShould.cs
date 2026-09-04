@@ -12,13 +12,16 @@ namespace Vion.Dale.DevHost.Test
     public class ServiceQualifiedControlShould
     {
         [TestMethod]
-        public async Task DisambiguateDuplicateMemberNamesAcrossServices()
+        [TestProperty("spec", "AC-CTRL-008.4")]
+        public async Task ReachShadowedMemberByServiceIdentifier()
         {
+            // Arrange
             var config = DevConfigurationBuilder.Create().AddLogicBlock<DualPointBlock>("dual").Build();
             await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).Build();
             await host.StartAsync();
 
             await host.Control.SetPropertyAsync("dual", "PointA", "Limit", 3.5);
+            // Act / Assert
             await host.Control.SetPropertyAsync("dual", "PointB", "Limit", 7.5);
 
             Assert.AreEqual(3.5, host.Control.GetProperty("dual", "PointA", "Limit"));
@@ -31,10 +34,13 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task ReturnNullForUnknownServiceIdentifiers()
+        [TestProperty("spec", "AC-CTRL-008.6")]
+        public async Task ReportNoValueForUnknownBlockOrService()
         {
+            // Arrange
             var config = DevConfigurationBuilder.Create().AddLogicBlock<DualPointBlock>("dual").Build();
             await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).Build();
+            // Act / Assert
             await host.StartAsync();
 
             Assert.IsNull(host.Control.GetProperty("dual", "PointC", "Limit"));
@@ -42,11 +48,13 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task PreferTheRootServiceForABareReadWhenANameCollidesWithNestedComponents()
+        [TestProperty("spec", "AC-CTRL-008.5")]
+        public async Task ResolveBareNameToBlocksOwnService()
         {
             // DF-47: a member name carried by BOTH the block's own (root) service and its nested components
             // (ActivePowerTotalKw on a buffer surface + on its charge points) collapsed last-service-wins in
             // the flat name map, so the bare read returned a component's 0 instead of the battery's value.
+            // Arrange
             var config = DevConfigurationBuilder.Create().AddLogicBlock<RootNestedCollisionBlock>("collide").Build();
             await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).Build();
             await host.StartAsync();
@@ -57,6 +65,7 @@ namespace Vion.Dale.DevHost.Test
             // The bare (two-argument) read of the shared name must resolve to the ROOT service (-40, emitted
             // from Ready), not collapse onto a nested component (11 / 22). The root value arrives via the
             // startup leading edge, so poll for it.
+            // Act / Assert
             var bare = await WaitForValueAsync(() => host.Control.GetProperty("collide", "SharedPower"), -40.0);
             Assert.AreEqual(-40.0, bare, "A bare read of a name shared by the root and nested components must resolve to the ROOT service, not a component.");
 
@@ -66,16 +75,19 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task ResolveADottedServiceMemberPathThroughTheBareRead()
+        [TestProperty("spec", "AC-CTRL-008.4")]
+        public async Task ResolveDottedServiceAndMemberPath()
         {
             // DF-47: the single-property state endpoint passes a "service.member" path whole to the two-arg
             // read. The bare-name flat map has no such key, so a nested "PointA.SharedPower" returned null;
             // it must instead route to the service-qualified resolver.
+            // Arrange
             var config = DevConfigurationBuilder.Create().AddLogicBlock<RootNestedCollisionBlock>("collide").Build();
             await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).Build();
             await host.StartAsync();
 
             await host.Control.SetPropertyAsync("collide", "PointA", "SharedPower", 11.0);
+            // Act / Assert
             await host.Control.SetPropertyAsync("collide", "PointB", "SharedPower", 22.0);
 
             Assert.AreEqual(11.0, host.Control.GetProperty("collide", "PointA.SharedPower"));

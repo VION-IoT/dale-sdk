@@ -67,7 +67,7 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
         }
 
         /// <summary>
-        ///     Save a topology from the editor (RFC 0013): structurally + catalog + compatibility validated,
+        ///     Save a topology from the editor: structurally + catalog + compatibility validated,
         ///     path-confined to the topologies directory, disabled by <c>DALE_DEVHOST_READONLY_TOPOLOGIES=1</c>.
         /// </summary>
         [HttpPut("{id}")]
@@ -92,7 +92,7 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
         }
 
         /// <summary>
-        ///     Validate a draft topology (RFC 0013) without writing it: structural + catalog + compatibility +
+        ///     Validate a draft topology without writing it: structural + catalog + compatibility +
         ///     the running host's own checks (the wire-type identity rule), in-process against the live
         ///     catalog. The store owns that sequence so validate and save cannot drift apart. The draft may be
         ///     un-named (a brand-new draft has no saved id).
@@ -141,7 +141,7 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
         // DevTopologyFile.Parse / DevTopologyLoader.Build report every problem in one InvalidDataException
         // whose Message joins them with "; " (the topology subsystem's convention), so we split it back into
         // the {valid,errors} list. This couples the consumer to that exact separator.
-        // TODO(RFC 0013 follow-up): give the topology subsystem a structured exception carrying an
+        // TODO: give the topology subsystem a structured exception carrying an
         // IReadOnlyList<string> Errors (like ScenarioFormatException) and drop the split.
         private IActionResult InvalidTopology(InvalidDataException e)
         {

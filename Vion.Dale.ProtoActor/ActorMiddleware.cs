@@ -19,7 +19,7 @@ namespace Vion.Dale.ProtoActor
                            {
                                var actorName = context.Self?.Id ?? string.Empty;
 
-                               // Optional, opt-in tap (RFC 0003): only active when an observer is registered
+                               // Optional, opt-in tap: only active when an observer is registered
                                // (DevHost). Null in production → behaviour is unchanged.
                                if (observer != null && envelope.Message is not null)
                                {
@@ -33,7 +33,7 @@ namespace Vion.Dale.ProtoActor
                                    }
                                }
 
-                               // Optional, opt-in in-flight bracket (RFC 0003 — deterministic stepping): only
+                               // Optional, opt-in in-flight bracket for deterministic stepping: only
                                // active when a monitor is registered (DevHost). Entered BEFORE the handler runs
                                // so any follow-up the handler posts happens while in-flight is already > 0 — the
                                // invariant that makes the quiescence barrier exact. Null in production →

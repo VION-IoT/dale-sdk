@@ -91,11 +91,6 @@ namespace Vion.Dale.DevHost
 
         private static readonly TimeSpan TerminateTimeout = TimeSpan.FromSeconds(5);
 
-        // The wall-clock bound on the whole teardown sequence — see the note in StopAsync. Generous by
-        // design: it is a last-resort backstop against a block that never acknowledges on a stepped host, not
-        // a performance budget, and a slow CI box must never trip it.
-        private static readonly TimeSpan StopSequenceBackstop = TimeSpan.FromSeconds(60);
-
         // The slice termination keeps even when the sequence budget above is already spent.
         private static readonly TimeSpan TerminateFloor = TimeSpan.FromSeconds(5);
 
@@ -246,11 +241,12 @@ namespace Vion.Dale.DevHost
             // on the acks in milliseconds and never approaches it, so it only has to sit above the virtual
             // budget (15 s + 5 s + 5 s) by enough that a slow CI box cannot trip it.
             var sequenceStarted = Stopwatch.GetTimestamp();
+            var sequenceBackstop = Budgets.StopSequence;
 
             await AwaitTeardownStepAsync(_actorSystem.SendAndWaitForAcknowledgementAsync<StopLogicBlockRequest, StopLogicBlockResponse>(logicBlockActors,
                                              new StopLogicBlockRequest(),
                                              StopAcknowledgementTimeout),
-                                         RemainingBackstop(sequenceStarted),
+                                         RemainingBackstop(sequenceStarted, sequenceBackstop),
                                          "waiting for LogicBlocks to acknowledge stop");
 
             // D1: DevHost has no persistent data store — MockPersistentDataHandler debug-logs and drops
@@ -260,7 +256,7 @@ namespace Vion.Dale.DevHost
             await AwaitTeardownStepAsync(_actorSystem.SendAndWaitForAcknowledgementAsync<GetPersistentDataSnapshotRequest, GetPersistentDataSnapshotResponse>(logicBlockActors,
                                              new GetPersistentDataSnapshotRequest(),
                                              SnapshotTimeout),
-                                         RemainingBackstop(sequenceStarted),
+                                         RemainingBackstop(sequenceStarted, sequenceBackstop),
                                          "collecting persistent data snapshots");
 
             // D3: the runtime pauses here for a stop grace period — a bounded, best-effort window that gives a
@@ -280,15 +276,15 @@ namespace Vion.Dale.DevHost
             // returns in microseconds on the normal path because the mailboxes are already empty, waits
             // exactly as long as a queued publish needs otherwise, and is bounded by the same wall-clock
             // backstop as every other step so no clock mode can stall it.
-            await AwaitTeardownStepAsync(WaitForQuiescenceAsync(RemainingBackstop(sequenceStarted)),
-                                         RemainingBackstop(sequenceStarted),
+            await AwaitTeardownStepAsync(WaitForQuiescenceAsync(RemainingBackstop(sequenceStarted, sequenceBackstop)),
+                                         RemainingBackstop(sequenceStarted, sequenceBackstop),
                                          "draining the publishes issued during stop");
 
             // Termination gets whatever is left of the deadline but never less than TerminateFloor: it is the
             // step that actually releases the actors and their per-block DI scopes, so a deadline already
             // consumed by a block that would not acknowledge must not skip it entirely.
             await AwaitTeardownStepAsync(_actorSystem.StopActorsAndWaitAsync(logicBlockActors, TerminateTimeout),
-                                         Max(RemainingBackstop(sequenceStarted), TerminateFloor),
+                                         Max(RemainingBackstop(sequenceStarted, sequenceBackstop), TerminateFloor),
                                          "waiting for LogicBlock actors to terminate");
 
             _logger.LogInformation("LogicBlocks stopped");
@@ -296,9 +292,9 @@ namespace Vion.Dale.DevHost
 
         // What is left of the sequence-wide wall-clock budget. Never negative: an exhausted budget yields
         // TimeSpan.Zero, which cancels the next step immediately rather than reviving it with a fresh one.
-        private static TimeSpan RemainingBackstop(long sequenceStarted)
+        private static TimeSpan RemainingBackstop(long sequenceStarted, TimeSpan budget)
         {
-            var remaining = StopSequenceBackstop - Stopwatch.GetElapsedTime(sequenceStarted);
+            var remaining = budget - Stopwatch.GetElapsedTime(sequenceStarted);
             return remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
         }
 

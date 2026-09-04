@@ -21,7 +21,7 @@ the work they govern — **read the linked doc before doing the matching work, a
 | writing or modifying a test | [`docs/testing-conventions.md`](docs/testing-conventions.md) — MSTest inside / xunit.v3 outside, analyzer tests vs the real compilation, packed-artifact verification, determinism, and the authoring discipline (§9–17: behavior tables, prove-red, naming, Moq, async) |
 | changing specified behavior, running an area pass, or dispatching an implementing session | [`docs/spec-process.md`](docs/spec-process.md) — the spec corpus (`docs/specs/`), the change-doc lane (`docs/changes/`), area passes, the launcher recipe, the gates |
 | writing or reworking an inline comment | [`docs/comment-conventions.md`](docs/comment-conventions.md) — why not what, a comment is a claim, no history/tickets, name the concrete failure |
-| touching `Vion.Dale.DevHost*`, the scenario runner, or stepping | [`docs/devhost-conventions.md`](docs/devhost-conventions.md) — the demonstrate-don't-assert verify loop, clock modes, the four scenario-step definition sites, contract pairing and what it refuses; the SPA's own contract is [`Vion.Dale.DevHost.Web/CLAUDE.md`](Vion.Dale.DevHost.Web/CLAUDE.md) |
+| touching `Vion.Dale.DevHost*`, the scenario runner, or stepping | [`docs/specs/devhost-control.md`](docs/specs/devhost-control.md) — what the host guarantees in process, over HTTP and on stdout; and [`docs/devhost-conventions.md`](docs/devhost-conventions.md) — the demonstrate-don't-assert verify loop, clock modes, the four scenario-step definition sites; the SPA's own contract is [`Vion.Dale.DevHost.Web/CLAUDE.md`](Vion.Dale.DevHost.Web/CLAUDE.md) |
 | writing a simulator block or a provider face (the peer a bench needs on the far side of a contract) | [`docs/simulator-authoring.md`](docs/simulator-authoring.md) — provider faces, the ideal-I/O echo recipe, when to model the device instead |
 | renaming anything that reaches introspection (service, member, contract, interface, enum member, enum/struct type, PackageId) | [`docs/specs/introspection.md`](docs/specs/introspection.md) — the document, and which C# name keys each element; [`docs/identifier-stability.md`](docs/identifier-stability.md) is the short practical companion |
 | touching `Vion.Dale.Sdk.Modbus.*` or either Modbus example | the `modbus-smoke` skill ([`.claude/skills/modbus-smoke/`](.claude/skills/modbus-smoke/SKILL.md)) — the link policy over a real socket pair on `127.0.0.1:15020`; real clock, ~1 min |
@@ -34,8 +34,8 @@ structure. Do not invent new patterns; name the precedent you followed.
 
 **Design docs are change docs in [`docs/changes/`](docs/changes/)** per
 [`docs/spec-process.md`](docs/spec-process.md); the current-truth spec corpus is
-[`docs/specs/`](docs/specs/). `docs/rfcs/` is **frozen history** being absorbed by area passes — do
-not cite it in new work and do not add to it. `docs/superpowers/` is **gitignored** (`.gitignore:300`)
+[`docs/specs/`](docs/specs/). `docs/rfcs/` is **frozen history** being absorbed by area passes — six
+files remain, for `TKIT`, `MODB` and `CLI` — do not cite it in new work and do not add to it. `docs/superpowers/` is **gitignored** (`.gitignore:300`)
 per architecture decision 0011, so anything a planning skill writes there cannot be committed —
 `git check-ignore` is the tell; redirect anything meant to last to `docs/changes/`. Cross-repo specs
 live in `../architecture/specs/`, never here.

@@ -16,7 +16,8 @@ namespace Vion.Dale.DevHost.Test
     public class DevBlockCatalogShould
     {
         [TestMethod]
-        public void ReturnRegisteredBlockTypesFromCatalog()
+        [TestProperty("spec", "AC-CTRL-001.3")]
+        public void EnumerateEveryRegisteredBlockType()
         {
             // Arrange / Act — TestDependencyInjection registers CounterBlock, MultiPointBlock, TickerBlock, DualPointBlock.
             var catalog = DevHostBuilder.Create().WithDi<TestDependencyInjection>().GetBlockCatalog();
@@ -28,7 +29,8 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public void ReturnEveryRegisteredBlockFromCrossBlockDi()
+        [TestProperty("spec", "AC-CTRL-001.3")]
+        public void EnumerateBlocksFromEveryPluginAssembly()
         {
             // Arrange / Act
             var catalog = DevHostBuilder.Create().WithDi<CrossBlockDependencyInjection>().GetBlockCatalog();
@@ -39,7 +41,8 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public void ExcludeNonBlockServicesFromCatalog()
+        [TestProperty("spec", "AC-CTRL-001.3")]
+        public void ExcludeRegistrationsThatAreNotBlocks()
         {
             // Arrange / Act — CrossBlockDependencyInjection registers only blocks, as does TestDependencyInjection.
             // Neither may surface a non-block type.
@@ -53,7 +56,8 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public void DeduplicateCatalogWhenSameAssemblyAddedTwice()
+        [TestProperty("spec", "AC-CTRL-001.3")]
+        public void CountOnePluginAssemblyOnce()
         {
             // Arrange / Act
             var catalog = DevHostBuilder.Create().WithDi<CrossBlockDependencyInjection>().GetBlockCatalog();

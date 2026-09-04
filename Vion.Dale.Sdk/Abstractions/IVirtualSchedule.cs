@@ -9,13 +9,13 @@ namespace Vion.Dale.Sdk.Abstractions
     ///     through), plus the two internal ack/stop <c>Task.Delay(timeout, clock)</c> waits, register their
     ///     virtual due-time here and unregister it when they fire. When none is registered (the default,
     ///     including the production runtime), nothing extra happens. Used by DevHost's NEXT-EVENT stepping
-    ///     (RFC 0003) so the engine can advance the fake clock to each next scheduled event rather than by a
+    /// so the engine can advance the fake clock to each next scheduled event rather than by a
     ///     caller-supplied fixed interval.
     ///     <para>
     ///         <c>FakeTimeProvider</c> does not expose its next-due
     ///         time, so the engine cannot ask the clock "when is the next timer?" — it must own its own view of
     ///         the pending schedule at the choke point it already controls. This is the same opt-in pattern as
-    ///         <see cref="IActorMessageObserver" /> (RFC 0003's message tap), <see cref="IDelayedSendGate" />
+    ///         <see cref="IActorMessageObserver" /> (the development host's message tap), <see cref="IDelayedSendGate" />
     ///         (the pause gate), and <see cref="IActorActivityMonitor" /> (the in-flight monitor).
     ///     </para>
     ///     <para>Implementations must be thread-safe: registrations happen on actor threads.</para>

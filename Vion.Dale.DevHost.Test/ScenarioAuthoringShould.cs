@@ -12,7 +12,7 @@ using Vion.Dale.DevHost.Web;
 namespace Vion.Dale.DevHost.Test
 {
     /// <summary>
-    ///     The scenario-authoring round-trip (RFC 0014): the DevHost lets a client author a scenario, persist it
+    ///     The scenario-authoring round-trip: the DevHost lets a client author a scenario, persist it
     ///     (<c>PUT /api/scenarios/{id}</c>), read it back (<c>GET /api/scenarios/{id}</c>), then run it
     ///     (<c>POST /api/scenarios/{id}/apply</c> → poll <c>GET /api/scenarios/{id}/run</c>). This Tier-1 smoke pins
     ///     the full author → save → apply → succeeded path against the existing backend — a coverage/regression
@@ -24,9 +24,12 @@ namespace Vion.Dale.DevHost.Test
     public class ScenarioAuthoringShould
     {
         [TestMethod]
+        [TestProperty("spec", "AC-CTRL-017.2")]
+        [TestProperty("spec", "AC-CTRL-017.3")]
         [TestCategory("Smoke")]
-        public async Task Scenario_PutGetApply_RoundTrips()
+        public async Task RoundTripScenarioSaveReadAndApply()
         {
+            // Arrange
             var dir = NewScenarioDir();
             var port = FreePort();
 
@@ -63,6 +66,7 @@ namespace Vion.Dale.DevHost.Test
                        }
                        """;
 
+            // Act / Assert
             var saved = await client.PutAsync("/api/scenarios/authored", new StringContent(body, Encoding.UTF8, "application/json"));
             Assert.AreEqual(HttpStatusCode.OK, saved.StatusCode, await saved.Content.ReadAsStringAsync());
 

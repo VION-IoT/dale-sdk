@@ -26,9 +26,10 @@ namespace Vion.Dale.DevHost.Test
     public class RecycleOnRunShould
     {
         [TestMethod]
+        [TestProperty("spec", "AC-CTRL-017.7")]
         [TestProperty("spec", "AC-SCEN-012.10")]
         [TestCategory("Smoke")]
-        public async Task RecycleToCleanSlateThenRunOnReapply()
+        public async Task RecycleDirtySteppedGenerationThenRunOnReapply()
         {
             // Arrange / Act
             var dir = NewScenarioDir();
@@ -97,6 +98,7 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CTRL-017.7")]
         [TestCategory("Smoke")]
         public async Task RecycleBetweenTwoScenariosOnOneSteppedGeneration()
         {

@@ -5,7 +5,7 @@
         <Nullable>enable</Nullable>
         <IsPackable>false</IsPackable>
     </PropertyGroup>
-    <!-- The headless control surface (RFC 0003) lives in the core Vion.Dale.DevHost package — no web UI
+    <!-- The headless control surface lives in the core Vion.Dale.DevHost package — no web UI
          needed to drive a wired network from a test. Published package by default; `dotnet build
          -p:DaleLocalSource=true` swaps it for the local working-tree DevHost project ref. -->
     <ItemGroup Condition="'$(DaleLocalSource)' != 'true'">

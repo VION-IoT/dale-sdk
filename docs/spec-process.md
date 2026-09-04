@@ -26,7 +26,7 @@ instances (those live in git, the archived change docs, and the process journal)
 | Authoring contracts | instantiation & config-time gating | `GATE` | A |
 | Wire contracts | introspection JSON + identifier stability (golden files, packed-artifact rule) | `INTRO` | A |
 | Wire contracts | scenario & topology files + stepping semantics (scenario schema, committed scenarios) | `SCEN` | A |
-| Wire contracts | DevHost control API | `CTRL` | A |
+| Wire contracts | DevHost control API ([`specs/devhost-control.md`](specs/devhost-control.md)) | `CTRL` | A |
 | Wire contracts | plugin loading ABI (`[DaleSharedAssembly]`, ALC rules) | `PLUG` | A |
 | Wire contracts | CLI surface (help snapshot) | `CLI` | B |
 | Runtime semantics | block lifecycle (start/stop ordering, teardown delivery) | `LIFE` | A |
@@ -177,7 +177,7 @@ repo is never half-migrated. One pass, in order:
 
 The protocol is packaged as the `spec-pass` skill; each pass is one change doc + one band-sized
 PR. Order: plugin ABI (done — the pilot) → emission (done) → config gating (done) → introspection +
-identifiers (done) → scenario/stepping/pairing → remainder. `docs/rfcs/` is frozen meanwhile (do not
+identifiers (done) → scenario/stepping/pairing (done) → DevHost control (done) → remainder. `docs/rfcs/` is frozen meanwhile (do not
 cite it in new work) and disappears with the last pass.
 
 ## Dispatching a pass to a fresh session

@@ -24,7 +24,7 @@ namespace Vion.Dale.DevHost.Control
     /// <summary>
     ///     <see cref="IActorMessageObserver" /> implementation backing <see cref="IDevHostControl.RecordedMessages" />.
     ///     Records messages received by actors into a bounded buffer — the multi-block analogue of TestKit's
-    ///     <c>Verify*</c>, letting a test/agent assert which messages a block actually received (RFC 0003).
+    ///     <c>Verify*</c>, letting a test/agent assert which messages a block actually received.
     /// </summary>
     public sealed class MessageTap : IActorMessageObserver
     {

@@ -60,6 +60,7 @@ namespace Vion.Dale.DevHost.Test
             serviceCollection.AddTransient<SlowHandlerBlock>();
             serviceCollection.AddTransient<UnresolvableGateBlock>();
             serviceCollection.AddTransient<BoundedParameterBlock>();
+            serviceCollection.AddTransient<SlowStoppingBlock>();
         }
     }
 }

@@ -181,7 +181,7 @@ namespace Vion.Dale.DevHost.Control
         }
 
         /// <summary>
-        ///     Request a recycle into a different clock mode (RFC 0012 §4) — rides the same reset signal; the
+        ///     Request a recycle into a different clock mode — rides the same reset signal; the
         ///     supervisor (<c>DevHostWebRunner.RunAsync(Func&lt;string?, IDevHost&gt;, …)</c>) reads
         ///     <see cref="RequestedClockMode" /> and rebuilds the next generation stepped or real. Returns false
         ///     when no supervisor is attached.

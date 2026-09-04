@@ -127,9 +127,9 @@ namespace Vion.Dale.DevHost.Topologies
 
             // Interface mappings come from the file verbatim — the dev profile declares wiring
             // explicitly rather than re-running auto-discovery, so a file is reproducible by content.
-            // Each authored mapping is also checked against the frozen MatchingInterface relation (RFC 0013
-            // decision 1): every incompatible pair is recorded and the build then FAILS with all of them at
-            // once, so Save / validate / a topology switch reject the file. The mapping is added to the
+            // Each authored mapping is also checked against the frozen MatchingInterface relation: every
+            // incompatible pair is recorded and the build then FAILS with all of them at once, so Save /
+            // validate / a topology switch reject the file. The mapping is added to the
             // configuration above only so this single pass collects every problem — the configuration is
             // discarded on throw.
             var mappingErrors = new List<string>();
@@ -324,7 +324,7 @@ namespace Vion.Dale.DevHost.Topologies
 
     /// <summary>
     ///     Discovery and persistence over <c>{cwd}/topologies/*.topology.json</c> for the switching UI and the
-    ///     topology editor (RFC 0013) — rescan-on-read, like scenarios. Saving is path-confined to the directory
+    ///     topology editor — rescan-on-read, like scenarios. Saving is path-confined to the directory
     ///     and disabled by <c>DALE_DEVHOST_READONLY_TOPOLOGIES=1</c>.
     /// </summary>
     public sealed class DevTopologyStore
@@ -400,7 +400,7 @@ namespace Vion.Dale.DevHost.Topologies
         }
 
         /// <summary>
-        ///     Save a topology from the editor (RFC 0013): the body is structurally parsed, the embedded id must
+        ///     Save a topology from the editor: the body is structurally parsed, the embedded id must
         ///     match, the catalog + interface-compatibility check (<see cref="DevTopologyLoader.Build" />) must
         ///     pass, and the write is confined to the topologies directory. Throws
         ///     <see cref="InvalidOperationException" /> when saving is disabled via <see cref="ReadOnlyEnvVar" />,

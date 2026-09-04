@@ -10,18 +10,21 @@ using Vion.Dale.Sdk.Messages;
 namespace Vion.Dale.DevHost.Test
 {
     /// <summary>
-    ///     End-to-end smoke tests for the headless in-process control surface (RFC 0003): boot a real wired
+    ///     End-to-end smoke tests for the headless in-process control surface: boot a real wired
     ///     network with no web UI, drive it, and observe — the multi-block analogue of the TestKit loop.
     /// </summary>
     [TestClass]
     public class HeadlessControlShould
     {
         [TestMethod]
-        public async Task ListLogicBlocks_AfterStart_ReturnsTheConfiguredBlock()
+        [TestProperty("spec", "AC-CTRL-008.1")]
+        public async Task ListWiredBlocksWithIdentityAndServices()
         {
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
+            // Act / Assert
             var logicBlocks = host.Control.ListLogicBlocks();
 
             Assert.HasCount(1, logicBlocks);
@@ -30,8 +33,11 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task SetProperty_IsObservableViaWaitFor_AndReadBack()
+        [TestProperty("spec", "AC-CTRL-008.7")]
+        [TestProperty("spec", "AC-CTRL-010.1")]
+        public async Task PublishWrittenValueOnObservationStream()
         {
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
@@ -43,18 +49,21 @@ namespace Vion.Dale.DevHost.Test
             await host.Control.SetPropertyAsync("counter", "Counter", 42);
 
             var observed = await observe;
+            // Act / Assert
             Assert.IsNotNull(observed, "The Counter=42 change should have been observed.");
             Assert.AreEqual(42, Convert.ToInt32(observed));
             Assert.AreEqual(42, Convert.ToInt32(host.Control.GetProperty("counter", "Counter")));
         }
 
         [TestMethod]
-        public async Task SetPropertyAsync_AwaitsApply_SoReadAfterWriteReflectsTheNewValue()
+        [TestProperty("spec", "AC-CTRL-009.2")]
+        public async Task CompleteWriteOnBlockAcknowledgement()
         {
             // Regression (in-process set silent no-op): SetPropertyAsync must complete only after the value is
             // applied AND published, so an immediate GetProperty returns the new value instead of racing the
             // actor. Before the fix the set was fire-and-forget, so `await Set; Get` returned the stale value
             // for every type (int/enum/double/TimeSpan) — which read as a silent no-op.
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
@@ -62,6 +71,7 @@ namespace Vion.Dale.DevHost.Test
             // publishes: the ack is correlated with the write's own round trip (the block's response),
             // so a stale in-flight publish can never satisfy it — the regression a change-event-based
             // ack had (CI caught it: ack in 18 ms, read 0).
+            // Act / Assert
             await host.Control.SetPropertyAsync("counter", "Counter", 99);
             Assert.AreEqual(99, Convert.ToInt32(host.Control.GetProperty("counter", "Counter")), "int read-after-write must be immediate after the await.");
 
@@ -72,10 +82,13 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task SetPropertyAsync_AcksNoOpWritesPromptly()
+        [TestProperty("spec", "AC-CTRL-009.2")]
+        [TestProperty("spec", "AC-CTRL-010.6")]
+        public async Task AcknowledgeWriteThatChangedNothing()
         {
             // A write that doesn't change the value raises no change event ([Observable] dedup); the ack
             // must come from the write's own round-trip response instead of riding out the 5 s timeout.
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
@@ -85,26 +98,30 @@ namespace Vion.Dale.DevHost.Test
             await host.Control.SetPropertyAsync("counter", "Counter", 7);
             stopwatch.Stop();
 
+            // Act / Assert
             Assert.IsLessThan(2000, stopwatch.Elapsed.TotalMilliseconds, "a no-op write must ack on its response, not the timeout.");
             Assert.AreEqual(7, Convert.ToInt32(host.Control.GetProperty("counter", "Counter")));
         }
 
         [TestMethod]
-        public async Task ReadComputedMeasuringPoint_AfterSettingAProperty()
+        [TestProperty("spec", "AC-CTRL-008.6")]
+        public async Task ReportEveryKnownMemberOfBlock()
         {
             // Measuring points (read-only computed metrics) are first-class on the control surface: setting
             // Counter computes CounterDoubled, and the headless surface must expose it for asserting calculations.
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
             // CounterDoubled is a *downstream* change: SetPropertyAsync awaits the Counter property apply+publish,
             // but the measuring point is recomputed + published just after that, so an immediate GetProperty can
             // race it (and read 0). Register the observer before the set — WaitForAsync only sees future events —
-            // and wait for the measuring-point publish, the same pattern as SetProperty_IsObservableViaWaitFor_AndReadBack.
+            // and wait for the measuring-point publish, the same pattern as PublishWrittenValueOnObservationStream.
             var doubled = host.Control.WaitForAsync(e => e is ServiceMeasuringPointChanged { MeasuringPoint: "CounterDoubled" } mp && Convert.ToInt32(mp.Value) == 42 ? mp.Value :
                                                              null,
                                                     TimeSpan.FromSeconds(15));
 
+            // Act / Assert
             await host.Control.SetPropertyAsync("counter", "Counter", 21);
 
             Assert.IsNotNull(await doubled, "CounterDoubled = Counter * 2 should have been published after setting Counter.");
@@ -114,14 +131,17 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task GetConfiguration_AfterStart_DescribesTheWiredNetworkWithSchemas()
+        [TestProperty("spec", "AC-CTRL-019.1")]
+        public async Task ExportWiredNetworkWithItsBlocksAndProviders()
         {
             // The heavyweight introspection (what the web UI renders) is reachable in-process through the one
             // control abstraction — agents can read property/measuring-point schemas without standing up the
             // web stack. This is the capability the collapsed IDevHostStateProvider used to gate behind the web.
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
+            // Act / Assert
             var config = host.Control.GetConfiguration();
 
             Assert.IsNotNull(config);
@@ -134,14 +154,18 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task GetConfiguration_BeforeStart_SelfIntrospects()
+        [TestProperty("spec", "AC-CTRL-001.6")]
+        [TestProperty("spec", "AC-CTRL-008.2")]
+        public async Task IntrospectOnDemandBeforeHostStarts()
         {
             // Regression: the web server starts serving /api/configuration as part of host startup, and a
             // request can race in before DevHost.StartAsync has run introspection. BuildConfiguration must
             // self-initialize rather than throw KeyNotFoundException for the first block. Calling
             // GetConfiguration on a built-but-not-started host exercises exactly that defensive path.
+            // Arrange
             await using var host = BuildHost();
 
+            // Act / Assert
             var config = host.Control.GetConfiguration();
 
             Assert.IsNotNull(config);
@@ -149,11 +173,13 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task SetServicePropertyValueAsync_ByServiceId_DecodesAJsonValue()
+        [TestProperty("spec", "AC-CTRL-009.3")]
+        public async Task DecodeJsonWriteValueAgainstMemberSchema()
         {
             // The HTTP set path addresses a property by its service id and arrives as JSON. The unified control
             // must decode that JSON against the property schema into the precise CLR type — exercise that branch
             // directly with a JsonNode so the conversion is covered without the web stack in the loop.
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
@@ -165,18 +191,22 @@ namespace Vion.Dale.DevHost.Test
                                 .Single(s => s.ServiceProperties.Any(p => p.Identifier == "Counter"))
                                 .Id;
 
+            // Act / Assert
             await host.Control.SetServicePropertyValueAsync(serviceId, "Counter", JsonValue.Create(99));
 
             Assert.AreEqual(99, Convert.ToInt32(host.Control.GetProperty("counter", "Counter")), "Setting by service id with a JSON value should decode + apply.");
         }
 
         [TestMethod]
-        public async Task SetServicePropertyValueAsync_OnReadOnlyOrUnknownMember_ThrowsLoudly()
+        [TestProperty("spec", "AC-CTRL-009.1")]
+        [TestProperty("spec", "AC-CTRL-016.2")]
+        public async Task RefuseWriteToUnknownOrReadOnlyMember()
         {
             // Trip wire: writing a member the block can't apply — a read-only measuring point / [ServiceProperty]
             // with no public setter, or an unknown member name — used to look successful (the actor swallowed the
             // binder exception, the write ack timed out, and the HTTP path returned 200). The control surface must
             // reject such a write UP FRONT, loudly, on both the HTTP and scenario paths.
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
@@ -192,6 +222,7 @@ namespace Vion.Dale.DevHost.Test
             // machine-readable reason + the offending property (subclass of InvalidOperationException).
             var readOnly =
                 await Assert.ThrowsExactlyAsync<ServicePropertyWriteException>(() => host.Control.SetServicePropertyValueAsync(serviceId, "CounterDoubled", JsonValue.Create(7)));
+            // Act / Assert
             Assert.AreEqual(ServicePropertyWriteException.ReasonReadOnly, readOnly.Reason);
             Assert.AreEqual("CounterDoubled", readOnly.Property);
 
@@ -203,11 +234,13 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task SetTimeSpanProperty_AcceptsBothDotNetAndIsoDurationFormats()
+        [TestProperty("spec", "AC-CTRL-009.3")]
+        public async Task AcceptDurationWriteInEitherSpelling()
         {
             // TimeSpan maps to PrimitiveKind.Duration. The rich-types codec parses ISO-8601 ("PT5S") only,
             // but the web UI (and .NET habit) submit the .NET ToString form ("00:00:05"). The write path must
             // accept both, or every TimeSpan property is unwritable from the UI (FormatException → HTTP 500).
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
@@ -220,6 +253,7 @@ namespace Vion.Dale.DevHost.Test
                                 .Id;
 
             // .NET TimeSpan form — what the web UI submits today.
+            // Act / Assert
             await host.Control.SetServicePropertyValueAsync(serviceId, "ControlInterval", JsonValue.Create("00:00:05"));
             Assert.AreEqual(TimeSpan.FromSeconds(5), (TimeSpan)host.Control.GetProperty("counter", "ControlInterval")!, "The .NET TimeSpan form (00:00:05) must be accepted.");
 
@@ -229,22 +263,27 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task WaitFor_ReturnsNull_OnTimeout_WhenNothingMatches()
+        [TestProperty("spec", "AC-CTRL-010.3")]
+        public async Task ResolveWaitWithNoValueOnTimeout()
         {
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
+            // Act / Assert
             var observed = await host.Control.WaitForAsync(e => e is ServicePropertyChanged { Property: "DoesNotExist" } sp ? sp.Value : null, TimeSpan.FromMilliseconds(200));
 
             Assert.IsNull(observed);
         }
 
         [TestMethod]
-        public async Task RecordedMessages_CaptureWhatTheBlockReceived()
+        [TestProperty("spec", "AC-CTRL-008.9")]
+        public async Task ReportMessagesTapCapturedForOneBlock()
         {
             // The message tap (opt-in ProtoActor observer) records messages each actor receives. Driving a
             // property set sends a SetServicePropertyValueRequest to the block's actor; the tap must capture
             // it under that block. This is the mechanism behind "assert device-x received a DataRequest".
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
@@ -252,6 +291,7 @@ namespace Vion.Dale.DevHost.Test
             // SetServicePropertyValueRequest and the tap has recorded it.
             await host.Control.SetPropertyAsync("counter", "Counter", 7);
 
+            // Act / Assert
             var received = host.Control.RecordedMessages("counter");
 
             Assert.IsNotEmpty(received, "The tap should have recorded messages the counter block received.");
@@ -259,11 +299,15 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task RecentLogs_CaptureTheBootSequence()
+        [TestProperty("spec", "AC-CTRL-008.10")]
+        [TestProperty("spec", "AC-CTRL-008.11")]
+        public async Task ReportRecentLogLinesOldestFirst()
         {
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
+            // Act / Assert
             var logs = host.Control.RecentLogs();
 
             Assert.IsNotEmpty(logs, "The boot sequence should have produced captured log lines.");
@@ -272,7 +316,8 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task ReadServiceProviderOutput_ReportsNeverWrittenUntilSet_ThenCarriesTheLastMirroredValue()
+        [TestProperty("spec", "AC-CTRL-008.12")]
+        public async Task ReportServiceProviderOutputCapturedThisGeneration()
         {
             // The generic read half (the complement of DriveServiceProviderContractAsync): the stand-in records
             // what a block Sets and the control surface serves it via ReadServiceProviderOutput, so a scenario
@@ -280,6 +325,7 @@ namespace Vion.Dale.DevHost.Test
             // and CurrentLevel -> EchoOutput. Before any Set the read reports NeverWritten — which is a
             // different fact from a Set false / 0, and the distinction the read exists to make; after driving
             // the inputs and firing the timer it is Readable and carries the mirrored value.
+            // Arrange
             await using var host = BuildSteppedIoHost();
             await host.StartAsync();
 
@@ -291,6 +337,7 @@ namespace Vion.Dale.DevHost.Test
             // contract's ContractHandlerActorName annotation — so the drive carries no hardcoded HAL handler name.
             string HandlerFor(string contractId)
             {
+            // Act / Assert
                 return io.Contracts.Single(c => c.Identifier == contractId).Annotations[ServiceProviderContractAnnotations.ContractHandlerActorName].ToString()!;
             }
 
@@ -327,13 +374,15 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task PublishAllStates_ReplaysEveryValueContract_NotOnlyTheFourHalOnes()
+        [TestProperty("spec", "AC-CTRL-009.6")]
+        public async Task ReplayEveryStandInsStateOnDemand()
         {
             // A browser that connects after a value was written is primed by PublishAllStates (the SignalR
             // hub's OnConnectedAsync). It used to ask the four HAL handlers by name, so a consumer's own value
             // contract — or a provider face — stayed dark on that client until the next write. Now every
             // discovered stand-in is asked, which is what "no hardcoded contract support" means.
             // GridBlock.Demand is the non-HAL case: a third-party-shaped struct contract on GridDemandHandler.
+            // Arrange
             var config = DevConfigurationBuilder.Create().WithTopologyName("grid").AddLogicBlock<SmokeHost.LogicBlocks.GridBlock>("grid").Build();
             await using var host = DevHostBuilder.Create().WithDi<SmokeHost.DependencyInjection>().WithConfiguration(config).WithDeterministicStepping().Build();
             await host.StartAsync();
@@ -341,6 +390,7 @@ namespace Vion.Dale.DevHost.Test
             var grid = host.Control.GetConfiguration().LogicBlocks.Single(b => b.Name == "grid");
             var demand = grid.ContractMappings.Single(m => m.ContractIdentifier == "Demand");
             var handler = grid.Contracts.Single(c => c.Identifier == "Demand").Annotations[ServiceProviderContractAnnotations.ContractHandlerActorName].ToString()!;
+            // Act / Assert
             Assert.AreNotEqual("DigitalInputHandler", handler, "The fixture must be a NON-HAL contract for this test to mean anything.");
 
             // Drive, and await the stand-in's OWN event for it — so the value is recorded before the replay is
@@ -370,8 +420,11 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task RefuseADriveNamingAHandlerTheHostDidNotCreate()
+        [TestProperty("spec", "AC-CTRL-009.4")]
+        [TestProperty("spec", "AC-CTRL-016.3")]
+        public async Task RefuseDriveNamingHandlerHostDidNotCreate()
         {
+            // Arrange
             await using var host = BuildSteppedIoHost();
             await host.StartAsync();
 
@@ -386,13 +439,17 @@ namespace Vion.Dale.DevHost.Test
                                                                                                     enable.MappedContractIdentifier,
                                                                                                     JsonSerializer.SerializeToElement(true)));
 
+            // Act / Assert
             Assert.AreEqual(ServiceProviderDriveException.ReasonUnknownHandler, refusal.Reason);
             StringAssert.Contains(refusal.Message, "NoSuchHandler");
         }
 
         [TestMethod]
-        public async Task RefuseADriveNamingAContractTheHostDoesNotCarry()
+        [TestProperty("spec", "AC-CTRL-009.4")]
+        [TestProperty("spec", "AC-CTRL-016.3")]
+        public async Task RefuseDriveNamingContractHostDoesNotCarry()
         {
+            // Arrange
             await using var host = BuildSteppedIoHost();
             await host.StartAsync();
 
@@ -408,30 +465,80 @@ namespace Vion.Dale.DevHost.Test
                                                                                                     "NoSuchContract",
                                                                                                     JsonSerializer.SerializeToElement(true)));
 
+            // Act / Assert
             Assert.AreEqual(ServiceProviderDriveException.ReasonUnknownContract, refusal.Reason);
             StringAssert.Contains(refusal.Message, "NoSuchContract");
         }
 
         [TestMethod]
-        public async Task RefuseAWaitWhoseTimeoutIsNegative()
+        [TestProperty("spec", "AC-CTRL-010.4")]
+        public async Task RefuseWaitWhoseTimeoutRunsBackwards()
         {
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
             var refusal = await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(() => host.Control.WaitForAsync(_ => "x", TimeSpan.FromSeconds(-1)));
 
+            // Act / Assert
             Assert.AreEqual("timeout", refusal.ParamName);
         }
 
         [TestMethod]
-        public async Task ObserveNothingForAWaitWhoseTimeoutIsZero()
+        [TestProperty("spec", "AC-CTRL-010.4")]
+        public async Task ObserveNothingForWaitWhoseTimeoutHasNoSpan()
         {
+            // Arrange
             await using var host = BuildHost();
             await host.StartAsync();
 
+            // Act / Assert
             var observed = await host.Control.WaitForAsync(_ => "x", TimeSpan.Zero);
 
             Assert.IsNull(observed);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CTRL-010.2")]
+        public async Task DetachSubscriberOnDisposalAndSurviveOneThatThrows()
+        {
+            // Arrange
+            await using var host = BuildHost();
+            await host.StartAsync();
+            var faultyCalls = 0;
+            var goodCalls = 0;
+            var detachedCalls = 0;
+            using var faulty = host.Control.Subscribe(_ =>
+                                                      {
+                                                          faultyCalls++;
+                                                          throw new InvalidOperationException("a subscriber that throws");
+                                                      });
+            using var good = host.Control.Subscribe(_ => goodCalls++);
+            var detached = host.Control.Subscribe(_ => detachedCalls++);
+            detached.Dispose();
+            detached.Dispose();
+
+            // Act
+            await host.Control.SetPropertyAsync("counter", "Counter", 11);
+
+            // Assert — the fan-out reached the good sink past the throwing one, and never the detached one.
+            Assert.IsGreaterThan(0, faultyCalls);
+            Assert.IsGreaterThan(0, goodCalls, "one faulty subscriber must not break the fan-out to the others");
+            Assert.AreEqual(0, detachedCalls, "a disposed token detaches, and disposing it twice is harmless");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CTRL-010.5")]
+        public async Task RefuseNullSinkOrSelector()
+        {
+            // Arrange
+            await using var host = BuildHost();
+            await host.StartAsync();
+
+            // Act / Assert — the alternative is a null reference raised from an actor thread at the first event.
+            Assert.ThrowsExactly<ArgumentNullException>(() => host.Control.Subscribe(null!));
+            Assert.ThrowsExactly<ArgumentNullException>(() => host.Control.SubscribeLogs(null!));
+            await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => host.Control.WaitForAsync<string>(null!, TimeSpan.FromSeconds(1)));
         }
 
         private static DevConfiguration Config()

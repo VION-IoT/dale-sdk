@@ -16,7 +16,7 @@ using Vion.Dale.DevHost.Web;
 namespace Vion.Dale.DevHost.Test
 {
     /// <summary>
-    ///     Integration smoke tests for the web surface with the control endpoints (RFC 0003). Boots a real
+    ///     Integration smoke tests for the web surface with the control endpoints. Boots a real
     ///     DevHost with the web UI on a free port and exercises both the NEW control routes and the EXISTING
     ///     <c>/api/configuration</c> route — the latter is the first automated regression guard for the web path,
     ///     confirming the WebHostService ctor change and added endpoints didn't break the existing web UI.
@@ -25,8 +25,10 @@ namespace Vion.Dale.DevHost.Test
     public class WebControlEndpointsShould
     {
         [TestMethod]
-        public async Task ServeExistingConfigurationRoute_AndNewControlRoutes()
+        [TestProperty("spec", "AC-CTRL-015.1")]
+        public async Task ServeConfigurationBlockListAndControlRoutes()
         {
+            // Arrange
             var port = FreePort();
             await using var host = BuildWebHost(port);
             await host.StartAsync();
@@ -34,6 +36,7 @@ namespace Vion.Dale.DevHost.Test
             using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
 
             // Existing route — regression guard for the web path.
+            // Act / Assert
             var configResponse = await client.GetAsync("/api/configuration");
             Assert.AreEqual(HttpStatusCode.OK, configResponse.StatusCode, "Existing /api/configuration must still work.");
             var configBody = await configResponse.Content.ReadAsStringAsync();
@@ -59,10 +62,13 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task ControlStatus_ReportsSteppedMode_WhenBootedStepped()
+        [TestProperty("spec", "AC-CTRL-001.5")]
+        [TestProperty("spec", "AC-CTRL-015.3")]
+        public async Task ReportSteppedModeOnControlStatus()
         {
             // Part 3: a stepped-booted web host advertises it on the control status, so the Player can show
             // the "stepped / deterministic" badge.
+            // Arrange
             var port = FreePort();
             var config = DevConfigurationBuilder.Create().WithTopologyName("counter-topology").AddLogicBlock<CounterBlock>("counter").Build();
             await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithWebUi(port, true).Build();
@@ -70,14 +76,18 @@ namespace Vion.Dale.DevHost.Test
 
             using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
 
+            // Act / Assert
             var body = await client.GetStringAsync("/api/control/status");
             StringAssert.Contains(body, "\"stepped\":true", $"GET /api/control/status must report deterministic stepping mode. Body: {body}");
         }
 
         [TestMethod]
-        public async Task ManualStep_AdvancesToTheNextEvent_OnASteppedHost()
+        [TestProperty("spec", "AC-CTRL-012.1")]
+        [TestProperty("spec", "AC-CTRL-015.4")]
+        public async Task AdvanceToNextScheduledEventOnStepRoute()
         {
             // Part 4: POST /api/control/step advances the virtual clock to the next scheduled event.
+            // Arrange
             var port = FreePort();
             var config = DevConfigurationBuilder.Create().WithTopologyName("stepping-topology").AddLogicBlock<TickerBlock>("Ticker").Build();
             await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithWebUi(port, true).Build();
@@ -85,6 +95,7 @@ namespace Vion.Dale.DevHost.Test
             using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
 
             var before = await VirtualTime(client);
+            // Act / Assert
             var resp = await client.PostAsync("/api/control/step", null);
             Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
             var after = await VirtualTime(client);
@@ -92,9 +103,12 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task ManualAdvance_MovesTheVirtualClockBySeconds_AndFiresTimers()
+        [TestProperty("spec", "AC-CTRL-008.8")]
+        [TestProperty("spec", "AC-CTRL-015.4")]
+        public async Task AdvanceVirtualClockBySecondsOnAdvanceRoute()
         {
             // Part 4: POST /api/control/advance?seconds=N jumps the virtual clock, firing every event in between.
+            // Arrange
             var port = FreePort();
             var config = DevConfigurationBuilder.Create().WithTopologyName("stepping-topology").AddLogicBlock<TickerBlock>("Ticker").Build();
             await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithWebUi(port, true).Build();
@@ -102,6 +116,7 @@ namespace Vion.Dale.DevHost.Test
             using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
 
             var before = await VirtualTime(client);
+            // Act / Assert
             var resp = await client.PostAsync("/api/control/advance?seconds=3", null);
             Assert.AreEqual(HttpStatusCode.OK, resp.StatusCode);
             var after = await VirtualTime(client);
@@ -113,14 +128,17 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task ManualStepping_OnNonSteppedHost_Returns409()
+        [TestProperty("spec", "AC-CTRL-016.4")]
+        public async Task RefuseManualSteppingOnRealClockHost()
         {
             // Stepping a real-clock host is meaningless — the endpoints reject it.
+            // Arrange
             var port = FreePort();
             await using var host = BuildWebHost(port);
             await host.StartAsync();
             using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
 
+            // Act / Assert
             var step = await client.PostAsync("/api/control/step", null);
             Assert.AreEqual(HttpStatusCode.Conflict, step.StatusCode, "Manual stepping requires a stepped host.");
             var advance = await client.PostAsync("/api/control/advance?seconds=1", null);
@@ -128,11 +146,14 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task PostSetProperty_ThroughUnifiedControl_IsAppliedAndReadBack()
+        [TestProperty("spec", "AC-CTRL-008.3")]
+        [TestProperty("spec", "AC-CTRL-015.1")]
+        public async Task ApplyWriteOverHttpAndReadItBack()
         {
             // Full HTTP write loop on the one abstraction: discover the service id, POST a JSON value to the
             // existing GUID-keyed set route, then read it back on the control state route. Exercises the
             // web → IDevHostControl → JSON-decode → actor → value-cache path end-to-end.
+            // Arrange
             var port = FreePort();
             await using var host = BuildWebHost(port);
             await host.StartAsync();
@@ -142,6 +163,7 @@ namespace Vion.Dale.DevHost.Test
             // The serviceId carrying Counter — CounterBlock has a single service, so serviceIds[0] holds it.
             var blocksJson = await client.GetStringAsync("/api/logicblocks");
             using var blocksDoc = JsonDocument.Parse(blocksJson);
+            // Act / Assert
             var serviceId = blocksDoc.RootElement[0].GetProperty("serviceIds")[0].GetString();
             Assert.IsFalse(string.IsNullOrEmpty(serviceId), "The counter block should expose a service id.");
 
@@ -171,11 +193,14 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task PostSetProperty_OnReadOnlyOrUnknownMember_Returns400()
+        [TestProperty("spec", "AC-CTRL-016.1")]
+        [TestProperty("spec", "AC-CTRL-016.2")]
+        public async Task RefuseWriteOverHttpNamingReasonAndMember()
         {
             // Trip wire: a write the block can't apply (read-only measuring point / unknown member) used to
             // return 200 after silently burning the 5 s ack timeout. It must now fail loudly with a 4xx so an
             // agent or developer driving the HTTP path is not misled into thinking the write took effect.
+            // Arrange
             var port = FreePort();
             await using var host = BuildWebHost(port);
             await host.StartAsync();
@@ -188,6 +213,7 @@ namespace Vion.Dale.DevHost.Test
 
             // CounterDoubled is a read-only [ServiceMeasuringPoint]. The 400 body is structured (reason +
             // property), so tooling/agents can act without string-matching the message.
+            // Act / Assert
             var readOnly = await client.PostAsJsonAsync($"/api/dale/property/{serviceId}/CounterDoubled", new { value = 7 });
             Assert.AreEqual(HttpStatusCode.BadRequest, readOnly.StatusCode, "Writing a read-only member must fail loudly (400), not silently succeed (200).");
             var readOnlyBody = JsonDocument.Parse(await readOnly.Content.ReadAsStringAsync()).RootElement;
@@ -202,13 +228,15 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task PostSetProperty_OnNestedServiceProperty_DecodesJsonAndApplies()
+        [TestProperty("spec", "AC-CTRL-009.3")]
+        public async Task DecodeWriteToNestedComponentsMember()
         {
             // Regression for the "multi charging point has no grid effect" bug: properties living on a
             // service-bound MEMBER object (not the block type) must still decode the HTTP JSON value into
             // the CLR type. Before the fix, the undecoded JsonElement blew up in the service binder, the
             // actor swallowed the exception, and the request returned 200 after burning the full 5 s ack
             // timeout — so this test also asserts the write acks fast.
+            // Arrange
             var port = FreePort();
             var config = DevConfigurationBuilder.Create().AddLogicBlock<MultiPointBlock>("multi").Build();
             await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithWebUi(port).Build();
@@ -228,6 +256,7 @@ namespace Vion.Dale.DevHost.Test
                 }
             }
 
+            // Act / Assert
             Assert.IsNotNull(nestedServiceId, "The interface-bound member should surface as its own service.");
 
             var stopwatch = Stopwatch.StartNew();
@@ -259,12 +288,15 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task StateRoute_PrefersRootServiceForABareName_AndResolvesADottedComponentPath()
+        [TestProperty("spec", "AC-CTRL-008.4")]
+        [TestProperty("spec", "AC-CTRL-008.5")]
+        public async Task ResolveBareAndDottedNamesOnStateRoute()
         {
             // DF-47 over HTTP: on a block whose root service and its nested components share a member name,
             // GET /api/state/{block}/{prop} must return the ROOT value for the bare name, and must route a
             // dotted "{component}.{member}" path to that component. The reported symptom was a 0 / null read
             // here on a working device.
+            // Arrange
             var port = FreePort();
             var config = DevConfigurationBuilder.Create().AddLogicBlock<RootNestedCollisionBlock>("collide").Build();
             await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithWebUi(port).Build();
@@ -274,6 +306,7 @@ namespace Vion.Dale.DevHost.Test
 
             // Drive PointA to a distinctive value via its own (nested) service id.
             var pointAServiceId = await NestedServiceId(client, "PointA");
+            // Act / Assert
             var setResponse = await client.PostAsJsonAsync($"/api/dale/property/{pointAServiceId}/SharedPower", new { value = 11.0 });
             Assert.AreEqual(HttpStatusCode.OK, setResponse.StatusCode);
 
@@ -287,12 +320,14 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task TimeSpanProperty_WritesDotNetForm_AndReadsBackAsIso8601()
+        [TestProperty("spec", "AC-CTRL-014.5")]
+        public async Task EmitDurationsAndEnumsInTheirWireForm()
         {
             // Regression for the "cannot write any TimeSpan property" bug. The UI submits the .NET TimeSpan
             // form ("00:00:05") — that must succeed (write tolerance), and the value must read back as the
             // ISO-8601 duration the codec/MQTT contract uses ("PT5S"), not the .NET form. Read and write both
             // match the codec.
+            // Arrange
             var port = FreePort();
             await using var host = BuildWebHost(port);
             await host.StartAsync();
@@ -304,6 +339,7 @@ namespace Vion.Dale.DevHost.Test
             var serviceId = blocksDoc.RootElement[0].GetProperty("serviceIds")[0].GetString();
 
             // The .NET TimeSpan form the web UI submits — must not 500.
+            // Act / Assert
             var setResponse = await client.PostAsJsonAsync($"/api/dale/property/{serviceId}/ControlInterval", new { value = "00:00:05" });
             Assert.AreEqual(HttpStatusCode.OK, setResponse.StatusCode, "Posting the .NET TimeSpan form must succeed (write tolerance).");
 
@@ -330,12 +366,16 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task SignalRHub_OnConnect_PrimesTheClientWithCurrentState()
+        [TestProperty("spec", "AC-CTRL-014.6")]
+        [TestProperty("spec", "AC-CTRL-018.1")]
+        [TestProperty("spec", "AC-CTRL-018.2")]
+        public async Task PrimeConnectingClientWithCurrentState()
         {
             // The live web UI relies on the SignalR hub priming a freshly connected client. Collapsing the state
             // provider moved that prime onto IDevHostControl (hub.OnConnectedAsync -> control.PublishAllStates ->
             // broadcaster -> client). HTTP route tests can't reach this; a real SignalR client can. This guards
             // the exact path a browser exercises on (re)connect.
+            // Arrange
             var port = FreePort();
             await using var host = BuildWebHost(port);
             await host.StartAsync();
@@ -359,6 +399,7 @@ namespace Vion.Dale.DevHost.Test
                 await connection.StartAsync();
 
                 var completed = await Task.WhenAny(primed.Task, Task.Delay(TimeSpan.FromSeconds(15)));
+            // Act / Assert
                 Assert.AreEqual(primed.Task, completed, "A connected SignalR client should be primed with state on connect.");
                 Assert.AreEqual("Counter", await primed.Task);
             }
@@ -369,11 +410,13 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task ServeVendoredAssets_AndNeverReferenceACdn()
+        [TestProperty("spec", "AC-CTRL-014.4")]
+        public async Task ServeVendoredAssetsFromEmbeddedResources()
         {
             // R0 self-containment: the UI must work offline. The runtime JS dependencies are vendored as
             // embedded static assets (signalr + dayjs and its plugins), and index.html must not load
             // anything from a CDN — the regression this test locks out is reintroducing a CDN script tag.
+            // Arrange
             var port = FreePort();
             await using var host = BuildWebHost(port);
             await host.StartAsync();
@@ -401,6 +444,7 @@ namespace Vion.Dale.DevHost.Test
                                       "/THIRD-PARTY-NOTICES.txt",
                                   })
             {
+            // Act / Assert
                 var response = await client.GetAsync(asset);
                 Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, $"Vendored asset {asset} must be served from the embedded wwwroot.");
             }
@@ -411,7 +455,8 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task ServeSpaAssets_WithNoCacheHeader_SoAPackageUpgradeIsNeverServedStale()
+        [TestProperty("spec", "AC-CTRL-014.4")]
+        public async Task ForceRevalidationOnEverySpaAsset()
         {
             // The SPA ships as embedded static files under stable, non-content-hashed URLs (/components.js,
             // /index.html, …) — the no-build discipline rules out content-hashed filenames. Without a
@@ -420,6 +465,7 @@ namespace Vion.Dale.DevHost.Test
             // "I upgraded but ＋new is missing" report). Serving with `no-cache` forces revalidation — still
             // a cheap 304 via the ETag — so an upgraded package's UI is picked up on the next load. This
             // covers the static-file path (/components.js, /) and the SPA fallback (a client-route path).
+            // Arrange
             var port = FreePort();
             await using var host = BuildWebHost(port);
             await host.StartAsync();
@@ -428,6 +474,7 @@ namespace Vion.Dale.DevHost.Test
 
             foreach (var asset in new[] { "/components.js", "/", "/some-client-route" })
             {
+            // Act / Assert
                 var response = await client.GetAsync(asset);
                 Assert.AreEqual(HttpStatusCode.OK, response.StatusCode, $"{asset} must be served (static asset or SPA fallback).");
                 Assert.IsNotNull(response.Headers.CacheControl,
@@ -438,8 +485,11 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task DevHostWebRunner_InHeadlessMode_PrintsReadinessAndDoesNotBlock()
+        [TestProperty("spec", "AC-CTRL-006.2")]
+        [TestProperty("spec", "AC-CTRL-006.9")]
+        public async Task PrintReadinessLineInHeadlessMode()
         {
+            // Arrange
             var port = FreePort();
             var originalOut = Console.Out;
             var captured = new StringWriter();
@@ -459,17 +509,23 @@ namespace Vion.Dale.DevHost.Test
                 Environment.SetEnvironmentVariable(DevHostWebRunner.NoBrowserEnvVar, null);
             }
 
+            // Act / Assert
             StringAssert.Contains(captured.ToString(), "\"ready\":true", "Headless mode should print a JSON readiness line.");
             StringAssert.Contains(captured.ToString(), $"\"port\":{port}", "Readiness line should include the port.");
         }
 
         [TestMethod]
-        public async Task DevHostWebRunner_ExportThroughSupervisedFactory_StopsExactlyOnce_AndPrintsAValidJsonReceipt()
+        [TestProperty("spec", "AC-CTRL-006.4")]
+        [TestProperty("spec", "AC-CTRL-006.6")]
+        [TestProperty("spec", "AC-CTRL-006.7")]
+        [TestProperty("spec", "AC-CTRL-019.4")]
+        public async Task ExportThenExitStoppingHostExactlyOnce()
         {
             // DF-08: the topology-aware supervised factory holds the host in `await using`; its export branch
             // must NOT also call StopAsync explicitly, or DisposeAsync stops an already-disposed host and
             // throws ObjectDisposedException from WebHostService.StopAsync. DF-13: the export receipt must be
             // valid JSON whose path round-trips (no hand-rolled backslash escaping).
+            // Arrange
             var port = FreePort();
             var exportPath = Path.Combine(Path.GetTempPath(), $"dale-export-{Guid.NewGuid():N}.json");
             CountingHost? built = null;
@@ -494,6 +550,7 @@ namespace Vion.Dale.DevHost.Test
                 }
             }
 
+            // Act / Assert
             Assert.IsNotNull(built);
             Assert.AreEqual(0, built!.ExplicitStops, "Export relies on `await using` dispose — RunAsync must not call StopAsync explicitly on the export branch (DF-08).");
             Assert.AreEqual(1, built.Disposes, "The host must be disposed exactly once on the export path.");
@@ -506,7 +563,8 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task ContractsDriveRoute_DrivesAMockedInput_ObservableInBlockState()
+        [TestProperty("spec", "AC-CTRL-009.5")]
+        public async Task DriveContractOverHttpObservableInBlockState()
         {
             // POST /api/contracts/drive is the one manual-drive endpoint behind the SPA's HAL
             // controls — generic over every value contract, with no type-specific routes. Drive the SmokeHost
@@ -514,6 +572,7 @@ namespace Vion.Dale.DevHost.Test
             // configuration's contractHandlerActorName annotation), advance the stepped clock to quiesce, then
             // read the block's driven state back over HTTP. The mocked-output read-back is covered headlessly by
             // ReadServiceProviderOutput.
+            // Arrange
             var port = FreePort();
             var config = DevConfigurationBuilder.Create().WithTopologyName("io").AddLogicBlock<SmokeHost.LogicBlocks.IoBlock>("io").Build();
             await using var host = DevHostBuilder.Create().WithDi<SmokeHost.DependencyInjection>().WithConfiguration(config).WithWebUi(port, true).Build();
@@ -527,6 +586,7 @@ namespace Vion.Dale.DevHost.Test
             var levelHandler = await HandlerName(client, "LevelInput");
 
             // Drive the inputs over the generic endpoint, then advance one virtual second to quiesce.
+            // Act / Assert
             Assert.AreEqual(HttpStatusCode.OK,
                             (await client.PostAsJsonAsync($"/api/contracts/drive/{enableHandler}/{enable.Sp}/{enable.Svc}/{enable.Contract}", new { value = true })).StatusCode);
             Assert.AreEqual(HttpStatusCode.OK,
@@ -541,8 +601,11 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task RefuseADriveThatWouldReachNothing()
+        [TestProperty("spec", "AC-CTRL-016.1")]
+        [TestProperty("spec", "AC-CTRL-016.3")]
+        public async Task RefuseDriveOverHttpThatWouldReachNothing()
         {
+            // Arrange
             var port = FreePort();
             var config = DevConfigurationBuilder.Create().WithTopologyName("io").AddLogicBlock<SmokeHost.LogicBlocks.IoBlock>("io").Build();
             await using var host = DevHostBuilder.Create().WithDi<SmokeHost.DependencyInjection>().WithConfiguration(config).WithWebUi(port, true).Build();
@@ -552,6 +615,7 @@ namespace Vion.Dale.DevHost.Test
             var handler = await HandlerName(client, "EnableInput");
 
             var unknownHandler = await client.PostAsJsonAsync($"/api/contracts/drive/NoSuchHandler/{enable.Sp}/{enable.Svc}/{enable.Contract}", new { value = true });
+            // Act / Assert
             var unknownContract = await client.PostAsJsonAsync($"/api/contracts/drive/{handler}/{enable.Sp}/{enable.Svc}/NoSuchContract", new { value = true });
 
             Assert.AreEqual(HttpStatusCode.BadRequest, unknownHandler.StatusCode);
@@ -561,30 +625,36 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CTRL-015.2")]
         [DataRow("/api/state/NoSuchBlock", DisplayName = "an unknown block")]
         [DataRow("/api/state/NoSuchBlock/Counter", DisplayName = "a member of an unknown block")]
         [DataRow("/api/state/counter/NoSuchMember", DisplayName = "an unknown member of a known block")]
         [DataRow("/api/state/counter/NoSuchService.Counter", DisplayName = "an unknown service of a known block")]
-        public async Task AnswerNotFoundForAStateReadTheHostCannotResolve(string route)
+        public async Task AnswerNotFoundForStateReadHostCannotResolve(string route)
         {
+            // Arrange
             var port = FreePort();
             await using var host = BuildWebHost(port);
             await host.StartAsync();
             using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
 
+            // Act / Assert
             var response = await client.GetAsync(route);
 
             Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode);
         }
 
         [TestMethod]
-        public async Task AnswerNotFoundForAnApiRouteItDoesNotServe()
+        [TestProperty("spec", "AC-CTRL-014.3")]
+        public async Task AnswerNotFoundForRouteItDoesNotServe()
         {
+            // Arrange
             var port = FreePort();
             await using var host = BuildWebHost(port);
             await host.StartAsync();
             using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
 
+            // Act / Assert
             var response = await client.GetAsync("/api/control/statuss");
 
             Assert.AreEqual(HttpStatusCode.NotFound, response.StatusCode);
@@ -592,6 +662,7 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CTRL-015.5")]
         [DataRow("NaN")]
         [DataRow("Infinity")]
         [DataRow("-Infinity")]
@@ -599,21 +670,26 @@ namespace Vion.Dale.DevHost.Test
         [DataRow("4294968")]
         [DataRow("0")]
         [DataRow("-1")]
-        public async Task RefuseAManualAdvanceThatIsNotADurationAClockCanWait(string seconds)
+        public async Task RefuseManualAdvanceBeyondWhatClockCanWait(string seconds)
         {
+            // Arrange
             var port = FreePort();
             await using var host = BuildSteppedWebHost(port);
             await host.StartAsync();
             using var client = new HttpClient { BaseAddress = new Uri($"http://localhost:{port}"), Timeout = TimeSpan.FromSeconds(30) };
 
+            // Act / Assert
             var response = await client.PostAsync($"/api/control/advance?seconds={seconds}", null);
 
             Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
         [TestMethod]
-        public async Task CarryAMachineReadableReasonOnTheTopologySwitchConflict()
+        [TestProperty("spec", "AC-CTRL-016.1")]
+        [TestProperty("spec", "AC-CTRL-016.5")]
+        public async Task CarryReasonOnTopologySwitchConflict()
         {
+            // Arrange
             var directory = Path.Combine(Path.GetTempPath(), "dale-topologies-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(directory);
             File.WriteAllText(Path.Combine(directory, "other.topology.json"),
@@ -631,13 +707,17 @@ namespace Vion.Dale.DevHost.Test
             var response = await client.PostAsync("/api/topologies/other/switch", null);
             var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
 
+            // Act / Assert
             Assert.AreEqual(HttpStatusCode.Conflict, response.StatusCode, body.GetRawText());
             Assert.AreEqual("notSupervised", body.GetProperty("reason").GetString());
         }
 
         [TestMethod]
-        public async Task PublishTheBlockFailuresOnTheControlStatusRoute()
+        [TestProperty("spec", "AC-CTRL-003.3")]
+        [TestProperty("spec", "AC-CTRL-015.3")]
+        public async Task PublishBlockFailuresOnControlStatusRoute()
         {
+            // Arrange
             var port = FreePort();
             var config = DevConfigurationBuilder.Create().WithTopologyName("broken").AddLogicBlock<FailingConfigureBlock>("bad").Build();
             await using var host = DevHostBuilder.Create().WithDi<TestDependencyInjection>().WithConfiguration(config).WithWebUi(port).Build();
@@ -646,6 +726,7 @@ namespace Vion.Dale.DevHost.Test
 
             var status = JsonDocument.Parse(await client.GetStringAsync("/api/control/status")).RootElement;
 
+            // Act / Assert
             var failures = status.GetProperty("blockFailures").EnumerateArray().ToList();
             Assert.IsNotEmpty(failures, "the status route is where an agent learns the host started over a block that did not");
             Assert.AreEqual("bad", failures[0].GetProperty("logicBlock").GetString());

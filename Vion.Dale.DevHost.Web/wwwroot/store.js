@@ -56,13 +56,13 @@ export const store = reactive({
     view: 'explorer',
     // Topology files: the discovery payload for the switcher in the topology panel.
     topologies: null,
-    // Topology authoring (RFC 0013): logic-block definitions (the palette + wiring source of truth) and
+    // Topology authoring: logic-block definitions (the palette + wiring source of truth) and
     // the in-progress topology draft the editor mutates. Draft is null when no editor is open.
     definitions: [],
     topologyDraft: null,
     topologyDraftDirty: false,
     topologyDraftErrors: [],
-    // Topology panel screen state (RFC 0013): a scenario-style master→detail→editor router. One of
+    // Topology panel screen state: a scenario-style master→detail→editor router. One of
     // 'list' (the file picker), 'detail' (a read-only render of a selected file), or 'editor' (the
     // draft editor). Lives in the STORE (not a local ref) so an external requester (⌘K palette /
     // Shift+T) that navigates BEFORE the panel mounts still lands on the right screen — the panel reads
@@ -92,7 +92,7 @@ export const store = reactive({
     // Human judgment ticks, keyed `${runId}/${index}` -> 'ok' | 'notOk'. Local to this browser;
     // they enter the copied verification report, not the server.
     judgeTicks: {},
-    // Scenario authoring (RFC 0014): the in-progress draft + the Verify editor screen flag. scenarioScreen
+    // Scenario authoring: the in-progress draft + the Verify editor screen flag. scenarioScreen
     // 'detail' (read-only run view) | 'editor' (the form editor); null draft when no editor is open.
     scenarioScreen: 'detail',
     scenarioDraft: null,
@@ -681,7 +681,7 @@ export async function saveTopologyDraft() {
     } catch (err) { store.topologyDraftErrors = [String(err.message ?? err)]; return false; }
 }
 
-// ── Topology panel navigation (RFC 0013): the list → detail → editor master-detail flow ──────────
+// ── Topology panel navigation: the list → detail → editor master-detail flow ──────────
 // All screen transitions + their I/O live here so the components are pure renders of store state.
 
 export async function openTopologyList() {
@@ -811,7 +811,7 @@ export async function switchTopology(id) {
     }
 }
 
-// Switch the host's clock mode (stepped ⇄ real, RFC 0012 §4): rebuilds the host in the other mode,
+// Switch the host's clock mode (stepped ⇄ real): rebuilds the host in the other mode,
 // riding the same recycle as a topology switch (the reconnect path rebuilds the client state).
 export async function switchClockMode(stepped) {
     try {
@@ -922,7 +922,7 @@ export async function editScenarioDraft(id, { asClone = false } = {}) {
         // consumes it on boot once the host is on the matching topology, re-entering the editor (no second
         // recycle). See the consumeEditAfterRecycle hook in initStore.
         try { sessionStorage.setItem('dale.scenario.editAfterRecycle', JSON.stringify({ id, asClone })); } catch { /* sessionStorage unavailable — re-entry is best-effort */ }
-        await switchTopology(file.topology);   // recycles + reloads onto the scenario's topology (RFC 0013)
+        await switchTopology(file.topology);   // recycles + reloads onto the scenario's topology
         return;                                 // the reload re-enters the editor fresh; see Task 7 deep-link note
     }
     store.scenarioDraft = { ...file, id: asClone ? '' : file.id, setup: file.setup || [], steps: file.steps || [], watch: file.watch || [], judge: file.judge || [] };

@@ -10,7 +10,7 @@ using Vion.Dale.DevHost.Web.Services;
 namespace Vion.Dale.DevHost.Web.Api.Controllers
 {
     /// <summary>
-    ///     The scenario surface (additive to RFC 0003's <c>/api</c>): discovery, file serving,
+    ///     The scenario surface, additive to the rest of <c>/api</c>: discovery, file serving,
     ///     run triggering, run status, and the Explorer's save-as-scenario. Scenario files are served and
     ///     stored byte-for-byte — the parsed model exists for validation and the runner, not as a wire shape.
     /// </summary>

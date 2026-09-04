@@ -14,7 +14,7 @@ namespace Vion.Dale.DevHost.Web
     ///     Runs a web-enabled DevHost from a <c>Program.Main</c>: starts the host, then either opens the
     ///     browser (interactive, the default) or — when the <c>DALE_DEVHOST_NO_BROWSER</c> environment
     ///     variable is set to <c>1</c> — stays headless and prints a machine-readable readiness line for
-    ///     tools/agents (RFC 0003). Centralizes what each generated DevHost <c>Program.cs</c> used to do
+    ///     tools/agents. Centralizes what each generated DevHost <c>Program.cs</c> used to do
     ///     by hand, so headless mode is consistent and the browser/readiness logic lives in one place.
     /// </summary>
     public static class DevHostWebRunner

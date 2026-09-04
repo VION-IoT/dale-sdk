@@ -17,7 +17,7 @@ namespace Vion.Dale.ProtoActor
 {
     public class ActorSystem : IActorSystem
     {
-        // Optional, opt-in in-flight handler monitor (DevHost's deterministic-stepping barrier — RFC 0003).
+        // Optional, opt-in in-flight handler monitor (the DevHost's deterministic-stepping barrier).
         // Null when none is registered, so a host without it keeps the original behaviour.
         private readonly IActorActivityMonitor? _activityMonitor;
 
@@ -35,7 +35,7 @@ namespace Vion.Dale.ProtoActor
 
         private readonly ILogger<ActorSystem> _logger;
 
-        // Optional, opt-in message observers (DevHost's tap — RFC 0003 — and the vitals collector — RFC 0005),
+        // Optional, opt-in message observers (the DevHost's tap and the vitals collector of RFC 0005),
         // combined into the single middleware slot. Null when none is registered, so a host that registers no
         // observer keeps the original behaviour.
         private readonly IActorMessageObserver? _messageObserver;

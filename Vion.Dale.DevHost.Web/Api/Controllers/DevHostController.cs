@@ -12,7 +12,7 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
 {
     /// <summary>
     ///     The DevHost HTTP API under <c>/api</c> — the single surface shared by the web UI and headless
-    ///     tools/agents, backed entirely by the one control abstraction <see cref="IDevHostControl" /> (RFC 0003).
+    ///     tools/agents, backed entirely by the one control abstraction <see cref="IDevHostControl" />.
     /// </summary>
     [ApiController]
     [Route("api")]
@@ -85,7 +85,7 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
             }
         }
 
-        // --- Read / observe (headless control surface, RFC 0003) ---
+        // --- Read / observe (the headless control surface) ---
 
         /// <summary>Lightweight topology (id / name / type / service ids) — the scripting-friendly view of <c>/configuration</c>.</summary>
         [HttpGet("logicblocks")]
@@ -244,7 +244,7 @@ namespace Vion.Dale.DevHost.Web.Api.Controllers
         }
 
         /// <summary>
-        ///     Switch the host's clock mode (RFC 0012 §4): rebuild the host stepped (deterministic) or real
+        ///     Switch the host's clock mode: rebuild the host stepped (deterministic) or real
         ///     (wall-clock). Rides the recycle — 202 when a supervisor picked it up, 409 when unsupervised.
         /// </summary>
         [HttpPost("control/clock-mode")]

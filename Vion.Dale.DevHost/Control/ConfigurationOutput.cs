@@ -73,8 +73,8 @@ namespace Vion.Dale.DevHost.Control
 
             /// <summary>
             ///     The CLR full names of the logic-interface type(s) this entry exposes — the introspection
-            ///     result's <c>InterfaceTypeFullNames</c>. Reachable so a topology-authoring client (RFC 0013
-            ///     Phase 1) can identify the interface across blocks.
+            ///     result's <c>InterfaceTypeFullNames</c>. Reachable so a topology-authoring client can
+            ///     identify the interface across blocks.
             /// </summary>
             public List<string> InterfaceTypeFullNames { get; set; } = [];
 

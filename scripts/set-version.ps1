@@ -69,7 +69,7 @@ $exampleProjects = @(
         PackageReferences = @("Vion.Dale.Sdk.TestKit", "Vion.Dale.Sdk.DigitalIo.TestKit")
     },
     @{
-        # Headless IDevHostControl integration test (RFC 0003) — references the core DevHost package directly.
+        # Headless IDevHostControl integration test — references the core DevHost package directly.
         Path              = "examples\Vion.Examples.PingPong\Vion.Examples.PingPong.IntegrationTest\Vion.Examples.PingPong.IntegrationTest.csproj"
         PackageReferences = @("Vion.Dale.DevHost")
     },
@@ -126,7 +126,7 @@ $exampleProjects = @(
         PackageReferences = @("Vion.Dale.Sdk.TestKit", "Vion.Dale.Sdk.Modbus.Tcp.TestKit")
     },
     @{
-        # Headless scenario run over a real Modbus TCP socket pair (RFC 0003) — references the
+        # Headless scenario run over a real Modbus TCP socket pair — references the
         # core DevHost package directly, for its scenario interpreter rather than a web UI.
         Path              = "examples\Vion.Examples.ModbusTcp\Vion.Examples.ModbusTcp.IntegrationTest\Vion.Examples.ModbusTcp.IntegrationTest.csproj"
         PackageReferences = @("Vion.Dale.DevHost")

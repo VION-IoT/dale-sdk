@@ -1159,7 +1159,7 @@ export const WatchPanel = {
     `,
 };
 
-// ── topology editor (RFC 0013): the edit sub-mode of the topology panel ─────────────────────────
+// ── topology editor: the edit sub-mode of the topology panel ─────────────────────────
 // Mutates store.topologyDraft (the draft + dirty discipline). Phase 2 covers the block list and the
 // catalog picker; wiring / validate / save land in later tasks.
 
@@ -1713,7 +1713,7 @@ const TopologyEditor = {
     `,
 };
 
-// ── topology panel (RFC 0013): a scenario-style master → detail → editor flow ───────────────────
+// ── topology panel: a scenario-style master → detail → editor flow ───────────────────
 // One panel, three screens driven by store.topologyScreen: a file List, a read-only Detail of one
 // file, and the draft Editor. Navigation + I/O live in the store actions; these components are pure
 // renders. The screen state lives in the store (not local refs) so an external requester (⌘K palette
@@ -2101,7 +2101,7 @@ const PlayerStep = {
     `,
 };
 
-// ── Scenario trace viewer (RFC 0012 §5, form C) ─────────────────────────────────
+// ── Scenario trace viewer ─────────────────────────────────
 // One shared virtual-time axis: a step ribbon (segments ∝ duration, colored by status, captioned by
 // label) over time-aligned signal lanes, with a draggable playhead. Geometry is pure (format.js); the
 // components below are thin SVG/template projections. Coordinate space is 0..1 in x; the view width is
@@ -2241,7 +2241,7 @@ const ScenarioTrace = {
             return String(v);
         };
         // Struct/array lanes show the scrubbed sample's value (JSON), NOT the block's live value — so a
-        // struct lane snapshots to the playhead like every other lane (RFC 0012 §5).
+        // struct lane snapshots to the playhead like every other lane.
         const structJson = row => formatValue(currentOf(row));
         const tone = row => { const v = currentOf(row); return row.kind === 'numeric' && v !== null && v !== undefined ? 'tone-' + signTone(v) : ''; };
         // The playhead x (0..1) of the scrubbed sample — a vertical cursor drawn across every lane.
@@ -2766,7 +2766,7 @@ function parseScalar(raw) {
     return raw;
 }
 
-// ── scenario editor (RFC 0014, Task 7): the authoring surface for a scenario file. THIS IS THE SHELL —
+// ── scenario editor: the authoring surface for a scenario file. THIS IS THE SHELL —
 // the four section bodies (setup / steps / watch / judge) + their step rows, pickers and value editors
 // land in Tasks 8–11; here we build only the id input (draft+dirty), section placeholders so the layout
 // is visible, and the footer toolbar (validate / save / save & run / cancel) + the error display. Mirrors
@@ -3264,7 +3264,7 @@ export const Palette = {
                     out.push({ type: 'topology', key: 'top:' + tp.id, id: tp.id, name: tp.id, where: (tp.blocks != null ? tp.blocks + ' blocks' : '') + (tp.id === store.topologyName ? ' · current' : ''), score: tp.id.toLowerCase().includes(q) ? 0 : 1 });
                 }
             });
-            // Authoring verbs (RFC 0013) — only on a writable topology workspace (mirrors the panel's
+            // Authoring verbs — only on a writable topology workspace (mirrors the panel's
             // canEdit gate). "new topology" is always offered; one "edit topology: <id>" per file clones it
             // into the editor. Both open the topology view + the editor via openNew/CloneTopologyEditor.
             if (canAuthor.value) {
@@ -3278,7 +3278,7 @@ export const Palette = {
                     }
                 });
             }
-            // Scenario authoring verbs (RFC 0014) — only on a writable scenario workspace (mirrors
+            // Scenario authoring verbs — only on a writable scenario workspace (mirrors
             // PlayerPanel.canEdit). "new scenario" is always offered; one "edit scenario: <id>" per file.
             if (canAuthorScenario.value) {
                 if (!q || 'new scenario'.includes(q)) {
@@ -3459,7 +3459,7 @@ const KeybindingsHelp = {
     `,
 };
 
-// ── header topology popover (RFC 0013): the honest ▾ on the topology chip ─────────────────────────
+// ── header topology popover: the honest ▾ on the topology chip ─────────────────────────
 // A small dropdown anchored under the chip — NOT a view. It lives in the persistent shell, so it
 // behaves identically in Explore and Verify. Switch items recycle the host IMMEDIATELY (the existing
 // store.recycling overlay/chip carries the "this recycles" feedback); New / Manage drop into the
@@ -3631,7 +3631,7 @@ export const App = {
         // setView toggles a context view (topology, gallery) against the 'explorer' default — used by the
         // context-zone chips, not the primary nav. (Explore / Verify are goExplore / goVerify below.)
         const setView = v => { store.view = store.view === v ? 'explorer' : v; };
-        // Two-zone nav (RFC 0012 §3): Explore and Verify are the two activities. Verify is the scenario
+        // Two-zone nav: Explore and Verify are the two activities. Verify is the scenario
         // player (keeps the #/scenario deep link); Explore is the default browse surface. Topology and
         // gallery are reached from the context chip / overflow, not the primary nav.
         const goExplore = () => {

@@ -193,7 +193,7 @@ namespace Vion.Dale.DevHost
             // the link-map fan-out and by PublishAllStates — so neither has to name a contract.
             _services.AddSingleton<ServiceProviderStandIns>();
 
-            // Headless control surface (RFC 0003): a log sink + ILoggerProvider that captures the
+            // Headless control surface: a log sink + ILoggerProvider that captures the
             // DevHost's log output (additive — alongside the console provider, which is unchanged), and
             // the IDevHostControl facade for tests / agents. All additive; the web UI is unaffected.
             _services.AddSingleton<DevHostLogSink>();
@@ -201,7 +201,7 @@ namespace Vion.Dale.DevHost
             _services.AddSingleton<DevHostIntrospection>();
 
             // Message tap: the SAME instance is registered as both the concrete type and the opt-in
-            // IActorMessageObserver the ProtoActor middleware looks up (RFC 0003). Registering the observer
+            // IActorMessageObserver the ProtoActor middleware looks up. Registering the observer
             // here — only in DevHost — is what activates the tap; the production runtime registers none.
             _services.AddSingleton<MessageTap>();
             _services.AddSingleton<IActorMessageObserver>(sp => sp.GetRequiredService<MessageTap>());

@@ -19,7 +19,7 @@ namespace VionIotLibraryTemplate.DevHost
             // topology-switch UI then works with no changes here. Interactive runs open the browser;
             // headless (DALE_DEVHOST_NO_BROWSER=1 — `dale dev --headless`, CI, an agent) print a JSON
             // readiness line instead. `dale dev --stepped` boots a deterministic virtual clock so scenarios
-            // step exactly. See RFC 0003 (headless) and the scenario-authoring cookbook.
+            // step exactly. See the DevHost control-surface spec and the scenario-authoring cookbook.
             var cts = new CancellationTokenSource();
             Console.CancelKeyPress += (_, eventArgs) =>
                                       {

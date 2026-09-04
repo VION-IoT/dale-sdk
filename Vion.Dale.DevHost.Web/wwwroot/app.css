@@ -157,7 +157,7 @@ body {
 .stepped-chip.run-owned { border-color: var(--vion-acc-brd-def-secondary); }
 .run-owned-note { font-size: 11px; color: var(--accent); padding: 0 2px; white-space: nowrap; }
 
-/* ── two-zone shell (RFC 0012 §3): Explore|Verify nav · shared context · Explore workspace toolbar ── */
+/* ── two-zone shell: Explore|Verify nav · shared context · Explore workspace toolbar ── */
 .nav-seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: var(--vion-border-radius-sm); overflow: hidden; }
 .nav-tab { background: none; border: none; color: var(--text-dim); font-size: 12px; font-weight: var(--vion-font-weight-emphasized); font-family: inherit; padding: 4px 16px; cursor: pointer; }
 .nav-tab:hover { color: var(--text); background: var(--bg-raised); }
@@ -174,7 +174,7 @@ body {
 }
 .topology-chip-btn:hover, .topology-chip-btn.active { border-color: var(--accent); }
 
-/* ── header topology popover (RFC 0013): the chip's honest ▾ — a dropdown anchored under it ── */
+/* ── header topology popover: the chip's honest ▾ — a dropdown anchored under it ── */
 .topology-menu-anchor { position: relative; display: inline-flex; }
 .topology-menu {
     position: absolute; top: calc(100% + 6px); left: 0; z-index: 40;
@@ -219,7 +219,7 @@ body {
 }
 .step-controls button:hover { background: var(--bg-raised); }
 
-/* ── recycle progress (RFC 0012 §6, PP4): a determinate host-busy state for switch / reset / recycle-on-run ── */
+/* ── recycle progress: a determinate host-busy state for switch / reset / recycle-on-run ── */
 .topology-chip-btn.recycling { color: var(--vion-warning-fg-def-primary); border-color: var(--vion-warning-brd-def-primary); background: var(--vion-warning-bg-def-primary); }
 .recycling-overlay { position: fixed; inset: 0; z-index: 30; display: flex; align-items: flex-start; justify-content: center; padding-top: 22vh; background: rgba(0, 0, 0, 0.35); }
 .recycling-card {
@@ -274,7 +274,7 @@ body {
 }
 .topo-row-button:hover { background: var(--bg-raised); }
 
-/* topology editor (RFC 0013): the edit sub-mode reuses the panel's row vocabulary */
+/* topology editor: the edit sub-mode reuses the panel's row vocabulary */
 .topo-panel { display: block; }
 .topo-editor-head { gap: 8px; }
 .topo-id-input { width: 220px; }
@@ -1407,7 +1407,7 @@ button { cursor: pointer; font-family: inherit; }
 ::-webkit-scrollbar-track { background: var(--bg-page); }
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 5px; }
 
-/* ── Scenario trace (RFC 0012 §5, form C; scope aesthetic per §13) ──────────────── */
+/* ── Scenario trace ──────────────── */
 .scenario-trace { margin: 8px 0 4px; }
 .trace-ribbon { display: block; width: 100%; }
 .ribbon-seg { fill: var(--vion-bg-def-tertiary); stroke: var(--border); stroke-width: 1; cursor: pointer; }

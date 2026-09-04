@@ -1,6 +1,8 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Vion.Dale.DevHost.Control;
+using Vion.Dale.DevHost.Mocking;
 
 namespace Vion.Dale.DevHost.Test
 {
@@ -14,7 +16,8 @@ namespace Vion.Dale.DevHost.Test
     public class HostHealthShould
     {
         [TestMethod]
-        public async Task ReportTheFailureOfABlockThatCouldNotConfigure()
+        [TestProperty("spec", "AC-CTRL-003.1")]
+        public async Task ReportFailureOfBlockThatCouldNotConfigure()
         {
             // Arrange — a block whose Ready() throws during the configuration phase. The send that carries it
             // is fire-and-forget, so the throw never reaches the start, and the block still acknowledges start.
@@ -32,7 +35,8 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task ReportNoFailureForAHostWhoseBlocksAllCameUp()
+        [TestProperty("spec", "AC-CTRL-003.2")]
+        public async Task ReportNoFailureWhenEveryBlockCameUp()
         {
             // Arrange
             var configuration = DevConfigurationBuilder.Create().AddLogicBlock<CounterBlock>("counter").Build();
@@ -46,7 +50,8 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task ReportOnlyTheNamedBlocksFailures()
+        [TestProperty("spec", "AC-CTRL-003.2")]
+        public async Task ReportOnlyNamedBlocksFailures()
         {
             // Arrange — one broken block beside a healthy one.
             var configuration = DevConfigurationBuilder.Create()
@@ -68,7 +73,8 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task FailAStartNoBlockAcknowledgesRatherThanWaitOnAClockNothingAdvances()
+        [TestProperty("spec", "AC-CTRL-002.4")]
+        public async Task FailStartNoBlockAcknowledgesWithinRealTimeBudget()
         {
             // Arrange — a stepped host and a block whose Starting() throws, so its acknowledgement never comes.
             // The acknowledgement wait is routed through the injected clock, which nothing advances during a
@@ -90,7 +96,8 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public async Task RefuseASecondStartOfOneHost()
+        [TestProperty("spec", "AC-CTRL-002.5")]
+        public async Task RefuseSecondStartOfOneHost()
         {
             // Arrange
             var configuration = DevConfigurationBuilder.Create().AddLogicBlock<CounterBlock>("counter").Build();
@@ -106,7 +113,8 @@ namespace Vion.Dale.DevHost.Test
         }
 
         [TestMethod]
-        public void RefuseANonPositiveSafetyBudget()
+        [TestProperty("spec", "AC-CTRL-013.2")]
+        public void RefuseNonPositiveSafetyBudget()
         {
             // Arrange
             var builder = DevHostBuilder.Create();
@@ -116,6 +124,27 @@ namespace Vion.Dale.DevHost.Test
             Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => builder.WithSafetyBudgets(new DevHostBudgets { Quiescence = TimeSpan.Zero }));
             Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => builder.WithSafetyBudgets(new DevHostBudgets { WriteAcknowledgement = TimeSpan.FromSeconds(-1) }));
             Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => builder.WithDeterministicStepping(null, TimeSpan.Zero));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CTRL-003.4")]
+        public void BoundRecordedFailuresDroppingOldest()
+        {
+            // Arrange — the tap is the recorder; a long-running host with a block that throws on every tick
+            // would otherwise accumulate one entry per tick for as long as it runs.
+            var tap = new MessageTap();
+
+            // Act
+            for (var i = 0; i < 260; i++)
+            {
+                tap.OnHandled("logicblock_bad_lb_0", new MockPublishAllStatesMessage(), TimeSpan.Zero, new InvalidOperationException($"failure {i}"));
+            }
+
+            // Assert
+            var failures = tap.Failures();
+            Assert.IsLessThan(260, failures.Count, "the recorded failures must be bounded");
+            StringAssert.Contains(failures[^1].Error, "failure 259", "the newest failure is kept");
+            Assert.IsFalse(failures.Any(f => f.Error.Contains("failure 0", StringComparison.Ordinal)), "the oldest is what is dropped");
         }
     }
 }

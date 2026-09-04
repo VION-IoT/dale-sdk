@@ -29,6 +29,14 @@ namespace Vion.Dale.DevHost
         public TimeSpan StartAcknowledgement { get; init; } = TimeSpan.FromSeconds(30);
 
         /// <summary>
+        ///     The wall-clock bound on the whole teardown sequence. Its own steps wait through the registered
+        ///     clock — the same reason the start acknowledgement needs a backstop — so this is the only thing in
+        ///     a teardown no clock mode can stall. Generous by design: the normal path completes on the
+        ///     acknowledgements in milliseconds and a slow machine must never trip it.
+        /// </summary>
+        public TimeSpan StopSequence { get; init; } = TimeSpan.FromSeconds(60);
+
+        /// <summary>
         ///     The wall-clock ceiling on one quiescence wait during deterministic stepping. A system that never
         ///     settles surfaces as a thrown failure naming the predicate rather than as an infinite wait.
         /// </summary>
@@ -39,6 +47,7 @@ namespace Vion.Dale.DevHost
         {
             Require(WriteAcknowledgement, nameof(WriteAcknowledgement));
             Require(StartAcknowledgement, nameof(StartAcknowledgement));
+            Require(StopSequence, nameof(StopSequence));
             Require(Quiescence, nameof(Quiescence));
         }
 
