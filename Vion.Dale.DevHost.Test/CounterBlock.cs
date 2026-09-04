@@ -56,6 +56,8 @@ namespace Vion.Dale.DevHost.Test
             serviceCollection.AddTransient<FailingStartBlock>();
             serviceCollection.AddTransient<FailingConstructorBlock>();
             serviceCollection.AddTransient<FailingConfigureBlock>();
+            serviceCollection.AddTransient<RejectingWriteBlock>();
+            serviceCollection.AddTransient<SlowHandlerBlock>();
         }
     }
 }

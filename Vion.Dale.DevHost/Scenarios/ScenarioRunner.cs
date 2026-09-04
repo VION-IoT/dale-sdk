@@ -25,6 +25,14 @@ namespace Vion.Dale.DevHost.Scenarios
         ///     registry uses this to expose live progress. The same mutable report instance is passed each time.
         /// </summary>
         public Action<ScenarioRunReport>? OnProgress { get; init; }
+
+        /// <summary>
+        ///     The window the host gives a service-property write to be acknowledged
+        ///     (<c>DevHostBudgets.WriteAcknowledgement</c>). A <c>set</c> whose acknowledgement consumes it was
+        ///     never applied; the runner needs the same number the host is using, or its detection either fires
+        ///     on every write or on none. Defaults to the host's own default.
+        /// </summary>
+        public TimeSpan WriteAcknowledgementWindow { get; init; } = new DevHostBudgets().WriteAcknowledgement;
     }
 
     /// <summary>
@@ -35,11 +43,12 @@ namespace Vion.Dale.DevHost.Scenarios
     /// </summary>
     public static class ScenarioRunner
     {
-        // SetPropertyAsync acks on the write's own round-trip response, with a fixed 5 s safety timeout.
-        // Applied writes — including no-op sets — ack promptly; an ack that consumed the whole window
-        // means the block never replied: an actor-side rejection that was swallowed (the hollow-ack
-        // gotcha) or a lost message.
-        private const double AckCeilingMs = 4900;
+        // How much of the host's write-acknowledgement window a set may consume before the runner treats the
+        // acknowledgement as hollow. Applied writes — including no-op sets — ack promptly; one that consumed
+        // almost the whole window means the block never replied: an actor-side rejection that was swallowed
+        // (the hollow-ack gotcha) or a lost message. The fraction leaves room for the await's own overhead so
+        // a healthy write on a loaded box is never mistaken for a rejected one.
+        private const double AckCeilingFraction = 0.98;
 
         private const double DefaultWaitUntilTimeoutSeconds = 20;
 
@@ -257,6 +266,10 @@ namespace Vion.Dale.DevHost.Scenarios
                                                Action<ScenarioRunReport> progress,
                                                CancellationToken cancellationToken)
         {
+            // How long a set may take before its acknowledgement reads as hollow — derived from the window the
+            // host actually gives a write, never a constant of the runner's own (docs/specs/devhost-control.md).
+            var ackCeilingMs = options.WriteAcknowledgementWindow.TotalMilliseconds * AckCeilingFraction;
+
             var configuration = control.GetConfiguration();
             report.HostTopology = configuration.TopologyName;
 
@@ -363,7 +376,9 @@ namespace Vion.Dale.DevHost.Scenarios
                                         control,
                                         progress,
                                         report,
-                                        cancellationToken)
+                                        cancellationToken,
+                                        null,
+                                        ackCeilingMs)
                          .ConfigureAwait(false))
                 {
                     report.Status = ScenarioRunStatus.Failed;
@@ -384,7 +399,8 @@ namespace Vion.Dale.DevHost.Scenarios
                                             progress,
                                             report,
                                             cancellationToken,
-                                            watchPaths)
+                                            watchPaths,
+                                            ackCeilingMs)
                              .ConfigureAwait(false);
 
                 // Sample after the step whether it passed or failed — the watched values at the moment of a
@@ -409,7 +425,8 @@ namespace Vion.Dale.DevHost.Scenarios
                                                      Action<ScenarioRunReport> progress,
                                                      ScenarioRunReport report,
                                                      CancellationToken cancellationToken,
-                                                     IReadOnlyList<string>? watchPaths = null)
+                                                     IReadOnlyList<string>? watchPaths = null,
+                                                     double ackCeilingMs = 0)
         {
             cancellationToken.ThrowIfCancellationRequested();
             result.Status = ScenarioStepStatus.Running;
@@ -425,7 +442,7 @@ namespace Vion.Dale.DevHost.Scenarios
                     case "set":
                         await control.SetPropertyAsync(resolved.Property!.Block, resolved.Property.ServiceIdentifier, resolved.Property.PropertyName, step.Value)
                                      .ConfigureAwait(false);
-                        if (stopwatch.Elapsed.TotalMilliseconds >= AckCeilingMs)
+                        if (stopwatch.Elapsed.TotalMilliseconds >= ackCeilingMs)
                         {
                             // The block never acknowledged the write — applied writes, no-ops included,
                             // ack promptly on their round-trip response. A swallowed exception on the

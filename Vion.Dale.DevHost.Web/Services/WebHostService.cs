@@ -33,6 +33,8 @@ namespace Vion.Dale.DevHost.Web.Services
 
         private readonly DevConfiguration _devConfiguration;
 
+        private readonly DevHostBudgets _budgets;
+
         private readonly DevHostEvents _devHostEvents;
 
         // The running host's introspection — handed to the topology store so an editor Save / validate applies
@@ -47,8 +49,10 @@ namespace Vion.Dale.DevHost.Web.Services
                               DevHostEvents devHostEvents,
                               IDevHostControl control,
                               DevBlockCatalog blockCatalog,
-                              DevHostIntrospection introspection)
+                              DevHostIntrospection introspection,
+                              DevHostBudgets budgets)
         {
+            _budgets = budgets;
             _config = config;
             _devConfiguration = devConfiguration;
             _devHostEvents = devHostEvents;
@@ -102,6 +106,7 @@ namespace Vion.Dale.DevHost.Web.Services
             builder.Services.AddCors(options => { options.AddDefaultPolicy(policy => { policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader(); }); });
 
             // Register DevHost services as singletons in the WebApplication
+            builder.Services.AddSingleton(_budgets);
             builder.Services.AddSingleton(_devConfiguration);
             builder.Services.AddSingleton(_devHostEvents);
             builder.Services.AddSingleton(_control);
