@@ -253,5 +253,26 @@ public class NotAContract
             var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE047_MessageStructNotNestedInContract).WithLocation(0).WithArguments("StrayNudge", "Command");
             await AnalyzerTestBase.VerifyAnalyzerAsync<ContractMessageAnalyzer>(source, expected);
         }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-005.5")]
+        public async Task StaySilentOnMessageStructInAnotherPartOfPartialContract()
+        {
+            // Arrange / Act / Assert
+            // A symbol action sees the merged type, so the struct's container carries the contract
+            // attribute however the declaration is split across files.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+[LogicBlockContract(BetweenInterface = ""ISource"", AndInterface = ""ISink"")]
+public partial class Link { }
+
+public partial class Link
+{
+    [Command(From = ""ISource"", To = ""ISink"")]
+    public readonly record struct Nudge(int Amount);
+}";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<ContractMessageAnalyzer>(source);
+        }
     }
 }

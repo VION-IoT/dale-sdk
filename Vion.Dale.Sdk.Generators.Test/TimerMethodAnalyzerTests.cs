@@ -278,5 +278,44 @@ public class MyBlock : BlockBase
             var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE012_DuplicateTimerIdentifier).WithLocation(0).WithArguments("Tick", "Tick", "shadow");
             await AnalyzerTestBase.VerifyAnalyzerAsync<TimerMethodAnalyzer>(source, expected);
         }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-007.3")]
+        public async Task StaySilentOnInterfaceDefaultTimerSharingItsIdentifier()
+        {
+            // Arrange / Act / Assert
+            // A default implementation is not in a class's base chain, so the timer binder does not
+            // collect it either — the walk and the binder agree, and neither timer displaces the other.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public interface ITicker
+{
+    [Timer(5.0, ""shared"")] void Tick() { }
+}
+
+public class MyBlock : LogicBlockBase, ITicker
+{
+    [Timer(9.0, ""shared"")] public void OwnTick() { }
+}";
+            await AnalyzerTestBase.VerifyAnalyzerAsync<TimerMethodAnalyzer>(source);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-ANLZ-007.3")]
+        public async Task ReportBaseChainCollisionOnceFromEveryTypeBelowIt()
+        {
+            // Arrange / Act / Assert
+            // The collision belongs to the type that declares the second timer. Without that, every type
+            // below the pair would report it again.
+            var source = @"
+using Vion.Dale.Sdk.Core;
+
+public class Level0 : LogicBlockBase { [Timer(1.0, ""dup"")] public void First() { } }
+public class Level1 : Level0 { [Timer(2.0, ""dup"")] public void {|#0:Second|}() { } }
+public class Level2 : Level1 { [Timer(3.0, ""other"")] public void Third() { } }";
+            var expected = AnalyzerTestBase.Diagnostic(DaleDiagnostics.DALE012_DuplicateTimerIdentifier).WithLocation(0).WithArguments("First", "Second", "dup");
+            await AnalyzerTestBase.VerifyAnalyzerAsync<TimerMethodAnalyzer>(source, expected);
+        }
     }
 }
