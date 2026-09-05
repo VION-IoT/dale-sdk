@@ -105,13 +105,17 @@ namespace Vion.Dale.Cli.Commands
                                   var devHostName = Path.GetFileNameWithoutExtension(devHostCsproj);
                                   var workingDir = Path.GetDirectoryName(Path.GetDirectoryName(devHostCsproj)) ?? ".";
 
-                                  DaleConsole.Info($"Starting {devHostName}{(headless ? " (headless)" : "")}...");
-                                  DaleConsole.Info(headless ? "  Control API at http://localhost:5000/api (no browser)" : "  Web UI at http://localhost:5000");
+                                  var exporting = exportConfig != null || exportTopology != null;
+                                  foreach (var line in DescribeStartup(devHostName, headless, exporting))
+                                  {
+                                      DaleConsole.Info(line);
+                                  }
+
                                   DaleConsole.Blank();
 
                                   var runArguments = BuildRunArguments(devHostCsproj, parseResult.UnmatchedTokens, preset);
 
-                                  if (exportConfig != null || exportTopology != null)
+                                  if (exporting)
                                   {
                                       // The env vars above already carry the absolute export paths.
                                       var exportFiles = new List<string>();
@@ -135,6 +139,23 @@ namespace Vion.Dale.Cli.Commands
                               });
 
             return command;
+        }
+
+        /// <summary>
+        ///     What the command says before it starts the host. An export is boot-dump-exit, so neither
+        ///     serve line is true of it — and the non-headless export path is the one the consumer actually
+        ///     runs (`ci.yml:98`, `export-config.ps1:56`).
+        /// </summary>
+        internal static IReadOnlyList<string> DescribeStartup(string devHostName, bool headless, bool exporting)
+        {
+            var mode = exporting ? " (one-shot export)" : headless ? " (headless)" : string.Empty;
+            var address = exporting
+                              ? "  Writing the export and exiting — no server is started"
+                              : headless
+                                  ? "  Control API at http://localhost:5000/api (no browser)"
+                                  : "  Web UI at http://localhost:5000";
+
+            return new[] { $"Starting {devHostName}{mode}...", address };
         }
 
         /// <summary>
@@ -199,7 +220,17 @@ namespace Vion.Dale.Cli.Commands
                     // restored `dotnet run` can occasionally boot in serve mode and exit without honoring the
                     // export (DF-16, a one-time rebuild race). If it exited cleanly yet wrote nothing, surface
                     // it instead of reporting a silent success.
-                    if (exitCode == 0 && !exportFilesWritten())
+                    // The export is the contract, not the host's exit code: a host that wrote every file and
+                    // then exited non-zero has done what was asked (the consumer's export-config.ps1:38-40
+                    // disables PowerShell's native-command error handling precisely because of this), and a
+                    // host that exited cleanly having written nothing has not (DF-16, a one-time rebuild
+                    // race).
+                    if (exportFilesWritten())
+                    {
+                        return 0;
+                    }
+
+                    if (exitCode == 0)
                     {
                         DaleConsole.Error("DevHost exited without writing the export. This can happen on the first run right after a package bump " +
                                           "(a `dotnet run` rebuild race) — re-run the command.");

@@ -171,7 +171,17 @@ namespace Vion.Dale.Cli.Commands
                               JsonNode? report = null;
                               while (DateTimeOffset.UtcNow < deadline)
                               {
-                                  var response = await http.GetAsync($"/api/scenarios/{Uri.EscapeDataString(id)}/run", cancellationToken);
+                                  HttpResponseMessage response;
+                                  try
+                                  {
+                                      response = await http.GetAsync($"/api/scenarios/{Uri.EscapeDataString(id)}/run", cancellationToken);
+                                  }
+                                  catch (HttpRequestException e)
+                                  {
+                                      DaleConsole.Error($"DevHost on port {port} stopped answering while run '{runId}' was in flight ({e.Message}).");
+                                      return 1;
+                                  }
+
                                   if (response.IsSuccessStatusCode)
                                   {
                                       report = JsonNode.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
@@ -267,6 +277,15 @@ namespace Vion.Dale.Cli.Commands
                                        }
                                    }
 
+                                   if (results.Count == 0)
+                                   {
+                                       // A validator asked to validate nothing has been pointed at the wrong
+                                       // place — a renamed directory, or a suffix typo. `ci.yml:99` is a gate
+                                       // whose whole job is catching renames.
+                                       DaleConsole.Error($"No *.scenario.json files in '{Path.GetFullPath(dir)}'.");
+                                       return 1;
+                                   }
+
                                    if (DaleConsole.JsonMode)
                                    {
                                        DaleConsole.WriteJsonResult(new { valid = !failed, files = results });
@@ -287,10 +306,10 @@ namespace Vion.Dale.Cli.Commands
             var schema = new Command("schema",
                                      "Print the scenario JSON Schema, enriched with this topology's actual name paths when a configuration is available — " +
                                      "commit it as scenarios/.dale/scenario.schema.json and reference it from scenario files via \"$schema\" for editor completion");
-            var outputOption = new Option<string?>("--output", "-o")
+            var outputOption = new Option<string?>("--out", "-O", "-o")
                                {
                                    Description =
-                                       "Write to this file instead of printing (conventionally scenarios/.dale/scenario.schema.json, what the files' \"$schema\" points at).",
+                                       "Write to this file instead of printing (conventionally scenarios/.dale/scenario.schema.json, what the files' \"$schema\" points at). `-o` is a deprecated alias for `--out`; it is the global output-format option everywhere else.",
                                };
             var configOption = new Option<string?>("--config") { Description = "Configuration export to enrich from (default: the running DevHost)." };
             var portOption = PortOption();
@@ -383,10 +402,10 @@ namespace Vion.Dale.Cli.Commands
             var dirOption = new Option<string>("--dir") { Description = "Scenarios directory (default ./scenarios).", DefaultValueFactory = _ => "scenarios" };
             var namespaceOption = new Option<string>("--namespace")
                                   { Description = "Namespace for the generated test class (default ScenarioTests).", DefaultValueFactory = _ => "ScenarioTests" };
-            var outputOption = new Option<string?>("--output", "-o")
+            var outputOption = new Option<string?>("--out", "-O", "-o")
                                {
                                    Description =
-                                       "Write to this file (default <Id>ScenarioTest.cs in the current directory); pass '-' to print to stdout.",
+                                       "Write to this file (default <Id>ScenarioTest.cs in the current directory); pass '-' to print to stdout. `-o` is a deprecated alias for `--out`; it is the global output-format option everywhere else.",
                                };
             scaffold.Arguments.Add(idArgument);
             scaffold.Options.Add(dirOption);
@@ -567,9 +586,27 @@ namespace Vion.Dale.Cli.Commands
             open.Arguments.Add(idArgument);
             open.Options.Add(portOption);
 
-            open.SetAction((parseResult, cancellationToken) =>
+            open.SetAction(async (parseResult, cancellationToken) =>
                            {
-                               var url = $"http://localhost:{parseResult.GetValue(portOption)}/#/scenario/{Uri.EscapeDataString(parseResult.GetValue(idArgument)!)}";
+                               var port = parseResult.GetValue(portOption);
+                               var url = $"http://localhost:{port}/#/scenario/{Uri.EscapeDataString(parseResult.GetValue(idArgument)!)}";
+
+                               // Opening a URL succeeds whenever a browser is registered, so without this the
+                               // one scenario verb that cannot tell the author the host is down would report
+                               // success while the browser shows a connection error.
+                               using (var http = NewClient(port))
+                               {
+                                   try
+                                   {
+                                       await http.GetAsync("/api/control/status", cancellationToken);
+                                   }
+                                   catch (HttpRequestException e)
+                                   {
+                                       DaleConsole.Error($"No DevHost reachable on port {port} ({e.Message}). Start one with `dale dev`.");
+                                       return 1;
+                                   }
+                               }
+
                                try
                                {
                                    Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
@@ -577,11 +614,11 @@ namespace Vion.Dale.Cli.Commands
                                catch (Exception e)
                                {
                                    DaleConsole.Error($"Could not open the browser: {e.Message}. Navigate to {url} manually.");
-                                   return Task.FromResult(1);
+                                   return 1;
                                }
 
                                DaleConsole.Info($"Opened {url}");
-                               return Task.FromResult(0);
+                               return 0;
                            });
 
             return open;

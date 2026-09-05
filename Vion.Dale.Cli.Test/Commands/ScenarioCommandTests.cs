@@ -16,6 +16,83 @@ namespace Vion.Dale.Cli.Test.Commands
     public class ScenarioCommandTests
     {
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-010.10")]
+        [DataRow("schema")]
+        [DataRow("scaffold")]
+        public void TakeFilePathFromOutOptionAndFormatFromGlobalOne(string subcommand)
+        {
+            // Arrange
+            var arguments = subcommand == "schema"
+                                ? new[] { "scenario", "schema", "--out", "written.json", "--output", "json" }
+                                : new[] { "scenario", "scaffold", "smoke", "--out", "written.cs", "--output", "json" };
+
+            // Act
+            var parseResult = Program.BuildRootCommand().Parse(arguments);
+
+            // Assert
+            Assert.AreEqual(0, parseResult.Errors.Count);
+            Assert.AreEqual("json", parseResult.GetValue<string>("--output"));
+            Assert.AreEqual(subcommand == "schema" ? "written.json" : "written.cs", parseResult.GetValue<string?>("--out"));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CLI-010.10")]
+        [DataRow("schema")]
+        [DataRow("scaffold")]
+        public void KeepShortOptionAsFilePathAlias(string subcommand)
+        {
+            // Arrange
+            var arguments = subcommand == "schema"
+                                ? new[] { "scenario", "schema", "-o", "written.json" }
+                                : new[] { "scenario", "scaffold", "smoke", "-o", "written.cs" };
+
+            // Act
+            var parseResult = Program.BuildRootCommand().Parse(arguments);
+
+            // Assert
+            Assert.AreEqual(0, parseResult.Errors.Count);
+            Assert.AreEqual(subcommand == "schema" ? "written.json" : "written.cs", parseResult.GetValue<string?>("--out"));
+            Assert.AreEqual("table", parseResult.GetValue<string>("--output"));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CLI-010.11")]
+        public async Task RefuseScenariosDirectoryHoldingNoScenarioFile()
+        {
+            // Arrange
+            var root = Path.Combine(Path.GetTempPath(), $"dale-empty-{Guid.NewGuid():N}");
+            var scenariosDir = Path.Combine(root, "scenarios");
+            Directory.CreateDirectory(scenariosDir);
+            var configPath = Path.Combine(root, "config.json");
+            File.WriteAllText(configPath, """{ "topologyName": "demo", "logicBlocks": [] }""");
+            try
+            {
+                // Act
+                var exit = await Program.BuildRootCommand().Parse(new[] { "scenario", "validate", "--dir", scenariosDir, "--config", configPath }).InvokeAsync();
+
+                // Assert
+                Assert.AreEqual(1, exit);
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CLI-010.12")]
+        public async Task RefuseToOpenPlayerWhenNoHostAnswers()
+        {
+            // Arrange — port 1 has nothing listening, so the probe fails before a browser is launched.
+
+            // Act
+            var exit = await Program.BuildRootCommand().Parse(new[] { "scenario", "open", "smoke", "--port", "1" }).InvokeAsync();
+
+            // Assert
+            Assert.AreEqual(1, exit);
+        }
+
+        [TestMethod]
         public void GenericScenarioSchema_IsEmbeddedInTheCliAssembly_AndIsTheScenarioSchema()
         {
             // The .csproj links the single Vion.Dale.DevHost source file as a CLI embedded resource; this

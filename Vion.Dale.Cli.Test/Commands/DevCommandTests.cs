@@ -11,6 +11,57 @@ namespace Vion.Dale.Cli.Test.Commands
     public class DevCommandTests
     {
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-009.11")]
+        public async Task SucceedWhenExportWasWrittenAndHostExitedNonZero()
+        {
+            // Arrange
+            var target = Path.Combine(Path.GetTempPath(), $"dale-export-{Guid.NewGuid():N}.json");
+
+            // Act
+            var exit = await DevCommand.RunWithBootWindowAsync(_ =>
+                                                               {
+                                                                   File.WriteAllText(target, "{}");
+                                                                   return Task.FromResult(134);
+                                                               },
+                                                               () => File.Exists(target),
+                                                               TimeSpan.FromSeconds(5),
+                                                               TimeSpan.FromMilliseconds(50));
+
+            // Assert
+            Assert.AreEqual(0, exit);
+            File.Delete(target);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CLI-009.11")]
+        public async Task FailWhenHostExitedNonZeroHavingWrittenNothing()
+        {
+            // Arrange / Act
+            var exit = await DevCommand.RunWithBootWindowAsync(_ => Task.FromResult(134),
+                                                               () => false,
+                                                               TimeSpan.FromSeconds(5),
+                                                               TimeSpan.FromMilliseconds(50));
+
+            // Assert
+            Assert.AreEqual(134, exit);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CLI-009.12")]
+        [DataRow(false, false, "  Web UI at http://localhost:5000")]
+        [DataRow(true, false, "  Control API at http://localhost:5000/api (no browser)")]
+        [DataRow(false, true, "  Writing the export and exiting — no server is started")]
+        [DataRow(true, true, "  Writing the export and exiting — no server is started")]
+        public void AnnounceWhatItWillActuallyDo(bool headless, bool exporting, string expectedSecondLine)
+        {
+            // Arrange / Act
+            var lines = DevCommand.DescribeStartup("MyLib.DevHost", headless, exporting);
+
+            // Assert
+            Assert.AreEqual(expectedSecondLine, lines[1]);
+        }
+
+        [TestMethod]
         public void BuildRunArguments_NoForwardedTokens_OmitsDelimiter()
         {
             var args = DevCommand.BuildRunArguments("My.DevHost.csproj", new string[0]);
