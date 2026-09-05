@@ -17,7 +17,7 @@ namespace Vion.Dale.Sdk.DigitalIo.Test
         private readonly DependencyInjection _sut = new();
 
         [TestMethod]
-        [TestProperty("spec", "AC-IO-008.1")]
+        [TestProperty("spec", "AC-IO-009.1")]
         public void RegisterHandlersOfHardwareFacesOnly()
         {
             // Arrange / Act
@@ -25,12 +25,11 @@ namespace Vion.Dale.Sdk.DigitalIo.Test
 
             // Assert — the provider faces' handlers are deliberately absent: a production host's scan skips
             // them by their marking and the development host stands in for them, so nothing resolves one.
-            CollectionAssert.AreEquivalent(new[] { typeof(DigitalInputHandler), typeof(DigitalOutputHandler) },
-                                           _services.Select(descriptor => descriptor.ServiceType).ToList());
+            CollectionAssert.AreEquivalent(new[] { typeof(DigitalInputHandler), typeof(DigitalOutputHandler) }, _services.Select(descriptor => descriptor.ServiceType).ToList());
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-IO-008.1")]
+        [TestProperty("spec", "AC-IO-009.1")]
         public void RegisterEachHandlerPerActor()
         {
             // Arrange / Act

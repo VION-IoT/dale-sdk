@@ -135,8 +135,7 @@ namespace Vion.Dale.Sdk.DigitalIo.Output
                        Message = "Received DO state change (ServiceProviderContractId={ServiceProviderContractId}, Value={Value}, CorrelationId={CorrelationId}, Topic={Topic})")]
         private partial void LogReceivedStateChange(ServiceProviderContractId serviceProviderContractId, bool value, Guid correlationId, string topic);
 
-        [LoggerMessage(Level = LogLevel.Debug,
-                       Message = "Rejected unverifiable DO payload (ServiceProviderContractId={ServiceProviderContractId}, Topic={Topic})")]
+        [LoggerMessage(Level = LogLevel.Debug, Message = "Rejected unverifiable DO payload (ServiceProviderContractId={ServiceProviderContractId}, Topic={Topic})")]
         private partial void LogRejectedUnverifiablePayload(ServiceProviderContractId serviceProviderContractId, string topic);
 
         [LoggerMessage(Level = LogLevel.Debug,

@@ -178,7 +178,9 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Output
             _harness.Link(_sut);
 
             // Act
-            _harness.Send(_sut, new ContractMessage<SetAnalogOutput>(new LogicBlockContractId(new LogicBlockId("elsewhere"), HandlerHarness.ContractIdentifier), new SetAnalogOutput(4.2)));
+            _harness.Send(_sut,
+                          new ContractMessage<SetAnalogOutput>(new LogicBlockContractId(new LogicBlockId("elsewhere"), HandlerHarness.ContractIdentifier),
+                                                               new SetAnalogOutput(4.2)));
 
             // Assert
             Assert.IsEmpty(_harness.Published());

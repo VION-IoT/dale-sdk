@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Reflection;
+using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Configuration.Contract;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.AnalogIo.Input;
@@ -149,7 +150,54 @@ namespace Vion.Dale.Sdk.AnalogIo.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-IO-008.1")]
+        [DataRow(typeof(IAnalogOutput), LinkMultiplicity.ZeroOrOne, DisplayName = "an output accepts one writer")]
+        [DataRow(typeof(IAnalogInputProvider), LinkMultiplicity.ZeroOrOne, DisplayName = "an input provider accepts one consumer")]
+        [DataRow(typeof(IAnalogOutputProvider), LinkMultiplicity.ZeroOrOne, DisplayName = "an output provider accepts one consumer")]
+        [DataRow(typeof(IAnalogInput), LinkMultiplicity.ZeroOrMore, DisplayName = "an input is unconstrained")]
+        public void DeclareConsumerLimitOnEachFace(Type face, LinkMultiplicity expectedConsumers)
+        {
+            // Arrange / Act
+            var declaration = face.GetCustomAttribute<ServiceProviderContractTypeAttribute>();
+
+            // Assert — declared here and enforced downstream; the unconstrained value is the attribute's own
+            // default, so an input face declares it by naming nothing.
+            Assert.IsNotNull(declaration);
+            Assert.AreEqual(expectedConsumers, declaration.Consumers);
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-IO-008.2")]
+        public void MarkEveryProviderFaceAndItsHandlerAsDevelopmentSurface()
+        {
+            // Arrange — the two declarations have no compiler-enforced link, so this is what holds them in step.
+            var developmentOnlyFaces = Package.GetExportedTypes()
+                                              .Where(declared => declared.GetCustomAttribute<ServiceProviderContractTypeAttribute>()?.DevelopmentOnly == true)
+                                              .Select(declared => declared.Name);
+            var markedHandlers = Package.GetTypes().Where(declared => declared.GetCustomAttribute<DevelopmentOnlyHandlerAttribute>() is not null).Select(declared => declared.Name);
+
+            // Act / Assert
+            CollectionAssert.AreEquivalent(new[] { nameof(IAnalogInputProvider), nameof(IAnalogOutputProvider) }, developmentOnlyFaces.ToList());
+            CollectionAssert.AreEquivalent(new[] { nameof(AnalogInputProviderHandler), nameof(AnalogOutputProviderHandler) }, markedHandlers.ToList());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-IO-008.3")]
+        public void InvertConsumerHandlerDeclarationOnEachProviderHandler()
+        {
+            // Arrange
+            var consumerOutput = typeof(AnalogOutputHandler).GetCustomAttribute<ScenarioWireAttribute>();
+            var providerOutput = typeof(AnalogOutputProviderHandler).GetCustomAttribute<ScenarioWireAttribute>();
+
+            // Act / Assert — one contract identifier, both directions, exchanged between the two sides.
+            Assert.IsNotNull(consumerOutput);
+            Assert.IsNotNull(providerOutput);
+            Assert.AreEqual(consumerOutput.Inbound, providerOutput.Outbound);
+            Assert.AreEqual(consumerOutput.Outbound, providerOutput.Inbound);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-IO-009.2")]
         public void ClassifyEveryPublicTypeAsPublishedOrInternal()
         {
             // Arrange / Act

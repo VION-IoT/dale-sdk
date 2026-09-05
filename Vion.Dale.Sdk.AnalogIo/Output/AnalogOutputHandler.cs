@@ -135,8 +135,7 @@ namespace Vion.Dale.Sdk.AnalogIo.Output
                        Message = "Received AO state change (ServiceProviderContractId={ServiceProviderContractId}, Value={Value}, CorrelationId={CorrelationId}, Topic={Topic})")]
         private partial void LogReceivedStateChange(ServiceProviderContractId serviceProviderContractId, double value, Guid correlationId, string topic);
 
-        [LoggerMessage(Level = LogLevel.Debug,
-                       Message = "Rejected unverifiable AO payload (ServiceProviderContractId={ServiceProviderContractId}, Topic={Topic})")]
+        [LoggerMessage(Level = LogLevel.Debug, Message = "Rejected unverifiable AO payload (ServiceProviderContractId={ServiceProviderContractId}, Topic={Topic})")]
         private partial void LogRejectedUnverifiablePayload(ServiceProviderContractId serviceProviderContractId, string topic);
 
         [LoggerMessage(Level = LogLevel.Debug,

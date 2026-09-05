@@ -474,3 +474,79 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   `production`), and the snapshot regeneration runs against an explicitly empty store root. Small,
   area-local, and worth a test that pins the help line under an empty root. *(Found at the merge of
   the CLI pass — `CLI`.)*
+
+## `IO` — the digital and analog I/O contract bindings (2026-09-05)
+
+- **A block cannot ask whether a face it holds is mapped.** `LogicBlockContractBase` drops a write on
+  an unmapped contract silently and exposes no mapping state, so a block whose own diagnostics depend
+  on knowing has no supported answer. The first consumer reads the protected `LogicBlockContractId`
+  **by reflection** to get one — `logic-block-libraries` `Ecocoach.EnergyManagement/LogicBlocks/Shared/DigitalOutputWiringProbe.cs:21-27`,
+  registered at `Ecocoach.EnergyManagement/DependencyInjection.cs:93` and consumed by
+  `HeatPumpSgReady.cs:60,569` for its unwired-contact error state; the probe's own doc names the SDK
+  gap as VION-130. The fix is a member **added** to `LogicBlockContractBase`, never a promotion of
+  `LogicBlockContractId`: promoted, the consumer's `GetProperty(…, NonPublic)` returns null and every
+  output silently reports unmapped, so a correctly wired pump raises its fault. The area-local
+  alternative — an `IsMapped` on the four faces — changes a face's members, which is a wire-surface
+  change with its own readers. *(IO pass row 16 — `BIND`.)*
+- **A state payload of the wrong schema decodes as a value nothing sent.** The IO pass added a
+  schema-verifier guard on every inbound decode, which refuses an empty or truncated payload; it
+  cannot refuse a *well-formed* payload of another type, because the layouts agree. The hole is
+  directional: an analog payload delivered on a digital topic forwards a value (probe: `AiStatePayload`
+  carrying `4.2` → `true`, carrying `0.0` → `false`), while the reverse is refused. Only the `schema`
+  MQTT user property distinguishes it — every publisher on this wire sets one
+  (`hal-raspberry` `Vion.Hal.Raspberry.dotnet/Handlers/DigitalOutputHandler.cs:83,102,139`) and the far
+  side already checks one (`service-provider-sdk-dotnet`
+  `Vion.ServiceProvider.Sdk/Infrastructure/MqttApplicationMessageExtensions.cs:182-191`, throwing
+  `InvalidPayloadSchemaException`). `MqttMessageReceived` carries `UserProperties`
+  (`Vion.Dale.Sdk/Mqtt/ActorMessages.cs:79-84`) and `ServiceProviderMqttMessage` does not expose them:
+  a small accessor on that `[PublicApi]` struct, then a one-line check in each of this area's four
+  decode sites. *(IO pass rows 28 and 69 — `BIND`.)*
+- **A command that the far side refused is invisible to the block.** Every command this area publishes
+  names a response topic (`Vion.Dale.Sdk.DigitalIo/Output/DigitalOutputHandler.cs:104`, published at
+  `:75`) and nothing in the runtime subscribes it — `grep -rn '/response' dale/Dale --include=*.cs` is
+  zero hits. The far side answers there on both paths: `hal-raspberry`
+  `Vion.Hal.Raspberry.dotnet/Handlers/DigitalOutputHandler.cs:185-191` on success and `:206-213` with
+  `RequestStatus.Error` for a malformed payload or a hardware write error. A block therefore sees only
+  the retained state that a *successful* write produces, and a per-command failure reaches no one.
+  Subscribing it is a new wire behaviour: a new message type, a new arm, and a decision about what a
+  block observes. *(IO pass row 64 — `IO` with `BIND`.)*
+- **The analog TestKit cannot verify a non-finite value.** `Vion.Dale.Sdk.AnalogIo.TestKit/LogicBlockTestContextExtensions.cs`
+  compares `Math.Abs(actual - expected) <= tolerance` in all three verify helpers, and that expression
+  is false for `NaN` against `NaN` and for either infinity against itself at any tolerance. The value
+  contract admits all of them and they reach the wire bit-exact, so a block that legitimately writes one
+  cannot be asserted with the shipped helper. *(IO pass row 41 — `TKIT`.)*
+- **The two IO TestKit test projects hold different suites.** `ToleranceDefaultsShould` exists only
+  under `Vion.Dale.Sdk.AnalogIo.TestKit.Test/`, so the digital verify helpers' negative sweep — a value
+  that does not match must fail the assertion — is unproven. The two TestKits are otherwise a mirror.
+  *(IO pass row 60 — `TKIT`.)*
+- **A TestKit verification's contract-type argument filters nothing.** `Vion.Dale.Sdk.TestKit/LogicBlockTestContext.cs:233-244`
+  filters on the message type and the contract identifier; `messageKind` reaches only the failure
+  string at `:242`. The six contract-type names the IO TestKits pass to it duplicate the eight stable
+  identifiers `AC-IO-001.3` calls platform-visible, with no gate holding the two in step — a rename
+  would leave the helper silently naming the old one. *(IO pass row 61 — `TKIT`.)*
+- **The TestKit's raise helpers build an empty logic-block identity.**
+  `Vion.Dale.Sdk.DigitalIo.TestKit/I*Extensions.cs:32` and their analog twins construct
+  `new LogicBlockContractId("", identifier)` — the exact shape `LogicBlockContractBase.cs:115-120`
+  drops a *write* on. Harmless in the receive direction, where nothing reads it; it means the raise
+  path never carries the identity a host would, so a future helper that raised through the write path
+  would drop everything silently. *(IO pass row 63 — `TKIT`.)*
+- **The core SDK has the same unmarked public type the IO pass fixed in its own packages.**
+  `Vion.Dale.Sdk/ServiceCollectionExtensions.cs:8-10` is public, carries neither `[PublicApi]` nor
+  `[InternalApi]`, and sits in the undeclared root namespace — so `DALE014` never asks, exactly as it
+  never asked about the two `DependencyInjection` classes. `Vion.Dale.Sdk` is packable and carries the
+  analyzer, so the rule is live there too. *(Found while correcting IO pass row 50's Why — `BIND`.)*
+- **`Vion.Contracts`' generated payload verifiers are unusable as published.** Every
+  `Verify<Payload>Payload(ByteBuffer)` wrapper — all ten in 3.7.0 — passes an empty file identifier to
+  `Verifier.VerifyBuffer`, which rejects any identifier that is not four characters, so the wrapper
+  throws `ArgumentException: FlatBuffers: file identifier must be length4` on every non-empty buffer
+  including a valid one, and returns `false` only on an empty one. The generated
+  `<Payload>Verify.Verify` beneath it is public and correct, which is what the IO pass calls directly
+  with a `null` identifier. Anyone reaching for the documented wrapper gets an exception.
+  *(Found by the IO pass, probes P5 and V6 — `vion-contracts`.)*
+- **`hal-sim` writes the two payload identity strings transposed.**
+  `HalSim/FlatBufferPayloadFactory.cs:33,47,61,75` calls
+  `Create*StatePayload(builder, endpointOffset, hwBlockOffset, value)` where the generated parameters
+  are `(builder, hardware_block_instance_idOffset, endpoint_identifierOffset, value)`;
+  `hal-raspberry` `Vion.Hal.Raspberry.dotnet/Handlers/DigitalInputHandler.cs:157` passes them the other
+  way round. Nothing has noticed because the Dale SDK reads neither field — it takes the contract
+  identity from the topic (`AC-IO-005.3`). *(Found by the IO pass's reader sweep — `hal-sim`.)*

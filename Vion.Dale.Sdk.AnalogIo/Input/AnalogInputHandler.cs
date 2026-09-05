@@ -65,8 +65,7 @@ namespace Vion.Dale.Sdk.AnalogIo.Input
                        Message = "Received AI state change (ServiceProviderContractId={ServiceProviderContractId}, Value={Value}, CorrelationId={CorrelationId}, Topic={Topic})")]
         private partial void LogReceivedStateChange(ServiceProviderContractId serviceProviderContractId, double value, Guid correlationId, string topic);
 
-        [LoggerMessage(Level = LogLevel.Debug,
-                       Message = "Rejected unverifiable AI payload (ServiceProviderContractId={ServiceProviderContractId}, Topic={Topic})")]
+        [LoggerMessage(Level = LogLevel.Debug, Message = "Rejected unverifiable AI payload (ServiceProviderContractId={ServiceProviderContractId}, Topic={Topic})")]
         private partial void LogRejectedUnverifiablePayload(ServiceProviderContractId serviceProviderContractId, string topic);
     }
 }

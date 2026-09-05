@@ -49,6 +49,11 @@ namespace Vion.Dale.Sdk.DigitalIo.Test.TestHelpers
         /// <summary>Every message the handler answered its sender with.</summary>
         internal List<object> Responses { get; } = [];
 
+        internal IActorReference MqttClientActor
+        {
+            get => _mqttClientActorMock.Object;
+        }
+
         internal HandlerHarness()
         {
             MqttConfiguration.InstallationTopic = Installation;
@@ -56,11 +61,6 @@ namespace Vion.Dale.Sdk.DigitalIo.Test.TestHelpers
             ActorContextMock.Setup(context => context.SendTo(It.IsAny<IActorReference>(), It.IsAny<object>(), It.IsAny<Dictionary<string, string>?>()))
                             .Callback<IActorReference, object, Dictionary<string, string>?>((target, message, _) => Sent.Add((target, message)));
             ActorContextMock.Setup(context => context.RespondToSender(It.IsAny<object>())).Callback<object>(Responses.Add);
-        }
-
-        internal IActorReference MqttClientActor
-        {
-            get => _mqttClientActorMock.Object;
         }
 
         /// <summary>The topic a service provider publishes a state change on, for the given action path suffix.</summary>

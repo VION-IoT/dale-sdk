@@ -177,7 +177,9 @@ namespace Vion.Dale.Sdk.DigitalIo.Test.Output
             _harness.Link(_sut);
 
             // Act
-            _harness.Send(_sut, new ContractMessage<SetDigitalOutput>(new LogicBlockContractId(new LogicBlockId("elsewhere"), HandlerHarness.ContractIdentifier), new SetDigitalOutput(true)));
+            _harness.Send(_sut,
+                          new ContractMessage<SetDigitalOutput>(new LogicBlockContractId(new LogicBlockId("elsewhere"), HandlerHarness.ContractIdentifier),
+                                                                new SetDigitalOutput(true)));
 
             // Assert
             Assert.IsEmpty(_harness.Published());
