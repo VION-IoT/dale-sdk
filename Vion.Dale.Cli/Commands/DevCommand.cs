@@ -289,8 +289,11 @@ namespace Vion.Dale.Cli.Commands
         private static string? FindDevHostProject(string? projectPath)
         {
             var startDir = projectPath != null ? Path.GetDirectoryName(Path.GetFullPath(projectPath)) : Directory.GetCurrentDirectory();
-            if (startDir == null)
+            if (startDir == null || !Directory.Exists(startDir))
             {
+                // Enumerating a directory that is not there throws out of the action, where every other
+                // refusal in this tool is one sentence.
+                DaleConsole.Error($"No directory at '{startDir ?? projectPath}' to look for a DevHost project in.");
                 return null;
             }
 
