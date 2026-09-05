@@ -503,7 +503,7 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   rather than decided by a pass. *(TKIT pass row 185 — `TKIT`, for the operator.)*
 - **The SDK ships no test context for a service-provider handler.** Absorbed from the deleted RFC
   0002, whose four gaps are all still live; the absorption is recorded under Reviewer's question 7 of
-  [`../changes/archive/2026-09-06-tkit-pass.md`](../changes/archive/2026-09-06-tkit-pass.md).
+  [`../changes/archive/2026-09-05-tkit-pass.md`](../changes/archive/2026-09-05-tkit-pass.md).
   `LogicBlockTestContext<TLogicBlock>` constrains its type parameter to `LogicBlockBase`, so a
   handler cannot be hosted by it, and three suites inside the SDK hand-roll a recording actor context
   in three different shapes — `Vion.Dale.Sdk.DigitalIo.Test/TestHelpers/HandlerHarness.cs`,
