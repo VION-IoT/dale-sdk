@@ -135,7 +135,12 @@ The same rule in its other costume: **no test-only accessors** — never add a m
 whose sole purpose is letting tests inspect internal state. It widens the published surface for
 non-production reasons (§ D1 territory) and couples tests to the current representation. If neither
 the introspection result, an event, a return value, nor a collaborator can observe the behavior,
-stop and surface the design issue rather than carving a hole in the SUT.
+stop and surface the design issue rather than carving a hole in the SUT. A **seam** a test
+overrides — an injected transport, a redirectable store root, a console a renderer writes through —
+is not a test-only accessor when production composes the SUT through the same member from one
+composition root, so the test overrides a value production also sets; a static setter only tests
+call is one, whatever production reads afterwards. Two checks of one pass disagreed on exactly this
+until the composition root existed.
 
 ## 8. The machine baseline
 

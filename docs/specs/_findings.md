@@ -463,3 +463,14 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   end. The publish workflow already installs the packed tool for the help snapshot
   (`publish.yml:148-155`), so the step exists to hang a smoke on — but the fixture, the cleanup and
   the failure modes are a change doc's worth of work. *(CLI pass row 212 — the release process.)*
+- **The `login` help's `--environment` default is whatever the developer's own store says.** The
+  option's default is read from `~/.dale/config.json` when the command tree is built, so `dale login
+  -h` prints `[default: test]` on a machine logged into the test environment and
+  `[default: production]` on a clean runner — and the committed help snapshot regenerated on such a
+  machine drifts from the one CI regenerates (the snapshot bot corrected exactly that one line on the
+  CLI pass's branch before it merged). The fix-up's "redirected home" did not reach it either: on
+  Windows `Environment.SpecialFolder.UserProfile` ignores the `USERPROFILE` variable. A help text
+  should not depend on stored state; the default shown is the resolution rule (stored, else
+  `production`), and the snapshot regeneration runs against an explicitly empty store root. Small,
+  area-local, and worth a test that pins the help line under an empty root. *(Found at the merge of
+  the CLI pass — `CLI`.)*
