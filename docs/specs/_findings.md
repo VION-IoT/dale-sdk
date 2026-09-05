@@ -428,3 +428,38 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   (`:56`) is a plain auto-property, so after this pass guarded the real `RequestQueue` the two shipped
   `IRequestQueue` implementations disagree: the fake keeps `-1 s` and expires everything, where the
   real one refuses it. *(MODB pass, the second opinion's unsaid item 7 — `TKIT`.)*
+
+## `CLI` — the `dale` command-line tool (2026-09-05)
+
+- **The two upload conflicts are told apart by the endpoint's message text.** `dale upload
+  --skip-duplicate` treats a 409 as a skip only when the response message contains `version` and
+  `already exists` (`Vion.Dale.Cli/Commands/UploadCommand.cs:304-308`), because the API returns the same
+  status and the same `ConflictException` for a duplicate version and for a package-id conflict. Six
+  invocations ride on the match — both release workflows in the first consumer
+  (`release-test.yml:45`, `release-prod.yml:83`) and four in this repository
+  (`upload-libraries.yml:59`, `:90`, `examples.yml:61`, `:120`) — so a wording change at the endpoint
+  turns each of them into a hard failure, or turns a package-id conflict into a reported success. The
+  fix is a distinguishable field on the answer, which is the platform API's to add, not this tool's.
+  `AC-CLI-011.8` states the substring match as today's contract. *(CLI pass row 137 — the platform
+  API.)*
+- **One thirty-second ceiling covers every cloud request, the package upload included.**
+  `DaleHttpClient` sets `Timeout = 30 s` on the shared client (`:129`) and `dale upload` posts the
+  whole `.nupkg` as a multipart body read into memory (`UploadCommand.cs:413-414`). None of the four
+  workflow uploads has reported a timeout, so nothing is broken today — but it is a size-and-link
+  limit nobody chose for that one request, and the failure it produces reads like a server fault
+  (`Request timed out: POST …`). Giving the upload its own bound is a small change with no observable
+  a test can stand on (`AC-CLI-017.6` is `GAP` for the same reason), which is why it is here rather
+  than in the pass. *(CLI pass row 189 — `CLI`.)*
+- **`dale dev` announces an address it never checked.** It prints `http://localhost:5000`
+  unconditionally (`DevCommand.DescribeStartup:153`, printed at `:109`); nothing in the tool reads a port, checks one, or sets
+  `ASPNETCORE_URLS`, and `scenario run`, `validate`, `schema` and `open` all default to the same
+  number. With 5000 already taken the developer is sent to someone else's server. Answering it needs
+  the host's readiness handshake — which is `CTRL`'s, not this tool's — and changing the default is a
+  surface change across five commands. The page states the printed address as the configured default
+  rather than a bound one. *(CLI pass row 106 — `CLI` with `CTRL`.)*
+- **The bundled template has no gate that runs `dale new`.** Its only proof is
+  `VionIotLibraryTemplate.Test/ThermostatShould.cs`, built by the main solution against the *source*
+  template, so the pack-time reference rewrite and the `dotnet new install` path are unproven end to
+  end. The publish workflow already installs the packed tool for the help snapshot
+  (`publish.yml:148-155`), so the step exists to hang a smoke on — but the fixture, the cleanup and
+  the failure modes are a change doc's worth of work. *(CLI pass row 212 — the release process.)*
