@@ -34,8 +34,8 @@ structure. Do not invent new patterns; name the precedent you followed.
 
 **Design docs are change docs in [`docs/changes/`](docs/changes/)** per
 [`docs/spec-process.md`](docs/spec-process.md); the current-truth spec corpus is
-[`docs/specs/`](docs/specs/). `docs/rfcs/` is **frozen history** being absorbed by area passes — three
-files remain, covering the test kits and the release pipeline — do not cite it
+[`docs/specs/`](docs/specs/). `docs/rfcs/` is **frozen history** being absorbed by area passes — two
+files remain, covering the test kits — do not cite it
 in new work and do not add to it. `docs/superpowers/` is **gitignored** (`.gitignore:300`)
 per architecture decision 0011, so anything a planning skill writes there cannot be committed —
 `git check-ignore` is the tell; redirect anything meant to last to `docs/changes/`. Cross-repo specs
@@ -125,7 +125,7 @@ The CLI (`dale`) is the primary developer interface for consumers of the SDK. In
 dotnet tool install -g Vion.Dale.Cli
 ```
 
-Commands: `dale build`, `dale test`, `dale dev`, `dale list`, `dale new`, `dale add logicblock|serviceproperty|measuringpoint|timer`, `dale pack`, `dale upload`, `dale login`, `dale logout`, `dale whoami`, `dale config show|set-environment|set-integrator`.
+Commands: `dale build`, `dale test`, `dale dev`, `dale list`, `dale new`, `dale add logicblock|serviceproperty|measuringpoint|timer`, `dale scenario run|validate|schema|scaffold|open`, `dale pack`, `dale upload`, `dale login`, `dale logout`, `dale whoami`, `dale config show|set-environment|set-integrator`.
 
 See [Vion.Dale.Cli/CLAUDE.md](Vion.Dale.Cli/CLAUDE.md) for architecture, patterns, and how to add commands.
 

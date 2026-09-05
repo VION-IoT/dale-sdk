@@ -8,6 +8,8 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Xml.Linq;
 using Spectre.Console;
 using Vion.Dale.Cli.Auth;
@@ -70,6 +72,7 @@ namespace Vion.Dale.Cli.Commands
 
                                   // 3. Pack + Upload with progress
                                   var skipDuplicate = parseResult.GetValue(skipDuplicateOption);
+                                  var packNotices = new List<string>();
                                   string? responseBody = null;
                                   string? nupkgPath = null;
                                   string? effectiveVersion = null;
@@ -78,9 +81,10 @@ namespace Vion.Dale.Cli.Commands
                                   {
                                       // JSON mode: no progress bar, just run
                                       var packResult = await DotnetRunner.RunCaptureAsync("pack", BuildPackArgs(project, versionOverride), project.ProjectDirectory);
+                                      packNotices = ExtractPackNotices(packResult.Output);
                                       if (packResult.ExitCode != 0)
                                       {
-                                          DaleConsole.Error("Pack failed.");
+                                          DaleConsole.Error(DescribePackFailure(packResult.Output));
                                           return 1;
                                       }
 
@@ -113,12 +117,21 @@ namespace Vion.Dale.Cli.Commands
                                               DaleConsole.WriteJsonResult(new
                                                                           {
                                                                               status = "skipped", reason = "version_exists", packageId = project.PackageId,
-                                                                              version = effectiveVersion,
+                                                                              version = effectiveVersion, notices = packNotices,
                                                                           });
                                               return 0;
                                           }
 
-                                          DaleConsole.WriteJson(await response.Content.ReadAsStringAsync() ?? "{}");
+                                          // A shape this tool owns, so a caller can branch on `status` whether the
+                                          // upload happened or was skipped; the endpoint's own answer rides under
+                                          // `response`, and the parser's notices — which blocks the artifact left
+                                          // out — travel with it as they do in table mode.
+                                          DaleConsole.WriteJsonResult(new
+                                                                      {
+                                                                          status = "uploaded", packageId = project.PackageId, version = effectiveVersion,
+                                                                          notices = packNotices,
+                                                                          response = ReadResponseDocument(await response.Content.ReadAsStringAsync()),
+                                                                      });
                                       }
                                       catch (Exception ex)
                                       {
@@ -130,7 +143,6 @@ namespace Vion.Dale.Cli.Commands
                                   }
 
                                   // Human mode: progress bar with stages
-                                  var packNotices = new List<string>();
                                   var failed = false;
                                   var versionAlreadyExists = false;
                                   string? errorMessage = null;
@@ -148,7 +160,7 @@ namespace Vion.Dale.Cli.Commands
                                                                    packNotices = ExtractPackNotices(packResult.Output);
                                                                    if (packResult.ExitCode != 0)
                                                                    {
-                                                                       errorMessage = "Pack failed.";
+                                                                       errorMessage = DescribePackFailure(packResult.Output);
                                                                        failed = true;
                                                                        return;
                                                                    }
@@ -223,8 +235,20 @@ namespace Vion.Dale.Cli.Commands
             return command;
         }
 
+        /// <summary>
+        ///     The package this project produced: the most recently written <c>.nupkg</c> whose file name is
+        ///     the project's package id followed by a version. A prefix match would claim a sibling's
+        ///     artifact — <c>Acme.Energy.Modbus.1.4.0.nupkg</c> begins with <c>Acme.Energy.</c> — and package
+        ///     ids are globally unique (decision 0111), so the wrong artifact would land under a real
+        ///     identity. Returns null rather than guessing when nothing matches.
+        /// </summary>
         internal static string? FindNupkg(DaleProject project)
         {
+            if (string.IsNullOrEmpty(project.PackageId))
+            {
+                return null;
+            }
+
             var searchDirs = new[]
                              {
                                  Path.Combine(project.ProjectDirectory, "bin", "Release"),
@@ -238,27 +262,34 @@ namespace Vion.Dale.Cli.Commands
                     continue;
                 }
 
-                var allNupkgs = Directory.GetFiles(dir, "*.nupkg", SearchOption.AllDirectories).OrderByDescending(File.GetLastWriteTime).ToArray();
-
-                // Prefer exact match by PackageId
-                if (!string.IsNullOrEmpty(project.PackageId))
+                var matching = Directory.GetFiles(dir, "*.nupkg", SearchOption.AllDirectories)
+                                        .Where(file => IsPackageOf(project.PackageId!, file))
+                                        .OrderByDescending(File.GetLastWriteTime)
+                                        .FirstOrDefault();
+                if (matching != null)
                 {
-                    var packagePrefix = project.PackageId + ".";
-                    var matching = allNupkgs.FirstOrDefault(f => Path.GetFileName(f).StartsWith(packagePrefix, StringComparison.OrdinalIgnoreCase));
-                    if (matching != null)
-                    {
-                        return matching;
-                    }
-                }
-
-                // Fall back to newest
-                if (allNupkgs.Length > 0)
-                {
-                    return allNupkgs[0];
+                    return matching;
                 }
             }
 
             return null;
+        }
+
+        /// <summary>
+        ///     Whether a <c>.nupkg</c> file name is <paramref name="packageId" /> followed by a version —
+        ///     the package id, a dot, and a remainder that starts with a digit. That last condition is what
+        ///     separates a package from a longer-named sibling.
+        /// </summary>
+        internal static bool IsPackageOf(string packageId, string nupkgPath)
+        {
+            var fileName = Path.GetFileNameWithoutExtension(nupkgPath);
+            if (!fileName.StartsWith(packageId + ".", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            var remainder = fileName.Substring(packageId.Length + 1);
+            return remainder.Length > 0 && char.IsDigit(remainder[0]);
         }
 
         /// <summary>
@@ -274,6 +305,43 @@ namespace Vion.Dale.Cli.Commands
         {
             var message = DaleHttpClient.DescribeError(body);
             return message.Contains("version", StringComparison.OrdinalIgnoreCase) && message.Contains("already exists", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        ///     What to say when <c>dotnet pack</c> failed. The output is captured rather than inherited (the
+        ///     progress display and the JSON document both need the console to themselves), so a bare "Pack
+        ///     failed." would throw away the only diagnosis there is.
+        /// </summary>
+        internal static string DescribePackFailure(string packOutput)
+        {
+            var detail = packOutput.Split('\n')
+                                   .Select(line => line.Trim('\r', ' '))
+                                   .Where(line => line.Contains(": error ", StringComparison.Ordinal))
+                                   .Distinct(StringComparer.Ordinal)
+                                   .ToList();
+
+            return detail.Count > 0 ? "Pack failed:" + Environment.NewLine + string.Join(Environment.NewLine, detail) : "Pack failed.";
+        }
+
+        /// <summary>
+        ///     The endpoint's answer as a JSON value where it is JSON, and as a string otherwise, so the
+        ///     tool's own document nests it rather than quoting a document inside a document.
+        /// </summary>
+        internal static JsonNode? ReadResponseDocument(string? body)
+        {
+            if (string.IsNullOrWhiteSpace(body))
+            {
+                return null;
+            }
+
+            try
+            {
+                return JsonNode.Parse(body!);
+            }
+            catch (JsonException)
+            {
+                return JsonValue.Create(body);
+            }
         }
 
         /// <summary>

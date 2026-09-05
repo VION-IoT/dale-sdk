@@ -28,9 +28,15 @@ namespace Vion.Dale.Cli.Commands.Add
                                   var to = parseResult.GetValue(toOption);
                                   var projectPath = parseResult.GetValue<string?>("--project");
 
-                                  if (interval <= 0)
+                                  if (!CSharpNames.IsIdentifier(name))
                                   {
-                                      DaleConsole.Error("Timer interval must be greater than zero.");
+                                      DaleConsole.Error(CSharpNames.DescribeInvalidIdentifier("timer method name", name));
+                                      return 1;
+                                  }
+
+                                  if (!IsValidInterval(interval))
+                                  {
+                                      DaleConsole.Error("Timer interval must be a positive number of seconds.");
                                       return 1;
                                   }
 
@@ -78,6 +84,16 @@ namespace Vion.Dale.Cli.Commands.Add
                               });
 
             return command;
+        }
+
+        /// <summary>
+        ///     Whether a timer interval can be written into the emitted attribute. Written the positive way:
+        ///     `interval &lt;= 0` is false for NaN, which then reaches the source as `[Timer(NaN)]` and does
+        ///     not compile.
+        /// </summary>
+        internal static bool IsValidInterval(double interval)
+        {
+            return interval > 0 && !double.IsInfinity(interval);
         }
 
         internal static string BuildTimerSnippet(string name, double interval)

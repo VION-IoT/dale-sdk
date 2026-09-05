@@ -27,6 +27,12 @@ namespace Vion.Dale.Cli.Commands.Add
                                   var icon = parseResult.GetValue(iconOption);
                                   var projectPath = parseResult.GetValue<string?>("--project");
 
+                                  if (!CSharpNames.IsIdentifier(name))
+                                  {
+                                      DaleConsole.Error(CSharpNames.DescribeInvalidIdentifier("LogicBlock name", name));
+                                      return 1;
+                                  }
+
                                   var project = CommandHelpers.RequireProject(projectPath);
                                   if (project == null)
                                   {
@@ -118,12 +124,15 @@ namespace {ns}
                 return;
             }
 
-            // Find the last AddTransient/AddSingleton/AddScoped call and insert after it
-            var lines = File.ReadAllLines(diFilePath);
+            // Find the last AddTransient/AddSingleton/AddScoped call and insert after it. Read and written
+            // through SourceInserter, which keeps the file's line ending and byte-order mark — the
+            // ReadAllLines/WriteAllLines pair rewrites every terminator to the platform's and drops the
+            // mark, which turns one registration into a whole-file diff.
+            var lines = SourceInserter.ReadLines(diFilePath);
             var insertIndex = -1;
             var indent = "            ";
 
-            for (var i = 0; i < lines.Length; i++)
+            for (var i = 0; i < lines.Count; i++)
             {
                 var trimmed = lines[i].TrimStart();
                 if (trimmed.StartsWith("services.Add"))
@@ -137,7 +146,7 @@ namespace {ns}
             if (insertIndex < 0)
             {
                 var inMethod = false;
-                for (var i = 0; i < lines.Length; i++)
+                for (var i = 0; i < lines.Count; i++)
                 {
                     if (lines[i].Contains("void ConfigureServices"))
                     {
@@ -155,11 +164,7 @@ namespace {ns}
 
             if (insertIndex >= 0)
             {
-                var newLines = new string[lines.Length + 1];
-                Array.Copy(lines, 0, newLines, 0, insertIndex);
-                newLines[insertIndex] = indent + registration;
-                Array.Copy(lines, insertIndex, newLines, insertIndex + 1, lines.Length - insertIndex);
-                File.WriteAllLines(diFilePath, newLines);
+                SourceInserter.InsertLine(diFilePath, insertIndex, indent + registration);
             }
         }
     }

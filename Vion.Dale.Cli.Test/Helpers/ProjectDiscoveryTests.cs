@@ -26,8 +26,10 @@ namespace Vion.Dale.Cli.Test.Helpers
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-003.1")]
         public void FindProject_WithDaleSdkPackageReference_ReturnsProject()
         {
+            // Arrange / Act
             var csproj = Path.Combine(_tempDir, "MyLib.csproj");
             File.WriteAllText(csproj,
                               @"<Project Sdk=""Microsoft.NET.Sdk"">
@@ -43,6 +45,7 @@ namespace Vion.Dale.Cli.Test.Helpers
 
             var project = ProjectDiscovery.FindProject(startDirectory: _tempDir);
 
+            // Assert
             Assert.IsNotNull(project);
             Assert.AreEqual("MyLib", project.ProjectName);
             Assert.AreEqual("1.2.3", project.Version);
@@ -51,8 +54,10 @@ namespace Vion.Dale.Cli.Test.Helpers
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-003.1")]
         public void FindProject_WithDaleSdkProjectReference_ReturnsProject()
         {
+            // Arrange / Act
             var csproj = Path.Combine(_tempDir, "MyLib.csproj");
             File.WriteAllText(csproj,
                               @"<Project Sdk=""Microsoft.NET.Sdk"">
@@ -66,14 +71,17 @@ namespace Vion.Dale.Cli.Test.Helpers
 
             var project = ProjectDiscovery.FindProject(startDirectory: _tempDir);
 
+            // Assert
             Assert.IsNotNull(project);
             Assert.AreEqual("MyLib", project.ProjectName);
             Assert.IsNull(project.SdkVersion);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-003.1")]
         public void FindProject_NoDaleSdkReference_ReturnsNull()
         {
+            // Arrange / Act
             var csproj = Path.Combine(_tempDir, "OtherLib.csproj");
             File.WriteAllText(csproj,
                               @"<Project Sdk=""Microsoft.NET.Sdk"">
@@ -84,12 +92,15 @@ namespace Vion.Dale.Cli.Test.Helpers
 
             var project = ProjectDiscovery.FindProject(startDirectory: _tempDir);
 
+            // Assert
             Assert.IsNull(project);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-003.2")]
         public void FindProject_WalksUpDirectoryTree()
         {
+            // Arrange / Act
             var subDir = Path.Combine(_tempDir, "src", "deep");
             Directory.CreateDirectory(subDir);
 
@@ -102,13 +113,16 @@ namespace Vion.Dale.Cli.Test.Helpers
 
             var project = ProjectDiscovery.FindProject(startDirectory: subDir);
 
+            // Assert
             Assert.IsNotNull(project);
             Assert.AreEqual("MyLib", project.ProjectName);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-003.2")]
         public void FindProject_ExplicitProjectPath()
         {
+            // Arrange / Act
             var csproj = Path.Combine(_tempDir, "Explicit.csproj");
             File.WriteAllText(csproj,
                               @"<Project Sdk=""Microsoft.NET.Sdk"">
@@ -118,14 +132,17 @@ namespace Vion.Dale.Cli.Test.Helpers
 
             var project = ProjectDiscovery.FindProject(csproj);
 
+            // Assert
             Assert.IsNotNull(project);
             Assert.AreEqual("Explicit", project.ProjectName);
             Assert.AreEqual("0.1.42", project.SdkVersion);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-006.1")]
         public void FindLogicBlocks_FindsClassesExtendingLogicBlockBase()
         {
+            // Arrange / Act
             var csFile = Path.Combine(_tempDir, "MyBlock.cs");
             File.WriteAllText(csFile,
                               @"
@@ -140,14 +157,17 @@ namespace MyLib
 
             var blocks = ProjectDiscovery.FindLogicBlocks(_tempDir);
 
+            // Assert
             Assert.AreEqual(1, blocks.Count);
             Assert.AreEqual("TemperatureSensor", blocks[0].ClassName);
             Assert.AreEqual(csFile, blocks[0].FilePath);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-006.1")]
         public void FindLogicBlocks_IgnosBinAndObjDirectories()
         {
+            // Arrange / Act
             var objDir = Path.Combine(_tempDir, "obj");
             Directory.CreateDirectory(objDir);
             File.WriteAllText(Path.Combine(objDir, "Generated.cs"), "class Foo : LogicBlockBase {}");
@@ -158,23 +178,29 @@ namespace MyLib
 
             var blocks = ProjectDiscovery.FindLogicBlocks(_tempDir);
 
+            // Assert
             Assert.AreEqual(0, blocks.Count);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-006.1")]
         public void FindLogicBlocks_MultipleBlocksInDifferentFiles()
         {
+            // Arrange / Act
             File.WriteAllText(Path.Combine(_tempDir, "BlockA.cs"), "public class BlockA : LogicBlockBase { }");
             File.WriteAllText(Path.Combine(_tempDir, "BlockB.cs"), "public class BlockB : LogicBlockBase { }");
 
             var blocks = ProjectDiscovery.FindLogicBlocks(_tempDir);
 
+            // Assert
             Assert.AreEqual(2, blocks.Count);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-006.1")]
         public void FindLogicBlocks_MultipleBlocksInSameFile()
         {
+            // Arrange / Act
             File.WriteAllText(Path.Combine(_tempDir, "Blocks.cs"),
                               @"
 public class BlockA : LogicBlockBase { }
@@ -183,37 +209,46 @@ public class BlockB : LogicBlockBase { }
 
             var blocks = ProjectDiscovery.FindLogicBlocks(_tempDir);
 
+            // Assert
             Assert.AreEqual(2, blocks.Count);
             Assert.IsTrue(blocks.Exists(b => b.ClassName == "BlockA"));
             Assert.IsTrue(blocks.Exists(b => b.ClassName == "BlockB"));
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-003.3")]
         public void FindSolution_FindsSlnFile()
         {
+            // Arrange / Act
             File.WriteAllText(Path.Combine(_tempDir, "MyApp.sln"), "solution content");
 
             var sln = ProjectDiscovery.FindSolution(_tempDir);
 
+            // Assert
             Assert.IsNotNull(sln);
             Assert.IsTrue(sln.EndsWith("MyApp.sln"));
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-003.3")]
         public void FindSolution_FindsSlnxFile()
         {
+            // Arrange / Act
             // .NET 10 `dotnet new sln` creates .slnx (XML solution format) by default.
             File.WriteAllText(Path.Combine(_tempDir, "MyApp.slnx"), "<Solution />");
 
             var sln = ProjectDiscovery.FindSolution(_tempDir);
 
+            // Assert
             Assert.IsNotNull(sln);
             Assert.IsTrue(sln.EndsWith("MyApp.slnx"));
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-003.3")]
         public void FindSolution_PrefersSlnOverSlnxInSameDirectory()
         {
+            // Arrange / Act
             // The .slnx sorts alphabetically before the .sln — preference must come from
             // the extension, not from file name ordering.
             File.WriteAllText(Path.Combine(_tempDir, "AAA.slnx"), "<Solution />");
@@ -221,13 +256,16 @@ public class BlockB : LogicBlockBase { }
 
             var sln = ProjectDiscovery.FindSolution(_tempDir);
 
+            // Assert
             Assert.IsNotNull(sln);
             Assert.IsTrue(sln.EndsWith("ZZZ.sln"));
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-003.3")]
         public void FindSolution_NearestDirectoryWinsOverExtensionPreference()
         {
+            // Arrange / Act
             // A .slnx in the starting directory beats a .sln further up the tree.
             var subDir = Path.Combine(_tempDir, "inner");
             Directory.CreateDirectory(subDir);
@@ -236,38 +274,47 @@ public class BlockB : LogicBlockBase { }
 
             var sln = ProjectDiscovery.FindSolution(subDir);
 
+            // Assert
             Assert.IsNotNull(sln);
             Assert.IsTrue(sln.EndsWith("Inner.slnx"));
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-003.3")]
         public void FindSolution_WalksUpToFindSlnx()
         {
+            // Arrange / Act
             var subDir = Path.Combine(_tempDir, "src", "deep");
             Directory.CreateDirectory(subDir);
             File.WriteAllText(Path.Combine(_tempDir, "MyApp.slnx"), "<Solution />");
 
             var sln = ProjectDiscovery.FindSolution(subDir);
 
+            // Assert
             Assert.IsNotNull(sln);
             Assert.IsTrue(sln.EndsWith("MyApp.slnx"));
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-003.3")]
         public void FindSolution_MultipleSolutionsOfSameType_ReturnsAlphabeticallyFirst()
         {
+            // Arrange / Act
             File.WriteAllText(Path.Combine(_tempDir, "Zeta.sln"), "solution content");
             File.WriteAllText(Path.Combine(_tempDir, "Alpha.sln"), "solution content");
 
             var sln = ProjectDiscovery.FindSolution(_tempDir);
 
+            // Assert
             Assert.IsNotNull(sln);
             Assert.IsTrue(sln.EndsWith("Alpha.sln"));
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-003.3")]
         public void FindSolution_IgnoresLongerExtensionsStartingWithSln()
         {
+            // Arrange / Act
             // Guards the explicit extension match: "*.sln"-style patterns can match longer
             // extensions on some platforms (legacy 8.3 short-name quirk). The decoy in the
             // nearer directory must be skipped in favor of the real solution above it.
@@ -278,13 +325,16 @@ public class BlockB : LogicBlockBase { }
 
             var sln = ProjectDiscovery.FindSolution(subDir);
 
+            // Assert
             Assert.IsNotNull(sln);
             Assert.IsTrue(sln.EndsWith("Real.sln"));
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-003.9")]
         public void FindProject_PackageIdFallsBackToProjectName()
         {
+            // Arrange / Act
             var csproj = Path.Combine(_tempDir, "MyLib.csproj");
             File.WriteAllText(csproj,
                               @"<Project Sdk=""Microsoft.NET.Sdk"">
@@ -294,6 +344,7 @@ public class BlockB : LogicBlockBase { }
 
             var project = ProjectDiscovery.FindProject(startDirectory: _tempDir);
 
+            // Assert
             Assert.IsNotNull(project);
             Assert.AreEqual("MyLib", project.PackageId);
         }

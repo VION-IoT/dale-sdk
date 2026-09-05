@@ -26,8 +26,10 @@ namespace Vion.Dale.Cli.Test.Helpers
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-008.1")]
         public void FindParserDll_WithSdkVersion_FindsInNuGetCache()
         {
+            // Arrange / Act
             // This test verifies the NuGet cache lookup works with a real installed package.
             // It requires Vion.Dale.Sdk 0.1.60 to be in the NuGet cache (which it is in the dev environment).
             var project = new DaleProject
@@ -43,6 +45,7 @@ namespace Vion.Dale.Cli.Test.Helpers
             // If the NuGet package is cached, we should find the parser
             if (parserDll != null)
             {
+                // Assert
                 Assert.IsTrue(parserDll.EndsWith("Vion.Dale.LogicBlockParser.dll"));
                 Assert.IsTrue(parserDll.Contains("vion.dale.sdk"));
                 Assert.IsTrue(File.Exists(parserDll));
@@ -52,8 +55,10 @@ namespace Vion.Dale.Cli.Test.Helpers
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-008.1")]
         public void FindParserDll_WithNullSdkVersion_SkipsNuGetCache()
         {
+            // Arrange / Act
             var project = new DaleProject
                           {
                               CsprojPath = Path.Combine(_tempDir, "Test.csproj"),
@@ -66,12 +71,16 @@ namespace Vion.Dale.Cli.Test.Helpers
             var parserDll = ParserRunner.FindParserDll(project);
 
             // In temp dir with no repo, should be null
+
+            // Assert
             Assert.IsNull(parserDll);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-008.1")]
         public void FindParserDll_WithInvalidVersion_ReturnsNull()
         {
+            // Arrange / Act
             var project = new DaleProject
                           {
                               CsprojPath = Path.Combine(_tempDir, "Test.csproj"),
@@ -83,6 +92,8 @@ namespace Vion.Dale.Cli.Test.Helpers
             var parserDll = ParserRunner.FindParserDll(project);
 
             // Non-existent version — NuGet cache miss, no local fallback in temp dir
+
+            // Assert
             Assert.IsNull(parserDll);
         }
     }

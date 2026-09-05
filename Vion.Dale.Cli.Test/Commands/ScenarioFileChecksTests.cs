@@ -96,6 +96,7 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void AcceptsAValidScenario()
         {
+            // Arrange / Act
             var outcome = ScenarioFileChecks.Validate("ok.scenario.json",
                                                       """
                                                       {
@@ -112,6 +113,8 @@ namespace Vion.Dale.Cli.Test.Commands
                                                       }
                                                       """,
                                                       Config);
+
+            // Assert
             Assert.AreEqual(0, outcome.Errors.Count, string.Join("; ", outcome.Errors));
             Assert.IsNull(outcome.SkippedForTopology);
         }
@@ -119,6 +122,7 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void AcceptsServiceProviderSetAndExpect()
         {
+            // Arrange / Act
             var outcome = ScenarioFileChecks.Validate("sp.scenario.json",
                                                       """
                                                       {
@@ -130,12 +134,15 @@ namespace Vion.Dale.Cli.Test.Commands
                                                       }
                                                       """,
                                                       Config);
+
+            // Assert
             Assert.AreEqual(0, outcome.Errors.Count, string.Join("; ", outcome.Errors));
         }
 
         [TestMethod]
         public void ChecksTheServiceProviderSetDriveGate_AgainstTheContractsDeclaredInbound()
         {
+            // Arrange / Act
             // VION-131. A contract is drivable exactly when its handler declares a [ScenarioWire] Inbound, which
             // the host surfaces as scenarioInputFields — the same predicate ScenarioResolver applies, so a
             // scenario CI refuses here is one a run would refuse too, and vice versa.
@@ -151,6 +158,8 @@ namespace Vion.Dale.Cli.Test.Commands
 
             // An output whose provider confirms back carries the key (EMPTY — the confirmation is a bare
             // scalar), and the presence alone is the pass: a drive carries the whole wire value, never a field.
+
+            // Assert
             Assert.IsEmpty(Drive("Active").Errors);
 
             // An outbound-only contract carries no inbound at all — nothing could be delivered on it.
@@ -166,6 +175,7 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void ChecksTheServiceProviderExpectFieldSelector_AgainstTheContractsDescribedCommand()
         {
+            // Arrange / Act
             // The host describes each output contract's addressable command leaves as the scenarioOutputFields
             // annotation, precisely so this offline validator can catch a bad `field` without booting a host.
             static ScenarioCheckOutcome Assert_(string assertBody)
@@ -179,6 +189,8 @@ namespace Vion.Dale.Cli.Test.Commands
 
             // A whole multi-field command is not comparable — the error names what can be addressed instead.
             var whole = Assert_("""{ "logicBlock": "Grid", "contract": "Setpoint", "notEquals": "x" }""").Errors.Single();
+
+            // Assert
             StringAssert.Contains(whole, "multi-field command");
             StringAssert.Contains(whole, "limits.activePowerW");
 
@@ -208,9 +220,12 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void RejectsServiceProviderSetWithoutValue_AndAnUnknownContract()
         {
+            // Arrange / Act
             var noValue = ScenarioFileChecks.Validate("a.scenario.json",
                                                       """{ "version": 1, "id": "a", "topology": "demo", "steps": [ { "serviceProviderSet": { "logicBlock": "Counter", "contract": "EnableInput" } } ] }""",
                                                       Config);
+
+            // Assert
             Assert.IsTrue(noValue.Errors.Any(e => e.Contains("serviceProviderSet requires value")), string.Join("; ", noValue.Errors));
 
             var unknown = ScenarioFileChecks.Validate("b.scenario.json",
@@ -297,6 +312,7 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void RejectsMalformedSteps()
         {
+            // Arrange / Act
             var outcome = ScenarioFileChecks.Validate("steps.scenario.json",
                                                       """
                                                       { "version": 1, "id": "steps", "topology": "demo",
@@ -309,6 +325,8 @@ namespace Vion.Dale.Cli.Test.Commands
                                                         ] }
                                                       """,
                                                       Config);
+
+            // Assert
             Assert.IsTrue(outcome.Errors.Any(e => e.Contains("setup entries stage state")), string.Join("; ", outcome.Errors));
             Assert.IsTrue(outcome.Errors.Any(e => e.Contains("exactly one of set")), string.Join("; ", outcome.Errors));
             Assert.IsTrue(outcome.Errors.Any(e => e.Contains("exactly one of above")), string.Join("; ", outcome.Errors));
@@ -319,6 +337,7 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void SettleUntil_ResolvesTargetPaths_AndRejectsEmptyOrUnknown()
         {
+            // Arrange / Act
             // A valid settle.until resolves its target paths against the topology, like watch.
             var ok = ScenarioFileChecks.Validate("settle-ok.scenario.json",
                                                  """
@@ -327,6 +346,8 @@ namespace Vion.Dale.Cli.Test.Commands
                                                    "steps": [ { "settle": { "until": [ "Counter.Counter" ], "maxSeconds": 5 } } ] }
                                                  """,
                                                  Config);
+
+            // Assert
             Assert.AreEqual(0, ok.Errors.Count, string.Join("; ", ok.Errors));
 
             // An empty until list and an unresolvable target path are both reported.
@@ -353,6 +374,7 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void AcceptsExpectOneOfAndPathComparand()
         {
+            // Arrange / Act
             var outcome = ScenarioFileChecks.Validate("exp.scenario.json",
                                                       """
                                                       {
@@ -367,12 +389,15 @@ namespace Vion.Dale.Cli.Test.Commands
                                                       }
                                                       """,
                                                       Config);
+
+            // Assert
             Assert.AreEqual(0, outcome.Errors.Count, string.Join("; ", outcome.Errors));
         }
 
         [TestMethod]
         public void RejectsExpectStructuralProblems()
         {
+            // Arrange / Act
             var outcome = ScenarioFileChecks.Validate("bad-exp.scenario.json",
                                                       """
                                                       {
@@ -387,6 +412,8 @@ namespace Vion.Dale.Cli.Test.Commands
                                                       }
                                                       """,
                                                       Config);
+
+            // Assert
             Assert.IsTrue(outcome.Errors.Any(e => e.Contains("setup entries stage state")), string.Join("; ", outcome.Errors));
             Assert.IsTrue(outcome.Errors.Any(e => e.Contains("exactly one of above")), string.Join("; ", outcome.Errors));
             Assert.IsTrue(outcome.Errors.Any(e => e.Contains("oneOf must be a non-empty array")), string.Join("; ", outcome.Errors));
@@ -397,6 +424,7 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void RejectsServiceProviderExpectStructuralProblems()
         {
+            // Arrange / Act
             // serviceProviderExpect is step-only and takes exactly one comparator (topology
             // "elsewhere" skips path/contract resolution, isolating the structural checks).
             var outcome = ScenarioFileChecks.Validate("bad-out.scenario.json",
@@ -408,6 +436,8 @@ namespace Vion.Dale.Cli.Test.Commands
                                                       }
                                                       """,
                                                       Config);
+
+            // Assert
             Assert.IsTrue(outcome.Errors.Any(e => e.Contains("setup entries")), string.Join("; ", outcome.Errors));
             Assert.IsTrue(outcome.Errors.Any(e => e.Contains("exactly one of above")), string.Join("; ", outcome.Errors));
         }
@@ -415,6 +445,7 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void RejectsToleranceWithoutANumericEquals()
         {
+            // Arrange / Act
             // DF-22: the runtime loader rejects `tolerance` unless paired with a numeric `equals`; the lite
             // validator (and the generated schema) must agree, so `dale scenario validate` fails as early as
             // the loader rather than green-lighting a form the run then rejects.
@@ -429,12 +460,15 @@ namespace Vion.Dale.Cli.Test.Commands
                                                       }
                                                       """,
                                                       Config);
+
+            // Assert
             Assert.AreEqual(2, outcome.Errors.Count(e => e.Contains("tolerance is only valid with a numeric equals")), string.Join("; ", outcome.Errors));
         }
 
         [TestMethod]
         public void AcceptsToleranceWithANumericEquals()
         {
+            // Arrange / Act
             // The valid pairing (numeric equals + tolerance), incl. the expect-only relational {path} equals
             // whose resolved value is checked numeric at run time — neither must be flagged.
             var outcome = ScenarioFileChecks.Validate("tol-ok.scenario.json",
@@ -448,6 +482,8 @@ namespace Vion.Dale.Cli.Test.Commands
                                                       }
                                                       """,
                                                       Config);
+
+            // Assert
             Assert.AreEqual(0, outcome.Errors.Count, string.Join("; ", outcome.Errors));
         }
 
@@ -481,6 +517,7 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void RejectsUnknownStructFieldAndDescentIntoAScalar()
         {
+            // Arrange / Act
             var outcome = ScenarioFileChecks.Validate("sf-bad.scenario.json",
                                                       """
                                                       {
@@ -492,6 +529,8 @@ namespace Vion.Dale.Cli.Test.Commands
                                                       }
                                                       """,
                                                       StructConfig);
+
+            // Assert
             Assert.IsTrue(outcome.Errors.Any(e => e.Contains("has no field 'L9'")), string.Join("; ", outcome.Errors));
             Assert.IsTrue(outcome.Errors.Any(e => e.Contains("is not a struct")), string.Join("; ", outcome.Errors));
         }
@@ -499,7 +538,10 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void RejectsIdProblems()
         {
+            // Arrange / Act
             var mismatch = ScenarioFileChecks.Validate("a.scenario.json", """{ "version": 1, "id": "b", "topology": "demo" }""", Config);
+
+            // Assert
             Assert.IsTrue(mismatch.Errors.Any(e => e.Contains("does not match the file name")), string.Join("; ", mismatch.Errors));
 
             var reserved = ScenarioFileChecks.Validate("schema.scenario.json", """{ "version": 1, "id": "schema", "topology": "demo" }""", Config);
@@ -531,6 +573,7 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void EnrichesTheSchemaWithStructFieldPaths_ForStructTypedMembers()
         {
+            // Arrange / Act
             // A block with a struct-typed service property (AllocatedCurrent with scalar fields L1, L2, L3)
             // and a plain scalar property. The enricher must emit the field paths in PascalCase.
             var config = JsonNode.Parse("""
@@ -570,6 +613,8 @@ namespace Vion.Dale.Cli.Test.Commands
             var paths = schema["$defs"]!["namePath"]!["enum"]!.AsArray().Select(n => n!.GetValue<string>()).ToList();
 
             // The struct member itself (valid set target).
+
+            // Assert
             CollectionAssert.Contains(paths, "RefControllableConsumer.AllocatedCurrent");
             CollectionAssert.Contains(paths, "RefControllableConsumer.ConsumerService.AllocatedCurrent");
 
@@ -596,6 +641,7 @@ namespace Vion.Dale.Cli.Test.Commands
         [TestMethod]
         public void EnrichesTheSchemaWithNestedStructFieldPaths()
         {
+            // Arrange / Act
             // A struct member with a nested struct field — should recurse and emit the scalar leaf only.
             var config = JsonNode.Parse("""
                                         {
@@ -637,6 +683,8 @@ namespace Vion.Dale.Cli.Test.Commands
             var paths = schema["$defs"]!["namePath"]!["enum"]!.AsArray().Select(n => n!.GetValue<string>()).ToList();
 
             // Nested scalar leaf via the intermediate struct.
+
+            // Assert
             CollectionAssert.Contains(paths, "Block.Status.Inner.Value");
             CollectionAssert.Contains(paths, "Block.Service.Status.Inner.Value");
 

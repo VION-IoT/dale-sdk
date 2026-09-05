@@ -14,9 +14,22 @@ namespace Vion.Dale.Cli.Auth
         /// </summary>
         public static async Task<string> GetAccessTokenAsync(string? flagClientId = null, string? flagClientSecret = null, string? environment = null)
         {
-            // Resolve auth base URL: explicit environment > stored config > default production
-            var effectiveEnvironment = environment ?? TokenStore.LoadConfig().Environment ?? "production";
+            // Resolve auth base URL: explicit environment > stored config > default production. A custom
+            // environment resolves to no named URL, so the stored configuration's is the answer — the same
+            // fallback CommandContext.ResolveAsync applies, and without it a client-credentials or refresh
+            // exchange against a custom environment posts to a relative URL.
+            var config = TokenStore.LoadConfig();
+            var effectiveEnvironment = environment ?? config.Environment ?? "production";
             var authBaseUrl = TokenStore.ResolveAuthBaseUrl(effectiveEnvironment);
+            if (string.IsNullOrEmpty(authBaseUrl))
+            {
+                authBaseUrl = config.AuthBaseUrl;
+            }
+
+            if (string.IsNullOrEmpty(authBaseUrl))
+            {
+                throw new DaleAuthException($"Cannot resolve auth URL for environment '{effectiveEnvironment}'. Run `dale login` or `dale config set-environment` first.");
+            }
 
             // 1. Explicit flags
             if (!string.IsNullOrEmpty(flagClientId) && !string.IsNullOrEmpty(flagClientSecret))
@@ -36,6 +49,15 @@ namespace Vion.Dale.Cli.Auth
 
             // 3. Stored token
             var stored = TokenStore.LoadCredentials();
+            if (stored != null && !string.IsNullOrEmpty(stored.Environment) && !string.Equals(stored.Environment, effectiveEnvironment, StringComparison.OrdinalIgnoreCase))
+            {
+                // A token minted for one environment is refused by the other with a 401, which the tool
+                // reports as "Session expired. Run `dale login` again." — the one instruction that cannot
+                // fix it. Say what is actually wrong.
+                throw new DaleAuthException($"The stored login is for environment '{stored.Environment}', not '{effectiveEnvironment}'. " +
+                                            $"Run `dale login -e {effectiveEnvironment}`, or pass --client-id and --client-secret.");
+            }
+
             if (stored == null)
             {
                 throw new DaleAuthException("Not logged in. Run `dale login`, set DALE_CLIENT_ID + DALE_CLIENT_SECRET, " + "or pass --client-id and --client-secret.");

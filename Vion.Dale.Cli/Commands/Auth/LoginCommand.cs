@@ -82,16 +82,20 @@ namespace Vion.Dale.Cli.Commands.Auth
                                   {
                                       DaleConsole.Error(ex.Message);
 
-                                      // Auth succeeded but /me failed — save what we have
-                                      TokenStore.SaveConfig(new DaleConfig
-                                                            {
-                                                                Environment = environment,
-                                                                AuthBaseUrl = authBaseUrl,
-                                                                ApiBaseUrl = apiBaseUrl,
-                                                            });
-                                      DaleConsole.Success("Logged in", $"(environment: {environment})");
-                                      DaleConsole.Info("Could not fetch integrator info. Use `dale config set-integrator` to select one.");
-                                      return 0;
+                                      // Auth succeeded but /me failed. Save the URLs — they are what the next
+                                      // command needs — and keep whatever integrator was already stored: this
+                                      // login replaced no selection, so it must not discard one. Exit non-zero
+                                      // so a script that branches on the code does not go on to an upload
+                                      // whose integrator cannot resolve.
+                                      var partialConfig = TokenStore.LoadConfig();
+                                      partialConfig.Environment = environment;
+                                      partialConfig.AuthBaseUrl = authBaseUrl;
+                                      partialConfig.ApiBaseUrl = apiBaseUrl;
+                                      TokenStore.SaveConfig(partialConfig);
+
+                                      DaleConsole.Warning($"Logged in (environment: {environment}), but the integrator could not be fetched.");
+                                      DaleConsole.Info("Use `dale config set-integrator` to select one.");
+                                      return 1;
                                   }
 
                                   var email = me!.User.Email ?? "unknown";
@@ -113,6 +117,14 @@ namespace Vion.Dale.Cli.Commands.Auth
                                       selectedIntegratorName = integrators[0].IntegratorName;
                                       DaleConsole.Success("Active integrator", $"{selectedIntegratorName} ({integrators[0].IntegratorSlug})");
                                   }
+                                  else if (DaleConsole.JsonMode)
+                                  {
+                                      // A prompt in JSON mode has no one to answer it — the mode exists so an
+                                      // agent can drive the tool.
+                                      DaleConsole.Error("Several integrator memberships found; select one with `dale config set-integrator --integrator-id <id>`:\n" +
+                                                        string.Join("\n", integrators.Select(i => $"  {i.IntegratorName} ({i.IntegratorSlug}): {i.IntegratorId}")));
+                                      return 1;
+                                  }
                                   else
                                   {
                                       // Prompt user to select
@@ -126,15 +138,19 @@ namespace Vion.Dale.Cli.Commands.Auth
                                       DaleConsole.Success("Active integrator", $"{selectedIntegratorName}");
                                   }
 
-                                  // 4. Save config
-                                  TokenStore.SaveConfig(new DaleConfig
-                                                        {
-                                                            Environment = environment,
-                                                            AuthBaseUrl = authBaseUrl,
-                                                            ApiBaseUrl = apiBaseUrl,
-                                                            IntegratorId = selectedIntegratorId,
-                                                            IntegratorName = selectedIntegratorName,
-                                                        });
+                                  // 4. Save config — merged, so an integrator this login did not replace
+                                  // survives. Only a selection actually made overwrites the stored one.
+                                  var config = TokenStore.LoadConfig();
+                                  config.Environment = environment;
+                                  config.AuthBaseUrl = authBaseUrl;
+                                  config.ApiBaseUrl = apiBaseUrl;
+                                  if (selectedIntegratorId != null)
+                                  {
+                                      config.IntegratorId = selectedIntegratorId;
+                                      config.IntegratorName = selectedIntegratorName;
+                                  }
+
+                                  TokenStore.SaveConfig(config);
 
                                   return 0;
                               });

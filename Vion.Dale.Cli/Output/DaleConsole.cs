@@ -8,6 +8,19 @@ namespace Vion.Dale.Cli.Output
 {
     public static class DaleConsole
     {
+        /// <summary>
+        ///     Where a table-mode failure is written. Standard error, so a caller that captures <c>2&gt;</c>
+        ///     to report a failed step captures the sentence that explains it, and a caller that pipes
+        ///     standard output gets only the tool's answer. JSON mode deliberately keeps one stream (see
+        ///     <see cref="Error" />).
+        /// </summary>
+        private static readonly Lazy<IAnsiConsole> LazyErrorConsole = new(() => AnsiConsole.Create(new AnsiConsoleSettings { Out = new AnsiConsoleOutput(Console.Error) }));
+
+        private static IAnsiConsole ErrorConsole
+        {
+            get => LazyErrorConsole.Value;
+        }
+
         public static bool JsonMode { get; set; }
 
         public static bool VerboseMode { get; set; }
@@ -26,22 +39,33 @@ namespace Vion.Dale.Cli.Output
         {
             if (JsonMode)
             {
-                // Structured JSON error on stdout so agents can parse it
+                // Structured JSON error on stdout so agents can parse it — one stream in this mode, which
+                // is what a single-stream parser expects.
                 Console.WriteLine(JsonSerializer.Serialize(new { error = message }, JsonDefaults.Options));
                 return;
             }
 
-            AnsiConsole.MarkupLine($"  [red]✗[/] {Markup.Escape(message)}");
+            ErrorConsole.MarkupLine($"  [red]✗[/] {Markup.Escape(message)}");
         }
 
         public static void Info(string message)
+        {
+            Info(AnsiConsole.Console, message);
+        }
+
+        /// <summary>
+        ///     The same line, written to <paramref name="console" />. A renderer that takes its console as a
+        ///     parameter has to write <em>every</em> line through it, or the half that still goes to the
+        ///     global is invisible to the writer a test captures.
+        /// </summary>
+        public static void Info(IAnsiConsole console, string message)
         {
             if (JsonMode)
             {
                 return;
             }
 
-            AnsiConsole.MarkupLine($"  {Markup.Escape(message)}");
+            console.MarkupLine($"  {Markup.Escape(message)}");
         }
 
         public static void Verbose(string message)
@@ -56,12 +80,18 @@ namespace Vion.Dale.Cli.Output
 
         public static void Blank()
         {
+            Blank(AnsiConsole.Console);
+        }
+
+        /// <summary>The same blank line, written to <paramref name="console" />.</summary>
+        public static void Blank(IAnsiConsole console)
+        {
             if (JsonMode)
             {
                 return;
             }
 
-            AnsiConsole.WriteLine();
+            console.WriteLine();
         }
 
         public static async Task WithSpinner(string gerund, Func<Task> action)

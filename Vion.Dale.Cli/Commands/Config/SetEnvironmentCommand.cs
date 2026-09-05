@@ -31,10 +31,16 @@ namespace Vion.Dale.Cli.Commands.Config
                                   string resolvedAuthUrl;
                                   string resolvedApiUrl;
 
-                                  if (TokenStore.IsKnownEnvironment(name))
+                                  // A named environment carries its own pair; anything else is custom and must
+                                  // supply both. Resolved before the branch so the names are what decides, not a
+                                  // second lookup that could disagree with IsKnownEnvironment.
+                                  var namedAuthUrl = TokenStore.ResolveAuthBaseUrl(name);
+                                  var namedApiUrl = TokenStore.ResolveApiBaseUrl(name);
+
+                                  if (namedAuthUrl is not null && namedApiUrl is not null)
                                   {
-                                      resolvedAuthUrl = TokenStore.ResolveAuthBaseUrl(name);
-                                      resolvedApiUrl = TokenStore.ResolveApiBaseUrl(name);
+                                      resolvedAuthUrl = namedAuthUrl;
+                                      resolvedApiUrl = namedApiUrl;
                                   }
                                   else
                                   {
@@ -57,11 +63,20 @@ namespace Vion.Dale.Cli.Commands.Config
                                   if (!force && config.IntegratorId != null)
                                   {
                                       DaleConsole.Warning($"This will clear the active integrator ({config.IntegratorName ?? config.IntegratorId.ToString()}).");
-                                      var confirm = AnsiConsole.Confirm("  Continue?", false);
-                                      if (!confirm)
+
+                                      // Nothing was done, and a script that reads the exit code must be able to
+                                      // tell that from a switch that happened. A prompt in JSON mode has no one
+                                      // to answer it, so --force is the way to mean it there.
+                                      if (DaleConsole.JsonMode)
                                       {
-                                          DaleConsole.Info("Cancelled.");
-                                          return Task.FromResult(0);
+                                          DaleConsole.Error("Switching environment clears the active integrator. Pass --force to confirm.");
+                                          return Task.FromResult(1);
+                                      }
+
+                                      if (!AnsiConsole.Confirm("  Continue?", false))
+                                      {
+                                          DaleConsole.Error("Cancelled — the environment was not changed.");
+                                          return Task.FromResult(1);
                                       }
                                   }
 

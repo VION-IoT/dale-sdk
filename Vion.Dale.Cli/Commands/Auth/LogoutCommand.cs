@@ -13,8 +13,23 @@ namespace Vion.Dale.Cli.Commands.Auth
 
             command.SetAction((parseResult, cancellationToken) =>
                               {
-                                  TokenStore.DeleteCredentials();
-                                  DaleConsole.Success("Logged out", "(credentials cleared)");
+                                  // Clearing nothing is still success, but saying "cleared" over an empty store
+                                  // makes the log prove nothing.
+                                  var cleared = TokenStore.DeleteCredentials();
+
+                                  if (DaleConsole.JsonMode)
+                                  {
+                                      DaleConsole.WriteJsonResult(new { cleared });
+                                  }
+                                  else if (cleared)
+                                  {
+                                      DaleConsole.Success("Logged out", "(credentials cleared)");
+                                  }
+                                  else
+                                  {
+                                      DaleConsole.Info("No stored credentials to clear.");
+                                  }
+
                                   return Task.FromResult(0);
                               });
 

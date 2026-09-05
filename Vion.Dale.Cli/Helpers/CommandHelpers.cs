@@ -20,7 +20,20 @@ namespace Vion.Dale.Cli.Helpers
         /// </summary>
         public static DaleProject? RequireProject(string? projectPath)
         {
-            var project = ProjectDiscovery.FindProject(projectPath);
+            if (projectPath != null)
+            {
+                // An explicit --project is an instruction, not a hint: resolving some other project
+                // instead would edit or publish something the caller did not name.
+                var named = ProjectDiscovery.FindProject(projectPath);
+                if (named == null)
+                {
+                    DaleConsole.Error(DescribeUnusableProjectPath(projectPath));
+                }
+
+                return named;
+            }
+
+            var project = ProjectDiscovery.FindProject();
             if (project != null)
             {
                 return project;
@@ -66,16 +79,25 @@ namespace Vion.Dale.Cli.Helpers
         /// </summary>
         public static string? RequireBuildTarget(string? projectPath)
         {
-            var sln = ProjectDiscovery.FindSolution();
-            var project = ProjectDiscovery.FindProject(projectPath);
-            var target = sln ?? project?.CsprojPath;
+            if (projectPath != null)
+            {
+                // The flag names one project; a solution above the working directory does not override it.
+                return RequireProject(projectPath)?.CsprojPath;
+            }
 
-            if (target == null)
+            var solution = ProjectDiscovery.FindSolution();
+            if (solution != null)
+            {
+                return solution;
+            }
+
+            var project = ProjectDiscovery.FindProject();
+            if (project == null)
             {
                 DaleConsole.Error("No solution (.sln/.slnx) or Dale project found. Run from a project directory or use --project.");
             }
 
-            return target;
+            return project?.CsprojPath;
         }
 
         /// <summary>
@@ -112,6 +134,17 @@ namespace Vion.Dale.Cli.Helpers
             }
 
             return null;
+        }
+
+        /// <summary>
+        ///     Why an explicitly named <c>--project</c> could not be used. The two causes need different
+        ///     actions from the reader, and neither is "use --project", which they just did.
+        /// </summary>
+        internal static string DescribeUnusableProjectPath(string projectPath)
+        {
+            var fullPath = Path.GetFullPath(projectPath);
+            return File.Exists(fullPath) ? $"'{fullPath}' is not a Dale project — it references neither the Vion.Dale.Sdk package nor the SDK project." :
+                       $"No project file at '{fullPath}'.";
         }
 
         /// <summary>

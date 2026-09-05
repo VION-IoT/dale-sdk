@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.CommandLine;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 using Vion.Dale.Cli.Helpers;
 using Vion.Dale.Cli.Output;
@@ -53,6 +54,18 @@ namespace Vion.Dale.Cli.Commands.Add
                                   var format = parseResult.GetValue(formatOption);
                                   var projectPath = parseResult.GetValue<string?>("--project");
 
+                                  if (!CSharpNames.IsIdentifier(name))
+                                  {
+                                      DaleConsole.Error(CSharpNames.DescribeInvalidIdentifier("property name", name));
+                                      return 1;
+                                  }
+
+                                  if (!CSharpNames.IsTypeReference(type))
+                                  {
+                                      DaleConsole.Error(CSharpNames.DescribeInvalidTypeReference(type));
+                                      return 1;
+                                  }
+
                                   var project = CommandHelpers.RequireProject(projectPath);
                                   if (project == null)
                                   {
@@ -65,12 +78,64 @@ namespace Vion.Dale.Cli.Commands.Add
                                       return 1;
                                   }
 
-                                  // Check for existing property with same name
+                                  // A member of the same name may be the sibling annotation's half of a
+                                  // dual-annotated member — one property carrying both [ServiceProperty] and
+                                  // [ServiceMeasuringPoint], which `emission.md` specifies and the repository
+                                  // CLAUDE.md calls common for telemetry. Adding the second annotation to it is
+                                  // the answer; every other collision is still refused.
                                   var sourceContent = File.ReadAllText(target.FilePath);
-                                  if (Regex.IsMatch(sourceContent, $@"\b{Regex.Escape(name!)}\s*{{"))
+                                  var existing = SourceInserter.FindMember(sourceContent, name!);
+                                  if (existing is { } member)
                                   {
-                                      DaleConsole.Error($"Property '{name}' already exists in {target.ClassName}.");
-                                      return 1;
+                                      if (member.CarriesAttribute("ServiceProperty"))
+                                      {
+                                          DaleConsole.Error($"property '{name}' already exists in {target.ClassName}.");
+                                          return 1;
+                                      }
+
+                                      if (!member.IsPropertyOfType(type!))
+                                      {
+                                          DaleConsole.Error($"'{name}' already exists in {target.ClassName} and is not a {type} property, so it cannot also be a property.");
+                                          return 1;
+                                      }
+
+                                      // The same attribute lines the create path writes, minus the ones the member
+                                      // already carries: [Presentation] and [Persistent] are single-use, so emitting
+                                      // a second copy onto the sibling annotation's member produces source that does
+                                      // not compile.
+                                      var annotations = BuildAttributeLines(name!,
+                                                                            defaultName,
+                                                                            persistent,
+                                                                            group,
+                                                                            importance,
+                                                                            decimals,
+                                                                            format)
+                                                        .Where(line => !member.CarriesAttribute(SourceInserter.AttributeNameOf(line)))
+                                                        .ToList();
+
+                                      if (!SourceInserter.AddAttributesToMember(target.FilePath, name!, annotations))
+                                      {
+                                          DaleConsole.Error($"Failed to annotate '{name}' in {target.ClassName}.");
+                                          return 1;
+                                      }
+
+                                      if (DaleConsole.JsonMode)
+                                      {
+                                          DaleConsole.WriteJsonResult(new
+                                                                      {
+                                                                          file = target.FilePath,
+                                                                          property = name,
+                                                                          type,
+                                                                          logicBlock = target.ClassName,
+                                                                          annotated = "ServiceProperty",
+                                                                      });
+                                      }
+                                      else
+                                      {
+                                          DaleConsole.Success("Annotated", $"{name} in {target.ClassName} as a property as well");
+                                      }
+
+                                      return 0;
                                   }
 
                                   // Build the snippet
@@ -120,10 +185,37 @@ namespace Vion.Dale.Cli.Commands.Add
                                                     int? decimals,
                                                     string? format)
         {
-            var lines = new List<string>();
+            var lines = BuildAttributeLines(name,
+                                            defaultName,
+                                            persistent,
+                                            group,
+                                            importance,
+                                            decimals,
+                                            format);
 
+            // Property declaration
+            var setterSuffix = setter == "public" ? "set;" : "private set;";
+            lines.Add($"public {type} {name} {{ get; {setterSuffix} }}");
+
+            return string.Join("\n", lines);
+        }
+
+        /// <summary>
+        ///     The attribute lines above a service property, in the order they are written. One builder with
+        ///     two callers: the create path puts the declaration under them, the annotate path inserts them
+        ///     above a member that is already declared — so an option given on either path reaches the source
+        ///     the same way.
+        /// </summary>
+        internal static List<string> BuildAttributeLines(string name,
+                                                         string? defaultName,
+                                                         bool persistent,
+                                                         string? group,
+                                                         string? importance,
+                                                         int? decimals,
+                                                         string? format)
+        {
             var displayName = defaultName ?? name;
-            lines.Add($"[ServiceProperty(Title = \"{PresentationSnippet.EscapeCsString(displayName)}\")]");
+            var lines = new List<string> { $"[ServiceProperty(Title = \"{PresentationSnippet.EscapeCsString(displayName)}\")]" };
 
             // [Presentation(...)] attribute, only when ≥1 presentation flag was supplied.
             var presentation = PresentationSnippet.Build(group, importance, decimals, format);
@@ -138,11 +230,7 @@ namespace Vion.Dale.Cli.Commands.Add
                 lines.Add("[Persistent]");
             }
 
-            // Property declaration
-            var setterSuffix = setter == "public" ? "set;" : "private set;";
-            lines.Add($"public {type} {name} {{ get; {setterSuffix} }}");
-
-            return string.Join("\n", lines);
+            return lines;
         }
     }
 }

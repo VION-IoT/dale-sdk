@@ -10,8 +10,10 @@ namespace Vion.Dale.Cli.Test.Models
     public class CliListOutputTests
     {
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-001.10")]
         public void Serialization_UsesCamelCase()
         {
+            // Arrange / Act
             var output = new CliListOutput
                          {
                              PackageId = "Test.Package",
@@ -21,13 +23,16 @@ namespace Vion.Dale.Cli.Test.Models
 
             var json = JsonSerializer.Serialize(output, JsonDefaults.Options);
 
+            // Assert
             Assert.IsTrue(json.Contains("\"packageId\""));
             Assert.IsTrue(json.Contains("\"sdkVersion\""));
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-001.10")]
         public void RoundTrip_PreservesData()
         {
+            // Arrange / Act
             var output = new CliListOutput
                          {
                              PackageId = "Test.Package",
@@ -48,6 +53,7 @@ namespace Vion.Dale.Cli.Test.Models
             var json = JsonSerializer.Serialize(output, JsonDefaults.Options);
             var deserialized = JsonSerializer.Deserialize<CliListOutput>(json, JsonDefaults.Options);
 
+            // Assert
             Assert.IsNotNull(deserialized);
             Assert.AreEqual("Test.Package", deserialized.PackageId);
             Assert.AreEqual(1, deserialized.LogicBlocks.Count);
