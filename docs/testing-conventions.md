@@ -120,9 +120,18 @@ finding on new tests: *"i see reflection used in unit tests to get _serviceBinde
 better way currently to validate the it?"* — either assert through the public introspection result, or
 add the seam.
 
-One site does it today and is the non-conforming precedent, not the pattern:
-`Vion.Dale.Sdk.TestKit.Test/EmissionPolicyShould.cs:233`, reaching `LogicBlockBase._serviceBinder` by
-`BindingFlags.NonPublic`. Its area's pass owes it a seam.
+**No test in this repository does it today.** The site this paragraph used to name —
+`Vion.Dale.Sdk.TestKit.Test/EmissionPolicyShould.cs`, reaching `LogicBlockBase._serviceBinder` by
+`BindingFlags.NonPublic` — was retired by the `EMIT` pass, which put the answer on the wire instead:
+the seam is `LogicBlockBase.BoundInterfaceIdentifiers()`, and the test now reads the emitted value
+through `VerifyServicePropertyEmitted`.
+
+The distinction the rule turns on is **kit code against kit tests**. The TestKit's own *production*
+code still reaches for three private fields — `_serviceBinder` and `_interfaces` on the builder,
+`_timerCallbacks` on the timer helpers — because it is standing in for a runtime that has no other
+way to hand those over, and `docs/specs/testkit.md` states them as part of what a kit costs the SDK.
+That is a shipped surface's business. A *test* reaching for a private field is the finding this
+section is about, and there are none.
 
 **The seam is usually already on the wire.** The `GATE` pass retired three such sites — this list
 named one of them and did not know about the other two — without adding a single member to any SUT:

@@ -89,10 +89,14 @@ namespace Vion.Dale.Sdk.TestKit
         }
 
         /// <summary>
-        ///     The service provider the block was initialized with. Set by the builder after
-        ///     <c>BuildServiceProvider</c> completes so tests can assert which registrations the
-        ///     builder applied (e.g. <see cref="Vion.Dale.Sdk.Emission.EmissionPolicyForceMarker" />
-        ///     when <c>WithEmissionPolicy(FromAttributes)</c> was called).
+        ///     The service provider the block was initialized with. Set by the builder after it has composed
+        ///     the container, so a test can assert which registrations the builder applied — the clock the
+        ///     block will resolve, or a service the test added through
+        ///     <c>LogicBlockTestContextBuilder{TLogicBlock}.WithServices</c>:
+        ///     <code>
+        ///     var ctx = block.CreateTestContext().WithServices(s =&gt; s.AddSingleton(myService)).Build();
+        ///     Assert.AreSame(myService, ctx.BuiltServiceProvider!.GetService&lt;IMyService&gt;());
+        ///     </code>
         /// </summary>
         public IServiceProvider? BuiltServiceProvider { get; internal set; }
 
@@ -231,6 +235,18 @@ namespace Vion.Dale.Sdk.TestKit
             }
         }
 
+        /// <summary>
+        ///     Assert that a contract message of <typeparamref name="TData" /> was recorded, optionally
+        ///     filtered by contract identifier and by a predicate over the message.
+        /// </summary>
+        /// <param name="messageKind">
+        ///     A label naming this verification in its failure message. It filters nothing — the filters are
+        ///     <typeparamref name="TData" />, <paramref name="contractIdentifier" /> and
+        ///     <paramref name="verifyMessage" /> — so any text a reader will recognise in a failure will do.
+        /// </param>
+        /// <param name="contractIdentifier">The contract to filter by, or <c>null</c> for any.</param>
+        /// <param name="verifyMessage">A predicate the message must satisfy, or <c>null</c> for any.</param>
+        /// <param name="times">The expected number of matches, or <c>null</c> for exactly once.</param>
         public void VerifyContractMessageSent<TData>(string messageKind, string? contractIdentifier = null, Func<TData, bool>? verifyMessage = null, Times? times = null)
             where TData : struct
         {

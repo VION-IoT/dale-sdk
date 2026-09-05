@@ -1,4 +1,4 @@
-﻿param(
+param(
     [Parameter(Mandatory = $true)]
     [string]$Version,
 
@@ -259,10 +259,13 @@ function Clear-NuGetPackageCache
         "Vion.Dale.Sdk.Modbus.Tcp",
         "Vion.Dale.Sdk.Modbus.Rtu",
         "Vion.Dale.Sdk.Modbus.Rtu.TestKit",
+        "Vion.Dale.Sdk.Modbus.Tcp.TestKit",
         "Vion.Dale.Sdk.TestKit",
         "Vion.Dale.DevHost",
         "Vion.Dale.DevHost.Web",
-        "Vion.Dale.DevHost.Xunit"
+        "Vion.Dale.DevHost.Xunit",
+        "Vion.Dale.Plugin",
+        "Vion.Dale.ProtoActor"
     )
 
     Write-Host "`nClearing NuGet cache for version $version..." -ForegroundColor Yellow
