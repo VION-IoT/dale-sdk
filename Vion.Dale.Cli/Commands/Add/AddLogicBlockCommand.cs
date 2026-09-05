@@ -27,6 +27,12 @@ namespace Vion.Dale.Cli.Commands.Add
                                   var icon = parseResult.GetValue(iconOption);
                                   var projectPath = parseResult.GetValue<string?>("--project");
 
+                                  if (!CSharpNames.IsIdentifier(name))
+                                  {
+                                      DaleConsole.Error(CSharpNames.DescribeInvalidIdentifier("LogicBlock name", name));
+                                      return 1;
+                                  }
+
                                   var project = CommandHelpers.RequireProject(projectPath);
                                   if (project == null)
                                   {

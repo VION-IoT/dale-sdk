@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 
 namespace Vion.Dale.Cli.Commands.Add
 {
@@ -52,7 +53,7 @@ namespace Vion.Dale.Cli.Commands.Add
 
             if (decimals.HasValue)
             {
-                args.Add($"Decimals = {decimals.Value}");
+                args.Add($"Decimals = {decimals.Value.ToString(CultureInfo.InvariantCulture)}");
             }
 
             if (!string.IsNullOrWhiteSpace(format))

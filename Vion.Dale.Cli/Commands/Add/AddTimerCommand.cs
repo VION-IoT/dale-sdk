@@ -28,9 +28,11 @@ namespace Vion.Dale.Cli.Commands.Add
                                   var to = parseResult.GetValue(toOption);
                                   var projectPath = parseResult.GetValue<string?>("--project");
 
-                                  if (interval <= 0)
+                                  // Written the positive way: `interval <= 0` is false for NaN, which then
+                                  // reaches the emitted attribute as `[Timer(NaN)]` and does not compile.
+                                  if (!(interval > 0) || double.IsInfinity(interval))
                                   {
-                                      DaleConsole.Error("Timer interval must be greater than zero.");
+                                      DaleConsole.Error("Timer interval must be a positive number of seconds.");
                                       return 1;
                                   }
 

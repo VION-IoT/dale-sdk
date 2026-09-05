@@ -53,6 +53,18 @@ namespace Vion.Dale.Cli.Commands.Add
                                   var format = parseResult.GetValue(formatOption);
                                   var projectPath = parseResult.GetValue<string?>("--project");
 
+                                  if (!CSharpNames.IsIdentifier(name))
+                                  {
+                                      DaleConsole.Error(CSharpNames.DescribeInvalidIdentifier("property name", name));
+                                      return 1;
+                                  }
+
+                                  if (!CSharpNames.IsTypeReference(type))
+                                  {
+                                      DaleConsole.Error(CSharpNames.DescribeInvalidTypeReference(type));
+                                      return 1;
+                                  }
+
                                   var project = CommandHelpers.RequireProject(projectPath);
                                   if (project == null)
                                   {
@@ -65,12 +77,35 @@ namespace Vion.Dale.Cli.Commands.Add
                                       return 1;
                                   }
 
-                                  // Check for existing property with same name
+                                  // A member of the same name may be the sibling annotation's half of a
+                                  // dual-annotated member — one property carrying both [ServiceProperty] and
+                                  // [ServiceMeasuringPoint], which `emission.md` specifies and the repository
+                                  // CLAUDE.md calls common for telemetry. Adding the second annotation to it is
+                                  // the answer; every other collision is still refused.
                                   var sourceContent = File.ReadAllText(target.FilePath);
-                                  if (Regex.IsMatch(sourceContent, $@"\b{Regex.Escape(name!)}\s*{{"))
+                                  var existing = SourceInserter.FindMember(sourceContent, name!);
+                                  if (existing is { } member)
                                   {
-                                      DaleConsole.Error($"Property '{name}' already exists in {target.ClassName}.");
-                                      return 1;
+                                      if (member.CarriesAttribute("ServiceProperty"))
+                                      {
+                                          DaleConsole.Error($"property '{name}' already exists in {target.ClassName}.");
+                                          return 1;
+                                      }
+
+                                      if (!member.IsPropertyOfType(type!))
+                                      {
+                                          DaleConsole.Error($"'{name}' already exists in {target.ClassName} and is not a {type} property, so it cannot also be a property.");
+                                          return 1;
+                                      }
+
+                                      if (!SourceInserter.AddAttributeToMember(target.FilePath, name!, $"[ServiceProperty(Title = \"{PresentationSnippet.EscapeCsString(defaultName ?? name!)}\")]"))
+                                      {
+                                          DaleConsole.Error($"Failed to annotate '{name}' in {target.ClassName}.");
+                                          return 1;
+                                      }
+
+                                      DaleConsole.Success("Annotated", $"{name} in {target.ClassName} as a property as well");
+                                      return 0;
                                   }
 
                                   // Build the snippet
