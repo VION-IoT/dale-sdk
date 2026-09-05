@@ -408,15 +408,22 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   was never confirmed against a real redeploy, and the rebind-before-release regression the design
   asked for was never written — the suite has a provider test that binds and accepts, not one that
   rebinds. Both are OS- and timing-dependent, which is why neither is a portable unit test.
-  *(MODB pass, absorbed from RFC 0018 § 8.1 — `MODB`.)*
+  *(MODB pass, absorbed from the deleted RFC 0018 — the absorption is recorded under Reviewer's
+  question 3 of [`../changes/archive/2026-09-04-modb-pass.md`](../changes/archive/2026-09-04-modb-pass.md)
+  — `MODB`.)*
 - **Whether a newer FluentModbus makes the reuse-address provider unnecessary is unasked.** The
   provider exists because the pinned version's built-in listener sets no socket options. A version
-  that exposed `ExclusiveAddressUse` directly would retire it. *(MODB pass, absorbed from RFC 0018
-  § 8.4 — the retro.)*
+  that exposed `ExclusiveAddressUse` directly would retire it. *(MODB pass, absorbed from the deleted
+  RFC 0018 — the absorption is recorded under Reviewer's question 3 of
+  [`../changes/archive/2026-09-04-modb-pass.md`](../changes/archive/2026-09-04-modb-pass.md) — the
+  retro.)*
 - **Three server features were deferred at design time and no consumer has asked since.** Array
   overloads mirroring the client's `count` signatures, multi-unit register maps, and a consumer-facing
   request-validator hook beyond the extent-derived one. Each layers onto today's surface without
-  breaking it. *(MODB pass, absorbed from RFC 0007's resolved questions 7, 2 and 3 — `MODB`.)*
+  breaking it. *(MODB pass, absorbed from the deleted RFC 0007 — the absorption is recorded under
+  Reviewer's question 3 of
+  [`../changes/archive/2026-09-04-modb-pass.md`](../changes/archive/2026-09-04-modb-pass.md) —
+  `MODB`.)*
 - **The TestKit's queue accepts a negative maximum queued age.** `SynchronousRequestQueue.MaxQueuedAge`
   (`:56`) is a plain auto-property, so after this pass guarded the real `RequestQueue` the two shipped
   `IRequestQueue` implementations disagree: the fake keeps `-1 s` and expires everything, where the

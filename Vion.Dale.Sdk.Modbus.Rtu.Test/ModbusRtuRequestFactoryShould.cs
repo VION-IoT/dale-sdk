@@ -168,7 +168,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         #region Read - array result
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public void PopulateReadArrayRequestWithProvidedParameters()
         {
             // Arrange
@@ -304,7 +304,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         #region Read - single result
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public void PopulateReadSingleRequestWithProvidedParameters()
         {
             // Arrange
@@ -399,7 +399,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         #region Write
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public void PopulateWriteRequestWithProvidedParameters()
         {
             // Arrange

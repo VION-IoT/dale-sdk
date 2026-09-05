@@ -348,6 +348,39 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
             Assert.AreEqual(3, harness.Client.Connection.ConnectAttemptCount);
         }
 
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-007.2")]
+        public void ArmBackoffWithoutOverflowingClockUnderUnboundedMaximum()
+        {
+            // Arrange — "never back off again" is a maximum the setters accept, and no instant is failedAt plus it.
+            var clock = new FakeTimeProvider(Anchor);
+            using var harness = CreateHarness(clock);
+            harness.Client.ConnectBackoffMax = TimeSpan.MaxValue;
+            harness.Client.ConnectBackoff = TimeSpan.MaxValue;
+            harness.Proxy.EnqueueConnectFailure(new ConnectionTimeoutException(3));
+            harness.Proxy.EnqueueConnectFailure(new ConnectionTimeoutException(3));
+
+            var sut = CreateBlock(harness);
+            var ctx = sut.CreateTestContext().WithTimeProvider(clock).Build();
+
+            // Act — the second consecutive failure is the one that arms a wait the clock cannot express.
+            sut.ReadPowerOnce();
+            sut.ReadPowerOnce();
+            ctx.FlushPendingActions();
+
+            // Assert — the block still hears why the connect failed, not an argument fault from the arming itself.
+            Assert.IsInstanceOfType<ConnectionTimeoutException>(sut.LastReadError);
+            Assert.AreEqual(ModbusOutcome.Timeout, sut.LastReadReceipt!.Value.Outcome);
+            Assert.AreEqual(ModbusTcpConnectionState.BackingOff, harness.Client.Connection.State);
+            Assert.AreEqual(DateTime.MaxValue, harness.Client.Connection.NextAttemptAt);
+
+            // And a request arriving under it is still failed fast rather than attempted.
+            sut.ReadPowerOnce();
+            ctx.FlushPendingActions();
+            Assert.IsInstanceOfType<LinkBackoffException>(sut.LastReadError);
+            Assert.AreEqual(2, harness.Client.Connection.ConnectAttemptCount);
+        }
+
         /// <summary>Two failed connects, which is what arms the shortest backoff — 1 s from the anchor.</summary>
         private static void ArmTheBackoff(FakeModbusTcpHarness harness, SampleModbusTcpBlock sut, LogicBlockTestContext<SampleModbusTcpBlock> context)
         {

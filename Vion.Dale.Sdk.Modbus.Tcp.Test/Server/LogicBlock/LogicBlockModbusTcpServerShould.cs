@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Net;
 using System.Threading;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,6 +30,17 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server.LogicBlock
 
         [TestMethod]
         [TestProperty("spec", "AC-MODB-002.1")]
+        public void DefaultToDisabled()
+        {
+            // Arrange
+
+            // Act / Assert
+            Assert.IsFalse(_sut.IsEnabled, "A block configures its server field by field before it enables it.");
+            Assert.AreEqual(0, _proxy.StartCalls);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-011.6")]
         public void StartProxyWithParsedConfigurationWhenEnabled()
         {
             // Arrange
@@ -50,7 +62,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-002.1")]
+        [TestProperty("spec", "AC-MODB-011.6")]
         public void StopProxyWhenDisabled()
         {
             // Arrange
@@ -65,7 +77,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-002.1")]
+        [TestProperty("spec", "AC-MODB-011.6")]
         public void BeIdempotentOnRepeatedEnable()
         {
             // Arrange
@@ -79,7 +91,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-002.1")]
+        [TestProperty("spec", "AC-MODB-011.6")]
         public void NotStopWhenAlreadyDisabled()
         {
             // Arrange
@@ -89,6 +101,27 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Server.LogicBlock
 
             // Assert
             Assert.AreEqual(0, _proxy.StopCalls);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.9")]
+        public void RenderRefusedPortInInvariantCultureUnderMinusSignCulture()
+        {
+            // Arrange — sv-SE renders a negative number with U+2212, not the hyphen a reader pastes into a search.
+            var ambientCulture = CultureInfo.CurrentCulture;
+            CultureInfo.CurrentCulture = new CultureInfo("sv-SE");
+            try
+            {
+                // Act
+                var refusal = Assert.ThrowsExactly<FormatException>(() => _sut.Port = -1);
+
+                // Assert
+                Assert.AreEqual("Port -1 is outside the valid range (1-65535).", refusal.Message);
+            }
+            finally
+            {
+                CultureInfo.CurrentCulture = ambientCulture;
+            }
         }
 
         [TestMethod]

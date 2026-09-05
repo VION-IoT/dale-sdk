@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -7,6 +8,7 @@ using Moq;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Modbus.Core.Conversion;
 using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
+using Vion.Dale.Sdk.Modbus.Core.Validation;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.Request;
@@ -80,6 +82,62 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-005.9")]
+        public async Task PassStandardConversionDefaultsWhenOperationOmitsThem()
+        {
+            // Arrange
+            _sut.IsEnabled = true;
+
+            // Act - every read below is written the way a block writes one for a standards-compliant device.
+            SetupArrayResultOperationCapture<int>();
+            _sut.ReadHoldingRegistersAsInt(UnitIdentifier, StartingAddress, Count, _dispatcherMock.Object, (_, _) => { });
+            await (_capturedOperation?.Invoke(CancellationToken.None) ?? Task.CompletedTask);
+
+            SetupArrayResultOperationCapture<long>();
+            _sut.ReadHoldingRegistersAsLong(UnitIdentifier, StartingAddress, Count, _dispatcherMock.Object, (_, _) => { });
+            await (_capturedOperation?.Invoke(CancellationToken.None) ?? Task.CompletedTask);
+
+            SetupSingleResultOperationCapture<string>();
+            _sut.ReadHoldingRegistersAsString(UnitIdentifier, StartingAddress, Quantity, _dispatcherMock.Object, (_, _) => { });
+            await (_capturedOperation?.Invoke(CancellationToken.None) ?? Task.CompletedTask);
+
+            // Assert
+            _clientWrapperMock.Verify(clientWrapper => clientWrapper.ReadHoldingRegistersAsIntAsync(UnitIdentifier,
+                                                                                                    StartingAddress,
+                                                                                                    Count,
+                                                                                                    ByteOrder.MsbToLsb,
+                                                                                                    WordOrder32.MswToLsw,
+                                                                                                    _sut.DefaultOperationTimeout,
+                                                                                                    CancellationToken.None),
+                                      Times.Once);
+            _clientWrapperMock.Verify(clientWrapper => clientWrapper.ReadHoldingRegistersAsLongAsync(UnitIdentifier,
+                                                                                                     StartingAddress,
+                                                                                                     Count,
+                                                                                                     ByteOrder.MsbToLsb,
+                                                                                                     WordOrder64.ABCD,
+                                                                                                     _sut.DefaultOperationTimeout,
+                                                                                                     CancellationToken.None),
+                                      Times.Once);
+            _clientWrapperMock.Verify(clientWrapper => clientWrapper.ReadHoldingRegistersAsStringAsync(UnitIdentifier,
+                                                                                                       StartingAddress,
+                                                                                                       Quantity,
+                                                                                                       TextEncoding.Ascii,
+                                                                                                       _sut.DefaultOperationTimeout,
+                                                                                                       CancellationToken.None),
+                                      Times.Once);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-002.1")]
+        public void DefaultToDisabled()
+        {
+            // Arrange
+
+            // Act / Assert
+            Assert.IsFalse(_sut.IsEnabled, "A block configures its client field by field before it enables it.");
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-MODB-002.4")]
         public void InitializeRequestQueueWhenClientEnabled()
         {
@@ -127,7 +185,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-009.3")]
+        [TestProperty("spec", "AC-MODB-009.8")]
         [DataRow(0, DisplayName = "Zero")]
         [DataRow(-1, DisplayName = "Negative")]
         public void ThrowExceptionWhenQueueCapacityNotPositive(int capacity)
@@ -136,6 +194,134 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
 
             // Act & Assert
             Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => _sut.QueueCapacity = capacity);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.9")]
+        public void RenderRefusedPortInInvariantCultureUnderMinusSignCulture()
+        {
+            // Arrange — sv-SE renders a negative number with U+2212, not the hyphen a reader pastes into a search.
+            var ambientCulture = CultureInfo.CurrentCulture;
+            CultureInfo.CurrentCulture = new CultureInfo("sv-SE");
+            try
+            {
+                // Act
+                var refusal = Assert.ThrowsExactly<FormatException>(() => _sut.Port = -1);
+
+                // Assert
+                Assert.AreEqual("Port -1 is out of valid range (1-65535).", refusal.Message);
+            }
+            finally
+            {
+                CultureInfo.CurrentCulture = ambientCulture;
+            }
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-009.8")]
+        public void ThrowExceptionWhenQueueOverflowPolicyUndeclared()
+        {
+            // Arrange
+            const QueueOverflowPolicy undeclaredPolicy = (QueueOverflowPolicy)999;
+
+            // Act & Assert
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => _sut.QueueOverflowPolicy = undeclaredPolicy);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-002.4")]
+        public void StayDisabledWhenRequestQueueCannotBeCreated()
+        {
+            // Arrange
+            _requestQueueMock.Setup(queue => queue.Initialize(It.IsAny<int>(), It.IsAny<QueueOverflowPolicy>(), It.IsAny<ModbusLinkAccumulator>())).Throws<NotSupportedException>();
+
+            // Act
+            Assert.ThrowsExactly<NotSupportedException>(() => _sut.IsEnabled = true);
+
+            // Assert
+            Assert.IsFalse(_sut.IsEnabled, "An enable that cannot build a queue must not leave a client whose every operation then throws.");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-010.5")]
+        public void ReportDisabledWhenDisposed()
+        {
+            // Arrange
+            _sut.IsEnabled = true;
+
+            // Act
+            _sut.Dispose();
+
+            // Assert
+            Assert.IsFalse(_sut.IsEnabled, "A disposed client reports itself disabled, as a disposed hosted server does.");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-003.4")]
+        [DataRow(false, DisplayName = "Connect timeout")]
+        [DataRow(true, DisplayName = "Default operation timeout")]
+        public void ThrowExceptionWhenTimeoutAboveFrameworkCeiling(bool operationTimeout)
+        {
+            // Arrange
+            var beyondCeiling = ModbusTimeoutLimits.MaxTimeout + TimeSpan.FromMilliseconds(1);
+
+            // Act & Assert
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
+                                                              {
+                                                                  if (operationTimeout)
+                                                                  {
+                                                                      _sut.DefaultOperationTimeout = beyondCeiling;
+                                                                  }
+                                                                  else
+                                                                  {
+                                                                      _sut.ConnectionTimeout = beyondCeiling;
+                                                                  }
+                                                              });
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-003.4")]
+        public void AcceptTimeoutAtFrameworkCeiling()
+        {
+            // Arrange
+
+            // Act
+            _sut.DefaultOperationTimeout = ModbusTimeoutLimits.MaxTimeout;
+
+            // Assert
+            Assert.AreEqual(ModbusTimeoutLimits.MaxTimeout, _sut.DefaultOperationTimeout);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-003.4")]
+        [DataRow(0, DisplayName = "Zero")]
+        [DataRow(-1, DisplayName = "Negative")]
+        [DataRow(1, DisplayName = "Past the framework ceiling")]
+        public void ThrowExceptionWhenPerCallOperationTimeoutOutsideRange(int shape)
+        {
+            // Arrange
+            _sut.IsEnabled = true;
+            var timeout = shape switch
+            {
+                0 => TimeSpan.Zero,
+                -1 => TimeSpan.FromSeconds(-1),
+                _ => ModbusTimeoutLimits.MaxTimeout + TimeSpan.FromMilliseconds(1),
+            };
+
+            // Act & Assert
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => _sut.ReadCoils(UnitIdentifier,
+                                                                                   StartingAddress,
+                                                                                   Quantity,
+                                                                                   _dispatcherMock.Object,
+                                                                                   (_, _) => { },
+                                                                                   _errorCallback,
+                                                                                   timeout));
+            _requestQueueMock.Verify(queue => queue.Enqueue(It.IsAny<string>(),
+                                                            It.IsAny<IActorDispatcher>(),
+                                                            It.IsAny<Func<CancellationToken, Task<bool[]>>>(),
+                                                            It.IsAny<Action<bool[], ModbusReceipt>>(),
+                                                            It.IsAny<Action<Exception, ModbusReceipt>?>()),
+                                     Times.Never);
         }
 
         [TestMethod]
@@ -2409,7 +2595,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-010.3")]
+        [TestProperty("spec", "AC-MODB-010.5")]
         public void ReleaseManagedResourcesWhenDisposed()
         {
             // Arrange
@@ -2423,7 +2609,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-010.3")]
+        [TestProperty("spec", "AC-MODB-010.5")]
         public void ReleaseManagedResourcesOnlyOnce()
         {
             // Arrange

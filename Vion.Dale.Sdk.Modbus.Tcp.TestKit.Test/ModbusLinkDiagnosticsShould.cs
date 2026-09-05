@@ -166,7 +166,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-016.1")]
+        [TestProperty("spec", "AC-MODB-009.5")]
         public void ReportQueueDepthOnLinkSummary()
         {
             // Arrange

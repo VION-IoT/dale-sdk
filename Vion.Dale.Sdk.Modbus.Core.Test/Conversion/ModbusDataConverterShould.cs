@@ -585,7 +585,23 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-005.4")]
+        [TestProperty("spec", "AC-MODB-005.8")]
+        [DataRow(true, (byte)1)]
+        [DataRow(false, (byte)0)]
+        public void ConvertBoolToByte(bool value, byte expectedByte)
+        {
+            // Arrange
+            var sut = new ModbusDataConverter(new BitConverterProxy());
+
+            // Act
+            var converted = sut.ToByte(value);
+
+            // Assert
+            Assert.AreEqual(expectedByte, converted);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-005.8")]
         public void CastShortToBytes()
         {
             // Arrange
@@ -597,7 +613,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-005.4")]
+        [TestProperty("spec", "AC-MODB-005.8")]
         public void CastEmptyShortToBytes()
         {
             // Arrange
@@ -609,7 +625,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-005.4")]
+        [TestProperty("spec", "AC-MODB-005.8")]
         public void CastIntToBytes()
         {
             // Arrange
@@ -621,7 +637,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-005.4")]
+        [TestProperty("spec", "AC-MODB-005.8")]
         public void CastEmptyIntToBytes()
         {
             // Arrange
@@ -633,7 +649,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-005.4")]
+        [TestProperty("spec", "AC-MODB-005.8")]
         public void CastLongToBytes()
         {
             // Arrange
@@ -646,7 +662,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-005.4")]
+        [TestProperty("spec", "AC-MODB-005.8")]
         public void CastEmptyLongToBytes()
         {
             // Arrange
@@ -658,7 +674,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-005.4")]
+        [TestProperty("spec", "AC-MODB-005.8")]
         public void CastBytesToShort()
         {
             // Arrange
@@ -670,7 +686,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-005.4")]
+        [TestProperty("spec", "AC-MODB-005.8")]
         public void CastEmptyBytesToShort()
         {
             // Arrange
@@ -682,7 +698,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-005.4")]
+        [TestProperty("spec", "AC-MODB-005.8")]
         public void CastBytesToInt()
         {
             // Arrange
@@ -694,7 +710,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-005.4")]
+        [TestProperty("spec", "AC-MODB-005.8")]
         public void CastEmptyBytesToInt()
         {
             // Arrange
@@ -706,7 +722,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-005.4")]
+        [TestProperty("spec", "AC-MODB-005.8")]
         public void CastBytesToLong()
         {
             // Arrange
@@ -719,7 +735,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-005.4")]
+        [TestProperty("spec", "AC-MODB-005.8")]
         public void CastEmptyBytesToLong()
         {
             // Arrange
@@ -731,7 +747,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-005.4")]
+        [TestProperty("spec", "AC-MODB-005.8")]
         public void GetBytesOfShort()
         {
             // Arrange
@@ -747,7 +763,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Conversion
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-005.4")]
+        [TestProperty("spec", "AC-MODB-005.8")]
         public void GetBytesOfUShort()
         {
             // Arrange

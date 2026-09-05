@@ -72,7 +72,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task HaveRequestName()
         {
             // Arrange
@@ -86,7 +86,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task HaveRequestId()
         {
             // Arrange

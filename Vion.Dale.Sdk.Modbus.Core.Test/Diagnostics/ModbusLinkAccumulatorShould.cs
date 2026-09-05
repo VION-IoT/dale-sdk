@@ -153,7 +153,7 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Diagnostics
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-016.1")]
+        [TestProperty("spec", "AC-MODB-009.5")]
         public void ReportCallersQueueDepthInSnapshot()
         {
             // Arrange

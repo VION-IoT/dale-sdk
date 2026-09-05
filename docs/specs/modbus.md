@@ -62,6 +62,18 @@ value shapes are `Raw`, `short`, `ushort`, `int`, `uint`, `float`, `long`, `ulon
 - `AC-MODB-001.8` (Event-driven): WHEN handing a completed Modbus TCP transaction to the block's
   dispatcher throws THE SYSTEM SHALL contain the failure, so one block's mailbox cannot stop the
   client's queue.
+- `AC-MODB-001.9` (Ubiquitous): THE SYSTEM SHALL render every number and duration in a Modbus
+  exception message in the invariant culture.
+- `AC-MODB-001.10` (Ubiquitous): THE SYSTEM SHALL make each accepted operation a request carrying the
+  operation's name, an identity of its own, and the caller's arguments unchanged — unit identifier,
+  address, span, payload and conversion options — and SHALL deliver the device's answer converted to
+  the value shape the operation names.
+
+`AC-MODB-001.9` is [`../sdk-surface-conventions.md`](../sdk-surface-conventions.md) § 4's rule at
+this surface, and the reason it is a criterion rather than a convention here is that these messages
+are shipped text: a consumer publishes `exception.Message` onto a service property, and the machine
+that renders it is a gateway commissioned in whatever locale its image carried, not the engineer
+reading it.
 
 `AC-MODB-001.7` is the one place the surface speaks two vocabularies for the same argument position,
 and it is deliberate: a `count` of 4 doubles is 16 registers, and the conversion between them is the
@@ -96,7 +108,8 @@ nothing — including from `Disconnect`, the one member whose own documentation 
 - `AC-MODB-003.3` (Event-driven): WHEN an operation passes no timeout of its own THE SYSTEM SHALL use
   the client's default, fixed at the moment the operation was accepted.
 - `AC-MODB-003.4` (Event-driven): WHEN a connect timeout, an operation timeout or a maximum queued age
-  is set to zero or a negative duration THE SYSTEM SHALL throw `ArgumentOutOfRangeException`.
+  — set on a client or passed with a single operation — is zero, negative, or longer than
+  `ModbusTimeoutLimits.MaxTimeout` THE SYSTEM SHALL throw `ArgumentOutOfRangeException`.
 - `AC-MODB-003.5` (Ubiquitous): THE SYSTEM SHALL default the maximum queued age to 30 seconds on both
   transports and SHALL accept `null` as no limit.
 - `AC-MODB-003.6` (Event-driven): WHEN a request has waited strictly longer than the maximum queued
@@ -105,10 +118,16 @@ nothing — including from `Disconnect`, the one member whose own documentation 
 - `AC-MODB-003.7` (Ubiquitous): THE SYSTEM SHALL read the maximum queued age at dispatch, so a value
   set now applies to requests already waiting.
 
-`AC-MODB-003.4` is the boundary the four knobs now share. Before it, two of them took a zero: a zero
-connect timeout failed every connect and armed a backoff against a device that was answering, and a
-zero operation timeout faulted the link and closed the socket without touching the wire. The
-consumer offers both as free-form commissioning fields, which is how a zero arrives.
+`AC-MODB-003.4` is the boundary the four knobs and the per-call timeout share. Before it, two of them
+took a zero: a zero connect timeout failed every connect and armed a backoff against a device that was
+answering, and a zero operation timeout faulted the link and closed the socket without touching the
+wire. The consumer offers both as free-form commissioning fields, which is how a zero arrives. The
+upper bound is the framework timer's, not the protocol's: a duration past it is refused by the
+cancellation source each operation arms, and on Modbus RTU it overflows the instant the shared handler
+computes the request's expiry — so an unchecked value came back as a transport fault that closed the
+socket, or as no callback at all. `ModbusTimeoutLimits.MaxTimeout` publishes it, a value exactly at it
+is accepted, and it is the smallest ceiling any runtime this SDK's plugins load into carries, so the
+refusal is the same wherever the block runs.
 
 ## What a call is refused for
 
@@ -120,14 +139,19 @@ both inline and later from its callback.
   SHALL refuse the operation with an `InvalidUnitIdentifierException`.
 - `AC-MODB-004.2` (Ubiquitous): THE SYSTEM SHALL accept the unit identifiers 0 and 255, which address
   a gateway and a direct TCP device.
-- `AC-MODB-004.3` (Event-driven): WHEN a count of zero is converted to a register quantity, or a count
-  would require more than 65535 registers, THE SYSTEM SHALL refuse the operation with an
-  `InvalidCountException`.
+- `AC-MODB-004.3` (Event-driven): WHEN an operation would carry no addresses at all — a count of zero,
+  or a quantity of zero — or a count would require more than 65535 registers, THE SYSTEM SHALL refuse
+  it with an `InvalidCountException`.
 - `AC-MODB-004.4` (Event-driven): WHEN a read or write would carry more than the Modbus protocol's
   data unit allows — 125 registers to read, 123 registers to write, 2000 bits to read, 1968 bits to
   write — THE SYSTEM SHALL refuse it with an `InvalidCountException` before it reaches the wire.
 - `AC-MODB-004.5` (Event-driven): WHEN a byte order, word order or text encoding outside the declared
   set is passed THE SYSTEM SHALL refuse the operation with the exception named for that conversion.
+
+`AC-MODB-004.3`'s two ends were one for a while: a `count` of zero was refused where it is converted
+to a quantity, while a `quantity` of zero — the shape the bit, raw, 16-bit and string families take
+straight from the caller — was dispatched, and came back a code-less frame fault that closed the
+socket under `AC-MODB-008.1`. Both ends are decided in the one validation both transports run.
 
 `AC-MODB-004.4`'s four numbers are the protocol's, not a device's: no standard function code has a
 field wide enough to answer more, so the SDK used to send a request the device could only refuse,
@@ -156,6 +180,16 @@ them rather than repeat them. The largest single call in the first consumer read
   little-endian or UTF-16 big-endian, reading and writing the bytes in their natural sequential order
   with no byte or word swap, and SHALL append one zero byte when an encoded string is an odd number of
   bytes.
+
+- `AC-MODB-005.8` (Ubiquitous): THE SYSTEM SHALL move values between a byte buffer and a value array
+  by reinterpreting the bytes in the host's own layout, dropping a tail shorter than one value, and
+  SHALL represent a `bool` as the byte 1 or 0.
+- `AC-MODB-005.9` (Ubiquitous): THE SYSTEM SHALL default a byte order to most-significant-byte-first,
+  a 32-bit word order to most-significant-word-first, a 64-bit word order to `ABCD` and a text
+  encoding to ASCII, on every operation that takes them.
+
+`AC-MODB-005.9` is the Modbus standard's own order, so a block written for a standards-compliant
+device names none of them; a device that differs is the exception, and says so at the call site.
 
 `AC-MODB-005.4` is what turns a short frame into a diagnosis: the cast that follows it reinterprets
 bytes and drops a ragged tail in silence. `AC-MODB-005.7`'s natural order is the client's and the
@@ -196,9 +230,9 @@ and asserts the connect count does not move.
 - `AC-MODB-007.2` (Event-driven): WHEN the second consecutive connect fails THE SYSTEM SHALL wait the
   configured backoff, doubling it on each further consecutive failure up to the configured maximum,
   and SHALL never overflow however long the run of failures.
-- `AC-MODB-007.3` (Event-driven): WHEN an operation is issued while a connect backoff is still running
-  THE SYSTEM SHALL fail it immediately with a `LinkBackoffException` and a `BackedOff` receipt naming
-  the endpoint, the consecutive-failure count and the next attempt.
+- `AC-MODB-007.3` (Event-driven): WHEN a device operation is issued while a connect backoff is still
+  running THE SYSTEM SHALL fail it immediately with a `LinkBackoffException` and a `BackedOff` receipt
+  naming the endpoint, the consecutive-failure count and the next attempt.
 - `AC-MODB-007.4` (Event-driven): WHEN an armed backoff's instant has passed THE SYSTEM SHALL let the
   next operation attempt a connection, and a successful connect SHALL clear the backoff.
 - `AC-MODB-007.5` (Ubiquitous): THE SYSTEM SHALL offer no backoff value that turns the wait off, and
@@ -242,9 +276,23 @@ pulse twice.
 - `AC-MODB-009.5` (Ubiquitous): THE SYSTEM SHALL exclude the request currently executing from the
   reported queue depth.
 - `AC-MODB-009.6` (Ubiquitous): THE SYSTEM SHALL exempt a control operation from the queued-age check,
-  from the link summary and from the receipt.
+  from the link summary and from the receipt, and SHALL let it run during a connect backoff without
+  ending the backoff.
 - `AC-MODB-009.7` (Ubiquitous): THE SYSTEM SHALL complete each request exactly once, whatever reaches
   it first.
+- `AC-MODB-009.8` (Event-driven): WHEN a queue capacity below one request, or an overflow policy
+  outside the declared set, is set on a Modbus TCP client THE SYSTEM SHALL throw an
+  `ArgumentOutOfRangeException` naming the value.
+- `AC-MODB-009.9` (Event-driven): WHEN an operation is enqueued on a request queue that was never
+  created THE SYSTEM SHALL throw an `InvalidOperationException` synchronously, without invoking either
+  callback.
+
+`AC-MODB-009.8` is the pair of knobs the queue is built from, refused where they are set rather than
+by the enable that builds it: both used to be reported by that enable, which sent a commissioner to
+look at the wrong line — a capacity below one from the channel, an undeclared policy from the switch
+over it, and the second left a client reading enabled with no queue behind it. `AC-MODB-009.9` is what
+is left of that shape and is unreachable through a client, whose enablement gate returns first; it is
+reachable through the request queue the TestKit substitutes.
 
 `AC-MODB-009.2` used to be a silent no-op, so a commissioner who raised a congested client's capacity
 read the number back and kept losing requests at the old one. Re-setting the value in force stays a
@@ -263,12 +311,22 @@ to work around.
 - `AC-MODB-010.3` (Ubiquitous): THE SYSTEM SHALL return from disposal without waiting for the request
   in flight.
 - `AC-MODB-010.4` (Ubiquitous): THE SYSTEM SHALL log a request not executed because it was backed off, expired, dropped or cancelled below the level it logs a failure at. GAP: a log level, which `../testing-conventions.md` § 15 forbids asserting on.
+- `AC-MODB-010.5` (Event-driven): WHEN a Modbus TCP client is disposed THE SYSTEM SHALL release its
+  request queue and its socket exactly once, report itself disabled, and stay silent on a second
+  disposal.
+- `AC-MODB-010.6` (Event-driven): WHEN the underlying client library throws while the socket is
+  released THE SYSTEM SHALL swallow and log it, never throwing out of disposal.
 
 `AC-MODB-010.1` is what a block's teardown write now gets. Before it, a request still queued when the
 scope disposed the client was abandoned in silence — no callback, no receipt, no link record — while
 the surface documented it as cancelled; the consumer's device blocks carry comments naming that
 behaviour. The drain runs on the queue's own consumer rather than on the disposing thread, because
 the channel has one reader and because a block's teardown must not wait on a socket.
+`AC-MODB-010.5`'s "report itself disabled" is the client's half of `AC-MODB-011.4`: a disposed client
+that still read enabled let `AC-MODB-002.2`'s gate pass after teardown, so a call arriving afterwards
+took `AC-MODB-010.2`'s drop-with-receipt path instead of doing nothing, and the two criteria agreed
+only by accident of an unstated flag.
+
 `AC-MODB-010.3` is the other half: **whether a fire-and-forget write issued from a stop hook actually
 reaches the device is not decided here** — the runtime's bounded grace period between the stop and
 the actor's termination is what gives it a chance, and [`block-lifecycle.md`](block-lifecycle.md)'s
@@ -287,8 +345,11 @@ exactly like the client — configure while disabled, then enable.
 - `AC-MODB-011.3` (Event-driven): WHEN enabling the server cannot bind the listener THE SYSTEM SHALL
   propagate the failure to the caller and leave the server disabled.
 - `AC-MODB-011.4` (Event-driven): WHEN the server is disposed THE SYSTEM SHALL stop the listener,
-  release the server and report itself disabled.
+  release the server, report itself disabled, and stay silent on a second disposal.
 - `AC-MODB-011.5` (Ubiquitous): THE SYSTEM SHALL swallow and log a teardown race raised by the underlying server library on stop or disposal, never throwing it. GAP: the race is the third-party server's, reachable only by making it throw from inside its own teardown.
+- `AC-MODB-011.6` (Event-driven): WHEN a hosted server is enabled THE SYSTEM SHALL start the listener
+  on the configured address, port and area extents, WHEN it is disabled THE SYSTEM SHALL stop it, and
+  WHEN either is repeated THE SYSTEM SHALL do nothing.
 
 `AC-MODB-011.2` is a role decision: a logic-block-hosted server exists to be reached by masters
 elsewhere on the network, so a simulator that must not be reachable off the machine sets loopback

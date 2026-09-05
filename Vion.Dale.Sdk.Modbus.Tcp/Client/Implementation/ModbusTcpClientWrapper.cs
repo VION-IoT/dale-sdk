@@ -239,7 +239,11 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation
             }
 
             var backoff = Exponential(ConnectBackoff, consecutiveConnectFailures - ConnectFailuresBeforeBackoff, ConnectBackoffMax);
-            var nextAttemptAt = failedAt + backoff;
+
+            // "Never back off again" is a legitimate maximum, and the clock cannot hold failedAt plus one: the
+            // addition threw out of the connect it was arming, so the caller saw an argument fault classified as a
+            // transport error instead of the connect failure that actually happened.
+            var nextAttemptAt = backoff.Ticks > DateTime.MaxValue.Ticks - failedAt.Ticks ? DateTime.SpecifyKind(DateTime.MaxValue, DateTimeKind.Utc) : failedAt + backoff;
             Interlocked.Exchange(ref _backoffUntilTicks, nextAttemptAt.Ticks);
             _connectionAccumulator.RecordConnectBackoff(backoff, nextAttemptAt);
             LogConnectBackoffArmed(IpAddress!, Port, consecutiveConnectFailures, backoff, nextAttemptAt);

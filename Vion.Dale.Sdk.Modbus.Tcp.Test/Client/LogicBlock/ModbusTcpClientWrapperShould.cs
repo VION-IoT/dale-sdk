@@ -497,7 +497,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task ReadDiscreteInputs()
         {
             // Arrange
@@ -516,7 +516,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task ReadCoils()
         {
             // Arrange
@@ -535,7 +535,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task WriteSingleCoil()
         {
             // Arrange
@@ -549,7 +549,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task WriteMultipleCoils()
         {
             // Arrange
@@ -563,7 +563,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task ReadInputRegistersRaw()
         {
             // Arrange
@@ -578,7 +578,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task ReadInputRegistersAsShort()
         {
             // Act & Assert
@@ -594,7 +594,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task ReadInputRegistersAsUShort()
         {
             // Act & Assert
@@ -610,7 +610,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task ReadInputRegistersAsInt()
         {
             // Act & Assert
@@ -632,7 +632,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task ReadInputRegistersAsUInt()
         {
             // Arrange
@@ -658,7 +658,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task ReadInputRegistersAsFloat()
         {
             // Act & Assert
@@ -680,7 +680,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task ReadInputRegistersAsLong()
         {
             // Act & Assert
@@ -702,7 +702,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task ReadInputRegistersAsULong()
         {
             // Act & Assert
@@ -724,7 +724,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task ReadInputRegistersAsDouble()
         {
             // Act & Assert
@@ -746,7 +746,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         [DataRow(TextEncoding.Ascii)]
         [DataRow(TextEncoding.Utf8)]
         [DataRow(TextEncoding.Utf16Be)]
@@ -775,7 +775,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task ReadHoldingRegistersRaw()
         {
             // Arrange
@@ -790,7 +790,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task ReadHoldingRegistersAsShort()
         {
             // Act & Assert
@@ -806,7 +806,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task ReadHoldingRegistersAsUShort()
         {
             // Act & Assert
@@ -822,7 +822,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task ReadHoldingRegistersAsInt()
         {
             // Act & Assert
@@ -844,7 +844,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task ReadHoldingRegistersAsUInt()
         {
             // Arrange
@@ -870,7 +870,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task ReadHoldingRegistersAsFloat()
         {
             // Act & Assert
@@ -892,7 +892,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task ReadHoldingRegistersAsLong()
         {
             // Act & Assert
@@ -914,7 +914,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task ReadHoldingRegistersAsULong()
         {
             // Act & Assert
@@ -936,7 +936,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task ReadHoldingRegistersAsDouble()
         {
             // Act & Assert
@@ -958,7 +958,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         [DataRow(TextEncoding.Ascii)]
         [DataRow(TextEncoding.Utf8)]
         [DataRow(TextEncoding.Utf16Be)]
@@ -987,7 +987,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task WriteSingleHoldingRegisterAsShort()
         {
             // Arrange
@@ -1009,7 +1009,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task WriteSingleHoldingRegisterAsUShort()
         {
             // Arrange
@@ -1031,7 +1031,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task WriteMultipleHoldingRegistersRaw()
         {
             // Arrange
@@ -1044,7 +1044,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task WriteMultipleHoldingRegistersAsShort()
         {
             // Act & Assert
@@ -1058,7 +1058,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task WriteMultipleHoldingRegistersAsUShort()
         {
             // Act & Assert
@@ -1072,7 +1072,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task WriteMultipleHoldingRegistersAsInt()
         {
             // Act & Assert
@@ -1088,7 +1088,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task WriteMultipleHoldingRegistersAsUInt()
         {
             // Act & Assert
@@ -1104,7 +1104,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task WriteMultipleHoldingRegistersAsFloat()
         {
             // Act & Assert
@@ -1120,7 +1120,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task WriteMultipleHoldingRegistersAsLong()
         {
             // Act & Assert
@@ -1136,7 +1136,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task WriteMultipleHoldingRegistersAsULong()
         {
             // Act & Assert
@@ -1152,7 +1152,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task WriteMultipleHoldingRegistersAsDouble()
         {
             // Act & Assert
@@ -1168,7 +1168,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-001.2")]
+        [TestProperty("spec", "AC-MODB-001.10")]
         [DataRow(TextEncoding.Ascii)]
         [DataRow(TextEncoding.Utf8)]
         [DataRow(TextEncoding.Utf16Be)]
@@ -1193,7 +1193,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-010.3")]
+        [TestProperty("spec", "AC-MODB-010.5")]
         public void DisposeClientProxy()
         {
             // Arrange
@@ -1206,7 +1206,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-010.3")]
+        [TestProperty("spec", "AC-MODB-010.6")]
         public void NotThrowWhenClientProxyThrowsOnDisposal()
         {
             // Arrange
@@ -1217,7 +1217,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-MODB-010.3")]
+        [TestProperty("spec", "AC-MODB-010.5")]
         public void NotDisposeClientProxyWhenAlreadyDisposed()
         {
             // Arrange

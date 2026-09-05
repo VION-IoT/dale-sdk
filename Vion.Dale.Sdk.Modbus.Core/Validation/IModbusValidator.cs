@@ -22,12 +22,13 @@ namespace Vion.Dale.Sdk.Modbus.Core.Validation
         /// <param name="quantity">The number of registers or bits the request would carry.</param>
         /// <param name="protocolLimit">The limit for the function code, from <see cref="ModbusProtocolLimits" />.</param>
         /// <exception cref="InvalidCountException">
-        ///     Thrown when <paramref name="quantity" /> exceeds <paramref name="protocolLimit" />.
+        ///     Thrown when <paramref name="quantity" /> is zero or exceeds <paramref name="protocolLimit" />.
         /// </exception>
         /// <remarks>
-        ///     Checked before the request reaches the wire: no standard function code can answer more, so a device
-        ///     asked for more answers with an exception code, drops the frame, or truncates — none of which tells
-        ///     the caller the request was the problem.
+        ///     Checked before the request reaches the wire, at both ends of the range: no standard function code can
+        ///     answer more, so a device asked for more answers with an exception code, drops the frame, or truncates,
+        ///     and one asked for nothing answers a frame the client can only read as a protocol fault — none of which
+        ///     tells the caller the request was the problem.
         /// </remarks>
         void ValidateQuantity(uint quantity, int protocolLimit);
 

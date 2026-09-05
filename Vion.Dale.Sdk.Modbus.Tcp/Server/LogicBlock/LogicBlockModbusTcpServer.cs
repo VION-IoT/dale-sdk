@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Net;
 using Microsoft.Extensions.Logging;
 using Vion.Dale.Sdk.Modbus.Core.Conversion;
@@ -21,12 +22,12 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
 
         private readonly IModbusTcpServerProxy _proxy;
 
-        // A depth, not a flag: the server lock is re-entrant, so a nested Sync returning would clear a flag
-        // while the outer callback still holds the lock — and the guard exists for exactly that callback.
         private bool _isEnabled;
 
         private IPAddress _parsedListenAddress = IPAddress.Any;
 
+        // A depth, not a flag: the server lock is re-entrant, so a nested Sync returning would clear a flag
+        // while the outer callback still holds the lock — and the guard exists for exactly that callback.
         private int _syncCallbackDepth;
 
         public LogicBlockModbusTcpServer(IModbusTcpServerProxy proxy, IModbusDataConverter dataConverter, ILogger<LogicBlockModbusTcpServer> logger)
@@ -93,7 +94,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
                 EnsureDisabled(nameof(Port));
                 if (value is < MinPort or > MaxPort)
                 {
-                    throw new FormatException($"Port {value} is outside the valid range ({MinPort}-{MaxPort}).");
+                    throw new FormatException(string.Format(CultureInfo.InvariantCulture, "Port {0} is outside the valid range ({1}-{2}).", value, MinPort, MaxPort));
                 }
 
                 field = value;

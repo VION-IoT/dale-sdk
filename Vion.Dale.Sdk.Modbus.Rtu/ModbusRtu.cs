@@ -147,11 +147,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
 
             set
             {
-                if (value <= TimeSpan.Zero)
-                {
-                    throw new ArgumentOutOfRangeException(nameof(value), value, $"{nameof(DefaultOperationTimeout)} must be greater than zero.");
-                }
-
+                ModbusTimeoutLimits.Validate(value, nameof(DefaultOperationTimeout));
                 field = value;
             }
         } = TimeSpan.FromSeconds(5);
@@ -1020,18 +1016,19 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
             ExecuteReadRequest(functionCode,
                                unitIdentifier,
                                startingAddress,
+                               operationTimeout,
                                () => quantity,
-                               validatedQuantity => _requestFactory.CreateReadRequest(functionCode,
-                                                                                      unitIdentifier,
-                                                                                      startingAddress,
-                                                                                      validatedQuantity,
-                                                                                      operationTimeout ?? DefaultOperationTimeout,
-                                                                                      MaxQueuedAge,
-                                                                                      processResponse,
-                                                                                      dispatcher,
-                                                                                      successCallback,
-                                                                                      errorCallback,
-                                                                                      _linkAccumulator),
+                               (validatedQuantity, effectiveTimeout) => _requestFactory.CreateReadRequest(functionCode,
+                                                                                                          unitIdentifier,
+                                                                                                          startingAddress,
+                                                                                                          validatedQuantity,
+                                                                                                          effectiveTimeout,
+                                                                                                          MaxQueuedAge,
+                                                                                                          processResponse,
+                                                                                                          dispatcher,
+                                                                                                          successCallback,
+                                                                                                          errorCallback,
+                                                                                                          _linkAccumulator),
                                dispatcher,
                                errorCallback);
         }
@@ -1049,18 +1046,19 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
             ExecuteReadRequest(functionCode,
                                unitIdentifier,
                                startingAddress,
+                               operationTimeout,
                                () => quantity,
-                               validatedQuantity => _requestFactory.CreateReadRequest(functionCode,
-                                                                                      unitIdentifier,
-                                                                                      startingAddress,
-                                                                                      validatedQuantity,
-                                                                                      operationTimeout ?? DefaultOperationTimeout,
-                                                                                      MaxQueuedAge,
-                                                                                      processResponse,
-                                                                                      dispatcher,
-                                                                                      successCallback,
-                                                                                      errorCallback,
-                                                                                      _linkAccumulator),
+                               (validatedQuantity, effectiveTimeout) => _requestFactory.CreateReadRequest(functionCode,
+                                                                                                          unitIdentifier,
+                                                                                                          startingAddress,
+                                                                                                          validatedQuantity,
+                                                                                                          effectiveTimeout,
+                                                                                                          MaxQueuedAge,
+                                                                                                          processResponse,
+                                                                                                          dispatcher,
+                                                                                                          successCallback,
+                                                                                                          errorCallback,
+                                                                                                          _linkAccumulator),
                                dispatcher,
                                errorCallback);
         }
@@ -1079,18 +1077,19 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
             ExecuteReadRequest(functionCode,
                                unitIdentifier,
                                startingAddress,
+                               operationTimeout,
                                () => _dataConverter.ConvertCountToQuantity(count, bytesPerCount),
-                               validatedQuantity => _requestFactory.CreateReadRequest(functionCode,
-                                                                                      unitIdentifier,
-                                                                                      startingAddress,
-                                                                                      validatedQuantity,
-                                                                                      operationTimeout ?? DefaultOperationTimeout,
-                                                                                      MaxQueuedAge,
-                                                                                      processResponse,
-                                                                                      dispatcher,
-                                                                                      successCallback,
-                                                                                      errorCallback,
-                                                                                      _linkAccumulator),
+                               (validatedQuantity, effectiveTimeout) => _requestFactory.CreateReadRequest(functionCode,
+                                                                                                          unitIdentifier,
+                                                                                                          startingAddress,
+                                                                                                          validatedQuantity,
+                                                                                                          effectiveTimeout,
+                                                                                                          MaxQueuedAge,
+                                                                                                          processResponse,
+                                                                                                          dispatcher,
+                                                                                                          successCallback,
+                                                                                                          errorCallback,
+                                                                                                          _linkAccumulator),
                                dispatcher,
                                errorCallback);
         }
@@ -1098,8 +1097,9 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
         private void ExecuteReadRequest(ModbusFunctionCode functionCode,
                                         int unitIdentifier,
                                         ushort startingAddress,
+                                        TimeSpan? operationTimeout,
                                         Func<ushort> resolveQuantity,
-                                        Func<ushort, ReadModbusRtuRequest> createReadRequest,
+                                        Func<ushort, TimeSpan, ReadModbusRtuRequest> createReadRequest,
                                         IActorDispatcher dispatcher,
                                         Action<Exception, ModbusReceipt>? errorCallback)
         {
@@ -1109,13 +1109,14 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
                 return;
             }
 
+            var effectiveTimeout = EffectiveOperationTimeout(operationTimeout);
             LogExecutingReadRequest(LogicBlockContractId, functionCode, unitIdentifier, startingAddress);
             try
             {
                 _validator.ValidateUnitIdentifier(unitIdentifier);
                 var quantity = resolveQuantity();
                 _validator.ValidateQuantity(quantity, ReadLimitFor(functionCode));
-                var readRequest = createReadRequest(quantity);
+                var readRequest = createReadRequest(quantity, effectiveTimeout);
                 LogSendingReadRequest(LogicBlockContractId, functionCode, unitIdentifier, startingAddress, readRequest.CorrelationId);
                 SendToContractHandler(new ContractMessage<ReadModbusRtuRequest>(LogicBlockContractId, readRequest));
             }
@@ -1145,6 +1146,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
                 return;
             }
 
+            var effectiveTimeout = EffectiveOperationTimeout(operationTimeout);
             LogExecutingWriteRequest(LogicBlockContractId, functionCode, unitIdentifier, address);
             try
             {
@@ -1155,7 +1157,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
                                                                       unitIdentifier,
                                                                       address,
                                                                       data,
-                                                                      operationTimeout ?? DefaultOperationTimeout,
+                                                                      effectiveTimeout,
                                                                       MaxQueuedAge,
                                                                       dispatcher,
                                                                       successCallback,
@@ -1173,6 +1175,22 @@ namespace Vion.Dale.Sdk.Modbus.Rtu
                             dispatcher,
                             errorCallback);
             }
+        }
+
+        /// <summary>
+        ///     Binds an operation timeout where the call is accepted, and refuses one the framework timer cannot
+        ///     carry. Unchecked, a duration past that bound reached the published request expiry in the shared
+        ///     handler, which overflowed before the request was ever swept, so the block got no callback at all.
+        /// </summary>
+        private TimeSpan EffectiveOperationTimeout(TimeSpan? operationTimeout)
+        {
+            var effectiveTimeout = operationTimeout ?? DefaultOperationTimeout;
+            if (operationTimeout.HasValue)
+            {
+                ModbusTimeoutLimits.Validate(effectiveTimeout, nameof(operationTimeout));
+            }
+
+            return effectiveTimeout;
         }
 
         /// <summary>

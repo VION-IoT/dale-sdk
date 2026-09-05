@@ -26,12 +26,6 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
         // 32-bit gateway cannot observe a half-written TimeSpan? and silently apply a different policy.
         private long _maxQueuedAgeTicks = -1;
 
-        /// <summary>
-        ///     The consumer loop, completed once it has stopped and drained. The suite awaits it to observe the
-        ///     disposal drain, which runs there rather than on the disposing thread.
-        /// </summary>
-        internal Task? ConsumerCompletion { get; private set; }
-
         public RequestQueue(IRequestFactory requestFactory, ILogger<RequestQueue> logger)
         {
             _requestFactory = requestFactory;
@@ -97,7 +91,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
             LogQueueCreated(capacity, overflowPolicy);
 
             _cts = new CancellationTokenSource();
-            ConsumerCompletion = ConsumeAsync(_channel, _cts.Token);
+            _ = ConsumeAsync(_channel, _cts.Token);
         }
 
         /// <inheritdoc />
@@ -207,9 +201,9 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
             {
                 await foreach (var request in channel.Reader.ReadAllAsync(token).ConfigureAwait(false))
                 {
-                    // Completing the writer lets the reader hand over the backlog before it finishes, so a
-                    // disposal arrives here as items rather than as cancellation. They are dropped, not run: the
-                    // client behind them is being torn down.
+                    // A request the reader had already been handed when the token cancelled leaves through this
+                    // arm rather than through the drain below. It is dropped, not run: the client behind it is
+                    // being torn down.
                     if (token.IsCancellationRequested)
                     {
                         DropOnDisposal(request);
@@ -232,7 +226,6 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
             finally
             {
                 DrainRemainingRequests(channel);
-                _cts?.Dispose();
             }
         }
 
@@ -260,11 +253,16 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
             {
                 LogDisposing(nameof(RequestQueue));
 
-                // Closing the writer and cancelling is all a disposing block does: the consumer stops, completes
-                // every request still queued, and releases the token source. Waiting for it here would hold the
-                // block's teardown open for as long as the in-flight operation takes to notice.
-                _channel?.Writer.TryComplete();
+                // Cancelling before the writer closes is what keeps a queued request from running: completing
+                // the writer first hands the reader the whole backlog while the token is still live, and it
+                // executes those requests against a wrapper that is being torn down. Waiting for the consumer
+                // here would hold the block's teardown open for as long as the in-flight operation takes to
+                // notice, so it drains on its own; only the token source stays with this thread, because
+                // releasing it on the consumer raced the Cancel above and threw ObjectDisposedException out of
+                // a block's scope teardown.
                 _cts?.Cancel();
+                _channel?.Writer.TryComplete();
+                _cts?.Dispose();
                 LogDisposed(nameof(RequestQueue));
             }
 

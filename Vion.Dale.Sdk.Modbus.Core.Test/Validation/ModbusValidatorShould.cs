@@ -50,6 +50,20 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test.Validation
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-004.3")]
+        [DataRow(0u, ModbusProtocolLimits.MaxRegistersPerRead, DisplayName = "No register to read")]
+        [DataRow(0u, ModbusProtocolLimits.MaxRegistersPerWrite, DisplayName = "No register to write")]
+        [DataRow(0u, ModbusProtocolLimits.MaxBitsPerRead, DisplayName = "No bit to read")]
+        [DataRow(0u, ModbusProtocolLimits.MaxBitsPerWrite, DisplayName = "No bit to write")]
+        public void ThrowExceptionWhenQuantityZero(uint quantity, int protocolLimit)
+        {
+            // Arrange
+
+            // Act & Assert
+            Assert.ThrowsExactly<InvalidCountException>(() => _sut.ValidateQuantity(quantity, protocolLimit));
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-MODB-004.4")]
         [DataRow(125u, ModbusProtocolLimits.MaxRegistersPerRead, DisplayName = "Exactly the read limit")]
         [DataRow(123u, ModbusProtocolLimits.MaxRegistersPerWrite, DisplayName = "Exactly the write limit")]
