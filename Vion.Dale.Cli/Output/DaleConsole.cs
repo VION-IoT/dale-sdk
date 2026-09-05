@@ -8,6 +8,17 @@ namespace Vion.Dale.Cli.Output
 {
     public static class DaleConsole
     {
+        /// <summary>
+        ///     Where a table-mode failure is written. Standard error, so a caller that captures <c>2&gt;</c>
+        ///     to report a failed step captures the sentence that explains it, and a caller that pipes
+        ///     standard output gets only the tool's answer. JSON mode deliberately keeps one stream (see
+        ///     <see cref="Error" />).
+        /// </summary>
+        private static IAnsiConsole ErrorConsole
+        {
+            get => AnsiConsole.Create(new AnsiConsoleSettings { Out = new AnsiConsoleOutput(Console.Error) });
+        }
+
         public static bool JsonMode { get; set; }
 
         public static bool VerboseMode { get; set; }
@@ -26,12 +37,13 @@ namespace Vion.Dale.Cli.Output
         {
             if (JsonMode)
             {
-                // Structured JSON error on stdout so agents can parse it
+                // Structured JSON error on stdout so agents can parse it — one stream in this mode, which
+                // is what a single-stream parser expects.
                 Console.WriteLine(JsonSerializer.Serialize(new { error = message }, JsonDefaults.Options));
                 return;
             }
 
-            AnsiConsole.MarkupLine($"  [red]✗[/] {Markup.Escape(message)}");
+            ErrorConsole.MarkupLine($"  [red]✗[/] {Markup.Escape(message)}");
         }
 
         public static void Info(string message)
