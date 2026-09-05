@@ -180,8 +180,8 @@ a fault in code they did not write.
 - `AC-CLI-007.1` (Ubiquitous): THE SYSTEM SHALL insert a generated member before the target class's
   closing brace, at the indentation its existing members use, separated by a blank line.
 - `AC-CLI-007.2` (Ubiquitous): THE SYSTEM SHALL find that brace by counting braces, which counts braces inside string literals and comments too. GAP: a stated limitation, not a guarantee: no assertion can pin what brace counting does to every shape of string literal, and the shapes it does handle are covered by `AC-CLI-007.1`.
-- `AC-CLI-007.3` (Ubiquitous): THE SYSTEM SHALL preserve a source file's line ending and its byte-
-  order mark when it inserts into it, changing only the lines it inserted.
+- `AC-CLI-007.3` (Ubiquitous): THE SYSTEM SHALL preserve a source file's line ending and its
+  byte-order mark when it inserts into it, changing only the lines it inserted.
 - `AC-CLI-007.4` (Ubiquitous): THE SYSTEM SHALL add the SDK's using directive after the file's last
   using directive, or at the top where there is none, and SHALL NOT add it twice.
 
