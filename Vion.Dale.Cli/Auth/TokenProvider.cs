@@ -14,9 +14,22 @@ namespace Vion.Dale.Cli.Auth
         /// </summary>
         public static async Task<string> GetAccessTokenAsync(string? flagClientId = null, string? flagClientSecret = null, string? environment = null)
         {
-            // Resolve auth base URL: explicit environment > stored config > default production
-            var effectiveEnvironment = environment ?? TokenStore.LoadConfig().Environment ?? "production";
+            // Resolve auth base URL: explicit environment > stored config > default production. A custom
+            // environment resolves to no named URL, so the stored configuration's is the answer — the same
+            // fallback CommandContext.ResolveAsync applies, and without it a client-credentials or refresh
+            // exchange against a custom environment posts to a relative URL.
+            var config = TokenStore.LoadConfig();
+            var effectiveEnvironment = environment ?? config.Environment ?? "production";
             var authBaseUrl = TokenStore.ResolveAuthBaseUrl(effectiveEnvironment);
+            if (string.IsNullOrEmpty(authBaseUrl))
+            {
+                authBaseUrl = config.AuthBaseUrl;
+            }
+
+            if (string.IsNullOrEmpty(authBaseUrl))
+            {
+                throw new DaleAuthException($"Cannot resolve auth URL for environment '{effectiveEnvironment}'. Run `dale login` or `dale config set-environment` first.");
+            }
 
             // 1. Explicit flags
             if (!string.IsNullOrEmpty(flagClientId) && !string.IsNullOrEmpty(flagClientSecret))

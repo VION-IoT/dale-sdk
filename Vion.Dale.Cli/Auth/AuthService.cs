@@ -18,7 +18,20 @@ namespace Vion.Dale.Cli.Auth
 
         private static readonly TimeSpan AuthTimeout = TimeSpan.FromMinutes(5);
 
-        private static readonly HttpClient Http = new();
+        private static readonly HttpClient DefaultClient = new();
+
+        private static HttpClient _http = DefaultClient;
+
+        /// <summary>
+        ///     Routes the token exchanges through <paramref name="handler" />, or restores the default
+        ///     transport when it is null. The same seam <see cref="Infrastructure.DaleHttpClient" /> carries,
+        ///     for the same reason: this class owns its own client, so the token precedence chain is
+        ///     otherwise provable only against a real identity provider.
+        /// </summary>
+        internal static void UseTransport(HttpMessageHandler? handler)
+        {
+            _http = handler is null ? DefaultClient : new HttpClient(handler);
+        }
 
         /// <summary>
         ///     Interactive browser-based login using Authorization Code + PKCE.
@@ -108,7 +121,7 @@ namespace Vion.Dale.Cli.Auth
                                                              ["code_verifier"] = codeVerifier,
                                                          });
 
-            var tokenResponse = await Http.PostAsync(tokenUrl, tokenRequest, cancellationToken);
+            var tokenResponse = await _http.PostAsync(tokenUrl, tokenRequest, cancellationToken);
             if (!tokenResponse.IsSuccessStatusCode)
             {
                 var errorBody = await tokenResponse.Content.ReadAsStringAsync(cancellationToken);
@@ -132,7 +145,7 @@ namespace Vion.Dale.Cli.Auth
                                                         ["client_secret"] = clientSecret,
                                                     });
 
-            var response = await Http.PostAsync(tokenUrl, request);
+            var response = await _http.PostAsync(tokenUrl, request);
             if (!response.IsSuccessStatusCode)
             {
                 var errorBody = await response.Content.ReadAsStringAsync();
@@ -156,7 +169,7 @@ namespace Vion.Dale.Cli.Auth
                                                         ["refresh_token"] = refreshToken,
                                                     });
 
-            var response = await Http.PostAsync(tokenUrl, request);
+            var response = await _http.PostAsync(tokenUrl, request);
             if (!response.IsSuccessStatusCode)
             {
                 throw new DaleAuthException("Token refresh failed. Please run `dale login` again.");

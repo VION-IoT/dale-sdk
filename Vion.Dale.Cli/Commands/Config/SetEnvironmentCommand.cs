@@ -31,10 +31,16 @@ namespace Vion.Dale.Cli.Commands.Config
                                   string resolvedAuthUrl;
                                   string resolvedApiUrl;
 
-                                  if (TokenStore.IsKnownEnvironment(name))
+                                  // A named environment carries its own pair; anything else is custom and must
+                                  // supply both. Resolved before the branch so the names are what decides, not a
+                                  // second lookup that could disagree with IsKnownEnvironment.
+                                  var namedAuthUrl = TokenStore.ResolveAuthBaseUrl(name);
+                                  var namedApiUrl = TokenStore.ResolveApiBaseUrl(name);
+
+                                  if (namedAuthUrl is not null && namedApiUrl is not null)
                                   {
-                                      resolvedAuthUrl = TokenStore.ResolveAuthBaseUrl(name);
-                                      resolvedApiUrl = TokenStore.ResolveApiBaseUrl(name);
+                                      resolvedAuthUrl = namedAuthUrl;
+                                      resolvedApiUrl = namedApiUrl;
                                   }
                                   else
                                   {

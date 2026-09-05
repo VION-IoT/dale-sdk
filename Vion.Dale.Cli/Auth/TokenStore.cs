@@ -39,9 +39,22 @@ namespace Vion.Dale.Cli.Auth
 
     public static class TokenStore
     {
+        private static string? _rootOverride;
+
+        /// <summary>
+        ///     The directory <c>.dale</c> is created in, or null for the user profile. The CLI composes no
+        ///     container (<c>Program.BuildRootCommand</c>), so this is a settable process-wide knob in the
+        ///     shape <c>DaleConsole.JsonMode</c> already uses — the seam that lets the store's rules be
+        ///     proven without any test reading the developer's home directory.
+        /// </summary>
+        internal static void UseRoot(string? root)
+        {
+            _rootOverride = root;
+        }
+
         private static string DaleDir
         {
-            get => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".dale");
+            get => Path.Combine(_rootOverride ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".dale");
         }
 
         private static string CredentialsPath
@@ -105,23 +118,30 @@ namespace Vion.Dale.Cli.Auth
             File.WriteAllText(ConfigPath, json);
         }
 
-        public static string ResolveAuthBaseUrl(string environment)
+        /// <summary>
+        ///     The identity provider's realm URL for a named environment, or null for any other name — a
+        ///     custom environment's URLs live in the stored configuration instead.
+        /// </summary>
+        public static string? ResolveAuthBaseUrl(string environment)
         {
             return environment.ToLowerInvariant() switch
             {
                 "test" => "https://auth.test.vion.swiss/realms/vion",
                 "production" => "https://auth.vion.swiss/realms/vion",
-                _ => null!,
+                _ => null,
             };
         }
 
-        public static string ResolveApiBaseUrl(string environment)
+        /// <summary>
+        ///     The cloud API's base URL for a named environment, or null for any other name.
+        /// </summary>
+        public static string? ResolveApiBaseUrl(string environment)
         {
             return environment.ToLowerInvariant() switch
             {
                 "test" => "https://api.test.vion.swiss",
                 "production" => "https://api.vion.swiss",
-                _ => null!,
+                _ => null,
             };
         }
 

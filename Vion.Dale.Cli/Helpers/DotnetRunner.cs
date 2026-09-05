@@ -11,6 +11,23 @@ namespace Vion.Dale.Cli.Helpers
     public static class DotnetRunner
     {
         /// <summary>
+        ///     The argument list handed to <c>dotnet</c>: the verb, then the caller's arguments in order.
+        ///     Extracted so the composition can be proven without spawning a process — every argument is
+        ///     passed as its own list entry (never a joined string), which is what lets a path with spaces
+        ///     and a <c>--filter</c> expression survive.
+        /// </summary>
+        internal static List<string> ComposeArguments(string command, IEnumerable<string>? extraArgs)
+        {
+            var args = new List<string> { command };
+            if (extraArgs != null)
+            {
+                args.AddRange(extraArgs);
+            }
+
+            return args;
+        }
+
+        /// <summary>
         ///     Run a dotnet command with inherited stdio (output streams directly to console).
         ///     Returns the process exit code. When <paramref name="cancellationToken" /> is cancelled, the
         ///     spawned process — and its whole tree (a <c>dotnet run</c> spawns the built app as a child) —
@@ -22,11 +39,7 @@ namespace Vion.Dale.Cli.Helpers
                                                string? workingDirectory = null,
                                                CancellationToken cancellationToken = default)
         {
-            var args = new List<string> { command };
-            if (extraArgs != null)
-            {
-                args.AddRange(extraArgs);
-            }
+            var args = ComposeArguments(command, extraArgs);
 
             var psi = new ProcessStartInfo("dotnet")
                       {
@@ -77,11 +90,7 @@ namespace Vion.Dale.Cli.Helpers
         /// </summary>
         public static async Task<(int ExitCode, string Output)> RunCaptureAsync(string command, IEnumerable<string>? extraArgs = null, string? workingDirectory = null)
         {
-            var args = new List<string> { command };
-            if (extraArgs != null)
-            {
-                args.AddRange(extraArgs);
-            }
+            var args = ComposeArguments(command, extraArgs);
 
             var psi = new ProcessStartInfo("dotnet")
                       {

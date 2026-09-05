@@ -12,15 +12,29 @@ namespace Vion.Dale.Cli.Infrastructure
 {
     public static class DaleHttpClient
     {
-        private static readonly HttpClient Http = new()
-                                                  {
-                                                      Timeout = TimeSpan.FromSeconds(30),
-                                                  };
+        private static readonly HttpClient DefaultClient = CreateClient(handler: null);
 
-        static DaleHttpClient()
+        private static HttpClient _client = DefaultClient;
+
+        /// <summary>
+        ///     Routes every request through <paramref name="handler" />, or restores the default transport
+        ///     when it is null. The CLI composes no container (<c>Program.BuildRootCommand</c>), so this is a
+        ///     settable process-wide knob in the shape <see cref="DaleConsole.JsonMode" /> already uses — the
+        ///     seam that lets the status, timeout and header rules below be proven without a network.
+        /// </summary>
+        internal static void UseTransport(HttpMessageHandler? handler)
         {
+            _client = handler is null ? DefaultClient : CreateClient(handler);
+        }
+
+        private static HttpClient CreateClient(HttpMessageHandler? handler)
+        {
+            var client = handler is null ? new HttpClient() : new HttpClient(handler);
+            client.Timeout = TimeSpan.FromSeconds(30);
+
             var version = typeof(DaleHttpClient).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
-            Http.DefaultRequestHeaders.UserAgent.ParseAdd($"Vion.Dale.Cli/{version}");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd($"Vion.Dale.Cli/{version}");
+            return client;
         }
 
         public static async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
@@ -34,7 +48,7 @@ namespace Vion.Dale.Cli.Infrastructure
             HttpResponseMessage response;
             try
             {
-                response = await Http.SendAsync(request, cancellationToken);
+                response = await _client.SendAsync(request, cancellationToken);
             }
             catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
