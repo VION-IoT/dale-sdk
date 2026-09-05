@@ -7,7 +7,7 @@ using Vion.Dale.Sdk.Messages;
 namespace Vion.Dale.Sdk.AnalogIo.Test.Output
 {
     /// <summary>
-    ///     The face a block holds to drive a analog output: the message a command becomes, what a block can
+    ///     The face a block holds to drive an analog output: the message a command becomes, what a block can
     ///     observe when the configuration mapped nothing to it, and what a message meant for another face does.
     /// </summary>
     [TestClass]
@@ -16,7 +16,7 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Output
         private readonly ContractHarness _harness = new();
 
         [TestMethod]
-        [TestProperty("spec", "AC-IO-003.2")]
+        [TestProperty("spec", "AC-IO-003.4")]
         [DataRow(0.0)]
         [DataRow(4.2)]
         [DataRow(-12.5)]

@@ -6,6 +6,8 @@ using Google.FlatBuffers;
 using Moq;
 using Vion.Contracts.FlatBuffers.Hw.Ai;
 using Vion.Contracts.FlatBuffers.Hw.Ao;
+using Vion.Contracts.FlatBuffers.Hw.Di;
+using Vion.Contracts.FlatBuffers.Hw.Do;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Messages;
 using Vion.Dale.Sdk.Mqtt;
@@ -85,6 +87,31 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.TestHelpers
             var hardwareBlock = builder.CreateString("hw0");
             var endpoint = builder.CreateString("ep0");
             AoStatePayload.FinishAoStatePayloadBuffer(builder, AoStatePayload.CreateAoStatePayload(builder, hardwareBlock, endpoint, value));
+
+            return builder.SizedByteArray();
+        }
+
+        /// <summary>
+        ///     The neighbouring family's input payload — the same layout with a narrower value, so it carries
+        ///     fewer bytes than an analog topic's schema accepts.
+        /// </summary>
+        internal static byte[] DigitalStatePayload(bool value)
+        {
+            var builder = new FlatBufferBuilder(64);
+            var hardwareBlock = builder.CreateString("hw0");
+            var endpoint = builder.CreateString("ep0");
+            DiStatePayload.FinishDiStatePayloadBuffer(builder, DiStatePayload.CreateDiStatePayload(builder, hardwareBlock, endpoint, value));
+
+            return builder.SizedByteArray();
+        }
+
+        /// <summary>The neighbouring family's output payload, for the same reason as <see cref="DigitalStatePayload" />.</summary>
+        internal static byte[] DigitalOutputStatePayload(bool value)
+        {
+            var builder = new FlatBufferBuilder(64);
+            var hardwareBlock = builder.CreateString("hw0");
+            var endpoint = builder.CreateString("ep0");
+            DoStatePayload.FinishDoStatePayloadBuffer(builder, DoStatePayload.CreateDoStatePayload(builder, hardwareBlock, endpoint, value));
 
             return builder.SizedByteArray();
         }

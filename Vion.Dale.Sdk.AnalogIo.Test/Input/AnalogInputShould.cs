@@ -6,7 +6,7 @@ using Vion.Dale.Sdk.AnalogIo.Test.TestHelpers;
 namespace Vion.Dale.Sdk.AnalogIo.Test.Input
 {
     /// <summary>
-    ///     The face a block holds to read a analog input: what it raises, when, and what it does with a
+    ///     The face a block holds to read an analog input: what it raises, when, and what it does with a
     ///     message meant for another face.
     /// </summary>
     [TestClass]

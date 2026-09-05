@@ -10,7 +10,7 @@ using Vion.Dale.Sdk.Utils;
 namespace Vion.Dale.Sdk.AnalogIo.Test.Input
 {
     /// <summary>
-    ///     The handler that carries a analog input from the wire to the blocks bound to it: what it
+    ///     The handler that carries an analog input from the wire to the blocks bound to it: what it
     ///     subscribes, what it accepts as a payload, and who it forwards to. Driven through its own message
     ///     loop; no broker and no device.
     /// </summary>
@@ -80,11 +80,11 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Input
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-IO-005.2")]
+        [TestProperty("spec", "AC-IO-005.1")]
         public void ForwardStateValueWhenPayloadVerifies()
         {
-            // Arrange — the positive half of the guard: a payload a service provider actually sends passes it,
-            // so the refusals below cannot be read as "the guard refuses everything".
+            // Arrange — delivery is the rule this carries; it stands here as the guard's positive control, so
+            // the refusals below cannot be read as "the guard refuses everything".
             _harness.Link(_sut);
 
             // Act
@@ -110,6 +110,21 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Input
             _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.AiState), truncated));
 
             // Assert — the refusal is that nothing reached a block, not that something was logged.
+            Assert.IsEmpty(_harness.Forwarded<AnalogInputChanged>());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-IO-005.2")]
+        public void ForwardNothingWhenPayloadNarrowerThanTopicCarries()
+        {
+            // Arrange — the neighbouring family's payload carries a truth value where this topic carries a
+            // real number, so the schema check finds fewer bytes than the field needs.
+            _harness.Link(_sut);
+
+            // Act
+            _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.AiState), HandlerHarness.DigitalStatePayload(true)));
+
+            // Assert — the half of the bound the schema does reach; the other direction is the digital suite's.
             Assert.IsEmpty(_harness.Forwarded<AnalogInputChanged>());
         }
 
@@ -154,6 +169,29 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Input
 
             // Assert — linking replays nothing, so the block's first value waits for the next message.
             Assert.IsEmpty(_harness.Forwarded<AnalogInputChanged>());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-IO-007.2")]
+        [DataRow(0.0, DisplayName = "zero")]
+        [DataRow(4.2, DisplayName = "an ordinary reading")]
+        [DataRow(-12.5, DisplayName = "a negative reading")]
+        [DataRow(double.NaN, DisplayName = "not a number")]
+        [DataRow(double.PositiveInfinity, DisplayName = "positive infinity")]
+        [DataRow(double.NegativeInfinity, DisplayName = "negative infinity")]
+        [DataRow(double.MaxValue, DisplayName = "the largest value the type holds")]
+        [DataRow(double.Epsilon, DisplayName = "the smallest value above zero")]
+        public void ForwardStateValueUnaltered(double value)
+        {
+            // Arrange — the inbound half of the value rule: nothing between the wire and the block clamps a
+            // non-finite reading or rounds an extreme one, so a HAL that reports one is reported to the block.
+            _harness.Link(_sut);
+
+            // Act
+            _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.AiState), HandlerHarness.AnalogStatePayload(value)));
+
+            // Assert
+            Assert.AreEqual(value, _harness.Forwarded<AnalogInputChanged>().Single().Data.Value);
         }
 
         [TestMethod]

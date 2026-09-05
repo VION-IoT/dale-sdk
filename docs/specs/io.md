@@ -12,9 +12,10 @@ side), four handlers that carry them, and a registration class. Area code `IO`. 
 [`../spec-process.md`](../spec-process.md).
 
 The spine is the order an author meets the machinery: the four faces and what each carries, the four
-round-trips between them, what a face does when the configuration mapped nothing to it, the handler
-on the wire (registration, decode, publish), the value contract, the multiplicity and development-only
-declarations, dependency injection and the published surface, the mirror, and the test discipline.
+round-trips between them, what a face does with a message it sends and with one it does not carry,
+the handler on the wire (registration, decode, publish), the value contract, the multiplicity and
+development-only declarations, dependency injection and the published surface, the mirror, and the
+test discipline.
 
 Cited rather than restated: [`contracts.md`](contracts.md) for the binding attributes, for what
 `LogicBlockContractBase` does with a write on an unmapped or unlinked contract, and for the five arms
@@ -112,7 +113,7 @@ the wire is raised again. A block that wants edges compares for itself — which
 driving an input on a timer must do, or a paired loop never quiesces
 ([`../devhost-conventions.md`](../devhost-conventions.md)).
 
-## What a face does when nothing is mapped to it
+## What a face does with a message
 
 A block always holds every face it declares, whether or not the configuration mapped one to a service
 provider. What differs is what a write does.
@@ -121,8 +122,11 @@ provider. What differs is what a write does.
   on the contract, by that handler's class name.
 - `AC-IO-003.2` (Event-driven): WHEN a block writes on a face the configuration mapped nothing to THE
   SYSTEM SHALL drop the write, leaving the block nothing to observe.
-- `AC-IO-003.3` (Ubiquitous): THE SYSTEM SHALL ignore a contract message a face does not handle,
-  raising nothing.
+- `AC-IO-003.3` (Ubiquitous): THE SYSTEM SHALL ignore a contract message a face or a handler does
+  not carry, raising nothing and publishing nothing.
+- `AC-IO-003.4` (Event-driven): WHEN a block writes on a face the configuration mapped and the
+  runtime linked THE SYSTEM SHALL send that face's own message carrying the value to the linked
+  handler actor.
 
 `AC-IO-003.2` is the sharpest edge on this page for a block author, and it is silent by design: the
 drop is `LogicBlockContractBase`'s (`contracts.md`, `AC-BIND-009.*`), the warning that a contract went
@@ -133,9 +137,17 @@ answer today; the ledger carries what it would take
 ([`_findings.md`](_findings.md)). A face that *is* mapped but not yet linked is the other case and is
 not silent: it refuses the write, naming the contract and when writing becomes legal (`AC-BIND-009.*`).
 
-`AC-IO-003.3` holds on both sides of the wire: an input face given an output's message raises nothing,
-and an input's handler given any contract message publishes nothing, because an input carries no
-command in either direction.
+`AC-IO-003.3` holds in all four quadrants. An input face given an output's message raises nothing and
+an output face given an input's does the same. An input's handler given any contract message publishes
+nothing, because an input carries no command in either direction; an output's handler tests for the one
+command type it carries and does nothing for any other (`DigitalOutputHandler.cs:72` and
+`AnalogOutputHandler.cs:72`, an `if` with no else); and a provider face's handler, whose body is empty,
+publishes nothing for any of them. Only a mis-declared `[ScenarioWire]` can deliver a message to the
+wrong quadrant, which is why the rule is silence and not a refusal.
+
+`AC-IO-003.4` is the positive `AC-IO-003.2` is the absence of, and the two are indistinguishable from
+inside the block: one call either sends the face's own message to the actor `AC-IO-003.1` names or
+drops it, with no answer either way.
 
 ## The handler on the wire
 
@@ -149,15 +161,18 @@ have handlers too, but only as declarations — see *Development surface* below.
   topic prefix as its routing key.
 - `AC-IO-004.2` (Event-driven): WHEN a registration request arrives THE SYSTEM SHALL derive and send
   its registration afresh and answer the request, however many have come before.
-- `AC-IO-004.3` (Ubiquitous): THE SYSTEM SHALL have a provider face's handler subscribe to no topic
-  and claim an empty routing key, while still answering a registration request.
+- `AC-IO-004.3` (Ubiquitous): THE SYSTEM SHALL have a provider face's handler subscribe to no topic,
+  claim an empty routing key and decode nothing from an MQTT message that reaches it, while still
+  answering a registration request.
 
 An output's handler subscribes the **state** topic and publishes to the **set** topic; it never
 subscribes what it publishes. `AC-IO-004.2` is the re-subscribe path: a handler holds no registration
 state, so a runtime re-issuing the request after a broker reconnect gets a fresh registration and
 nothing goes stale. `AC-IO-004.3` is why the development-only marking is load-bearing rather than
 cosmetic — the empty routing key a provider handler would claim poisons a routing table matched by
-prefix (`contracts.md`, `AC-BIND-015.2`).
+prefix (`contracts.md`, `AC-BIND-015.2`). Its decode arm is empty rather than defensive: subscribing
+nothing is what keeps a message away, and the empty body is what makes the four consumer handlers the
+whole of this area's decode surface.
 
 ### Decode
 
@@ -177,10 +192,12 @@ topic carries. It does **not** refuse a payload of a wider value type — the tw
 analog payload read on a digital topic yields a value nothing sent — and it does not refuse trailing
 bytes past a complete message. Distinguishing the remaining case needs the payload's schema label,
 which every publisher on this wire already sets and this area's receiver cannot yet read;
-[`_findings.md`](_findings.md) carries what that needs. Before the check existed, an empty payload
-threw out of the handler (contained by `AC-LIFE-014.2`, so the message was dropped and the actor
-survived) and a truncated one delivered a fabricated value to every mapped block — which is why the
-guard is worth its line.
+[`_findings.md`](_findings.md) carries what that needs. The check costs one `Verifier` per inbound
+state message, constructed on the decode path at the option defaults its parameterless constructor
+sets — unmeasured, and stated once here so it is not rediscovered as a surprise. Before the check
+existed, an empty payload threw out of the handler (contained by `AC-LIFE-014.2`, so the message was
+dropped and the actor survived) and a truncated one delivered a fabricated value to every mapped
+block — which is why the guard is worth its line.
 
 `AC-IO-005.3` is why the identity strings a state payload carries are the publisher's own bookkeeping:
 the topic is the identity, and this area never reads them. `AC-IO-005.4` fixes a block's first value:
@@ -190,12 +207,12 @@ retained, which is what makes that first value arrive at all.
 
 ### Publish
 
-- `AC-IO-006.1` (Event-driven): WHEN a block sets an output THE SYSTEM SHALL publish the command to
-  that output's set topic under the service-provider contract's identity, naming a response topic
-  under the runtime's own identifier.
+- `AC-IO-006.1` (Event-driven): WHEN a block sets an output THE SYSTEM SHALL publish the command
+  through the MQTT client actor to that output's set topic under the service-provider contract's
+  identity, naming a response topic under the runtime's own identifier.
 - `AC-IO-006.2` (Ubiquitous): THE SYSTEM SHALL publish each command under a correlation identifier of
-  its own, labelled with its payload type's schema name and the FlatBuffer content type, and not
-  retained.
+  its own, labelled with its payload type's schema name and the FlatBuffer content type, not
+  retained, and carrying that payload type's encoding of the commanded value and nothing else.
 - `AC-IO-006.3` (Ubiquitous): THE SYSTEM SHALL publish one command for each service-provider contract
   the block's output is mapped to.
 - `AC-IO-006.4` (Event-driven): WHEN a block sets an output mapped to no service-provider contract
@@ -216,16 +233,24 @@ is carried in [`_findings.md`](_findings.md).
 `AC-IO-006.5` states both halves of the cache deliberately. A handler is resolved per actor, so its
 cache lives as long as that actor and holds an entry for every contract it has ever commanded — the
 map being replaced does not release one. The growth is bounded by the configuration and is not the
-interesting half; the interesting half is that the installation topic is captured at first publish, so
-changing it afterwards leaves every cached topic addressed to the old one.
+interesting half; the interesting half is the asymmetry with the inbound side. A command's topic is
+built once and kept, while the prefix a *received* message is matched against is recomputed from the
+installation topic on every message (`Vion.Dale.Sdk/Mqtt/MqttMessageExtensions.cs:163`), and the topics
+a handler subscribes are re-prefixed each time it registers *(inferred — the prefixing is applied by
+the MQTT client outside this repository, which `Vion.Dale.Sdk/Mqtt/MqttHandlerActorExtensions.cs:25-28`
+documents)*. A face could therefore receive under one installation while commanding another — except
+that the installation topic cannot move under it: the setter keeps the first value it is given and
+silently ignores every later one (`Vion.Dale.Sdk/Mqtt/MqttConfiguration.cs:33-41`, `BIND`'s surface,
+cited not restated). So the pinning is a bound worth knowing and not a hazard, and the two sides
+cannot diverge.
 
 ## The value
 
 - `AC-IO-007.1` (Ubiquitous): THE SYSTEM SHALL carry one bare value on each message of a face — a
   truth value on a digital face, a real number on an analog one — with no unit, range, scale,
   deadband, timestamp or quality alongside it.
-- `AC-IO-007.2` (Ubiquitous): THE SYSTEM SHALL carry any value its type can hold to the wire
-  unaltered, a non-number and both infinities included, rejecting and clamping none of them.
+- `AC-IO-007.2` (Ubiquitous): THE SYSTEM SHALL carry any value its type can hold unaltered in both
+  directions, a non-number and both infinities included, rejecting and clamping none of them.
 
 `AC-IO-007.1` is a contract, not an omission. Units, ranges and presentation belong to the block's own
 service properties ([`emission.md`](emission.md)); scaling and engineering conversion belong to the
@@ -237,6 +262,12 @@ field equal to the schema's default, and `-0.0` compares equal to `0.0`, so **a 
 survive the wire** and neither does the difference between a `false` command and an absent field.
 Both read back as the default. Validating a non-finite value is not this area's — the reader is the
 hardware abstraction layer, and analog I/O is served by the simulating layer alone today.
+
+The inbound half is the one a block feels. A service provider that reports `NaN` for a reading it
+cannot take reports `NaN` to every block bound to that contract, because nothing between the decode and
+the face substitutes, clamps or refuses a value: a block that needs a finite number tests for one
+itself. The two halves are one rule and are tested as one, with the digital rows being the whole of a
+truth value's domain and the analog rows the extremes and the non-numbers a `double` reaches.
 
 ## Multiplicity and development surface
 
@@ -289,16 +320,28 @@ its root. A public type in the root escapes the diagnostic, which is how the reg
 unmarked; it is marked now, and the same shape elsewhere in the SDK is recorded in
 [`_findings.md`](_findings.md).
 
+The classification is also what the API manifest is drawn from: a `[PublicApi]` type takes a row in
+`docs/snapshots/publicapi-manifest.json` and an `[InternalApi]` one is deliberately kept off it, which
+is why marking the registration class internal changed no row. The rows this area holds are seven per
+package — the four faces and the three message types — and four per TestKit. The manifest is
+regenerated and diffed by `.github/workflows/publish.yml` (`:140-146` generates it, `:162-206`
+regenerates it, auto-commits a drift onto the pull request head and warns on `main`), and **no criterion
+in this corpus states that gate** — not here and not on any other page — so it is named as evidence
+rather than cited.
+
 ## The mirror
 
-- `AC-IO-010.1` (Ubiquitous): THE SYSTEM SHALL ship the digital and analog packages as one design, each file's counterpart differing only in the value type it carries and in what that value type implies. GAP: no test project references both packages, so the two are compared by each pass's own file-by-file diff rather than by a test.
+- `AC-IO-010.1` (Ubiquitous): THE SYSTEM SHALL ship the digital and analog packages as one design, each file's counterpart differing only in the value type it carries and in what that value type implies. GAP: by convention a package's test project references only its own package, so no test compares the two; each pass diffs them file by file.
 
 The mirror is a contract on every change, not an observation about today: a fix applied to one package
 is applied to the other in the same commit, or the change doc says why not. What the diff legitimately
-still shows is the English article each package's noun takes, each package's `using` block sorted by
-its own namespace names, the wire abbreviations in log templates, and the two serialisation buffer
-sizes — a digital command's payload and an analog command's are genuinely different sizes, and each is
-sized for its own.
+still shows, after normalising `Digital`/`Analog` and the payload type names, is exactly five things:
+the value type itself, `bool` against `double`; the English article each package's noun takes; each
+package's `using` block sorted by its own namespace names, which puts `Vion.Dale.Sdk.Core` in a
+different place in each `ConfigureServices.cs`; the wire's own abbreviations `DI`/`DO` and `AI`/`AO`
+inside log templates; and the two serialisation buffer sizes, 20 bytes for a digital command's payload
+and 24 for an analog one, each builder sized for its own. Nothing else survives the normalisation, and
+anything that later does is a residue to fix or to add to this list.
 
 ## Test discipline
 
@@ -313,7 +356,10 @@ assertion is that nothing reached a block.
 One criterion states one rule, with the digital and the analog member of a family as its rows — the
 two packages are one design, so a criterion per package would double the page and halve its meaning.
 
-Two suites outside this area prove criteria of it and are cited, never copied: the packages' TestKit
-test projects, which own the helpers a consumer's tests call, and the development host's SmokeHost
-scenarios, which drive the four round-trips over a live host at Tier 1 while the suites here own the
-in-process half.
+One suite outside this area proves criteria of it and is cited, never copied: the development host's
+SmokeHost scenarios, which drive the four round-trips over a live host at Tier 1 (`AC-SCEN-*`) while
+the suites here own the in-process half. The two packages' TestKit test projects are **not** cited
+here. What they assert is that the TestKit's raise-and-verify helpers pair up over a fixture block —
+the helpers' own contract, not a rule this page declares — and citing one would additionally hold it to
+the gated test style, which is the rewrite the TestKit area's own pass owns. Cross-citing them is that
+pass's call, not this one's.

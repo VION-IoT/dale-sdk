@@ -79,11 +79,11 @@ namespace Vion.Dale.Sdk.DigitalIo.Test.Input
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-IO-005.2")]
+        [TestProperty("spec", "AC-IO-005.1")]
         public void ForwardStateValueWhenPayloadVerifies()
         {
-            // Arrange — the positive half of the guard: a payload a service provider actually sends passes it,
-            // so the refusals below cannot be read as "the guard refuses everything".
+            // Arrange — delivery is the rule this carries; it stands here as the guard's positive control, so
+            // the refusals below cannot be read as "the guard refuses everything".
             _harness.Link(_sut);
 
             // Act
@@ -110,6 +110,22 @@ namespace Vion.Dale.Sdk.DigitalIo.Test.Input
 
             // Assert — the refusal is that nothing reached a block, not that something was logged.
             Assert.IsEmpty(_harness.Forwarded<DigitalInputChanged>());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-IO-005.2")]
+        public void ForwardValueDecodedFromWiderPayload()
+        {
+            // Arrange — the neighbouring family's payload has the same layout with a wider value, so the
+            // schema check passes and the value read is one nothing sent. Only the schema label the wire
+            // carries distinguishes the case, and this side cannot read one.
+            _harness.Link(_sut);
+
+            // Act
+            _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.DiState), HandlerHarness.AnalogStatePayload(4.2)));
+
+            // Assert — the stated bound of what a verified payload means, not a behaviour worth having.
+            Assert.IsTrue(_harness.Forwarded<DigitalInputChanged>().Single().Data.Value);
         }
 
         [TestMethod]
@@ -153,6 +169,22 @@ namespace Vion.Dale.Sdk.DigitalIo.Test.Input
 
             // Assert — linking replays nothing, so the block's first value waits for the next message.
             Assert.IsEmpty(_harness.Forwarded<DigitalInputChanged>());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-IO-007.2")]
+        [DataRow(true)]
+        [DataRow(false)]
+        public void ForwardStateValueUnaltered(bool value)
+        {
+            // Arrange — the inbound half of the value rule; a truth value's whole domain is these two rows.
+            _harness.Link(_sut);
+
+            // Act
+            _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.DiState), HandlerHarness.DigitalStatePayload(value)));
+
+            // Assert
+            Assert.AreEqual(value, _harness.Forwarded<DigitalInputChanged>().Single().Data.Value);
         }
 
         [TestMethod]

@@ -16,7 +16,7 @@ namespace Vion.Dale.Sdk.DigitalIo.Test.Output
         private readonly ContractHarness _harness = new();
 
         [TestMethod]
-        [TestProperty("spec", "AC-IO-003.2")]
+        [TestProperty("spec", "AC-IO-003.4")]
         [DataRow(true)]
         [DataRow(false)]
         public void SendCommandCarryingValueToLinkedHandler(bool value)

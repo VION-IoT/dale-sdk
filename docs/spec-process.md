@@ -48,7 +48,7 @@ either way.
 
 ### Page frontmatter — the trace ratchet
 
-A Tier A page opts into the trace gate with frontmatter:
+A page opts into the trace gate with frontmatter:
 
 ```markdown
 ---

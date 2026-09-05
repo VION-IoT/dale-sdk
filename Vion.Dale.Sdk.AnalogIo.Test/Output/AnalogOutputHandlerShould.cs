@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using Google.FlatBuffers;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -13,7 +14,7 @@ using Vion.Dale.Sdk.Utils;
 namespace Vion.Dale.Sdk.AnalogIo.Test.Output
 {
     /// <summary>
-    ///     The handler that carries a analog output both ways: the command a block writes, published to the
+    ///     The handler that carries an analog output both ways: the command a block writes, published to the
     ///     service provider, and the confirmation that comes back on the state topic. Driven through its own
     ///     message loop; no broker and no device.
     /// </summary>
@@ -58,7 +59,7 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Output
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-IO-005.2")]
+        [TestProperty("spec", "AC-IO-005.1")]
         public void ForwardConfirmedValueWhenPayloadVerifies()
         {
             // Arrange
@@ -87,6 +88,21 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Output
             _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.AoState), truncated));
 
             // Assert
+            Assert.IsEmpty(_harness.Forwarded<AnalogOutputChanged>());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-IO-005.2")]
+        public void ForwardNothingWhenPayloadNarrowerThanTopicCarries()
+        {
+            // Arrange — the neighbouring family's payload carries a truth value where this topic carries a
+            // real number, so the schema check finds fewer bytes than the field needs.
+            _harness.Link(_sut);
+
+            // Act
+            _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.AoState), HandlerHarness.DigitalOutputStatePayload(true)));
+
+            // Assert — the half of the bound the schema does reach; the other direction is the digital suite's.
             Assert.IsEmpty(_harness.Forwarded<AnalogOutputChanged>());
         }
 
@@ -135,6 +151,22 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Output
             Assert.AreEqual(MessageMimeTypes.FlatBuffer, published.ContentType);
             Assert.AreEqual(nameof(SetAoPayload), published.UserProperties!.Single(property => property.Name == MqttUserProperties.Schema.Name).Value);
             Assert.IsFalse(published.Retain);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-IO-006.2")]
+        [DynamicData(nameof(CommandPayloads))]
+        public void PublishCommandPayloadEncodingValueAlone(double value, byte[] expectedPayload)
+        {
+            // Arrange
+            _harness.Link(_sut);
+
+            // Act
+            _harness.Send(_sut, new ContractMessage<SetAnalogOutput>(HandlerHarness.BlockContract, new SetAnalogOutput(value)));
+
+            // Assert — the bytes as written, not a round-trip decode: a builder that wrote a different
+            // encoding of the same value would still decode back to it, and the far side reads bytes.
+            CollectionAssert.AreEqual(expectedPayload, _harness.Published().Single().Payload);
         }
 
         [TestMethod]
@@ -198,6 +230,21 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Output
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-IO-003.3")]
+        public void PublishNothingForContractMessageOtherThanCommand()
+        {
+            // Arrange — an output's handler carries one command and answers to nothing else; only a
+            // mis-declared wire could deliver another kind here.
+            _harness.Link(_sut);
+
+            // Act
+            _harness.Send(_sut, new ContractMessage<AnalogOutputChanged>(HandlerHarness.BlockContract, new AnalogOutputChanged(4.2)));
+
+            // Assert
+            Assert.IsEmpty(_harness.Sent);
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-IO-006.5")]
         public void ReuseCommandTopicBuiltForContract()
         {
@@ -233,6 +280,49 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Output
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-IO-006.5")]
+        public void KeepCommandTopicWhenInstallationTopicSetAgain()
+        {
+            // Arrange — the topic is built and cached under the installation topic the harness set.
+            _harness.Link(_sut);
+            _harness.Send(_sut, new ContractMessage<SetAnalogOutput>(HandlerHarness.BlockContract, new SetAnalogOutput(4.2)));
+            var topicBuiltAtFirstCommand = _harness.Published().Single().Topic;
+
+            // Act — the process-global installation topic set a second time. Nothing is restored afterwards
+            // because nothing moved: the setter keeps the first value it was given and ignores every later one.
+            MqttConfiguration.InstallationTopic = "vion/another-installation";
+            _harness.Send(_sut, new ContractMessage<SetAnalogOutput>(HandlerHarness.BlockContract, new SetAnalogOutput(0.0)));
+
+            // Assert — the same instance, so the cached topic survived the attempt rather than being rebuilt
+            // to the same string; the second assertion is why nothing could have moved under it.
+            Assert.IsTrue(ReferenceEquals(topicBuiltAtFirstCommand, _harness.Published()[1].Topic));
+            Assert.AreEqual(HandlerHarness.Installation, MqttConfiguration.InstallationTopic);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-IO-007.2")]
+        [DataRow(0.0, DisplayName = "zero")]
+        [DataRow(4.2, DisplayName = "an ordinary reading")]
+        [DataRow(-12.5, DisplayName = "a negative reading")]
+        [DataRow(double.NaN, DisplayName = "not a number")]
+        [DataRow(double.PositiveInfinity, DisplayName = "positive infinity")]
+        [DataRow(double.NegativeInfinity, DisplayName = "negative infinity")]
+        [DataRow(double.MaxValue, DisplayName = "the largest value the type holds")]
+        [DataRow(double.Epsilon, DisplayName = "the smallest value above zero")]
+        public void ForwardConfirmedValueUnaltered(double value)
+        {
+            // Arrange — the inbound half of the value rule: nothing between the wire and the block clamps a
+            // non-finite reading or rounds an extreme one, so a HAL that reports one is reported to the block.
+            _harness.Link(_sut);
+
+            // Act
+            _harness.Send(_sut, HandlerHarness.MqttMessage(HandlerHarness.StateTopic(Topics.AoState), HandlerHarness.AnalogOutputStatePayload(value)));
+
+            // Assert
+            Assert.AreEqual(value, _harness.Forwarded<AnalogOutputChanged>().Single().Data.Value);
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-IO-007.2")]
         [DataRow(0.0, DisplayName = "zero")]
         [DataRow(4.2, DisplayName = "an ordinary setpoint")]
@@ -252,6 +342,20 @@ namespace Vion.Dale.Sdk.AnalogIo.Test.Output
 
             // Assert
             Assert.AreEqual(value, SetAoPayload.GetRootAsSetAoPayload(new ByteBuffer(_harness.Published().Single().Payload!)).Value);
+        }
+
+        /// <summary>
+        ///     The exact bytes a command carries, measured off the builder rather than described: a
+        ///     <c>SetAoPayload</c> whose value is the schema's default omits the field, which is why the two
+        ///     rows are different lengths.
+        /// </summary>
+        public static IEnumerable<object[]> CommandPayloads()
+        {
+            yield return
+            [
+                4.2, new byte[] { 0x0C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x00, 0x0C, 0x00, 0x04, 0x00, 0x06, 0x00, 0x00, 0x00, 0xCD, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0x10, 0x40 },
+            ];
+            yield return [0.0, new byte[] { 0x08, 0x00, 0x00, 0x00, 0x04, 0x00, 0x04, 0x00, 0x04, 0x00, 0x00, 0x00 }];
         }
     }
 }

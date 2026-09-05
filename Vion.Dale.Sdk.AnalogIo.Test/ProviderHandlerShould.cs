@@ -49,7 +49,7 @@ namespace Vion.Dale.Sdk.AnalogIo.Test
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-IO-005.2")]
+        [TestProperty("spec", "AC-IO-004.3")]
         [DynamicData(nameof(ProviderHandlers))]
         public void DecodeNothingWhenMqttMessageArrives(ServiceProviderHandlerBase handler)
         {
@@ -65,7 +65,7 @@ namespace Vion.Dale.Sdk.AnalogIo.Test
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-IO-004.3")]
+        [TestProperty("spec", "AC-IO-003.3")]
         [DynamicData(nameof(ProviderHandlers))]
         public void PublishNothingWhenContractMessageArrives(ServiceProviderHandlerBase handler)
         {
