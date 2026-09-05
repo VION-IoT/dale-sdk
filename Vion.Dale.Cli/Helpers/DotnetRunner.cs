@@ -55,6 +55,9 @@ namespace Vion.Dale.Cli.Helpers
                     // Best-effort kill — the process may have exited between the check and the kill.
                 }
 
+                // The kill closes the child's pipe, so this completes; without it the last lines the child
+                // wrote are dropped on the `dale dev` cancellation path rather than reaching standard error.
+                await relay;
                 throw;
             }
 
@@ -130,7 +133,11 @@ namespace Vion.Dale.Cli.Helpers
             return psi;
         }
 
-        private static async Task RelayToStandardErrorAsync(StreamReader standardOutput)
+        /// <summary>
+        ///     Relays a captured child's standard output to this process's standard error, line by line, so
+        ///     JSON mode's single stream carries the tool's document and nothing else.
+        /// </summary>
+        internal static async Task RelayToStandardErrorAsync(StreamReader standardOutput)
         {
             while (await standardOutput.ReadLineAsync() is { } line)
             {

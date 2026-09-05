@@ -2,6 +2,7 @@ using System;
 using System.CommandLine;
 using System.IO;
 using System.Net;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Vion.Dale.Cli.Auth;
@@ -81,8 +82,9 @@ namespace Vion.Dale.Cli.Test.Commands
         {
             // Arrange
             DaleConsole.JsonMode = true;
+            var expiresAt = DateTime.UtcNow.AddHours(2);
             TokenStore.SaveConfig(new DaleConfig { Environment = "test" });
-            TokenStore.SaveCredentials(new StoredCredentials { AccessToken = "token", ExpiresAt = DateTime.UtcNow.AddHours(2), Environment = "test" });
+            TokenStore.SaveCredentials(new StoredCredentials { AccessToken = "token", ExpiresAt = expiresAt, Environment = "test" });
             _handler.Answer(HttpStatusCode.InternalServerError, "{}");
 
             // Act
@@ -91,6 +93,7 @@ namespace Vion.Dale.Cli.Test.Commands
             // Assert
             Assert.AreEqual(0, exit);
             StringAssert.Contains(_standardOutput.ToString(), "\"email\": null");
+            StringAssert.Contains(_standardOutput.ToString(), $"\"expiresAt\": {JsonSerializer.Serialize(expiresAt, JsonDefaults.Options)}");
         }
 
         [TestMethod]
@@ -196,6 +199,30 @@ namespace Vion.Dale.Cli.Test.Commands
             // Assert
             Assert.AreEqual(1, exit);
             StringAssert.Contains(_standardOutput.ToString(), "--integrator-id");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CLI-018.8")]
+        public async Task RefuseNamedIntegratorOutsideAccountMemberships()
+        {
+            // Arrange
+            DaleConsole.JsonMode = true;
+            var stored = Guid.Parse("33333333-3333-3333-3333-333333333333");
+            TokenStore.SaveConfig(new DaleConfig { Environment = "test", IntegratorId = stored });
+            TokenStore.SaveCredentials(new StoredCredentials { AccessToken = "token", ExpiresAt = DateTime.UtcNow.AddHours(2), Environment = "test" });
+            _handler.Answer(HttpStatusCode.OK,
+                            "{\"user\":{\"email\":\"a@b.test\"},\"integratorMemberships\":[" +
+                            "{\"integratorId\":\"11111111-1111-1111-1111-111111111111\",\"integratorName\":\"First\",\"integratorSlug\":\"first\"}]}");
+
+            // Act
+            var exit = await Program.BuildRootCommand()
+                                    .Parse(new[] { "config", "set-integrator", "--integrator-id", "44444444-4444-4444-4444-444444444444", "--output", "json" })
+                                    .InvokeAsync();
+
+            // Assert
+            Assert.AreEqual(1, exit);
+            StringAssert.Contains(_standardOutput.ToString(), "44444444-4444-4444-4444-444444444444");
+            Assert.AreEqual(stored, TokenStore.LoadConfig().IntegratorId);
         }
     }
 }

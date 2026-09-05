@@ -1,8 +1,12 @@
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Vion.Dale.Cli;
+using Vion.Dale.Cli.Output;
 
 namespace Vion.Dale.Cli.Test
 {
@@ -53,6 +57,33 @@ namespace Vion.Dale.Cli.Test
 
             // Assert
             Assert.IsFalse(version.Contains('+'), $"expected no source-link suffix, got '{version}'");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CLI-001.5")]
+        public async Task ReportVersionAsJsonDocumentInJsonMode()
+        {
+            // Arrange
+            var originalOut = Console.Out;
+            var standardOutput = new StringWriter();
+            Console.SetOut(standardOutput);
+
+            // Act
+            int exitCode;
+            try
+            {
+                exitCode = await Program.Main(new[] { "--version", "--output", "json" });
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+                DaleConsole.JsonMode = false;
+            }
+
+            // Assert
+            Assert.AreEqual(0, exitCode);
+            var document = JsonNode.Parse(standardOutput.ToString());
+            Assert.AreEqual(Program.Version(), document!["version"]!.GetValue<string>());
         }
 
         [TestMethod]

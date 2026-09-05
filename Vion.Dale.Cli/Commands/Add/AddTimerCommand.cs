@@ -28,6 +28,12 @@ namespace Vion.Dale.Cli.Commands.Add
                                   var to = parseResult.GetValue(toOption);
                                   var projectPath = parseResult.GetValue<string?>("--project");
 
+                                  if (!CSharpNames.IsIdentifier(name))
+                                  {
+                                      DaleConsole.Error(CSharpNames.DescribeInvalidIdentifier("timer method name", name));
+                                      return 1;
+                                  }
+
                                   if (!IsValidInterval(interval))
                                   {
                                       DaleConsole.Error("Timer interval must be a positive number of seconds.");

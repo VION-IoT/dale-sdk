@@ -324,6 +324,29 @@ namespace Vion.Dale.Cli.Test.Commands
             StringAssert.Contains(rendered, "Peer[red]");
         }
 
+        [TestMethod]
+        [TestProperty("spec", "AC-CLI-008.11")]
+        public void RenderProjectHeadingAndSayWhenProjectDeclaresNoLogicBlock()
+        {
+            // Arrange
+            var info = new DalePluginInfo { LogicBlocks = new List<LogicBlockResult>() };
+            var writer = new StringWriter();
+            var console = AnsiConsole.Create(new AnsiConsoleSettings
+                                             {
+                                                 Ansi = AnsiSupport.No,
+                                                 ColorSystem = ColorSystemSupport.NoColors,
+                                                 Out = new AnsiConsoleOutput(writer),
+                                             });
+
+            // Act
+            ListCommand.RenderTable(console, Project, info);
+
+            // Assert
+            var rendered = writer.ToString();
+            StringAssert.Contains(rendered, "Project: MyLib");
+            StringAssert.Contains(rendered, "No logic blocks found.");
+        }
+
         private static DalePluginInfo PluginInfoWithContract(Dictionary<string, object> contractAnnotations)
         {
             return new DalePluginInfo

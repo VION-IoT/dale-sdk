@@ -75,9 +75,10 @@ namespace Vion.Dale.Cli.Infrastructure
 
         /// <summary>
         ///     Routes every request through <paramref name="handler" />, or restores the default transport
-        ///     when it is null. The CLI composes no container (<c>Program.BuildRootCommand</c>), so this is a
-        ///     settable process-wide knob in the shape <see cref="DaleConsole.JsonMode" /> already uses — the
-        ///     seam that lets the status, timeout and header rules below be proven without a network.
+        ///     when it is null. The one place this client's transport is chosen: <see cref="CliComposition" />
+        ///     passes the real one at start-up and a test passes a stub, so neither takes a path the other
+        ///     cannot — which is what lets the status, timeout and header rules below be proven without a
+        ///     network.
         /// </summary>
         internal static void UseTransport(HttpMessageHandler? handler)
         {

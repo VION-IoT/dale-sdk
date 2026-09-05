@@ -41,7 +41,7 @@ matters most to a script: **in table mode a failure goes to standard error and e
 standard output; in JSON mode there is one stream, and it carries only JSON.**
 
 - `AC-CLI-001.1` (Event-driven): WHEN `--version` or `-v` appears before any command name THE SYSTEM
-  SHALL print the tool's version and exit 0 without parsing further, and SHALL leave the option to
+  SHALL print the tool's version and exit 0 without running a command, and SHALL leave the option to
   the command WHERE a command has already been named.
 - `AC-CLI-001.2` (Ubiquitous): THE SYSTEM SHALL print that version with the source-link commit
   suffix removed.
@@ -61,7 +61,8 @@ standard output; in JSON mode there is one stream, and it carries only JSON.**
   child process's standard output and relay it to standard error, so standard output carries the
   tool's document and nothing else.
 - `AC-CLI-001.10` (Ubiquitous): THE SYSTEM SHALL emit every JSON document with camel-cased member
-  names, enum values as strings and indentation, and SHALL read JSON case-insensitively.
+  names, enum values as strings and indentation, and SHALL read JSON case-insensitively — every
+  document but the scenario schema, whose own escaping `AC-CLI-010.8` states.
 
 The JSON-mode rule is the reason the child-process rule exists: every command in this tool that does
 real work starts `dotnet`, and MSBuild's restore banner in front of a JSON document is what makes
@@ -157,38 +158,53 @@ exception is visible rather than silent.
   finite number of seconds.
 - `AC-CLI-006.10` (Ubiquitous): THE SYSTEM SHALL emit a logic-block class deriving from the SDK's
   base, carrying the declared name and icon only where they were given.
-- `AC-CLI-006.11` (Ubiquitous): THE SYSTEM SHALL emit the presentation attribute only where at least
-  one presentation option was given, in a stable argument order, rendering a well-known property
+- `AC-CLI-006.11` (Ubiquitous): THE SYSTEM SHALL emit the presentation attribute — on a member it
+  creates and on one it annotates — only where at least one presentation option was given and the
+  member does not already carry one, in a stable argument order, rendering a well-known property
   group as its member reference and any other group as a string.
 - `AC-CLI-006.12` (Ubiquitous): THE SYSTEM SHALL emit a timer method carrying its interval in
   seconds.
 - `AC-CLI-006.13` (Ubiquitous): THE SYSTEM SHALL emit a service property with the declared setter
   visibility, and a measuring point always privately set, each carrying its title, its optional
-  persistence and — for a measuring point — its optional kind.
+  persistence and — for a measuring point — its optional kind, and SHALL carry that same title,
+  persistence and kind onto a member it annotates.
+- `AC-CLI-006.14` (Ubiquitous): THE SYSTEM SHALL read as a C# identifier a letter or underscore
+  followed by letters, digits or underscores, and as a type reference an optionally dotted identifier
+  carrying any mix of generic arguments, array ranks and a nullable mark.
 
 `AC-CLI-006.7` is what lets a generator express the SDK's dual-annotation shape — one property
 carrying both a service property and a measuring point, which [`emission.md`](emission.md)
 specifies and which publishes to two independent streams. Every other name collision is still
 refused.
 
-`AC-CLI-006.4`, `AC-CLI-006.5` and `AC-CLI-006.9` all refuse **before** anything is written: a
-generator that reports success and leaves a file that will not compile sends the author looking for
-a fault in code they did not write.
+`AC-CLI-006.4`, `AC-CLI-006.5` and `AC-CLI-006.9` all refuse **before** anything is written, in every
+`add` verb: a generator that reports success and leaves a file that will not compile sends the author
+looking for a fault in code they did not write. The two name shapes those refusals rest on are
+`AC-CLI-006.14`'s, stated once and checked by each verb.
+
+The presentation and persistence options reach a member the generator *annotates* exactly as they
+reach one it creates — one builder with two callers — minus any attribute the member already carries,
+because a second presentation or persistence attribute on one member does not compile.
 
 ## Inserting into a source file
 
 - `AC-CLI-007.1` (Ubiquitous): THE SYSTEM SHALL insert a generated member before the target class's
   closing brace, at the indentation its existing members use, separated by a blank line.
 - `AC-CLI-007.2` (Ubiquitous): THE SYSTEM SHALL find that brace by counting braces, which counts braces inside string literals and comments too. GAP: a stated limitation, not a guarantee: no assertion can pin what brace counting does to every shape of string literal, and the shapes it does handle are covered by `AC-CLI-007.1`.
-- `AC-CLI-007.3` (Ubiquitous): THE SYSTEM SHALL preserve a source file's line ending and its
-  byte-order mark when it inserts into it, changing only the lines it inserted.
+- `AC-CLI-007.3` (Ubiquitous): THE SYSTEM SHALL write a source file it inserts into with that file's
+  predominant line ending, applied to every line, and with its byte-order mark, changing nothing else
+  about the lines it did not insert.
 - `AC-CLI-007.4` (Ubiquitous): THE SYSTEM SHALL add the SDK's using directive after the file's last
   using directive, or at the top where there is none, and SHALL NOT add it twice.
 
 The brace-counting criterion above is a stated limitation, not an oversight: this area manipulates
 source with regular expressions and brace counting rather than a compiler, and
 `Vion.Dale.Cli/CLAUDE.md` records Roslyn as the improvement. `AC-CLI-007.3` is what keeps that
-limitation from also costing the author a whole-file diff.
+limitation from also costing the author a whole-file diff. Its rule is the file's *predominant*
+ending rather than each line's own: a file of mixed endings — a merge artifact, a generated partial —
+comes out consistent, which is a second small edit to it and is stated here rather than discovered.
+Every insertion the generators make goes through it, the dependency registration `dale add logicblock`
+writes included.
 
 ## `dale list` — the bridge to the introspection document
 
@@ -215,6 +231,9 @@ tool lookup, and the two projections.
   type from its introspection schema, and an empty type where the document carries no schema.
 - `AC-CLI-008.9` (Ubiquitous): THE SYSTEM SHALL render every identifier in the table literally,
   whatever characters it carries.
+- `AC-CLI-008.11` (Ubiquitous): THE SYSTEM SHALL head the table listing with the project's name and
+  version and the SDK version it references, and SHALL say so where the project declares no logic
+  block rather than print an empty listing.
 - `AC-CLI-008.10` (Ubiquitous): THE SYSTEM SHALL run the introspection tool with the project's package identity, and SHALL NOT ask it to exclude development-only blocks — a block the packed artifact omits is listed, marked. GAP: the argument list is handed to a spawned introspection tool; what it omits is proven by the absence of an option, which no assertion can observe.
 
 A development-only block is listed, marked, and never hidden: `dale list` answers "what is in this
@@ -261,14 +280,14 @@ deliberately lite, language-neutral mirror of them. The command surface is this 
 - `AC-CLI-010.6` (Ubiquitous): THE SYSTEM SHALL take the configuration to validate against from the export file where one is named and from the running host otherwise, refusing where neither is available. GAP: the second source is a live host's `/api/configuration`; the file source is proven by `AC-CLI-010.8`'s offline run.
 - `AC-CLI-010.7` (Event-driven): WHEN a scenario is scaffolded THE SYSTEM SHALL refuse a missing file, one that is not JSON, one carrying no id, and one whose id differs from its name, each with its own message. GAP: the four refusals are inside `scenario scaffold`'s action, which then writes a file; the file-locating half is proven by `AC-CLI-010.9`.
 - `AC-CLI-010.8` (Ubiquitous): THE SYSTEM SHALL carry the generic scenario schema inside itself, so
-  the schema can be produced with no host running, and SHALL enrich it with a configuration's name
-  paths where one is available.
+  the schema can be produced with no host running, SHALL enrich it with a configuration's name paths
+  where one is available, and SHALL write it with relaxed escaping, keeping every character literal.
 - `AC-CLI-010.9` (Ubiquitous): THE SYSTEM SHALL emit from a scenario file a test that carries its
   id, topology, steps, watch list and one marker per human judgment, and an unimplemented host
   factory.
 - `AC-CLI-010.10` (Ubiquitous): THE SYSTEM SHALL take `scenario schema`'s and `scenario scaffold`'s
-  destination from `--out`, keeping `-o` as its short form, and SHALL leave `--output` meaning the
-  tool's output format everywhere.
+  destination from `--out`, whose short form is `-O` and whose deprecated alias is `-o`, and SHALL
+  leave `--output` meaning the tool's output format everywhere.
 - `AC-CLI-010.11` (Event-driven): WHEN the scenarios directory holds no scenario file THE SYSTEM
   SHALL refuse naming it rather than report a successful validation.
 - `AC-CLI-010.12` (Event-driven): WHEN no host answers on the port THE SYSTEM SHALL refuse to report
@@ -276,8 +295,11 @@ deliberately lite, language-neutral mirror of them. The command surface is this 
 - `AC-CLI-010.13` (Event-driven): WHEN the host stops answering while a run is in flight THE SYSTEM SHALL report that and exit 1. GAP: a host that answers the apply and then dies mid-poll is a window no seam in this area constructs; the guarded and unguarded calls are eleven lines apart and the fix is the `catch` the apply already had.
 
 `AC-CLI-010.10` is a deliberate asymmetry with a deprecation in it: `--out` is the file, `--output`
-is the format, and `-o` remains the file's short form for one release because two committed consumer
-scripts pass it that way.
+is the format, `-O` is the file's short form, and `-o` remains an alias for it for one release
+because two committed consumer scripts pass it that way. The schema is also the one document
+`AC-CLI-001.10` does not govern: it is written with relaxed escaping, because it is a committed file
+an editor reads and the strict encoder's numeric escapes made every regeneration a phantom diff
+against the apostrophes and dashes the source schema holds literal.
 
 ## `dale upload`
 
@@ -414,14 +436,19 @@ request rather than a considered one.
   SYSTEM SHALL confirm first, treat `--force` as that confirmation, and exit non-zero when the
   change was declined.
 - `AC-CLI-018.7` (Event-driven): WHEN an interactive login selects an integrator THE SYSTEM SHALL store it, and SHALL leave a previously stored one in place where it selected none. GAP: same browser-bound path as `AC-CLI-018.4`.
+- `AC-CLI-018.8` (Event-driven): WHEN `--integrator-id` names a value that is not one of the
+  account's own integrator memberships THE SYSTEM SHALL refuse naming it, leaving the stored one in
+  place.
 
 None of these prompts in JSON mode: the mode exists so an agent can drive the tool, and a selection
-prompt has no one to answer it. Each refuses instead, naming the option that decides.
+prompt has no one to answer it. Each refuses instead, naming the option that decides. And the option
+that decides is itself checked against the account's own memberships: `dale config set-integrator` is
+the repair command, so an identifier that is not the caller's to publish under is refused rather than
+stored.
 
 ## The surface gate, and the two constants
 
-- `AC-CLI-019.1` (Ubiquitous): THE SYSTEM SHALL keep the committed help snapshot equal to the packed
-  tool's own help over every command surface it publishes, its subcommands included.
+- `AC-CLI-019.1` (Ubiquitous): THE SYSTEM SHALL keep the committed help snapshot equal to the packed tool's own help over every command surface it publishes, its subcommands included. GAP: the observable is a diff between the committed file and the help of a *packed and installed* tool, which lives in `.github/workflows/publish.yml` and which no in-process test can construct.
 - `AC-CLI-019.2` (Ubiquitous): THE SYSTEM SHALL authenticate as the Keycloak public client `dale-cli`, and SHALL read and write only environment variables prefixed `DALE_`. GAP: both are constants of external identity — the client is provisioned outside this repository (`../../architecture/systems/keycloak.md`) and the prefix is a naming rule over seven variables; a test can only restate them.
 
 The snapshot is regenerated from the **packed** tool and auto-committed onto the pull request's head;
@@ -436,6 +463,13 @@ are part of the contract, not conveniences: the transport behind the cloud clien
 token exchanges is settable, the credential store's root is settable, and the `dotnet` invocation's
 composition is a function rather than a side effect. A criterion that still needs a browser or a real
 identity provider carries its `GAP` and says which.
+
+Those seams are not test-only accessors: the tool composes itself through them. Its entry point sets
+the real transport for both HTTP clients and the real user profile for the store root before it
+answers anything, so a test overrides a value production also sets rather than filling a hole
+production leaves empty — and that composition is the one place either is chosen. The `dale list`
+renderer takes its console the same way, and writes its heading and its empty-project line through
+it too, so the whole rendering is observable and not only the tables inside it.
 
 The generators are exercised against real temporary directories, cleaned up. Numbers written into
 generated source and into messages are rendered in the invariant culture, and the tests that pin them

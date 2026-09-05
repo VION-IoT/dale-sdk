@@ -143,6 +143,18 @@ namespace Vion.Dale.Cli.Helpers
         /// </summary>
         public static bool AddAttributeToMember(string filePath, string memberName, string attributeLine)
         {
+            return AddAttributesToMember(filePath, memberName, new[] { attributeLine });
+        }
+
+        /// <summary>
+        ///     Insert <paramref name="attributeLines" /> directly above the declaration of
+        ///     <paramref name="memberName" />, in the order given and at that declaration's own indentation.
+        ///     One write for the whole block: inserting them one call at a time would push each above the
+        ///     previous one and reverse the order the generators emit. Returns false when the member is not
+        ///     there.
+        /// </summary>
+        public static bool AddAttributesToMember(string filePath, string memberName, IReadOnlyList<string> attributeLines)
+        {
             var source = SourceText.Read(filePath);
             var declaration = new Regex($@"^\s*(?<modifiers>[\w\s]*?)\b(?<type>[\w.<>\[\]?,]+)\s+{Regex.Escape(memberName)}\s*(\{{|=>)");
 
@@ -161,12 +173,44 @@ namespace Vion.Dale.Cli.Helpers
 
                 var line = source.Lines[i];
                 var indent = line.Substring(0, line.Length - line.TrimStart().Length);
-                source.Lines.Insert(insertIndex, indent + attributeLine);
+                for (var offset = 0; offset < attributeLines.Count; offset++)
+                {
+                    source.Lines.Insert(insertIndex + offset, indent + attributeLines[offset]);
+                }
+
                 source.Write(filePath);
                 return true;
             }
 
             return false;
+        }
+
+        /// <summary>
+        ///     The attribute name inside an attribute line, as
+        ///     <see cref="MemberDeclaration.CarriesAttribute" /> matches it — so a caller can ask whether the
+        ///     line it is about to write is already there.
+        /// </summary>
+        public static string AttributeNameOf(string attributeLine)
+        {
+            return Regex.Match(attributeLine, @"^\[\s*(?<name>\w+)").Groups["name"].Value;
+        }
+
+        /// <summary>
+        ///     Insert <paramref name="line" /> at <paramref name="index" /> in the file, preserving the bytes
+        ///     that are not lines. The generators reach a consumer's source only through this class, so the
+        ///     one insertion that is not a member or an attribute goes through it too.
+        /// </summary>
+        public static void InsertLine(string filePath, int index, string line)
+        {
+            var source = SourceText.Read(filePath);
+            source.Lines.Insert(index, line);
+            source.Write(filePath);
+        }
+
+        /// <summary>The file's lines, as <see cref="InsertLine" /> indexes them.</summary>
+        public static IReadOnlyList<string> ReadLines(string filePath)
+        {
+            return SourceText.Read(filePath).Lines;
         }
 
         private static int FindClassClosingBrace(List<string> lines, string className)

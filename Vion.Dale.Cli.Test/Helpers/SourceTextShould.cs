@@ -85,6 +85,24 @@ namespace Vion.Dale.Cli.Test.Helpers
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-007.3")]
+        public void ApplyPredominantLineEndingToEveryLineOfMixedFile()
+        {
+            // Arrange
+            var path = Path.Combine(_root, "Mixed.cs");
+            File.WriteAllText(path,
+                              "namespace MyLib\r\n{\r\n    public class Thermostat : LogicBlockBase\r\n    {\r\n        private int _count;\n    }\r\n}\r\n",
+                              new UTF8Encoding(false));
+
+            // Act
+            SourceInserter.InsertIntoClass(path, "Thermostat", "public double Power { get; private set; }");
+
+            // Assert
+            var after = File.ReadAllText(path);
+            Assert.AreEqual(CountOf(after, "\n"), CountOf(after, "\r\n"), "the predominant ending is applied to every line, the minority one included");
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-CLI-007.4")]
         public void AddUsingOnceOnly()
         {

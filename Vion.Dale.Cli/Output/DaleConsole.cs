@@ -14,9 +14,11 @@ namespace Vion.Dale.Cli.Output
         ///     standard output gets only the tool's answer. JSON mode deliberately keeps one stream (see
         ///     <see cref="Error" />).
         /// </summary>
+        private static readonly Lazy<IAnsiConsole> LazyErrorConsole = new(() => AnsiConsole.Create(new AnsiConsoleSettings { Out = new AnsiConsoleOutput(Console.Error) }));
+
         private static IAnsiConsole ErrorConsole
         {
-            get => AnsiConsole.Create(new AnsiConsoleSettings { Out = new AnsiConsoleOutput(Console.Error) });
+            get => LazyErrorConsole.Value;
         }
 
         public static bool JsonMode { get; set; }
@@ -48,12 +50,22 @@ namespace Vion.Dale.Cli.Output
 
         public static void Info(string message)
         {
+            Info(AnsiConsole.Console, message);
+        }
+
+        /// <summary>
+        ///     The same line, written to <paramref name="console" />. A renderer that takes its console as a
+        ///     parameter has to write <em>every</em> line through it, or the half that still goes to the
+        ///     global is invisible to the writer a test captures.
+        /// </summary>
+        public static void Info(IAnsiConsole console, string message)
+        {
             if (JsonMode)
             {
                 return;
             }
 
-            AnsiConsole.MarkupLine($"  {Markup.Escape(message)}");
+            console.MarkupLine($"  {Markup.Escape(message)}");
         }
 
         public static void Verbose(string message)
@@ -68,12 +80,18 @@ namespace Vion.Dale.Cli.Output
 
         public static void Blank()
         {
+            Blank(AnsiConsole.Console);
+        }
+
+        /// <summary>The same blank line, written to <paramref name="console" />.</summary>
+        public static void Blank(IAnsiConsole console)
+        {
             if (JsonMode)
             {
                 return;
             }
 
-            AnsiConsole.WriteLine();
+            console.WriteLine();
         }
 
         public static async Task WithSpinner(string gerund, Func<Task> action)

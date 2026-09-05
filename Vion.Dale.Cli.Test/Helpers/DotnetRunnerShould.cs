@@ -1,5 +1,8 @@
 using System;
+using System.IO;
 using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Vion.Dale.Cli.Helpers;
 using Vion.Dale.Cli.Output;
@@ -103,6 +106,31 @@ namespace Vion.Dale.Cli.Test.Helpers
 
             // Assert
             CollectionAssert.AreEqual(new[] { "pack", "MyLib.csproj", "-c", "Release", "-p:IsPackable=true", "-p:Version=1.2.3" }, args);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CLI-001.9")]
+        public async Task RelayCapturedChildOutputToStandardError()
+        {
+            // Arrange
+            var originalError = Console.Error;
+            var standardError = new StringWriter();
+            Console.SetError(standardError);
+            using var childOutput = new StreamReader(new MemoryStream(Encoding.UTF8.GetBytes("Determining projects to restore...\nRestored MyLib.csproj\n")));
+
+            // Act
+            try
+            {
+                await DotnetRunner.RelayToStandardErrorAsync(childOutput);
+            }
+            finally
+            {
+                Console.SetError(originalError);
+            }
+
+            // Assert
+            StringAssert.Contains(standardError.ToString(), "Determining projects to restore...");
+            StringAssert.Contains(standardError.ToString(), "Restored MyLib.csproj");
         }
     }
 }

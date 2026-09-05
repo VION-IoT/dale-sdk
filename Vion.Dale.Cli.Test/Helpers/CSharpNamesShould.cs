@@ -7,7 +7,7 @@ namespace Vion.Dale.Cli.Test.Helpers
     public class CSharpNamesShould
     {
         [TestMethod]
-        [TestProperty("spec", "AC-CLI-006.4")]
+        [TestProperty("spec", "AC-CLI-006.14")]
         [DataRow("Thermostat", true)]
         [DataRow("_private", true)]
         [DataRow("Block2", true)]
@@ -27,7 +27,7 @@ namespace Vion.Dale.Cli.Test.Helpers
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-CLI-006.5")]
+        [TestProperty("spec", "AC-CLI-006.14")]
         [DataRow("double", true)]
         [DataRow("string?", true)]
         [DataRow("int[]", true)]

@@ -9,6 +9,7 @@ using Vion.Dale.Cli.Commands;
 using Vion.Dale.Cli.Commands.Add;
 using Vion.Dale.Cli.Commands.Auth;
 using Vion.Dale.Cli.Commands.Config;
+using Vion.Dale.Cli.Infrastructure;
 using Vion.Dale.Cli.Output;
 
 namespace Vion.Dale.Cli
@@ -18,20 +19,29 @@ namespace Vion.Dale.Cli
         public static async Task<int> Main(string[] args)
         {
             UseUtf8Output();
+            CliComposition.UseProductionDependencies();
 
             var rootCommand = BuildRootCommand();
+            var parseResult = rootCommand.Parse(args);
 
-            // --version answers before any parsing, so it works in a directory with no project and with
-            // no credential store. It is a root-level flag: a subcommand name claims the rest of the line,
-            // which is what keeps `dale pack --version 1.2.3` a pack and `dale build --version` a
-            // forwarded token.
+            // --version answers before any command runs, so it works in a directory with no project and
+            // with no credential store. It is a root-level flag: a subcommand name claims the rest of the
+            // line, which is what keeps `dale pack --version 1.2.3` a pack and `dale build --version` a
+            // forwarded token. The output mode is read off the parse result rather than the raw arguments,
+            // so `--version --output json` gets a document like every other answer.
             if (WantsVersion(args, TopLevelCommandNames(rootCommand)))
             {
-                Console.WriteLine($"dale {Version()} — Vion IoT");
+                if (WantsJsonOutput(parseResult))
+                {
+                    DaleConsole.WriteJsonResult(new { version = Version() });
+                }
+                else
+                {
+                    Console.WriteLine($"dale {Version()} — Vion IoT");
+                }
+
                 return 0;
             }
-
-            var parseResult = rootCommand.Parse(args);
 
             // A refused option value is the parser's to report. Reading a global option before the
             // invocation would let its conversion throw out of Main, past the handler that turns a bad
@@ -146,6 +156,24 @@ namespace Vion.Dale.Cli
             rootCommand.Subcommands.Add(configCommand);
 
             return rootCommand;
+        }
+
+        /// <summary>
+        ///     Whether the command line selects JSON output. Readable even where <c>--version</c> is itself an
+        ///     unrecognised token, which is what lets the version answer carry the mode; it throws only where
+        ///     <c>--output</c> was given a value the option refuses, and a refused value is not JSON mode —
+        ///     the refusal itself belongs to the command that claimed the line.
+        /// </summary>
+        private static bool WantsJsonOutput(ParseResult parseResult)
+        {
+            try
+            {
+                return parseResult.GetValue<string>("--output") == "json";
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
         }
 
         /// <summary>

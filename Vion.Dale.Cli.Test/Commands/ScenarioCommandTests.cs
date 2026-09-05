@@ -179,6 +179,33 @@ namespace Vion.Dale.Cli.Test.Commands
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-010.8")]
+        public async Task Schema_WrittenWithRelaxedEscaping_KeepsCharactersLiteral()
+        {
+            // Arrange
+            var outputPath = Path.Combine(Path.GetTempPath(), $"cli-schema-{Guid.NewGuid():N}.json");
+
+            // Act
+            var exit = await Program.BuildRootCommand().Parse(new[] { "scenario", "schema", "--port", "1", "--out", outputPath }).InvokeAsync();
+
+            // Assert
+            try
+            {
+                Assert.AreEqual(0, exit);
+                var schema = File.ReadAllText(outputPath);
+                StringAssert.Contains(schema, "'dale scenario schema'");
+                Assert.IsFalse(schema.Contains("\\u0027"), "the default encoder's numeric escapes make every regeneration a phantom diff");
+            }
+            finally
+            {
+                if (File.Exists(outputPath))
+                {
+                    File.Delete(outputPath);
+                }
+            }
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-CLI-010.9")]
         public void Scaffold_EmitsCompileShapedTest_WithApplyAsyncAndJudgmentTodoPerItem()
         {

@@ -155,10 +155,10 @@ namespace Vion.Dale.Cli.Auth
         }
 
         /// <summary>
-        ///     The directory <c>.dale</c> is created in, or null for the user profile. The CLI composes no
-        ///     container (<c>Program.BuildRootCommand</c>), so this is a settable process-wide knob in the
-        ///     shape <c>DaleConsole.JsonMode</c> already uses — the seam that lets the store's rules be
-        ///     proven without any test reading the developer's home directory.
+        ///     The directory <c>.dale</c> is created in, or null for the user profile. The one place the
+        ///     store's root is chosen: <c>CliComposition</c> passes the real user profile at start-up and a
+        ///     test passes a temporary directory, which is what lets the store's rules be proven without any
+        ///     test reading the developer's home directory.
         /// </summary>
         internal static void UseRoot(string? root)
         {

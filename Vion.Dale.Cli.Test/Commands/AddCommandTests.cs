@@ -477,7 +477,7 @@ namespace Vion.Dale.Cli.Test.Commands
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-CLI-019.1")]
+        [TestProperty("spec", "AC-CLI-006.13")]
         public void AddServicePropertyCommand_DefaultNameOption_DescriptionReferencesTitle()
         {
             // Arrange / Act
@@ -492,7 +492,7 @@ namespace Vion.Dale.Cli.Test.Commands
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-CLI-019.1")]
+        [TestProperty("spec", "AC-CLI-006.11")]
         public void AddMeasuringPointCommand_DefaultNameOption_DescriptionReferencesTitle()
         {
             // Arrange / Act

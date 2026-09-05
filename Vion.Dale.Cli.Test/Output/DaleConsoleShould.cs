@@ -52,7 +52,7 @@ namespace Vion.Dale.Cli.Test.Output
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-CLI-001.5")]
+        [TestProperty("spec", "AC-CLI-001.6")]
         public void WriteFailureToStandardOutputAsJsonInJsonMode()
         {
             // Arrange
@@ -89,7 +89,7 @@ namespace Vion.Dale.Cli.Test.Output
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-CLI-001.6")]
+        [TestProperty("spec", "AC-CLI-001.5")]
         public void WriteJsonResultToStandardOutput()
         {
             // Arrange

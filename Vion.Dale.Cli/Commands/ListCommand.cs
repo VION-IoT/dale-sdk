@@ -130,22 +130,23 @@ namespace Vion.Dale.Cli.Commands
         }
 
         /// <summary>
-        ///     The human listing. The console is a parameter so the rendering — including the escaping every
-        ///     identifier needs before Spectre reads it as markup — can be asserted against a captured writer.
+        ///     The human listing. The console is a parameter so the whole rendering — the project header and
+        ///     the empty-project line as well as the tables, and the escaping every identifier needs before
+        ///     Spectre reads it as markup — can be asserted against a captured writer.
         /// </summary>
         internal static void RenderTable(IAnsiConsole console, DaleProject project, DalePluginInfo pluginInfo)
         {
-            DaleConsole.Info($"Project: {project.ProjectName} (v{project.Version ?? "??"})");
+            DaleConsole.Info(console, $"Project: {project.ProjectName} (v{project.Version ?? "??"})");
             if (project.SdkVersion != null)
             {
-                DaleConsole.Info($"SDK: Vion.Dale.Sdk {project.SdkVersion}");
+                DaleConsole.Info(console, $"SDK: Vion.Dale.Sdk {project.SdkVersion}");
             }
 
-            DaleConsole.Blank();
+            DaleConsole.Blank(console);
 
             if (pluginInfo.LogicBlocks.Count == 0)
             {
-                DaleConsole.Info("No logic blocks found.");
+                DaleConsole.Info(console, "No logic blocks found.");
                 return;
             }
 

@@ -170,9 +170,10 @@ namespace Vion.Dale.Cli.Auth
 
         /// <summary>
         ///     Routes the token exchanges through <paramref name="handler" />, or restores the default
-        ///     transport when it is null. The same seam <see cref="Infrastructure.DaleHttpClient" /> carries,
-        ///     for the same reason: this class owns its own client, so the token precedence chain is
-        ///     otherwise provable only against a real identity provider.
+        ///     transport when it is null. The same seam <see cref="Infrastructure.DaleHttpClient" /> carries
+        ///     and <see cref="Infrastructure.CliComposition" /> sets, for the same reason: this class owns its
+        ///     own client, so the token precedence chain is otherwise provable only against a real identity
+        ///     provider.
         /// </summary>
         internal static void UseTransport(HttpMessageHandler? handler)
         {
