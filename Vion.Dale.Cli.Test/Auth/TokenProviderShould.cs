@@ -38,13 +38,43 @@ namespace Vion.Dale.Cli.Test.Auth
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-012.6")]
+        public async Task RefuseStoredLoginMintedForAnotherEnvironment()
+        {
+            // Arrange
+            TokenStore.SaveCredentials(new StoredCredentials { AccessToken = "test-token", ExpiresAt = DateTime.UtcNow.AddHours(1), Environment = "test" });
+
+            // Act
+            var exception = await Assert.ThrowsExactlyAsync<DaleAuthException>(() => TokenProvider.GetAccessTokenAsync(environment: "production"));
+
+            // Assert
+            StringAssert.Contains(exception.Message, "'test'");
+            StringAssert.Contains(exception.Message, "'production'");
+            StringAssert.Contains(exception.Message, "dale login -e production");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CLI-012.6")]
+        public async Task UseStoredLoginMintedForRequestedEnvironment()
+        {
+            // Arrange
+            TokenStore.SaveCredentials(new StoredCredentials { AccessToken = "test-token", ExpiresAt = DateTime.UtcNow.AddHours(1), Environment = "TEST" });
+
+            // Act
+            var token = await TokenProvider.GetAccessTokenAsync(environment: "test");
+
+            // Assert
+            Assert.AreEqual("test-token", token);
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-CLI-012.2")]
         public async Task TakeCredentialsFromFlagsBeforeAnythingElse()
         {
             // Arrange
             Environment.SetEnvironmentVariable("DALE_CLIENT_ID", "env-client");
             Environment.SetEnvironmentVariable("DALE_CLIENT_SECRET", "env-secret");
-            TokenStore.SaveCredentials(new StoredCredentials { AccessToken = "stored-token", ExpiresAt = DateTime.UtcNow.AddHours(1) });
+            TokenStore.SaveCredentials(new StoredCredentials { AccessToken = "stored-token", ExpiresAt = DateTime.UtcNow.AddHours(1), Environment = "test" });
             _handler.Answer(HttpStatusCode.OK, TokenResponse);
 
             // Act
@@ -62,7 +92,7 @@ namespace Vion.Dale.Cli.Test.Auth
             // Arrange
             Environment.SetEnvironmentVariable("DALE_CLIENT_ID", "env-client");
             Environment.SetEnvironmentVariable("DALE_CLIENT_SECRET", "env-secret");
-            TokenStore.SaveCredentials(new StoredCredentials { AccessToken = "stored-token", ExpiresAt = DateTime.UtcNow.AddHours(1) });
+            TokenStore.SaveCredentials(new StoredCredentials { AccessToken = "stored-token", ExpiresAt = DateTime.UtcNow.AddHours(1), Environment = "test" });
             _handler.Answer(HttpStatusCode.OK, TokenResponse);
 
             // Act
@@ -80,7 +110,7 @@ namespace Vion.Dale.Cli.Test.Auth
         public async Task FallThroughToStoredLoginWhenOnlyHalfCredentialPairGiven(string? clientId, string? clientSecret)
         {
             // Arrange
-            TokenStore.SaveCredentials(new StoredCredentials { AccessToken = "stored-token", ExpiresAt = DateTime.UtcNow.AddHours(1) });
+            TokenStore.SaveCredentials(new StoredCredentials { AccessToken = "stored-token", ExpiresAt = DateTime.UtcNow.AddHours(1), Environment = "test" });
 
             // Act
             var token = await TokenProvider.GetAccessTokenAsync(clientId, clientSecret, "test");
@@ -108,7 +138,7 @@ namespace Vion.Dale.Cli.Test.Auth
         public async Task RefreshExpiredTokenAndStoreResult()
         {
             // Arrange
-            TokenStore.SaveCredentials(new StoredCredentials { AccessToken = "stale", RefreshToken = "the-refresh", ExpiresAt = DateTime.UtcNow.AddSeconds(-1) });
+            TokenStore.SaveCredentials(new StoredCredentials { AccessToken = "stale", RefreshToken = "the-refresh", ExpiresAt = DateTime.UtcNow.AddSeconds(-1), Environment = "test" });
             _handler.Answer(HttpStatusCode.OK, TokenResponse);
 
             // Act
@@ -125,7 +155,7 @@ namespace Vion.Dale.Cli.Test.Auth
         public async Task RefuseWhenRefreshFails()
         {
             // Arrange
-            TokenStore.SaveCredentials(new StoredCredentials { AccessToken = "stale", RefreshToken = "the-refresh", ExpiresAt = DateTime.UtcNow.AddSeconds(-1) });
+            TokenStore.SaveCredentials(new StoredCredentials { AccessToken = "stale", RefreshToken = "the-refresh", ExpiresAt = DateTime.UtcNow.AddSeconds(-1), Environment = "test" });
             _handler.Answer(HttpStatusCode.BadRequest, "{}");
 
             // Act
@@ -140,7 +170,7 @@ namespace Vion.Dale.Cli.Test.Auth
         public async Task RefuseWhenExpiredWithNoRefreshToken()
         {
             // Arrange
-            TokenStore.SaveCredentials(new StoredCredentials { AccessToken = "stale", ExpiresAt = DateTime.UtcNow.AddSeconds(-1) });
+            TokenStore.SaveCredentials(new StoredCredentials { AccessToken = "stale", ExpiresAt = DateTime.UtcNow.AddSeconds(-1), Environment = "test" });
 
             // Act
             var exception = await Assert.ThrowsExactlyAsync<DaleAuthException>(() => TokenProvider.GetAccessTokenAsync(environment: "test"));

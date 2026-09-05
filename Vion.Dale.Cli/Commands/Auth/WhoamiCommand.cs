@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.CommandLine;
 using Vion.Dale.Cli.Auth;
 using Vion.Dale.Cli.Output;
@@ -29,6 +30,8 @@ namespace Vion.Dale.Cli.Commands.Auth
                                       apiBaseUrl = config.ApiBaseUrl;
                                   }
 
+                                  string? email = null;
+                                  var integrators = new List<string>();
                                   if (!string.IsNullOrEmpty(apiBaseUrl))
                                   {
                                       try
@@ -37,24 +40,39 @@ namespace Vion.Dale.Cli.Commands.Auth
                                           await DaleConsole.WithSpinner("Fetching user info",
                                                                         async () => { me = await MeClient.GetMeAsync(apiBaseUrl, credentials.AccessToken, cancellationToken); });
 
-                                          DaleConsole.KeyValue("Email:", me!.User.Email ?? "unknown");
-
-                                          if (me.IntegratorMemberships.Count > 0)
-                                          {
-                                              var names = string.Join(", ", me.IntegratorMemberships.ConvertAll(i => $"{i.IntegratorName} ({i.IntegratorSlug})"));
-                                              DaleConsole.KeyValue("Integrators:", names);
-                                          }
+                                          email = me!.User.Email;
+                                          integrators = me.IntegratorMemberships.ConvertAll(i => $"{i.IntegratorName} ({i.IntegratorSlug})");
                                       }
-                                      catch
+                                      catch (DaleAuthException)
                                       {
-                                          DaleConsole.KeyValue("Email:", "(could not fetch — token may be expired)");
+                                          // The identity is what /me knows; the token's own lifetime below is
+                                          // still worth reporting when it cannot be reached.
                                       }
                                   }
 
+                                  // The guard above already refused anything inside the expiry buffer, so what
+                                  // is left to report is how long the token has.
                                   var remaining = credentials.ExpiresAt - DateTime.UtcNow;
-                                  var tokenStatus = remaining.TotalMinutes > 0 ? $"valid (expires in {(int)remaining.TotalHours}h {remaining.Minutes}m)" : "expired";
-                                  DaleConsole.KeyValue("Token:", tokenStatus);
 
+                                  if (DaleConsole.JsonMode)
+                                  {
+                                      DaleConsole.WriteJsonResult(new
+                                                                  {
+                                                                      email,
+                                                                      integrators,
+                                                                      environment = config.Environment,
+                                                                      expiresAt = credentials.ExpiresAt,
+                                                                  });
+                                      return 0;
+                                  }
+
+                                  DaleConsole.KeyValue("Email:", email ?? "(could not fetch)");
+                                  if (integrators.Count > 0)
+                                  {
+                                      DaleConsole.KeyValue("Integrators:", string.Join(", ", integrators));
+                                  }
+
+                                  DaleConsole.KeyValue("Token:", $"valid (expires in {(int)remaining.TotalHours}h {remaining.Minutes}m)");
                                   return 0;
                               });
 

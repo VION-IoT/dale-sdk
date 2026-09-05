@@ -153,12 +153,16 @@ namespace Vion.Dale.Cli.Auth
             return environment.ToLowerInvariant() is "production" or "test";
         }
 
-        public static void DeleteCredentials()
+        /// <summary>Removes the stored credentials, reporting whether there were any.</summary>
+        public static bool DeleteCredentials()
         {
-            if (File.Exists(CredentialsPath))
+            if (!File.Exists(CredentialsPath))
             {
-                File.Delete(CredentialsPath);
+                return false;
             }
+
+            File.Delete(CredentialsPath);
+            return true;
         }
 
         private static void EnsureDirectory()

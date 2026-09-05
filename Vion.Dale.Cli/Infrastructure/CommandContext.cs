@@ -130,15 +130,25 @@ namespace Vion.Dale.Cli.Infrastructure
                                         string.Join("\n", me.IntegratorMemberships.ConvertAll(m => $"  {m.IntegratorName} ({m.IntegratorSlug}): {m.IntegratorId}")));
         }
 
+        /// <summary>
+        ///     A GUID-valued environment variable, or null when it is unset. A value that is set but is not
+        ///     a GUID is refused rather than ignored: a truncated secret in a CI variable would otherwise
+        ///     fall through to <c>/me</c> and publish under whichever integrator that returns.
+        /// </summary>
         private static Guid? ParseGuidEnvVar(string name)
         {
             var value = System.Environment.GetEnvironmentVariable(name);
-            if (Guid.TryParse(value, out var guid))
+            if (string.IsNullOrEmpty(value))
             {
-                return guid;
+                return null;
             }
 
-            return null;
+            if (!Guid.TryParse(value, out var guid))
+            {
+                throw new DaleAuthException($"{name} is set to '{value}', which is not an integrator id.");
+            }
+
+            return guid;
         }
     }
 }

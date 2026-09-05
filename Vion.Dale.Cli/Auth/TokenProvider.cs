@@ -49,6 +49,16 @@ namespace Vion.Dale.Cli.Auth
 
             // 3. Stored token
             var stored = TokenStore.LoadCredentials();
+            if (stored != null && !string.IsNullOrEmpty(stored.Environment) &&
+                !string.Equals(stored.Environment, effectiveEnvironment, StringComparison.OrdinalIgnoreCase))
+            {
+                // A token minted for one environment is refused by the other with a 401, which the tool
+                // reports as "Session expired. Run `dale login` again." — the one instruction that cannot
+                // fix it. Say what is actually wrong.
+                throw new DaleAuthException($"The stored login is for environment '{stored.Environment}', not '{effectiveEnvironment}'. " +
+                                            $"Run `dale login -e {effectiveEnvironment}`, or pass --client-id and --client-secret.");
+            }
+
             if (stored == null)
             {
                 throw new DaleAuthException("Not logged in. Run `dale login`, set DALE_CLIENT_ID + DALE_CLIENT_SECRET, " + "or pass --client-id and --client-secret.");
