@@ -171,7 +171,9 @@ repo is never half-migrated. One pass, in order:
    it matched, proves each rewritten line is the original minus those spans, keeps the file's line
    endings, and applies no whole-file tidy-up; `scripts/sweep-residue-lint.ps1` fails on the residue
    shapes a sweep leaves (an orphaned `()`, a doubled space, a Markdown line ending on `(`), and
-   every touched sentence is re-read for the shapes no grep can see.
+   every touched sentence is re-read for the shapes no grep can see. A ledger line that absorbs a
+   deleted RFC's item names the deleted origin and points at the archived change doc's absorption
+   heading — never a `§` anchor into the file that is gone.
 6. **Style gate** — `scripts/test-style-lint.ps1` holds every cited test to §12/§13 of
    `testing-conventions.md`; projects a pass cites from without owning are exempt in the script,
    with a reason, until their own pass. Stryker.NET is optional and only runnable where a test
@@ -245,7 +247,11 @@ may arrive as a cross-session message rather than as the session's last transcri
 coordinator saves it from the message and says so, because the transcript's last text may be a
 one-word answer. Both checks also read the change doc for its `## Relay notes for the PR body`
 section, because the PR body quotes it verbatim and a pass whose notes live only in its REPORT has
-none to quote. Findings go back as one
+none to quote. The two check prompts are filled kit files
+(`C:\_gh\architecture\.claude\briefs\sdd-kit\prompts\critic-<slug>.md`, `review-<slug>.md`), prepared while
+the pass session runs its final gates and kept as the record of what each check was asked; the next
+area's scoping inventory and brief check run in the fix-up window, when the coordinator is otherwise
+idle. Findings go back as one
 numbered amendment per round: the amend file `C:\_gh\architecture\.claude\briefs\amend-<slug>-N.md` is the artifact,
 written first; the cross-session message that points at it is only a notification, and it reaches
 the session only when **both** sessions run in bypass mode. The sender checks its own mode before
