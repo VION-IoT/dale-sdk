@@ -1,6 +1,6 @@
 # Upload first-party LogicBlock libraries (libraries/) to the Vion Cloud.
 #
-# Two-stage, environment-gated pipeline (RFC 0009 — docs/rfcs/0009-gated-prod-upload.md):
+# Two-stage, environment-gated pipeline (docs/specs/cli.md, the `upload` section):
 #   upload-test  on every main push touching libraries/: dotnet test + `dale upload --environment test`.
 #   upload-prod  gated by the GitHub `production` environment (required reviewer: vion-iot-developers team);
 #                re-packs and `dale upload --environment production`. No re-test — upload-test already

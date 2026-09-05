@@ -115,6 +115,119 @@ Options:
   --verbose                  Show detailed output
 
 ---
+## dale scenario
+Description:
+  Work with *.scenario.json files: run, validate, generate the editor schema, scaffold a C# test, open in the Player
+
+Usage:
+  Vion.Dale.Cli scenario [command] [options]
+
+Options:
+  -?, -h, --help             Show help and usage information
+  -o, --output <json|table>  Output format [default: table]
+  --project <project>        Path to .csproj file
+  --verbose                  Show detailed output
+
+Commands:
+  run <id>       Execute a scenario against the running DevHost and report the result — the same report the Player's copy button produces
+  validate       Validate every scenario file: structure, name paths, and topology against the wired-host configuration — catches renames fast in CI
+  schema         Print the scenario JSON Schema, enriched with this topology's actual name paths when a configuration is available — commit it as scenarios/.dale/scenario.schema.json and reference it from scenario files via "$schema" for editor completion
+  scaffold <id>  Generate a typed C# test from a scenario file — runs the scenario's setup + steps via ScenarioRunner.ApplyAsync, with TODO assertions for its human judgments (the composition rule: the graduation path when a scenario outgrows the format)
+  open <id>      Open a scenario in the running DevHost's Player (the #/scenario/{id} deep link)
+
+---
+## dale scenario run
+Description:
+  Execute a scenario against the running DevHost and report the result — the same report the Player's copy button produces
+
+Usage:
+  Vion.Dale.Cli scenario run <id> [options]
+
+Arguments:
+  <id>  Scenario id (the file name without .scenario.json).
+
+Options:
+  --port <port>              Port of the running DevHost (default 5000). [default: 5000]
+  --restart                  Cancel an active run and take over (the API's ?restart=true).
+  --timeout <timeout>        Seconds to wait for the run to finish (default 600). [default: 600]
+  -?, -h, --help             Show help and usage information
+  -o, --output <json|table>  Output format [default: table]
+  --project <project>        Path to .csproj file
+  --verbose                  Show detailed output
+
+---
+## dale scenario validate
+Description:
+  Validate every scenario file: structure, name paths, and topology against the wired-host configuration — catches renames fast in CI
+
+Usage:
+  Vion.Dale.Cli scenario validate [options]
+
+Options:
+  --dir <dir>                Scenarios directory (default ./scenarios). [default: scenarios]
+  --config <config>          Configuration export from `dale dev --export-config <file>`. When omitted, the running DevHost's /api/configuration is used.
+  --port <port>              Port of the running DevHost (default 5000). [default: 5000]
+  -?, -h, --help             Show help and usage information
+  -o, --output <json|table>  Output format [default: table]
+  --project <project>        Path to .csproj file
+  --verbose                  Show detailed output
+
+---
+## dale scenario schema
+Description:
+  Print the scenario JSON Schema, enriched with this topology's actual name paths when a configuration is available — commit it as scenarios/.dale/scenario.schema.json and reference it from scenario files via "$schema" for editor completion
+
+Usage:
+  Vion.Dale.Cli scenario schema [options]
+
+Options:
+  -O, -o, --out <out>        Write to this file instead of printing (conventionally scenarios/.dale/scenario.schema.json, what the files' "$schema" points at). `-o` is a deprecated alias for `--out`; it is the global output-format option everywhere else.
+  --config <config>          Configuration export to enrich from (default: the running DevHost).
+  --port <port>              Port of the running DevHost (default 5000). [default: 5000]
+  -?, -h, --help             Show help and usage information
+  -o, --output <json|table>  Output format [default: table]
+  --project <project>        Path to .csproj file
+  --verbose                  Show detailed output
+
+---
+## dale scenario scaffold
+Description:
+  Generate a typed C# test from a scenario file — runs the scenario's setup + steps via ScenarioRunner.ApplyAsync, with TODO assertions for its human judgments (the composition rule: the graduation path when a scenario outgrows the format)
+
+Usage:
+  Vion.Dale.Cli scenario scaffold <id> [options]
+
+Arguments:
+  <id>  Scenario id (the file name without .scenario.json).
+
+Options:
+  --dir <dir>                Scenarios directory (default ./scenarios). [default: scenarios]
+  --namespace <namespace>    Namespace for the generated test class (default ScenarioTests). [default: ScenarioTests]
+  -O, -o, --out <out>        Write to this file (default <Id>ScenarioTest.cs in the current directory); pass '-' to print to stdout. `-o` is a deprecated alias for `--out`; it is the global output-format option everywhere else.
+  -?, -h, --help             Show help and usage information
+  -o, --output <json|table>  Output format [default: table]
+  --project <project>        Path to .csproj file
+  --verbose                  Show detailed output
+
+---
+## dale scenario open
+Description:
+  Open a scenario in the running DevHost's Player (the #/scenario/{id} deep link)
+
+Usage:
+  Vion.Dale.Cli scenario open <id> [options]
+
+Arguments:
+  <id>  Scenario id.
+
+Options:
+  --port <port>              Port of the running DevHost (default 5000). [default: 5000]
+  -?, -h, --help             Show help and usage information
+  -o, --output <json|table>  Output format [default: table]
+  --project <project>        Path to .csproj file
+  --verbose                  Show detailed output
+
+---
 ## dale add
 Description:
   Add elements to a LogicBlock project
@@ -133,6 +246,96 @@ Commands:
   serviceproperty <name>  Add a [ServiceProperty] to a LogicBlock
   measuringpoint <name>   Add a [ServiceMeasuringPoint] to a LogicBlock
   timer <name>            Add a [Timer] method to a LogicBlock
+
+---
+## dale add logicblock
+Description:
+  Add a new LogicBlock class to the project
+
+Usage:
+  Vion.Dale.Cli add logicblock <name> [options]
+
+Arguments:
+  <name>  Name of the new LogicBlock class
+
+Options:
+  --name <name>              Human-readable name for [LogicBlock(Name = ...)] (defaults to the class name)
+  --icon <icon>              Icon identifier for [LogicBlock(Icon = ...)] (Remixicon name without the "ri-" prefix)
+  -?, -h, --help             Show help and usage information
+  -o, --output <json|table>  Output format [default: table]
+  --project <project>        Path to .csproj file
+  --verbose                  Show detailed output
+
+---
+## dale add serviceproperty
+Description:
+  Add a [ServiceProperty] to a LogicBlock
+
+Usage:
+  Vion.Dale.Cli add serviceproperty <name> [options]
+
+Arguments:
+  <name>  Property name
+
+Options:
+  -t, --type <type> (REQUIRED)                    C# type of the property (e.g. double, string, bool)
+  --to <to>                                       Target LogicBlock class name (auto-detected if only one exists)
+  --setter <private|public>                       Setter visibility [default: private]
+  --default-name <default-name>                   Title for [ServiceProperty] (defaults to the property name)
+  --persistent                                    Add [Persistent] attribute
+  --group <group>                                 [Presentation] group: a PropertyGroup name (Status, Configuration, Metric, Diagnostics, Identity, Alarm) or an arbitrary raw key
+  --importance <Hidden|Normal|Primary|Secondary>  [Presentation] importance: Primary, Secondary, Normal, or Hidden
+  --decimals <decimals>                           [Presentation] numeric display precision
+  --format <format>                               [Presentation] date/duration/numeric format-token string
+  -?, -h, --help                                  Show help and usage information
+  -o, --output <json|table>                       Output format [default: table]
+  --project <project>                             Path to .csproj file
+  --verbose                                       Show detailed output
+
+---
+## dale add measuringpoint
+Description:
+  Add a [ServiceMeasuringPoint] to a LogicBlock
+
+Usage:
+  Vion.Dale.Cli add measuringpoint <name> [options]
+
+Arguments:
+  <name>  Measuring point name
+
+Options:
+  -t, --type <type> (REQUIRED)                    C# type (e.g. double, int, bool)
+  --to <to>                                       Target LogicBlock class name (auto-detected if only one exists)
+  --default-name <default-name>                   Title for [ServiceMeasuringPoint] (defaults to the measuring point name)
+  --persistent                                    Add [Persistent] attribute (measuring points are not persistent by default)
+  --kind <Measurement|Total|TotalIncreasing>      MeasuringPointKind on [ServiceMeasuringPoint]: Measurement, Total, or TotalIncreasing
+  --group <group>                                 [Presentation] group: a PropertyGroup name (Status, Configuration, Metric, Diagnostics, Identity, Alarm) or an arbitrary raw key
+  --importance <Hidden|Normal|Primary|Secondary>  [Presentation] importance: Primary, Secondary, Normal, or Hidden
+  --decimals <decimals>                           [Presentation] numeric display precision
+  --format <format>                               [Presentation] date/duration/numeric format-token string
+  -?, -h, --help                                  Show help and usage information
+  -o, --output <json|table>                       Output format [default: table]
+  --project <project>                             Path to .csproj file
+  --verbose                                       Show detailed output
+
+---
+## dale add timer
+Description:
+  Add a [Timer] method to a LogicBlock
+
+Usage:
+  Vion.Dale.Cli add timer <name> [options]
+
+Arguments:
+  <name>  Timer method name
+
+Options:
+  -i, --interval <interval> (REQUIRED)  Timer interval in seconds
+  --to <to>                             Target LogicBlock class name (auto-detected if only one exists)
+  -?, -h, --help                        Show help and usage information
+  -o, --output <json|table>             Output format [default: table]
+  --project <project>                   Path to .csproj file
+  --verbose                             Show detailed output
 
 ---
 ## dale pack
@@ -179,7 +382,7 @@ Usage:
   Vion.Dale.Cli login [options]
 
 Options:
-  -e, --environment <environment>  Target environment (production, test) [default: production]
+  -e, --environment <environment>  Target environment (production, test) [default: test]
   -?, -h, --help                   Show help and usage information
   -o, --output <json|table>        Output format [default: table]
   --project <project>              Path to .csproj file
@@ -233,12 +436,12 @@ Commands:
   set-environment <name>  Configure target environment
 
 ---
-## dale scenario
+## dale config show
 Description:
-  Work with *.scenario.json files: run, validate, generate the editor schema, scaffold a C# test, open in the Player
+  Show current configuration
 
 Usage:
-  Vion.Dale.Cli scenario [command] [options]
+  Vion.Dale.Cli config show [options]
 
 Options:
   -?, -h, --help             Show help and usage information
@@ -246,10 +449,38 @@ Options:
   --project <project>        Path to .csproj file
   --verbose                  Show detailed output
 
-Commands:
-  run <id>       Execute a scenario against the running DevHost and report the result — the same report the Player's copy button produces
-  validate       Validate every scenario file: structure, name paths, and topology against the wired-host configuration — catches renames fast in CI
-  schema         Print the scenario JSON Schema, enriched with this topology's actual name paths when a configuration is available — commit it as scenarios/.dale/scenario.schema.json and reference it from scenario files via "$schema" for editor completion
-  scaffold <id>  Generate a typed C# test from a scenario file — runs the scenario's setup + steps via ScenarioRunner.ApplyAsync, with TODO assertions for its human judgments (the composition rule: the graduation path when a scenario outgrows the format)
-  open <id>      Open a scenario in the running DevHost's Player (the #/scenario/{id} deep link)
+---
+## dale config set-integrator
+Description:
+  Select active integrator
+
+Usage:
+  Vion.Dale.Cli config set-integrator [options]
+
+Options:
+  --integrator-id <integrator-id>  Select this integrator without prompting
+  -?, -h, --help                   Show help and usage information
+  -o, --output <json|table>        Output format [default: table]
+  --project <project>              Path to .csproj file
+  --verbose                        Show detailed output
+
+---
+## dale config set-environment
+Description:
+  Configure target environment
+
+Usage:
+  Vion.Dale.Cli config set-environment <name> [options]
+
+Arguments:
+  <name>  Environment name (production, test, or custom name)
+
+Options:
+  --auth-url <auth-url>      Custom auth base URL (required for custom environments)
+  --api-url <api-url>        Custom API base URL (required for custom environments)
+  -f, --force                Skip confirmation prompt
+  -?, -h, --help             Show help and usage information
+  -o, --output <json|table>  Output format [default: table]
+  --project <project>        Path to .csproj file
+  --verbose                  Show detailed output
 

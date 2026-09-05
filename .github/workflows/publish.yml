@@ -165,12 +165,24 @@ jobs:
         run: |
           cp /tmp/publicapi-current.json docs/snapshots/publicapi-manifest.json
 
+          # Walk the command tree rather than a literal list: a new command or subcommand is covered
+          # by construction, and a subcommand's OPTIONS are inside the gate (they were not when the
+          # loop named only the thirteen top-level commands).
+          list_subcommands() {
+            dale $1 -h 2>&1               | sed -n '/^Commands:/,/^$/p'               | sed -e '1d' -e '/^$/d' -e 's/^ *//'               | cut -d' ' -f1               | grep -E '^[a-z][a-z-]*$' || true
+          }
+
           {
             dale -h
-            for cmd in new build test dev list add pack upload login logout whoami config scenario; do
+            for cmd in $(list_subcommands ""); do
               echo "---"
               echo "## dale $cmd"
               dale $cmd -h 2>&1
+              for sub in $(list_subcommands "$cmd"); do
+                echo "---"
+                echo "## dale $cmd $sub"
+                dale $cmd $sub -h 2>&1
+              done
             done
           } > docs/snapshots/cli-help-snapshot.txt
 

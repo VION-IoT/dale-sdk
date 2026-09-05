@@ -1,6 +1,6 @@
 # Upload example LogicBlock libraries to the Vion Cloud.
 #
-# Two-stage, environment-gated pipeline (RFC 0009 — docs/rfcs/0009-gated-prod-upload.md):
+# Two-stage, environment-gated pipeline (docs/specs/cli.md, the `upload` section):
 #   upload-test  on every main push touching examples/: `dale upload --environment test` for all examples.
 #   detect-prod  computes which onboarding examples (Energy, ToggleLight, PingPong) actually changed in the push.
 #   upload-prod  gated by the GitHub `production` environment (required reviewer: vion-iot-developers team);

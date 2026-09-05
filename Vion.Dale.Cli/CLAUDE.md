@@ -84,28 +84,27 @@ var response = await DaleHttpClient.GetAsync(url, ctx.AccessToken);
 
 ## Key Design Decisions
 
-**No SDK dependency.** The CLI operates on files and processes. Introspection shells out to `Vion.Dale.LogicBlockParser` (discovered from NuGet cache at `~/.nuget/packages/vion.dale.sdk/{version}/tools/`), following the `dotnet ef` pattern. Falls back to local project reference when running from the dale repo.
+**No SDK dependency.** The CLI operates on files and processes. Introspection shells out to `Vion.Dale.LogicBlockParser` (discovered from NuGet cache at `~/.nuget/packages/vion.dale.sdk/{version}/tools/net10.0/`), following the `dotnet ef` pattern. Falls back to local project reference when running from the dale repo.
 
 **Source manipulation is regex-based, not Roslyn.** `SourceInserter` uses brace-counting and regex to find insertion points. This works for typical LogicBlock files but will break on braces inside string literals or `#if` blocks. Acceptable for Phase 1.
 
-**Template is bundled in the CLI package.** `dale new` uses `AppContext.BaseDirectory/Templates/vion-iot-library/` instead of requiring a separate NuGet template install. Template SDK references are updated via `set-version.ps1 -Scope references` (always one version behind SDK, which is fine).
+**Template is bundled in the CLI package.** `dale new` uses `AppContext.BaseDirectory/Templates/vion-iot-library/` instead of requiring a separate NuGet template install. The template's checked-in `Vion.Dale.*` references are set by `set-version.ps1 -Scope references` after each release; a **pack-time MSBuild target in `Vion.Dale.Cli.csproj` rewrites them to the CLI's own `$(Version)`** as the template is staged, so a packed tool's `dale new` matches it — except for a `0.0.0*` version (an untagged CI or local build), which is not on any feed and would produce a project that cannot restore. `dale new` says which SDK version it wrote whenever that differs from the tool's own.
 
 **IsPackable hack in template.** Template source has `<IsPackable Condition="true">false</IsPackable>` so it doesn't produce nupkgs during solution-level `dotnet pack`. The `template.json` replaces this with `<IsPackable>true</IsPackable>` on instantiation. The CLI passes `-p:IsPackable=true` when packing to override this for example projects.
 
-**JSON mode is dual-purpose.** `-o json` suppresses all human output. Errors also emit structured JSON on stdout. This makes the CLI agent-friendly.
+**JSON mode is one stream.** `-o json` suppresses every human line; results and failures both go to standard output as JSON (`{"error": …}` for a failure), and a child process's output is relayed to standard error so the document is parseable. In table mode a failure goes to standard error instead. See `docs/specs/cli.md`.
 
 **Auth resolution chain:** `--client-id`/`--client-secret` flags (CI) → `DALE_CLIENT_ID`/`DALE_CLIENT_SECRET` env vars → stored credentials from `dale login`. Integrator: `--integrator-id` flag → `DALE_INTEGRATOR_ID` env var → stored config → auto-resolve via `/me` (auto-selects if one membership).
 
-**Environment configuration.** `dale config set-environment production|test|<custom>` sets the Cloud API and Keycloak URLs. Custom environments need `dale config set-api-url` and `dale config set-auth-url`. Keycloak client is `dale-cli` (public, PKCE).
+**Environment configuration.** `dale config set-environment production|test|<custom>` sets the Cloud API and Keycloak URLs. Custom environments need both URLs on the same command: `dale config set-environment <name> --auth-url <url> --api-url <url>`. Keycloak client is `dale-cli` (public, PKCE).
 
 ## Known Limitations
 
 - **Brace-counting in SourceInserter** counts braces in strings/comments. Rare in practice.
-- **`RemoveExamples` in NewCommand is fragile** — pattern-matches on `HelloWorld`, `SmartLedController`. If template examples change, this code must be updated manually.
 - **`DevCommand` finds DevHost by convention** — looks for `*.DevHost.csproj` in siblings/subdirectories.
 - **No `--dry-run`** for code generation commands.
 - **Static `DaleConsole.JsonMode`** makes parallel test execution impossible for output-dependent tests.
-- **Upload endpoint is temporary** — currently posts to `POST /Integrator/{integratorId}/LogicBlockLibraryVersions` with pre-existing libraryId. Will move to PackageId-based `POST /api/integrators/{integratorId}/library-versions` with auto-create.
+- **Upload endpoint is temporary** — currently posts the packed `.nupkg` and optional release notes as multipart form data to `POST /Integrator/{integratorId}/LogicBlockLibraryVersions`. Will move to PackageId-based `POST /api/integrators/{integratorId}/library-versions` with auto-create.
 
 ## Ideas for Improvement
 
@@ -131,9 +130,6 @@ dotnet tool install --global --add-source ./packages/cli Vion.Dale.Cli --version
 (versions are git-tag-driven); without an explicit version, `dotnet tool install` resolves the highest
 *stable* version across all configured feeds and silently installs an older release from the private
 feed instead of your local build.
-
-```bash
-```
 
 ## Testing
 

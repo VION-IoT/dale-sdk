@@ -82,7 +82,7 @@ it in an example — several releases in this repo have carried an example chang
 (`Guid` support, string formats, emission policy, service relations). Ask what the new version lets an
 author do that the examples do not yet show.
 
-(Note: the `Vion.Dale.Cli` package rewrites its bundled template's `PackageReference` versions at pack time to match its own `$(Version)` — see `Vion.Dale.Cli.csproj`. So the `dale new` output is always self-consistent regardless of when `set-version.ps1` last ran.)
+(Note: the `Vion.Dale.Cli` package rewrites its bundled template's `PackageReference` versions at pack time to match its own `$(Version)` — see `Vion.Dale.Cli.csproj`. So a released tool's `dale new` output matches it regardless of when `set-version.ps1` last ran. The rewrite is **skipped for a `0.0.0*` version** — an untagged CI or local build is on no feed, so rewriting to it would produce a project that cannot restore; such a build's `dale new` scaffolds the checked-in references and says so.)
 
 ### After a release: answer the consumer
 
@@ -101,8 +101,9 @@ One-time setup per repo. Flag this if you fork or rotate credentials:
 
 - GitHub secret `AZURE_DEVOPS_PAT` — PAT with `Packaging: Read & write` on the Azure DevOps feed.
 - GitHub secret `NUGET_API_KEY` — nuget.org API key scoped to push this SDK's packages. Rotate per nuget.org's policy (max 365 days).
-- GitHub secret `DOCS_REPO_PAT` — PAT with `contents:write` on `VION-IoT/documentation`. Used by `publish.yml` to auto-push the API reference and to open drift-detection issues when the PublicApi surface or CLI help changes.
-- GitHub secrets `DALE_CI_CLIENT_ID` / `DALE_CI_CLIENT_SECRET` — Keycloak service-account credentials used by `examples.yml` to upload example libraries to Cloud test on every example change.
+- GitHub secret `DOCS_REPO_PAT` — PAT with `contents:write` on `VION-IoT/documentation`. Used by `publish.yml` to auto-push the API reference and to open a drift issue when the PublicApi surface changes.
+- GitHub secret `ARCHITECTURE_REPO_PAT` — used by `publish.yml` to open a drift issue on `VION-IoT/architecture` when the CLI help snapshot changes.
+- GitHub secrets `DALE_CI_CLIENT_ID` / `DALE_CI_CLIENT_SECRET` — Keycloak service-account credentials, scoped per GitHub Environment (`test` and `production`), used by `examples.yml` and `upload-libraries.yml`. Every qualifying `main` push uploads to Cloud test automatically and parks a production upload behind a required-reviewer approval; see [`specs/cli.md`](specs/cli.md).
 
 Trusted Publishing was the prior approach but does not currently work with reusable workflows: the OIDC `job_workflow_ref` claim points at the shared-workflows repo, not this repo, and nuget.org rejects the token exchange. See [community discussion #179952](https://github.com/orgs/community/discussions/179952). Re-evaluate when nuget.org adds reusable-workflow support.
 
