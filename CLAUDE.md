@@ -24,6 +24,7 @@ the work they govern — **read the linked doc before doing the matching work, a
 | touching `Vion.Dale.DevHost*`, the scenario runner, or stepping | [`docs/specs/devhost-control.md`](docs/specs/devhost-control.md) — what the host guarantees in process, over HTTP and on stdout; and [`docs/devhost-conventions.md`](docs/devhost-conventions.md) — the demonstrate-don't-assert verify loop, clock modes, the four scenario-step definition sites; the SPA's own contract is [`Vion.Dale.DevHost.Web/CLAUDE.md`](Vion.Dale.DevHost.Web/CLAUDE.md) |
 | writing a simulator block or a provider face (the peer a bench needs on the far side of a contract) | [`docs/simulator-authoring.md`](docs/simulator-authoring.md) — provider faces, the ideal-I/O echo recipe, when to model the device instead |
 | renaming anything that reaches introspection (service, member, contract, interface, enum member, enum/struct type, PackageId) | [`docs/specs/introspection.md`](docs/specs/introspection.md) — the document, and which C# name keys each element; [`docs/identifier-stability.md`](docs/identifier-stability.md) is the short practical companion |
+| touching any `Vion.Dale.Sdk.*TestKit` package or one of their test projects | [`docs/specs/testkit.md`](docs/specs/testkit.md) — what the five kits guarantee a block author: the builder's phases and knobs, the verification family and its `Times` default, the raise helpers, virtual time's two drivers, the Modbus fakes, and what a kit costs the SDK |
 | touching `Vion.Dale.Sdk.Modbus.*` or either Modbus example | the `modbus-smoke` skill ([`.claude/skills/modbus-smoke/`](.claude/skills/modbus-smoke/SKILL.md)) — the link policy over a real socket pair on `127.0.0.1:15020`; real clock, ~1 min |
 | adding a CLI command | [`Vion.Dale.Cli/CLAUDE.md`](Vion.Dale.Cli/CLAUDE.md) |
 | cutting a release, or bumping examples after one | [`docs/releasing.md`](docs/releasing.md) |
@@ -34,11 +35,11 @@ structure. Do not invent new patterns; name the precedent you followed.
 
 **Design docs are change docs in [`docs/changes/`](docs/changes/)** per
 [`docs/spec-process.md`](docs/spec-process.md); the current-truth spec corpus is
-[`docs/specs/`](docs/specs/). `docs/rfcs/` is **frozen history** being absorbed by area passes — two
-files remain, covering the test kits — do not cite it
-in new work and do not add to it. `docs/superpowers/` is **gitignored** (`.gitignore:300`)
-per architecture decision 0011, so anything a planning skill writes there cannot be committed —
-`git check-ignore` is the tell; redirect anything meant to last to `docs/changes/`. Cross-repo specs
+[`docs/specs/`](docs/specs/). `docs/rfcs/` is **gone** — the last two, on the test kits, were absorbed
+by the `TKIT` pass and the directory went with them. Git history keeps them; the corpus is where
+current truth lives, and there is nowhere left to add an RFC to.
+`docs/superpowers/` is **gitignored** (`.gitignore:300`) per architecture decision 0011, so anything
+a planning skill writes there cannot be committed — `git check-ignore` is the tell; redirect anything meant to last to `docs/changes/`. Cross-repo specs
 live in `../architecture/specs/`, never here.
 
 ## Working agreement

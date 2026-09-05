@@ -2,6 +2,7 @@ using System;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.DigitalIo.Output;
 using Vion.Dale.Sdk.Messages;
+using Vion.Dale.Sdk.TestKit;
 using Vion.Dale.Sdk.Utils;
 
 namespace Vion.Dale.Sdk.DigitalIo.TestKit
@@ -29,7 +30,7 @@ namespace Vion.Dale.Sdk.DigitalIo.TestKit
                 throw new InvalidOperationException("Unable to raise OutputChanged on provided IDigitalOutput instance");
             }
 
-            var logicBlockContractId = new LogicBlockContractId("", digitalOutputImplementation.Identifier);
+            var logicBlockContractId = new LogicBlockContractId(Constants.LogicBlockId, digitalOutputImplementation.Identifier);
             digitalOutputImplementation.HandleContractMessage(new ContractMessage<DigitalOutputChanged>(logicBlockContractId, new DigitalOutputChanged(value)));
         }
     }

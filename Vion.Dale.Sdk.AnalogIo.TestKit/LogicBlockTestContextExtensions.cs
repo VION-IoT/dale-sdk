@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using Moq;
 using Vion.Dale.Sdk.AnalogIo.Input;
 using Vion.Dale.Sdk.AnalogIo.Output;
@@ -40,7 +41,8 @@ namespace Vion.Dale.Sdk.AnalogIo.TestKit
                 identifier = analogOutputImplementation.Identifier;
             }
 
-            testContext.VerifyContractMessageSent<SetAnalogOutput>("AnalogOutput", identifier, m => value == null || Math.Abs(m.Value - value.Value) <= tolerance, times);
+            EnsureUsableTolerance(tolerance);
+            testContext.VerifyContractMessageSent<SetAnalogOutput>("AnalogOutput", identifier, m => Matches(m.Value, value, tolerance), times);
         }
 
         /// <summary>
@@ -70,10 +72,8 @@ namespace Vion.Dale.Sdk.AnalogIo.TestKit
                 identifier = analogOutputProviderImplementation.Identifier;
             }
 
-            testContext.VerifyContractMessageSent<AnalogOutputChanged>("AnalogOutputProvider",
-                                                                       identifier,
-                                                                       m => value == null || Math.Abs(m.Value - value.Value) <= tolerance,
-                                                                       times);
+            EnsureUsableTolerance(tolerance);
+            testContext.VerifyContractMessageSent<AnalogOutputChanged>("AnalogOutputProvider", identifier, m => Matches(m.Value, value, tolerance), times);
         }
 
         /// <summary>
@@ -103,7 +103,34 @@ namespace Vion.Dale.Sdk.AnalogIo.TestKit
                 identifier = analogInputProviderImplementation.Identifier;
             }
 
-            testContext.VerifyContractMessageSent<AnalogInputChanged>("AnalogInputProvider", identifier, m => value == null || Math.Abs(m.Value - value.Value) <= tolerance, times);
+            EnsureUsableTolerance(tolerance);
+            testContext.VerifyContractMessageSent<AnalogInputChanged>("AnalogInputProvider", identifier, m => Matches(m.Value, value, tolerance), times);
+        }
+
+        /// <summary>
+        ///     Bit equality first, then the tolerance band. The difference comparison alone is false for a
+        ///     non-number against itself and for either infinity against itself at every tolerance, and the
+        ///     value contract admits all three unaltered in both directions — so a block that legitimately
+        ///     writes one has to be assertable. A signed zero matches an unsigned one either way.
+        /// </summary>
+        private static bool Matches(double actual, double? expected, double tolerance)
+        {
+            return expected == null || actual.Equals(expected.Value) || Math.Abs(actual - expected.Value) <= tolerance;
+        }
+
+        /// <summary>
+        ///     A tolerance is a width, so it is a number of at least zero. A non-number or a negative one
+        ///     makes the band empty and rejects even an exact value, which no caller can mean; an infinite
+        ///     tolerance is a legal width that admits every finite value.
+        /// </summary>
+        private static void EnsureUsableTolerance(double tolerance)
+        {
+            if (double.IsNaN(tolerance) || tolerance < 0)
+            {
+                throw new TestKitVerificationException(string.Format(CultureInfo.InvariantCulture,
+                                                                     "A verification tolerance must be a number of at least zero, but was {0}.",
+                                                                     tolerance));
+            }
         }
     }
 }

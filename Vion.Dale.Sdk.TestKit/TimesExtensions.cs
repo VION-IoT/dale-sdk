@@ -1,3 +1,4 @@
+using System.Globalization;
 using Moq;
 using Vion.Dale.Sdk.Core;
 
@@ -9,46 +10,22 @@ namespace Vion.Dale.Sdk.TestKit
     [PublicApi]
     public static class TimesExtensions
     {
+        /// <summary>
+        ///     Throws a <see cref="TestKitVerificationException" /> unless <paramref name="actualCount" />
+        ///     satisfies <paramref name="times" />. Every occurrence-count form Moq expresses is honoured,
+        ///     because the check is Moq's own <c>Times.Validate</c> rather than a reading of the constraint's
+        ///     rendered text.
+        /// </summary>
         public static void AssertCount(this Times times, int actualCount, string assertMessage)
         {
-            var str = times.ToString();
-            var valid = false;
-            if (times == Times.Once())
+            if (times.Validate(actualCount))
             {
-                valid = actualCount == 1;
-            }
-            else if (times == Times.Never())
-            {
-                valid = actualCount == 0;
-            }
-            else if (times == Times.AtLeastOnce())
-            {
-                valid = actualCount >= 1;
-            }
-            else if (str.StartsWith("Exactly"))
-            {
-                valid = actualCount == ExtractNum(str);
-            }
-            else if (str.StartsWith("AtLeast"))
-            {
-                valid = actualCount >= ExtractNum(str);
-            }
-            else if (str.StartsWith("AtMost"))
-            {
-                valid = actualCount <= ExtractNum(str);
+                return;
             }
 
-            if (!valid)
-            {
-                throw new TestKitVerificationException($"{assertMessage}: Expected {times} but found {actualCount}.");
-            }
-        }
-
-        private static int ExtractNum(string str)
-        {
-            var start = str.IndexOf('(') + 1;
-            var end = str.IndexOf(')');
-            return int.Parse(str.Substring(start, end - start));
+            // Invariant so the rendered count is the same text on every machine. An int formats identically
+            // in every culture today, so this pins a rule rather than repairing a defect.
+            throw new TestKitVerificationException(string.Format(CultureInfo.InvariantCulture, "{0}: Expected {1} but found {2}.", assertMessage, times, actualCount));
         }
     }
 }

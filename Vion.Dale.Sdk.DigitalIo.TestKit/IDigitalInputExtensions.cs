@@ -2,6 +2,7 @@ using System;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.DigitalIo.Input;
 using Vion.Dale.Sdk.Messages;
+using Vion.Dale.Sdk.TestKit;
 using Vion.Dale.Sdk.Utils;
 
 namespace Vion.Dale.Sdk.DigitalIo.TestKit
@@ -29,7 +30,7 @@ namespace Vion.Dale.Sdk.DigitalIo.TestKit
                 throw new InvalidOperationException("Unable to raise InputChanged on provided IDigitalInput instance");
             }
 
-            var logicBlockContractId = new LogicBlockContractId("", digitalInputImplementation.Identifier);
+            var logicBlockContractId = new LogicBlockContractId(Constants.LogicBlockId, digitalInputImplementation.Identifier);
             digitalInputImplementation.HandleContractMessage(new ContractMessage<DigitalInputChanged>(logicBlockContractId, new DigitalInputChanged(value)));
         }
     }
