@@ -61,7 +61,12 @@ edits, no fixes, no Jira writes in this phase** — reading and one document onl
    a lifecycle), take each decision path once more *while another state is pending*: a drop while a
    value is held, a stop while a flush is armed, a reset while a run is active. Each combination
    whose outcome differs from the naive reading is a row — these are the rows that leave a consumer
-   stale forever and never show in a statement walk. Where an initialization can **fail closed** (a
+   stale forever and never show in a statement walk. **A behaviour stated for one side of a symmetric
+   mechanism — the publish side of a wire, one handler family, one direction of a value rule — is a
+   prompt to read the other side:** both of one pass's critic misses sat beside a row the pass had
+   stated for the other side of the same mechanism (a topic pinned on the publish side, stated, and
+   the receive side that reads it live, not; a contract message ignored by the input handler,
+   stated, and by the output handler, not). Where an initialization can **fail closed** (a
    refused configuration, a binder that throws), walk every later message the instance can still
    receive — a stop, a snapshot, a restore, a write, a second configuration — and write a row
    wherever the answer differs from a healthy instance's: four of one pass's nine critic misses
@@ -220,7 +225,11 @@ finding the operator actively schedules. Do not proceed to Phase B without the c
    **A behaviour the classification adds is a path the extraction never swept:** sweep it as a
    fix's sibling before the REPORT — its other output mode, its options, its JSON document — because
    three of one pass's six critic misses sat on the annotate path the classification had just
-   added, where the create path beside it had been swept and the new one had not.
+   added, where the create path beside it had been swept and the new one had not. **A pass that
+   creates test projects sweeps them with the mirror diff it runs over the packages:** four articles
+   one pass mirrored from its digital test files into its new analog ones were invisible to a
+   checkpoint that diffed only the two shipped packages — the residue class the checkpoint existed
+   for, in files the same pass had just written.
    **Hedges are STOPs:** a brief that says *appears to … — verify* has named an assumption; when it fails,
    record the deviation in the change doc and ask, never improvise a different design in its place
    (one pass improvised "resolve by evaluating" when the promised AST was not there; evaluation
@@ -440,3 +449,5 @@ skipped ("the mutation list **and the test map**" — the map stayed stale for a
 | "The map folds the park into a criterion" | A park is a row the map carries by name and no criterion covers. A folded park is a lost ledger line. |
 | "It's new, so nothing broke" | A behaviour the classification adds has never been swept. Sweep it as a fix's sibling before the REPORT. |
 | "Two tests cite it, so it is proven" | The trace gate cannot tell a citation from a proof. A criterion the suite cannot reach is `GAP` however many tests name it. |
+| "The other side is the same mechanism" | A behaviour stated for one side of a symmetric mechanism is a prompt to read the other. Both of one pass's critic misses sat beside a row stated for the other side. |
+| "The mirror diff was clean" | The mirror diff covers the files the pass created too. Four mirrored articles in a pass's own new test files were invisible to a diff of the shipped packages. |

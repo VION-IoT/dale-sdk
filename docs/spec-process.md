@@ -257,7 +257,14 @@ idle. The coordinator's watch wakes a session on two signals, not one: a last tr
 starts with an API error, and a last text that has not changed across an interval longer than the
 phase's longest task — a hung turn writes no record and sends no idle notice, and one hung for six
 hours before "the response stopped arriving" surfaced; the watch itself does not run while the
-machine sleeps, so the wall clock is the only tell. Findings go back as one
+machine sleeps, so the wall clock is the only tell. A check — the critic, the review, the second
+opinion — states the call site of every premise a finding rests on, and a finding whose premise is
+a static's mutability, a gate's existence or a probe's outcome names the line it read: three of one
+round's premises were refuted at the call site by the fix-up session (a setter that is write-once,
+a criterion that exists on no page, a probe the prose had right), each costing the item its first
+paragraph. An amendment's count is written with the command that produced it — one said "eight
+decode sites" for four, and the session had read the four before the coordinator's correction
+arrived. Findings go back as one
 numbered amendment per round: the amend file `C:\_gh\architecture\.claude\briefs\amend-<slug>-N.md` is the artifact,
 written first; the cross-session message that points at it is only a notification, and it reaches
 the session only when **both** sessions run in bypass mode. The sender checks its own mode before
@@ -276,7 +283,9 @@ blocker. Each amendment item names one artifact and the proof it
 owes — a two-clause item gets its numbered half done — and states its premise as a hypothesis: a
 check reading a branch at one commit gets the shape right and the constants wrong, so the session
 verifies the mechanism at the call site before implementing (two of one amendment's twenty-five
-items were refuted from the tree, and both were still worth doing). The coordinator fills the
+items were refuted from the tree, and both were still worth doing; three of another's eighteen
+fell the same way — a write-once setter, a criterion on no page, a probe the prose had right — and
+each still produced the test or the sentence its item asked for). The coordinator fills the
 scorecard from the checks' findings before the PR merges.
 
 ## Routing — where work enters
