@@ -319,15 +319,23 @@ namespace Vion.Dale.Sdk.TestKit
 
                     action!();
                 }
-
-                // Land the clock at the requested target, regardless of where the last dispatched
-                // action set it. Without this, AdvanceTime(10s) on an empty queue would be a no-op
-                // and the clock would lag the caller's intent.
-                TimeProvider.SetUtcNow(target);
             }
             finally
             {
                 _dispatching = false;
+
+                // Land the clock at the requested target, regardless of where the last dispatched
+                // action set it. Without this, AdvanceTime(10s) on an empty queue would be a no-op
+                // and the clock would lag the caller's intent. In the finally rather than after the
+                // loop because a dispatched action that throws does not un-ask for the advance: the
+                // caller asked the clock to move, catches the failure, and drives on from the instant
+                // it asked for. The guard is for an action that moved the clock itself past the
+                // target — a fake that consumes virtual time does — since the clock refuses to go
+                // backwards.
+                if (target > TimeProvider.GetUtcNow())
+                {
+                    TimeProvider.SetUtcNow(target);
+                }
             }
         }
 
@@ -365,16 +373,31 @@ namespace Vion.Dale.Sdk.TestKit
             }
 
             _dispatching = true;
+            var index = 0;
             try
             {
-                foreach (var (_, action) in snapshot)
+                for (; index < snapshot.Count; index++)
                 {
-                    action();
+                    snapshot[index].Action();
                 }
             }
             finally
             {
                 _dispatching = false;
+
+                // A throwing action must not take the actions behind it with it. The snapshot above
+                // already removed them from the queue and nothing else holds them, so an exception
+                // here would drop them silently — worse than AdvanceTime's failure mode, where they
+                // stay queued. Put the ones that never ran back at the head, keeping their order and
+                // keeping them ahead of anything queued during this drain.
+                if (index < snapshot.Count)
+                {
+                    var unrun = snapshot.GetRange(index + 1, snapshot.Count - index - 1);
+                    lock (_gate)
+                    {
+                        _pendingActions.InsertRange(0, unrun);
+                    }
+                }
             }
         }
 
