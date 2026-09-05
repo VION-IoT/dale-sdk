@@ -32,7 +32,7 @@ instances (those live in git, the archived change docs, and the process journal)
 | Runtime semantics | block lifecycle (start/stop ordering, teardown delivery) | `LIFE` | A |
 | Runtime semantics | Modbus family — Core binding model, TCP client + server, RTU, link policy (link verdicts, socket lifetime; anchors: modbus-smoke, the Link/Connection structs, committed scenarios) | `MODB` | A |
 | Contract families | DigitalIo / AnalogIo | `IO` | B |
-| Contract families | TestKit surfaces (virtual time) | `TKIT` | B |
+| Contract families | the five test kits ([`specs/testkit.md`](specs/testkit.md)) | `TKIT` | B |
 | Contract families | Http | `HTTP` | B |
 
 Plus [`specs/_invariants.md`](specs/_invariants.md) (`SYS-` ids, cross-cutting rules pages cite
@@ -168,8 +168,10 @@ repo is never half-migrated. One pass, in order:
    from now on; changes to the area require a change doc from now on.
 5. **Delete** — the RFCs the page absorbed are removed in the same PR, and the reference sweep
    runs: no living doc, skill, or code comment cites them (`grep -r "RFC 00"` clean outside
-   `docs/process-journal.md`, `docs/retro/`, `docs/changes/archive/`, and `docs/rfcs/` itself while
-   it still exists). Append-only logs keep their citations. A scripted sweep deletes only the spans
+   `docs/process-journal.md`, `docs/retro/` and `docs/changes/archive/`). Append-only logs keep
+   their citations. The directory itself is gone as of the `TKIT` pass, so a sweep now has one
+   fewer place to exclude — `scripts/sweep-residue-lint.ps1` keeps `docs/rfcs/` in its
+   out-of-scope pattern deliberately, as a rule that stays correct with nothing to match. A scripted sweep deletes only the spans
    it matched, proves each rewritten line is the original minus those spans, keeps the file's line
    endings, and applies no whole-file tidy-up; `scripts/sweep-residue-lint.ps1` fails on the residue
    shapes a sweep leaves (an orphaned `()`, a doubled space, a Markdown line ending on `(`), and
@@ -185,8 +187,10 @@ repo is never half-migrated. One pass, in order:
 
 The protocol is packaged as the `spec-pass` skill; each pass is one change doc + one band-sized
 PR. Order: plugin ABI (done — the pilot) → emission (done) → config gating (done) → introspection +
-identifiers (done) → scenario/stepping/pairing (done) → DevHost control (done) → remainder. `docs/rfcs/` is frozen meanwhile (do not
-cite it in new work) and disappears with the last pass.
+identifiers (done) → scenario/stepping/pairing (done) → DevHost control (done) → block lifecycle
+(done) → contracts (done) → analyzers (done) → Modbus (done) → CLI (done) → I/O (done) → test kits
+(done) → `HTTP` remains. `docs/rfcs/` was frozen throughout and **disappeared with the `TKIT`
+pass**, which absorbed the last two.
 
 ## Dispatching a pass to a fresh session
 
