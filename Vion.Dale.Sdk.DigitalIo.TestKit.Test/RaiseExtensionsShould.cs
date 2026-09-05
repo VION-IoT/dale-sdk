@@ -120,7 +120,7 @@ namespace Vion.Dale.Sdk.DigitalIo.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-TKIT-006.2")]
-        public void RefuseInputFaceThatIsNotTheShippedImplementation()
+        public void RefuseInputFaceOfForeignImplementation()
         {
             // Act / Assert
             var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => new Mock<IDigitalInput>().Object.RaiseInputChanged(true));
@@ -129,7 +129,7 @@ namespace Vion.Dale.Sdk.DigitalIo.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-TKIT-006.2")]
-        public void RefuseOutputFaceThatIsNotTheShippedImplementation()
+        public void RefuseOutputFaceOfForeignImplementation()
         {
             // Act / Assert
             var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => new Mock<IDigitalOutput>().Object.RaiseOutputChanged(true));
@@ -138,7 +138,7 @@ namespace Vion.Dale.Sdk.DigitalIo.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-TKIT-006.2")]
-        public void RefuseOutputProviderFaceThatIsNotTheShippedImplementation()
+        public void RefuseOutputProviderFaceOfForeignImplementation()
         {
             // Act / Assert
             var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => new Mock<IDigitalOutputProvider>().Object.RaiseSetReceived(true));

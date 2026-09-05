@@ -32,6 +32,8 @@ namespace Vion.Dale.Sdk.TestKit.Test
         [TestProperty("spec", "AC-TKIT-008.1")]
         public void AnchorVirtualClockAtFirstInstantOf2026()
         {
+            // Arrange / Act — the context built in Initialize is the whole of it
+
             // Assert
             Assert.AreEqual(Anchor, _context.VirtualNow);
             Assert.AreEqual(Anchor, _context.TimeProvider.GetUtcNow().UtcDateTime);
@@ -41,6 +43,8 @@ namespace Vion.Dale.Sdk.TestKit.Test
         [TestProperty("spec", "AC-TKIT-008.1")]
         public void ResolveContextClockAsBlocksTimeProvider()
         {
+            // Arrange / Act — the context built in Initialize is the whole of it
+
             // Assert
             Assert.AreSame(_context.TimeProvider, _context.BuiltServiceProvider!.GetService(typeof(TimeProvider)));
         }
@@ -226,7 +230,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-TKIT-008.4")]
-        public void LeaveClockWhereDispatchedActionPutItWhenThatIsPastRequestedInstant()
+        public void LeaveClockWhereDispatchedActionPutItPastRequestedInstant()
         {
             // Arrange — the sibling of the landing rule: a fake that consumes virtual time of its own
             // (the Modbus TCP fake's response delay does) can carry the clock past the advance's target,

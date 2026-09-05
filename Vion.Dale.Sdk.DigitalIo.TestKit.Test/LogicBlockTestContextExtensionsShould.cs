@@ -105,7 +105,7 @@ namespace Vion.Dale.Sdk.DigitalIo.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-TKIT-007.1")]
-        public void RefuseOutputFaceThatIsNotTheShippedImplementation()
+        public void RefuseOutputFaceOfForeignImplementation()
         {
             // Act / Assert
             var thrown = Assert.ThrowsExactly<TestKitVerificationException>(() => _context.VerifyDigitalOutputSet(new Mock<IDigitalOutput>().Object));
@@ -114,7 +114,7 @@ namespace Vion.Dale.Sdk.DigitalIo.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-TKIT-007.1")]
-        public void RefuseOutputProviderFaceThatIsNotTheShippedImplementation()
+        public void RefuseOutputProviderFaceOfForeignImplementation()
         {
             // Act / Assert
             var thrown = Assert.ThrowsExactly<TestKitVerificationException>(() => _providerContext.VerifyDigitalOutputConfirmed(new Mock<IDigitalOutputProvider>().Object));
@@ -123,7 +123,7 @@ namespace Vion.Dale.Sdk.DigitalIo.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-TKIT-007.1")]
-        public void RefuseInputProviderFaceThatIsNotTheShippedImplementation()
+        public void RefuseInputProviderFaceOfForeignImplementation()
         {
             // Act / Assert
             var thrown = Assert.ThrowsExactly<TestKitVerificationException>(() => _providerContext.VerifyDigitalInputDriven(new Mock<IDigitalInputProvider>().Object));

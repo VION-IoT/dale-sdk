@@ -108,7 +108,7 @@ namespace Vion.Dale.Sdk.AnalogIo.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-TKIT-007.1")]
-        public void RefuseOutputFaceThatIsNotTheShippedImplementation()
+        public void RefuseOutputFaceOfForeignImplementation()
         {
             // Act / Assert
             var thrown = Assert.ThrowsExactly<TestKitVerificationException>(() => _context.VerifyAnalogOutputSet(new Mock<IAnalogOutput>().Object));
@@ -117,7 +117,7 @@ namespace Vion.Dale.Sdk.AnalogIo.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-TKIT-007.1")]
-        public void RefuseOutputProviderFaceThatIsNotTheShippedImplementation()
+        public void RefuseOutputProviderFaceOfForeignImplementation()
         {
             // Act / Assert
             var thrown = Assert.ThrowsExactly<TestKitVerificationException>(() => _providerContext.VerifyAnalogOutputConfirmed(new Mock<IAnalogOutputProvider>().Object));
@@ -126,7 +126,7 @@ namespace Vion.Dale.Sdk.AnalogIo.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-TKIT-007.1")]
-        public void RefuseInputProviderFaceThatIsNotTheShippedImplementation()
+        public void RefuseInputProviderFaceOfForeignImplementation()
         {
             // Act / Assert
             var thrown = Assert.ThrowsExactly<TestKitVerificationException>(() => _providerContext.VerifyAnalogInputDriven(new Mock<IAnalogInputProvider>().Object));

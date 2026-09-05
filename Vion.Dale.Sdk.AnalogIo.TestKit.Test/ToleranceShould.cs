@@ -107,7 +107,7 @@ namespace Vion.Dale.Sdk.AnalogIo.TestKit.Test
         [DataRow(Helper.InputDriven, double.NaN)]
         [DataRow(Helper.InputDriven, double.PositiveInfinity)]
         [DataRow(Helper.InputDriven, double.NegativeInfinity)]
-        public void MatchNonFiniteValueThatIsBitIdenticalToExpectedOne(Helper helper, double written)
+        public void MatchNonFiniteValueBitIdenticalToExpected(Helper helper, double written)
         {
             // Arrange — the value contract carries these to the wire unaltered, so a block that writes
             // one has to be assertable; the difference comparison alone is false for every pair here
@@ -154,7 +154,7 @@ namespace Vion.Dale.Sdk.AnalogIo.TestKit.Test
         [DataRow(Helper.OutputConfirmed, -1.0, "-1")]
         [DataRow(Helper.InputDriven, double.NaN, "NaN")]
         [DataRow(Helper.InputDriven, -1.0, "-1")]
-        public void RefuseToleranceThatIsNotNumberOfAtLeastZero(Helper helper, double tolerance, string rendered)
+        public void RefuseNegativeOrNonFiniteTolerance(Helper helper, double tolerance, string rendered)
         {
             // Arrange — such a tolerance makes the band empty, so it used to reject even an exact value
             // while the message spoke only of counts

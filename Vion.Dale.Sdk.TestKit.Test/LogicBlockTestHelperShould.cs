@@ -84,8 +84,9 @@ namespace Vion.Dale.Sdk.TestKit.Test
             // Act / Assert
             var thrown = Assert.ThrowsExactly<MissingMethodException>(() => Construct<AbstractBlock>(withLogger));
             StringAssert.Contains(thrown.Message, "is abstract");
-            Assert.IsFalse(thrown.Message.Contains("public constructor taking a single"),
-                           "an abstract type must not be told a constructor is missing — it has one, and it is still unconstructable");
+            // An abstract type must not be told a constructor is missing: it has one, and it is still
+            // unconstructable, so the missing-constructor text would send the reader looking for the wrong thing.
+            Assert.DoesNotContain("public constructor taking a single", thrown.Message);
         }
 
         [TestMethod]

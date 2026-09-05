@@ -68,7 +68,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-TKIT-005.3")]
-        public void RenderRejectedCountInvariantlyWhateverCultureIsCurrent()
+        public void RenderRejectedCountInvariantlyUnderAnyCulture()
         {
             // Arrange
             var previous = CultureInfo.CurrentCulture;

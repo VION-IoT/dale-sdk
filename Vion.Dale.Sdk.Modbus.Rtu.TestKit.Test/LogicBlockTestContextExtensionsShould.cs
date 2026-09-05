@@ -3,8 +3,13 @@ using Vion.Dale.Sdk.TestKit;
 
 namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
 {
+    /// <summary>
+    ///     This kit's two verification helpers, which filter the recorded contract messages the way every
+    ///     other verify helper in the family does — by data type, by contract identifier, and by the
+    ///     request's own fields.
+    /// </summary>
     [TestClass]
-    public class LogicBlockTestContextShould
+    public class LogicBlockTestContextExtensionsShould
     {
         private LogicBlockTestContext<SampleLogicBlock> _context = null!;
 
@@ -19,6 +24,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-TKIT-005.4")]
         public void VerifyModbusReadSentWithAllFilters()
         {
             // Act
@@ -29,6 +35,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-TKIT-005.4")]
         public void VerifyModbusReadSentWithoutFilters()
         {
             // Act
@@ -39,6 +46,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-TKIT-005.4")]
         public void VerifyModbusReadSentForMultipleRequests()
         {
             // Act
@@ -52,6 +60,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-TKIT-005.4")]
         public void VerifyModbusReadSentNeverWhenNothingHappens()
         {
             // Act / Assert
@@ -59,6 +68,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-TKIT-005.4")]
         public void VerifyModbusWriteSentWithAddress()
         {
             // Act
@@ -69,6 +79,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-TKIT-005.4")]
         public void VerifyModbusWriteSentWithoutFilters()
         {
             // Act
@@ -79,6 +90,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-TKIT-005.4")]
         public void VerifyModbusWriteSentNeverWhenNothingHappens()
         {
             // Act / Assert

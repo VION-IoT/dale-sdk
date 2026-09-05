@@ -96,7 +96,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
         [TestProperty("spec", "AC-TKIT-008.8")]
         [DataRow(false, DisplayName = "FireTimer")]
         [DataRow(true, DisplayName = "GetTimerInterval")]
-        public void RefuseUnregisteredTimerNamingWhatIsRegistered(bool readInterval)
+        public void RefuseUnregisteredTimerNamingAvailableOnes(bool readInterval)
         {
             // Act / Assert
             var thrown = Assert.ThrowsExactly<TestKitVerificationException>(() => Query(readInterval, "NotATimer"));
@@ -124,7 +124,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
         [TestProperty("spec", "AC-TKIT-008.8")]
         [DataRow(false, DisplayName = "FireTimer")]
         [DataRow(true, DisplayName = "GetTimerInterval")]
-        public void RefuseSelectorThatIsNotMethodCall(bool readInterval)
+        public void RefuseSelectorOtherThanMethodCall(bool readInterval)
         {
             // Arrange — an object creation is a legal Action lambda and is not a method call, which is
             // the shape the selector guard exists for

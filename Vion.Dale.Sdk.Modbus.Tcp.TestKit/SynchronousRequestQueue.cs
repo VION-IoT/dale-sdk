@@ -34,6 +34,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
 
         private ModbusLinkAccumulator? _accumulator;
 
+        private TimeSpan? _maxQueuedAge;
+
         /// <summary>
         ///     When <c>true</c>, enqueued requests are buffered instead of executed until <see cref="Drain" /> is
         ///     called. Default is <c>false</c> — every request runs on the calling thread.
@@ -53,7 +55,23 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
         }
 
         /// <inheritdoc />
-        public TimeSpan? MaxQueuedAge { get; set; }
+        public TimeSpan? MaxQueuedAge
+        {
+            get => _maxQueuedAge;
+
+            set
+            {
+                // The same refusal RequestQueue makes, so the two shipped IRequestQueue implementations agree.
+                // Without it the fake kept a negative age and expired every request it then drained, while the
+                // inherited documentation promised this exception.
+                if (value is { } age && age <= TimeSpan.Zero)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(value), age, $"{nameof(MaxQueuedAge)} must be greater than zero, or null to disable the check.");
+                }
+
+                _maxQueuedAge = value;
+            }
+        }
 
         /// <summary>Records the accumulator. Capacity / overflow policy don't apply to the synchronous executor.</summary>
         public void Initialize(int capacity, QueueOverflowPolicy overflowPolicy, ModbusLinkAccumulator accumulator)

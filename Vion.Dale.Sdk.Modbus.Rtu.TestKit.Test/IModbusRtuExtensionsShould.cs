@@ -1,9 +1,16 @@
 using System;
+using Moq;
 using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
 using Vion.Dale.Sdk.TestKit;
 
 namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
 {
+    /// <summary>
+    ///     Simulating a Modbus RTU device's answer to a request the block already issued. Every simulation
+    ///     runs through the contract message path the runtime uses, so the callback chain, the byte
+    ///     conversion and the receipt are real SDK code against a fixture block — no serial port, no
+    ///     runtime, no device.
+    /// </summary>
     [TestClass]
     public class IModbusRtuExtensionsShould
     {
@@ -20,6 +27,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-TKIT-009.1")]
         public void InvokeSuccessCallbackOnSimulatedReadResponse()
         {
             // Arrange
@@ -39,6 +47,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-TKIT-009.3")]
         public void MatchReadResponseByStartingAddressWhenMultipleReadsArePending()
         {
             // Arrange
@@ -55,6 +64,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-TKIT-009.2")]
         public void InvokeErrorCallbackOnSimulatedReadError()
         {
             // Arrange
@@ -71,6 +81,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-TKIT-009.1")]
         public void InvokeSuccessCallbackOnSimulatedWriteResponse()
         {
             // Arrange
@@ -86,6 +97,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-TKIT-009.2")]
         public void InvokeErrorCallbackOnSimulatedWriteError()
         {
             // Arrange
@@ -102,6 +114,49 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-TKIT-009.3")]
+        public void AnswerSameRequestAgainWhenSimulatedTwice()
+        {
+            // Arrange — a simulation reads the recording and does not consume it, so the request the
+            // block issued once can be answered as often as a test asks
+            _sut.ReadVoltages();
+
+            // Act
+            _sut.Modbus.SimulateReadResponse(_context, ModbusResponseBuilder.FromFloats(1f, 2f, 3f), SampleLogicBlock.VoltagesAddress);
+            _sut.Modbus.SimulateReadResponse(_context, ModbusResponseBuilder.FromFloats(4f, 5f, 6f), SampleLogicBlock.VoltagesAddress);
+            _context.FlushPendingActions();
+
+            // Assert — the second answer is the one the block kept
+            Assert.AreEqual(4f, _sut.LastVoltages[0], 0.01f);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-TKIT-009.4")]
+        public void ThrowWhenSimulatingResponseOnForeignContract()
+        {
+            // Act / Assert
+            var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => new Mock<IModbusRtu>().Object.SimulateReadResponse(_context, new byte[] { 0, 0 }));
+            StringAssert.Contains(thrown.Message, "Unable to simulate response");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-TKIT-009.2")]
+        public void StampSimulatedReceiptFromVirtualClock()
+        {
+            // Arrange
+            _sut.ReadVoltages();
+            _context.AdvanceTime(TimeSpan.FromSeconds(3));
+
+            // Act
+            _sut.Modbus.SimulateReadResponse(_context, ModbusResponseBuilder.FromFloats(1f, 2f, 3f), SampleLogicBlock.VoltagesAddress);
+            _context.FlushPendingActions();
+
+            // Assert
+            Assert.AreEqual(_context.VirtualNow, _sut.LastReadReceipt!.Value.ReceivedAt);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-TKIT-009.4")]
         public void ThrowWhenSimulatingReadResponseWithNoPendingRequest()
         {
             // Act / Assert
@@ -109,6 +164,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-TKIT-009.4")]
         public void ThrowWhenSimulatingReadResponseForUnmatchedAddress()
         {
             // Arrange
@@ -119,6 +175,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-TKIT-009.4")]
         public void ThrowWhenSimulatingWriteResponseWithNoPendingRequest()
         {
             // Act / Assert
@@ -126,6 +183,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-TKIT-009.4")]
         public void ThrowWhenSimulatingWriteResponseForUnmatchedAddress()
         {
             // Arrange

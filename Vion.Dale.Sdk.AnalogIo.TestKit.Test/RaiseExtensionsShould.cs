@@ -123,7 +123,7 @@ namespace Vion.Dale.Sdk.AnalogIo.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-TKIT-006.2")]
-        public void RefuseInputFaceThatIsNotTheShippedImplementation()
+        public void RefuseInputFaceOfForeignImplementation()
         {
             // Act / Assert
             var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => new Mock<IAnalogInput>().Object.RaiseInputChanged(1.0));
@@ -132,7 +132,7 @@ namespace Vion.Dale.Sdk.AnalogIo.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-TKIT-006.2")]
-        public void RefuseOutputFaceThatIsNotTheShippedImplementation()
+        public void RefuseOutputFaceOfForeignImplementation()
         {
             // Act / Assert
             var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => new Mock<IAnalogOutput>().Object.RaiseOutputChanged(1.0));
@@ -141,7 +141,7 @@ namespace Vion.Dale.Sdk.AnalogIo.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-TKIT-006.2")]
-        public void RefuseOutputProviderFaceThatIsNotTheShippedImplementation()
+        public void RefuseOutputProviderFaceOfForeignImplementation()
         {
             // Act / Assert
             var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => new Mock<IAnalogOutputProvider>().Object.RaiseSetReceived(1.0));
