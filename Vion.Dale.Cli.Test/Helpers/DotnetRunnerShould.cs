@@ -1,12 +1,63 @@
 using System;
+using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Vion.Dale.Cli.Helpers;
+using Vion.Dale.Cli.Output;
 
 namespace Vion.Dale.Cli.Test.Helpers
 {
     [TestClass]
     public class DotnetRunnerShould
     {
+        [TestCleanup]
+        public void Cleanup()
+        {
+            DaleConsole.JsonMode = false;
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CLI-001.9")]
+        public void CaptureChildOutputInJsonModeSoOnlyDocumentReachesStandardOutput()
+        {
+            // Arrange
+            DaleConsole.JsonMode = true;
+
+            // Act
+            var startInfo = DotnetRunner.ComposeStartInfo("publish", new[] { "MyLib.csproj" }, workingDirectory: null);
+
+            // Assert
+            Assert.IsTrue(startInfo.RedirectStandardOutput);
+            Assert.IsFalse(startInfo.RedirectStandardError);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CLI-001.9")]
+        public void InheritChildOutputInTableMode()
+        {
+            // Arrange
+            DaleConsole.JsonMode = false;
+
+            // Act
+            var startInfo = DotnetRunner.ComposeStartInfo("build", new[] { "MyLib.csproj" }, workingDirectory: null);
+
+            // Assert
+            Assert.IsFalse(startInfo.RedirectStandardOutput);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CLI-004.2")]
+        public void StartDotnetWithoutShellAndInGivenDirectory()
+        {
+            // Arrange / Act
+            var startInfo = DotnetRunner.ComposeStartInfo("test", null, @"C:\work\MyLib");
+
+            // Assert
+            Assert.AreEqual("dotnet", startInfo.FileName);
+            Assert.IsFalse(startInfo.UseShellExecute);
+            Assert.AreEqual(@"C:\work\MyLib", startInfo.WorkingDirectory);
+            CollectionAssert.AreEqual(new[] { "test" }, startInfo.ArgumentList.ToArray());
+        }
+
         [TestMethod]
         [TestProperty("spec", "AC-CLI-004.1")]
         public void PutVerbFirstInArgumentList()

@@ -11,6 +11,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
+using Vion.Dale.Cli.Infrastructure;
 using Vion.Dale.Cli.Output;
 
 namespace Vion.Dale.Cli.Commands
@@ -193,7 +194,10 @@ namespace Vion.Dale.Cli.Commands
 
                               if (DaleConsole.JsonMode)
                               {
-                                  Console.WriteLine(report.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+                                  // Through the tool's own JSON conventions, like every other document it
+                                  // emits — the schema at `CreateSchema` is the one deliberate exception, and
+                                  // it says why.
+                                  DaleConsole.WriteJson(RenderRunReportJson(report));
                               }
                               else
                               {
@@ -719,6 +723,15 @@ namespace Vion.Dale.Cli.Commands
                                throw new InvalidOperationException($"Embedded resource '{resourceName}' is missing from the CLI assembly.");
             using var reader = new StreamReader(stream);
             return reader.ReadToEnd();
+        }
+
+        /// <summary>
+        ///     The run report as JSON, through the tool's own conventions like every other document it emits
+        ///     — the enriched schema at `scenario schema` is the one deliberate exception, and says why.
+        /// </summary>
+        internal static string RenderRunReportJson(JsonNode report)
+        {
+            return report.ToJsonString(JsonDefaults.Options);
         }
 
         private static void RenderReport(JsonNode report)

@@ -48,11 +48,26 @@ namespace Vion.Dale.Cli.Commands
                                       return 0;
                                   }
 
-                                  RenderTable(project, pluginInfo);
+                                  RenderTable(AnsiConsole.Console, project, pluginInfo);
                                   return 0;
                               });
 
             return command;
+        }
+
+        /// <summary>
+        ///     The last segment of a logic block's identity. The identity is the CLR full type name
+        ///     (`AC-INTRO-004.1`), so a nested block's short name sits past the nesting separator as well as
+        ///     the namespace separator — `Outer+Inner` is two names, not one.
+        /// </summary>
+        internal static string ShortName(string? typeFullName)
+        {
+            if (string.IsNullOrEmpty(typeFullName))
+            {
+                return "Unknown";
+            }
+
+            return typeFullName.Split('.', '+')[^1];
         }
 
         internal static CliListOutput MapToCliOutput(DalePluginInfo info, DaleProject project)
@@ -69,12 +84,10 @@ namespace Vion.Dale.Cli.Commands
             {
                 var block = new CliLogicBlockOutput
                             {
-                                Name = lb.TypeFullName?.Split('.')[^1] ?? lb.TypeFullName ?? "Unknown",
+                                Name = ShortName(lb.TypeFullName),
                                 FullName = lb.TypeFullName ?? "Unknown",
-                                Interfaces = lb.Interfaces?.Select(i => i.Identifier ?? string.Empty).Where(s => s != string.Empty).ToList() ??
-                                             new List<string>(),
-                                Contracts = lb.Contracts?.Select(c => c.Identifier ?? string.Empty).Where(s => s != string.Empty).ToList() ??
-                                            new List<string>(),
+                                Interfaces = lb.Interfaces?.Select(i => i.Identifier ?? string.Empty).ToList() ?? new List<string>(),
+                                Contracts = lb.Contracts?.Select(c => c.Identifier ?? string.Empty).ToList() ?? new List<string>(),
                                 DevelopmentOnly = IsDevelopmentOnly(lb),
                                 Services = lb.Services
                                              ?.Select(s => new CliServiceOutput
@@ -132,7 +145,11 @@ namespace Vion.Dale.Cli.Commands
             };
         }
 
-        private static void RenderTable(DaleProject project, DalePluginInfo pluginInfo)
+        /// <summary>
+        ///     The human listing. The console is a parameter so the rendering — including the escaping every
+        ///     identifier needs before Spectre reads it as markup — can be asserted against a captured writer.
+        /// </summary>
+        internal static void RenderTable(IAnsiConsole console, DaleProject project, DalePluginInfo pluginInfo)
         {
             DaleConsole.Info($"Project: {project.ProjectName} (v{project.Version ?? "??"})");
             if (project.SdkVersion != null)
@@ -150,7 +167,7 @@ namespace Vion.Dale.Cli.Commands
 
             foreach (var lb in pluginInfo.LogicBlocks)
             {
-                var shortName = lb.TypeFullName.Split('.').Last();
+                var shortName = ShortName(lb.TypeFullName);
 
                 // A development-only block is listed like any other, marked — it is part of the project, it
                 // just never reaches the cloud (`dale pack` filters it out of the introspection JSON).
@@ -158,34 +175,36 @@ namespace Vion.Dale.Cli.Commands
 
                 var table = new Table().Border(TableBorder.Rounded).AddColumn(new TableColumn(header).NoWrap()).AddColumn(new TableColumn(string.Empty));
 
-                if (lb.Contracts.Count > 0)
+                // Every rendered value is escaped: an identifier is author-supplied and Spectre reads
+                // square brackets as markup, so an unescaped one corrupts the row or throws.
+                var contracts = lb.Contracts ?? new List<ContractInfo>();
+                if (contracts.Count > 0)
                 {
-                    var contractStr = string.Join(", ", lb.Contracts.Select(c => $"{c.Identifier} ({c.MatchingContractType})"));
-                    table.AddRow("Contracts", contractStr);
+                    table.AddRow("Contracts", Markup.Escape(string.Join(", ", contracts.Select(c => $"{c.Identifier} ({c.MatchingContractType})"))));
                 }
 
-                var allProperties = lb.Services.SelectMany(s => s.Properties).ToList();
+                var services = lb.Services ?? new List<ServiceInfo>();
+
+                var allProperties = services.SelectMany(service => service.Properties ?? new List<ServicePropertyInfo>()).ToList();
                 if (allProperties.Count > 0)
                 {
-                    var propStr = string.Join(", ", allProperties.Select(p => p.Identifier));
-                    table.AddRow("Properties", propStr);
+                    table.AddRow("Properties", Markup.Escape(string.Join(", ", allProperties.Select(property => property.Identifier))));
                 }
 
-                var allMeasuring = lb.Services.SelectMany(s => s.MeasuringPoints).ToList();
+                var allMeasuring = services.SelectMany(service => service.MeasuringPoints ?? new List<ServiceMeasuringPointInfo>()).ToList();
                 if (allMeasuring.Count > 0)
                 {
-                    var mpStr = string.Join(", ", allMeasuring.Select(m => m.Identifier));
-                    table.AddRow("Measuring", mpStr);
+                    table.AddRow("Measuring", Markup.Escape(string.Join(", ", allMeasuring.Select(point => point.Identifier))));
                 }
 
-                if (lb.Interfaces.Count > 0)
+                var interfaces = lb.Interfaces ?? new List<InterfaceInfo>();
+                if (interfaces.Count > 0)
                 {
-                    var ifStr = string.Join(", ", lb.Interfaces.Select(i => i.Identifier));
-                    table.AddRow("Interfaces", ifStr);
+                    table.AddRow("Interfaces", Markup.Escape(string.Join(", ", interfaces.Select(i => i.Identifier))));
                 }
 
-                AnsiConsole.Write(table);
-                AnsiConsole.WriteLine();
+                console.Write(table);
+                console.WriteLine();
             }
         }
     }
