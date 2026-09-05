@@ -15,12 +15,12 @@ namespace Vion.Dale.Sdk.AnalogIo.TestKit.Test
 
         public IAnalogOutput AnalogOutput { get; set; } = null!;
 
+        /// <summary>The last value the output's own change event carried, so a raise on it is observable.</summary>
+        public double LastOutputConfirmation { get; private set; }
+
         public SampleLogicBlock(ILogger logger) : base(logger)
         {
         }
-
-        /// <summary>The last value the output's own change event carried, so a raise on it is observable.</summary>
-        public double LastOutputConfirmation { get; private set; }
 
         protected override void Ready()
         {

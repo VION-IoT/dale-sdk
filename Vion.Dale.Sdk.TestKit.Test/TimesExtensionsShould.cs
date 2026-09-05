@@ -94,18 +94,18 @@ namespace Vion.Dale.Sdk.TestKit.Test
         private static Times Form(int form)
         {
             return form switch
-                   {
-                       1 => Times.Once(),
-                       2 => Times.Never(),
-                       3 => Times.AtLeastOnce(),
-                       4 or 5 => Times.AtMostOnce(),
-                       6 => Times.Exactly(2),
-                       7 => Times.AtLeast(2),
-                       8 => Times.AtMost(2),
-                       9 or 10 or 11 => Times.Between(1, 3, Moq.Range.Inclusive),
-                       12 => Times.Between(1, 3, Moq.Range.Exclusive),
-                       _ => throw new ArgumentOutOfRangeException(nameof(form), form, null),
-                   };
+            {
+                1 => Times.Once(),
+                2 => Times.Never(),
+                3 => Times.AtLeastOnce(),
+                4 or 5 => Times.AtMostOnce(),
+                6 => Times.Exactly(2),
+                7 => Times.AtLeast(2),
+                8 => Times.AtMost(2),
+                9 or 10 or 11 => Times.Between(1, 3, Moq.Range.Inclusive),
+                12 => Times.Between(1, 3, Moq.Range.Exclusive),
+                _ => throw new ArgumentOutOfRangeException(nameof(form), form, null),
+            };
         }
     }
 }

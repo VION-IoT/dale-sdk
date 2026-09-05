@@ -59,7 +59,13 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
         public void ConsumeVirtualTimeOnEveryOperationWhenDelayConfigured()
         {
             // Arrange
-            var clock = new FakeTimeProvider(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
+            var clock = new FakeTimeProvider(new DateTimeOffset(2026,
+                                                                1,
+                                                                1,
+                                                                0,
+                                                                0,
+                                                                0,
+                                                                TimeSpan.Zero));
             var proxy = new FakeModbusTcpClientProxy { Clock = clock, ResponseDelay = TimeSpan.FromMilliseconds(40), ConnectDelay = TimeSpan.FromMilliseconds(10) };
             using var harness = new FakeModbusTcpHarness(proxy, clock);
             proxy.SetHoldingRegisters(1, 40000, [0x00, 0x00, 0x00, 0x2A]);
@@ -71,7 +77,15 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
             context.FlushPendingActions();
 
             // Assert — one connect and one read, so 10 ms + 40 ms of virtual time
-            Assert.AreEqual(new DateTime(2026, 1, 1, 0, 0, 0, 50, DateTimeKind.Utc), clock.GetUtcNow().UtcDateTime);
+            Assert.AreEqual(new DateTime(2026,
+                                         1,
+                                         1,
+                                         0,
+                                         0,
+                                         0,
+                                         50,
+                                         DateTimeKind.Utc),
+                            clock.GetUtcNow().UtcDateTime);
         }
 
         [TestMethod]

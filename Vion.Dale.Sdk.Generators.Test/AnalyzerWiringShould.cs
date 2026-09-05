@@ -119,7 +119,9 @@ namespace Vion.Dale.Sdk.Generators.Test
 
             // Assert
             Assert.Contains("DALE014", output, $"The probe build of {projectName} drew no DALE014, so the Dale analyzers did not run over it.{Environment.NewLine}{output}");
-            Assert.Contains($"in namespace '{declaredNamespace}'", output, $"The DALE014 in the probe build of {projectName} named another namespace.{Environment.NewLine}{output}");
+            Assert.Contains($"in namespace '{declaredNamespace}'",
+                            output,
+                            $"The DALE014 in the probe build of {projectName} named another namespace.{Environment.NewLine}{output}");
         }
 
         [TestMethod]

@@ -37,7 +37,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
         public void FireTimerCallbackSelectedByMethodCall()
         {
             // Act
-            _sut.FireTimer((SampleLogicBlock lb) => lb.OnPeriodicUpdate());
+            _sut.FireTimer(lb => lb.OnPeriodicUpdate());
 
             // Assert
             Assert.AreEqual(1, _sut.Counter);
@@ -86,7 +86,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
         public void ReportConfiguredIntervalSelectedByMethodCall()
         {
             // Act
-            var interval = _sut.GetTimerInterval((SampleLogicBlock lb) => lb.OnPeriodicUpdate());
+            var interval = _sut.GetTimerInterval(lb => lb.OnPeriodicUpdate());
 
             // Assert
             Assert.AreEqual(TimeSpan.FromSeconds(5), interval);
@@ -114,9 +114,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
             block.InitializeForTest();
 
             // Act / Assert
-            var thrown = Assert.ThrowsExactly<TestKitVerificationException>(() => readInterval
-                                                                                      ? block.GetTimerInterval("NotATimer")
-                                                                                      : Fire(block, "NotATimer"));
+            var thrown = Assert.ThrowsExactly<TestKitVerificationException>(() => readInterval ? block.GetTimerInterval("NotATimer") : Fire(block, "NotATimer"));
             Assert.AreEqual("No timer registered with identifier 'NotATimer'. Available timers: (none).", thrown.Message);
         }
 

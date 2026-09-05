@@ -15,11 +15,11 @@ namespace Vion.Dale.Sdk.AnalogIo.TestKit.Test
     [TestClass]
     public class LogicBlockTestContextExtensionsShould
     {
-        private LogicBlockTestContext<SampleProviderLogicBlock> _providerContext = null!;
+        private LogicBlockTestContext<SampleLogicBlock> _context = null!;
 
         private SampleProviderLogicBlock _provider = null!;
 
-        private LogicBlockTestContext<SampleLogicBlock> _context = null!;
+        private LogicBlockTestContext<SampleProviderLogicBlock> _providerContext = null!;
 
         private SampleLogicBlock _sut = null!;
 

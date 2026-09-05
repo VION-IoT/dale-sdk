@@ -153,9 +153,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
             _sut.Power = 3.0;
 
             // Assert — a helper that asserted only the first would see one
-            _context.VerifyServicePropertyChanged(lb => lb.Power,
-                                                  _ => seen++,
-                                                  Times.Exactly(3));
+            _context.VerifyServicePropertyChanged(lb => lb.Power, _ => seen++, Times.Exactly(3));
             Assert.AreEqual(3, seen);
         }
 

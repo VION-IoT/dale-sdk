@@ -140,7 +140,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
         {
             // Arrange — the queue is initialized when the client is enabled, so a request issued
             // against a queue nothing initialized has no accumulator to report into
-            var queue = new SynchronousRequestQueue(new Mock<Vion.Dale.Sdk.Modbus.Tcp.Client.Request.IRequestFactory>().Object);
+            var queue = new SynchronousRequestQueue(new Mock<Client.Request.IRequestFactory>().Object);
 
             // Act / Assert
             var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => queue.Enqueue("probe", null!, _ => System.Threading.Tasks.Task.CompletedTask, null, null));
@@ -153,7 +153,13 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
         {
             // Arrange / Act
             using var systemClocked = new FakeModbusTcpHarness();
-            var supplied = new FakeTimeProvider(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
+            var supplied = new FakeTimeProvider(new DateTimeOffset(2026,
+                                                                   1,
+                                                                   1,
+                                                                   0,
+                                                                   0,
+                                                                   0,
+                                                                   TimeSpan.Zero));
             using var virtuallyClocked = new FakeModbusTcpHarness(supplied);
 
             systemClocked.Proxy.SetHoldingRegisters(1, 40000, [0x00, 0x00, 0x00, 0x2A]);
@@ -170,8 +176,22 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
             virtualContext.FlushPendingActions();
 
             // Assert — the receipt of the harness given a clock is stamped from it; the default one is not
-            Assert.AreEqual(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc), onVirtualClock.LastReadReceipt!.Value.ReceivedAt);
-            Assert.AreNotEqual(new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc), onSystemClock.LastReadReceipt!.Value.ReceivedAt);
+            Assert.AreEqual(new DateTime(2026,
+                                         1,
+                                         1,
+                                         0,
+                                         0,
+                                         0,
+                                         DateTimeKind.Utc),
+                            onVirtualClock.LastReadReceipt!.Value.ReceivedAt);
+            Assert.AreNotEqual(new DateTime(2026,
+                                            1,
+                                            1,
+                                            0,
+                                            0,
+                                            0,
+                                            DateTimeKind.Utc),
+                               onSystemClock.LastReadReceipt!.Value.ReceivedAt);
         }
 
         [TestMethod]

@@ -96,7 +96,8 @@ namespace Vion.Dale.Sdk.TestKit.Test
         public void CarryEveryPublishedKitTypeInApiManifest()
         {
             // Arrange
-            var manifest = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(File.ReadAllText(Path.Combine(RepositoryRoot(), "docs", "snapshots", "publicapi-manifest.json")))!;
+            var manifest =
+                JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(File.ReadAllText(Path.Combine(RepositoryRoot(), "docs", "snapshots", "publicapi-manifest.json")))!;
             var recorded = manifest["types"].EnumerateArray().Select(entry => entry.GetString()!).ToHashSet(StringComparer.Ordinal);
 
             // Act

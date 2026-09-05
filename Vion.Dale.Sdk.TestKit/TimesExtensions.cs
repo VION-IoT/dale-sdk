@@ -25,11 +25,7 @@ namespace Vion.Dale.Sdk.TestKit
 
             // Invariant so the rendered count is the same text on every machine. An int formats identically
             // in every culture today, so this pins a rule rather than repairing a defect.
-            throw new TestKitVerificationException(string.Format(CultureInfo.InvariantCulture,
-                                                                 "{0}: Expected {1} but found {2}.",
-                                                                 assertMessage,
-                                                                 times,
-                                                                 actualCount));
+            throw new TestKitVerificationException(string.Format(CultureInfo.InvariantCulture, "{0}: Expected {1} but found {2}.", assertMessage, times, actualCount));
         }
     }
 }

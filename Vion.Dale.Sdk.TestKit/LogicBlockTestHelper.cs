@@ -64,8 +64,7 @@ namespace Vion.Dale.Sdk.TestKit
             var type = typeof(T);
             if (type.IsAbstract)
             {
-                throw new MissingMethodException($"Logic block type '{type.FullName}' is abstract and cannot be constructed. " +
-                                                 "Pass the concrete block under test.");
+                throw new MissingMethodException($"Logic block type '{type.FullName}' is abstract and cannot be constructed. " + "Pass the concrete block under test.");
             }
 
             if (type.GetConstructor(new[] { typeof(ILogger) }) == null)

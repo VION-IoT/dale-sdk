@@ -15,7 +15,13 @@ namespace Vion.Dale.Sdk.TestKit.Test
     [TestClass]
     public class VirtualTimeShould
     {
-        private static readonly DateTime Anchor = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        private static readonly DateTime Anchor = new(2026,
+                                                      1,
+                                                      1,
+                                                      0,
+                                                      0,
+                                                      0,
+                                                      DateTimeKind.Utc);
 
         private LogicBlockTestContext<SchedulingLogicBlock> _context = null!;
 
@@ -54,7 +60,13 @@ namespace Vion.Dale.Sdk.TestKit.Test
         public void BindCallerSuppliedClockToBothBlockAndDeadlines()
         {
             // Arrange
-            var clock = new FakeTimeProvider(new DateTimeOffset(2030, 6, 1, 0, 0, 0, TimeSpan.Zero));
+            var clock = new FakeTimeProvider(new DateTimeOffset(2030,
+                                                                6,
+                                                                1,
+                                                                0,
+                                                                0,
+                                                                0,
+                                                                TimeSpan.Zero));
             var block = LogicBlockTestHelper.Create<SchedulingLogicBlock>();
 
             // Act
@@ -63,7 +75,14 @@ namespace Vion.Dale.Sdk.TestKit.Test
             // Assert
             Assert.AreSame(clock, context.TimeProvider);
             Assert.AreSame(clock, context.BuiltServiceProvider!.GetService(typeof(TimeProvider)));
-            Assert.AreEqual(new DateTime(2030, 6, 1, 0, 0, 0, DateTimeKind.Utc), context.VirtualNow);
+            Assert.AreEqual(new DateTime(2030,
+                                         6,
+                                         1,
+                                         0,
+                                         0,
+                                         0,
+                                         DateTimeKind.Utc),
+                            context.VirtualNow);
         }
 
         [TestMethod]
@@ -72,7 +91,13 @@ namespace Vion.Dale.Sdk.TestKit.Test
         {
             // Arrange — the trap this criterion exists to state: a clock registered through WithServices
             // reaches the block and never the driver.
-            var registered = new FakeTimeProvider(new DateTimeOffset(2030, 6, 1, 0, 0, 0, TimeSpan.Zero));
+            var registered = new FakeTimeProvider(new DateTimeOffset(2030,
+                                                                     6,
+                                                                     1,
+                                                                     0,
+                                                                     0,
+                                                                     0,
+                                                                     TimeSpan.Zero));
             var block = LogicBlockTestHelper.Create<SchedulingLogicBlock>();
 
             // Act
@@ -354,6 +379,40 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
             // Act
             _context.FlushPendingActions();
+
+            // Assert
+            CollectionAssert.AreEqual(new[] { "boom", "later" }, _sut.Ran);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-TKIT-008.5")]
+        public void KeepEnqueueOrderOfActionsPutBackAfterThrowingFlush()
+        {
+            // Arrange — the sibling of the throw rule: the actions a failed flush puts back were queued
+            // before anything a later call adds, so they must still run first
+            _sut.ScheduleThrowing("boom", TimeSpan.Zero);
+            _sut.Schedule("queuedBefore", TimeSpan.Zero);
+            Assert.ThrowsExactly<InvalidOperationException>(() => _context.FlushPendingActions());
+            _sut.Schedule("queuedAfter", TimeSpan.Zero);
+
+            // Act
+            _context.FlushPendingActions();
+
+            // Assert
+            CollectionAssert.AreEqual(new[] { "boom", "queuedBefore", "queuedAfter" }, _sut.Ran);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-TKIT-008.4")]
+        public void ReachActionsPutBackByThrowingFlushFromAdvanceToo()
+        {
+            // Arrange — the two drivers share one queue, so what one puts back the other must reach
+            _sut.ScheduleThrowing("boom", TimeSpan.Zero);
+            _sut.Schedule("later", TimeSpan.FromSeconds(5));
+            Assert.ThrowsExactly<InvalidOperationException>(() => _context.FlushPendingActions());
+
+            // Act
+            _context.AdvanceTime(TimeSpan.FromSeconds(5));
 
             // Assert
             CollectionAssert.AreEqual(new[] { "boom", "later" }, _sut.Ran);

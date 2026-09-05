@@ -12,12 +12,12 @@ namespace Vion.Dale.Sdk.TestKit.Test.TestHelpers
     /// </summary>
     public class SchedulingLogicBlock : LogicBlockBase
     {
+        /// <summary>The tags of the actions that ran, in the order they ran.</summary>
+        public List<string> Ran { get; } = [];
+
         public SchedulingLogicBlock(ILogger logger) : base(logger)
         {
         }
-
-        /// <summary>The tags of the actions that ran, in the order they ran.</summary>
-        public List<string> Ran { get; } = [];
 
         public void Schedule(string tag, TimeSpan delay)
         {

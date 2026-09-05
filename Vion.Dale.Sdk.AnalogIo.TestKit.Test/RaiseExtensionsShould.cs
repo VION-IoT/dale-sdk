@@ -18,9 +18,9 @@ namespace Vion.Dale.Sdk.AnalogIo.TestKit.Test
     [TestClass]
     public class RaiseExtensionsShould
     {
-        private SampleLogicBlock _sut = null!;
-
         private SampleProviderLogicBlock _provider = null!;
+
+        private SampleLogicBlock _sut = null!;
 
         [TestInitialize]
         public void Initialize()
@@ -147,6 +147,5 @@ namespace Vion.Dale.Sdk.AnalogIo.TestKit.Test
             var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => new Mock<IAnalogOutputProvider>().Object.RaiseSetReceived(1.0));
             StringAssert.Contains(thrown.Message, "Unable to raise SetReceived");
         }
-
     }
 }

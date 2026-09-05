@@ -15,10 +15,6 @@ namespace Vion.Dale.Sdk.TestKit.Test.TestHelpers
     {
         private int _restored;
 
-        public PhaseRecordingLogicBlock(ILogger logger) : base(logger)
-        {
-        }
-
         /// <summary>The phases that ran, in order.</summary>
         public List<string> Phases { get; } = [];
 
@@ -33,6 +29,10 @@ namespace Vion.Dale.Sdk.TestKit.Test.TestHelpers
                 _restored = value;
                 Phases.Add("Restore");
             }
+        }
+
+        public PhaseRecordingLogicBlock(ILogger logger) : base(logger)
+        {
         }
 
         protected override void Ready()
@@ -60,10 +60,6 @@ namespace Vion.Dale.Sdk.TestKit.Test.TestHelpers
             Manual,
         }
 
-        public PersistentLogicBlock(ILogger logger) : base(logger)
-        {
-        }
-
         [Persistent]
         [ServiceProperty]
         public double MaxPower { get; set; }
@@ -71,6 +67,10 @@ namespace Vion.Dale.Sdk.TestKit.Test.TestHelpers
         [Persistent]
         [ServiceProperty]
         public OperatingMode Mode { get; set; }
+
+        public PersistentLogicBlock(ILogger logger) : base(logger)
+        {
+        }
 
         protected override void Ready()
         {

@@ -18,6 +18,11 @@ namespace Vion.Dale.Sdk.TestKit.Test
     [TestClass]
     public class LogicBlockTestContextBuilderShould
     {
+        // The marker is internal to the SDK and granted to this kit alone, so a test reaches it by name
+        // rather than by type — a consumer could not write this assertion, which is exactly what the
+        // BuiltServiceProvider documentation had to stop claiming.
+        private static readonly Type EmissionPolicyForceMarkerType = typeof(LogicBlockBase).Assembly.GetType("Vion.Dale.Sdk.Emission.EmissionPolicyForceMarker")!;
+
         [TestMethod]
         [TestProperty("spec", "AC-TKIT-002.1")]
         public void DriveBlockThroughEveryPhaseInOrder()
@@ -88,10 +93,7 @@ namespace Vion.Dale.Sdk.TestKit.Test
             var block = LogicBlockTestHelper.Create<PersistentLogicBlock>();
 
             // Act
-            block.CreateTestContext()
-                 .WithPersistentValue(lb => lb.MaxPower, 42.0)
-                 .WithPersistentValue(lb => lb.Mode, PersistentLogicBlock.OperatingMode.Manual)
-                 .Build();
+            block.CreateTestContext().WithPersistentValue(lb => lb.MaxPower, 42.0).WithPersistentValue(lb => lb.Mode, PersistentLogicBlock.OperatingMode.Manual).Build();
 
             // Assert
             Assert.AreEqual(42.0, block.MaxPower);
@@ -303,11 +305,5 @@ namespace Vion.Dale.Sdk.TestKit.Test
             var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => builder.WithInstantiationParameter(lb => lb.Power, 3.0).Build());
             StringAssert.Contains(thrown.Message, nameof(SampleLogicBlock.Power));
         }
-
-        // The marker is internal to the SDK and granted to this kit alone, so a test reaches it by name
-        // rather than by type — a consumer could not write this assertion, which is exactly what the
-        // BuiltServiceProvider documentation had to stop claiming.
-        private static readonly Type EmissionPolicyForceMarkerType =
-            typeof(LogicBlockBase).Assembly.GetType("Vion.Dale.Sdk.Emission.EmissionPolicyForceMarker")!;
     }
 }

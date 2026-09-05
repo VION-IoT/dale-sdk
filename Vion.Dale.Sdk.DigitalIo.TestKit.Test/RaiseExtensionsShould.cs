@@ -18,9 +18,9 @@ namespace Vion.Dale.Sdk.DigitalIo.TestKit.Test
     [TestClass]
     public class RaiseExtensionsShould
     {
-        private SampleLogicBlock _sut = null!;
-
         private SampleProviderLogicBlock _provider = null!;
+
+        private SampleLogicBlock _sut = null!;
 
         [TestInitialize]
         public void Initialize()
@@ -144,6 +144,5 @@ namespace Vion.Dale.Sdk.DigitalIo.TestKit.Test
             var thrown = Assert.ThrowsExactly<InvalidOperationException>(() => new Mock<IDigitalOutputProvider>().Object.RaiseSetReceived(true));
             StringAssert.Contains(thrown.Message, "Unable to raise SetReceived");
         }
-
     }
 }

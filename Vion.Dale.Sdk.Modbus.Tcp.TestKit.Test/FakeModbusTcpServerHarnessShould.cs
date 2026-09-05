@@ -40,8 +40,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
             // The block's tick: read commands, publish telemetry — one atomic Sync.
             _harness.Server.Sync(snapshot =>
                                  {
-
-            // Act / Assert
+                                     // Act / Assert
                                      Assert.AreEqual((ushort)42, snapshot.HoldingRegisters.ReadAsUShort(1));
                                      Assert.IsTrue(snapshot.Coils.Read(2));
 

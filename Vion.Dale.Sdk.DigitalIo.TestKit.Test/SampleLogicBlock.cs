@@ -15,12 +15,12 @@ namespace Vion.Dale.Sdk.DigitalIo.TestKit.Test
 
         public IDigitalOutput DigitalOutput { get; set; } = null!;
 
+        /// <summary>The last value the output's own change event carried, so a raise on it is observable.</summary>
+        public bool LastOutputConfirmation { get; private set; }
+
         public SampleLogicBlock(ILogger logger) : base(logger)
         {
         }
-
-        /// <summary>The last value the output's own change event carried, so a raise on it is observable.</summary>
-        public bool LastOutputConfirmation { get; private set; }
 
         protected override void Ready()
         {

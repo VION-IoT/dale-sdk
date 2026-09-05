@@ -14,12 +14,12 @@ namespace Vion.Dale.Sdk.TestKit.Test.TestHelpers
     {
         private readonly TimeProvider _timeProvider;
 
+        public List<DateTime> ObservedInstants { get; } = [];
+
         public ClockReadingLogicBlock(ILogger logger, TimeProvider timeProvider) : base(logger)
         {
             _timeProvider = timeProvider;
         }
-
-        public List<DateTime> ObservedInstants { get; } = [];
 
         public void ScheduleClockRead(TimeSpan delay)
         {
