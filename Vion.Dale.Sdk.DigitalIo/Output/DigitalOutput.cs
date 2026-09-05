@@ -24,7 +24,7 @@ namespace Vion.Dale.Sdk.DigitalIo.Output
         /// </summary>
         /// <param name="identifier">The unique identifier for this digital output.</param>
         /// <param name="actorContext">The actor context used for communication with the HAL handler.</param>
-        /// <param name="logger"></param>
+        /// <param name="logger">The logger instance.</param>
         public DigitalOutput(string identifier, IActorContext actorContext, ILogger<DigitalOutput> logger) : base(identifier, actorContext)
         {
             _logger = logger;

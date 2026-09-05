@@ -20,6 +20,11 @@ namespace Vion.Dale.Sdk.AnalogIo.Output
     [ScenarioWire(Inbound = typeof(AnalogOutputChanged), Outbound = typeof(SetAnalogOutput))]
     public partial class AnalogOutputHandler : ServiceProviderHandlerBase
     {
+        // The serialized size of a SetAoPayload carrying a non-default value, measured rather than guessed:
+        // a builder short of it grows once on every command, and one over it wastes the difference on every
+        // command. The digital twin's payload is a different size, so the two do not share a literal.
+        private const int SetAoPayloadBytes = 24;
+
         private readonly Dictionary<ServiceProviderContractId, string> _aoResponseTopics = [];
 
         private readonly Dictionary<ServiceProviderContractId, string> _aoTopics = [];
@@ -91,7 +96,7 @@ namespace Vion.Dale.Sdk.AnalogIo.Output
 
         private static byte[] CreateSetAoPayload(double value)
         {
-            var builder = new FlatBufferBuilder(20);
+            var builder = new FlatBufferBuilder(SetAoPayloadBytes);
             var payloadOffset = SetAoPayload.CreateSetAoPayload(builder, value);
             SetAoPayload.FinishSetAoPayloadBuffer(builder, payloadOffset);
 

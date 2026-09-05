@@ -9,7 +9,7 @@
 
         <!-- NuGet package metadata -->
         <PackageId>Vion.Dale.Sdk.DigitalIo</PackageId>
-        <Description>Digtal input and output functionality for logic blocks</Description>
+        <Description>Digital input and output functionality for logic blocks</Description>
         <IsPackable>true</IsPackable>
     </PropertyGroup>
 

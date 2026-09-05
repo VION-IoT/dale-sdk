@@ -24,7 +24,7 @@ namespace Vion.Dale.Sdk.DigitalIo.Input
         /// </summary>
         /// <param name="identifier">The unique identifier for this digital input.</param>
         /// <param name="actorContext">The actor context used for communication with the HAL handler.</param>
-        /// <param name="logger"></param>
+        /// <param name="logger">The logger instance.</param>
         public DigitalInput(string identifier, IActorContext actorContext, ILogger<DigitalInput> logger) : base(identifier, actorContext)
         {
             _logger = logger;
