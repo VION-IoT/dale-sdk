@@ -225,12 +225,10 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   `Vion.Dale.Sdk.TestKit/LogicBlockTestContextBuilder.cs:352-369` discovers contract identifiers from
   marked, writable properties and reads no `[IncludedWhen]`, which is two of the binder's three
   conditions — so a gated-out contract is mapped in a test and absent in a host.
-  *(BIND pass row 191 — `TKIT`.)*
-- **The TestKit discovers a contract's service registrations from the block's own properties, where a
-  host discovers them from the plugin.** `LogicBlockTestContextBuilder.cs:326-345` walks the block
-  under test for marked property types and runs every `IConfigureServices` in their assemblies, so a
-  block whose contract needs a dependency the block does not itself hold is untestable.
-  *(BIND pass row 193 — `TKIT`.)*
+  *(BIND pass row 191 — `TKIT`.)* **TKIT pass row 21:** parked again, and the page now states the
+  discovery rule it follows from (`AC-TKIT-002.2`). Reading a gate means running the gate evaluator
+  the binder owns, which is `BIND`'s surface and not a line in a kit; decision `0081` names
+  "runtime/DevHost/TestKit" as one rule, so this is that rule's TestKit half and moves with it.
 - **Every namespace of this area but two is outside the public-API ratchet.**
   `Vion.Dale.Sdk/PublicApiConfig.cs:6-8` declares only `Core`, `Emission` and `Utils`, so `DALE014`
   never asks for a mark in `Configuration.Contract`, `Configuration.Interfaces`, `CodeGeneration`,
@@ -424,11 +422,6 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   Reviewer's question 3 of
   [`../changes/archive/2026-09-04-modb-pass.md`](../changes/archive/2026-09-04-modb-pass.md) —
   `MODB`.)*
-- **The TestKit's queue accepts a negative maximum queued age.** `SynchronousRequestQueue.MaxQueuedAge`
-  (`:56`) is a plain auto-property, so after this pass guarded the real `RequestQueue` the two shipped
-  `IRequestQueue` implementations disagree: the fake keeps `-1 s` and expires everything, where the
-  real one refuses it. *(MODB pass, the second opinion's unsaid item 7 — `TKIT`.)*
-
 ## `CLI` — the `dale` command-line tool (2026-09-05)
 
 - **The two upload conflicts are told apart by the endpoint's message text.** `dale upload
@@ -475,6 +468,57 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   area-local, and worth a test that pins the help line under an empty root. *(Found at the merge of
   the CLI pass — `CLI`.)*
 
+## `TKIT` — the five test kits (2026-09-06)
+
+- **A persistent value declared for a property the block does not persist is accepted silently.**
+  `Vion.Dale.Sdk.TestKit/LogicBlockTestContextBuilder.cs:444-464` resolves the storage key from the
+  block's own service-property bindings and falls back to `_direct.{PropertyName}` when the search
+  misses, so a typo or a property that is not persistent restores under a key the block never reads
+  and the test asserts against a default it believes it set. Catching it needs the binder's own view
+  of which properties persist, which is `BIND`'s surface rather than a line here — the same reason
+  the inclusion-gate entry above is parked. *(TKIT pass row 20 — `BIND`.)*
+- **Four shipped SDK packages carry no analyzer reference.** `Vion.Dale.Sdk.Modbus.Core`,
+  `Vion.Dale.Sdk.Modbus.Rtu`, `Vion.Dale.Sdk.Modbus.Tcp` and `Vion.Dale.Sdk.Http` each declare
+  `[assembly: PublicApiNamespace]` and none of them references `Vion.Dale.Sdk.Generators`, so
+  `DALE014` never asks them for a surface mark and the API manifest's diff — auto-committed on a
+  pull request, not failed — is the only gate on their public types. The fix is the one
+  `ProjectReference` element this pass added to the five kits
+  (`Vion.Dale.Sdk.DigitalIo.csproj:43` is the shape), plus a wiring probe per package so the
+  reference is proven live rather than merely present. Not fixed here because they are their own
+  pages' packages. *(TKIT pass row 171's sweep — `ANLZ` with `MODB` and `HTTP`.)*
+- **Two downstream test projects cannot be proven against a same-PR kit change.**
+  `templates/vion-iot-library/VionIotLibraryTemplate.Test` and
+  `libraries/Vion.Diagnostics/Vion.Diagnostics.Test` carry no `DaleLocalSource` switch, where 9 test
+  projects across 7 example families do, so a kit signature change can only be proven against them
+  after publishing. Adding the switch to the template reaches its shipped content — a `dale new`
+  output would carry it — and to the first-party library lane, which is
+  [`../releasing.md`](../releasing.md)'s to decide. *(TKIT pass row 177 — the release lane.)*
+- **The five kit test projects do not agree on their test-platform reference.**
+  `Vion.Dale.Sdk.TestKit.Test` and `Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test` reference
+  `Microsoft.NET.Test.Sdk` 18.0.1; the digital, analog and RTU ones reference the MSTest package
+  alone. All five run green and all five carry `[DoNotParallelize]` (MSTest's props set
+  `IsTestProject`, which is what `Directory.Build.props:41-43` keys on — the pass's brief had this
+  the other way round and the refutation is in the archived change doc). So this is a consistency
+  question about the test-platform migration rather than a defect, and it is stated for the operator
+  rather than decided by a pass. *(TKIT pass row 185 — `TKIT`, for the operator.)*
+- **The SDK ships no test context for a service-provider handler.** Absorbed from the deleted RFC
+  0002, whose four gaps are all still live; the absorption is recorded under Reviewer's question 7 of
+  [`../changes/archive/2026-09-06-tkit-pass.md`](../changes/archive/2026-09-06-tkit-pass.md).
+  `LogicBlockTestContext<TLogicBlock>` constrains its type parameter to `LogicBlockBase`, so a
+  handler cannot be hosted by it, and three suites inside the SDK hand-roll a recording actor context
+  in three different shapes — `Vion.Dale.Sdk.DigitalIo.Test/TestHelpers/HandlerHarness.cs`,
+  `ContractHarness.cs` and `Vion.Dale.Sdk.Test/TestHelpers/LifecycleHarness.cs`'s
+  `RecordingActorContext`. A minimal shipped context is 350-450 lines of new published surface across
+  three or four types, because `ServiceProviderMqttMessage`'s internal constructor takes an
+  `MqttMessageReceived` that is itself internal, so the kit needs a factory and not only the
+  `InternalsVisibleTo` it already has; and the RFC's own `ActorTestContextBase` extraction is a
+  base-class insertion under a published generic with 126 consumer files behind it. Its own change
+  doc, not a pass. Two facts the RFC does not carry: that internal parameter, and that the first
+  consumer's four `ServiceProviderHandlerBase` subclasses have no test today — its own Ppc test kit
+  bypasses the handler stack by its own documentation, which is both the strongest argument for the
+  feature and the reason nothing regresses while it waits. *(TKIT pass, Reviewer's question 7 —
+  `TKIT`.)*
+
 ## `IO` — the digital and analog I/O contract bindings (2026-09-05)
 
 - **A block cannot ask whether a face it holds is mapped.** `LogicBlockContractBase` drops a write on
@@ -510,26 +554,6 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   the retained state that a *successful* write produces, and a per-command failure reaches no one.
   Subscribing it is a new wire behaviour: a new message type, a new arm, and a decision about what a
   block observes. *(IO pass row 64 — `IO` with `BIND`.)*
-- **The analog TestKit cannot verify a non-finite value.** `Vion.Dale.Sdk.AnalogIo.TestKit/LogicBlockTestContextExtensions.cs`
-  compares `Math.Abs(actual - expected) <= tolerance` in all three verify helpers, and that expression
-  is false for `NaN` against `NaN` and for either infinity against itself at any tolerance. The value
-  contract admits all of them and they reach the wire bit-exact, so a block that legitimately writes one
-  cannot be asserted with the shipped helper. *(IO pass row 41 — `TKIT`.)*
-- **The two IO TestKit test projects hold different suites.** `ToleranceDefaultsShould` exists only
-  under `Vion.Dale.Sdk.AnalogIo.TestKit.Test/`, so the digital verify helpers' negative sweep — a value
-  that does not match must fail the assertion — is unproven. The two TestKits are otherwise a mirror.
-  *(IO pass row 60 — `TKIT`.)*
-- **A TestKit verification's contract-type argument filters nothing.** `Vion.Dale.Sdk.TestKit/LogicBlockTestContext.cs:233-244`
-  filters on the message type and the contract identifier; `messageKind` reaches only the failure
-  string at `:242`. The six contract-type names the IO TestKits pass to it duplicate the eight stable
-  identifiers `AC-IO-001.3` calls platform-visible, with no gate holding the two in step — a rename
-  would leave the helper silently naming the old one. *(IO pass row 61 — `TKIT`.)*
-- **The TestKit's raise helpers build an empty logic-block identity.**
-  `Vion.Dale.Sdk.DigitalIo.TestKit/I*Extensions.cs:32` and their analog twins construct
-  `new LogicBlockContractId("", identifier)` — the exact shape `LogicBlockContractBase.cs:115-120`
-  drops a *write* on. Harmless in the receive direction, where nothing reads it; it means the raise
-  path never carries the identity a host would, so a future helper that raised through the write path
-  would drop everything silently. *(IO pass row 63 — `TKIT`.)*
 - **The core SDK has the same unmarked public type the IO pass fixed in its own packages.**
   `Vion.Dale.Sdk/ServiceCollectionExtensions.cs:8-10` is public, carries neither `[PublicApi]` nor
   `[InternalApi]`, and sits in the undeclared root namespace — so `DALE014` never asks, exactly as it
