@@ -24,7 +24,7 @@ namespace Vion.Dale.Sdk.AnalogIo.Output
         /// </summary>
         /// <param name="identifier">The unique identifier for this analog output provider.</param>
         /// <param name="actorContext">The actor context used for communication with the handler.</param>
-        /// <param name="logger"></param>
+        /// <param name="logger">The logger instance.</param>
         public AnalogOutputProvider(string identifier, IActorContext actorContext, ILogger<AnalogOutputProvider> logger) : base(identifier, actorContext)
         {
             _logger = logger;

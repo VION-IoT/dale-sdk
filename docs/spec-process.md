@@ -37,7 +37,9 @@ instances (those live in git, the archived change docs, and the process journal)
 
 Plus [`specs/_invariants.md`](specs/_invariants.md) (`SYS-` ids, cross-cutting rules pages cite
 instead of restating). **Tier A** pages carry EARS acceptance criteria with ids and the trace gate;
-**Tier B** pages are prose (no ids — changes ride in the PR that makes them); **Tier C** is exempt:
+**Tier B** pages were scoped as prose, and both passed so far (`CLI`, `IO`) found enough observable
+behaviour to carry ids and the trace gate as well — the tier now names the depth of the extraction,
+not whether the page is traced; **Tier C** is exempt:
 examples, templates, `Vion.Dale.DevHost.Web` SPA internals, the SmokeHost fixture, and
 **first-party libraries** (`libraries/` — consumers of the SDK shipping from this repo, not SDK
 contract; if one ever warrants specs, it gets lbl-style block specs in place, outside this corpus).
@@ -46,7 +48,7 @@ either way.
 
 ### Page frontmatter — the trace ratchet
 
-A Tier A page opts into the trace gate with frontmatter:
+A page opts into the trace gate with frontmatter:
 
 ```markdown
 ---
