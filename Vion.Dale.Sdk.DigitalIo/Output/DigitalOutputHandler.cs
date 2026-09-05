@@ -44,7 +44,19 @@ namespace Vion.Dale.Sdk.DigitalIo.Output
         /// <inheritdoc />
         protected override void HandleMqttMessage(ServiceProviderMqttMessage message)
         {
-            var payload = DoStatePayload.GetRootAsDoStatePayload(message.GetFlatBufferPayload());
+            // An unverified buffer does not fail loudly: a truncated one reads a value out of whatever
+            // survived the cut and forwards it as if a device had sent it, and an empty one throws out of
+            // the handler. The generated DoStatePayload.VerifyDoStatePayload wrapper cannot be used — it
+            // hardcodes an empty file identifier the runtime then rejects — so the verifier is driven
+            // directly, with no identifier to check.
+            var buffer = message.GetFlatBufferPayload();
+            if (!new Verifier(buffer).VerifyBuffer(null, false, DoStatePayloadVerify.Verify))
+            {
+                LogRejectedUnverifiablePayload(message.ContractId, message.Topic);
+                return;
+            }
+
+            var payload = DoStatePayload.GetRootAsDoStatePayload(buffer);
             LogReceivedStateChange(message.ContractId, payload.Value, message.CorrelationId, message.Topic);
             ForwardToLogicBlocks(message.ContractId, new DigitalOutputChanged(payload.Value));
         }
@@ -117,6 +129,10 @@ namespace Vion.Dale.Sdk.DigitalIo.Output
         [LoggerMessage(Level = LogLevel.Debug,
                        Message = "Received DO state change (ServiceProviderContractId={ServiceProviderContractId}, Value={Value}, CorrelationId={CorrelationId}, Topic={Topic})")]
         private partial void LogReceivedStateChange(ServiceProviderContractId serviceProviderContractId, bool value, Guid correlationId, string topic);
+
+        [LoggerMessage(Level = LogLevel.Debug,
+                       Message = "Rejected unverifiable DO payload (ServiceProviderContractId={ServiceProviderContractId}, Topic={Topic})")]
+        private partial void LogRejectedUnverifiablePayload(ServiceProviderContractId serviceProviderContractId, string topic);
 
         [LoggerMessage(Level = LogLevel.Debug,
                        Message = "No service provider contract mapping found for contract — Cannot send set DO command (LogicBlockContractId={LogicBlockContractId})")]

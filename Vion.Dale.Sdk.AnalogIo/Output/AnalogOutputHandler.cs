@@ -44,7 +44,19 @@ namespace Vion.Dale.Sdk.AnalogIo.Output
         /// <inheritdoc />
         protected override void HandleMqttMessage(ServiceProviderMqttMessage message)
         {
-            var payload = AoStatePayload.GetRootAsAoStatePayload(message.GetFlatBufferPayload());
+            // An unverified buffer does not fail loudly: a truncated one reads a value out of whatever
+            // survived the cut and forwards it as if a device had sent it, and an empty one throws out of
+            // the handler. The generated AoStatePayload.VerifyAoStatePayload wrapper cannot be used — it
+            // hardcodes an empty file identifier the runtime then rejects — so the verifier is driven
+            // directly, with no identifier to check.
+            var buffer = message.GetFlatBufferPayload();
+            if (!new Verifier(buffer).VerifyBuffer(null, false, AoStatePayloadVerify.Verify))
+            {
+                LogRejectedUnverifiablePayload(message.ContractId, message.Topic);
+                return;
+            }
+
+            var payload = AoStatePayload.GetRootAsAoStatePayload(buffer);
             LogReceivedStateChange(message.ContractId, payload.Value, message.CorrelationId, message.Topic);
             ForwardToLogicBlocks(message.ContractId, new AnalogOutputChanged(payload.Value));
         }
@@ -117,6 +129,10 @@ namespace Vion.Dale.Sdk.AnalogIo.Output
         [LoggerMessage(Level = LogLevel.Debug,
                        Message = "Received AO state change (ServiceProviderContractId={ServiceProviderContractId}, Value={Value}, CorrelationId={CorrelationId}, Topic={Topic})")]
         private partial void LogReceivedStateChange(ServiceProviderContractId serviceProviderContractId, double value, Guid correlationId, string topic);
+
+        [LoggerMessage(Level = LogLevel.Debug,
+                       Message = "Rejected unverifiable AO payload (ServiceProviderContractId={ServiceProviderContractId}, Topic={Topic})")]
+        private partial void LogRejectedUnverifiablePayload(ServiceProviderContractId serviceProviderContractId, string topic);
 
         [LoggerMessage(Level = LogLevel.Debug,
                        Message = "No service provider contract mapping found for contract — cannot send set AO command (LogicBlockContractId={LogicBlockContractId})")]
