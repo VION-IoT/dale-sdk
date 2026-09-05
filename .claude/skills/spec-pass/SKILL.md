@@ -140,7 +140,10 @@ finding the operator actively schedules. Do not proceed to Phase B without the c
    re-minted. Aim for roughly half the classified rows as criteria, and record a
    **consolidation map** (row → criterion, or row → the line saying why it mints nothing) in the
    change doc, so no classified row vanishes silently — the critic checks it, and a row with
-   neither is a blocker (230 rows became 135 criteria without losing one). A criterion you
+   neither is a blocker (230 rows became 135 criteria without losing one). A `park` row appears in
+   the map by name with the line saying why it mints nothing, and is never folded into a
+   criterion: one pass's REPORT listed its parks off the map and lost the one the map had folded,
+   so its ledger line was written a round late. A criterion you
    already know no test can reach carries its `GAP: <reason>` marker **on the delta line** —
    `spec-trace` honours it there exactly as on a page. **A criterion's text on the page and on its
    delta line are one text:** reword one, reword the other in the same commit (a `MODIFIED` line
@@ -170,7 +173,10 @@ finding the operator actively schedules. Do not proceed to Phase B without the c
    about *claims* ride on this step: a test cites a criterion for what the criterion's **text**
    states, not for the behavior the test happens to prove (`spec-trace` checks that an id exists,
    not what it says; three tests in one pass cited criteria that said something else — read the
-   criterion against the assertion before citing it); and any claim that names a test as its
+   criterion against the assertion before citing it; and because the gate un-GAPs an id the moment
+   any test carries it, a criterion no test in the suite can reach is `GAP` however many tests name
+   it — one about a CI-only gate read as proven on two option-description tests); and any claim
+   that names a test as its
    guarantee — in a comment, a doc, a checkpoint — is read from that test's **call sites**, not its
    name (a test that feeds one of two parsers pins one parser, whatever it is called). An
    instruction to cite — in an amendment, in a brief — is not evidence the citation fits: re-read
@@ -211,6 +217,10 @@ finding the operator actively schedules. Do not proceed to Phase B without the c
    three of one pass's four critic misses sat exactly there, on paths the extraction had swept
    before the fixes existed, and another pass's one miss was the offset three freshly guarded slices
    read from, never checked against the topic's prefix — an edge value beside the edges just fixed.
+   **A behaviour the classification adds is a path the extraction never swept:** sweep it as a
+   fix's sibling before the REPORT — its other output mode, its options, its JSON document — because
+   three of one pass's six critic misses sat on the annotate path the classification had just
+   added, where the create path beside it had been swept and the new one had not.
    **Hedges are STOPs:** a brief that says *appears to … — verify* has named an assumption; when it fails,
    record the deviation in the change doc and ask, never improvise a different design in its place
    (one pass improvised "resolve by evaluating" when the promised AST was not there; evaluation
@@ -427,3 +437,6 @@ skipped ("the mutation list **and the test map**" — the map stayed stale for a
 | "I re-read every number" | Re-reading a number one wrote is not counting it. Every count is pasted with its command; a reviewer recounted two with one grep each. |
 | "I deviated for a good reason" | A deviation is checkpointed with the criterion it rests on and the test that carries it. One rested on a criterion six tests cited and none proved. |
 | "The race is fixed — I'll write the test that shows the window" | A window no seam constructs has no deterministic test. Report the surviving mutation and the observable that is carried. |
+| "The map folds the park into a criterion" | A park is a row the map carries by name and no criterion covers. A folded park is a lost ledger line. |
+| "It's new, so nothing broke" | A behaviour the classification adds has never been swept. Sweep it as a fix's sibling before the REPORT. |
+| "Two tests cite it, so it is proven" | The trace gate cannot tell a citation from a proof. A criterion the suite cannot reach is `GAP` however many tests name it. |

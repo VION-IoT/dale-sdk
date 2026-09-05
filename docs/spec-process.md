@@ -251,7 +251,11 @@ none to quote. The two check prompts are filled kit files
 (`C:\_gh\architecture\.claude\briefs\sdd-kit\prompts\critic-<slug>.md`, `review-<slug>.md`), prepared while
 the pass session runs its final gates and kept as the record of what each check was asked; the next
 area's scoping inventory and brief check run in the fix-up window, when the coordinator is otherwise
-idle. Findings go back as one
+idle. The coordinator's watch wakes a session on two signals, not one: a last transcript text that
+starts with an API error, and a last text that has not changed across an interval longer than the
+phase's longest task — a hung turn writes no record and sends no idle notice, and one hung for six
+hours before "the response stopped arriving" surfaced; the watch itself does not run while the
+machine sleeps, so the wall clock is the only tell. Findings go back as one
 numbered amendment per round: the amend file `C:\_gh\architecture\.claude\briefs\amend-<slug>-N.md` is the artifact,
 written first; the cross-session message that points at it is only a notification, and it reaches
 the session only when **both** sessions run in bypass mode. The sender checks its own mode before
