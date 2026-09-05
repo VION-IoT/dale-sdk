@@ -23,17 +23,6 @@ namespace Vion.Dale.Cli.Auth
         private static HttpClient _http = DefaultClient;
 
         /// <summary>
-        ///     Routes the token exchanges through <paramref name="handler" />, or restores the default
-        ///     transport when it is null. The same seam <see cref="Infrastructure.DaleHttpClient" /> carries,
-        ///     for the same reason: this class owns its own client, so the token precedence chain is
-        ///     otherwise provable only against a real identity provider.
-        /// </summary>
-        internal static void UseTransport(HttpMessageHandler? handler)
-        {
-            _http = handler is null ? DefaultClient : new HttpClient(handler);
-        }
-
-        /// <summary>
         ///     Interactive browser-based login using Authorization Code + PKCE.
         /// </summary>
         public static async Task<StoredCredentials> AcquireInteractiveAsync(string authBaseUrl, CancellationToken cancellationToken = default)
@@ -177,6 +166,17 @@ namespace Vion.Dale.Cli.Auth
 
             var json = await response.Content.ReadAsStringAsync();
             return ParseTokenResponse(json);
+        }
+
+        /// <summary>
+        ///     Routes the token exchanges through <paramref name="handler" />, or restores the default
+        ///     transport when it is null. The same seam <see cref="Infrastructure.DaleHttpClient" /> carries,
+        ///     for the same reason: this class owns its own client, so the token precedence chain is
+        ///     otherwise provable only against a real identity provider.
+        /// </summary>
+        internal static void UseTransport(HttpMessageHandler? handler)
+        {
+            _http = handler is null ? DefaultClient : new HttpClient(handler);
         }
 
         private static StoredCredentials ParseTokenResponse(string json)

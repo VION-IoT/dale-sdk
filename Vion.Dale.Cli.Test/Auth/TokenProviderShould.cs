@@ -138,7 +138,8 @@ namespace Vion.Dale.Cli.Test.Auth
         public async Task RefreshExpiredTokenAndStoreResult()
         {
             // Arrange
-            TokenStore.SaveCredentials(new StoredCredentials { AccessToken = "stale", RefreshToken = "the-refresh", ExpiresAt = DateTime.UtcNow.AddSeconds(-1), Environment = "test" });
+            TokenStore.SaveCredentials(new StoredCredentials
+                                       { AccessToken = "stale", RefreshToken = "the-refresh", ExpiresAt = DateTime.UtcNow.AddSeconds(-1), Environment = "test" });
             _handler.Answer(HttpStatusCode.OK, TokenResponse);
 
             // Act
@@ -155,7 +156,8 @@ namespace Vion.Dale.Cli.Test.Auth
         public async Task RefuseWhenRefreshFails()
         {
             // Arrange
-            TokenStore.SaveCredentials(new StoredCredentials { AccessToken = "stale", RefreshToken = "the-refresh", ExpiresAt = DateTime.UtcNow.AddSeconds(-1), Environment = "test" });
+            TokenStore.SaveCredentials(new StoredCredentials
+                                       { AccessToken = "stale", RefreshToken = "the-refresh", ExpiresAt = DateTime.UtcNow.AddSeconds(-1), Environment = "test" });
             _handler.Answer(HttpStatusCode.BadRequest, "{}");
 
             // Act

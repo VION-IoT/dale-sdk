@@ -27,8 +27,10 @@ namespace Vion.Dale.Cli.Test.Helpers
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-007.1")]
         public void InsertIntoClass_InsertsBeforeClosingBrace()
         {
+            // Arrange / Act
             var filePath = Path.Combine(_tempDir, "MyBlock.cs");
             File.WriteAllText(filePath,
                               @"namespace MyLib
@@ -42,6 +44,7 @@ namespace Vion.Dale.Cli.Test.Helpers
 
             var result = SourceInserter.InsertIntoClass(filePath, "MyBlock", "[ServiceProperty]\npublic double Temp { get; private set; }");
 
+            // Assert
             Assert.IsTrue(result);
             var content = File.ReadAllText(filePath);
             Assert.IsTrue(content.Contains("[ServiceProperty]"));
@@ -57,8 +60,10 @@ namespace Vion.Dale.Cli.Test.Helpers
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-007.1")]
         public void InsertIntoClass_AllmanStyleBraces()
         {
+            // Arrange / Act
             // Allman style: opening { on separate line from class declaration
             var filePath = Path.Combine(_tempDir, "Allman.cs");
             File.WriteAllText(filePath,
@@ -74,6 +79,7 @@ namespace Vion.Dale.Cli.Test.Helpers
 
             var result = SourceInserter.InsertIntoClass(filePath, "MyBlock", "[ServiceProperty]\npublic double Temp { get; private set; }");
 
+            // Assert
             Assert.IsTrue(result);
             var content = File.ReadAllText(filePath);
             var classOpenBrace = content.IndexOf('{', content.IndexOf("class MyBlock"));
@@ -85,8 +91,10 @@ namespace Vion.Dale.Cli.Test.Helpers
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-007.1")]
         public void InsertIntoClass_EmptyClassBody_CorrectIndentation()
         {
+            // Arrange / Act
             var filePath = Path.Combine(_tempDir, "EmptyBlock.cs");
             File.WriteAllText(filePath,
                               @"namespace MyLib
@@ -102,13 +110,17 @@ namespace Vion.Dale.Cli.Test.Helpers
             var content = File.ReadAllText(filePath);
 
             // Should be at member-level indentation (8 spaces), not class-level (4 spaces)
+
+            // Assert
             Assert.IsTrue(content.Contains("        [Timer(5)]"), "Timer attribute should have 8-space indent");
             Assert.IsTrue(content.Contains("        private void Tick()"), "Method should have 8-space indent");
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-007.1")]
         public void InsertIntoClass_PreservesIndentation()
         {
+            // Arrange / Act
             var filePath = Path.Combine(_tempDir, "MyBlock.cs");
             File.WriteAllText(filePath,
                               @"namespace MyLib
@@ -125,13 +137,17 @@ namespace Vion.Dale.Cli.Test.Helpers
             var content = File.ReadAllText(filePath);
 
             // Check that the inserted code has proper indentation (matching existing members)
+
+            // Assert
             Assert.IsTrue(content.Contains("        [Timer(5)]"));
             Assert.IsTrue(content.Contains("        private void Tick()"));
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-007.4")]
         public void EnsureUsing_AddsIfMissing()
         {
+            // Arrange / Act
             var filePath = Path.Combine(_tempDir, "MyBlock.cs");
             File.WriteAllText(filePath,
                               @"using System;
@@ -145,12 +161,16 @@ namespace MyLib
             SourceInserter.EnsureUsing(filePath, "Vion.Dale.Sdk.Core");
 
             var content = File.ReadAllText(filePath);
+
+            // Assert
             Assert.IsTrue(content.Contains("using Vion.Dale.Sdk.Core;"));
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-007.4")]
         public void EnsureUsing_DoesNotDuplicateExisting()
         {
+            // Arrange / Act
             var filePath = Path.Combine(_tempDir, "MyBlock.cs");
             File.WriteAllText(filePath,
                               @"using Vion.Dale.Sdk.Core;
@@ -165,12 +185,16 @@ namespace MyLib
 
             var content = File.ReadAllText(filePath);
             var count = content.Split("using Vion.Dale.Sdk.Core;").Length - 1;
+
+            // Assert
             Assert.AreEqual(1, count);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-006.2")]
         public void ResolveTarget_SingleBlock_AutoDetects()
         {
+            // Arrange / Act
             var blocks = new List<LogicBlockInfo>
                          {
                              new() { ClassName = "MyBlock", FilePath = "/path/MyBlock.cs" },
@@ -178,13 +202,16 @@ namespace MyLib
 
             var result = SourceInserter.ResolveTarget(blocks, null);
 
+            // Assert
             Assert.IsNotNull(result);
             Assert.AreEqual("MyBlock", result.ClassName);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-006.2")]
         public void ResolveTarget_MultipleBlocks_RequiresTo()
         {
+            // Arrange / Act
             var blocks = new List<LogicBlockInfo>
                          {
                              new() { ClassName = "BlockA", FilePath = "/path/A.cs" },
@@ -193,12 +220,15 @@ namespace MyLib
 
             var result = SourceInserter.ResolveTarget(blocks, null);
 
+            // Assert
             Assert.IsNull(result);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-006.2")]
         public void ResolveTarget_MultipleBlocks_WithToOption()
         {
+            // Arrange / Act
             var blocks = new List<LogicBlockInfo>
                          {
                              new() { ClassName = "BlockA", FilePath = "/path/A.cs" },
@@ -207,13 +237,16 @@ namespace MyLib
 
             var result = SourceInserter.ResolveTarget(blocks, "BlockB");
 
+            // Assert
             Assert.IsNotNull(result);
             Assert.AreEqual("BlockB", result.ClassName);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-007.1")]
         public void InsertIntoClass_HandlesMethodBodiesWithBraces()
         {
+            // Arrange / Act
             var filePath = Path.Combine(_tempDir, "MyBlock.cs");
             File.WriteAllText(filePath,
                               @"namespace MyLib
@@ -233,6 +266,7 @@ namespace MyLib
 
             var result = SourceInserter.InsertIntoClass(filePath, "MyBlock", "[Timer(5)]\nprivate void Tick()\n{\n}");
 
+            // Assert
             Assert.IsTrue(result);
             var content = File.ReadAllText(filePath);
             Assert.IsTrue(content.Contains("[Timer(5)]"));

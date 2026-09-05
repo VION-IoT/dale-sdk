@@ -133,6 +133,15 @@ namespace Vion.Dale.Cli.Commands
             return code.ToString();
         }
 
+        /// <summary>
+        ///     The run report as JSON, through the tool's own conventions like every other document it emits
+        ///     — the enriched schema at `scenario schema` is the one deliberate exception, and says why.
+        /// </summary>
+        internal static string RenderRunReportJson(JsonNode report)
+        {
+            return report.ToJsonString(JsonDefaults.Options);
+        }
+
         private static Option<int> PortOption()
         {
             return new Option<int>("--port") { Description = "Port of the running DevHost (default 5000).", DefaultValueFactory = _ => 5000 };
@@ -760,15 +769,6 @@ namespace Vion.Dale.Cli.Commands
                                throw new InvalidOperationException($"Embedded resource '{resourceName}' is missing from the CLI assembly.");
             using var reader = new StreamReader(stream);
             return reader.ReadToEnd();
-        }
-
-        /// <summary>
-        ///     The run report as JSON, through the tool's own conventions like every other document it emits
-        ///     — the enriched schema at `scenario schema` is the one deliberate exception, and says why.
-        /// </summary>
-        internal static string RenderRunReportJson(JsonNode report)
-        {
-            return report.ToJsonString(JsonDefaults.Options);
         }
 
         private static void RenderReport(JsonNode report)

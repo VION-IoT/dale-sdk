@@ -95,6 +95,7 @@ namespace Vion.Dale.Cli.Test.Infrastructure
 
         [TestMethod]
         [TestProperty("spec", "AC-CLI-014.3")]
+        [TestProperty("spec", "AC-CLI-011.10")]
         public async Task TakeSingleMembershipFromApiWhenNothingElseNamesOne()
         {
             // Arrange

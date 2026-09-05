@@ -89,24 +89,6 @@ namespace Vion.Dale.Cli
             return rootCommand.Subcommands.Select(command => command.Name).ToHashSet(StringComparer.Ordinal);
         }
 
-        /// <summary>
-        ///     Writes standard output and standard error as UTF-8. The console's default encoding maps every
-        ///     non-ASCII character this tool prints — the status glyphs, the em dash — to a replacement or a
-        ///     best-fit substitute as soon as the stream is redirected, so a CI log and a script's capture
-        ///     see text the tool never wrote. Best effort: a host that refuses the change is left alone.
-        /// </summary>
-        private static void UseUtf8Output()
-        {
-            try
-            {
-                Console.OutputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
-            }
-            catch (Exception)
-            {
-                // Some hosts (a redirected handle on an older console, a restricted sandbox) refuse it.
-            }
-        }
-
         internal static RootCommand BuildRootCommand()
         {
             var rootCommand = new RootCommand("dale — develop and publish Dale LogicBlock libraries");
@@ -164,6 +146,24 @@ namespace Vion.Dale.Cli
             rootCommand.Subcommands.Add(configCommand);
 
             return rootCommand;
+        }
+
+        /// <summary>
+        ///     Writes standard output and standard error as UTF-8. The console's default encoding maps every
+        ///     non-ASCII character this tool prints — the status glyphs, the em dash — to a replacement or a
+        ///     best-fit substitute as soon as the stream is redirected, so a CI log and a script's capture
+        ///     see text the tool never wrote. Best effort: a host that refuses the change is left alone.
+        /// </summary>
+        private static void UseUtf8Output()
+        {
+            try
+            {
+                Console.OutputEncoding = new UTF8Encoding(false);
+            }
+            catch (Exception)
+            {
+                // Some hosts (a redirected handle on an older console, a restricted sandbox) refuse it.
+            }
         }
     }
 }

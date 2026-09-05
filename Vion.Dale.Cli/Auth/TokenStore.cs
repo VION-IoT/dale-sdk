@@ -41,17 +41,6 @@ namespace Vion.Dale.Cli.Auth
     {
         private static string? _rootOverride;
 
-        /// <summary>
-        ///     The directory <c>.dale</c> is created in, or null for the user profile. The CLI composes no
-        ///     container (<c>Program.BuildRootCommand</c>), so this is a settable process-wide knob in the
-        ///     shape <c>DaleConsole.JsonMode</c> already uses — the seam that lets the store's rules be
-        ///     proven without any test reading the developer's home directory.
-        /// </summary>
-        internal static void UseRoot(string? root)
-        {
-            _rootOverride = root;
-        }
-
         private static string DaleDir
         {
             get => Path.Combine(_rootOverride ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".dale");
@@ -163,6 +152,17 @@ namespace Vion.Dale.Cli.Auth
 
             File.Delete(CredentialsPath);
             return true;
+        }
+
+        /// <summary>
+        ///     The directory <c>.dale</c> is created in, or null for the user profile. The CLI composes no
+        ///     container (<c>Program.BuildRootCommand</c>), so this is a settable process-wide knob in the
+        ///     shape <c>DaleConsole.JsonMode</c> already uses — the seam that lets the store's rules be
+        ///     proven without any test reading the developer's home directory.
+        /// </summary>
+        internal static void UseRoot(string? root)
+        {
+            _rootOverride = root;
         }
 
         private static void EnsureDirectory()

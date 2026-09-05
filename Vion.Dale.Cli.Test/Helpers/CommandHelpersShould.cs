@@ -21,9 +21,9 @@ namespace Vion.Dale.Cli.Test.Helpers
                                            </Project>
                                            """;
 
-        private string _root = null!;
-
         private string _originalDirectory = null!;
+
+        private string _root = null!;
 
         [TestInitialize]
         public void Setup()
@@ -188,13 +188,6 @@ namespace Vion.Dale.Cli.Test.Helpers
             CollectionAssert.AreEqual(new[] { Path.Combine("MyLib", "MyLib.csproj") }, daleProjects);
         }
 
-        private void WriteProject(string name, string content)
-        {
-            var dir = Path.Combine(_root, name);
-            Directory.CreateDirectory(dir);
-            File.WriteAllText(Path.Combine(dir, name + ".csproj"), content);
-        }
-
         [TestMethod]
         [TestProperty("spec", "AC-CLI-003.5")]
         public void ResolveProjectByWalkingUpWhenNoProjectNamed()
@@ -212,6 +205,13 @@ namespace Vion.Dale.Cli.Test.Helpers
 
             // Assert
             Assert.AreEqual(csproj, project!.CsprojPath);
+        }
+
+        private void WriteProject(string name, string content)
+        {
+            var dir = Path.Combine(_root, name);
+            Directory.CreateDirectory(dir);
+            File.WriteAllText(Path.Combine(dir, name + ".csproj"), content);
         }
     }
 }

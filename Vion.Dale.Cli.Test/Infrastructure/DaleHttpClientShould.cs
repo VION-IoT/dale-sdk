@@ -53,11 +53,7 @@ namespace Vion.Dale.Cli.Test.Infrastructure
             _handler.Answer(HttpStatusCode.Conflict, "{\"message\":\"version already exists\"}");
 
             // Act
-            var response = await DaleHttpClient.PostAsync("https://api.example.test/upload",
-                                                          new StringContent("payload"),
-                                                          "token",
-                                                          default,
-                                                          HttpStatusCode.Conflict);
+            var response = await DaleHttpClient.PostAsync("https://api.example.test/upload", new StringContent("payload"), "token", default, HttpStatusCode.Conflict);
 
             // Assert
             Assert.AreEqual(HttpStatusCode.Conflict, response.StatusCode);

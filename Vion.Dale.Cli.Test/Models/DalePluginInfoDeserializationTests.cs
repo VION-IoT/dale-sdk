@@ -100,10 +100,13 @@ namespace Vion.Dale.Cli.Test.Models
                                                  """;
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-008.2")]
         public void ParsePluginInfo_CurrentParserShape_ReadsPackageAndBlock()
         {
+            // Arrange / Act
             var info = ParserRunner.ParsePluginInfo(CurrentParserJson);
 
+            // Assert
             Assert.IsNotNull(info);
             Assert.AreEqual("Vion.Examples.Gating", info.PackageId);
             Assert.AreEqual("0.10.0", info.PackageVersion);
@@ -112,22 +115,30 @@ namespace Vion.Dale.Cli.Test.Models
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-008.2")]
         public void ParsePluginInfo_CurrentParserShape_ReadsServiceIncludedWhen()
         {
+            // Arrange / Act
             var info = ParserRunner.ParsePluginInfo(CurrentParserJson);
 
             var services = info!.LogicBlocks[0].Services;
+
+            // Assert
             Assert.AreEqual(2, services.Count);
             Assert.AreEqual("ChargePointCount >= 2", services[0].IncludedWhen);
             Assert.IsNull(services[1].IncludedWhen);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-008.2")]
         public void ParsePluginInfo_CurrentParserShape_ReadsPropertySiblingDocs()
         {
+            // Arrange / Act
             var info = ParserRunner.ParsePluginInfo(CurrentParserJson);
 
             var properties = info!.LogicBlocks[0].Services[0].Properties;
+
+            // Assert
             Assert.AreEqual(2, properties.Count);
 
             var countProperty = properties[0];
@@ -147,11 +158,15 @@ namespace Vion.Dale.Cli.Test.Models
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-008.2")]
         public void ParsePluginInfo_CurrentParserShape_ReadsMeasuringPointSchema()
         {
+            // Arrange / Act
             var info = ParserRunner.ParsePluginInfo(CurrentParserJson);
 
             var measuringPoints = info!.LogicBlocks[0].Services[0].MeasuringPoints;
+
+            // Assert
             Assert.AreEqual(1, measuringPoints.Count);
             Assert.AreEqual("CurrentAlarm", measuringPoints[0].Identifier);
             Assert.IsNotNull(measuringPoints[0].Schema);
@@ -160,11 +175,15 @@ namespace Vion.Dale.Cli.Test.Models
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-008.2")]
         public void ParsePluginInfo_CurrentParserShape_ReadsRelations()
         {
+            // Arrange / Act
             var info = ParserRunner.ParsePluginInfo(CurrentParserJson);
 
             var service = info!.LogicBlocks[0].Services[0];
+
+            // Assert
             Assert.AreEqual(0, service.InwardRelations.Count);
             Assert.AreEqual(1, service.OutwardRelations.Count);
             Assert.AreEqual("LightToToggle", service.OutwardRelations[0].RelationType);
@@ -173,8 +192,10 @@ namespace Vion.Dale.Cli.Test.Models
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-008.2")]
         public void ParsePluginInfo_LegacyParserShape_StillDeserializesTolerantly()
         {
+            // Arrange / Act
             // Pre-schema parser output (SDK versions before the schema/presentation/runtime split):
             // properties carried typeFullName/writable/serviceElementType/annotations, services had no
             // includedWhen. Unknown members must be ignored and absent members stay default — the CLI
@@ -215,6 +236,7 @@ namespace Vion.Dale.Cli.Test.Models
 
             var info = ParserRunner.ParsePluginInfo(legacyJson);
 
+            // Assert
             Assert.IsNotNull(info);
             var service = info.LogicBlocks[0].Services[0];
             Assert.IsNull(service.IncludedWhen);

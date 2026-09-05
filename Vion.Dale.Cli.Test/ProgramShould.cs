@@ -34,7 +34,7 @@ namespace Vion.Dale.Cli.Test
         [DataRow("build", "--version")]
         [DataRow("test", "-v")]
         [DataRow("list")]
-        [DataRow()]
+        [DataRow]
         public void LeaveVersionToCommandThatClaimedLine(params string[] args)
         {
             // Arrange / Act

@@ -13,7 +13,8 @@ namespace Vion.Dale.Cli.Test.Helpers
     [TestClass]
     public class SourceTextShould
     {
-        private const string BlockBody = "using Vion.Dale.Sdk.Core;\nNL\nnamespace MyLib\n{\n    public class Thermostat : LogicBlockBase\n    {\n        private int _count;\n    }\n}\n";
+        private const string BlockBody =
+            "using Vion.Dale.Sdk.Core;\nNL\nnamespace MyLib\n{\n    public class Thermostat : LogicBlockBase\n    {\n        private int _count;\n    }\n}\n";
 
         private string _root = null!;
 
@@ -38,7 +39,7 @@ namespace Vion.Dale.Cli.Test.Helpers
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-CLI-007.5")]
+        [TestProperty("spec", "AC-CLI-007.3")]
         [DataRow("\n", false)]
         [DataRow("\r\n", false)]
         [DataRow("\n", true)]
@@ -68,11 +69,11 @@ namespace Vion.Dale.Cli.Test.Helpers
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-CLI-007.5")]
+        [TestProperty("spec", "AC-CLI-007.3")]
         public void LeaveEveryLineItDidNotInsertByteIdentical()
         {
             // Arrange
-            var path = WriteBlock("\n", withByteOrderMark: false);
+            var path = WriteBlock("\n", false);
             var before = File.ReadAllText(path).Split('\n');
 
             // Act
@@ -84,11 +85,11 @@ namespace Vion.Dale.Cli.Test.Helpers
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-CLI-007.6")]
+        [TestProperty("spec", "AC-CLI-007.4")]
         public void AddUsingOnceOnly()
         {
             // Arrange
-            var path = WriteBlock("\n", withByteOrderMark: false);
+            var path = WriteBlock("\n", false);
 
             // Act
             SourceInserter.EnsureUsing(path, "Vion.Dale.Sdk.Core");
@@ -132,7 +133,8 @@ namespace Vion.Dale.Cli.Test.Helpers
         {
             // Arrange
             var path = Path.Combine(_root, "Block.cs");
-            File.WriteAllText(path, "namespace MyLib\n{\n    public class Thermostat : LogicBlockBase\n    {\n        [ServiceProperty(Title = \"Power\")]\n        public double Power { get; private set; }\n    }\n}\n");
+            File.WriteAllText(path,
+                              "namespace MyLib\n{\n    public class Thermostat : LogicBlockBase\n    {\n        [ServiceProperty(Title = \"Power\")]\n        public double Power { get; private set; }\n    }\n}\n");
 
             // Act
             var added = SourceInserter.AddAttributeToMember(path, "Power", "[ServiceMeasuringPoint(Title = \"Power\")]");

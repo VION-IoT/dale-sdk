@@ -149,11 +149,8 @@ namespace Vion.Dale.Cli.Commands
         internal static IReadOnlyList<string> DescribeStartup(string devHostName, bool headless, bool exporting)
         {
             var mode = exporting ? " (one-shot export)" : headless ? " (headless)" : string.Empty;
-            var address = exporting
-                              ? "  Writing the export and exiting — no server is started"
-                              : headless
-                                  ? "  Control API at http://localhost:5000/api (no browser)"
-                                  : "  Web UI at http://localhost:5000";
+            var address = exporting ? "  Writing the export and exiting — no server is started" :
+                          headless ? "  Control API at http://localhost:5000/api (no browser)" : "  Web UI at http://localhost:5000";
 
             return new[] { $"Starting {devHostName}{mode}...", address };
         }

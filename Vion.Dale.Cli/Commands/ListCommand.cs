@@ -129,22 +129,6 @@ namespace Vion.Dale.Cli.Commands
             return logicBlock.Contracts?.Any(IsDevelopmentOnlyContract) == true;
         }
 
-        private static bool IsDevelopmentOnlyContract(ContractInfo contract)
-        {
-            if (contract.Annotations is null || !contract.Annotations.TryGetValue(DevelopmentOnlyAnnotation, out var flag))
-            {
-                return false;
-            }
-
-            // The mirror deserializes annotation values as JsonElement; a value set in-process is a bool.
-            return flag switch
-            {
-                bool value => value,
-                JsonElement element => element.ValueKind == JsonValueKind.True,
-                _ => false,
-            };
-        }
-
         /// <summary>
         ///     The human listing. The console is a parameter so the rendering — including the escaping every
         ///     identifier needs before Spectre reads it as markup — can be asserted against a captured writer.
@@ -206,6 +190,22 @@ namespace Vion.Dale.Cli.Commands
                 console.Write(table);
                 console.WriteLine();
             }
+        }
+
+        private static bool IsDevelopmentOnlyContract(ContractInfo contract)
+        {
+            if (contract.Annotations is null || !contract.Annotations.TryGetValue(DevelopmentOnlyAnnotation, out var flag))
+            {
+                return false;
+            }
+
+            // The mirror deserializes annotation values as JsonElement; a value set in-process is a bool.
+            return flag switch
+            {
+                bool value => value,
+                JsonElement element => element.ValueKind == JsonValueKind.True,
+                _ => false,
+            };
         }
     }
 }

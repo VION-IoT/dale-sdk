@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -16,15 +17,37 @@ namespace Vion.Dale.Cli.Test.Commands
     public class ScenarioCommandTests
     {
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-010.1")]
+        public void OfferFiveScenarioSubcommandsOnSharedDefaultPort()
+        {
+            // Arrange
+            var scenario = Program.BuildRootCommand().Subcommands.Single(command => command.Name == "scenario");
+
+            // Act
+            var names = scenario.Subcommands.Select(command => command.Name).ToArray();
+
+            // Assert
+            CollectionAssert.AreEquivalent(new[] { "run", "validate", "schema", "scaffold", "open" }, names);
+            foreach (var name in new[] { "run", "validate", "schema", "open" })
+            {
+                var parseResult = Program.BuildRootCommand().Parse(new[] { "scenario", name, "an-id" });
+                Assert.AreEqual(5000, parseResult.GetValue<int>("--port"), $"`scenario {name}` must default the port");
+            }
+
+            // Scaffolding reads a file and writes a file; it addresses no host, so it takes no port.
+            var scaffoldWithPort = Program.BuildRootCommand().Parse(new[] { "scenario", "scaffold", "an-id", "--port", "5000" });
+            Assert.AreNotEqual(0, scaffoldWithPort.Errors.Count, "`scenario scaffold` addresses no host and must not accept a port");
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-CLI-010.10")]
         [DataRow("schema")]
         [DataRow("scaffold")]
         public void TakeFilePathFromOutOptionAndFormatFromGlobalOne(string subcommand)
         {
             // Arrange
-            var arguments = subcommand == "schema"
-                                ? new[] { "scenario", "schema", "--out", "written.json", "--output", "json" }
-                                : new[] { "scenario", "scaffold", "smoke", "--out", "written.cs", "--output", "json" };
+            var arguments = subcommand == "schema" ? new[] { "scenario", "schema", "--out", "written.json", "--output", "json" } :
+                                new[] { "scenario", "scaffold", "smoke", "--out", "written.cs", "--output", "json" };
 
             // Act
             var parseResult = Program.BuildRootCommand().Parse(arguments);
@@ -42,9 +65,7 @@ namespace Vion.Dale.Cli.Test.Commands
         public void KeepShortOptionAsFilePathAlias(string subcommand)
         {
             // Arrange
-            var arguments = subcommand == "schema"
-                                ? new[] { "scenario", "schema", "-o", "written.json" }
-                                : new[] { "scenario", "scaffold", "smoke", "-o", "written.cs" };
+            var arguments = subcommand == "schema" ? new[] { "scenario", "schema", "-o", "written.json" } : new[] { "scenario", "scaffold", "smoke", "-o", "written.cs" };
 
             // Act
             var parseResult = Program.BuildRootCommand().Parse(arguments);
@@ -93,12 +114,16 @@ namespace Vion.Dale.Cli.Test.Commands
         }
 
         [TestMethod]
-        public void GenericScenarioSchema_IsEmbeddedInTheCliAssembly_AndIsTheScenarioSchema()
+        [TestProperty("spec", "AC-CLI-010.8")]
+        public void GenericScenarioSchema_EmbeddedInCliAssembly_AndCarriesScenarioSchema()
         {
+            // Arrange / Act
             // The .csproj links the single Vion.Dale.DevHost source file as a CLI embedded resource; this
             // pins that it is present and is actually the scenario schema (so `schema` can run offline).
             var assembly = typeof(ScenarioCommand).Assembly;
             using var stream = assembly.GetManifestResourceStream("Vion.Dale.Cli.scenario.schema.json");
+
+            // Assert
             Assert.IsNotNull(stream, "The CLI must embed scenario.schema.json so `dale scenario schema` works offline (DF-10).");
 
             using var reader = new StreamReader(stream!);
@@ -107,8 +132,10 @@ namespace Vion.Dale.Cli.Test.Commands
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-010.8")]
         public async Task Schema_FromConfigExport_RunsOfflineAndEnrichesNamePaths()
         {
+            // Arrange / Act
             var configPath = Path.Combine(Path.GetTempPath(), $"df10-config-{Guid.NewGuid():N}.json");
             var outputPath = Path.Combine(Path.GetTempPath(), $"df10-schema-{Guid.NewGuid():N}.json");
             File.WriteAllText(configPath,
@@ -135,6 +162,7 @@ namespace Vion.Dale.Cli.Test.Commands
                 // the embedded resource, not a host — the DF-10 offline guarantee.
                 var exit = await Program.BuildRootCommand().Parse(new[] { "scenario", "schema", "--config", configPath, "--port", "1", "-o", outputPath }).InvokeAsync();
 
+                // Assert
                 Assert.AreEqual(0, exit);
                 var schema = File.ReadAllText(outputPath);
                 StringAssert.Contains(schema, "EnergyManager.ActivePowerImportingKw", "The schema must be enriched offline with the topology's name paths.");
@@ -151,8 +179,10 @@ namespace Vion.Dale.Cli.Test.Commands
         }
 
         [TestMethod]
-        public void Scaffold_EmitsACompileShapedTest_WithApplyAsyncAndAJudgmentTodoPerItem()
+        [TestProperty("spec", "AC-CLI-010.9")]
+        public void Scaffold_EmitsCompileShapedTest_WithApplyAsyncAndJudgmentTodoPerItem()
         {
+            // Arrange / Act
             var scenario = JsonNode.Parse("""
                                           {
                                             "version": 1, "id": "peak-shaving", "title": "Peak shaving", "topology": "em-closed-loop",
@@ -169,6 +199,7 @@ namespace Vion.Dale.Cli.Test.Commands
 
             var code = ScenarioCommand.EmitScaffold(scenario, "MyTests", "scenarios");
 
+            // Assert
             StringAssert.Contains(code, "namespace MyTests");
             StringAssert.Contains(code, "public class PeakShavingScenario");
             StringAssert.Contains(code, "[Fact]");
@@ -182,8 +213,10 @@ namespace Vion.Dale.Cli.Test.Commands
         }
 
         [TestMethod]
-        public async Task Scaffold_LocatesTheFileByIdAndWritesACSharpTest()
+        [TestProperty("spec", "AC-CLI-010.9")]
+        public async Task Scaffold_LocatesFileById_AndWritesCSharpTest()
         {
+            // Arrange / Act
             var root = Path.Combine(Path.GetTempPath(), $"df09-{Guid.NewGuid():N}");
             var scenariosDir = Path.Combine(root, "scenarios");
             Directory.CreateDirectory(scenariosDir);
@@ -193,6 +226,7 @@ namespace Vion.Dale.Cli.Test.Commands
             {
                 var exit = await Program.BuildRootCommand().Parse(new[] { "scenario", "scaffold", "smoke", "--dir", scenariosDir, "-o", outputPath }).InvokeAsync();
 
+                // Assert
                 Assert.AreEqual(0, exit);
                 Assert.IsTrue(File.Exists(outputPath));
                 var code = File.ReadAllText(outputPath);

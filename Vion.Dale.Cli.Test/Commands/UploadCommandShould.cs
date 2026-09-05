@@ -257,8 +257,7 @@ namespace Vion.Dale.Cli.Test.Commands
         public void KeepParserNoticesAndNothingElseFromPackOutput()
         {
             // Arrange
-            var packOutput = "  Determining projects to restore...\r\n" +
-                             "Vion Dale: excluded 1 development-only logic block from the introspection document: Simulator\r\n" +
+            var packOutput = "  Determining projects to restore...\r\n" + "Vion Dale: excluded 1 development-only logic block from the introspection document: Simulator\r\n" +
                              "  MyLib -> C:\\work\\MyLib\\bin\\Release\\MyLib.dll\r\n";
 
             // Act

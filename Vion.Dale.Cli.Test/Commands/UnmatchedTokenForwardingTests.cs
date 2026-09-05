@@ -13,81 +13,105 @@ namespace Vion.Dale.Cli.Test.Commands
     public class UnmatchedTokenForwardingTests
     {
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-004.3")]
         public void TestCommand_UnknownOption_ParsesCleanlyAndForwards()
         {
+            // Arrange / Act
             var result = Program.BuildRootCommand().Parse(new[] { "test", "--filter", "kind!=headless-integration" });
 
+            // Assert
             Assert.AreEqual(0, result.Errors.Count, string.Join("; ", result.Errors.Select(e => e.Message)));
             CollectionAssert.AreEqual(new[] { "--filter", "kind!=headless-integration" }, result.UnmatchedTokens.ToArray());
         }
 
         [TestMethod]
-        public void TestCommand_DoubleDashSeparator_ForwardsTokensWithoutTheSeparator()
+        [TestProperty("spec", "AC-CLI-004.3")]
+        public void TestCommand_DoubleDashSeparator_ForwardsTokensWithoutSeparator()
         {
+            // Arrange / Act
             var result = Program.BuildRootCommand().Parse(new[] { "test", "--", "--filter", "kind!=headless-integration" });
 
+            // Assert
             Assert.AreEqual(0, result.Errors.Count, string.Join("; ", result.Errors.Select(e => e.Message)));
             CollectionAssert.AreEqual(new[] { "--filter", "kind!=headless-integration" }, result.UnmatchedTokens.ToArray());
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-004.3")]
         public void TestCommand_KnownOptionsAreBound_NotForwarded()
         {
+            // Arrange / Act
             var result = Program.BuildRootCommand().Parse(new[] { "test", "--project", "My.csproj", "--filter", "x" });
 
+            // Assert
             Assert.AreEqual(0, result.Errors.Count, string.Join("; ", result.Errors.Select(e => e.Message)));
             Assert.AreEqual("My.csproj", result.GetValue<string?>("--project"));
             CollectionAssert.AreEqual(new[] { "--filter", "x" }, result.UnmatchedTokens.ToArray());
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-004.3")]
         public void BuildCommand_UnknownShortOption_ParsesCleanlyAndForwards()
         {
+            // Arrange / Act
             var result = Program.BuildRootCommand().Parse(new[] { "build", "-c", "Release" });
 
+            // Assert
             Assert.AreEqual(0, result.Errors.Count, string.Join("; ", result.Errors.Select(e => e.Message)));
             CollectionAssert.AreEqual(new[] { "-c", "Release" }, result.UnmatchedTokens.ToArray());
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-004.3")]
         public void DevCommand_ScenarioAfterDoubleDash_ParsesCleanly()
         {
+            // Arrange / Act
             // `dale dev -- operator-steering` — the documented way to pass a scenario to the DevHost app.
             var result = Program.BuildRootCommand().Parse(new[] { "dev", "--", "operator-steering" });
 
+            // Assert
             Assert.AreEqual(0, result.Errors.Count, string.Join("; ", result.Errors.Select(e => e.Message)));
             CollectionAssert.AreEqual(new[] { "operator-steering" }, result.UnmatchedTokens.ToArray());
         }
 
         [TestMethod]
-        public void DevCommand_NakedScenarioArg_IsForwarded_NotAParseError()
+        [TestProperty("spec", "AC-CLI-004.3")]
+        public void DevCommand_NakedScenarioArg_Forwarded_NotParseError()
         {
+            // Arrange / Act
             // `dale dev operator-steering` (no `--`) must forward, not error — the form an integrator hit
             // a rejection on with a stale CLI build (DF-07). Pins that it parses cleanly on this CLI.
             var result = Program.BuildRootCommand().Parse(new[] { "dev", "operator-steering" });
 
+            // Assert
             Assert.AreEqual(0, result.Errors.Count, string.Join("; ", result.Errors.Select(e => e.Message)));
             CollectionAssert.AreEqual(new[] { "operator-steering" }, result.UnmatchedTokens.ToArray());
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-CLI-004.3")]
         public void DevCommand_PresetComposesWithExport_ParsesCleanly()
         {
+            // Arrange / Act
             // `dale dev --preset <name> --export-topology <file>` — exporting a NON-default preset, the
             // friction DF-07 is about. The first-class --preset must compose with the export options.
             var result = Program.BuildRootCommand().Parse(new[] { "dev", "--preset", "operator-steering", "--export-topology", "out.json" });
 
+            // Assert
             Assert.AreEqual(0, result.Errors.Count, string.Join("; ", result.Errors.Select(e => e.Message)));
             Assert.AreEqual("operator-steering", result.GetValue<string?>("--preset"));
             Assert.AreEqual("out.json", result.GetValue<string?>("--export-topology"));
         }
 
         [TestMethod]
-        public void RootCommand_UnknownSubcommand_IsStillAParseError()
+        [TestProperty("spec", "AC-CLI-002.2")]
+        public void RootCommand_UnknownSubcommand_StaysParseError()
         {
+            // Arrange / Act
             // Forwarding is scoped to the dotnet-wrapping commands; a typo'd subcommand must keep failing fast.
             var result = Program.BuildRootCommand().Parse(new[] { "bogus" });
 
+            // Assert
             Assert.AreNotEqual(0, result.Errors.Count);
         }
     }

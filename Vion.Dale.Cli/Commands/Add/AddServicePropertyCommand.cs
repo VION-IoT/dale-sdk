@@ -98,7 +98,9 @@ namespace Vion.Dale.Cli.Commands.Add
                                           return 1;
                                       }
 
-                                      if (!SourceInserter.AddAttributeToMember(target.FilePath, name!, $"[ServiceProperty(Title = \"{PresentationSnippet.EscapeCsString(defaultName ?? name!)}\")]"))
+                                      if (!SourceInserter.AddAttributeToMember(target.FilePath,
+                                                                               name!,
+                                                                               $"[ServiceProperty(Title = \"{PresentationSnippet.EscapeCsString(defaultName ?? name!)}\")]"))
                                       {
                                           DaleConsole.Error($"Failed to annotate '{name}' in {target.ClassName}.");
                                           return 1;

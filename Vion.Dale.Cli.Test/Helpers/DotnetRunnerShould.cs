@@ -23,7 +23,7 @@ namespace Vion.Dale.Cli.Test.Helpers
             DaleConsole.JsonMode = true;
 
             // Act
-            var startInfo = DotnetRunner.ComposeStartInfo("publish", new[] { "MyLib.csproj" }, workingDirectory: null);
+            var startInfo = DotnetRunner.ComposeStartInfo("publish", new[] { "MyLib.csproj" }, null);
 
             // Assert
             Assert.IsTrue(startInfo.RedirectStandardOutput);
@@ -38,7 +38,7 @@ namespace Vion.Dale.Cli.Test.Helpers
             DaleConsole.JsonMode = false;
 
             // Act
-            var startInfo = DotnetRunner.ComposeStartInfo("build", new[] { "MyLib.csproj" }, workingDirectory: null);
+            var startInfo = DotnetRunner.ComposeStartInfo("build", new[] { "MyLib.csproj" }, null);
 
             // Assert
             Assert.IsFalse(startInfo.RedirectStandardOutput);

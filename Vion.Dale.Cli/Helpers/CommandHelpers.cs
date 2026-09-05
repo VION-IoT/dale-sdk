@@ -101,18 +101,6 @@ namespace Vion.Dale.Cli.Helpers
         }
 
         /// <summary>
-        ///     Why an explicitly named <c>--project</c> could not be used. The two causes need different
-        ///     actions from the reader, and neither is "use --project", which they just did.
-        /// </summary>
-        internal static string DescribeUnusableProjectPath(string projectPath)
-        {
-            var fullPath = Path.GetFullPath(projectPath);
-            return File.Exists(fullPath)
-                       ? $"'{fullPath}' is not a Dale project — it references neither the Vion.Dale.Sdk package nor the SDK project."
-                       : $"No project file at '{fullPath}'.";
-        }
-
-        /// <summary>
         ///     Find logic blocks in the project and resolve the target.
         ///     Returns null on failure (error already printed).
         /// </summary>
@@ -146,6 +134,17 @@ namespace Vion.Dale.Cli.Helpers
             }
 
             return null;
+        }
+
+        /// <summary>
+        ///     Why an explicitly named <c>--project</c> could not be used. The two causes need different
+        ///     actions from the reader, and neither is "use --project", which they just did.
+        /// </summary>
+        internal static string DescribeUnusableProjectPath(string projectPath)
+        {
+            var fullPath = Path.GetFullPath(projectPath);
+            return File.Exists(fullPath) ? $"'{fullPath}' is not a Dale project — it references neither the Vion.Dale.Sdk package nor the SDK project." :
+                       $"No project file at '{fullPath}'.";
         }
 
         /// <summary>

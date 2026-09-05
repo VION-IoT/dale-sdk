@@ -10,13 +10,6 @@ namespace Vion.Dale.Cli.Test.TestHelpers
     /// </summary>
     internal sealed class TemporaryStoreRoot : IDisposable
     {
-        public TemporaryStoreRoot()
-        {
-            Root = Path.Combine(Path.GetTempPath(), "dale-cli-store-" + Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(Root);
-            TokenStore.UseRoot(Root);
-        }
-
         public string Root { get; }
 
         public string CredentialsPath
@@ -29,16 +22,11 @@ namespace Vion.Dale.Cli.Test.TestHelpers
             get => Path.Combine(Root, ".dale", "config.json");
         }
 
-        public void WriteCredentials(string json)
+        public TemporaryStoreRoot()
         {
-            Directory.CreateDirectory(Path.Combine(Root, ".dale"));
-            File.WriteAllText(CredentialsPath, json);
-        }
-
-        public void WriteConfig(string json)
-        {
-            Directory.CreateDirectory(Path.Combine(Root, ".dale"));
-            File.WriteAllText(ConfigPath, json);
+            Root = Path.Combine(Path.GetTempPath(), "dale-cli-store-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(Root);
+            TokenStore.UseRoot(Root);
         }
 
         public void Dispose()
@@ -52,6 +40,18 @@ namespace Vion.Dale.Cli.Test.TestHelpers
             {
                 // Best effort — a temporary directory left behind fails nothing.
             }
+        }
+
+        public void WriteCredentials(string json)
+        {
+            Directory.CreateDirectory(Path.Combine(Root, ".dale"));
+            File.WriteAllText(CredentialsPath, json);
+        }
+
+        public void WriteConfig(string json)
+        {
+            Directory.CreateDirectory(Path.Combine(Root, ".dale"));
+            File.WriteAllText(ConfigPath, json);
         }
     }
 }

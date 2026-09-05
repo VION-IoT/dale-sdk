@@ -128,7 +128,13 @@ namespace Vion.Dale.Cli.Test.Auth
         public void RoundTripStoredCredentials()
         {
             // Arrange
-            var expiresAt = new DateTime(2030, 1, 2, 3, 4, 5, DateTimeKind.Utc);
+            var expiresAt = new DateTime(2030,
+                                         1,
+                                         2,
+                                         3,
+                                         4,
+                                         5,
+                                         DateTimeKind.Utc);
 
             // Act
             TokenStore.SaveCredentials(new StoredCredentials

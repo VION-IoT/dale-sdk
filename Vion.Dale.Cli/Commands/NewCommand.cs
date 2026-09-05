@@ -48,14 +48,12 @@ namespace Vion.Dale.Cli.Commands
                                   {
                                       if (interactive)
                                       {
-                                          name = AnsiConsole.Prompt(new TextPrompt<string>("  Project name:").Validate(n => IsValidProjectName(n),
-                                                                                                                       InvalidNameReason));
+                                          name = AnsiConsole.Prompt(new TextPrompt<string>("  Project name:").Validate(n => IsValidProjectName(n), InvalidNameReason));
                                       }
                                       else
                                       {
-                                          DaleConsole.Error(noInteractive
-                                                                ? "Project name is required. Pass it as an argument or remove --no-interactive."
-                                                                : "Project name is required. Pass it as an argument — `--output json` cannot prompt for it.");
+                                          DaleConsole.Error(noInteractive ? "Project name is required. Pass it as an argument or remove --no-interactive." :
+                                                                "Project name is required. Pass it as an argument — `--output json` cannot prompt for it.");
                                           return 1;
                                       }
                                   }
@@ -184,9 +182,12 @@ namespace Vion.Dale.Cli.Commands
         /// </summary>
         private static string[] ScaffoldedLogicBlocks(string targetDir)
         {
-            return Directory.Exists(targetDir)
-                       ? ProjectDiscovery.FindLogicBlocks(targetDir).Select(block => block.ClassName).Distinct(StringComparer.Ordinal).OrderBy(name => name, StringComparer.Ordinal).ToArray()
-                       : Array.Empty<string>();
+            return Directory.Exists(targetDir) ?
+                       ProjectDiscovery.FindLogicBlocks(targetDir)
+                                       .Select(block => block.ClassName)
+                                       .Distinct(StringComparer.Ordinal)
+                                       .OrderBy(name => name, StringComparer.Ordinal)
+                                       .ToArray() : Array.Empty<string>();
         }
 
         /// <summary>

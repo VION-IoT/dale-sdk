@@ -35,10 +35,28 @@ namespace Vion.Dale.Cli.Test.Commands.Add
             Thread.CurrentThread.CurrentCulture = new CultureInfo(culture);
 
             // Act
-            var attribute = PresentationSnippet.Build(group: null, importance: null, decimals: -2, format: null);
+            var attribute = PresentationSnippet.Build(null, null, -2, null);
 
             // Assert
             Assert.AreEqual("[Presentation(Decimals = -2)]", attribute);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-CLI-006.9")]
+        [DataRow(1.0, true)]
+        [DataRow(0.5, true)]
+        [DataRow(0.0, false)]
+        [DataRow(-1.0, false)]
+        [DataRow(double.NaN, false)]
+        [DataRow(double.PositiveInfinity, false)]
+        [DataRow(double.NegativeInfinity, false)]
+        public void AcceptOnlyPositiveFiniteTimerInterval(double interval, bool expectedAccepted)
+        {
+            // Arrange / Act
+            var accepted = AddTimerCommand.IsValidInterval(interval);
+
+            // Assert
+            Assert.AreEqual(expectedAccepted, accepted);
         }
 
         [TestMethod]

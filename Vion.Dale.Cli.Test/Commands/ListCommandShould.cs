@@ -51,8 +51,16 @@ namespace Vion.Dale.Cli.Test.Commands
                                              new()
                                              {
                                                  TypeFullName = "MyLib.Thermostat",
-                                                 Contracts = new List<ContractInfo> { new() { Identifier = "Heater" }, new() { Identifier = string.Empty } },
-                                                 Interfaces = new List<InterfaceInfo> { new() { Identifier = string.Empty }, new() { Identifier = "Peer" } },
+                                                 Contracts = new List<ContractInfo>
+                                                             {
+                                                                 new() { Identifier = "Heater" },
+                                                                 new() { Identifier = string.Empty },
+                                                             },
+                                                 Interfaces = new List<InterfaceInfo>
+                                                              {
+                                                                  new() { Identifier = string.Empty },
+                                                                  new() { Identifier = "Peer" },
+                                                              },
                                              },
                                          },
                        };
@@ -192,11 +200,17 @@ namespace Vion.Dale.Cli.Test.Commands
                               Identifier = "Root",
                               Properties = new List<ServicePropertyInfo>
                                            {
-                                               new() { Identifier = "VoltageSetpoint", Schema = JsonNode.Parse("""{ "type": "number", "format": "double" }""") },
+                                               new()
+                                               {
+                                                   Identifier = "VoltageSetpoint",
+                                                   Schema = JsonNode.Parse("""{ "type": "number", "format": "double" }"""),
+                                               },
                                                new()
                                                {
                                                    Identifier = "PreferredSetpoint",
-                                                   Schema = JsonNode.Parse("""{ "type": ["object", "null"], "title": "ScheduledSetpoint" }"""),
+                                                   Schema =
+                                                       JsonNode
+                                                           .Parse("""{ "type": ["object", "null"], "title": "ScheduledSetpoint" }"""),
                                                },
                                            },
                               MeasuringPoints = new List<ServiceMeasuringPointInfo>
@@ -204,7 +218,9 @@ namespace Vion.Dale.Cli.Test.Commands
                                                     new()
                                                     {
                                                         Identifier = "CurrentAlarm",
-                                                        Schema = JsonNode.Parse("""{ "type": "string", "title": "AlarmState", "enum": ["Ok"] }"""),
+                                                        Schema =
+                                                            JsonNode
+                                                                .Parse("""{ "type": "string", "title": "AlarmState", "enum": ["Ok"] }"""),
                                                     },
                                                 },
                           };
@@ -279,7 +295,14 @@ namespace Vion.Dale.Cli.Test.Commands
                                              new()
                                              {
                                                  TypeFullName = "MyLib.Relay",
-                                                 Contracts = new List<ContractInfo> { new() { Identifier = "Channel[0]", MatchingContractType = "DigitalOutputProvider" } },
+                                                 Contracts = new List<ContractInfo>
+                                                             {
+                                                                 new()
+                                                                 {
+                                                                     Identifier = "Channel[0]",
+                                                                     MatchingContractType = "DigitalOutputProvider",
+                                                                 },
+                                                             },
                                                  Interfaces = new List<InterfaceInfo> { new() { Identifier = "Peer[red]" } },
                                              },
                                          },
