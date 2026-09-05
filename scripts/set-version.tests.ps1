@@ -19,14 +19,24 @@ function Get-RosterIds([string]$path) {
     return [regex]::Matches($block.Groups['body'].Value, '"([^"]+)"') | ForEach-Object { $_.Groups[1].Value }
 }
 
+# Packable is MSBuild's default, so a project is packable unless something turns it off: an explicit
+# <IsPackable>false</IsPackable> (matched attribute-tolerantly, because the bundled template writes
+# <IsPackable Condition="true">false</IsPackable>), or the MSTest / Microsoft.NET.Test.Sdk props,
+# which set IsPackable=false off IsTestProject. A filter reading <IsPackable>true</IsPackable> instead
+# cannot see a project that declares neither — Vion.Dale.Cli is packed and published like every other
+# id and was invisible to this check while it read the positive form.
 function Get-PackableIds([string]$root) {
     Get-ChildItem -LiteralPath $root -Filter '*.csproj' -Recurse |
         Where-Object { $_.FullName -notmatch '[\\/](bin|obj)[\\/]' } |
         ForEach-Object {
             $text = Get-Content -LiteralPath $_.FullName -Raw
-            if ($text -match '<IsPackable>\s*true\s*</IsPackable>' -and $text -match '<PackageId>([^<]+)</PackageId>') {
-                $Matches[1]
-            }
+            if ($text -match '<IsPackable[^>]*>\s*false\s*</IsPackable>') { return }
+            if ($text -match '<IsTestProject[^>]*>\s*true\s*</IsTestProject>' -or
+                $text -match 'PackageReference\s+Include="(MSTest|Microsoft\.NET\.Test\.Sdk)"') { return }
+
+            # A packable project declaring no <PackageId> ships under its assembly name. Name it rather
+            # than drop it, or the filter goes blind again the next time one is added.
+            if ($text -match '<PackageId>([^<]+)</PackageId>') { $Matches[1] } else { $_.BaseName }
         }
 }
 
@@ -55,7 +65,22 @@ try {
         throw "Case 3 (the comparison can fail) expected exactly 1 missing id after dropping one, got $($wouldMiss.Count)"
     }
 
-    Write-Host "set-version.tests: PASS ($($packable.Count) packable package id(s), all in the roster)"
+    # Case 4: the filter itself can see a project that is packable by MSBuild's default. Cases 1-3
+    # only compare two sets; a filter blind to a whole class of projects passes all three while the
+    # roster is incomplete, which is how Vion.Dale.Cli stayed missing. Reading <IsPackable>true</…>
+    # is that blindness, so the widened filter must find ids the narrow one does not.
+    $narrow = @(Get-ChildItem -LiteralPath $repoRoot -Filter '*.csproj' -Recurse |
+        Where-Object { $_.FullName -notmatch '[\\/](bin|obj)[\\/]' } |
+        ForEach-Object {
+            $text = Get-Content -LiteralPath $_.FullName -Raw
+            if ($text -match '<IsPackable>\s*true\s*</IsPackable>' -and $text -match '<PackageId>([^<]+)</PackageId>') { $Matches[1] }
+        } | Sort-Object -Unique)
+    $defaulted = @($packable | Where-Object { $narrow -notcontains $_ })
+    if ($defaulted.Count -lt 1) {
+        throw "Case 4 (the filter sees a package that is packable by default) — the filter found nothing an <IsPackable>true</IsPackable> match would have missed, so it has narrowed back"
+    }
+
+    Write-Host "set-version.tests: PASS ($($packable.Count) packable package id(s), all in the roster; $($defaulted.Count) packable by default: $($defaulted -join ', '))"
     exit 0
 }
 catch {

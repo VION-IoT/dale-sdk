@@ -124,19 +124,36 @@ namespace Vion.Dale.Sdk.TestKit.Test
             var listed = Regex.Matches(roster.Groups["body"].Value, "\"([^\"]+)\"").Select(match => match.Groups[1].Value).ToHashSet(StringComparer.Ordinal);
 
             // Act
-            var packable = Directory.EnumerateFiles(root, "*.csproj", SearchOption.AllDirectories)
-                                    .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal) &&
-                                                   !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
-                                    .Select(File.ReadAllText)
-                                    .Where(text => Regex.IsMatch(text, @"<IsPackable>\s*true\s*</IsPackable>"))
-                                    .Select(text => Regex.Match(text, "<PackageId>([^<]+)</PackageId>"))
-                                    .Where(match => match.Success)
-                                    .Select(match => match.Groups[1].Value)
-                                    .ToList();
+            var packable = PackableIds(root).ToList();
 
             // Assert
             Assert.IsNotEmpty(packable);
             Assert.IsEmpty(packable.Where(id => !listed.Contains(id)).OrderBy(id => id, StringComparer.Ordinal).ToList());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-TKIT-013.4")]
+        public void CountProjectPackableByBuildDefaultAsReleased()
+        {
+            // Arrange — packable is MSBuild's default, so a roster check that reads <IsPackable>true</…>
+            // is blind to every project declaring neither, and passes while the roster is incomplete.
+            // Vion.Dale.Cli is that project, and this is the standing proof the filter has not narrowed back
+            var root = RepositoryRoot();
+
+            // Act
+            var widened = PackableIds(root).ToHashSet(StringComparer.Ordinal);
+            var narrow = Directory.EnumerateFiles(root, "*.csproj", SearchOption.AllDirectories)
+                                  .Where(OutsideBuildOutput)
+                                  .Select(File.ReadAllText)
+                                  .Where(text => Regex.IsMatch(text, @"<IsPackable>\s*true\s*</IsPackable>"))
+                                  .Select(text => Regex.Match(text, "<PackageId>([^<]+)</PackageId>"))
+                                  .Where(match => match.Success)
+                                  .Select(match => match.Groups[1].Value)
+                                  .ToHashSet(StringComparer.Ordinal);
+
+            // Assert
+            Assert.Contains("Vion.Dale.Cli", widened);
+            Assert.IsNotEmpty(widened.Except(narrow, StringComparer.Ordinal).ToList());
         }
 
         [TestMethod]
@@ -180,6 +197,28 @@ namespace Vion.Dale.Sdk.TestKit.Test
 
             // Assert
             Assert.IsNotEmpty(foreignCitations, "A suite in these projects proves other areas' criteria and must keep citing them.");
+        }
+
+        // A project is packable unless something turns it off: an explicit <IsPackable>false</IsPackable>
+        // (matched attribute-tolerantly — the bundled template writes <IsPackable Condition="true">false</…>),
+        // or the MSTest / Microsoft.NET.Test.Sdk props, which set it off IsTestProject. One declaring no
+        // <PackageId> would ship under its assembly name, so it is named rather than dropped.
+        private static IEnumerable<string> PackableIds(string root)
+        {
+            return Directory.EnumerateFiles(root, "*.csproj", SearchOption.AllDirectories)
+                            .Where(OutsideBuildOutput)
+                            .Select(path => (Path: path, Text: File.ReadAllText(path)))
+                            .Where(project => !Regex.IsMatch(project.Text, @"<IsPackable[^>]*>\s*false\s*</IsPackable>") &&
+                                              !Regex.IsMatch(project.Text, @"<IsTestProject[^>]*>\s*true\s*</IsTestProject>") &&
+                                              !Regex.IsMatch(project.Text, @"PackageReference\s+Include=""(MSTest|Microsoft\.NET\.Test\.Sdk)"""))
+                            .Select(project => Regex.Match(project.Text, "<PackageId>([^<]+)</PackageId>") is { Success: true } id ? id.Groups[1].Value :
+                                                   Path.GetFileNameWithoutExtension(project.Path));
+        }
+
+        private static bool OutsideBuildOutput(string path)
+        {
+            return !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal) &&
+                   !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal);
         }
 
         // A generic type's FullName carries its arity (`Name`1`); the manifest records the plain name.

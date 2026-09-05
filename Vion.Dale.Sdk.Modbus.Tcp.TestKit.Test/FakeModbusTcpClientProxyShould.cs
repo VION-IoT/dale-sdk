@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -40,6 +41,44 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
             // Assert
             Assert.AreEqual(0x12345678u, sut.Power, "MsbToLsb + MswToLsw should produce big-endian-word-and-byte interpretation.");
             Assert.IsNull(sut.LastReadError);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-TKIT-010.1")]
+        [DataRow(1)]
+        [DataRow(3)]
+        public void RefuseRegisterDataOfPartialRegisterLength(int byteCount)
+        {
+            // Arrange — one register is two bytes on the wire, so an odd payload has no register boundary
+            // to land on and would be stored half-written
+            var proxy = new FakeModbusTcpClientProxy();
+            IModbusTcpClientProxy asProxy = proxy;
+            var bytes = new byte[byteCount];
+
+            // Act / Assert
+            Assert.ThrowsExactly<ArgumentException>(() => proxy.SetHoldingRegisters(1, 40000, bytes));
+            Assert.ThrowsExactly<ArgumentException>(() => proxy.SetInputRegisters(1, 30000, bytes));
+            Assert.ThrowsExactly<ArgumentException>(() => asProxy.WriteMultipleRegistersAsync(1, 40000, bytes, default).GetAwaiter().GetResult());
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-TKIT-010.1")]
+        [DataRow(0)]
+        [DataRow(1)]
+        [DataRow(3)]
+        [DataRow(4)]
+        public void RefuseSingleRegisterWriteOfAnyLengthButOneRegister(int byteCount)
+        {
+            // Arrange — a fourth refusal beside the three alignment sites, and a stricter one: four bytes
+            // are a whole number of registers and this arm still rejects them, because the function code
+            // writes exactly one register
+            IModbusTcpClientProxy proxy = new FakeModbusTcpClientProxy();
+
+            // Act
+            var thrown = Assert.ThrowsExactly<ArgumentException>(() => proxy.WriteSingleRegisterAsync(1, 40000, new byte[byteCount], default).GetAwaiter().GetResult());
+
+            // Assert
+            StringAssert.Contains(thrown.Message, "exactly 2 bytes");
         }
 
         [TestMethod]

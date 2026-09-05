@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Moq;
 using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
 using Vion.Dale.Sdk.TestKit;
@@ -97,7 +97,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-TKIT-009.2")]
+        [TestProperty("spec", "AC-TKIT-009.1")]
         public void InvokeErrorCallbackOnSimulatedWriteError()
         {
             // Arrange
@@ -141,6 +141,49 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-TKIT-009.2")]
+        public void HonourCallerSuppliedOutcomeInsteadOfDerivingIt()
+        {
+            // Arrange — a bare TimeoutException derives TransportError, so an outcome the caller names and
+            // derivation would never produce is what tells the two apart
+            _sut.ReadVoltages();
+
+            // Act
+            _sut.Modbus.SimulateReadError(_context, new TimeoutException("Device not responding"), SampleLogicBlock.VoltagesAddress, ModbusOutcome.Expired);
+            _context.FlushPendingActions();
+
+            // Assert
+            Assert.AreEqual(ModbusOutcome.Expired, _sut.LastReadReceipt!.Value.Outcome);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-TKIT-009.2")]
+        [DataRow(ModbusOutcome.Expired, false)]
+        [DataRow(ModbusOutcome.Dropped, false)]
+        [DataRow(ModbusOutcome.Invalid, false)]
+        [DataRow(ModbusOutcome.DeviceError, true)]
+        public void StampNoPublishInstantOnOutcomeDecidedBeforePublishing(ModbusOutcome outcome, bool published)
+        {
+            // Arrange — the publish instant is not on the receipt, it is the split between its two spans:
+            // an outcome the handler decided before publishing never reached the wire, so its whole elapsed
+            // time is queued wait and its round trip is zero
+            var elapsed = TimeSpan.FromSeconds(3);
+            var expectedRoundTrip = published ? elapsed : TimeSpan.Zero;
+            var expectedQueuedWait = published ? TimeSpan.Zero : elapsed;
+            _sut.ReadVoltages();
+            _context.AdvanceTime(elapsed);
+
+            // Act
+            _sut.Modbus.SimulateReadError(_context, new TimeoutException("Device not responding"), SampleLogicBlock.VoltagesAddress, outcome);
+            _context.FlushPendingActions();
+
+            // Assert
+            Assert.AreEqual(outcome, _sut.LastReadReceipt!.Value.Outcome);
+            Assert.AreEqual(expectedRoundTrip, _sut.LastReadReceipt!.Value.RoundTrip);
+            Assert.AreEqual(expectedQueuedWait, _sut.LastReadReceipt!.Value.QueuedWait);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-TKIT-009.1")]
         public void StampSimulatedReceiptFromVirtualClock()
         {
             // Arrange

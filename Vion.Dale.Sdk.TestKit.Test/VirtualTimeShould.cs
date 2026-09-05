@@ -388,18 +388,19 @@ namespace Vion.Dale.Sdk.TestKit.Test
         [TestProperty("spec", "AC-TKIT-008.5")]
         public void KeepEnqueueOrderOfActionsPutBackAfterThrowingFlush()
         {
-            // Arrange — the sibling of the throw rule: the actions a failed flush puts back were queued
-            // before anything a later call adds, so they must still run first
+            // Arrange — the put-back goes to the head, and only an action queued *during* the failed flush
+            // can tell that apart from an append: "duringFlush" is queued by "first" while the snapshot is
+            // already detached, so "neverReached" going back in front of it is the whole of the claim
+            _sut.ScheduleCascading("first", TimeSpan.Zero, "duringFlush", TimeSpan.Zero);
             _sut.ScheduleThrowing("boom", TimeSpan.Zero);
-            _sut.Schedule("queuedBefore", TimeSpan.Zero);
+            _sut.Schedule("neverReached", TimeSpan.Zero);
             Assert.ThrowsExactly<InvalidOperationException>(() => _context.FlushPendingActions());
-            _sut.Schedule("queuedAfter", TimeSpan.Zero);
 
             // Act
             _context.FlushPendingActions();
 
             // Assert
-            CollectionAssert.AreEqual(new[] { "boom", "queuedBefore", "queuedAfter" }, _sut.Ran);
+            CollectionAssert.AreEqual(new[] { "first", "boom", "neverReached", "duringFlush" }, _sut.Ran);
         }
 
         [TestMethod]

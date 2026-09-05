@@ -148,6 +148,21 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-TKIT-011.7")]
+        public void RefuseControlOperationEnqueuedBeforeInitialization()
+        {
+            // Arrange — the guard is the queue's, not the data path's: the real RequestQueue refuses every
+            // enqueue before Initialize from EnqueueCore, control operations included, so a fake that ran
+            // one on the calling thread would let a test reach a disconnect the real client never reaches
+            var queue = new SynchronousRequestQueue(new Mock<Client.Request.IRequestFactory>().Object);
+
+            // Act / Assert
+            var thrown =
+                Assert.ThrowsExactly<InvalidOperationException>(() => queue.EnqueueControlOperation("probe", null!, _ => System.Threading.Tasks.Task.CompletedTask, null, null));
+            StringAssert.Contains(thrown.Message, nameof(SynchronousRequestQueue));
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-TKIT-011.3")]
         public void MeasureOnRealSystemClockUnlessCallerSuppliesOne()
         {

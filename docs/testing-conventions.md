@@ -122,9 +122,13 @@ add the seam.
 
 **No test in this repository does it today.** The site this paragraph used to name —
 `Vion.Dale.Sdk.TestKit.Test/EmissionPolicyShould.cs`, reaching `LogicBlockBase._serviceBinder` by
-`BindingFlags.NonPublic` — was retired by the `EMIT` pass, which put the answer on the wire instead:
-the seam is `LogicBlockBase.BoundInterfaceIdentifiers()`, and the test now reads the emitted value
-through `VerifyServicePropertyEmitted`.
+`BindingFlags.NonPublic` — was retired by the `EMIT` pass, which put the answer on the wire instead.
+Which seam replaces such a reach depends on the question it was asking. That one was about **emission
+policy**, and the test now reads the emitted value back through the kit's own
+`VerifyServicePropertyEmitted`. A reach asking what a block **bound** is answered by
+`LogicBlockBase.BoundInterfaceIdentifiers()`, which is what `InterfaceBindingShould` and
+`GatedMemberBindingShould` assert against. Naming the wrong one of the two sends the next author to a
+seam that cannot answer their question.
 
 The distinction the rule turns on is **kit code against kit tests**. The TestKit's own *production*
 code still reaches for three private fields — `_serviceBinder` and `_interfaces` on the builder,

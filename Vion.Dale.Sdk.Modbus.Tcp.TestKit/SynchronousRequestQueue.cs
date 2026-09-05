@@ -131,6 +131,13 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit
                                             Action? successCallback,
                                             Action<Exception>? errorCallback)
         {
+            // RequestQueue refuses a control operation before Initialize exactly as it refuses a read —
+            // its EnqueueCore throws on the channel Initialize creates, before any accumulator is read.
+            // Without this the fake ran a disconnect the real client cannot reach, on the calling thread.
+            // The accumulator is only how this queue asks whether Initialize ran; a control operation
+            // does not report into it, so the value is discarded.
+            RequireAccumulator();
+
             Accept(_requestFactory.CreateControlOperation(requestName,
                                                           dispatcher,
                                                           operation,

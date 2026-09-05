@@ -90,6 +90,25 @@ namespace Vion.Dale.Sdk.TestKit.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-TKIT-004.3")]
+        public void LeaveQueuedActionsArmedWhenRecordingCleared()
+        {
+            // Arrange — the clear is scoped to the recording, and the builder's own auto-start clear is the
+            // same call, so "the builder cleared what start produced" never means "the context is reset":
+            // an action a block armed before the clear still fires on the next drive
+            var block = LogicBlockTestHelper.Create<SchedulingLogicBlock>();
+            var context = block.CreateTestContext().Build();
+            block.Schedule("armed", TimeSpan.Zero);
+
+            // Act
+            context.ClearRecordedMessages();
+            context.FlushPendingActions();
+
+            // Assert
+            CollectionAssert.AreEqual(new[] { "armed" }, block.Ran);
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-TKIT-005.1")]
         public void DefaultOccurrenceExpectationToExactlyOnce()
         {

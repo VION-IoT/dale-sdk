@@ -108,13 +108,23 @@ together — the shape 33 call sites in the first consumer already use.
 ## What the context records
 
 - `AC-TKIT-004.1` (Ubiquitous): THE SYSTEM SHALL record every message a block sends to an actor, to itself or in reply, in send order, taking the record and any action enqueue under one lock and answering every query from a materialised copy.
-- `AC-TKIT-004.2` (Ubiquitous): THE SYSTEM SHALL answer an actor lookup with a stand-in reference of the requested name.
-- `AC-TKIT-004.3` (Ubiquitous): THE SYSTEM SHALL let a test clear the recorded messages.
+- `AC-TKIT-004.2` (Ubiquitous): THE SYSTEM SHALL answer an actor lookup with a stand-in reference of the requested name, rendering as that name inside `TestActorRef(…)`.
+- `AC-TKIT-004.3` (Ubiquitous): THE SYSTEM SHALL clear the recorded messages when a test asks, and SHALL leave the actions a block has already queued armed for the next drive.
 
 `AC-TKIT-004.1`'s lock is not incidental. A block driven by a real I/O client marshals its completion
 callbacks from background threads, so the recording and the action queue take concurrent writes while
 the test thread drives; taking both under one gate and answering every query from a materialised copy
 is what makes the drive deterministic anyway.
+
+`AC-TKIT-004.2` states the rendering because it is the only thing about the stand-in a test can read:
+the reference type the lookup answers with implements a marker interface with no members, so the name
+it was asked for reaches an assertion through the text form and nowhere else.
+
+`AC-TKIT-004.3`'s second clause is the trap. The clear is scoped to the recording — a block's queued
+actions survive it — and `Build()` makes the same call after an auto-start (`AC-TKIT-002.5`), so
+*the builder cleared what start produced* is not *the context is reset*. What a start typically leaves
+armed is the emission flush a held value schedules, so a test that turns the policy on
+(`AC-TKIT-003.1`), clears, and then drives will see that flush fire.
 
 ## The verification family
 
@@ -163,6 +173,13 @@ simulator drove is asserted, not raised.
 face's own message loop, which only the shipped implementation has, so a mocked face is refused at
 the call site rather than silently doing nothing.
 
+The identity rule above reaches further than the raise helpers. The Modbus RTU kit's four response
+simulations (`AC-TKIT-009.1`) address their contract message the same way and carry the same
+identity, for the same reason: the RTU contract's own message handler dispatches on message type and
+logs the identity it already holds, so nothing downstream reads the one the kit supplies. The rule
+guards the write path in both kits alike, and neither kit can test it, which is what the identity
+criterion's own marker says.
+
 ## The value a verification compares
 
 - `AC-TKIT-007.1` (Ubiquitous): THE SYSTEM SHALL assert that an output face was set, an output provider confirmed or an input provider drove a value, in both kits, treating an omitted face as any face of that kind and an omitted value as any value, and SHALL refuse a face that is not the implementation the SDK ships.
@@ -189,7 +206,7 @@ not for "not finite".
 - `AC-TKIT-008.2` (Event-driven): WHEN the virtual clock is advanced THE SYSTEM SHALL dispatch every queued action whose deadline the advance reaches, in deadline order and in enqueue order among equal deadlines, setting the clock to each action's own deadline before running it, and SHALL dispatch an action queued during the advance whose deadline the advance still reaches while leaving one beyond it queued.
 - `AC-TKIT-008.3` (Event-driven): WHEN a queued action's deadline already lies in the past THE SYSTEM SHALL run it at the current virtual time rather than moving the clock backwards.
 - `AC-TKIT-008.4` (Ubiquitous): THE SYSTEM SHALL leave the clock at the instant an advance requested, whether the queue was empty, exhausted, or left by a dispatched action that threw, and SHALL leave every action the advance did not reach queued.
-- `AC-TKIT-008.5` (Ubiquitous): THE SYSTEM SHALL run every action queued at the moment of a flush in one pass, ignoring their deadlines and the clock, deferring an action queued during the flush to the next one, and SHALL leave queued the actions a throwing action did not reach.
+- `AC-TKIT-008.5` (Ubiquitous): THE SYSTEM SHALL run every action queued at the moment of a flush in one pass, ignoring their deadlines and the clock, deferring an action queued during the flush to the next one, and SHALL leave queued the actions a throwing action did not reach, ahead of everything queued during that flush or after it.
 - `AC-TKIT-008.6` (Event-driven): WHEN an advance is asked to move the clock backwards, or either driver is entered from inside an action it dispatched, THE SYSTEM SHALL refuse.
 - `AC-TKIT-008.7` (Ubiquitous): THE SYSTEM SHALL enqueue an action a block schedules with or without a delay so that either driver runs it, stamping a delayed action's deadline from the virtual clock at the moment it was scheduled.
 - `AC-TKIT-008.8` (Ubiquitous): THE SYSTEM SHALL fire a block's timer callback and report its configured interval out of band of the virtual clock, selected by identifier or by a method-call expression, refusing an unregistered identifier from either query with the registered identifiers named.
@@ -219,6 +236,13 @@ propagates, and what the driver did not reach is still there afterwards. The clo
 caller asked whatever a dispatched action did, unless that action carried the clock past the target
 itself, which a fake consuming virtual time does.
 
+The flush half of that promise carries an ordering the advance half does not need. A flush detaches
+what it is going to run before it runs any of it, so an action queued *by* one of those actions is
+already in the queue when a later one throws; putting the unreached actions back at the head is what
+keeps them ahead of it. Only a flush whose surviving actions raced with a newly queued one can tell
+that apart from an append — which is what makes it worth stating rather than leaving to the
+implementation.
+
 `AC-TKIT-008.8` is deliberately out of band: advancing the clock never fires a timer, however far it
 moves. A timer is fired explicitly, which keeps a periodic callback a thing a test decides rather
 than a thing that happens to it.
@@ -241,11 +265,16 @@ two receipts for one read. Clearing the recording is the test's own knob.
 
 ## The Modbus TCP kit
 
-- `AC-TKIT-010.1` (Ubiquitous): THE SYSTEM SHALL hold a fake Modbus TCP client's register and coil contents as raw wire bytes per unit and address, answer a read of an address nothing populated with zeros, and refuse register data that is not a whole number of registers.
+- `AC-TKIT-010.1` (Ubiquitous): THE SYSTEM SHALL hold a fake Modbus TCP client's register and coil contents as raw wire bytes per unit and address, answer a read of an address nothing populated with zeros, refuse register data that is not a whole number of registers, and refuse a single-register write of any length but one register.
 - `AC-TKIT-010.2` (Ubiquitous): THE SYSTEM SHALL record every read, write and connection attempt a fake Modbus TCP client observes, in order, with that operation's own fields, before it decides that operation's outcome, copying a write's payload rather than aliasing the caller's buffer.
 - `AC-TKIT-010.3` (Ubiquitous): THE SYSTEM SHALL record a multiple-coil write as one byte per coil, where a single-coil write records the wire's own on and off bytes and a coil read answers the wire's own bit packing.
 - `AC-TKIT-010.4` (Ubiquitous): THE SYSTEM SHALL consume a queued fault on the next matching operation in the order the faults were queued, matching a read by its starting address, and SHALL queue connection failures separately from operation faults while leaving the connected state a failed attempt found.
 - `AC-TKIT-010.5` (Ubiquitous): THE SYSTEM SHALL consume a configured delay of virtual time on every operation and connection attempt including one that then fails, requiring a virtual clock only when the delay is greater than zero, and SHALL refuse a delay below zero.
+
+`AC-TKIT-010.1`'s two refusals are not one rule stated twice. The alignment refusal is about register
+boundaries and admits any even length, so a four-byte payload passes it; the single-register arm is
+about the function code, which writes one register and no more, and rejects those same four bytes.
+A test that reaches only the first refusal leaves the stricter one unproven.
 
 `AC-TKIT-010.3` is an asymmetry the recorded bytes make visible, so it is stated rather than
 smoothed over. A single-coil write records the wire's own on and off bytes and a coil read answers
@@ -257,7 +286,7 @@ consume it from otherwise. Zero is the default and needs none.
 
 - `AC-TKIT-011.1` (Ubiquitous): THE SYSTEM SHALL wire a fake proxy and the synchronous queue into the real Modbus TCP client, and a fake server proxy into the real Modbus TCP server, registering its own overrides last and its own clock first so the SDK's conditional registration keeps it.
 - `AC-TKIT-011.2` (Ubiquitous): THE SYSTEM SHALL hand a fake server out through a factory for a block that resolves one, and SHALL dispose the client or server it composed together with its container.
-- `AC-TKIT-011.3` (Ubiquitous): THE SYSTEM SHALL measure a harness on the real system clock unless the caller supplies one, and SHALL refuse a null proxy or a null clock.
+- `AC-TKIT-011.3` (Ubiquitous): THE SYSTEM SHALL measure a harness on the real system clock unless the caller supplies one, and SHALL refuse a null proxy on either harness and a null clock on the client harness, which is the one that takes a clock.
 - `AC-TKIT-011.4` (Ubiquitous): THE SYSTEM SHALL run each request enqueued on the synchronous queue on the calling thread, routing its callbacks through the dispatcher the production queue uses.
 - `AC-TKIT-011.5` (State-driven): WHILE the synchronous queue is held THE SYSTEM SHALL buffer enqueued requests, report how many it holds, and on a drain run those buffered at that moment in enqueue order, buffering again any enqueued during the drain.
 - `AC-TKIT-011.6` (Ubiquitous): THE SYSTEM SHALL refuse a maximum queued age that is not greater than zero, and SHALL read the age at execution so a change reaches a request already buffered.
@@ -270,7 +299,15 @@ the real request factory. `modbus.md` leans on the same wiring for two of its ow
 `AC-TKIT-011.3` is a default a test should know it has. A harness given no clock measures on the real
 system clock, so a round-trip assertion against one is a wall-clock bound
 ([`../testing-conventions.md`](../testing-conventions.md) § 16); pass `ctx.TimeProvider` and it
-becomes virtual time. The fake server's own clock defaults the same way.
+becomes virtual time.
+
+The two harnesses do not offer that clock the same way, which is why the criterion names them apart.
+The client harness takes one as a constructor argument and refuses a null one there. The server
+harness has no clock argument at all: its clock is the fake server proxy's own settable property,
+which defaults to the system clock the same way (`AC-TKIT-012.3`) and is assigned rather than passed,
+so there is no construction to refuse. Setting it to null is therefore accepted and would fail later
+at the first stamped write — a refusal on a published setter is a change a consumer would see, so it
+is stated here rather than added.
 
 `AC-TKIT-011.5` is the documented seam for putting virtual time between an enqueue and its execution,
 which is what a maximum queued age measures.
