@@ -75,10 +75,16 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         /// <summary>
         ///     Gets or sets the maximum number of requests that can be queued. Default is 256.
         /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when set below one request.</exception>
+        /// <exception cref="InvalidOperationException">
+        ///     Thrown when set to a different value after the queue has been created.
+        /// </exception>
         /// <remarks>
         ///     <para>
-        ///         This property must be set before enabling the client for the first time via <c>IsEnabled</c>.
-        ///         Once the request queue is created (when the client is first enabled), this setting cannot be changed.
+        ///         This property must be set before enabling the client for the first time via <c>IsEnabled</c>: the
+        ///         queue is built from it. Setting a different value afterwards throws; re-setting the value already
+        ///         in force is a no-op, so a consumer that re-applies its whole configuration is not punished for an
+        ///         unrelated edit.
         ///     </para>
         ///     <para>
         ///         When the queue reaches capacity, the behavior is determined by <see cref="QueueOverflowPolicy" />.
@@ -90,10 +96,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         ///     Gets or sets the policy for handling new requests when the queue is full. Default is
         ///     <see cref="QueueOverflowPolicy.DropOldest" />.
         /// </summary>
+        /// <exception cref="InvalidOperationException">
+        ///     Thrown when set to a different value after the queue has been created.
+        /// </exception>
         /// <remarks>
         ///     <para>
-        ///         This property must be set before enabling the client for the first time via <c>IsEnabled</c>.
-        ///         Once the request queue is created (when the client is first enabled), this setting cannot be changed.
+        ///         This property must be set before enabling the client for the first time via <c>IsEnabled</c>: the
+        ///         queue is built from it. Setting a different value afterwards throws; re-setting the value already
+        ///         in force is a no-op.
         ///     </para>
         ///     <para>
         ///         When the queue is full, a request will be dropped based on the policy.
@@ -117,8 +127,9 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         #region Connection
 
         /// <summary>
-        ///     Gets or sets the timeout for connection attempts to the Modbus TCP server.
+        ///     Gets or sets the timeout for connection attempts to the Modbus TCP server. Default is 3 seconds.
         /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when set to zero or a negative duration.</exception>
         /// <remarks>
         ///     Changes to this property do not take effect until the next connection attempt is made.
         /// </remarks>
@@ -128,7 +139,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         ///     Gets or sets the port number used to connect to the Modbus TCP server.
         /// </summary>
         /// <exception cref="FormatException">
-        ///     Thrown when the port number is outside the valid range (0-65535).
+        ///     Thrown when the port number is outside the valid range (1-65535). Port 0 asks the operating system
+        ///     for an ephemeral port, which no device listens on.
         /// </exception>
         /// <remarks>
         ///     Changes to this property do not trigger an immediate reconnect. The new port will be used when the next read or
@@ -200,6 +212,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock
         ///     </para>
         ///     <para>
         ///         This method is idempotent - calling it when already disconnected has no effect.
+        ///     </para>
+        ///     <para>
+        ///         Like every read and write, it is gated by <c>IsEnabled</c>: on a disabled client the call is a
+        ///         no-op and <em>neither</em> callback is invoked, so do not wait on one to know it has run.
         ///     </para>
         ///     <para>
         ///         It is a control operation, not a device transaction: it carries no receipt, does not contribute to

@@ -431,7 +431,7 @@ namespace Vion.Dale.DevHost
                     // Spawn the block the same way production does (LogicSystemConfigurationInitializer):
                     // CreateRootActorFromDi resolves it in a per-block DI scope disposed on the actor's stop, so
                     // a per-block Modbus/HTTP client is reclaimed on host recycle instead of leaking to the root
-                    // container (RFC 0018 / DF-46). A missing / unconstructable type throws (e.g. a dependency
+                    // container (docs/specs/block-lifecycle.md). A missing / unconstructable type throws (e.g. a dependency
                     // not registered in IConfigureServices) and is caught and recorded below.
                     var actorRef = _actorSystem.CreateRootActorFromDi(logicBlockConfig.LogicBlockType, name);
 

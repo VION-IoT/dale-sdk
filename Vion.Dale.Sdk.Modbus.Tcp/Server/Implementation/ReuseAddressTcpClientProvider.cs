@@ -12,8 +12,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.Implementation
     ///     <c>DefaultTcpClientProvider</c> sets no socket options — which is exactly why the default
     ///     <see cref="ModbusTcpServer.Start(IPEndPoint)" /> is prone to the overlap conflict — so
     ///     <see cref="ModbusTcpServerProxy" /> injects this via the public
-    ///     <see cref="ModbusTcpServer.Start(ITcpClientProvider, bool)" /> hook instead (RFC 0018 / DF-46,
-    ///     Part B). Because the proxy passes <c>leaveOpen: false</c>, the server disposes this provider on
+    ///     <see cref="ModbusTcpServer.Start(ITcpClientProvider, bool)" /> hook instead. Because the proxy passes
+    ///     <c>leaveOpen: false</c>, the server disposes this provider on
     ///     <c>Stop()</c>/<c>Dispose()</c> — the same teardown path as the built-in provider.
     /// </summary>
     internal sealed class ReuseAddressTcpClientProvider : ITcpClientProvider

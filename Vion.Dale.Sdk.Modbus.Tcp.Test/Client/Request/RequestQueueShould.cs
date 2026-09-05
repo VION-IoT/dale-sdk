@@ -36,6 +36,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
 
         private readonly List<RequestDroppedException> _requestDroppedExceptions = [];
 
+        // Released once per request the queue completes through its error callback. That receipt is what a block
+        // sees of the disposal drain, and it is what the suite waits on now that the queue exposes nothing to await.
+        private readonly SemaphoreSlim _requestDroppedSignal = new(0);
+
         private readonly Mock<IRequestFactory> _requestFactoryMock = new();
 
         private readonly Func<CancellationToken, Task<int>> _singleRequestOperation = _ => Task.FromResult(0);
@@ -71,6 +75,33 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-003.4")]
+        [DataRow(0, DisplayName = "Zero")]
+        [DataRow(-1, DisplayName = "Negative")]
+        public void ThrowExceptionWhenMaxQueuedAgeNotPositive(int seconds)
+        {
+            // Arrange
+
+            // Act & Assert
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => _sut.MaxQueuedAge = TimeSpan.FromSeconds(seconds));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-003.5")]
+        public void KeepNoLimitWhenMaxQueuedAgeCleared()
+        {
+            // Arrange
+            _sut.MaxQueuedAge = TimeSpan.FromSeconds(5);
+
+            // Act
+            _sut.MaxQueuedAge = null;
+
+            // Assert
+            Assert.IsNull(_sut.MaxQueuedAge);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-002.4")]
         public void ThrowExceptionWhenAlreadyInitialized()
         {
             // Arrange
@@ -81,6 +112,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-009.4")]
         public void ThrowExceptionWhenOverflowPolicyUnsupported()
         {
             // Arrange
@@ -91,6 +123,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-009.9")]
         public void ThrowExceptionWhenEnqueuingArrayResultRequestBeforeInitialization()
         {
             // Arrange
@@ -101,6 +134,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-009.9")]
         public void ThrowExceptionWhenEnqueuingSingleResultRequestBeforeInitialization()
         {
             // Arrange
@@ -111,6 +145,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-009.9")]
         public void ThrowExceptionWhenEnqueuingVoidResultRequestBeforeInitialization()
         {
             // Arrange
@@ -121,6 +156,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-009.1")]
         public async Task ExecuteAllEnqueuedRequests()
         {
             // Arrange
@@ -142,6 +178,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-009.1")]
         public async Task ExecuteRequestsInFifoOrder()
         {
             // Arrange
@@ -163,6 +200,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-009.1")]
         public async Task ContinueProcessingQueuedRequestsAfterFailure()
         {
             // Arrange
@@ -184,6 +222,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-009.4")]
         public async Task DropOldestRequestWhenQueueFull()
         {
             // Arrange
@@ -206,6 +245,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-009.4")]
         public async Task DropNewestRequestWhenQueueFull()
         {
             // Arrange
@@ -228,6 +268,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-009.4")]
         public async Task RejectNewRequestWhenQueueFull()
         {
             // Arrange
@@ -251,6 +292,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-009.5")]
         public async Task ExcludeInFlightRequestFromQueuedCount()
         {
             // Arrange
@@ -271,6 +313,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-009.5")]
         public void ReportZeroQueuedCountWhenQueueEmpty()
         {
             // Arrange
@@ -284,6 +327,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-009.5")]
         public async Task DecrementQueuedCountAfterRequestsComplete()
         {
             // Arrange
@@ -303,6 +347,101 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-010.1")]
+        public async Task CompleteEveryStillQueuedRequestWhenDisposed()
+        {
+            // Arrange
+            _inflightRequestCts = new CancellationTokenSource();
+            var arrayStartedTcs = SetupArrayResultRequest(true, cancellationToken: _inflightRequestCts.Token);
+            SetupSingleRequestResult();
+            SetupVoidResultRequest();
+            _sut.Initialize(10, QueueOverflowPolicy.DropOldest, _accumulator);
+            _sut.Enqueue(ArrayRequestName, _dispatcherMock.Object, _arrayRequestOperation, _arraySuccessCallback, null);
+            await arrayStartedTcs.Task;
+            _sut.Enqueue(SingleRequestName, _dispatcherMock.Object, _singleRequestOperation, _singleSuccessCallback, null);
+            _sut.Enqueue(VoidRequestName, _dispatcherMock.Object, _voidRequestOperation, _voidSuccessCallback, null);
+
+            // Act
+            _sut.Dispose();
+            await WaitForDroppedRequestsAsync(2);
+
+            // Assert
+            Assert.HasCount(2, _requestDroppedExceptions);
+            Assert.AreEqual(SingleRequestName, _requestDroppedExceptions[0].RequestName);
+            Assert.AreEqual(VoidRequestName, _requestDroppedExceptions[1].RequestName);
+            Assert.IsTrue(_requestDroppedExceptions.TrueForAll(dropped => dropped.Reason == RequestDropReason.ClientDisposed));
+            Assert.DoesNotContain(SingleRequestName, _startedRequestNames, "A request still queued at disposal is dropped, never run against a client being torn down.");
+            Assert.DoesNotContain(VoidRequestName, _startedRequestNames);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-010.1")]
+        public void CompleteNothingWhenDisposedWithEmptyQueue()
+        {
+            // Arrange
+            SetupArrayResultRequest();
+            _sut.Initialize(10, QueueOverflowPolicy.DropOldest, _accumulator);
+
+            // Act
+            _sut.Dispose();
+
+            // Assert
+            Assert.HasCount(0, _requestDroppedExceptions);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-010.1")]
+        public async Task CompleteQueuedRequestOnlyOnceAcrossRepeatedDisposal()
+        {
+            // Arrange
+            _inflightRequestCts = new CancellationTokenSource();
+            var arrayStartedTcs = SetupArrayResultRequest(true, cancellationToken: _inflightRequestCts.Token);
+            SetupVoidResultRequest();
+            _sut.Initialize(10, QueueOverflowPolicy.DropOldest, _accumulator);
+            _sut.Enqueue(ArrayRequestName, _dispatcherMock.Object, _arrayRequestOperation, _arraySuccessCallback, null);
+            await arrayStartedTcs.Task;
+            _sut.Enqueue(VoidRequestName, _dispatcherMock.Object, _voidRequestOperation, _voidSuccessCallback, null);
+
+            // Act
+            _sut.Dispose();
+            _sut.Dispose();
+            await WaitForDroppedRequestsAsync(1);
+
+            // Assert
+            Assert.HasCount(1, _requestDroppedExceptions);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-010.3")]
+        public async Task ReturnFromDisposalWhileRequestInFlight()
+        {
+            // Arrange - the request in flight holds a gate the queue's own cancellation does not open, which is
+            // what an operation still waiting on a socket looks like at the moment a block's scope is torn down.
+            _inflightRequestCts = new CancellationTokenSource();
+            var arrayStartedTcs = SetupArrayResultRequest(true, cancellationToken: _inflightRequestCts.Token, ignoreQueueCancellation: true);
+            SetupVoidResultRequest();
+            _sut.Initialize(10, QueueOverflowPolicy.DropOldest, _accumulator);
+            _sut.Enqueue(ArrayRequestName, _dispatcherMock.Object, _arrayRequestOperation, _arraySuccessCallback, null);
+            await arrayStartedTcs.Task;
+            _sut.Enqueue(VoidRequestName, _dispatcherMock.Object, _voidRequestOperation, _voidSuccessCallback, null);
+
+            // Act - the observable is the return itself: a disposal that waited for the consumer would never come
+            // back, because nothing releases the gate until the assertion below.
+            await Task.Run(() => _sut.Dispose()).WaitAsync(TestTimeout);
+
+            // Assert
+            Assert.IsFalse(_inflightRequestCts.IsCancellationRequested, "Disposal returned before anything released the in-flight request.");
+            await _inflightRequestCts.CancelAsync();
+            await WaitForDroppedRequestsAsync(1);
+            Assert.HasCount(1, _requestDroppedExceptions);
+            Assert.AreEqual(VoidRequestName, _requestDroppedExceptions[0].RequestName);
+            Assert.AreEqual(1,
+                            _startedRequestNames.Count(name => name == ArrayRequestName),
+                            "The request in flight completes through its own execution, exactly once, and is not drained a second time.");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-010.2")]
         public void RejectNewRequestWhenQueueDisposed()
         {
             // Arrange
@@ -326,6 +465,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-010.5")]
         public void NotThrowIfDisposedMultipleTimes()
         {
             // Arrange
@@ -336,7 +476,23 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
             _sut.Dispose();
         }
 
-        private TaskCompletionSource<bool> SetupArrayResultRequest(bool shouldBlock = false, bool shouldThrow = false, CancellationToken cancellationToken = default)
+        /// <summary>
+        ///     Waits for <paramref name="count" /> requests to reach their error callback. The bound turns a drain
+        ///     that never runs into a failure rather than a hang; it is not what orders the test.
+        /// </summary>
+        private async Task WaitForDroppedRequestsAsync(int count)
+        {
+            for (var completed = 0; completed < count; completed++)
+            {
+                Assert.IsTrue(await _requestDroppedSignal.WaitAsync(TestTimeout),
+                              $"Only {_requestDroppedExceptions.Count} of {count} queued requests were completed by the disposal drain.");
+            }
+        }
+
+        private TaskCompletionSource<bool> SetupArrayResultRequest(bool shouldBlock = false,
+                                                                   bool shouldThrow = false,
+                                                                   CancellationToken cancellationToken = default,
+                                                                   bool ignoreQueueCancellation = false)
         {
             var executionStartedTcs = new TaskCompletionSource<bool>();
             _requestFactoryMock
@@ -353,7 +509,12 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
                           Action<int[], ModbusReceipt> _,
                           Action<Exception, ModbusReceipt> _,
                           ModbusLinkAccumulator _,
-                          ILogger _) => SetupRequest(requestName, executionStartedTcs, shouldBlock, shouldThrow, cancellationToken));
+                          ILogger _) => SetupRequest(requestName,
+                                                     executionStartedTcs,
+                                                     shouldBlock,
+                                                     shouldThrow,
+                                                     cancellationToken,
+                                                     ignoreQueueCancellation));
 
             return executionStartedTcs;
         }
@@ -402,7 +563,12 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
             return executionStartedTcs;
         }
 
-        private IRequest SetupRequest(string requestName, TaskCompletionSource<bool> executionStartedTcs, bool shouldBlock, bool shouldThrow, CancellationToken cancellationToken)
+        private IRequest SetupRequest(string requestName,
+                                      TaskCompletionSource<bool> executionStartedTcs,
+                                      bool shouldBlock,
+                                      bool shouldThrow,
+                                      CancellationToken cancellationToken,
+                                      bool ignoreQueueCancellation = false)
         {
             var requestMock = new Mock<IRequest>();
             requestMock.SetupGet(request => request.Name).Returns(requestName);
@@ -412,11 +578,24 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
                                      _startedRequestNames.Add(requestName);
                                      executionStartedTcs.SetResult(true);
                                  })
-                       .Returns(async () =>
+
+                       // A blocked request waits on the queue's own token as well as the test's, because that is
+                       // what a real DeviceRequest does: the queue cancels its token on disposal and the operation
+                       // it wraps stops there. Waiting only on the test's token would model a request that ignores
+                       // cancellation, which is the one shape the disposal drain must not be tuned against.
+                       .Returns(async (CancellationToken queueCancellationToken, TimeSpan? _) =>
                                 {
-                                    if (shouldBlock)
+                                    if (shouldBlock && ignoreQueueCancellation)
                                     {
+                                        // A socket operation does not stop the instant its token is cancelled, and
+                                        // AC-MODB-010.3 is the promise that disposal does not wait for one that has
+                                        // not noticed yet. Only this shape can hold the gate past Dispose.
                                         await Task.Delay(-1, cancellationToken);
+                                    }
+                                    else if (shouldBlock)
+                                    {
+                                        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, queueCancellationToken);
+                                        await Task.Delay(-1, linked.Token);
                                     }
 
                                     if (shouldThrow)
@@ -430,6 +609,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
                                      if (exception is RequestDroppedException droppedException)
                                      {
                                          _requestDroppedExceptions.Add(droppedException);
+                                         _requestDroppedSignal.Release();
                                      }
                                  });
 

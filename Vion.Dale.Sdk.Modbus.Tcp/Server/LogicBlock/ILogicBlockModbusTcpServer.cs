@@ -89,7 +89,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Server.LogicBlock
         ///     Gets or sets the local port the server listens on. Default is 502 (standard Modbus TCP port).
         /// </summary>
         /// <exception cref="FormatException">
-        ///     Thrown when the port number is outside the valid range (0-65535).
+        ///     Thrown when the port number is outside the valid range (1-65535). Port 0 binds an ephemeral port the
+        ///     block is never told, so no master can be pointed at it.
         /// </exception>
         /// <exception cref="InvalidOperationException">
         ///     Thrown when the server is enabled. Disable, reconfigure, then re-enable.

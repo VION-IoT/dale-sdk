@@ -93,6 +93,8 @@
     "Vion.Dale.Sdk.Modbus.Core.Server.IModbusServerSnapshot",
     "Vion.Dale.Sdk.Modbus.Core.Server.ModbusServerArea",
     "Vion.Dale.Sdk.Modbus.Core.Server.ModbusServerAreaExtents",
+    "Vion.Dale.Sdk.Modbus.Core.Validation.ModbusProtocolLimits",
+    "Vion.Dale.Sdk.Modbus.Core.Validation.ModbusTimeoutLimits",
     "Vion.Dale.Sdk.Modbus.Rtu.IModbusRtu",
     "Vion.Dale.Sdk.Modbus.Rtu.TestKit.IModbusRtuExtensions",
     "Vion.Dale.Sdk.Modbus.Rtu.TestKit.LogicBlockTestContextExtensions",

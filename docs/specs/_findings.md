@@ -343,3 +343,88 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   below it is neither checked nor counted. One test in `Vion.Dale.Sdk.Generators.Test` is in that
   shape; its citation had to be added by hand. The gate under-reports rather than over-reports, which
   is the worse direction for a ratchet. *(ANLZ pass — the retro.)*
+
+## `MODB` — the Modbus protocol bindings (2026-09-05)
+
+- **The default outcome for an unrecognised exception is `TransportError`.**
+  `ModbusOutcomeClassifier.cs:43` classifies anything it does not name as a wire fault, so a local
+  failure — an `ObjectDisposedException` from a proxy disposed under a request, say — moves
+  `Link.State` to `Faulted` and closes the socket though nothing touched the wire. The sketch's own
+  case (a negative `DefaultOperationTimeout` reaching the cancellation source) is unreachable after
+  this pass's `AC-MODB-003.4`. Narrowing the default is not area-local: the first consumer routes
+  eleven error callbacks through its own `ReachedTheWire()` partition
+  (`Ecocoach.EnergyManagement/LogicBlocks/Shared/ModbusOutcomes.cs:57-59`) and publishes `Link` at 25
+  sites, so a reclassification flips every fielded block from its wire arm to its quiet one. The
+  narrower question worth answering first is whether `ObjectDisposedException` alone should be
+  `Cancelled`. *(MODB pass row 44 — `MODB`.)*
+- **The proxy seam takes two types for one protocol field.** `IModbusTcpClientProxy`'s four bit
+  operations take an `int` unit identifier and its four register operations a `byte`
+  (`ModbusTcpClientProxy.cs:69`, `:87`, `:105`, `:122` against `:141`, `:159`, `:177`, `:193`), and
+  the wrapper casts at every register call site. The `(byte)` truncation is unreachable because
+  `ValidateUnitIdentifier` runs first, so this is a shape defect rather than a live one — but it is
+  four signatures on a published interface plus the TestKit's `FakeModbusTcpClientProxy`, which
+  reimplements the same split. Belongs with the surface review below. *(MODB pass row 48 — the
+  retro's surface review.)*
+- **A value width below two bytes divides by zero.** `ModbusDataConverter.cs:38`
+  (`ushort.MaxValue / registersPerValue`, zero when `bytesPerCount < 2`) and `ModbusValidator.cs:22`
+  (`byteCount % bytesPerValue`) are unreachable from any SDK call site — the only arguments are the
+  constants 2, 4 and 8 — but both types are public and the first consumer injects
+  `IModbusDataConverter` in production (`PyranometerHuaweiSmartLogger.cs:46`, `:375`). Hardening them
+  is a decision about a published surface, not an area-local guard. *(MODB pass row 85 — the retro's
+  surface review.)*
+- **One surface, two instant types.** `ILogicBlockModbusTcpServer.LastClientWriteAt` is a
+  `DateTimeOffset?` while every client-side diagnostic instant is a `DateTime?` in UTC
+  (`ModbusLinkSummary.cs:59`, `ModbusTcpConnectionSummary.cs:48`), and a block publishes them side by
+  side. The development host is **not** a differing reader — both serialise as `date-time` and render
+  through one path — so the cost is the consumer's alone: it re-declares the type verbatim
+  (`SimulatorDeviceHost.cs:36-38`) and reads it at four block sites. Changing either is
+  source-breaking on a published property type. *(MODB pass row 116 — `MODB`.)*
+- **Forty-three public types are outside the API manifest.** The three assemblies expose 73 public
+  types against 30 `[PublicApi]` marks, and the unmarked set is deliberate in part and accidental in
+  part: the TestKit substitutes `IRequestQueue` and `IModbusTcpClientProxy` and pins them as manifest
+  types of its own, the first consumer injects `IModbusDataConverter` in production, and eleven
+  exception types a block's error callback receives carry no mark at all. Sorting which is which is a
+  release-note surface review. *(MODB pass row 156 — the retro's surface review.)*
+- **Two consumer-facing exceptions live in an implementation namespace.** `IpAddressNotSetException`
+  (`ModbusTcpClientWrapper.cs:1216`) and `ConnectionTimeoutException` (`ModbusTcpClientProxy.cs:265`)
+  are public, unmarked, and declared inside files named for internal classes in
+  `…Client.Implementation`. A block's error callback receives both. Nothing in either consumer
+  repository or in the examples catches them today, so the move is safe here — but a namespace change
+  on a public type is source-breaking for a consumer outside them, and neither type has a manifest row
+  that would flag it. *(MODB pass row 157 — `MODB`.)*
+- **A factory-created Modbus client or server is never reclaimed.** Both factories are singletons
+  holding the root provider (`Vion.Dale.Sdk.Modbus.Tcp/ServiceCollectionExtensions.cs:28`, `:34`), so
+  an instance they create rides the root container rather than the block's scope and is disposed at
+  process exit. The readers are not symmetric: the client factory has **zero** call sites in the first
+  consumer, but the SDK's own example creates two clients through it
+  (`ModbusTcpDebugClient.cs:386`, `:390-391`); the server factory has **twelve** `Create()` sites
+  across 21 consumer files, one of them in production (`TradingSourceVgt.cs:374`), and every creator
+  already disposes its own wrapper from `Stopping()` — a fielded dependency on today's lifetime.
+  Resolving from the ambient block scope is a DI-lifetime change on a published registration.
+  `AC-MODB-018.3` states the lifetime as it is. *(MODB pass rows 150 and 151 — the SDK's DI owner.)*
+- **The reuse-address knob has no same-version-redeploy repro.** The server binds with
+  `ExclusiveAddressUse = false`, which is the conventional .NET spelling for rebinding over a
+  lingering socket, but which of that and raw `SO_REUSEADDR` the observed `EADDRINUSE` actually needed
+  was never confirmed against a real redeploy, and the rebind-before-release regression the design
+  asked for was never written — the suite has a provider test that binds and accepts, not one that
+  rebinds. Both are OS- and timing-dependent, which is why neither is a portable unit test.
+  *(MODB pass, absorbed from the deleted RFC 0018 — the absorption is recorded under Reviewer's
+  question 3 of [`../changes/archive/2026-09-04-modb-pass.md`](../changes/archive/2026-09-04-modb-pass.md)
+  — `MODB`.)*
+- **Whether a newer FluentModbus makes the reuse-address provider unnecessary is unasked.** The
+  provider exists because the pinned version's built-in listener sets no socket options. A version
+  that exposed `ExclusiveAddressUse` directly would retire it. *(MODB pass, absorbed from the deleted
+  RFC 0018 — the absorption is recorded under Reviewer's question 3 of
+  [`../changes/archive/2026-09-04-modb-pass.md`](../changes/archive/2026-09-04-modb-pass.md) — the
+  retro.)*
+- **Three server features were deferred at design time and no consumer has asked since.** Array
+  overloads mirroring the client's `count` signatures, multi-unit register maps, and a consumer-facing
+  request-validator hook beyond the extent-derived one. Each layers onto today's surface without
+  breaking it. *(MODB pass, absorbed from the deleted RFC 0007 — the absorption is recorded under
+  Reviewer's question 3 of
+  [`../changes/archive/2026-09-04-modb-pass.md`](../changes/archive/2026-09-04-modb-pass.md) —
+  `MODB`.)*
+- **The TestKit's queue accepts a negative maximum queued age.** `SynchronousRequestQueue.MaxQueuedAge`
+  (`:56`) is a plain auto-property, so after this pass guarded the real `RequestQueue` the two shipped
+  `IRequestQueue` implementations disagree: the fake keeps `-1 s` and expires everything, where the
+  real one refuses it. *(MODB pass, the second opinion's unsaid item 7 — `TKIT`.)*

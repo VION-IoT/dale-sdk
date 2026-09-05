@@ -18,9 +18,6 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
 
         private Channel<IRequest>? _channel;
 
-        // ReSharper disable once NotAccessedField.Local
-        private Task? _consumer;
-
         private CancellationTokenSource? _cts;
 
         private bool _disposed;
@@ -51,7 +48,17 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
                 return ticks < 0 ? null : TimeSpan.FromTicks(ticks);
             }
 
-            set => Interlocked.Exchange(ref _maxQueuedAgeTicks, value?.Ticks ?? -1);
+            set
+            {
+                // -1 ticks is this field's "no limit" sentinel, so a negative TimeSpan would read back as null
+                // and silently mean the opposite of what was asked.
+                if (value is { } age && age <= TimeSpan.Zero)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(value), age, $"{nameof(MaxQueuedAge)} must be greater than zero, or null to disable the check.");
+                }
+
+                Interlocked.Exchange(ref _maxQueuedAgeTicks, value?.Ticks ?? -1);
+            }
         }
 
         /// <inheritdoc />
@@ -84,7 +91,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
             LogQueueCreated(capacity, overflowPolicy);
 
             _cts = new CancellationTokenSource();
-            _consumer = ConsumeAsync(_channel, _cts.Token);
+            _ = ConsumeAsync(_channel, _cts.Token);
         }
 
         /// <inheritdoc />
@@ -194,6 +201,15 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
             {
                 await foreach (var request in channel.Reader.ReadAllAsync(token).ConfigureAwait(false))
                 {
+                    // A request the reader had already been handed when the token cancelled leaves through this
+                    // arm rather than through the drain below. It is dropped, not run: the client behind it is
+                    // being torn down.
+                    if (token.IsCancellationRequested)
+                    {
+                        DropOnDisposal(request);
+                        continue;
+                    }
+
                     await ProcessRequestAsync(request, token);
                 }
 
@@ -206,6 +222,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
             catch (Exception exception)
             {
                 LogUnexpectedConsumerError(exception);
+            }
+            finally
+            {
+                DrainRemainingRequests(channel);
             }
         }
 
@@ -232,14 +252,53 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
             if (disposing)
             {
                 LogDisposing(nameof(RequestQueue));
-                _channel?.Writer.TryComplete();
+
+                // Cancelling before the writer closes is what keeps a queued request from running: completing
+                // the writer first hands the reader the whole backlog while the token is still live, and it
+                // executes those requests against a wrapper that is being torn down. Waiting for the consumer
+                // here would hold the block's teardown open for as long as the in-flight operation takes to
+                // notice, so it drains on its own; only the token source stays with this thread, because
+                // releasing it on the consumer raced the Cancel above and threw ObjectDisposedException out of
+                // a block's scope teardown.
                 _cts?.Cancel();
+                _channel?.Writer.TryComplete();
                 _cts?.Dispose();
                 LogDisposed(nameof(RequestQueue));
             }
 
             _disposed = true;
         }
+
+        /// <summary>
+        ///     Completes every request the consumer never got to, so a block's error callback hears that its request
+        ///     will not run instead of waiting for a completion that can never come.
+        /// </summary>
+        /// <remarks>
+        ///     Runs on the consumer, as the loop unwinds. The channel is built <c>SingleReader</c>, and this is that
+        ///     one reader — draining from <c>Dispose</c> instead would put a second reader on it, and would block a
+        ///     block's teardown for as long as the in-flight operation takes to observe its cancelled token. A request
+        ///     already dequeued is in flight and completes through its own execution, not here.
+        /// </remarks>
+        private void DrainRemainingRequests(Channel<IRequest> channel)
+        {
+            while (channel.Reader.TryRead(out var request))
+            {
+                DropOnDisposal(request);
+            }
+        }
+
+        /// <summary>
+        ///     The one arm every request still in the queue at disposal leaves by, whether the reader handed it over
+        ///     or the drain found it after the loop threw.
+        /// </summary>
+        private void DropOnDisposal(IRequest request)
+        {
+            LogRequestDroppedOnDisposal(request.Name, request.Id);
+            request.HandleRequestFailed(new RequestDroppedException(request.Name));
+        }
+
+        [LoggerMessage(Level = LogLevel.Debug, Message = "Request dropped because the client was disposed (RequestName={RequestName}, RequestId={RequestId})")]
+        private partial void LogRequestDroppedOnDisposal(string requestName, Guid requestId);
 
         [LoggerMessage(Level = LogLevel.Information, Message = "Request queue created with capacity {capacity} and overflow policy {overflowPolicy}")]
         private partial void LogQueueCreated(int capacity, QueueOverflowPolicy overflowPolicy);

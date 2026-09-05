@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -7,6 +8,7 @@ using Moq;
 using Vion.Dale.Sdk.Abstractions;
 using Vion.Dale.Sdk.Modbus.Core.Conversion;
 using Vion.Dale.Sdk.Modbus.Core.Diagnostics;
+using Vion.Dale.Sdk.Modbus.Core.Validation;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.Implementation;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.LogicBlock;
 using Vion.Dale.Sdk.Modbus.Tcp.Client.Request;
@@ -80,7 +82,64 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void InitializeRequestQueueWhenClientIsEnabled()
+        [TestProperty("spec", "AC-MODB-005.9")]
+        public async Task PassStandardConversionDefaultsWhenOperationOmitsThem()
+        {
+            // Arrange
+            _sut.IsEnabled = true;
+
+            // Act - every read below is written the way a block writes one for a standards-compliant device.
+            SetupArrayResultOperationCapture<int>();
+            _sut.ReadHoldingRegistersAsInt(UnitIdentifier, StartingAddress, Count, _dispatcherMock.Object, (_, _) => { });
+            await (_capturedOperation?.Invoke(CancellationToken.None) ?? Task.CompletedTask);
+
+            SetupArrayResultOperationCapture<long>();
+            _sut.ReadHoldingRegistersAsLong(UnitIdentifier, StartingAddress, Count, _dispatcherMock.Object, (_, _) => { });
+            await (_capturedOperation?.Invoke(CancellationToken.None) ?? Task.CompletedTask);
+
+            SetupSingleResultOperationCapture<string>();
+            _sut.ReadHoldingRegistersAsString(UnitIdentifier, StartingAddress, Quantity, _dispatcherMock.Object, (_, _) => { });
+            await (_capturedOperation?.Invoke(CancellationToken.None) ?? Task.CompletedTask);
+
+            // Assert
+            _clientWrapperMock.Verify(clientWrapper => clientWrapper.ReadHoldingRegistersAsIntAsync(UnitIdentifier,
+                                                                                                    StartingAddress,
+                                                                                                    Count,
+                                                                                                    ByteOrder.MsbToLsb,
+                                                                                                    WordOrder32.MswToLsw,
+                                                                                                    _sut.DefaultOperationTimeout,
+                                                                                                    CancellationToken.None),
+                                      Times.Once);
+            _clientWrapperMock.Verify(clientWrapper => clientWrapper.ReadHoldingRegistersAsLongAsync(UnitIdentifier,
+                                                                                                     StartingAddress,
+                                                                                                     Count,
+                                                                                                     ByteOrder.MsbToLsb,
+                                                                                                     WordOrder64.ABCD,
+                                                                                                     _sut.DefaultOperationTimeout,
+                                                                                                     CancellationToken.None),
+                                      Times.Once);
+            _clientWrapperMock.Verify(clientWrapper => clientWrapper.ReadHoldingRegistersAsStringAsync(UnitIdentifier,
+                                                                                                       StartingAddress,
+                                                                                                       Quantity,
+                                                                                                       TextEncoding.Ascii,
+                                                                                                       _sut.DefaultOperationTimeout,
+                                                                                                       CancellationToken.None),
+                                      Times.Once);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-002.1")]
+        public void DefaultToDisabled()
+        {
+            // Arrange
+
+            // Act / Assert
+            Assert.IsFalse(_sut.IsEnabled, "A block configures its client field by field before it enables it.");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-002.4")]
+        public void InitializeRequestQueueWhenClientEnabled()
         {
             // Arrange
 
@@ -92,6 +151,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-002.4")]
         public void NotReinitializeRequestQueueAfterInitialization()
         {
             // Arrange
@@ -107,6 +167,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-009.3")]
         [DataRow(50, QueueOverflowPolicy.DropOldest)]
         [DataRow(100, QueueOverflowPolicy.DropNewest)]
         [DataRow(200, QueueOverflowPolicy.RejectNew)]
@@ -124,36 +185,243 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void PreventQueueCapacityChangeAfterInitialization()
+        [TestProperty("spec", "AC-MODB-009.8")]
+        [DataRow(0, DisplayName = "Zero")]
+        [DataRow(-1, DisplayName = "Negative")]
+        public void ThrowExceptionWhenQueueCapacityNotPositive(int capacity)
+        {
+            // Arrange
+
+            // Act & Assert
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => _sut.QueueCapacity = capacity);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.9")]
+        public void RenderRefusedPortInInvariantCultureUnderMinusSignCulture()
+        {
+            // Arrange — sv-SE renders a negative number with U+2212, not the hyphen a reader pastes into a search.
+            var ambientCulture = CultureInfo.CurrentCulture;
+            CultureInfo.CurrentCulture = new CultureInfo("sv-SE");
+            try
+            {
+                // Act
+                var refusal = Assert.ThrowsExactly<FormatException>(() => _sut.Port = -1);
+
+                // Assert
+                Assert.AreEqual("Port -1 is out of valid range (1-65535).", refusal.Message);
+            }
+            finally
+            {
+                CultureInfo.CurrentCulture = ambientCulture;
+            }
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-009.8")]
+        public void ThrowExceptionWhenQueueOverflowPolicyUndeclared()
+        {
+            // Arrange
+            const QueueOverflowPolicy undeclaredPolicy = (QueueOverflowPolicy)999;
+
+            // Act & Assert
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => _sut.QueueOverflowPolicy = undeclaredPolicy);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-002.4")]
+        public void StayDisabledWhenRequestQueueCannotBeCreated()
+        {
+            // Arrange
+            _requestQueueMock.Setup(queue => queue.Initialize(It.IsAny<int>(), It.IsAny<QueueOverflowPolicy>(), It.IsAny<ModbusLinkAccumulator>())).Throws<NotSupportedException>();
+
+            // Act
+            Assert.ThrowsExactly<NotSupportedException>(() => _sut.IsEnabled = true);
+
+            // Assert
+            Assert.IsFalse(_sut.IsEnabled, "An enable that cannot build a queue must not leave a client whose every operation then throws.");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-010.5")]
+        public void ReportDisabledWhenDisposed()
+        {
+            // Arrange
+            _sut.IsEnabled = true;
+
+            // Act
+            _sut.Dispose();
+
+            // Assert
+            Assert.IsFalse(_sut.IsEnabled, "A disposed client reports itself disabled, as a disposed hosted server does.");
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-003.4")]
+        [DataRow(false, DisplayName = "Connect timeout")]
+        [DataRow(true, DisplayName = "Default operation timeout")]
+        public void ThrowExceptionWhenTimeoutAboveFrameworkCeiling(bool operationTimeout)
+        {
+            // Arrange
+            var beyondCeiling = ModbusTimeoutLimits.MaxTimeout + TimeSpan.FromMilliseconds(1);
+
+            // Act & Assert
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
+                                                              {
+                                                                  if (operationTimeout)
+                                                                  {
+                                                                      _sut.DefaultOperationTimeout = beyondCeiling;
+                                                                  }
+                                                                  else
+                                                                  {
+                                                                      _sut.ConnectionTimeout = beyondCeiling;
+                                                                  }
+                                                              });
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-003.4")]
+        public void AcceptTimeoutAtFrameworkCeiling()
+        {
+            // Arrange
+
+            // Act
+            _sut.DefaultOperationTimeout = ModbusTimeoutLimits.MaxTimeout;
+
+            // Assert
+            Assert.AreEqual(ModbusTimeoutLimits.MaxTimeout, _sut.DefaultOperationTimeout);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-003.4")]
+        [DataRow(0, DisplayName = "Zero")]
+        [DataRow(-1, DisplayName = "Negative")]
+        [DataRow(1, DisplayName = "Past the framework ceiling")]
+        public void ThrowExceptionWhenPerCallOperationTimeoutOutsideRange(int shape)
+        {
+            // Arrange
+            _sut.IsEnabled = true;
+            var timeout = shape switch
+            {
+                0 => TimeSpan.Zero,
+                -1 => TimeSpan.FromSeconds(-1),
+                _ => ModbusTimeoutLimits.MaxTimeout + TimeSpan.FromMilliseconds(1),
+            };
+
+            // Act & Assert
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => _sut.ReadCoils(UnitIdentifier,
+                                                                                   StartingAddress,
+                                                                                   Quantity,
+                                                                                   _dispatcherMock.Object,
+                                                                                   (_, _) => { },
+                                                                                   _errorCallback,
+                                                                                   timeout));
+            _requestQueueMock.Verify(queue => queue.Enqueue(It.IsAny<string>(),
+                                                            It.IsAny<IActorDispatcher>(),
+                                                            It.IsAny<Func<CancellationToken, Task<bool[]>>>(),
+                                                            It.IsAny<Action<bool[], ModbusReceipt>>(),
+                                                            It.IsAny<Action<Exception, ModbusReceipt>?>()),
+                                     Times.Never);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-009.2")]
+        public void RefuseQueueCapacityChangeAfterInitialization()
         {
             // Arrange
             const int initialCapacity = 5;
             _sut.QueueCapacity = initialCapacity;
             _sut.IsEnabled = true;
 
-            // Act
-            _sut.QueueCapacity = 2;
-
-            // Assert
+            // Act & Assert
+            Assert.ThrowsExactly<InvalidOperationException>(() => _sut.QueueCapacity = 2);
             Assert.AreEqual(initialCapacity, _sut.QueueCapacity);
         }
 
         [TestMethod]
-        public void PreventQueueOverflowPolicyChangeAfterInitialization()
+        [TestProperty("spec", "AC-MODB-009.2")]
+        public void RefuseQueueOverflowPolicyChangeAfterInitialization()
         {
             // Arrange
             const QueueOverflowPolicy initialOverflowPolicy = QueueOverflowPolicy.DropNewest;
             _sut.QueueOverflowPolicy = initialOverflowPolicy;
             _sut.IsEnabled = true;
 
-            // Act
-            _sut.QueueOverflowPolicy = QueueOverflowPolicy.RejectNew;
-
-            // Assert
+            // Act & Assert
+            Assert.ThrowsExactly<InvalidOperationException>(() => _sut.QueueOverflowPolicy = QueueOverflowPolicy.RejectNew);
             Assert.AreEqual(initialOverflowPolicy, _sut.QueueOverflowPolicy);
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-009.2")]
+        public void AcceptQueueCapacityAlreadyInForceAfterInitialization()
+        {
+            // Arrange
+            const int initialCapacity = 5;
+            _sut.QueueCapacity = initialCapacity;
+            _sut.QueueOverflowPolicy = QueueOverflowPolicy.DropNewest;
+            _sut.IsEnabled = true;
+
+            // Act
+            _sut.QueueCapacity = initialCapacity;
+            _sut.QueueOverflowPolicy = QueueOverflowPolicy.DropNewest;
+
+            // Assert
+            Assert.AreEqual(initialCapacity, _sut.QueueCapacity);
+            Assert.AreEqual(QueueOverflowPolicy.DropNewest, _sut.QueueOverflowPolicy);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-002.3")]
+        public async Task RunRequestAcceptedBeforeClientWasDisabled()
+        {
+            // Arrange
+            _sut.IsEnabled = true;
+            SetupArrayResultOperationCapture<bool>();
+            _sut.ReadCoils(UnitIdentifier,
+                           StartingAddress,
+                           Quantity,
+                           _dispatcherMock.Object,
+                           ArrayResultSuccessCallback<bool>(),
+                           _errorCallback,
+                           _operationTimeout);
+
+            // Act
+            _sut.IsEnabled = false;
+            await (_capturedOperation?.Invoke(CancellationToken.None) ?? Task.CompletedTask);
+
+            // Assert
+            _clientWrapperMock.Verify(clientWrapper => clientWrapper.ReadCoilsAsync(UnitIdentifier, StartingAddress, Quantity, _operationTimeout, CancellationToken.None),
+                                      Times.Once);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-003.3")]
+        public async Task UseDefaultOperationTimeoutInForceWhenRequestWasAccepted()
+        {
+            // Arrange
+            var timeoutAtAcceptance = TimeSpan.FromSeconds(7);
+            _sut.IsEnabled = true;
+            _sut.DefaultOperationTimeout = timeoutAtAcceptance;
+            SetupArrayResultOperationCapture<bool>();
+            _sut.ReadCoils(UnitIdentifier,
+                           StartingAddress,
+                           Quantity,
+                           _dispatcherMock.Object,
+                           ArrayResultSuccessCallback<bool>(),
+                           _errorCallback);
+
+            // Act
+            _sut.DefaultOperationTimeout = TimeSpan.FromSeconds(9);
+            await (_capturedOperation?.Invoke(CancellationToken.None) ?? Task.CompletedTask);
+
+            // Assert
+            _clientWrapperMock.Verify(clientWrapper => clientWrapper.ReadCoilsAsync(UnitIdentifier, StartingAddress, Quantity, timeoutAtAcceptance, CancellationToken.None),
+                                      Times.Once);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-009.5")]
         public void ReturnQueuedRequestCountFromQueue()
         {
             // Arrange
@@ -168,9 +436,11 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-006.3")]
         [DataRow(-1, DisplayName = "Less than minimum allowed port number")]
+        [DataRow(0, DisplayName = "The unconfigured-port sentinel")]
         [DataRow(65536, DisplayName = "Larger than maximum allowed port number")]
-        public void ThrowExceptionWhenPortIsInvalid(int port)
+        public void ThrowExceptionWhenPortInvalid(int port)
         {
             // Arrange
 
@@ -179,6 +449,31 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-003.4")]
+        [DataRow(0, DisplayName = "Zero")]
+        [DataRow(-1, DisplayName = "Negative")]
+        public void ThrowExceptionWhenConnectionTimeoutNotPositive(int seconds)
+        {
+            // Arrange
+
+            // Act & Assert
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => _sut.ConnectionTimeout = TimeSpan.FromSeconds(seconds));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-003.4")]
+        [DataRow(0, DisplayName = "Zero")]
+        [DataRow(-1, DisplayName = "Negative")]
+        public void ThrowExceptionWhenDefaultOperationTimeoutNotPositive(int seconds)
+        {
+            // Arrange
+
+            // Act & Assert
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => _sut.DefaultOperationTimeout = TimeSpan.FromSeconds(seconds));
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-006.2")]
         public void ApplyDefaultPortOnConstruction()
         {
             // Arrange
@@ -188,6 +483,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-006.1")]
         public void ForwardConfiguredPortToWrapper()
         {
             // Arrange
@@ -201,6 +497,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-006.1")]
         public void ReturnConfiguredPortFromWrapper()
         {
             // Arrange
@@ -215,11 +512,12 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-006.4")]
         [DataRow(null, DisplayName = "Null IP address")]
         [DataRow("", DisplayName = "Empty IP address")]
         [DataRow("   ", DisplayName = "Whitespace IP address")]
         [DataRow("0.0.0.257", DisplayName = "Malformed IP address")]
-        public void ThrowExceptionWhenIpAddressIsInvalid(string ip)
+        public void ThrowExceptionWhenIpAddressInvalid(string ip)
         {
             // Arrange
 
@@ -228,6 +526,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-006.1")]
         public void ForwardConfiguredIpAddressToWrapper()
         {
             // Arrange
@@ -241,6 +540,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-006.1")]
         public void ReturnConfiguredIpAddressFromWrapper()
         {
             // Arrange
@@ -255,6 +555,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-003.2")]
         public void ForwardConfiguredConnectionTimeoutToWrapper()
         {
             // Arrange
@@ -268,6 +569,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-003.2")]
         public void ReturnConfiguredConnectionTimeoutFromWrapper()
         {
             // Arrange
@@ -282,7 +584,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueDisconnectWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueDisconnectWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -295,7 +598,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public async Task EnqueueDisconnectWhenClientIsEnabled()
+        [TestProperty("spec", "AC-MODB-001.2")]
+        public async Task EnqueueDisconnectWhenClientEnabled()
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -310,7 +614,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueReadCoilsWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueReadCoilsWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -329,9 +634,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueReadCoilsWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueReadCoilsWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -356,7 +662,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueWriteSingleCoilWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueWriteSingleCoilWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -375,9 +682,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueWriteSingleCoilWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueWriteSingleCoilWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -401,7 +709,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueWriteMultipleCoilsWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueWriteMultipleCoilsWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -420,9 +729,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueWriteMultipleCoilsWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueWriteMultipleCoilsWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -446,7 +756,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueReadDiscreteInputsWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueReadDiscreteInputsWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -465,9 +776,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueReadDiscreteInputsWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueReadDiscreteInputsWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -492,7 +804,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueReadInputRegistersRawWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueReadInputRegistersRawWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -511,9 +824,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueReadInputRegistersRawWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueReadInputRegistersRawWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -542,7 +856,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueReadInputRegistersAsShortWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueReadInputRegistersAsShortWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -562,9 +877,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueReadInputRegistersAsShortWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueReadInputRegistersAsShortWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -595,7 +911,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueReadInputRegistersAsUShortWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueReadInputRegistersAsUShortWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -615,9 +932,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueReadInputRegistersAsUShortWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueReadInputRegistersAsUShortWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -649,7 +967,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueReadInputRegistersAsIntWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueReadInputRegistersAsIntWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -670,9 +989,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueReadInputRegistersAsIntWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueReadInputRegistersAsIntWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -705,7 +1025,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueReadInputRegistersAsUIntWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueReadInputRegistersAsUIntWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -726,9 +1047,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueReadInputRegistersAsUIntWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueReadInputRegistersAsUIntWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -762,7 +1084,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueReadInputRegistersAsFloatWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueReadInputRegistersAsFloatWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -783,9 +1106,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueReadInputRegistersAsFloatWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueReadInputRegistersAsFloatWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -818,7 +1142,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueReadInputRegistersAsLongWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueReadInputRegistersAsLongWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -839,9 +1164,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueReadInputRegistersAsLongWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueReadInputRegistersAsLongWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -874,7 +1200,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueReadInputRegistersAsULongWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueReadInputRegistersAsULongWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -895,9 +1222,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueReadInputRegistersAsULongWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueReadInputRegistersAsULongWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -930,7 +1258,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueReadInputRegistersAsDoubleWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueReadInputRegistersAsDoubleWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -951,9 +1280,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueReadInputRegistersAsDoubleWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueReadInputRegistersAsDoubleWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -986,7 +1316,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueReadInputRegistersAsStringWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueReadInputRegistersAsStringWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -1006,9 +1337,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueReadInputRegistersAsStringWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueReadInputRegistersAsStringWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -1039,7 +1371,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueReadHoldingRegistersRawWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueReadHoldingRegistersRawWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -1058,9 +1391,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueReadHoldingRegistersRawWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueReadHoldingRegistersRawWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -1089,7 +1423,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueReadHoldingRegistersAsShortWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueReadHoldingRegistersAsShortWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -1109,9 +1444,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueReadHoldingRegistersAsShortWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueReadHoldingRegistersAsShortWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -1142,7 +1478,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueReadHoldingRegistersAsUShortWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueReadHoldingRegistersAsUShortWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -1162,9 +1499,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueReadHoldingRegistersAsUShortWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueReadHoldingRegistersAsUShortWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -1195,7 +1533,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueReadHoldingRegistersAsIntWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueReadHoldingRegistersAsIntWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -1216,9 +1555,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueReadHoldingRegistersAsIntWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueReadHoldingRegistersAsIntWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -1251,7 +1591,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueReadHoldingRegistersAsUIntWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueReadHoldingRegistersAsUIntWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -1272,9 +1613,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueReadHoldingRegistersAsUIntWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueReadHoldingRegistersAsUIntWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -1307,7 +1649,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueReadHoldingRegistersAsFloatWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueReadHoldingRegistersAsFloatWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -1328,9 +1671,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueReadHoldingRegistersAsFloatWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueReadHoldingRegistersAsFloatWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -1363,7 +1707,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueReadHoldingRegistersAsLongWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueReadHoldingRegistersAsLongWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -1384,9 +1729,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueReadHoldingRegistersAsLongWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueReadHoldingRegistersAsLongWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -1419,7 +1765,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueReadHoldingRegistersAsULongWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueReadHoldingRegistersAsULongWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -1440,9 +1787,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueReadHoldingRegistersAsULongWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueReadHoldingRegistersAsULongWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -1475,7 +1823,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueReadHoldingRegistersAsDoubleWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueReadHoldingRegistersAsDoubleWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -1496,9 +1845,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueReadHoldingRegistersAsDoubleWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueReadHoldingRegistersAsDoubleWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -1531,7 +1881,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueReadHoldingRegistersAsStringWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueReadHoldingRegistersAsStringWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -1551,9 +1902,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueReadHoldingRegistersAsStringWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueReadHoldingRegistersAsStringWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -1584,7 +1936,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueWriteSingleHoldingRegisterWithShortValueWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueWriteSingleHoldingRegisterWithShortValueWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -1604,9 +1957,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueWriteSingleHoldingRegisterWithShortValueWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueWriteSingleHoldingRegisterWithShortValueWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -1636,7 +1990,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueWriteSingleHoldingRegisterWithUShortValueWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueWriteSingleHoldingRegisterWithUShortValueWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -1656,9 +2011,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueWriteSingleHoldingRegisterWithUShortValueWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueWriteSingleHoldingRegisterWithUShortValueWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -1688,7 +2044,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueWriteMultipleHoldingRegistersRawWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueWriteMultipleHoldingRegistersRawWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -1707,9 +2064,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueWriteMultipleHoldingRegistersRawWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueWriteMultipleHoldingRegistersRawWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -1733,7 +2091,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueWriteMultipleHoldingRegistersAsShortWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueWriteMultipleHoldingRegistersAsShortWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -1753,9 +2112,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueWriteMultipleHoldingRegistersAsShortWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueWriteMultipleHoldingRegistersAsShortWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -1785,7 +2145,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueWriteMultipleHoldingRegistersAsUShortWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueWriteMultipleHoldingRegistersAsUShortWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -1805,9 +2166,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueWriteMultipleHoldingRegistersAsUShortWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueWriteMultipleHoldingRegistersAsUShortWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -1837,7 +2199,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueWriteMultipleHoldingRegistersAsIntWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueWriteMultipleHoldingRegistersAsIntWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -1858,9 +2221,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueWriteMultipleHoldingRegistersAsIntWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueWriteMultipleHoldingRegistersAsIntWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -1892,7 +2256,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueWriteMultipleHoldingRegistersAsUIntWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueWriteMultipleHoldingRegistersAsUIntWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -1913,9 +2278,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueWriteMultipleHoldingRegistersAsUIntWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueWriteMultipleHoldingRegistersAsUIntWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -1947,7 +2313,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueWriteMultipleHoldingRegistersAsFloatWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueWriteMultipleHoldingRegistersAsFloatWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -1968,9 +2335,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueWriteMultipleHoldingRegistersAsFloatWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueWriteMultipleHoldingRegistersAsFloatWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -2002,7 +2370,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueWriteMultipleHoldingRegistersAsLongWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueWriteMultipleHoldingRegistersAsLongWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -2023,9 +2392,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueWriteMultipleHoldingRegistersAsLongWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueWriteMultipleHoldingRegistersAsLongWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -2057,7 +2427,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueWriteMultipleHoldingRegistersAsULongWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueWriteMultipleHoldingRegistersAsULongWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -2078,9 +2449,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueWriteMultipleHoldingRegistersAsULongWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueWriteMultipleHoldingRegistersAsULongWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -2112,7 +2484,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueWriteMultipleHoldingRegistersAsDoubleWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueWriteMultipleHoldingRegistersAsDoubleWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -2133,9 +2506,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueWriteMultipleHoldingRegistersAsDoubleWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueWriteMultipleHoldingRegistersAsDoubleWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -2167,7 +2541,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
-        public void NotEnqueueWriteMultipleHoldingRegistersAsStringWhenClientIsDisabled()
+        [TestProperty("spec", "AC-MODB-002.2")]
+        public void NotEnqueueWriteMultipleHoldingRegistersAsStringWhenClientDisabled()
         {
             // Arrange
             _sut.IsEnabled = false;
@@ -2187,9 +2562,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.2")]
         [DataRow(true, DisplayName = "With default operation timeout")]
         [DataRow(false, DisplayName = "With custom operation timeout")]
-        public async Task EnqueueWriteMultipleHoldingRegistersAsStringWhenClientIsEnabled(bool useDefaultTimeout)
+        public async Task EnqueueWriteMultipleHoldingRegistersAsStringWhenClientEnabled(bool useDefaultTimeout)
         {
             // Arrange
             _sut.IsEnabled = true;
@@ -2219,6 +2595,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-010.5")]
         public void ReleaseManagedResourcesWhenDisposed()
         {
             // Arrange
@@ -2232,6 +2609,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.LogicBlock
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-010.5")]
         public void ReleaseManagedResourcesOnlyOnce()
         {
             // Arrange

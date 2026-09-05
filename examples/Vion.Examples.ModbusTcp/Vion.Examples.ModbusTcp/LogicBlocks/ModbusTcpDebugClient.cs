@@ -410,7 +410,7 @@ namespace Vion.Examples.ModbusTcp.LogicBlocks
         protected override void Stopping()
         {
             // Factory-created clients come from the root container, not the per-block scope that disposes
-            // an injected client on teardown (RFC 0018) — so closing these sockets is the block's job.
+            // an injected client on teardown (docs/specs/modbus.md) — so closing these sockets is the block's job.
             _pollClient.Dispose();
             _commandClient.Dispose();
         }

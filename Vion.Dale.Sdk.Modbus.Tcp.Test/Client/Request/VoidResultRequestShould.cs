@@ -39,6 +39,40 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-009.7")]
+        public void CompleteOnlyOnceWhenFailedRepeatedly()
+        {
+            // Arrange
+            var sut = CreateVoidResultRequest(SuccessfulOperation(), errorCallback: ErrorCallback());
+
+            // Act
+            sut.HandleRequestFailed(new RequestDroppedException(_requestName, 1, QueueOverflowPolicy.RejectNew));
+            sut.HandleRequestFailed(new RequestDroppedException(_requestName));
+
+            // Assert
+            _dispatcherMock.Verify(dispatcher => dispatcher.InvokeSynchronized(It.IsAny<Action>()), Times.Once);
+            Assert.AreEqual(1L, _accumulator.Snapshot(0).DroppedCount);
+            Assert.AreEqual(ModbusOutcome.Dropped, _accumulator.Snapshot(0).LastFailureOutcome);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-009.7")]
+        public async Task CompleteOnlyOnceWhenFailedAfterItSucceeded()
+        {
+            // Arrange
+            var sut = CreateVoidResultRequest(SuccessfulOperation());
+            await sut.ExecuteAsync(CancellationToken.None, null);
+
+            // Act
+            sut.HandleRequestFailed(new RequestDroppedException(_requestName));
+
+            // Assert
+            Assert.AreEqual(1L, _accumulator.Snapshot(0).SuccessCount);
+            Assert.AreEqual(0L, _accumulator.Snapshot(0).DroppedCount);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task HaveRequestName()
         {
             // Arrange
@@ -52,6 +86,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public async Task HaveRequestId()
         {
             // Arrange
@@ -65,6 +100,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.3")]
         public async Task PassSuccessCallbackToDispatcherWhenOperationSucceeds()
         {
             // Arrange
@@ -80,7 +116,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
-        public async Task NotInvokeDispatcherWhenOperationSucceedsAndSuccessCallbackIsNull()
+        [TestProperty("spec", "AC-MODB-001.5")]
+        public async Task NotInvokeDispatcherWhenOperationSucceedsAndSuccessCallbackNull()
         {
             // Arrange
             var sut = CreateVoidResultRequest(SuccessfulOperation());
@@ -94,6 +131,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.3")]
         public async Task PassErrorCallbackToDispatcherWhenOperationFails()
         {
             // Arrange
@@ -109,7 +147,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
-        public async Task NotInvokeDispatcherWhenOperationFailsAndErrorCallbackIsNull()
+        [TestProperty("spec", "AC-MODB-001.3")]
+        public async Task NotInvokeDispatcherWhenOperationFailsAndErrorCallbackNull()
         {
             // Arrange
             var sut = CreateVoidResultRequest(FailingOperation());
@@ -122,6 +161,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Test.Client.Request
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.8")]
         [DataRow(true, DisplayName = "When operation succeeds")]
         [DataRow(false, DisplayName = "When operation fails")]
         public async Task NotThrowExceptionWhenDispatcherInvocationFails(bool operationSucceeds)

@@ -89,6 +89,25 @@ namespace Vion.Dale.Sdk.Modbus.Core.Conversion
         /// <inheritdoc />
         public void SwapWords(Memory<byte> bytes, WordOrder64 wordOrder)
         {
+            if (wordOrder is not (WordOrder64.ABCD or WordOrder64.DCBA or WordOrder64.CDAB or WordOrder64.BADC))
+            {
+                throw new UnsupportedWordOrder64Exception(wordOrder);
+            }
+
+            // The mid-endian orders always rearrange; the two plain ones only when the host disagrees with them.
+            // Returning here rather than inside the loop is what makes an empty or ragged buffer behave the same
+            // across all three swaps.
+            var swapWords = wordOrder switch
+            {
+                WordOrder64.ABCD => _bitConverter.IsLittleEndian,
+                WordOrder64.DCBA => !_bitConverter.IsLittleEndian,
+                _ => true,
+            };
+            if (!swapWords)
+            {
+                return;
+            }
+
             var bytesSpan = bytes.Span;
             for (var i = 0; i < bytes.Length; i += 8)
             {
@@ -151,7 +170,6 @@ namespace Vion.Dale.Sdk.Modbus.Core.Conversion
                         }
 
                         break;
-                    default: throw new UnsupportedWordOrder64Exception(wordOrder);
                 }
             }
         }

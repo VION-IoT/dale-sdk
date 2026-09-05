@@ -84,7 +84,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
-        public void RecordEveryCompletedTransactionInTheLinkAccumulator()
+        [TestProperty("spec", "AC-MODB-016.1")]
+        public void RecordEveryCompletedTransactionInLinkAccumulator()
         {
             // Arrange
             var request = CreateArrayReadRequest(_ => ArrayResult);
@@ -167,6 +168,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         #region Read - array result
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public void PopulateReadArrayRequestWithProvidedParameters()
         {
             // Arrange
@@ -179,6 +181,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.3")]
         public void InvokeSuccessCallbackWithProcessedResultWhenReadArrayCallbackSucceeds()
         {
             // Arrange
@@ -193,6 +196,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.3")]
         public void InvokeErrorCallbackWhenReadArrayCallbackReceivesException()
         {
             // Arrange
@@ -214,6 +218,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-015.8")]
         public void InvokeErrorCallbackWhenArrayProcessResponseThrows()
         {
             // Arrange
@@ -233,6 +238,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-015.8")]
         public void ReclassifySuccessAsProtocolErrorWhenArrayProcessResponseThrows()
         {
             // Arrange — the device answered, so the handler stamped Success; reading its answer is what failed.
@@ -253,7 +259,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
-        public void ReclassifySuccessAsInvalidWhenArrayProcessResponseRejectsTheRequestedConversion()
+        [TestProperty("spec", "AC-MODB-015.8")]
+        public void ReclassifySuccessAsInvalidWhenArrayProcessResponseRejectsRequestedConversion()
         {
             // Arrange
             var request = CreateArrayReadRequest((Func<Memory<byte>, int[]>)(_ => throw new UnsupportedByteOrderException((ByteOrder)99)),
@@ -271,7 +278,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
-        public void NotThrowWhenReadArrayTransportFailsAndErrorCallbackIsNull()
+        [TestProperty("spec", "AC-MODB-001.5")]
+        public void NotThrowWhenReadArrayTransportFailsAndErrorCallbackNull()
         {
             // Arrange
             var request = CreateArrayReadRequest(_ => ArrayResult);
@@ -281,7 +289,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
-        public void NotThrowWhenReadArrayProcessResponseThrowsAndErrorCallbackIsNull()
+        [TestProperty("spec", "AC-MODB-015.8")]
+        public void NotThrowWhenReadArrayProcessResponseThrowsAndErrorCallbackNull()
         {
             // Arrange
             var request = CreateArrayReadRequest((Func<Memory<byte>, int[]>)(_ => throw new InvalidOperationException("processing failed")));
@@ -295,6 +304,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         #region Read - single result
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public void PopulateReadSingleRequestWithProvidedParameters()
         {
             // Arrange
@@ -307,6 +317,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.3")]
         public void InvokeSuccessCallbackWithProcessedResultWhenReadSingleCallbackSucceeds()
         {
             // Arrange
@@ -321,6 +332,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.3")]
         public void InvokeErrorCallbackWhenReadSingleCallbackReceivesException()
         {
             // Arrange
@@ -341,6 +353,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-015.8")]
         public void InvokeErrorCallbackWhenSingleProcessResponseThrows()
         {
             // Arrange
@@ -360,7 +373,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
-        public void NotThrowWhenReadSingleTransportFailsAndErrorCallbackIsNull()
+        [TestProperty("spec", "AC-MODB-001.5")]
+        public void NotThrowWhenReadSingleTransportFailsAndErrorCallbackNull()
         {
             // Arrange
             var request = CreateSingleReadRequest(_ => SingleResult);
@@ -370,7 +384,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
-        public void NotThrowWhenReadSingleProcessResponseThrowsAndErrorCallbackIsNull()
+        [TestProperty("spec", "AC-MODB-015.8")]
+        public void NotThrowWhenReadSingleProcessResponseThrowsAndErrorCallbackNull()
         {
             // Arrange
             var request = CreateSingleReadRequest((Func<Memory<byte>, int>)(_ => throw new InvalidOperationException("processing failed")));
@@ -384,6 +399,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         #region Write
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.10")]
         public void PopulateWriteRequestWithProvidedParameters()
         {
             // Arrange
@@ -403,6 +419,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.3")]
         public void InvokeSuccessCallbackWhenWriteCallbackSucceeds()
         {
             // Arrange
@@ -421,6 +438,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.3")]
         public void InvokeErrorCallbackWhenWriteCallbackReceivesException()
         {
             // Arrange
@@ -442,7 +460,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
-        public void NotThrowWhenWriteSucceedsAndSuccessCallbackIsNull()
+        [TestProperty("spec", "AC-MODB-001.5")]
+        public void NotThrowWhenWriteSucceedsAndSuccessCallbackNull()
         {
             // Arrange
             var request = CreateWriteRequest();
@@ -452,7 +471,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
-        public void NotThrowWhenWriteFailsAndErrorCallbackIsNull()
+        [TestProperty("spec", "AC-MODB-001.5")]
+        public void NotThrowWhenWriteFailsAndErrorCallbackNull()
         {
             // Arrange
             var request = CreateWriteRequest();

@@ -115,6 +115,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-015.1")]
         [DataRow(TargetMethod.Read)]
         [DataRow(TargetMethod.Write)]
         public async Task PublishRequestToMqttClient(TargetMethod targetMethod)
@@ -132,6 +133,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-015.1")]
         public async Task PublishReadRequestToCorrectTopic()
         {
             // Arrange
@@ -148,6 +150,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-015.1")]
         public async Task PublishWriteRequestToCorrectTopic()
         {
             // Arrange
@@ -164,6 +167,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-015.6")]
         [DataRow(TargetMethod.Read)]
         [DataRow(TargetMethod.Write)]
         public async Task DropRequestWhenContractNotMapped(TargetMethod targetMethod)
@@ -178,7 +182,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
-        public async Task SendExpiredReadResponseWhenRequestIsOlderThanMaxQueuedAge()
+        [TestProperty("spec", "AC-MODB-015.3")]
+        public async Task SendExpiredReadResponseWhenRequestOlderThanMaxQueuedAge()
         {
             // Arrange
             var correlationId = Guid.NewGuid();
@@ -212,7 +217,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
-        public async Task SendExpiredWriteResponseWhenRequestIsOlderThanMaxQueuedAge()
+        [TestProperty("spec", "AC-MODB-015.3")]
+        public async Task SendExpiredWriteResponseWhenRequestOlderThanMaxQueuedAge()
         {
             // Arrange
             var correlationId = Guid.NewGuid();
@@ -242,6 +248,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-015.5")]
         public async Task SendLimitReachedReadResponseWhenPendingRequestLimitReached()
         {
             // Arrange
@@ -263,6 +270,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-015.5")]
         public async Task SendLimitReachedWriteResponseWhenPendingRequestLimitReached()
         {
             // Arrange
@@ -284,6 +292,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.3")]
         public async Task InvokeReadCallbackWithDataWhenOkResponseReceived()
         {
             // Arrange
@@ -307,6 +316,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.3")]
         public async Task InvokeReadCallbackWithModbusExceptionWhenErrorResponseReceived()
         {
             // Arrange
@@ -330,7 +340,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
-        public async Task InvokeReadCallbackWithExceptionWhenResponsePayloadIsInvalid()
+        [TestProperty("spec", "AC-MODB-015.8")]
+        public async Task InvokeReadCallbackWithExceptionWhenResponsePayloadInvalid()
         {
             // Arrange
             var correlationId = Guid.NewGuid();
@@ -347,6 +358,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-015.7")]
         public async Task IgnoreReadResponseWhenNoPendingRequest()
         {
             // Arrange
@@ -359,6 +371,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.3")]
         public async Task InvokeWriteCallbackWhenOkResponseReceived()
         {
             // Arrange
@@ -382,6 +395,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-001.3")]
         public async Task InvokeWriteCallbackWithModbusExceptionWhenErrorResponseReceived()
         {
             // Arrange
@@ -398,7 +412,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
-        public async Task InvokeWriteCallbackWithExceptionWhenResponsePayloadIsInvalid()
+        [TestProperty("spec", "AC-MODB-015.8")]
+        public async Task InvokeWriteCallbackWithExceptionWhenResponsePayloadInvalid()
         {
             // Arrange
             var correlationId = Guid.NewGuid();
@@ -415,6 +430,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-015.7")]
         public async Task IgnoreWriteResponseWhenNoPendingRequest()
         {
             // Arrange
@@ -427,7 +443,8 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
-        public async Task IgnoreMqttMessageWhenCorrelationIdIsEmpty()
+        [TestProperty("spec", "AC-MODB-015.7")]
+        public async Task IgnoreMqttMessageWhenCorrelationIdEmpty()
         {
             // Arrange
 
@@ -439,6 +456,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-015.7")]
         public async Task IgnoreUnknownMqttTopic()
         {
             // Arrange
@@ -452,6 +470,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-015.4")]
         public void ScheduleExpirationCheckWhenLinked()
         {
             // Arrange
@@ -464,6 +483,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-015.4")]
         public async Task CompleteExpiredReadRequestWithTimeout()
         {
             // Arrange
@@ -481,6 +501,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-015.4")]
         public async Task CompleteExpiredWriteRequestWithTimeout()
         {
             // Arrange
@@ -498,6 +519,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-015.4")]
         public async Task NotCompleteNonExpiredReadRequest()
         {
             // Arrange
@@ -515,6 +537,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-015.4")]
         public async Task NotCompleteNonExpiredWriteRequest()
         {
             // Arrange
@@ -532,6 +555,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-015.4")]
         public async Task RescheduleExpirationCheckAfterRun()
         {
             // Arrange
@@ -545,6 +569,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-015.4")]
         public async Task NotRescheduleExpirationCheckOnSubsequentLink()
         {
             // Arrange
@@ -560,6 +585,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-015.9")]
         public async Task StoreNewServiceProviderMappingForUnlinkedLogicBlock()
         {
             // Arrange
@@ -577,6 +603,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-MODB-015.9")]
         public async Task NotOverwriteExistingServiceProviderMappingOnRelink()
         {
             // Arrange

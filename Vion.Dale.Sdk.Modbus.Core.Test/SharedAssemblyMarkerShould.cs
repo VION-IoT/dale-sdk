@@ -15,7 +15,8 @@ namespace Vion.Dale.Sdk.Modbus.Core.Test
     public class SharedAssemblyMarkerShould
     {
         [TestMethod]
-        public void MarkTheModbusCoreAssemblyAsSharedAcrossPlugins()
+        [TestProperty("spec", "AC-MODB-018.4")]
+        public void MarkModbusCoreAssemblyAsSharedAcrossPlugins()
         {
             // Arrange
             var assembly = typeof(ModbusReceipt).Assembly;

@@ -27,6 +27,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
 
         private readonly TimeProvider _timeProvider;
 
+        private int _completed;
+
         protected DeviceRequest(string requestName,
                                 IActorDispatcher dispatcher,
                                 Action<Exception, ModbusReceipt>? errorCallback,
@@ -72,6 +74,7 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
 
         protected ModbusReceipt CompleteSuccessfully(long startedAt, TimeSpan queuedWait)
         {
+            Interlocked.Exchange(ref _completed, 1);
             var receipt = BuildReceipt(_timeProvider.GetElapsedTime(startedAt), queuedWait, ModbusOutcome.Success);
             _accumulator.Record(receipt);
             LogRequestSucceeded(Name, Id);
@@ -91,7 +94,14 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.Client.Request
 
         private void Complete(ModbusReceipt receipt, Exception exception)
         {
-            if (receipt.Outcome is ModbusOutcome.BackedOff or ModbusOutcome.Expired or ModbusOutcome.Dropped)
+            // A request completes exactly once. The drain on disposal and the queue's own overflow callback can
+            // both reach a request, and a block that saw one receipt must never see a second for the same call.
+            if (Interlocked.Exchange(ref _completed, 1) == 1)
+            {
+                return;
+            }
+
+            if (receipt.Outcome is ModbusOutcome.BackedOff or ModbusOutcome.Expired or ModbusOutcome.Dropped or ModbusOutcome.Cancelled)
             {
                 LogRequestNotExecuted(Name, receipt.Outcome, Id, exception);
             }
