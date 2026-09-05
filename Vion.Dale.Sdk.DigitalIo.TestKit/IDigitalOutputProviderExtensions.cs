@@ -2,6 +2,7 @@ using System;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.DigitalIo.Output;
 using Vion.Dale.Sdk.Messages;
+using Vion.Dale.Sdk.TestKit;
 using Vion.Dale.Sdk.Utils;
 
 namespace Vion.Dale.Sdk.DigitalIo.TestKit
@@ -29,7 +30,7 @@ namespace Vion.Dale.Sdk.DigitalIo.TestKit
                 throw new InvalidOperationException("Unable to raise SetReceived on provided IDigitalOutputProvider instance");
             }
 
-            var logicBlockContractId = new LogicBlockContractId("", digitalOutputProviderImplementation.Identifier);
+            var logicBlockContractId = new LogicBlockContractId(Constants.LogicBlockId, digitalOutputProviderImplementation.Identifier);
             digitalOutputProviderImplementation.HandleContractMessage(new ContractMessage<SetDigitalOutput>(logicBlockContractId, new SetDigitalOutput(value)));
         }
     }

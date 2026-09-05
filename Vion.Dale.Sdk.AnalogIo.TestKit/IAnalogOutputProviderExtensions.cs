@@ -2,6 +2,7 @@ using System;
 using Vion.Dale.Sdk.AnalogIo.Output;
 using Vion.Dale.Sdk.Core;
 using Vion.Dale.Sdk.Messages;
+using Vion.Dale.Sdk.TestKit;
 using Vion.Dale.Sdk.Utils;
 
 namespace Vion.Dale.Sdk.AnalogIo.TestKit
@@ -29,7 +30,7 @@ namespace Vion.Dale.Sdk.AnalogIo.TestKit
                 throw new InvalidOperationException("Unable to raise SetReceived on provided IAnalogOutputProvider instance");
             }
 
-            var logicBlockContractId = new LogicBlockContractId("", analogOutputProviderImplementation.Identifier);
+            var logicBlockContractId = new LogicBlockContractId(Constants.LogicBlockId, analogOutputProviderImplementation.Identifier);
             analogOutputProviderImplementation.HandleContractMessage(new ContractMessage<SetAnalogOutput>(logicBlockContractId, new SetAnalogOutput(value)));
         }
     }
