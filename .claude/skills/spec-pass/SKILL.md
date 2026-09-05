@@ -161,7 +161,12 @@ finding the operator actively schedules. Do not proceed to Phase B without the c
    value the hook wrote, so a test about the started flag read green with the flag already down —
    remove that mechanism from the fixture (a controllable clock turns the emission policy off)
    rather than strengthen the mutation. The PR body carries the `test → mutation` list, one line
-   each (§11). Two rules
+   each (§11). A mutation that survives because no seam constructs the window it needs — a race
+   between two adjacent statements on one thread and a pool continuation — is **reported as
+   surviving**, with the observable that *is* carried stated beside it (one pass's drain race had no
+   deterministic window: the fix is the order, the carried observable that a queued request is
+   dropped, never run); an amendment item that owes a test for a race names the observable it
+   expects, so the session can report an absence instead of manufacturing a proxy. Two rules
    about *claims* ride on this step: a test cites a criterion for what the criterion's **text**
    states, not for the behavior the test happens to prove (`spec-trace` checks that an id exists,
    not what it says; three tests in one pass cited criteria that said something else — read the
@@ -195,7 +200,11 @@ finding the operator actively schedules. Do not proceed to Phase B without the c
    minting the test, and know that a generated seam can exist on one half of a contract only (the
    sender side, not the sink side), so a fixture on the quiet half tests the guard and not the path.
    **Size guard:** if a fix turns out non-local or design-bearing while you implement it, STOP and
-   report — it becomes a `park` row or its own change doc, never a silent absorption. **A fix closes
+   report — it becomes a `park` row or its own change doc, never a silent absorption. **A deviation
+   from the classification's letter is checkpointed with the criterion it rests on and the test
+   that carries that criterion** — a reason is not a proof: one session deviated because a
+   synchronous observe would block teardown, and the criterion that reason rested on had six
+   citations and no test constructing the case. **A fix closes
    one path and opens its sibling for the sweep:** before the REPORT, re-run the state-interaction
    **and edge-value** sweeps over every fixed path's neighbours — the restart beside the double
    start, the duplicate reference beside the duplicate answer, the second map beside the first;
@@ -213,7 +222,11 @@ finding the operator actively schedules. Do not proceed to Phase B without the c
    or VION-nn>` marker on the declaring line — and if the reason is "no observable", the row is
    `out-of-spec`, not `GAP`. The marker binds only on the id's own line: keep a declaring bullet's
    id and its `GAP` tail on one line, because `spec-trace` reads the marker from the line that
-   declares the id, and a wrapped bullet fails the gate with no hint why.
+   declares the id, and a wrapped bullet fails the gate with no hint why. `spec-trace` also reads
+   any acceptance id on a line **without** a `GAP` marker as a declaration: cite a neighbour's
+   GAP'd id by family (`AC-ANLZ-018.*`, never in full) and refer to your own GAP'd criteria by
+   description in the prose below the bullet, never by number — four of one page's eleven GAPs
+   were un-GAP'd by their own explanatory prose on the first run.
 5. **Rewrite the area's whole test suite** to `docs/testing-conventions.md` §9–17 — ids cited via
    the quoted-literal forms (§17), unmapped tests merged or deleted per their list, no assertion on
    log calls (§15). A `[DataRow]` merge is a rewrite of the assertion: re-derive the mutation after
@@ -284,6 +297,13 @@ finding the operator actively schedules. Do not proceed to Phase B without the c
    never a gate or a score.
 9. Distill every delta line into the page, then `pwsh scripts/spec-change.ps1 archive
    <code-lower>-pass` — it refuses a delta line whose id or text the page does not carry.
+   **The archive commit is the last commit that touches the page or the delta.** A fix that lands
+   after it — a sibling sweep's late find — carries its criterion, its delta line and its map row in
+   the same commit and re-runs the gate against a slug-renamed copy placed back under
+   `docs/changes/` (the archived file cannot be archived twice without doubling its relative
+   links), or it waits for the fix-up round; one pass shipped a consumer-visible refusal in its last
+   commit with none of the three, and the review found it by reading `git show --stat` of the head
+   against the doc's own claim of a "second half".
 10. Commit per task, push, and STOP with the REPORT. Its **mandatory preamble is the self-check, in
     writing** — the coordinator's checks read it first:
     1. every gate line in the REPORT and the scorecard is pasted from the terminal, never typed;
@@ -292,9 +312,12 @@ finding the operator actively schedules. Do not proceed to Phase B without the c
     3. every sentence in the change doc that a later checkpoint disproved has been corrected in
        place or annotated;
     4. every Tier 2 row is a pasted observation;
-    5. every number and tense in the sections above the append was re-read — an amendment appends
-       to the change doc and nothing else re-reads what stands above it (a `37` for a 33-method
-       file and a future-tense plan survived two rounds that way);
+    5. every number and tense in the sections above the append was re-read, and **every count is
+       pasted with the command that produced it** — re-reading a number one wrote is not counting it
+       (an amendment appends to the change doc and nothing else re-reads what stands above it: a
+       `37` for a 33-method file and a future-tense plan survived two rounds that way; 106 criteria
+       against 105 on the page and 466 cited tests against 452 were recounted by a reviewer with one
+       grep each);
     6. every `OUTCOME` line under the doc's Reviewer's questions carries its outcome — a
        `(pending classification)` that survived Phase B is a placeholder above the append that nothing
        re-read (seven survived a pass, its archive, two checks and a fresh round);
@@ -400,3 +423,7 @@ skipped ("the mutation list **and the test map**" — the map stayed stale for a
 | "The relay notes are in my REPORT" | The PR body quotes the change doc's `## Relay notes for the PR body`, not the REPORT. Write the section as each change lands; one pass reached close-out with none in the doc. |
 | "The inventory says thirty-nine" | An inventory's count is a hypothesis; a second reader counts again before the brief dispatches. Eighteen claims fell that way once. |
 | "Every local run passed" | One machine is one culture and one OS. A number a diagnostic renders is formatted invariantly and a test that pins it expects the invariant text; CI found the one test of 455 every local run had passed. |
+| "The archive gate ran at T-008" | The archive commit is the last touch on the page or the delta. A fix after it re-runs the gate and carries its criterion, delta line and map row, or waits for the fix-up round. |
+| "I re-read every number" | Re-reading a number one wrote is not counting it. Every count is pasted with its command; a reviewer recounted two with one grep each. |
+| "I deviated for a good reason" | A deviation is checkpointed with the criterion it rests on and the test that carries it. One rested on a criterion six tests cited and none proved. |
+| "The race is fixed — I'll write the test that shows the window" | A window no seam constructs has no deterministic test. Report the surviving mutation and the observable that is carried. |
