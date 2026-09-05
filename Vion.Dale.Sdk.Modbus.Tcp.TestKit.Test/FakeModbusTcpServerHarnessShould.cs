@@ -27,8 +27,10 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
         }
 
         [TestMethod]
-        public void DriveAFullServerCycleWithoutSockets()
+        [TestProperty("spec", "AC-TKIT-011.1")]
+        public void DriveFullServerCycleWithoutSockets()
         {
+            // Arrange
             _harness.Server.IsEnabled = true;
 
             // The test acts as the Modbus master.
@@ -38,6 +40,8 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
             // The block's tick: read commands, publish telemetry — one atomic Sync.
             _harness.Server.Sync(snapshot =>
                                  {
+
+            // Act / Assert
                                      Assert.AreEqual((ushort)42, snapshot.HoldingRegisters.ReadAsUShort(1));
                                      Assert.IsTrue(snapshot.Coils.Read(2));
 
@@ -51,23 +55,30 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
         }
 
         [TestMethod]
-        public void RejectClientAccessOutsideTheDeclaredExtents()
+        [TestProperty("spec", "AC-TKIT-012.2")]
+        public void RejectClientAccessOutsideDeclaredExtents()
         {
+            // Arrange
             _harness.Server.IsEnabled = true;
 
             var write = Assert.ThrowsExactly<ModbusException>(() => _harness.Client.WriteSingleHoldingRegister(10, 1));
             var read = Assert.ThrowsExactly<ModbusException>(() => _harness.Client.ReadInputRegistersRaw(19, 2));
             var coil = Assert.ThrowsExactly<ModbusException>(() => _harness.Client.WriteSingleCoil(7, true));
 
+            // Act / Assert
             Assert.AreEqual(ModbusExceptionCode.IllegalDataAddress, write.ExceptionCode);
             Assert.AreEqual(ModbusExceptionCode.IllegalDataAddress, read.ExceptionCode);
             Assert.AreEqual(ModbusExceptionCode.IllegalDataAddress, coil.ExceptionCode);
         }
 
         [TestMethod]
-        public void SetLastClientWriteAtOnClientWrites()
+        [TestProperty("spec", "AC-TKIT-012.3")]
+        public void StampLastClientWriteOnEveryClientWrite()
         {
+            // Arrange
             _harness.Server.IsEnabled = true;
+
+            // Act / Assert
             Assert.IsNull(_harness.Server.LastClientWriteAt);
 
             var before = DateTimeOffset.UtcNow;
@@ -78,39 +89,52 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
         }
 
         [TestMethod]
-        public void AllowSeedingDefaultsBeforeEnable()
+        [TestProperty("spec", "AC-TKIT-012.2")]
+        public void AllowSeedingRegisterBuffersBeforeEnable()
         {
+            // Arrange
             _harness.Server.Sync(snapshot => snapshot.HoldingRegisters.WriteAsUShort(5, 0xCAFE));
 
             _harness.Server.IsEnabled = true;
 
+            // Act / Assert
             CollectionAssert.AreEqual(new byte[] { 0xCA, 0xFE }, _harness.Client.ReadHoldingRegistersRaw(5, 1));
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-TKIT-012.1")]
         public void RoundTripRawHoldingRegisterWrites()
         {
+            // Arrange
             _harness.Server.IsEnabled = true;
 
             _harness.Client.WriteMultipleHoldingRegistersRaw(0, new byte[] { 0x12, 0x34, 0x56, 0x78 });
 
+            // Act / Assert
             Assert.AreEqual(0x12345678u, _harness.Server.Sync(snapshot => snapshot.HoldingRegisters.ReadAsUInt(0)));
             CollectionAssert.AreEqual(new byte[] { 0x12, 0x34, 0x56, 0x78 }, _harness.Client.ReadHoldingRegistersRaw(0, 2));
         }
 
         [TestMethod]
-        public void ReadCoilsAsBools()
+        [TestProperty("spec", "AC-TKIT-012.1")]
+        public void ReadCoilsAsBooleans()
         {
+            // Arrange
             _harness.Server.IsEnabled = true;
             _harness.Client.WriteSingleCoil(0, true);
             _harness.Client.WriteSingleCoil(2, true);
 
+            // Act / Assert
             CollectionAssert.AreEqual(new[] { true, false, true }, _harness.Client.ReadCoils(0, 3));
         }
 
         [TestMethod]
-        public void TrackListeningStateOnTheFakeProxy()
+        [TestProperty("spec", "AC-TKIT-012.2")]
+        public void RefuseSimulatedRequestWhileNotListening()
         {
+            // Arrange
+
+            // Act / Assert
             Assert.IsFalse(_harness.Proxy.IsListening);
 
             _harness.Server.IsEnabled = true;
@@ -121,18 +145,25 @@ namespace Vion.Dale.Sdk.Modbus.Tcp.TestKit.Test
         }
 
         [TestMethod]
-        public void HandOutTheServerThroughTheFactory()
+        [TestProperty("spec", "AC-TKIT-011.2")]
+        public void HandOutServerThroughFactory()
         {
+            // Arrange
+
+            // Act / Assert
             Assert.AreSame(_harness.Server, _harness.ServerFactory.Create());
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-TKIT-012.2")]
         public void RejectOddLengthRawHoldingRegisterWrites()
         {
             // Impossible on the real wire (FC16 payloads are 2 bytes per register) — the fake must not
             // silently accept state a real master could never produce.
+            // Arrange
             _harness.Server.IsEnabled = true;
 
+            // Act / Assert
             Assert.ThrowsExactly<ArgumentException>(() => _harness.Client.WriteMultipleHoldingRegistersRaw(0, new byte[3]));
         }
     }

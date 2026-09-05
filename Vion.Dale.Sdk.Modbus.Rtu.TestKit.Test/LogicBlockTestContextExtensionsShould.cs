@@ -25,6 +25,7 @@ namespace Vion.Dale.Sdk.Modbus.Rtu.TestKit.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-TKIT-005.4")]
+        [TestProperty("spec", "AC-TKIT-002.2")]
         public void VerifyModbusReadSentWithAllFilters()
         {
             // Act
