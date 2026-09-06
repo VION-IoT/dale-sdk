@@ -16,8 +16,10 @@ Cited rather than restated: [`config-gating.md`](config-gating.md) for `[Instant
 decoding and config-time inclusion gates, [`introspection.md`](introspection.md) for the member and
 contract vocabulary a name path resolves against, [`emission.md`](emission.md) for the
 property-versus-measuring-point split a name path can land on, and `DALE046` (the analyzer registry's)
-for the compile-time check on a `[ScenarioWire]` type. The DevHost control API, the SPA's internals,
-the TestKit's virtual time and block lifecycle are other pages'.
+for the compile-time check on a `[ScenarioWire]` type, and [`io.md`](io.md) for what a provider face
+does with the messages a pairing carries it (`AC-IO-004.3`, `AC-IO-005.1`) — this page owns the
+pairing, not the face. The DevHost control API, the SPA's internals, the TestKit's virtual time and
+block lifecycle are other pages'.
 
 ## The three refusal layers
 

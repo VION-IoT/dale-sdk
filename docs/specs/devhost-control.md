@@ -318,7 +318,10 @@ of the network.
 
 Pause holds delayed sends and nothing else — the world stands still and stays pokeable — so each
 timer may tick at most once more after it, and a block computing from the current time observes the
-gap. That is why it is meaningful on a real-clock host, where stepping is not.
+gap. That is why it is meaningful on a real-clock host, where stepping is not. What a delayed
+self-send *is* — an action the dispatcher runs on the block's own actor, immediately or after a
+requested delay — is [`block-lifecycle.md`](block-lifecycle.md)'s `AC-LIFE-006.*`, cited here rather
+than restated; this page owns only what pause does to it.
 
 ## Stepping entry points
 

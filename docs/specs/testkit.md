@@ -211,7 +211,8 @@ label so a reader stops expecting it to narrow anything.
 
 `AC-TKIT-006.1`'s absence is the faces' own shape rather than a gap: an input provider face carries a
 `Drive` operation and no event ([`io.md`](io.md)), so there is nothing on it to raise. What a
-simulator drove is asserted, not raised.
+simulator drove is asserted, not raised. The inventory of faces the helpers raise on is
+[`io.md`](io.md)'s `AC-IO-001.1`, cited rather than re-listed here.
 
 `AC-TKIT-006.2`'s second refusal is what makes the helpers safe to hand a mock: a raise reaches the
 face's own message loop, which only the shipped implementation has, so a mocked face is refused at
@@ -397,7 +398,10 @@ consume it from otherwise. Zero is the default and needs none.
 
 `AC-TKIT-011.1` is what makes the Modbus kits worth their size: only the byte-level proxy and the
 queue are fake, and everything between them and the block is the real client, the real converter and
-the real request factory. `modbus.md` leans on the same wiring for two of its own criteria.
+the real request factory. `modbus.md` leans on the same wiring for two of its own criteria — the wire
+and protocol semantics the fake proxy stands in for are its `AC-MODB-004.4` and `AC-MODB-010.1`,
+and this page owns only the substitution and the synchronous queue. The dispatcher `AC-TKIT-011.4`
+routes callbacks through is [`block-lifecycle.md`](block-lifecycle.md)'s `AC-LIFE-006.1`.
 
 `AC-TKIT-011.3` is a default a test should know it has. A harness given no clock measures on the real
 system clock, so a round-trip assertion against one is a wall-clock bound
