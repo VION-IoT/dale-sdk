@@ -42,6 +42,14 @@ namespace Vion.Dale.Sdk.Http
         ///     than the client's does not extend it. Its expiry arrives as a <see cref="TimeoutException" />,
         ///     where the client's own arrives as a <see cref="System.Threading.Tasks.TaskCanceledException" />.
         /// </param>
+        /// <exception cref="ArgumentNullException">
+        ///     Thrown at the caller, before anything is sent, when <paramref name="dispatcher" /> is
+        ///     null: neither callback would have anywhere to run.
+        /// </exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        ///     Thrown at the caller, before anything is sent, when <paramref name="timeout" /> lies outside
+        ///     the band the runtime's cancellation source accepts; the message names that band.
+        /// </exception>
         void GetJson<TResponse>(IActorDispatcher dispatcher,
                                 string url,
                                 Action<TResponse> successCallback,
@@ -83,6 +91,20 @@ namespace Vion.Dale.Sdk.Http
         ///     than the client's does not extend it. Its expiry arrives as a <see cref="TimeoutException" />,
         ///     where the client's own arrives as a <see cref="System.Threading.Tasks.TaskCanceledException" />.
         /// </param>
+        /// <exception cref="ArgumentNullException">
+        ///     Thrown at the caller, before anything is sent, when <paramref name="dispatcher" /> is
+        ///     null: neither callback would have anywhere to run.
+        /// </exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        ///     Thrown at the caller, before anything is sent, when <paramref name="timeout" /> lies outside
+        ///     the band the runtime's cancellation source accepts; the message names that band.
+        /// </exception>
+        /// <exception cref="System.Text.Json.JsonException">
+        ///     Thrown at the caller, before anything is sent, when the configured serializer cannot write
+        ///     <paramref name="body" /> — a cycle, for instance. A converter or a property getter of the
+        ///     consumer's own that throws surfaces its own exception here in the same way, because the
+        ///     body is serialized on the calling thread rather than inside the exchange.
+        /// </exception>
         void PostJson<TRequest, TResponse>(IActorDispatcher dispatcher,
                                            string url,
                                            TRequest body,
@@ -125,6 +147,20 @@ namespace Vion.Dale.Sdk.Http
         ///     than the client's does not extend it. Its expiry arrives as a <see cref="TimeoutException" />,
         ///     where the client's own arrives as a <see cref="System.Threading.Tasks.TaskCanceledException" />.
         /// </param>
+        /// <exception cref="ArgumentNullException">
+        ///     Thrown at the caller, before anything is sent, when <paramref name="dispatcher" /> is
+        ///     null: neither callback would have anywhere to run.
+        /// </exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        ///     Thrown at the caller, before anything is sent, when <paramref name="timeout" /> lies outside
+        ///     the band the runtime's cancellation source accepts; the message names that band.
+        /// </exception>
+        /// <exception cref="System.Text.Json.JsonException">
+        ///     Thrown at the caller, before anything is sent, when the configured serializer cannot write
+        ///     <paramref name="body" /> — a cycle, for instance. A converter or a property getter of the
+        ///     consumer's own that throws surfaces its own exception here in the same way, because the
+        ///     body is serialized on the calling thread rather than inside the exchange.
+        /// </exception>
         void PostJson<TRequest>(IActorDispatcher dispatcher,
                                 string url,
                                 TRequest body,
@@ -167,6 +203,20 @@ namespace Vion.Dale.Sdk.Http
         ///     than the client's does not extend it. Its expiry arrives as a <see cref="TimeoutException" />,
         ///     where the client's own arrives as a <see cref="System.Threading.Tasks.TaskCanceledException" />.
         /// </param>
+        /// <exception cref="ArgumentNullException">
+        ///     Thrown at the caller, before anything is sent, when <paramref name="dispatcher" /> is
+        ///     null: neither callback would have anywhere to run.
+        /// </exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        ///     Thrown at the caller, before anything is sent, when <paramref name="timeout" /> lies outside
+        ///     the band the runtime's cancellation source accepts; the message names that band.
+        /// </exception>
+        /// <exception cref="System.Text.Json.JsonException">
+        ///     Thrown at the caller, before anything is sent, when the configured serializer cannot write
+        ///     <paramref name="body" /> — a cycle, for instance. A converter or a property getter of the
+        ///     consumer's own that throws surfaces its own exception here in the same way, because the
+        ///     body is serialized on the calling thread rather than inside the exchange.
+        /// </exception>
         void PutJson<TRequest, TResponse>(IActorDispatcher dispatcher,
                                           string url,
                                           TRequest body,
@@ -209,6 +259,20 @@ namespace Vion.Dale.Sdk.Http
         ///     than the client's does not extend it. Its expiry arrives as a <see cref="TimeoutException" />,
         ///     where the client's own arrives as a <see cref="System.Threading.Tasks.TaskCanceledException" />.
         /// </param>
+        /// <exception cref="ArgumentNullException">
+        ///     Thrown at the caller, before anything is sent, when <paramref name="dispatcher" /> is
+        ///     null: neither callback would have anywhere to run.
+        /// </exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        ///     Thrown at the caller, before anything is sent, when <paramref name="timeout" /> lies outside
+        ///     the band the runtime's cancellation source accepts; the message names that band.
+        /// </exception>
+        /// <exception cref="System.Text.Json.JsonException">
+        ///     Thrown at the caller, before anything is sent, when the configured serializer cannot write
+        ///     <paramref name="body" /> — a cycle, for instance. A converter or a property getter of the
+        ///     consumer's own that throws surfaces its own exception here in the same way, because the
+        ///     body is serialized on the calling thread rather than inside the exchange.
+        /// </exception>
         void PutJson<TRequest>(IActorDispatcher dispatcher,
                                string url,
                                TRequest body,
@@ -248,6 +312,14 @@ namespace Vion.Dale.Sdk.Http
         ///     than the client's does not extend it. Its expiry arrives as a <see cref="TimeoutException" />,
         ///     where the client's own arrives as a <see cref="System.Threading.Tasks.TaskCanceledException" />.
         /// </param>
+        /// <exception cref="ArgumentNullException">
+        ///     Thrown at the caller, before anything is sent, when <paramref name="dispatcher" /> is
+        ///     null: neither callback would have anywhere to run.
+        /// </exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        ///     Thrown at the caller, before anything is sent, when <paramref name="timeout" /> lies outside
+        ///     the band the runtime's cancellation source accepts; the message names that band.
+        /// </exception>
         void DeleteJson<TResponse>(IActorDispatcher dispatcher,
                                    string url,
                                    Action<TResponse> successCallback,
@@ -285,6 +357,14 @@ namespace Vion.Dale.Sdk.Http
         ///     than the client's does not extend it. Its expiry arrives as a <see cref="TimeoutException" />,
         ///     where the client's own arrives as a <see cref="System.Threading.Tasks.TaskCanceledException" />.
         /// </param>
+        /// <exception cref="ArgumentNullException">
+        ///     Thrown at the caller, before anything is sent, when <paramref name="dispatcher" /> is
+        ///     null: neither callback would have anywhere to run.
+        /// </exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        ///     Thrown at the caller, before anything is sent, when <paramref name="timeout" /> lies outside
+        ///     the band the runtime's cancellation source accepts; the message names that band.
+        /// </exception>
         void Delete(IActorDispatcher dispatcher,
                     string url,
                     Action? successCallback = null,
@@ -329,6 +409,18 @@ namespace Vion.Dale.Sdk.Http
         ///     than the client's does not extend it. Its expiry arrives as a <see cref="TimeoutException" />,
         ///     where the client's own arrives as a <see cref="System.Threading.Tasks.TaskCanceledException" />.
         /// </param>
+        /// <exception cref="ArgumentNullException">
+        ///     Thrown at the caller, before anything is sent, when <paramref name="dispatcher" /> or
+        ///     <paramref name="request" /> is null.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        ///     Thrown at the caller, before anything is sent, when <paramref name="request" /> carries no
+        ///     <see cref="HttpRequestMessage.RequestUri" />, so there is nowhere to send it.
+        /// </exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        ///     Thrown at the caller, before anything is sent, when <paramref name="timeout" /> lies outside
+        ///     the band the runtime's cancellation source accepts; the message names that band.
+        /// </exception>
         void SendRequest(IActorDispatcher dispatcher,
                          HttpRequestMessage request,
                          Action<HttpResponseMessage>? successCallback = null,
