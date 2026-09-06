@@ -64,7 +64,7 @@ namespace Vion.Dale.Sdk.Http.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-HTTP-001.2")]
-        public void ConfigureThirtySecondTimeoutAndVionUserAgent()
+        public void ConfigureDefaultTimeoutAndUserAgent()
         {
             // Arrange
             var serviceProvider = HttpSdk.Compose(StubHttpMessageHandler.Answering(HttpStatusCode.OK));

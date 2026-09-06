@@ -582,14 +582,18 @@ page states it), or a missing test (that is a `GAP` marker on the page).
 
 - **A per-request timeout does not bound the response body.** The token reaches the exchange up to
   the response headers and no further: the delegate that reads the body runs without it
-  (`Vion.Dale.Sdk.Http/HttpRequestExecutor.cs:174` against `:53`), and the serializer reads and
-  deserializes with none (`HttpContentSerializer.cs:26-27`). For `SendRequest` the callback reads the
+  (`Vion.Dale.Sdk.Http/HttpRequestExecutor.cs:297` against `:139`), and the serializer reads and
+  deserializes with none (`HttpContentSerializer.cs:25-26`). For `SendRequest` the callback reads the
   body after the executor returned and disposed the source, so not even the client's ceiling is
   between the block and a stalled body. The consumer who would meet it is a block streaming a large
   response from a server that answers headers promptly and then stops. Not fixed here because
   threading the token changes the exception class on that path — a stalled body would start arriving
   as a cancellation rather than as whatever the stream raises — which is a change to what a callback
-  receives today, not an area-local repair. *(HTTP pass row 45 — `HTTP`.)*
+  receives today, not an area-local repair. A failure raised on that unbounded stretch does at least
+  keep its own class: the relabel predicate (`HttpRequestExecutor.cs:329`) asks whether what failed
+  was a cancellation, not only whether the source had fired, so a body that will not parse after the
+  bound elapsed still arrives as a `JsonException` (`AC-HTTP-006.1`). *(HTTP pass row 45 — `HTTP`;
+  the clause added by the fix-up round.)*
 - **A callback lost before the block's first message stays lost.** A block that issues a request from
   its constructor may have its answer arrive before it has an actor; the dispatcher refuses the
   self-send (`AC-LIFE-006.3`) and the package turns that refusal into a log line, so neither callback
@@ -602,7 +606,7 @@ page states it), or a missing test (that is a `GAP` marker on the page).
   `TimeoutException`; the client's own thirty-second ceiling expires as `TaskCanceledException` with an
   inner `TimeoutException` (`AC-HTTP-008.1`, `AC-HTTP-008.2`), so a block catching only the first
   misses every expiry of the second — including every request that set no per-request timeout at all.
-  The predicate that rewrites the class (`HttpRequestExecutor.cs:188`) fires only when a per-request
+  The predicate that rewrites the class (`HttpRequestExecutor.cs:329`) fires only when a per-request
   timeout was given, and widening it is one line. What makes it more than one line is the message:
   saying "after {n} seconds" on the ceiling's path needs the executor to read `HttpClient.Timeout`,
   which it never does — it only asks the factory for a client. Left as a proposal because it changes
