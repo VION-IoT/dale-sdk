@@ -90,6 +90,7 @@ instance.
 - `AC-PLUG-004.3` (Event-driven): WHEN a plugin binds to a framework assembly the host has not
   loaded and the plugin directory contains it, THE SYSTEM SHALL load it from the plugin directory
   into that plugin's context.
+
 The prefix rule is the contract, not a heuristic: an assembly a plugin author names `Microsoft.*` or
 `System.*` is resolved by these rules, whoever wrote it.
 

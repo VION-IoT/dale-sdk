@@ -316,8 +316,12 @@ corrected in the same commit rather than left for a reader to trip over.
   (`grep` over bullet first lines) and 29 once wrapped bullets are joined — the 29th is
   `AC-CLI-012.2`, whose `WHERE` sits on a continuation line.
 - 2026-09-06 (c): the review's "3 of 1246 foreign citations sit inside a criterion sentence" is
-  **refuted**: zero do. Its joiner counted GAP tails as part of the criterion; there are five such
-  tails, four on `analyzers.md` and one on `block-lifecycle.md`. Item 4 of the brief therefore had
+  **refuted**: zero do. Two mechanisms produced the miscount, not one. Its joiner counted GAP tails as part of the
+  criterion — five such tails, four on `analyzers.md` and one on `block-lifecycle.md`. And on
+  `block-lifecycle.md` a second quirk compounded it: prose glued to a declaration bullet with no blank
+  line between them (`:309-311` and `:424-426`), so a fold that stops at the next blank line swallowed
+  the paragraph's foreign ids into the bullet. The blank lines are in as of Tier 2's first commit;
+  the conclusion — zero foreign ids in a criterion sentence — held under both readings. Item 4 of the brief therefore had
   nothing to do, and Tier 1 rewords no criterion sentence.
 - 2026-09-06 (d): bold inside criterion text is on **four** criteria, not three — the fourth
   (`AC-ANLZ-010.4`) is on a continuation line.

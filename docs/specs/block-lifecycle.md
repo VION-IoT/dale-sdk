@@ -308,6 +308,7 @@ guarantee and not the SDK's.
   and a copy of the snapshot its stop took, rather than a freshly captured one.
 - `AC-LIFE-011.2` (Event-driven): WHEN a block whose persistence was never initialised is asked for its
   snapshot THE SYSTEM SHALL answer with an empty one.
+
 `AC-LIFE-011.1` returns the stop's capture and not a new one because the stop hook runs between them:
 a fresh capture here would persist exactly the values `AC-LIFE-010.2` promises will not survive.
 `AC-LIFE-011.2` is `AC-GATE-003.5`'s shape at the last message of the sequence. What happens after the
@@ -423,6 +424,7 @@ the registration is a discovery entry rather than a lifetime, and the block is n
   already terminated and for a name nothing was ever spawned under.
 - `AC-LIFE-016.8` (Ubiquitous): THE SYSTEM SHALL count an actor a caller listed more than once in a
   wait's input once, so neither wait is given a total its answers can never reach.
+
 Both waits arm their timeout through the registered clock and register it in the virtual schedule,
 which is what makes them virtual on a stepped host — `AC-SCEN-012.*` states that seam's semantics and
 this page adds nothing to it.
