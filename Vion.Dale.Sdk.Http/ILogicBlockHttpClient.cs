@@ -25,7 +25,14 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="successCallback">Callback invoked with the deserialized response on success.</param>
         /// <param name="errorCallback">
         ///     Callback invoked with the exception if the request fails.
-        ///     Usually an <see cref="HttpRequestException" /> or <see cref="TimeoutException" />.
+        ///     One class per failure: <see cref="HttpRequestException" /> for a non-success status or a
+        ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when the
+        ///     <c>timeout</c> above elapsed, <see cref="System.Threading.Tasks.TaskCanceledException" />
+        ///     when the <see cref="HttpClient" />'s own timeout did,
+        ///     <see cref="InvalidOperationException" /> for a URL that is not an absolute URI,
+        ///     <see cref="System.Text.Json.JsonException" /> for a body that is absent or malformed,
+        ///     <see cref="ContentNullAfterDeserializationException" /> for one that deserializes to null,
+        ///     and otherwise whatever the transport threw — this client wraps nothing else.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="headers">HTTP headers to include in the request.</param>
@@ -59,7 +66,14 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="successCallback">Callback invoked with the deserialized response on success.</param>
         /// <param name="errorCallback">
         ///     Callback invoked with the exception if the request fails.
-        ///     Usually an <see cref="HttpRequestException" /> or <see cref="TimeoutException" />.
+        ///     One class per failure: <see cref="HttpRequestException" /> for a non-success status or a
+        ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when the
+        ///     <c>timeout</c> above elapsed, <see cref="System.Threading.Tasks.TaskCanceledException" />
+        ///     when the <see cref="HttpClient" />'s own timeout did,
+        ///     <see cref="InvalidOperationException" /> for a URL that is not an absolute URI,
+        ///     <see cref="System.Text.Json.JsonException" /> for a body that is absent or malformed,
+        ///     <see cref="ContentNullAfterDeserializationException" /> for one that deserializes to null,
+        ///     and otherwise whatever the transport threw — this client wraps nothing else.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="headers">HTTP headers to include in the request.</param>
@@ -94,7 +108,14 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="successCallback">Callback invoked when the request succeeds.</param>
         /// <param name="errorCallback">
         ///     Callback invoked with the exception if the request fails.
-        ///     Usually an <see cref="HttpRequestException" /> or <see cref="TimeoutException" />.
+        ///     One class per failure: <see cref="HttpRequestException" /> for a non-success status or a
+        ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when the
+        ///     <c>timeout</c> above elapsed, <see cref="System.Threading.Tasks.TaskCanceledException" />
+        ///     when the <see cref="HttpClient" />'s own timeout did,
+        ///     <see cref="InvalidOperationException" /> for a URL that is not an absolute URI,
+        ///     <see cref="System.Text.Json.JsonException" /> for a body that is absent or malformed,
+        ///     <see cref="ContentNullAfterDeserializationException" /> for one that deserializes to null,
+        ///     and otherwise whatever the transport threw — this client wraps nothing else.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="headers">HTTP headers to include in the request.</param>
@@ -130,7 +151,14 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="successCallback">Callback invoked with the deserialized response on success.</param>
         /// <param name="errorCallback">
         ///     Callback invoked with the exception if the request fails.
-        ///     Usually an <see cref="HttpRequestException" /> or <see cref="TimeoutException" />.
+        ///     One class per failure: <see cref="HttpRequestException" /> for a non-success status or a
+        ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when the
+        ///     <c>timeout</c> above elapsed, <see cref="System.Threading.Tasks.TaskCanceledException" />
+        ///     when the <see cref="HttpClient" />'s own timeout did,
+        ///     <see cref="InvalidOperationException" /> for a URL that is not an absolute URI,
+        ///     <see cref="System.Text.Json.JsonException" /> for a body that is absent or malformed,
+        ///     <see cref="ContentNullAfterDeserializationException" /> for one that deserializes to null,
+        ///     and otherwise whatever the transport threw — this client wraps nothing else.
         /// </param>
         /// <param name="headers">HTTP headers to include in the request.</param>
         /// <param name="timeout">
@@ -164,7 +192,14 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="successCallback">Callback invoked when the request succeeds.</param>
         /// <param name="errorCallback">
         ///     Callback invoked with the exception if the request fails.
-        ///     Usually an <see cref="HttpRequestException" /> or <see cref="TimeoutException" />.
+        ///     One class per failure: <see cref="HttpRequestException" /> for a non-success status or a
+        ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when the
+        ///     <c>timeout</c> above elapsed, <see cref="System.Threading.Tasks.TaskCanceledException" />
+        ///     when the <see cref="HttpClient" />'s own timeout did,
+        ///     <see cref="InvalidOperationException" /> for a URL that is not an absolute URI,
+        ///     <see cref="System.Text.Json.JsonException" /> for a body that is absent or malformed,
+        ///     <see cref="ContentNullAfterDeserializationException" /> for one that deserializes to null,
+        ///     and otherwise whatever the transport threw — this client wraps nothing else.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="headers">HTTP headers to include in the request.</param>
@@ -196,7 +231,14 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="successCallback">Callback invoked with the deserialized response on success.</param>
         /// <param name="errorCallback">
         ///     Callback invoked with the exception if the request fails.
-        ///     Usually an <see cref="HttpRequestException" /> or <see cref="TimeoutException" />.
+        ///     One class per failure: <see cref="HttpRequestException" /> for a non-success status or a
+        ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when the
+        ///     <c>timeout</c> above elapsed, <see cref="System.Threading.Tasks.TaskCanceledException" />
+        ///     when the <see cref="HttpClient" />'s own timeout did,
+        ///     <see cref="InvalidOperationException" /> for a URL that is not an absolute URI,
+        ///     <see cref="System.Text.Json.JsonException" /> for a body that is absent or malformed,
+        ///     <see cref="ContentNullAfterDeserializationException" /> for one that deserializes to null,
+        ///     and otherwise whatever the transport threw — this client wraps nothing else.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="headers">HTTP headers to include in the request.</param>
@@ -226,7 +268,14 @@ namespace Vion.Dale.Sdk.Http
         /// <param name="successCallback">Callback invoked when the request succeeds.</param>
         /// <param name="errorCallback">
         ///     Callback invoked with the exception if the request fails.
-        ///     Usually an <see cref="HttpRequestException" /> or <see cref="TimeoutException" />.
+        ///     One class per failure: <see cref="HttpRequestException" /> for a non-success status or a
+        ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when the
+        ///     <c>timeout</c> above elapsed, <see cref="System.Threading.Tasks.TaskCanceledException" />
+        ///     when the <see cref="HttpClient" />'s own timeout did,
+        ///     <see cref="InvalidOperationException" /> for a URL that is not an absolute URI,
+        ///     <see cref="System.Text.Json.JsonException" /> for a body that is absent or malformed,
+        ///     <see cref="ContentNullAfterDeserializationException" /> for one that deserializes to null,
+        ///     and otherwise whatever the transport threw — this client wraps nothing else.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="headers">HTTP headers to include in the request.</param>
@@ -264,7 +313,14 @@ namespace Vion.Dale.Sdk.Http
         /// </param>
         /// <param name="errorCallback">
         ///     Callback invoked with the exception if the request fails.
-        ///     Usually an <see cref="HttpRequestException" /> or <see cref="TimeoutException" />.
+        ///     One class per failure: <see cref="HttpRequestException" /> for a non-success status or a
+        ///     transport failure the handler wrapped, <see cref="TimeoutException" /> when the
+        ///     <c>timeout</c> above elapsed, <see cref="System.Threading.Tasks.TaskCanceledException" />
+        ///     when the <see cref="HttpClient" />'s own timeout did,
+        ///     <see cref="InvalidOperationException" /> for a URL that is not an absolute URI,
+        ///     <see cref="System.Text.Json.JsonException" /> for a body that is absent or malformed,
+        ///     <see cref="ContentNullAfterDeserializationException" /> for one that deserializes to null,
+        ///     and otherwise whatever the transport threw — this client wraps nothing else.
         ///     Errors are always logged, regardless of whether an error callback is specified.
         /// </param>
         /// <param name="timeout">

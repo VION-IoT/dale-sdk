@@ -285,6 +285,24 @@ namespace Vion.Dale.Sdk.Http.Test
 
         [TestMethod]
         [TestProperty("spec", "AC-HTTP-007.2")]
+        [DataRow("en-US")]
+        [DataRow("de-DE")]
+        public void NameBoundInInvariantCultureWhenRefusingTimeout(string culture)
+        {
+            // Arrange — the sibling of the timeout message: this refusal renders three durations, and a
+            // German-locale gateway must read the same string a Swiss support engineer greps for
+            var previousCulture = CultureInfo.CurrentCulture;
+            CultureInfo.CurrentCulture = new CultureInfo(culture);
+            var sut = Executor(StubHttpMessageHandler.Answering(HttpStatusCode.OK, TestObject.PascalCaseJson));
+
+            // Act / Assert
+            var refusal = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => sut.ExecuteRequestAsync(_dispatcher, Url, HttpMethod.Get, () => { }, null, null, null, TimeSpan.MaxValue));
+            CultureInfo.CurrentCulture = previousCulture;
+            Assert.Contains("A request timeout is -00:00:00.0010000 for no bound, or from 00:00:00 to 49.17:02:47.2940000.", refusal.Message);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-007.2")]
         public void RefuseExactlyWhatCancellationSourceRefuses()
         {
             // Arrange — the band's edge read off the runtime rather than restated, because the families
@@ -501,6 +519,25 @@ namespace Vion.Dale.Sdk.Http.Test
             _dispatcher.Drain();
 
             // Assert
+            Assert.AreEqual(1, response.Disposals);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-010.2")]
+        public async Task DisposeResponseWhenReadingBodyFails()
+        {
+            // Arrange — the sibling of the failed-status path: here the status was fine and the body was
+            // not, so the response reached the caller's local and the failure came afterwards
+            var response = new CountingHttpResponse(HttpStatusCode.OK, "{}");
+            var sut = Executor(StubHttpMessageHandler.Returning(response));
+            Exception? received = null;
+
+            // Act
+            await sut.ExecuteRequestAsync<TestObject>(_dispatcher, Url, HttpMethod.Get, _ => throw new InvalidOperationException("body unreadable"), _ => { }, exception => received = exception);
+            _dispatcher.Drain();
+
+            // Assert
+            Assert.IsInstanceOfType<InvalidOperationException>(received);
             Assert.AreEqual(1, response.Disposals);
         }
 
