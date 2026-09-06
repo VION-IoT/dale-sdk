@@ -32,7 +32,7 @@ namespace Vion.Dale.Cli.Test
         }
 
         [TestMethod]
-        [TestProperty("spec", "AC-CLI-001.1")]
+        [TestProperty("spec", "AC-CLI-001.11")]
         [DataRow("pack", "--version", "1.2.3")]
         [DataRow("upload", "--version", "1.2.3")]
         [DataRow("build", "--version")]
