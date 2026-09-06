@@ -440,6 +440,46 @@ namespace Vion.Dale.Sdk.Http.Test
         }
 
         [TestMethod]
+        [TestProperty("spec", "AC-HTTP-010.2")]
+        [DataRow(Overload.ResponseContent)]
+        [DataRow(Overload.NoResponse)]
+        [DataRow(Overload.ResponseMessage)]
+        public async Task DisposeResponseWhenRequestFails(Overload overload)
+        {
+            // Arrange — no callback ever receives a failed response, so nothing downstream can dispose it;
+            // a block polling a failing endpoint on a timer leaks one per tick
+            var response = new CountingHttpResponse(HttpStatusCode.BadGateway, "{}");
+            var sut = Executor(StubHttpMessageHandler.Returning(response));
+
+            // Act
+            await Execute(sut, overload, onError: _ => { });
+            _dispatcher.Drain();
+
+            // Assert
+            Assert.AreEqual(1, response.Disposals);
+        }
+
+        [TestMethod]
+        [TestProperty("spec", "AC-HTTP-010.2")]
+        [DataRow(Overload.ResponseContent)]
+        [DataRow(Overload.NoResponse)]
+        [DataRow(Overload.ResponseMessage)]
+        public async Task DisposeFailedResponseBeforeBodyEverArrives(Overload overload)
+        {
+            // Arrange — the failure is judged on the headers, so the leaked response would still be holding
+            // a body stream nobody will ever drain; this is the shape the leak actually takes in production
+            var response = new CountingHttpResponse(HttpStatusCode.BadGateway, "{}") { Content = new GatedHttpContent(TestObject.PascalCaseJson) };
+            var sut = Executor(StubHttpMessageHandler.Returning(response));
+
+            // Act
+            await Execute(sut, overload, onError: _ => { }).WaitAsync(SettlementTimeout);
+            _dispatcher.Drain();
+
+            // Assert
+            Assert.AreEqual(1, response.Disposals);
+        }
+
+        [TestMethod]
         [TestProperty("spec", "AC-HTTP-010.3")]
         public async Task DisposeResponseItCreatedForMemberCarryingResponseType()
         {

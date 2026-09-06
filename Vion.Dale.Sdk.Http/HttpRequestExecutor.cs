@@ -271,7 +271,21 @@ namespace Vion.Dale.Sdk.Http
         {
             var httpClient = _httpClientFactory.CreateClient(HttpClientName);
             var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token).ConfigureAwait(false);
-            response.EnsureSuccessStatusCode();
+
+            try
+            {
+                response.EnsureSuccessStatusCode();
+            }
+            catch
+            {
+                // The status is judged on the headers, so this response still holds a body stream nobody
+                // will drain: no callback receives a failed response, and the caller never sees the local.
+                // Disposing here reaches all three overloads at once, which is why neither the two `finally`
+                // blocks nor the third overload (whose response the callback owns) needs to change.
+                response.Dispose();
+
+                throw;
+            }
 
             return response;
         }
